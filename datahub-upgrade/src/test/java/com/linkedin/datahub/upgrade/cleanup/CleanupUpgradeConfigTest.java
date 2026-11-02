@@ -174,6 +174,7 @@ public class CleanupUpgradeConfigTest {
     return new SqlSetupArgs(
         true,
         true,
+        true, // createSchema
         false,
         false,
         DatabaseType.MYSQL,

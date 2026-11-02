@@ -1,12 +1,13 @@
-import { CaretDownOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { Button, Dropdown } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 
-const DownArrow = styled(CaretDownOutlined)`
+const DownArrow = styled(CaretDown)`
     && {
         padding-top: 4px;
         font-size: 8px;

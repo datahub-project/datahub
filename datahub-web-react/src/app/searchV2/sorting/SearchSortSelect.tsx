@@ -1,30 +1,20 @@
-import { CaretDownFilled } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Select } from 'antd';
-import React from 'react';
+import { Button, Menu, Tooltip } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { ItemType } from '@components/components/Menu/types';
 
 import { DEFAULT_SORT_OPTION } from '@app/searchV2/context/constants';
 import useGetSortOptions from '@app/searchV2/sorting/useGetSortOptions';
 
-const SelectWrapper = styled.span`
-    display: inline-flex;
-    align-items: center;
-    margin-right: 0px;
-    && {
-        padding: 0px;
-        margin: 0px;
-    }
-    .ant-select-selection-item {
-        // !important is necessary because updating Select styles for antd is impossible
-        color: ${(props) => props.theme.colors.textTertiary} !important;
-        font-weight: 700;
-    }
+const SortButton = styled(Button)`
+    font-weight: 700;
+    color: ${(props) => props.theme.colors.textTertiary};
 
-    .ant-select-selection-placeholder {
-        color: ${(props) => props.theme.colors.textTertiary};
-        font-weight: 700;
+    &:hover {
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
@@ -36,22 +26,38 @@ type Props = {
 export default function SearchSortSelect({ selectedSortOption, setSelectedSortOption }: Props) {
     const { t } = useTranslation('search');
     const sortOptions = useGetSortOptions();
-    const options = Object.entries(sortOptions).map(([value, option]) => ({ value, label: option.label }));
+
+    const items: ItemType[] = useMemo(
+        () =>
+            Object.entries(sortOptions).map(([value, option]) => ({
+                type: 'item',
+                key: value,
+                title: option.label,
+                onClick: () => setSelectedSortOption(value),
+            })),
+        [sortOptions, setSelectedSortOption],
+    );
+
+    // The default sort is implicit, so the trigger falls back to the placeholder rather than
+    // naming it — only an explicit, non-default choice is surfaced on the button.
+    const triggerLabel =
+        selectedSortOption && selectedSortOption !== DEFAULT_SORT_OPTION
+            ? sortOptions[selectedSortOption]?.label
+            : undefined;
 
     return (
         <Tooltip title={t('sort.tooltipTitle')} showArrow={false} placement="left">
-            <SelectWrapper>
-                <Select
-                    placeholder={t('sort.placeholder')}
-                    value={selectedSortOption === DEFAULT_SORT_OPTION ? null : selectedSortOption}
-                    options={options}
-                    bordered={false}
-                    onChange={(option) => setSelectedSortOption(option)}
-                    dropdownStyle={{ minWidth: 'max-content' }}
-                    placement="bottomRight"
-                    suffixIcon={<CaretDownFilled />}
-                />
-            </SelectWrapper>
+            <Menu items={items} trigger={['click']} placement="bottomRight">
+                <SortButton
+                    variant="text"
+                    color="gray"
+                    icon={{ icon: CaretDown, size: 'lg' }}
+                    iconPosition="right"
+                    data-testid="search-sort-select"
+                >
+                    {triggerLabel ?? t('sort.placeholder')}
+                </SortButton>
+            </Menu>
         </Tooltip>
     );
 }

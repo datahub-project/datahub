@@ -1,4 +1,4 @@
-import { UserOutlined } from '@ant-design/icons';
+import { User } from '@phosphor-icons/react/dist/csr/User';
 import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -69,7 +69,7 @@ const OwnersSection = () => {
 
     return (
         <SectionContainer>
-            <SummaryTabHeaderTitle title={tl('owners')} icon={<UserOutlined />} />
+            <SummaryTabHeaderTitle title={tl('owners')} icon={<User />} />
             <Details>
                 {ownershipTypeNames.map((ownershipTypeName) => {
                     const owners = ownersByTypeMap.get(ownershipTypeName) as Owner[];

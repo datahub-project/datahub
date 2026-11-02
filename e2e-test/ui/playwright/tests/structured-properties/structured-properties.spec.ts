@@ -12,6 +12,7 @@ test.describe('Structured Properties CRUD', () => {
   let structuredPropertiesPage: StructuredPropertiesPage;
 
   test.beforeEach(async ({ page, logger, logDir }) => {
+    test.setTimeout(120000);
     structuredPropertiesPage = new StructuredPropertiesPage(page, logger, logDir);
     await structuredPropertiesPage.navigate();
   });
@@ -23,6 +24,7 @@ test.describe('Structured Properties CRUD', () => {
     const propertyUrn = await structuredPropertiesPage.createStructuredProperty(structuredProperty);
 
     await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_CREATED);
+    await structuredPropertiesPage.waitForManagementProperty(propertyName);
     await structuredPropertiesPage.expectPageContains(propertyName);
 
     cleanup.track(propertyUrn);
@@ -46,6 +48,7 @@ test.describe('Structured Properties CRUD', () => {
     });
 
     await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_UPDATED);
+    await structuredPropertiesPage.waitForManagementProperty(updatedPropertyName);
     await structuredPropertiesPage.expectPageContains(updatedPropertyName);
     await structuredPropertiesPage.expectPageContains(propertyDescription);
     await structuredPropertiesPage.expectPageContains('Dashboard');

@@ -29,7 +29,7 @@ export default function LinkForm({ form, formValues }: Props) {
                     },
                 ]}
             >
-                <Input label={t('link.urlLabel')} placeholder={URL_PLACEHOLDER} isRequired data-testid="link-url" />
+                <Input label={t('link.urlLabel')} placeholder={URL_PLACEHOLDER} isRequired inputTestId="link-url" />
             </Form.Item>
             <Form.Item
                 name="imageUrl"

@@ -35,6 +35,7 @@ from datahub_airflow_plugin._sql_parsing_common import (
     format_sql_for_job_facet,
     parse_sql_with_datahub,
 )
+from datahub_airflow_plugin.airflow3._extraction_scope import in_datahub_extraction
 
 if TYPE_CHECKING:
     from airflow.providers.openlineage.extractors import OperatorLineage
@@ -85,9 +86,29 @@ def _datahub_generate_openlineage_metadata_from_sql(
             )
             openlineage_enabled = False
 
+        # The OpenLineage provider re-runs this inside its own fork, which is the only
+        # reason it is safe for it to query the warehouse. When the DataHub listener is
+        # the caller we are in the task-runner process, so repeating those
+        # information_schema lookups (a fresh connection and two queries per pass)
+        # would double them for results DataHub does not need: it takes its URNs from
+        # the DataHub facet below. Skip the provider parser so its forked pass stays
+        # the only thing that connects.
+        #
+        # Note a connectionless call (use_connection=False) is deliberately not used
+        # here. It resolves tables from the parse tree, and the parser strips quotes,
+        # so `FROM MySchema.MyTable` and `FROM "MySchema"."MyTable"` arrive identical
+        # while needing opposite folding on a case-folding database. There is no way
+        # to reproduce the stored casing from that, whereas DataHub's own parser is
+        # dialect- and quote-aware.
+        datahub_driven = in_datahub_extraction()
+
         # If OpenLineage is enabled, call the original parser first to get its results
         ol_result = None
-        if openlineage_enabled and _original_sql_parser_method is not None:
+        if (
+            openlineage_enabled
+            and not datahub_driven
+            and _original_sql_parser_method is not None
+        ):
             try:
                 logger.debug(
                     "OpenLineage plugin enabled - calling original parser for OpenLineage"
@@ -99,7 +120,7 @@ def _datahub_generate_openlineage_metadata_from_sql(
                     database_info,
                     database,
                     sqlalchemy_engine,
-                    use_connection,
+                    use_connection=use_connection,
                 )
                 logger.debug(f"OpenLineage parser result: {ol_result}")
             except Exception as e:
@@ -204,6 +225,26 @@ def _datahub_generate_openlineage_metadata_from_sql(
                 run_facets=updated_run_facets,
             )
             return operator_lineage
+
+        if datahub_driven and openlineage_enabled:
+            # No inputs/outputs on purpose: _urn_to_ol_dataset below rebuilds OL
+            # Datasets from DataHub URNs and the listener translates them straight
+            # back, a round trip that drops platform_instance and folds case. The
+            # listener already reads in_tables/out_tables from this facet, so handing
+            # it the facet alone is both cheaper and lossless.
+            logger.debug(
+                "DataHub-driven extraction - returning SQL parsing facet without iolets"
+            )
+            return OperatorLineage(  # type: ignore[misc]
+                inputs=[],
+                outputs=[],
+                job_facets={
+                    "sql": SqlJobFacet(
+                        query=format_sql_for_job_facet(sql, enable_multi_statement)
+                    )
+                },
+                run_facets={DATAHUB_SQL_PARSING_RESULT_KEY: sql_parsing_result},
+            )
 
         # OpenLineage is disabled or original parser failed - use DataHub's parsing for everything
         logger.debug(

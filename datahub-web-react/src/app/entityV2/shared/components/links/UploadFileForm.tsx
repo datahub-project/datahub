@@ -10,7 +10,7 @@ import { FontSizeOptions } from '@components/theme/config';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
-import { useUploadFileHandler } from '@app/shared/hooks/useUploadFileHandler';
+import { useUploadFileHandler } from '@app/sharedV2/hooks/useUploadFileHandler';
 
 import { UploadDownloadScenario } from '@types';
 

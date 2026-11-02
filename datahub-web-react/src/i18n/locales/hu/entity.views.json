@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "Az adott platformpéldány, ahol az eszköz található.",
     "prop.softDeleted": "Logikailag törölt",
     "prop.softDeletedDesc": "Az eszközt logikailag törölték-e.",
+    "prop.structuredPropertyGroup": "Strukturált tulajdonság",
     "prop.subType": "Altípus",
     "prop.subTypeDesc": "Az eszköz altípusa (pl. Tábla, Nézet, Téma).",
     "publicTab": "Nyilvános Nézetek",
@@ -109,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Nézetek keresése...",
     "viewSelect.searchPlaceholderLegacy": "Keresés",
     "viewSelect.selectYourView": "Válassza ki a Nézetét",
+    "viewSelect.buttonLabel": "Nézetek",
+    "viewSelect.clearView": "Kiválasztott nézet eltávolítása",
     "viewType.privateDescription": "<bold>Privát</bold> – csak Ön számára látható.",
     "viewType.publicDescription": "<bold>Nyilvános</bold> – mindenki számára látható."
 }

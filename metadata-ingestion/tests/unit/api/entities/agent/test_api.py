@@ -87,6 +87,34 @@ def test_signature_emitted_from_schema_definition_only() -> None:
     assert sigs[0].outputFields is None
 
 
+def test_signature_emitted_from_dataset_references() -> None:
+    request = "urn:li:dataset:(urn:li:dataPlatform:grpc,orders.GetOrderRequest,PROD)"
+    response = "urn:li:dataset:(urn:li:dataPlatform:grpc,orders.Order,PROD)"
+    api = Api(
+        id="orders.OrderService/GetOrder",
+        name="GetOrder",
+        subtypes=["GRPC_METHOD"],
+        input_datasets=[request],
+        output_datasets=response,  # a single urn is coerced to a list
+    )
+    sigs = [a for a in _aspects(api) if isinstance(a, ApiSignatureClass)]
+    assert len(sigs) == 1
+    sig = sigs[0]
+    assert sig.inputFields is None and sig.outputFields is None
+    assert sig.inputDatasetEdges is not None and len(sig.inputDatasetEdges) == 1
+    assert sig.inputDatasetEdges[0].destinationUrn == request
+    assert sig.inputDatasetEdges[0].created is not None
+    assert sig.outputDatasetEdges is not None and len(sig.outputDatasetEdges) == 1
+    assert sig.outputDatasetEdges[0].destinationUrn == response
+
+
+def test_dataset_reference_must_be_a_dataset_urn() -> None:
+    with pytest.raises(ValidationError):
+        Api(id="x", name="X", input_datasets=["urn:li:api:not-a-dataset"])
+    with pytest.raises(ValidationError):
+        Api(id="x", name="X", output_datasets=["orders.Order"])
+
+
 def test_optional_param_maps_to_nullable_field() -> None:
     field = ApiParam(name="q", data_type="string", required=False).to_schema_field()
     assert field.nullable is True

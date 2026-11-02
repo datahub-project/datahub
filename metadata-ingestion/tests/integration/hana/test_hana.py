@@ -29,12 +29,20 @@ FROZEN_TIME = "2020-04-14 07:00:00"
         "driver isn't published for ARM wheels."
     ),
 )
-def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_hana_ingest(
+    docker_compose_runner, pytestconfig, tmp_path, mock_time, monkeypatch
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
 
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "hana"
     ) as docker_services:
+        # The compose file exposes the HANA port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh
+        # run needs. hana_to_file.yml picks it up via ${HANA_PORT}.
+        hana_port = docker_services.port_for("testhana", 39041)
+        monkeypatch.setenv("HANA_PORT", str(hana_port))
+
         # added longer timeout and pause due to slow start of hana
         wait_for_port(
             docker_services=docker_services,

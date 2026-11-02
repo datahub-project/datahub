@@ -1,5 +1,6 @@
 """Unit tests for Doris SQLAlchemy dialect."""
 
+from typing import Any, Dict
 from unittest.mock import Mock, patch
 
 import pytest
@@ -167,11 +168,12 @@ class TestDorisDialect:
         ):
             columns = dialect.get_columns(mock_connection, "customers", schema="testdb")
 
-        # Verify full_type was set
-        assert columns[0]["full_type"] == "INT"
-        assert columns[2]["full_type"] == "ARRAY<VARCHAR(50)>"
-        assert columns[3]["full_type"] == "JSONB"
-        assert columns[4]["full_type"] == "HLL"
+        # Verify full_type was set. "full_type" is a non-standard key the Doris
+        # dialect adds to ReflectedColumn for SQLAlchemySource, so mypy rejects it.
+        assert columns[0]["full_type"] == "INT"  # type: ignore[typeddict-item]
+        assert columns[2]["full_type"] == "ARRAY<VARCHAR(50)>"  # type: ignore[typeddict-item]
+        assert columns[3]["full_type"] == "JSONB"  # type: ignore[typeddict-item]
+        assert columns[4]["full_type"] == "HLL"  # type: ignore[typeddict-item]
 
         # Verify custom types were parsed
         assert isinstance(columns[2]["type"], DORIS_ARRAY)
@@ -263,7 +265,7 @@ class TestDorisDialect:
         ]
 
         # The Inspector shares one info_cache across a table's reflection calls.
-        kw = {"schema": "my_db", "info_cache": {}}
+        kw: Dict[str, Any] = {"schema": "my_db", "info_cache": {}}
         with patch.object(
             dialect.__class__.__bases__[0],
             "_setup_parser",
@@ -290,7 +292,7 @@ class TestDorisDialect:
         assert isinstance(columns[2]["type"], VARIANT)
         assert columns[0]["nullable"] is False
         assert columns[1]["nullable"] is True
-        assert columns[1]["full_type"] == "DECIMALV3(20,6)"
+        assert columns[1]["full_type"] == "DECIMALV3(20,6)"  # type: ignore[typeddict-item]
 
         # No DDL to parse, so these degrade to empty rather than raising.
         assert pk_constraint == {"constrained_columns": [], "name": None}

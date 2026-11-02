@@ -30,16 +30,32 @@ skipped with no warning. If a connection is missing from DataHub, check whether 
 is disabled in Airbyte (or whether its Public API `status` is `"inactive"`). To
 ingest disabled connections as well, set `include_inactive_connections: true`.
 
+A successful `GET /api/public/v1/connections/{connectionId}` does not mean DataHub
+will ingest that connection. Ingestion only walks connections returned by
+`GET /api/public/v1/connections?workspaceId=...` for each workspace allowed by
+`workspace_pattern`. Confirm the connection's `workspaceId` matches the recipe,
+that `connection_pattern` / `source_pattern` / `destination_pattern` allow it
+(those skips are silent), and that it appears in the list response — not only in
+a by-id GET. Offset pagination can also skip entries on a mutating Airbyte
+instance; see Limitations above.
+
 #### Authentication Errors
 
 Verify that your OAuth2 client credentials are correct and have not expired. For OSS deployments, confirm the API is reachable at the `/api/public/v1` path prefix.
 
 #### Missing or Ambiguous Stream Namespaces
 
-A `Stream Metadata Unavailable` warning means the `/streams` endpoint answered 404, so stream
-namespaces and column-level lineage could not be read. Older Airbyte versions have no such
-endpoint; on versions that do, the same status means the source is not accessible to the
-credentials in the recipe, so check permissions.
+A `Stream Metadata Unavailable` warning means the `/streams` endpoint could not be read (404,
+5xx after retries, or a connection error), so stream namespaces and column-level lineage are
+skipped for that source. The connection itself is still ingested. For streams without a
+namespace already present in the connection catalog, a per-table schema in the connector
+config, or a configured `default_schema`, dataset lineage is also skipped — emitting URNs
+from the connector-wide schema key during a transient `/streams` blip would leave phantom
+datasets and edges that stale-entity removal never reconciles. The warning's context carries
+the HTTP status when Airbyte returned one, or notes a network/connection error when there was
+no status. On versions that expose `/streams`, a 404 usually means the source is not
+accessible to the credentials in the recipe, and a 5xx means Airbyte failed while describing
+the source.
 
 A `Stream Namespaces Not Reported` warning means `/streams` described the source's streams but
 gave no namespace for any of them, and nothing else supplied a schema for the streams it names,

@@ -2,6 +2,7 @@ package com.linkedin.metadata.config.postgres;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import org.testng.annotations.Test;
 
@@ -209,6 +210,93 @@ public class JdbcUrlParserTest {
         JdbcUrlParser.extractQueryParameterIgnoreCase(
             "ssl=true&currentSchema=queue%2Fmain", "currentSchema"),
         "queue/main");
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_appendsCurrentSchema() {
+    assertEquals(
+        JdbcUrlParser.applyPostgresMetadataSchema(
+            "jdbc:postgresql://localhost:5432/datahub", "dhub"),
+        "jdbc:postgresql://localhost:5432/datahub?currentSchema=dhub");
+    assertEquals(
+        JdbcUrlParser.applyPostgresMetadataSchema(
+            "jdbc:postgresql://localhost:5432/datahub?sslmode=disable", "Dhub"),
+        "jdbc:postgresql://localhost:5432/datahub?sslmode=disable&currentSchema=dhub");
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_leavesDefaultAndNonPostgresUntouched() {
+    String postgres = "jdbc:postgresql://localhost:5432/datahub";
+    String mysql = "jdbc:mysql://localhost:3306/datahub";
+    assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(postgres, "public"), postgres);
+    assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(postgres, " PUBLIC "), postgres);
+    assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(mysql, "dhub"), mysql);
+    assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(mysql, "bad-name"), mysql);
+    assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(null, "dhub"), null);
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_keepsMatchingCurrentSchema() {
+    String url = "jdbc:postgresql://localhost:5432/datahub?currentSchema=dhub&sslmode=disable";
+    assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(url, "dhub"), url);
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_normalizesCaseOfExistingCurrentSchema() {
+    assertEquals(
+        JdbcUrlParser.applyPostgresMetadataSchema(
+            "jdbc:postgresql://localhost:5432/datahub?CurrentSchema=Dhub", "dhub"),
+        "jdbc:postgresql://localhost:5432/datahub?currentSchema=dhub");
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_keepsSearchPathListWhenFirstEntryMatches() {
+    String url = "jdbc:postgresql://localhost:5432/datahub?currentSchema=dhub,public";
+    assertEquals(JdbcUrlParser.applyPostgresMetadataSchema(url, "dhub"), url);
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_rejectsSearchPathListWithDifferentFirstEntry() {
+    try {
+      JdbcUrlParser.applyPostgresMetadataSchema(
+          "jdbc:postgresql://localhost:5432/datahub?currentSchema=public,dhub", "dhub");
+      throw new AssertionError("expected search path starting at public to fail");
+    } catch (IllegalStateException expected) {
+      assertTrue(expected.getMessage().contains("public,dhub"));
+    }
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_rejectsPublicSchemaWhenUrlUsesAnotherSchema() {
+    try {
+      JdbcUrlParser.applyPostgresMetadataSchema(
+          "jdbc:postgresql://localhost:5432/datahub?currentSchema=other", "public");
+      throw new AssertionError("expected public schema to reject a different currentSchema");
+    } catch (IllegalStateException expected) {
+      assertTrue(expected.getMessage().contains("other"));
+    }
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_rejectsConflictingCurrentSchema() {
+    try {
+      JdbcUrlParser.applyPostgresMetadataSchema(
+          "jdbc:postgresql://localhost:5432/datahub?currentSchema=other", "dhub");
+      throw new AssertionError("expected conflicting currentSchema to fail");
+    } catch (IllegalStateException expected) {
+      assertTrue(expected.getMessage().contains("other"));
+    }
+  }
+
+  @Test
+  public void applyPostgresMetadataSchema_rejectsInvalidIdentifier() {
+    try {
+      JdbcUrlParser.applyPostgresMetadataSchema(
+          "jdbc:postgresql://localhost:5432/datahub", "bad-name");
+      throw new AssertionError("expected invalid schema identifier to fail");
+    } catch (IllegalStateException expected) {
+      assertTrue(expected.getMessage().contains("identifier"));
+    }
   }
 
   @Test

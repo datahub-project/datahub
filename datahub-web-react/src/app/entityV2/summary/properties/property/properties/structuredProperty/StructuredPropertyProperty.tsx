@@ -7,7 +7,7 @@ import NumberStructuredProperty from '@app/entityV2/summary/properties/property/
 import StringStructuredProperty from '@app/entityV2/summary/properties/property/properties/structuredProperty/components/StringStructuredProperty';
 import UnknownStructuredProperty from '@app/entityV2/summary/properties/property/properties/structuredProperty/components/UnknownStructuredProperty';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
-import { DATE_TYPE_URN, NUMBER_TYPE_URN, STRING_TYPE_URN, URN_TYPE_URN } from '@app/shared/constants';
+import { DATE_TYPE_URN, NUMBER_TYPE_URN, STRING_TYPE_URN, URN_TYPE_URN } from '@app/sharedV2/constants';
 
 import { StructuredPropertiesEntry } from '@types';
 

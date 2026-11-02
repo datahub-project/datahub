@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.DATASET_KEY_ASPECT_NAME;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Aliases;
@@ -64,26 +65,31 @@ public class AliasesSideEffectTest {
     sideEffect = new AliasesSideEffect().setConfig(CONFIG);
   }
 
+  private ChangeItemImpl keyItem(Urn urn) {
+    EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME);
+    return ChangeItemImpl.builder()
+        .urn(urn)
+        .aspectName(DATASET_KEY_ASPECT_NAME)
+        .entitySpec(entitySpec)
+        .aspectSpec(entitySpec.getKeyAspectSpec())
+        .recordTemplate(EntityKeyUtils.convertUrnToEntityKey(urn, entitySpec.getKeyAspectSpec()))
+        .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+        .build(mockAspectRetriever);
+  }
+
+  private List<MCPItem> applyTo(Urn urn) {
+    return sideEffect
+        .applyMCPSideEffect(
+            mockOpContext, Collections.singletonList(keyItem(urn)), retrieverContext)
+        .collect(Collectors.toList());
+  }
+
   @Test
   public void testDerivesLowercasedUrnFromKeyAspect() {
     Urn urn =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.TABLE,PROD)");
-    EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME);
-    ChangeItemImpl keyItem =
-        ChangeItemImpl.builder()
-            .urn(urn)
-            .aspectName(DATASET_KEY_ASPECT_NAME)
-            .entitySpec(entitySpec)
-            .aspectSpec(entitySpec.getKeyAspectSpec())
-            .recordTemplate(
-                EntityKeyUtils.convertUrnToEntityKey(urn, entitySpec.getKeyAspectSpec()))
-            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-            .build(mockAspectRetriever);
 
-    List<MCPItem> results =
-        sideEffect
-            .applyMCPSideEffect(mockOpContext, Collections.singletonList(keyItem), retrieverContext)
-            .collect(Collectors.toList());
+    List<MCPItem> results = applyTo(urn);
 
     assertEquals(results.size(), 1, "Expected a single aliases MCP");
     MCPItem out = results.get(0);
@@ -94,5 +100,14 @@ public class AliasesSideEffectTest {
     assertEquals(
         aspect.getLowercasedUrn().toString(),
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)");
+  }
+
+  @Test
+  public void testSkipsUrnThatIsAlreadyItsOwnLowercasedForm() {
+    // Uppercase env is deliberate: only the name is lowercased.
+    Urn urn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)");
+
+    assertTrue(applyTo(urn).isEmpty(), "Expected no aliases MCP for an all-lowercase name");
   }
 }

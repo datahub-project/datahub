@@ -88,6 +88,8 @@ function GlossaryEntitiesList(props: Props) {
                             type={term.type}
                             displayProperties={term.displayProperties}
                             description={term.properties?.description || ''}
+                            versionProperties={term.versionProperties}
+                            termStatus={term.status}
                         />
                     ))}
                 </GlossaryTerms>

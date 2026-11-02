@@ -5,6 +5,10 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.Embed;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.InstitutionalMemoryMetadata;
+import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -17,6 +21,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.List;
 import java.util.Set;
 import org.mockito.Mock;
@@ -27,6 +32,11 @@ import org.testng.annotations.Test;
 public class UrlValidatorTest {
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:testUser");
   private static final Urn TEST_GROUP_URN = UrnUtils.getUrn("urn:li:corpGroup:testGroup");
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)");
+  private static final Urn TEST_CHART_URN = UrnUtils.getUrn("urn:li:chart:(looker,my_chart)");
+  private static final Urn TEST_DASHBOARD_URN =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,my_dashboard)");
 
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
@@ -38,7 +48,11 @@ public class UrlValidatorTest {
                   new AspectPluginConfig.EntityAspectName(
                       CORP_USER_ENTITY_NAME, CORP_USER_EDITABLE_INFO_ASPECT_NAME),
                   new AspectPluginConfig.EntityAspectName(
-                      CORP_GROUP_ENTITY_NAME, CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)))
+                      CORP_GROUP_ENTITY_NAME, CORP_GROUP_EDITABLE_INFO_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName(DATASET_ENTITY_NAME, EMBED_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName(CHART_ENTITY_NAME, EMBED_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName(DASHBOARD_ENTITY_NAME, EMBED_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName("*", INSTITUTIONAL_MEMORY_ASPECT_NAME)))
           .build();
 
   @Mock private RetrieverContext mockRetrieverContext;
@@ -381,6 +395,133 @@ public class UrlValidatorTest {
         "Corp group pictureLink should also be validated (HTTP rejected)");
   }
 
+  // --- Embed renderUrl tests (scheme-allowlist only: http/https allowed, internal hosts allowed)
+  // ---
+
+  private long validateEmbedRenderUrl(String renderUrl) {
+    return validateEmbedRenderUrl(TEST_DATASET_URN, renderUrl);
+  }
+
+  private long validateEmbedRenderUrl(Urn urn, String renderUrl) {
+    Embed embed = new Embed();
+    embed.setRenderUrl(renderUrl);
+    return validator
+        .validateProposed(
+            OperationFingerprint.EMPTY,
+            Set.of(
+                TestMCP.builder()
+                    .changeType(ChangeType.UPSERT)
+                    .urn(urn)
+                    .entitySpec(entityRegistry.getEntitySpec(urn.getEntityType()))
+                    .aspectSpec(
+                        entityRegistry
+                            .getEntitySpec(urn.getEntityType())
+                            .getAspectSpec(EMBED_ASPECT_NAME))
+                    .recordTemplate(embed)
+                    .build()),
+            mockRetrieverContext,
+            null)
+        .count();
+  }
+
+  private long validateEmbedPatch(Urn urn, String renderUrl) {
+    String ops = "[{\"op\":\"add\",\"path\":\"/renderUrl\",\"value\":\"" + renderUrl + "\"}]";
+    return validator
+        .validateProposed(
+            OperationFingerprint.EMPTY,
+            Set.of(TestPatchMCP.of(urn, EMBED_ASPECT_NAME, ops)),
+            mockRetrieverContext,
+            null)
+        .count();
+  }
+
+  @Test
+  public void testEmbedJavascriptSchemeRejected() {
+    assertEquals(
+        validateEmbedRenderUrl("javascript:alert(document.cookie)"),
+        1,
+        "javascript: renderUrl should be rejected (stored XSS guard)");
+  }
+
+  @Test
+  public void testEmbedHttpsAccepted() {
+    assertEquals(
+        validateEmbedRenderUrl("https://bi.example.com/dashboard/1"),
+        0,
+        "HTTPS renderUrl should be accepted");
+  }
+
+  @Test
+  public void testEmbedHttpInternalHostAccepted() {
+    // Unlike pictureLink validation, embeds intentionally allow HTTP and internal hosts so that
+    // self-hosted/internal BI tools can be embedded. A private IP that pictureLink would reject
+    // must pass here.
+    assertEquals(
+        validateEmbedRenderUrl("http://192.168.1.10/dashboard"),
+        0,
+        "HTTP renderUrl to an internal host should be accepted for embeds");
+  }
+
+  @Test
+  public void testEmbedBlankRenderUrlAllowed() {
+    assertEquals(validateEmbedRenderUrl(""), 0, "Blank renderUrl (clearing the embed) is allowed");
+  }
+
+  @Test
+  public void testEmbedFtpAndMailtoAccepted() {
+    // The embed allowlist mirrors the frontend safeUrl allowlist (http/https/ftp/mailto) so the
+    // write-time check and the render-time guard agree. ftp:/mailto: are inert (not XSS vectors).
+    assertEquals(validateEmbedRenderUrl("ftp://files.example.com/report"), 0, "ftp: is allowed");
+    assertEquals(validateEmbedRenderUrl("mailto:team@example.com"), 0, "mailto: is allowed");
+  }
+
+  @Test
+  public void testEmbedDataSchemeRejected() {
+    assertEquals(
+        validateEmbedRenderUrl("data:text/html,<script>alert(1)</script>"),
+        1,
+        "data: renderUrl should be rejected (stored XSS guard)");
+  }
+
+  @Test
+  public void testEmbedRenderUrlValidatedForChartAndDashboard() {
+    // The validator is registered for chart and dashboard embeds too, not just dataset.
+    assertEquals(
+        validateEmbedRenderUrl(TEST_CHART_URN, "javascript:alert(1)"),
+        1,
+        "javascript: renderUrl on a chart embed should be rejected");
+    assertEquals(
+        validateEmbedRenderUrl(TEST_CHART_URN, "https://bi.example.com/chart/1"),
+        0,
+        "HTTPS renderUrl on a chart embed should be accepted");
+    assertEquals(
+        validateEmbedRenderUrl(TEST_DASHBOARD_URN, "javascript:alert(1)"),
+        1,
+        "javascript: renderUrl on a dashboard embed should be rejected");
+    assertEquals(
+        validateEmbedRenderUrl(TEST_DASHBOARD_URN, "https://bi.example.com/dash/1"),
+        0,
+        "HTTPS renderUrl on a dashboard embed should be accepted");
+  }
+
+  @Test
+  public void testEmbedPatchJavascriptSchemeRejected() {
+    // A PATCH carries only the delta (getAspect is null), so this covers the generic PATCH path
+    // that would otherwise bypass the stored-XSS guard.
+    assertEquals(
+        validateEmbedPatch(TEST_DATASET_URN, "javascript:alert(document.cookie)"),
+        1,
+        "javascript: renderUrl set via PATCH should be rejected");
+  }
+
+  @Test
+  public void testEmbedPatchHttpsAccepted() {
+    assertEquals(
+        validateEmbedPatch(TEST_DATASET_URN, "https://bi.example.com/dashboard/1"),
+        0,
+        "HTTPS renderUrl set via PATCH should be accepted");
+  }
+
   @Test
   public void testIsInternalHost() {
     assertTrue(UrlValidator.isInternalHost("localhost"));
@@ -486,5 +627,82 @@ public class UrlValidatorTest {
             .count(),
         1,
         "Extra deny hosts should be case-insensitive");
+  }
+
+  @Test
+  public void testInstitutionalMemoryJavascriptSchemeRejected() {
+    assertEquals(
+        validateInstitutionalMemory("javascript:alert(1)"),
+        1,
+        "javascript: institutional-memory links should be rejected");
+  }
+
+  @Test
+  public void testInstitutionalMemoryHttpsAccepted() {
+    assertEquals(
+        validateInstitutionalMemory("https://example.com/docs"),
+        0,
+        "HTTPS institutional-memory links should be accepted");
+  }
+
+  @Test
+  public void testInstitutionalMemoryPatchRejectsDisallowedScheme() {
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"/elements/javascript:alert(1)/docs\","
+            + "\"value\":{\"url\":\"javascript:alert(1)\",\"description\":\"docs\"}}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_DATASET_URN, INSTITUTIONAL_MEMORY_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1,
+        "javascript: links set via PATCH should be rejected");
+  }
+
+  @Test
+  public void testInstitutionalMemoryPatchAcceptsHttps() {
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"/elements/https:~1~1example.com~1docs/docs\","
+            + "\"value\":{\"url\":\"https://example.com/docs\",\"description\":\"docs\"}}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_DATASET_URN, INSTITUTIONAL_MEMORY_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "HTTPS links set via PATCH should be accepted");
+  }
+
+  private long validateInstitutionalMemory(String url) {
+    InstitutionalMemoryMetadata element = new InstitutionalMemoryMetadata();
+    element.setUrl(new Url(url));
+    element.setDescription("docs");
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
+    elements.add(element);
+    InstitutionalMemory memory = new InstitutionalMemory();
+    memory.setElements(elements);
+    return validator
+        .validateProposed(
+            OperationFingerprint.EMPTY,
+            Set.of(
+                TestMCP.builder()
+                    .changeType(ChangeType.UPSERT)
+                    .urn(TEST_DATASET_URN)
+                    .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
+                    .aspectSpec(
+                        entityRegistry
+                            .getEntitySpec(TEST_DATASET_URN.getEntityType())
+                            .getAspectSpec(INSTITUTIONAL_MEMORY_ASPECT_NAME))
+                    .recordTemplate(memory)
+                    .build()),
+            mockRetrieverContext,
+            null)
+        .count();
   }
 }

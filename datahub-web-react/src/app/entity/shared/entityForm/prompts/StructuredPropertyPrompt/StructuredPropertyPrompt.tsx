@@ -1,4 +1,4 @@
-import { Button } from 'antd';
+import { Button } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -7,7 +7,6 @@ import StructuredPropertyInput from '@app/entity/shared/components/styled/Struct
 import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/CompletedPromptAuditStamp';
 import useStructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/useStructuredPropertyPrompt';
 import usePromptCompletionInfo from '@app/entity/shared/entityForm/prompts/usePromptCompletionInfo';
-import { applyOpacity } from '@app/shared/styleUtils';
 
 import { FormPrompt, SchemaField, SubmitFormPromptInput } from '@types';
 
@@ -51,10 +50,6 @@ const InputSection = styled.div`
 
 const StyledButton = styled(Button)`
     margin-top: 16px;
-
-    &:focus {
-        box-shadow: 0 0 3px 2px ${(props) => applyOpacity(props.theme.colors.buttonFillBrand || '', 50)};
-    }
 `;
 
 const PromptInputWrapper = styled.div`
@@ -125,7 +120,7 @@ export default function StructuredPropertyPrompt({
                 )}
             </PromptWrapper>
             {(showSaveButton || showConfirmButton) && (
-                <StyledButton type="primary" onClick={submitStructuredPropertyResponse}>
+                <StyledButton onClick={submitStructuredPropertyResponse}>
                     {showSaveButton ? tc('save') : tc('confirm')}
                 </StyledButton>
             )}

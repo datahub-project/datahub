@@ -7,7 +7,10 @@ apply from: "${rootProject.projectDir}/gradle/python/netrc.gradle"
 def netrcFile = {
   def path = System.getenv("DATAHUB_NETRC_PATH") ?: "${rootProject.projectDir}/docker/snippets/uv/.netrc"
   def file = new File(path)
-  return file.exists() ? file.absolutePath : null
+  // An empty netrc (e.g. created unconditionally by CI without credentials) is skipped:
+  // the Dockerfile secret mounts are optional, and mounting a zero-byte secret only
+  // triggers buildx bake fs entitlement checks for paths outside the working directory.
+  return (file.exists() && file.length() > 0) ? file.absolutePath : null
 }()
 
 validateDatahubNetrc(netrcFile)

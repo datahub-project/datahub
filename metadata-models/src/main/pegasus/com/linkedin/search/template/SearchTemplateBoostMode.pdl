@@ -1,0 +1,14 @@
+namespace com.linkedin.search.template
+
+/**
+ * How a function_score combines with the query score. Unset leaves the mode in the
+ * function-score JSON.
+ */
+enum SearchTemplateBoostMode {
+  MULTIPLY
+  REPLACE
+  SUM
+  AVG
+  MAX
+  MIN
+}

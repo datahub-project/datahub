@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity.ebean;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -52,12 +53,18 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
   private final int _batchSize;
   private final AspectTableResolver _tableResolver;
   private final ScopedTransactionFactory _txnFactory;
+  private final SystemEntityClient _systemEntityClient;
 
   private final Clock _clock = Clock.systemUTC();
 
   @Override
   public EntityService<U> getEntityService() {
     return _entityService;
+  }
+
+  @Override
+  protected SystemEntityClient getSystemEntityClient() {
+    return _systemEntityClient;
   }
 
   @Override

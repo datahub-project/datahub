@@ -1,6 +1,6 @@
 import { useApolloClient } from '@apollo/client';
 import { Form, message } from 'antd';
-import _ from 'lodash';
+import omit from 'lodash/omit';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -8,7 +8,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import handleGraphQLError from '@src/app/sharedV2/handleGraphQLError';
 import { useRaiseIncidentMutation, useUpsertIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
 
@@ -165,7 +165,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                     message: values.message,
                 },
             };
-            const newInput = _.omit(baseInput, ['state', 'message']);
+            const newInput = omit(baseInput, ['state', 'message']);
             const input = newInput;
 
             if (isAddIncidentMode) {

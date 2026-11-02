@@ -47,8 +47,8 @@ public class EbeanEntityServiceOptimizationTest {
   // Default Aspect Generation Step
   // 1. *Key,
   // 2. browsePathsV2 & dataPlatformInstance
-  // 3. dataPlatformInfo
-  private static final int defaultAspectsGeneration = 3;
+  // dataPlatformInfo is read via cachingAspectRetriever, not EntityService/DAO
+  private static final int defaultAspectsGeneration = 2;
   // Next Version Calculation
   // 1. *Key
   // 2. browsePathsV2 & dataPlatformInstance

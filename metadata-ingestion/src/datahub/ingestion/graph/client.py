@@ -2,6 +2,8 @@ import contextlib
 import functools
 import json
 import logging
+import math
+import operator
 import textwrap
 import time
 from datetime import datetime
@@ -14,9 +16,12 @@ from typing import (
     Iterator,
     List,
     Literal,
+    NamedTuple,
     Optional,
     Sequence,
     Set,
+    SupportsFloat,
+    SupportsIndex,
     Tuple,
     Type,
     Union,
@@ -52,6 +57,7 @@ from datahub.ingestion.graph.filters import (
     RawSearchFilter,
     RawSearchFilterRule,
     RemovedStatusFilter,
+    SearchFilterRule,
     generate_filter,
 )
 from datahub.ingestion.graph.links import make_url_for_urn
@@ -115,6 +121,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
+# Largest finite 32-bit float; AssertionResult.actualAggValue is stored as one.
+_FLOAT32_MAX = 3.4028234663852886e38
+# Largest value of the GraphQL Long scalar (a Java long).
+_LONG_MAX = 2**63 - 1
 
 # Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
 # survives across short-lived processes and invalidates on server upgrade.
@@ -160,6 +170,33 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
         # so no conversion is needed.
         return entity_type
     return entity_type_to_graphql(entity_type)
+
+
+def _coerce_optional_count(name: str, value: Optional[SupportsIndex]) -> Optional[int]:
+    """Convert an integer-like count (including numpy integers) to ``int``.
+
+    ``bool`` and floats are rejected: GraphQL ``Long`` does not accept ``true``,
+    and silently truncating a float would report a wrong count. Counts must be
+    non-negative and fit in a signed 64-bit ``Long``.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise TypeError(f"{name} must be an integer, not a bool")
+    count = operator.index(value)
+    if not 0 <= count <= _LONG_MAX:
+        raise ValueError(
+            f"{name} must be between 0 and {_LONG_MAX} (signed 64-bit), got {count}"
+        )
+    return count
+
+
+class _NumericResultField(NamedTuple):
+    """An optional numeric field of the reportAssertionResult mutation."""
+
+    name: str
+    gql_type: str
+    value: Optional[Union[float, int]]
 
 
 class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
@@ -852,6 +889,37 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             entities.append(x["entity"])
         return entities[0] if entities_yielded else None
 
+    def get_data_product_urn_by_name(self, data_product_name: str) -> Optional[str]:
+        """Retrieve a data product urn based on its name. Returns None if there is no match found"""
+
+        filters = []
+        filter_criteria = [
+            {
+                "field": "name",
+                "values": [data_product_name],
+                "condition": "EQUAL",
+            }
+        ]
+
+        filters.append({"and": filter_criteria})
+        search_body = {
+            "input": "*",
+            "entity": "dataProduct",
+            "start": 0,
+            "count": 10,
+            "filter": {"or": filters},
+        }
+        results: Dict = self._post_generic(self._search_endpoint, search_body)
+        value = results.get("value", {})
+        entities = value.get("entities") or []
+        num_entities = value.get("numEntities", 0)
+        if num_entities > 1:
+            logger.warning(
+                f"Got {num_entities} results for data product name {data_product_name}. "
+                f"Will return the first match."
+            )
+        return entities[0]["entity"] if entities else None
+
     def get_connection_json(self, urn: str) -> Optional[dict]:
         """Retrieve a connection config.
 
@@ -1197,6 +1265,31 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
+
+    def get_dataset_urns_ignoring_case(self, lowercased_urn: str) -> List[str]:
+        """Every stored casing of `lowercased_urn`, which must already be lowercased.
+
+        Matched on `urn` as well as `aliases.lowercasedUrn`: GMS skips the alias for a
+        dataset already equal to its lowercased form, so that one is findable only by urn.
+        """
+        or_filters: RawSearchFilter = [
+            {
+                "and": [
+                    SearchFilterRule(
+                        field=field, condition="EQUAL", values=[lowercased_urn]
+                    ).to_raw()
+                ]
+            }
+            for field in ("lowercasedUrn", "urn")
+        ]
+        # Deduped: matching under both fields would otherwise read as a casing collision.
+        return list(
+            dict.fromkeys(
+                self.get_urns_by_filter(
+                    entity_types=["dataset"], extra_or_filters=or_filters
+                )
+            )
+        )
 
     def get_results_by_filter(
         self,
@@ -2135,8 +2228,66 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
         severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
+        actual_agg_value: Optional[SupportsFloat] = None,
+        row_count: Optional[SupportsIndex] = None,
+        unexpected_count: Optional[SupportsIndex] = None,
+        missing_count: Optional[SupportsIndex] = None,
     ) -> bool:
-        graph_query: str = """
+        """Report a run result for an assertion.
+
+        The numeric arguments are optional values observed during the run. The
+        server stores them only for SUCCESS and FAILURE results and ignores them
+        for ERROR and INIT. ``actual_agg_value`` is stored as a 32-bit float, so
+        only about 7 significant digits are kept; use ``row_count``,
+        ``unexpected_count`` and ``missing_count`` for exact counts.
+
+        ``actual_agg_value`` must be finite and within the 32-bit float range,
+        and the counts must be non-negative integers that fit in a signed
+        64-bit integer; otherwise ``ValueError`` or ``TypeError`` is raised
+        before anything is sent. numpy scalars are accepted.
+
+        The numeric fields are added to the request only when set, because
+        servers that predate them reject unknown input fields.
+        """
+        agg_value: Optional[float] = None
+        if actual_agg_value is not None:
+            if isinstance(actual_agg_value, bool):
+                raise TypeError("actual_agg_value must be a number, not a bool")
+            agg_value = float(actual_agg_value)
+            if not math.isfinite(agg_value) or abs(agg_value) > _FLOAT32_MAX:
+                raise ValueError(
+                    f"actual_agg_value must be finite and within the 32-bit float range, got {agg_value}"
+                )
+
+        # Unset fields are left out of the mutation entirely.
+        numeric_fields = [
+            field
+            for field in (
+                _NumericResultField("actualAggValue", "Float", agg_value),
+                _NumericResultField(
+                    "rowCount", "Long", _coerce_optional_count("row_count", row_count)
+                ),
+                _NumericResultField(
+                    "unexpectedCount",
+                    "Long",
+                    _coerce_optional_count("unexpected_count", unexpected_count),
+                ),
+                _NumericResultField(
+                    "missingCount",
+                    "Long",
+                    _coerce_optional_count("missing_count", missing_count),
+                ),
+            )
+            if field.value is not None
+        ]
+        numeric_var_defs = "".join(
+            f"\n                ${f.name}: {f.gql_type}," for f in numeric_fields
+        )
+        numeric_input_fields = "".join(
+            f"\n                    {f.name}: ${f.name}" for f in numeric_fields
+        )
+
+        graph_query: str = f"""
             mutation reportAssertionResult(
                 $assertionUrn: String!,
                 $timestampMillis: Long!,
@@ -2144,17 +2295,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $properties: [StringMapEntryInput!],
                 $externalUrl: String,
                 $error: AssertionResultErrorInput,
-                $severity: AssertionResultSeverity,
-            ) {
-                reportAssertionResult(urn: $assertionUrn, result: {
+                $severity: AssertionResultSeverity,{numeric_var_defs}
+            ) {{
+                reportAssertionResult(urn: $assertionUrn, result: {{
                     timestampMillis: $timestampMillis
                     type: $type
                     properties: $properties
                     externalUrl: $externalUrl
                     error: $error
-                    severity: $severity
-                })
-            }
+                    severity: $severity{numeric_input_fields}
+                }})
+            }}
         """
 
         variables = {
@@ -2168,6 +2319,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             ),
             "severity": severity,
         }
+        variables.update({f.name: f.value for f in numeric_fields})
 
         res = self.execute_graphql(
             query=graph_query,
@@ -2382,7 +2534,9 @@ def get_default_graph(
     client_mode: Optional[ClientMode] = None,
     datahub_component: Optional[str] = None,
 ) -> DataHubGraph:
-    graph_config = config_utils.load_client_config()
+    # This graph is cached for the life of the process, so an OAuth session's
+    # token must be refreshed per request rather than once here.
+    graph_config = config_utils.load_client_config(refresh_per_request=True)
     graph_config.client_mode = client_mode
     graph_config.datahub_component = datahub_component
     graph = DataHubGraph(graph_config)

@@ -32,6 +32,11 @@ public class RetentionServiceTest {
           }
 
           @Override
+          protected com.linkedin.entity.client.SystemEntityClient getSystemEntityClient() {
+            return mock(com.linkedin.entity.client.SystemEntityClient.class);
+          }
+
+          @Override
           public Retention getRetention(
               @Nonnull OperationContext opContext,
               @Nonnull String entityName,

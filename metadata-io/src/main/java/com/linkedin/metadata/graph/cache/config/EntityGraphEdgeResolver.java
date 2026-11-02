@@ -63,7 +63,7 @@ public class EntityGraphEdgeResolver {
       if (coLocated.isPresent()
           && coLocated.get().getSearchableAnnotation().getFieldType()
               == SearchableAnnotation.FieldType.URN) {
-        searchField = relationshipField.getPath().toString();
+        searchField = coLocated.get().getSearchableAnnotation().getFieldName();
         searchable = true;
       }
 

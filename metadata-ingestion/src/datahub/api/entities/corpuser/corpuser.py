@@ -49,7 +49,7 @@ class CorpUser(ConfigModel):
         description (Optional[str]): A description string for the user
         slack (Optional[str]): Slack handle for the user
         picture_link (Optional[str]): A resolvable url for the user's picture icon
-        phone (Optional(str)): A phone number for the user
+        phone (Optional[str]): A phone number for the user
     """
 
     id: str

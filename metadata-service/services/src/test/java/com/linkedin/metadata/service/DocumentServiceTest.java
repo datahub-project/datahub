@@ -3,18 +3,29 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.datahub.authorization.AuthUtil;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.SemanticText;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
@@ -23,7 +34,14 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.knowledge.DocumentContents;
 import com.linkedin.knowledge.DocumentInfo;
+import com.linkedin.knowledge.DocumentState;
+import com.linkedin.knowledge.DocumentStatus;
+import com.linkedin.knowledge.ParentDocument;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -32,9 +50,15 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -72,7 +96,8 @@ public class DocumentServiceTest {
                 null,
                 null,
                 null,
-                TEST_USER_URN));
+                TEST_USER_URN,
+                SearchIndexMode.SYNC));
     verifyNoInteractions(mockClient);
   }
 
@@ -104,7 +129,8 @@ public class DocumentServiceTest {
           null,
           null,
           List.of(owner),
-          TEST_USER_URN);
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
 
       authUtilMock.verify(
           () ->
@@ -154,7 +180,13 @@ public class DocumentServiceTest {
         ServiceAuthorizationException.class,
         () ->
             service.updateDocumentContents(
-                USER_OP_CONTEXT, TEST_DOCUMENT_URN, "Updated content", null, null, TEST_USER_URN));
+                USER_OP_CONTEXT,
+                TEST_DOCUMENT_URN,
+                "Updated content",
+                null,
+                null,
+                TEST_USER_URN,
+                SearchIndexMode.SYNC));
     verifyNoInteractions(mockClient);
   }
 
@@ -165,7 +197,7 @@ public class DocumentServiceTest {
 
     Assert.assertThrows(
         ServiceAuthorizationException.class,
-        () -> service.deleteDocument(USER_OP_CONTEXT, TEST_DOCUMENT_URN));
+        () -> service.deleteDocument(USER_OP_CONTEXT, TEST_DOCUMENT_URN, SearchIndexMode.SYNC));
     verifyNoInteractions(mockClient);
   }
 
@@ -190,7 +222,8 @@ public class DocumentServiceTest {
             null, // no related assets
             null, // no related documents
             null, // showInGlobalContext defaults to true
-            TEST_USER_URN);
+            TEST_USER_URN,
+            SearchIndexMode.SYNC);
 
     // Verify the URN was created
     Assert.assertNotNull(documentUrn);
@@ -205,6 +238,8 @@ public class DocumentServiceTest {
   public void testCreateArticleWithRelationships() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_PARENT_URN), eq(false)))
+        .thenReturn(true);
 
     final DocumentService service = new DocumentService(mockClient);
 
@@ -222,7 +257,8 @@ public class DocumentServiceTest {
             Arrays.asList(TEST_ASSET_URN),
             Arrays.asList(TEST_DOCUMENT_URN),
             null, // showInGlobalContext defaults to true
-            TEST_USER_URN);
+            TEST_USER_URN,
+            SearchIndexMode.SYNC);
 
     // Verify the URN was created with custom ID
     Assert.assertNotNull(documentUrn);
@@ -231,6 +267,67 @@ public class DocumentServiceTest {
     // Verify ingest was called (should batch both info and relationships)
     verify(mockClient, times(1))
         .batchIngestProposals(any(OperationContext.class), any(List.class), eq(false));
+    verify(mockClient).exists(any(OperationContext.class), eq(TEST_PARENT_URN), eq(false));
+  }
+
+  @Test
+  public void testCreateDocumentRejectsParentThatIsNotLive() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_PARENT_URN), eq(false)))
+        .thenReturn(false);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    try {
+      service.createDocument(
+          opContext,
+          "child-id",
+          java.util.Collections.singletonList("tutorial"),
+          "Title",
+          null,
+          null,
+          "Content",
+          TEST_PARENT_URN,
+          null,
+          null,
+          null,
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
+      Assert.fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(e.getMessage().contains("does not exist"));
+    }
+    verify(mockClient, never()).batchIngestProposals(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testCreateDocumentRejectsSelfAsParent() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    try {
+      service.createDocument(
+          opContext,
+          "parent-document",
+          java.util.Collections.singletonList("tutorial"),
+          "Title",
+          null,
+          null,
+          "Content",
+          TEST_PARENT_URN,
+          null,
+          null,
+          null,
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
+      Assert.fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(e.getMessage().contains("itself"));
+    }
+    verify(mockClient, never()).batchIngestProposals(any(), any(), anyBoolean());
   }
 
   @Test
@@ -254,7 +351,8 @@ public class DocumentServiceTest {
           null,
           null,
           null, // showInGlobalContext
-          TEST_USER_URN);
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("already exists"));
@@ -304,7 +402,13 @@ public class DocumentServiceTest {
 
     // Test updating document contents
     service.updateDocumentContents(
-        opContext, TEST_DOCUMENT_URN, "New content", "Updated Title", null, TEST_USER_URN);
+        opContext,
+        TEST_DOCUMENT_URN,
+        "New content",
+        "Updated Title",
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify batch ingest was called
     verify(mockClient, times(1))
@@ -312,12 +416,18 @@ public class DocumentServiceTest {
   }
 
   @Test
-  public void testUpdateArticleContentsDoesNotWriteSemanticTextUnlessProvided() throws Exception {
+  public void testUpdateArticleContentsMirrorsBodyIntoSemanticTextByDefault() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClientWithInfo();
     final DocumentService service = new DocumentService(mockClient);
 
     service.updateDocumentContents(
-        opContext, TEST_DOCUMENT_URN, "New content", null, null, TEST_USER_URN);
+        opContext,
+        TEST_DOCUMENT_URN,
+        "New content",
+        null,
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     @SuppressWarnings("unchecked")
     final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
@@ -337,6 +447,38 @@ public class DocumentServiceTest {
             infoProposal.getAspect().getContentType(),
             DocumentInfo.class);
     Assert.assertEquals(updatedInfo.getContents().getText(), "New content");
+
+    // No explicit semanticText: the new body becomes the embedding-source override, so every API
+    // that edits a body keeps semantic search in step without opting in.
+    final MetadataChangeProposal semanticTextProposal =
+        proposalsCaptor.getValue().stream()
+            .filter(
+                proposal -> Constants.SEMANTIC_TEXT_ASPECT_NAME.equals(proposal.getAspectName()))
+            .findFirst()
+            .orElseThrow();
+    Assert.assertEquals(
+        GenericRecordUtils.deserializeAspect(
+                semanticTextProposal.getAspect().getValue(),
+                semanticTextProposal.getAspect().getContentType(),
+                SemanticText.class)
+            .getText(),
+        "New content");
+  }
+
+  @Test
+  public void testUpdateArticleContentsLeavesSemanticTextAloneOnTitleOnlyEdit() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.updateDocumentContents(
+        opContext, TEST_DOCUMENT_URN, null, "New title", null, TEST_USER_URN, SearchIndexMode.SYNC);
+
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockClient, times(1))
+        .batchIngestProposals(eq(opContext), proposalsCaptor.capture(), eq(false));
+
     Assert.assertTrue(
         proposalsCaptor.getValue().stream()
             .noneMatch(
@@ -344,18 +486,41 @@ public class DocumentServiceTest {
   }
 
   @Test
-  public void testUpdateArticleContentsUpdatesSemanticTextWhenProvided() throws Exception {
-    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+  public void testUpdateArticleContentsReplacesAnyStoredSemanticTextWhenNoneIsPassed()
+      throws Exception {
+    // The contract: a caller that wants its own value passes one on every write. A write that
+    // does not is taken to mean the body is the value, whatever was stored before.
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo("Custom retrieval text");
     final DocumentService service = new DocumentService(mockClient);
 
     service.updateDocumentContents(
         opContext,
         TEST_DOCUMENT_URN,
-        "User-owned content",
-        "User-owned content",
+        "New content",
         null,
         null,
-        TEST_USER_URN);
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
+
+    Assert.assertEquals(captureSemanticText(mockClient), "New content");
+  }
+
+  @Test
+  public void testUpdateArticleContentsUpdatesSemanticTextWhenProvided() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Distinct values: with the same string for both, a regression that ignored semanticText and
+    // copied the body would still pass.
+    service.updateDocumentContents(
+        opContext,
+        TEST_DOCUMENT_URN,
+        "New body",
+        "Explicit semantic text",
+        null,
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     @SuppressWarnings("unchecked")
     final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
@@ -374,7 +539,7 @@ public class DocumentServiceTest {
             semanticTextProposal.getAspect().getValue(),
             semanticTextProposal.getAspect().getContentType(),
             SemanticText.class);
-    Assert.assertEquals(updatedSemanticText.getText(), "User-owned content");
+    Assert.assertEquals(updatedSemanticText.getText(), "Explicit semantic text");
   }
 
   @Test
@@ -389,7 +554,7 @@ public class DocumentServiceTest {
     // Test updating a non-existent document
     try {
       service.updateDocumentContents(
-          opContext, TEST_DOCUMENT_URN, "Content", null, null, TEST_USER_URN);
+          opContext, TEST_DOCUMENT_URN, "Content", null, null, TEST_USER_URN, SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
@@ -408,7 +573,8 @@ public class DocumentServiceTest {
         "New content",
         "Updated Title",
         Arrays.asList("FAQ"),
-        TEST_USER_URN);
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify batch ingest was called with 2 proposals (info + subTypes)
     verify(mockClient, times(1))
@@ -422,7 +588,12 @@ public class DocumentServiceTest {
 
     // Test updating related entities
     service.updateDocumentRelatedEntities(
-        opContext, TEST_DOCUMENT_URN, Arrays.asList(TEST_ASSET_URN), null, TEST_USER_URN);
+        opContext,
+        TEST_DOCUMENT_URN,
+        Arrays.asList(TEST_ASSET_URN),
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify ingest was called
     verify(mockClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
@@ -432,11 +603,14 @@ public class DocumentServiceTest {
   public void testMoveArticleSuccess() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClientWithRelationships();
     when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class), eq(false)))
+        .thenReturn(true);
 
     final DocumentService service = new DocumentService(mockClient);
 
     // Test moving document to new parent
-    service.moveDocument(opContext, TEST_DOCUMENT_URN, TEST_PARENT_URN, TEST_USER_URN);
+    service.moveDocument(
+        opContext, TEST_DOCUMENT_URN, TEST_PARENT_URN, TEST_USER_URN, SearchIndexMode.SYNC);
 
     // Verify ingest was called
     verify(mockClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
@@ -450,7 +624,7 @@ public class DocumentServiceTest {
     final DocumentService service = new DocumentService(mockClient);
 
     // Test moving document to root (no parent)
-    service.moveDocument(opContext, TEST_DOCUMENT_URN, null, TEST_USER_URN);
+    service.moveDocument(opContext, TEST_DOCUMENT_URN, null, TEST_USER_URN, SearchIndexMode.SYNC);
 
     // Verify ingest was called
     verify(mockClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
@@ -460,16 +634,38 @@ public class DocumentServiceTest {
   public void testMoveArticleToItself() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class), eq(false)))
+        .thenReturn(true);
 
     final DocumentService service = new DocumentService(mockClient);
 
     // Test moving document to itself (should fail)
     try {
-      service.moveDocument(opContext, TEST_DOCUMENT_URN, TEST_DOCUMENT_URN, TEST_USER_URN);
+      service.moveDocument(
+          opContext, TEST_DOCUMENT_URN, TEST_DOCUMENT_URN, TEST_USER_URN, SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("Cannot move"));
     }
+  }
+
+  @Test
+  public void testMoveDocumentRejectsParentThatIsNotLive() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_PARENT_URN), eq(false)))
+        .thenReturn(false);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    try {
+      service.moveDocument(
+          opContext, TEST_DOCUMENT_URN, TEST_PARENT_URN, TEST_USER_URN, SearchIndexMode.SYNC);
+      Assert.fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(e.getMessage().contains("does not exist"));
+    }
+    verify(mockClient, never()).ingestProposal(any(), any(), anyBoolean());
   }
 
   @Test
@@ -479,12 +675,26 @@ public class DocumentServiceTest {
 
     final DocumentService service = new DocumentService(mockClient);
 
-    // Test soft deleting a document
-    service.deleteDocument(opContext, TEST_DOCUMENT_URN);
+    stubChildScroll(mockClient, Map.of());
 
-    // Verify ingestProposal was called to set Status aspect with removed=true
-    verify(mockClient, times(1))
-        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class), eq(false));
+    final DocumentDeleteResult deleted =
+        service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
+
+    final List<MetadataChangeProposal> proposals = captureDeleteProposals(mockClient, opContext);
+    Assert.assertEquals(proposals.size(), 1);
+    Assert.assertEquals(proposals.get(0).getEntityUrn(), TEST_DOCUMENT_URN);
+    assertRemoved(proposals.get(0));
+    Assert.assertEquals(deleted.urns(), List.of(TEST_DOCUMENT_URN));
+    Assert.assertEquals(deleted.descendantCount(), 0);
+    verify(mockClient, never())
+        .search(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            any(),
+            anyList(),
+            anyInt(),
+            anyInt());
   }
 
   @Test
@@ -496,10 +706,11 @@ public class DocumentServiceTest {
 
     // Test deleting a non-existent document
     try {
-      service.deleteDocument(opContext, TEST_DOCUMENT_URN);
+      service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
+      verify(mockClient, never()).batchIngestProposals(any(), any(), anyBoolean());
     }
   }
 
@@ -527,9 +738,134 @@ public class DocumentServiceTest {
             eq(10));
   }
 
+  @Test
+  public void testSearchDocumentsKeepsCallerTemplateAndExplain() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    when(mockClient.searchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(),
+            anyInt(),
+            any(),
+            anyList(),
+            anyList()))
+        .thenReturn(searchPage());
+    final DocumentService service = new DocumentService(mockClient);
+    final Urn template = UrnUtils.getUrn("urn:li:searchTemplate:structured");
+    final SearchFlags requested =
+        new SearchFlags().setSearchTemplate(template).setIncludeExplain(true);
+
+    service.searchDocuments(opContext, "tutorial", null, null, 0, 10, null, requested);
+    service.searchDocuments(opContext, "tutorial", null, null, 0, 10, List.of("entity"), requested);
+
+    final ArgumentCaptor<OperationContext> page = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .search(
+            page.capture(),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq("tutorial"),
+            any(),
+            any(List.class),
+            eq(0),
+            eq(10));
+    assertCallerTemplate(page.getValue(), template);
+
+    final ArgumentCaptor<OperationContext> facets = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .searchAcrossEntities(
+            facets.capture(),
+            eq(List.of(Constants.DOCUMENT_ENTITY_NAME)),
+            eq("tutorial"),
+            any(),
+            eq(0),
+            eq(Integer.valueOf(10)),
+            anyList(),
+            eq(List.of("entity")));
+    assertCallerTemplate(facets.getValue(), template);
+  }
+
+  @Test
+  public void testSearchDocumentsWithoutATemplateStaysFulltext() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.searchDocuments(opContext, "tutorial", null, null, 0, 10);
+
+    final ArgumentCaptor<OperationContext> captured =
+        ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .search(
+            captured.capture(),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq("tutorial"),
+            any(),
+            any(List.class),
+            eq(0),
+            eq(10));
+    final SearchFlags applied = captured.getValue().getSearchContext().getSearchFlags();
+    Assert.assertFalse(applied.hasSearchTemplate());
+    Assert.assertTrue(applied.isFulltext());
+  }
+
+  private static void assertCallerTemplate(OperationContext opContext, Urn template) {
+    final SearchFlags applied = opContext.getSearchContext().getSearchFlags();
+    Assert.assertEquals(applied.getSearchTemplate(), template);
+    Assert.assertTrue(applied.isIncludeExplain());
+    Assert.assertTrue(applied.isFulltext());
+  }
+
+  private static SearchResult searchPage() {
+    final SearchResult searchResult = new SearchResult();
+    searchResult.setFrom(0);
+    searchResult.setPageSize(10);
+    searchResult.setNumEntities(0);
+    searchResult.setEntities(new SearchEntityArray());
+    searchResult.setMetadata(new SearchResultMetadata());
+    return searchResult;
+  }
+
   // Helper methods to create mock EntityClients
 
+  /** The semanticText aspect the batch wrote, or null when it wrote none. */
+  @Nullable
+  private SemanticText captureSemanticTextAspect(@Nonnull final SystemEntityClient mockClient)
+      throws Exception {
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockClient, times(1))
+        .batchIngestProposals(eq(opContext), proposalsCaptor.capture(), eq(false));
+
+    return proposalsCaptor.getValue().stream()
+        .filter(proposal -> Constants.SEMANTIC_TEXT_ASPECT_NAME.equals(proposal.getAspectName()))
+        .findFirst()
+        .map(
+            proposal ->
+                GenericRecordUtils.deserializeAspect(
+                    proposal.getAspect().getValue(),
+                    proposal.getAspect().getContentType(),
+                    SemanticText.class))
+        .orElse(null);
+  }
+
+  @Nullable
+  private String captureSemanticText(@Nonnull final SystemEntityClient mockClient)
+      throws Exception {
+    final SemanticText aspect = captureSemanticTextAspect(mockClient);
+    return aspect == null ? null : aspect.getText();
+  }
+
   private SystemEntityClient createMockEntityClientWithInfo() throws Exception {
+    return createMockEntityClientWithInfo(null);
+  }
+
+  /**
+   * @param storedSemanticText when non-null, the mocked document also carries a {@code
+   *     semanticText} aspect holding this value
+   */
+  private SystemEntityClient createMockEntityClientWithInfo(
+      @Nullable final String storedSemanticText) throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     final DocumentInfo info = new DocumentInfo();
@@ -541,6 +877,13 @@ public class DocumentServiceTest {
 
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(Constants.DOCUMENT_INFO_ASPECT_NAME, aspect);
+
+    if (storedSemanticText != null) {
+      final SemanticText stored = new SemanticText().setText(storedSemanticText);
+      final EnvelopedAspect semanticTextAspect = new EnvelopedAspect();
+      semanticTextAspect.setValue(new com.linkedin.entity.Aspect(stored.data()));
+      aspectMap.put(Constants.SEMANTIC_TEXT_ASPECT_NAME, semanticTextAspect);
+    }
 
     final EntityResponse response = new EntityResponse();
     response.setUrn(TEST_DOCUMENT_URN);
@@ -634,7 +977,8 @@ public class DocumentServiceTest {
         opContext,
         TEST_DOCUMENT_URN,
         com.linkedin.knowledge.DocumentState.PUBLISHED,
-        TEST_USER_URN);
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify ingest was called to update the info
     verify(mockClient, times(1))
@@ -654,7 +998,8 @@ public class DocumentServiceTest {
           opContext,
           TEST_DOCUMENT_URN,
           com.linkedin.knowledge.DocumentState.PUBLISHED,
-          TEST_USER_URN);
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
@@ -679,7 +1024,8 @@ public class DocumentServiceTest {
     final List<Owner> owners = Arrays.asList(owner1, owner2);
 
     // Test setting ownership
-    service.setDocumentOwnership(opContext, TEST_DOCUMENT_URN, owners, TEST_USER_URN);
+    service.setDocumentOwnership(
+        opContext, TEST_DOCUMENT_URN, owners, TEST_USER_URN, SearchIndexMode.SYNC);
 
     // Verify that ingestProposal was called once with ownership aspect
     verify(mockClient, times(1))
@@ -693,7 +1039,11 @@ public class DocumentServiceTest {
 
     // Test setting ownership with empty list (should still work)
     service.setDocumentOwnership(
-        opContext, TEST_DOCUMENT_URN, java.util.Collections.emptyList(), TEST_USER_URN);
+        opContext,
+        TEST_DOCUMENT_URN,
+        java.util.Collections.emptyList(),
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify that ingestProposal was called once
     verify(mockClient, times(1))
@@ -706,7 +1056,8 @@ public class DocumentServiceTest {
     final DocumentService service = new DocumentService(mockClient);
 
     // Test updating document subType
-    service.updateDocumentSubType(opContext, TEST_DOCUMENT_URN, "faq", TEST_USER_URN);
+    service.updateDocumentSubType(
+        opContext, TEST_DOCUMENT_URN, "faq", TEST_USER_URN, SearchIndexMode.SYNC);
 
     // Verify batch ingest was called (subTypes + info with updated lastModified)
     verify(mockClient, times(1))
@@ -722,7 +1073,8 @@ public class DocumentServiceTest {
 
     // Test updating subType for a non-existent document
     try {
-      service.updateDocumentSubType(opContext, TEST_DOCUMENT_URN, "faq", TEST_USER_URN);
+      service.updateDocumentSubType(
+          opContext, TEST_DOCUMENT_URN, "faq", TEST_USER_URN, SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
@@ -809,6 +1161,7 @@ public class DocumentServiceTest {
     // Setup mocks
     when(mockClient.exists(any(OperationContext.class), eq(doc1Urn))).thenReturn(true);
     when(mockClient.exists(any(OperationContext.class), eq(doc2Urn))).thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(doc2Urn), eq(false))).thenReturn(true);
 
     when(mockClient.getV2(
             any(OperationContext.class),
@@ -829,7 +1182,7 @@ public class DocumentServiceTest {
     // Test moving doc1 to have parent doc2 (which would create a circular reference doc1 -> doc2 ->
     // doc1)
     try {
-      service.moveDocument(opContext, doc1Urn, doc2Urn, TEST_USER_URN);
+      service.moveDocument(opContext, doc1Urn, doc2Urn, TEST_USER_URN, SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException for circular reference");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("circular"));
@@ -884,7 +1237,8 @@ public class DocumentServiceTest {
             null, // no related documents
             new com.linkedin.knowledge.DocumentSettings()
                 .setShowInGlobalContext(false), // showInGlobalContext = false
-            TEST_USER_URN);
+            TEST_USER_URN,
+            SearchIndexMode.SYNC);
 
     // Verify the URN was created
     Assert.assertNotNull(documentUrn);
@@ -916,7 +1270,8 @@ public class DocumentServiceTest {
             null, // no related assets
             null, // no related documents
             null, // showInGlobalContext defaults to true
-            TEST_USER_URN);
+            TEST_USER_URN,
+            SearchIndexMode.SYNC);
 
     // Verify the URN was created
     Assert.assertNotNull(documentUrn);
@@ -937,7 +1292,8 @@ public class DocumentServiceTest {
         opContext,
         TEST_DOCUMENT_URN,
         new com.linkedin.knowledge.DocumentSettings().setShowInGlobalContext(false),
-        TEST_USER_URN);
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify batch ingest was called (settings + documentInfo for lastModified)
     verify(mockClient, times(1))
@@ -957,10 +1313,898 @@ public class DocumentServiceTest {
           opContext,
           TEST_DOCUMENT_URN,
           new com.linkedin.knowledge.DocumentSettings().setShowInGlobalContext(true),
-          TEST_USER_URN);
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
     }
+  }
+
+  @Test
+  public void testCreateDocumentAllowsWithCreatePrivilege() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+    final DocumentService service = new DocumentService(mockClient);
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+
+    try (MockedStatic<DocumentAuthorizationUtils> authUtils =
+        mockStatic(DocumentAuthorizationUtils.class)) {
+      authUtils
+          .when(() -> DocumentAuthorizationUtils.assertCanCreate(eq(userContext), any(Urn.class)))
+          .thenAnswer(invocation -> null);
+
+      final Urn documentUrn =
+          service.createDocument(
+              userContext,
+              "auth-create-ok",
+              java.util.Collections.singletonList("tutorial"),
+              "Authorized Create",
+              null,
+              null,
+              "content",
+              null,
+              null,
+              null,
+              null,
+              TEST_USER_URN,
+              SearchIndexMode.SYNC);
+
+      Assert.assertEquals(documentUrn, UrnUtils.getUrn("urn:li:document:auth-create-ok"));
+      authUtils.verify(
+          () -> DocumentAuthorizationUtils.assertCanCreate(eq(userContext), eq(documentUrn)));
+      verify(mockClient, times(1))
+          .batchIngestProposals(eq(userContext), any(List.class), eq(false));
+    }
+  }
+
+  @Test
+  public void testCreateDocumentIncludesOwnershipWithoutUpdateAuthorization() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+    final DocumentService service = new DocumentService(mockClient);
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+    final Owner owner = new Owner().setOwner(TEST_USER_URN).setType(OwnershipType.TECHNICAL_OWNER);
+
+    try (MockedStatic<DocumentAuthorizationUtils> authUtils =
+        mockStatic(DocumentAuthorizationUtils.class)) {
+      service.createDocument(
+          userContext,
+          "test-document",
+          List.of("tutorial"),
+          "Title",
+          null,
+          null,
+          "Content",
+          null,
+          null,
+          null,
+          null,
+          List.of(owner),
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
+
+      authUtils.verify(
+          () -> DocumentAuthorizationUtils.assertCanCreate(eq(userContext), eq(TEST_DOCUMENT_URN)));
+      authUtils.verify(() -> DocumentAuthorizationUtils.assertCanUpdate(any(), any()), never());
+    }
+
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockClient).batchIngestProposals(eq(userContext), proposalsCaptor.capture(), eq(false));
+
+    Assert.assertEquals(
+        proposalsCaptor.getValue().stream().map(MetadataChangeProposal::getAspectName).toList(),
+        List.of(
+            Constants.DOCUMENT_INFO_ASPECT_NAME,
+            Constants.SUB_TYPES_ASPECT_NAME,
+            Constants.DOCUMENT_SETTINGS_ASPECT_NAME,
+            Constants.OWNERSHIP_ASPECT_NAME));
+    final MetadataChangeProposal ownershipProposal =
+        proposalsCaptor.getValue().stream()
+            .filter(proposal -> Constants.OWNERSHIP_ASPECT_NAME.equals(proposal.getAspectName()))
+            .findFirst()
+            .orElseThrow();
+    final Ownership ownership =
+        GenericRecordUtils.deserializeAspect(
+            ownershipProposal.getAspect().getValue(),
+            ownershipProposal.getAspect().getContentType(),
+            Ownership.class);
+    Assert.assertEquals(ownership.getOwners(), List.of(owner));
+  }
+
+  @Test
+  public void testCreateDocumentDeniesWithoutCreatePrivilege() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+    final DocumentService service = new DocumentService(mockClient);
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+
+    try (MockedStatic<DocumentAuthorizationUtils> authUtils =
+        mockStatic(DocumentAuthorizationUtils.class)) {
+      authUtils
+          .when(() -> DocumentAuthorizationUtils.assertCanCreate(eq(userContext), any(Urn.class)))
+          .thenThrow(new ServiceAuthorizationException("Unauthorized to create document"));
+
+      Assert.expectThrows(
+          ServiceAuthorizationException.class,
+          () ->
+              service.createDocument(
+                  userContext,
+                  "auth-create-denied",
+                  java.util.Collections.singletonList("tutorial"),
+                  "Denied Create",
+                  null,
+                  null,
+                  "content",
+                  null,
+                  null,
+                  null,
+                  null,
+                  TEST_USER_URN,
+                  SearchIndexMode.SYNC));
+
+      verify(mockClient, times(0))
+          .batchIngestProposals(any(OperationContext.class), any(), eq(false));
+    }
+  }
+
+  @Test
+  public void testUpdateDocumentContentsAllowsWithUpdatePrivilege() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+
+    try (MockedStatic<DocumentAuthorizationUtils> authUtils =
+        mockStatic(DocumentAuthorizationUtils.class)) {
+      service.updateDocumentContents(
+          userContext,
+          TEST_DOCUMENT_URN,
+          "New content",
+          null,
+          null,
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
+
+      authUtils.verify(
+          () -> DocumentAuthorizationUtils.assertCanUpdate(eq(userContext), eq(TEST_DOCUMENT_URN)));
+      verify(mockClient, times(1))
+          .batchIngestProposals(eq(userContext), any(List.class), eq(false));
+    }
+  }
+
+  @Test
+  public void testUpdateDocumentContentsDeniesWithoutUpdatePrivilege() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+
+    try (MockedStatic<DocumentAuthorizationUtils> authUtils =
+        mockStatic(DocumentAuthorizationUtils.class)) {
+      authUtils
+          .when(
+              () ->
+                  DocumentAuthorizationUtils.assertCanUpdate(
+                      eq(userContext), eq(TEST_DOCUMENT_URN)))
+          .thenThrow(new ServiceAuthorizationException("Unauthorized to update document"));
+
+      Assert.expectThrows(
+          ServiceAuthorizationException.class,
+          () ->
+              service.updateDocumentContents(
+                  userContext,
+                  TEST_DOCUMENT_URN,
+                  "New content",
+                  null,
+                  null,
+                  TEST_USER_URN,
+                  SearchIndexMode.SYNC));
+
+      verify(mockClient, times(0))
+          .batchIngestProposals(any(OperationContext.class), any(), eq(false));
+    }
+  }
+
+  @Test
+  public void testDeleteDocumentAllowsWithDeletePrivilege() throws Exception {
+    final Urn child = UrnUtils.getUrn("urn:li:document:nested-child");
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    final DocumentService service = new DocumentService(mockClient);
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+
+    stubChildScroll(mockClient, Map.of(TEST_DOCUMENT_URN, List.of(List.of(child))));
+
+    try (MockedStatic<DocumentAuthorizationUtils> authUtils =
+        mockStatic(DocumentAuthorizationUtils.class)) {
+      service.deleteDocument(userContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
+
+      authUtils.verify(
+          () -> DocumentAuthorizationUtils.assertCanDelete(eq(userContext), eq(TEST_DOCUMENT_URN)));
+      authUtils.verify(
+          () -> DocumentAuthorizationUtils.assertCanDelete(eq(userContext), eq(child)), never());
+      Assert.assertEquals(
+          proposalUrns(captureDeleteProposals(mockClient, userContext)),
+          List.of(child, TEST_DOCUMENT_URN));
+    }
+  }
+
+  @Test
+  public void testDeleteDocumentDeniesWithoutDeletePrivilege() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final DocumentService service = new DocumentService(mockClient);
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+
+    try (MockedStatic<DocumentAuthorizationUtils> authUtils =
+        mockStatic(DocumentAuthorizationUtils.class)) {
+      authUtils
+          .when(
+              () ->
+                  DocumentAuthorizationUtils.assertCanDelete(
+                      eq(userContext), eq(TEST_DOCUMENT_URN)))
+          .thenThrow(new ServiceAuthorizationException("Unauthorized to delete document"));
+
+      Assert.expectThrows(
+          ServiceAuthorizationException.class,
+          () -> service.deleteDocument(userContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC));
+
+      verify(mockClient, never()).exists(any(OperationContext.class), any(Urn.class));
+      verify(mockClient, never())
+          .ingestProposal(
+              any(OperationContext.class), any(MetadataChangeProposal.class), eq(false));
+      verify(mockClient, never()).batchIngestProposals(any(), any(), anyBoolean());
+    }
+  }
+
+  // SYNC and ASYNC must apply uniformly to every proposal a mutation emits. Splitting one
+  // document's writes across the two index writers (GMS pre-process vs MAE consumer) lets a
+  // stale create-time search document overwrite later updates (e.g. relatedAssets, status).
+  @Test
+  public void testSyncIndexModeStampsAllProposals() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.createDocument(
+        opContext,
+        "sync-mode-document",
+        List.of("tutorial"),
+        "Title",
+        null,
+        null,
+        "Content",
+        null,
+        null,
+        null,
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
+
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockClient).batchIngestProposals(eq(opContext), proposalsCaptor.capture(), eq(false));
+    for (MetadataChangeProposal proposal : proposalsCaptor.getValue()) {
+      Assert.assertNotNull(
+          proposal.getSystemMetadata(), proposal.getAspectName() + " missing system metadata");
+      Assert.assertEquals(
+          proposal.getSystemMetadata().getProperties().get(Constants.APP_SOURCE),
+          Constants.UI_SOURCE,
+          proposal.getAspectName() + " not marked for synchronous index update");
+    }
+  }
+
+  @Test
+  public void testSyncIndexModeStampsUpdateProposals() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.updateDocumentStatus(
+        opContext,
+        TEST_DOCUMENT_URN,
+        com.linkedin.knowledge.DocumentState.PUBLISHED,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
+    service.updateDocumentRelatedEntities(
+        opContext,
+        TEST_DOCUMENT_URN,
+        List.of(TEST_ASSET_URN),
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
+
+    final ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockClient, times(2)).ingestProposal(eq(opContext), proposalCaptor.capture(), eq(false));
+    for (MetadataChangeProposal proposal : proposalCaptor.getAllValues()) {
+      Assert.assertNotNull(proposal.getSystemMetadata());
+      Assert.assertEquals(
+          proposal.getSystemMetadata().getProperties().get(Constants.APP_SOURCE),
+          Constants.UI_SOURCE);
+    }
+  }
+
+  @Test
+  public void testAsyncIndexModeLeavesProposalsUnstamped() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.updateDocumentStatus(
+        opContext,
+        TEST_DOCUMENT_URN,
+        com.linkedin.knowledge.DocumentState.PUBLISHED,
+        TEST_USER_URN,
+        SearchIndexMode.ASYNC);
+
+    final ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockClient).ingestProposal(eq(opContext), proposalCaptor.capture(), eq(false));
+    final MetadataChangeProposal proposal = proposalCaptor.getValue();
+    Assert.assertTrue(
+        proposal.getSystemMetadata() == null
+            || proposal.getSystemMetadata().getProperties() == null
+            || !Constants.UI_SOURCE.equals(
+                proposal.getSystemMetadata().getProperties().get(Constants.APP_SOURCE)));
+  }
+
+  @Test
+  public void testDeleteDocumentRemovesNestedDocumentsRootLast() throws Exception {
+    final Urn child = UrnUtils.getUrn("urn:li:document:child");
+    final Urn grandchild = UrnUtils.getUrn("urn:li:document:grandchild");
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    stubChildScroll(
+        mockClient,
+        Map.of(
+            TEST_DOCUMENT_URN, List.of(List.of(child)),
+            child, List.of(List.of(grandchild))),
+        Map.of(
+            child,
+            new Status()
+                .setLifecycleStage(UrnUtils.getUrn("urn:li:lifecycleStageType:published"))
+                .setLifecycleLastUpdated(new AuditStamp().setTime(5L).setActor(TEST_USER_URN))));
+    final DocumentService service = new DocumentService(mockClient);
+
+    final DocumentDeleteResult deleted =
+        service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
+
+    final List<MetadataChangeProposal> proposals = captureDeleteProposals(mockClient, opContext);
+    final List<Urn> written = proposalUrns(proposals);
+    Assert.assertEquals(written, List.of(grandchild, child, TEST_DOCUMENT_URN));
+    Assert.assertEquals(deleted.urns(), written);
+    Assert.assertEquals(deleted.descendantCount(), 2);
+    final Status childStatus = statusOf(proposals.get(1));
+    Assert.assertTrue(childStatus.isRemoved());
+    Assert.assertEquals(
+        childStatus.getLifecycleStage(), UrnUtils.getUrn("urn:li:lifecycleStageType:published"));
+    Assert.assertEquals(childStatus.getLifecycleLastUpdated().getTime(), Long.valueOf(5L));
+  }
+
+  @Test
+  public void testDeleteDocumentFollowsScrollPages() throws Exception {
+    final Urn first = UrnUtils.getUrn("urn:li:document:page-1");
+    final Urn second = UrnUtils.getUrn("urn:li:document:page-2");
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    stubChildScroll(
+        mockClient, Map.of(TEST_DOCUMENT_URN, List.of(List.of(first), List.of(second))));
+    final DocumentService service = new DocumentService(mockClient);
+
+    final DocumentDeleteResult deleted =
+        service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
+
+    Assert.assertEquals(
+        proposalUrns(captureDeleteProposals(mockClient, opContext)),
+        List.of(first, second, TEST_DOCUMENT_URN));
+    Assert.assertEquals(deleted.descendantCount(), 2);
+  }
+
+  @Test
+  public void testDeleteDocumentScrollsSiblingsInOneCall() throws Exception {
+    final Urn childA = UrnUtils.getUrn("urn:li:document:child-a");
+    final Urn childB = UrnUtils.getUrn("urn:li:document:child-b");
+    final Urn grandA = UrnUtils.getUrn("urn:li:document:grand-a");
+    final Urn grandB = UrnUtils.getUrn("urn:li:document:grand-b");
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    stubChildScroll(
+        mockClient,
+        Map.of(
+            TEST_DOCUMENT_URN, List.of(List.of(childA, childB)),
+            childA, List.of(List.of(grandA)),
+            childB, List.of(List.of(grandB))));
+    final DocumentService service = new DocumentService(mockClient);
+
+    final DocumentDeleteResult deleted =
+        service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
+
+    Assert.assertEquals(
+        proposalUrns(captureDeleteProposals(mockClient, opContext)),
+        List.of(grandA, grandB, childA, childB, TEST_DOCUMENT_URN));
+    Assert.assertEquals(deleted.descendantCount(), 4);
+    final ArgumentCaptor<Filter> filters = ArgumentCaptor.forClass(Filter.class);
+    verify(mockClient, times(3))
+        .scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            filters.capture(),
+            nullable(String.class),
+            nullable(String.class),
+            nullable(List.class),
+            any(),
+            anyList());
+    Assert.assertEquals(
+        Set.copyOf(filters.getAllValues().get(1).getOr().get(0).getAnd().get(0).getValues()),
+        Set.of(childA.toString(), childB.toString()));
+  }
+
+  @Test
+  public void testDeleteDocumentDeletesChildStoredUnderAnotherParentInTheSameChunk()
+      throws Exception {
+    final Urn childA = UrnUtils.getUrn("urn:li:document:child-a");
+    final Urn childB = UrnUtils.getUrn("urn:li:document:child-b");
+    final Urn moved = UrnUtils.getUrn("urn:li:document:moved");
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    stubChildScroll(
+        mockClient,
+        Map.of(
+            TEST_DOCUMENT_URN, List.of(List.of(childA, childB)),
+            childA, List.of(List.of(moved))),
+        Map.of(),
+        Map.of(moved, childB));
+    final DocumentService service = new DocumentService(mockClient);
+
+    final DocumentDeleteResult deleted =
+        service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
+
+    Assert.assertEquals(
+        proposalUrns(captureDeleteProposals(mockClient, opContext)),
+        List.of(moved, childA, childB, TEST_DOCUMENT_URN));
+    Assert.assertEquals(deleted.descendantCount(), 3);
+  }
+
+  @Test
+  public void testDeleteDocumentWritesEachReachableDocumentOnce() throws Exception {
+    final Urn childA = UrnUtils.getUrn("urn:li:document:child-a");
+    final Urn childB = UrnUtils.getUrn("urn:li:document:child-b");
+    final Urn shared = UrnUtils.getUrn("urn:li:document:shared");
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    // childA points back at the root (cycle) and both children point at shared (diamond).
+    stubChildScroll(
+        mockClient,
+        Map.of(
+            TEST_DOCUMENT_URN, List.of(List.of(childA, childB)),
+            childA, List.of(List.of(shared, TEST_DOCUMENT_URN)),
+            childB, List.of(List.of(shared))));
+    final DocumentService service = new DocumentService(mockClient);
+
+    final DocumentDeleteResult deleted =
+        service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
+
+    final List<Urn> written = proposalUrns(captureDeleteProposals(mockClient, opContext));
+    Assert.assertEquals(written.size(), 4);
+    Assert.assertEquals(Set.copyOf(written).size(), 4);
+    Assert.assertEquals(written.get(written.size() - 1), TEST_DOCUMENT_URN);
+    Assert.assertEquals(written.get(0), shared);
+    Assert.assertEquals(deleted.descendantCount(), 3);
+  }
+
+  @Test
+  public void testDeleteDocumentRejectsDescendantPastCapWithoutWriting() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    final List<Urn> children = new ArrayList<>();
+    for (int i = 0; i < DocumentDeleteResult.MAX_DESCENDANTS + 1; i++) {
+      children.add(UrnUtils.getUrn("urn:li:document:child-" + i));
+    }
+    stubChildScroll(mockClient, Map.of(TEST_DOCUMENT_URN, List.of(children)));
+    final DocumentService service = new DocumentService(mockClient);
+
+    Assert.expectThrows(
+        DocumentDeleteLimitException.class,
+        () -> service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC));
+    verify(mockClient, never()).batchIngestProposals(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testDeleteDocumentStopsPagingOnceDescendantCapIsExceeded() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    final List<List<Urn>> pages = new ArrayList<>();
+    int childNumber = 0;
+    // One page past the cap, so a scroll that keeps going would request it.
+    for (int page = 0; page < 12; page++) {
+      final List<Urn> children = new ArrayList<>();
+      for (int i = 0; i < DocumentDeleteResult.SCROLL_PAGE_SIZE; i++) {
+        childNumber++;
+        children.add(UrnUtils.getUrn("urn:li:document:child-" + childNumber));
+      }
+      pages.add(children);
+    }
+    stubChildScroll(mockClient, Map.of(TEST_DOCUMENT_URN, pages));
+    final DocumentService service = new DocumentService(mockClient);
+
+    Assert.expectThrows(
+        DocumentDeleteLimitException.class,
+        () -> service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC));
+
+    // Ten full pages are the cap. The next page contains descendant 10,001 and is the last fetch.
+    verify(mockClient, times(11))
+        .scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            nullable(List.class),
+            any(),
+            anyList());
+    verify(mockClient, never()).batchIngestProposals(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testDeleteDocumentSkipsChildWhoseStoredParentDiffers() throws Exception {
+    final Urn child = UrnUtils.getUrn("urn:li:document:moved-child");
+    final Urn storedParent = UrnUtils.getUrn("urn:li:document:other-parent");
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    stubChildScroll(
+        mockClient,
+        Map.of(
+            TEST_DOCUMENT_URN, List.of(List.of(child)),
+            child, List.of(List.of(UrnUtils.getUrn("urn:li:document:grandchild")))));
+    when(mockClient.batchGetV2(
+            any(OperationContext.class),
+            anyString(),
+            anySet(),
+            nullable(Set.class),
+            nullable(Boolean.class)))
+        .thenReturn(Map.of(child, documentWithParent(child, storedParent)));
+    final DocumentService service = new DocumentService(mockClient);
+
+    final DocumentDeleteResult deleted =
+        service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
+
+    Assert.assertEquals(
+        proposalUrns(captureDeleteProposals(mockClient, opContext)), List.of(TEST_DOCUMENT_URN));
+    Assert.assertEquals(deleted.descendantCount(), 0);
+    verify(mockClient, times(1))
+        .scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            nullable(List.class),
+            any(),
+            anyList());
+  }
+
+  @Test
+  public void testDeleteDocumentRejectsDepthPastCapWithoutWriting() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    final Map<Urn, List<List<Urn>>> pages = new HashMap<>();
+    Urn parent = TEST_DOCUMENT_URN;
+    for (int depth = 1; depth <= DocumentDeleteResult.MAX_DEPTH + 1; depth++) {
+      final Urn child = UrnUtils.getUrn("urn:li:document:depth-" + depth);
+      pages.put(parent, List.of(List.of(child)));
+      parent = child;
+    }
+    stubChildScroll(mockClient, pages);
+    final DocumentService service = new DocumentService(mockClient);
+
+    Assert.expectThrows(
+        DocumentDeleteLimitException.class,
+        () -> service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC));
+    verify(mockClient, never()).batchIngestProposals(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testDeleteAlreadyRemovedRootRemovesLiveGrandchild() throws Exception {
+    final Urn child = UrnUtils.getUrn("urn:li:document:child");
+    final Urn grandchild = UrnUtils.getUrn("urn:li:document:grandchild");
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    stubChildScroll(
+        mockClient,
+        Map.of(
+            TEST_DOCUMENT_URN, List.of(List.of(child)),
+            child, List.of(List.of(grandchild))));
+    final DocumentService service = new DocumentService(mockClient);
+
+    final DocumentDeleteResult deleted =
+        service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
+
+    Assert.assertEquals(
+        proposalUrns(captureDeleteProposals(mockClient, opContext)),
+        List.of(grandchild, child, TEST_DOCUMENT_URN));
+    Assert.assertEquals(deleted.descendantCount(), 2);
+  }
+
+  @Test
+  public void testDeleteDocumentScrollIncludesDraftAndNonGlobalChildren() throws Exception {
+    final Urn child = UrnUtils.getUrn("urn:li:document:draft-child");
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    stubChildScroll(mockClient, Map.of(TEST_DOCUMENT_URN, List.of(List.of(child))));
+    final DocumentService service = new DocumentService(mockClient);
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+
+    try (MockedStatic<DocumentAuthorizationUtils> authUtils =
+        mockStatic(DocumentAuthorizationUtils.class)) {
+      service.deleteDocument(userContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
+    }
+
+    final ArgumentCaptor<OperationContext> scrollContext =
+        ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient, atLeastOnce())
+        .scrollAcrossEntities(
+            scrollContext.capture(),
+            eq(List.of(Constants.DOCUMENT_ENTITY_NAME)),
+            eq("*"),
+            any(Filter.class),
+            nullable(String.class),
+            eq(DocumentDeleteResult.SCROLL_KEEP_ALIVE),
+            nullable(List.class),
+            eq(DocumentDeleteResult.SCROLL_PAGE_SIZE),
+            eq(List.of()));
+    for (OperationContext captured : scrollContext.getAllValues()) {
+      Assert.assertTrue(captured.isSystemAuth());
+      assertLiveSubtreeFlags(captured);
+    }
+    Assert.assertEquals(
+        proposalUrns(captureDeleteProposals(mockClient, userContext)),
+        List.of(child, TEST_DOCUMENT_URN));
+    verify(mockClient, never())
+        .search(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            any(),
+            anyList(),
+            anyInt(),
+            anyInt());
+  }
+
+  @Test
+  public void testDeleteDocumentRejectsEmptyScrollPageWithScrollId() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            nullable(List.class),
+            any(),
+            anyList()))
+        .thenReturn(
+            new ScrollResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setPageSize(DocumentDeleteResult.SCROLL_PAGE_SIZE)
+                .setScrollId("more"));
+    final DocumentService service = new DocumentService(mockClient);
+
+    Assert.expectThrows(
+        IllegalStateException.class,
+        () -> service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC));
+    verify(mockClient, never()).batchIngestProposals(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testDeleteDocumentRejectsNullScrollPageWithoutWriting() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            nullable(List.class),
+            any(),
+            anyList()))
+        .thenReturn(null);
+    final DocumentService service = new DocumentService(mockClient);
+
+    Assert.expectThrows(
+        IllegalStateException.class,
+        () -> service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC));
+    verify(mockClient, never()).batchIngestProposals(any(), any(), anyBoolean());
+  }
+
+  private static void stubChildScroll(
+      SystemEntityClient mockClient, Map<Urn, List<List<Urn>>> pagesByParent) throws Exception {
+    stubChildScroll(mockClient, pagesByParent, Map.of());
+  }
+
+  private static void stubChildScroll(
+      SystemEntityClient mockClient,
+      Map<Urn, List<List<Urn>>> pagesByParent,
+      Map<Urn, Status> statusByUrn)
+      throws Exception {
+    stubChildScroll(mockClient, pagesByParent, statusByUrn, Map.of());
+  }
+
+  private static void stubChildScroll(
+      SystemEntityClient mockClient,
+      Map<Urn, List<List<Urn>>> pagesByParent,
+      Map<Urn, Status> statusByUrn,
+      Map<Urn, Urn> storedParentOverrides)
+      throws Exception {
+    final Map<Urn, Urn> storedParentByChild = new HashMap<>();
+    for (Map.Entry<Urn, List<List<Urn>>> entry : pagesByParent.entrySet()) {
+      for (List<Urn> page : entry.getValue()) {
+        for (Urn child : page) {
+          storedParentByChild.putIfAbsent(child, entry.getKey());
+        }
+      }
+    }
+    when(mockClient.batchGetV2(
+            any(OperationContext.class),
+            anyString(),
+            anySet(),
+            nullable(Set.class),
+            nullable(Boolean.class)))
+        .thenAnswer(
+            invocation -> {
+              final Set<?> aspects = invocation.getArgument(3);
+              final Set<Urn> urns = invocation.getArgument(2);
+              final boolean statusRead =
+                  aspects != null && aspects.contains(Constants.STATUS_ASPECT_NAME);
+              final Map<Urn, EntityResponse> stored = new HashMap<>();
+              for (Urn urn : urns) {
+                if (statusRead) {
+                  final Status status = statusByUrn.get(urn);
+                  if (status != null) {
+                    stored.put(urn, entityWithAspect(urn, Constants.STATUS_ASPECT_NAME, status));
+                  }
+                } else {
+                  final Urn override = storedParentOverrides.get(urn);
+                  final Urn parent = override != null ? override : storedParentByChild.get(urn);
+                  if (parent != null) {
+                    stored.put(urn, documentWithParent(urn, parent));
+                  }
+                }
+              }
+              return stored;
+            });
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            nullable(List.class),
+            any(),
+            anyList()))
+        .thenAnswer(
+            invocation -> {
+              final Filter filter = invocation.getArgument(3);
+              final String scrollId = invocation.getArgument(4);
+              final com.linkedin.metadata.query.filter.Criterion criterion =
+                  filter.getOr().get(0).getAnd().get(0);
+              Assert.assertEquals(criterion.getField(), "parentDocument");
+              Assert.assertEquals(criterion.getCondition(), Condition.EQUAL);
+              final List<String> parentValues = criterion.getValues();
+              final int pageIndex = scrollId == null ? 0 : Integer.parseInt(scrollId);
+              final List<Urn> page = new ArrayList<>();
+              boolean hasNext = false;
+              for (String parentValue : parentValues) {
+                final List<List<Urn>> parentPages =
+                    pagesByParent.getOrDefault(UrnUtils.getUrn(parentValue), List.of());
+                if (pageIndex < parentPages.size()) {
+                  page.addAll(parentPages.get(pageIndex));
+                }
+                if (pageIndex + 1 < parentPages.size()) {
+                  hasNext = true;
+                }
+              }
+              if (page.isEmpty()) {
+                return new ScrollResult()
+                    .setEntities(new SearchEntityArray())
+                    .setNumEntities(0)
+                    .setPageSize(DocumentDeleteResult.SCROLL_PAGE_SIZE);
+              }
+              final SearchEntityArray entities = new SearchEntityArray();
+              for (Urn child : page) {
+                entities.add(new SearchEntity().setEntity(child));
+              }
+              final ScrollResult result =
+                  new ScrollResult()
+                      .setEntities(entities)
+                      .setNumEntities(page.size())
+                      .setPageSize(DocumentDeleteResult.SCROLL_PAGE_SIZE);
+              if (hasNext) {
+                result.setScrollId(Integer.toString(pageIndex + 1));
+              }
+              return result;
+            });
+  }
+
+  private static EntityResponse documentWithParent(Urn urn, Urn parent) {
+    final DocumentInfo info = new DocumentInfo();
+    info.setContents(new DocumentContents().setText(""));
+    final AuditStamp stamp = new AuditStamp().setTime(0L).setActor(TEST_USER_URN);
+    info.setCreated(stamp);
+    info.setLastModified(stamp);
+    info.setStatus(new DocumentStatus().setState(DocumentState.PUBLISHED));
+    info.setParentDocument(new ParentDocument().setDocument(parent));
+    return entityWithAspect(urn, Constants.DOCUMENT_INFO_ASPECT_NAME, info);
+  }
+
+  private static EntityResponse entityWithAspect(
+      Urn urn, String aspectName, com.linkedin.data.template.RecordTemplate aspect) {
+    final EnvelopedAspect enveloped = new EnvelopedAspect();
+    enveloped.setValue(new com.linkedin.entity.Aspect(aspect.data()));
+    final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(aspectName, enveloped);
+    final EntityResponse response = new EntityResponse();
+    response.setUrn(urn);
+    response.setAspects(aspects);
+    return response;
+  }
+
+  private static Status statusOf(MetadataChangeProposal proposal) throws Exception {
+    return GenericRecordUtils.deserializeAspect(
+        proposal.getAspect().getValue(), proposal.getAspect().getContentType(), Status.class);
+  }
+
+  private static List<MetadataChangeProposal> captureDeleteProposals(
+      SystemEntityClient mockClient, OperationContext writeContext) throws Exception {
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> captor = ArgumentCaptor.forClass(List.class);
+    verify(mockClient).batchIngestProposals(eq(writeContext), captor.capture(), eq(false));
+    verify(mockClient, never())
+        .ingestProposal(any(), any(MetadataChangeProposal.class), anyBoolean());
+    for (MetadataChangeProposal proposal : captor.getValue()) {
+      assertRemoved(proposal);
+    }
+    return captor.getValue();
+  }
+
+  private static List<Urn> proposalUrns(List<MetadataChangeProposal> proposals) {
+    return proposals.stream()
+        .map(MetadataChangeProposal::getEntityUrn)
+        .collect(Collectors.toList());
+  }
+
+  private static void assertRemoved(MetadataChangeProposal proposal) throws Exception {
+    final Status status =
+        GenericRecordUtils.deserializeAspect(
+            proposal.getAspect().getValue(), proposal.getAspect().getContentType(), Status.class);
+    Assert.assertTrue(status.isRemoved());
+    Assert.assertEquals(proposal.getAspectName(), Constants.STATUS_ASPECT_NAME);
+  }
+
+  private static void assertLiveSubtreeFlags(OperationContext scrollContext) {
+    final SearchFlags flags = scrollContext.getSearchContext().getSearchFlags();
+    Assert.assertFalse(flags.isIncludeSoftDeleted());
+    Assert.assertTrue(flags.isIncludeHiddenLifecycleStages());
+    Assert.assertFalse(flags.isRewriteQuery());
+    Assert.assertTrue(flags.isSkipCache());
+    Assert.assertTrue(flags.isSkipHighlighting());
+    Assert.assertTrue(flags.isSkipAggregates());
   }
 }

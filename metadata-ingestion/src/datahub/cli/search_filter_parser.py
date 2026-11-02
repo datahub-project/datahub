@@ -112,7 +112,6 @@ FILTER SYNTAX (SQL-like WHERE clause):
     - status: NOT_SOFT_DELETED, ALL, ONLY_SOFT_DELETED
     - deprecated: true or false (whether the entity is marked as deprecated)
     - hasActiveIncidents: true or false (whether the entity has active incidents)
-    - hasFailingAssertions: true or false (whether the entity has failing assertions)
     - columnCount: number of columns (from dataset profiling)
 
     IMPORTANT: Domain, container, tag, glossary_term, and owner filters require

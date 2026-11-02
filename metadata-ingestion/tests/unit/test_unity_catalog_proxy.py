@@ -74,6 +74,29 @@ class TestUnityCatalogProxy:
         assert len(result) == 0
         mock_execute.assert_called_once()
 
+    @pytest.mark.parametrize(
+        "method",
+        [
+            "get_catalog_table_lineage_via_system_tables",
+            "get_catalog_column_lineage_via_system_tables",
+        ],
+    )
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_lineage_queries_use_native_param_markers(
+        self, mock_execute, mock_proxy, method
+    ):
+        # databricks-sql-connector >= 3 binds parameters natively and rejects
+        # pyformat `%s` markers server-side with PARSE_SYNTAX_ERROR.
+        mock_execute.return_value = []
+
+        getattr(mock_proxy, method)("test_catalog")
+
+        query, params = mock_execute.call_args[0]
+        assert "%s" not in query
+        assert query.count("?") == len(params)
+
     @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
     )
@@ -108,6 +131,28 @@ class TestUnityCatalogProxy:
                 "source_table_full_name": "other_catalog.schema.source_table",
                 "source_path": None,
                 "source_type": "TABLE",
+                "target_table_full_name": "test_catalog.schema.target_table",
+                "target_type": "TABLE",
+                "last_updated": datetime(2023, 1, 1),
+            },
+            # Streaming table upstream
+            {
+                "entity_type": "TABLE",
+                "entity_id": "entity_2",
+                "source_table_full_name": "other_catalog.schema.source_streaming_table",
+                "source_path": None,
+                "source_type": "STREAMING_TABLE",
+                "target_table_full_name": "test_catalog.schema.target_table",
+                "target_type": "TABLE",
+                "last_updated": datetime(2023, 1, 1),
+            },
+            # Materialized view upstream
+            {
+                "entity_type": "TABLE",
+                "entity_id": "entity_3",
+                "source_table_full_name": "other_catalog.schema.source_materialized_view",
+                "source_path": None,
+                "source_type": "MATERIALIZED_VIEW",
                 "target_table_full_name": "test_catalog.schema.target_table",
                 "target_type": "TABLE",
                 "last_updated": datetime(2023, 1, 1),
@@ -158,13 +203,26 @@ class TestUnityCatalogProxy:
 
         # Check table upstream
         target_lineage = result["test_catalog.schema.target_table"]
-        assert len(target_lineage.upstreams) == 1
+        assert len(target_lineage.upstreams) == 3
         assert (
             target_lineage.upstreams[0].table_name
             == "other_catalog.schema.source_table"
         )
         assert target_lineage.upstreams[0].source_type == "TABLE"
 
+        # Check streaming table upstream
+        assert (
+            target_lineage.upstreams[1].table_name
+            == "other_catalog.schema.source_streaming_table"
+        )
+        assert target_lineage.upstreams[1].source_type == "STREAMING_TABLE"
+
+        # Check materialized view
+        assert (
+            target_lineage.upstreams[2].table_name
+            == "other_catalog.schema.source_materialized_view"
+        )
+        assert target_lineage.upstreams[2].source_type == "MATERIALIZED_VIEW"
         # Check external upstream
         external_lineage = result["test_catalog.schema.external_target"]
         assert len(external_lineage.external_upstreams) == 1

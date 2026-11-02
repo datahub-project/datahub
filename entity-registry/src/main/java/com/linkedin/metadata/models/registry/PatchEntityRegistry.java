@@ -16,6 +16,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.EventSpecBuilder;
+import com.linkedin.metadata.models.annotation.SearchableAnnotationValidator;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.config.Event;
@@ -251,6 +252,7 @@ public class PatchEntityRegistry implements EntityRegistry {
         eventNameToSpec.put(event.getName().toLowerCase(), eventSpec);
       }
     }
+    SearchableAnnotationValidator.validateSharedLabels(entityNameToSpec.values());
     _aspectNameToSpec = populateAspectMap(new ArrayList<>(entityNameToSpec.values()));
   }
 

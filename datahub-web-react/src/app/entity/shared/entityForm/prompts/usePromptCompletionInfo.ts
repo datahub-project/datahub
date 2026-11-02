@@ -10,7 +10,7 @@ import {
     isFieldPromptComplete,
     isPromptComplete,
 } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
-import { getTimeFromNow } from '@app/shared/time/timeUtils';
+import { getTimeFromNow } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, FormPrompt, SchemaField } from '@types';

@@ -10,8 +10,7 @@ import org.springframework.context.annotation.Conditional;
 /**
  * Beans that consume or listen on Kafka metadata topics should be registered only when {@link
  * MessagingTransport#PROPERTY} is {@code kafka}. Non-Kafka transports use {@link
- * KafkaMessagingDisabled} for complementary beans (for example a no-op {@code
- * dataHubUpgradeKafkaListener}).
+ * KafkaMessagingDisabled} for complementary beans.
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)

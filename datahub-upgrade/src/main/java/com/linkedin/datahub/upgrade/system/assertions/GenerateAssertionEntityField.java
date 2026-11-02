@@ -33,6 +33,9 @@ public class GenerateAssertionEntityField implements NonBlockingSystemUpgrade {
               new GenerateAssertionEntityFieldStep(
                   opContext, entityService, aspectDao, batchSize, batchDelayMs, limit));
     } else {
+      log.info(
+          "{} is disabled (systemUpdate.assertionEntityField.enabled=false); no steps registered.",
+          id());
       _steps = ImmutableList.of();
     }
   }

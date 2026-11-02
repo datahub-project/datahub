@@ -1,4 +1,3 @@
-import { SearchOutlined } from '@ant-design/icons';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Input } from 'antd';
 import React from 'react';
@@ -52,7 +51,7 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?:
     }
 `;
 
-const SearchOutlinedStyle = styled(SearchOutlined)`
+const SearchOutlinedStyle = styled(MagnifyingGlass).attrs({ size: 14 })`
     color: ${(props) => props.theme.colors.icon};
 `;
 

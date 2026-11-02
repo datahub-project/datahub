@@ -4,13 +4,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.EntitySpec;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
 
 @AllArgsConstructor
-@EqualsAndHashCode
 public abstract class PluginSpec {
   protected static String WILDCARD = "*";
 
@@ -70,5 +69,26 @@ public abstract class PluginSpec {
                 supported ->
                     WILDCARD.equals(supported)
                         || supported.equalsIgnoreCase(String.valueOf(changeType)));
+  }
+
+  // Explicit equals and hash code using abstract fields due to lombok EqualsAndHashCode returning
+  // equal for
+  // invalid cases
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    PluginSpec that = (PluginSpec) o;
+    return Objects.equals(getConfig(), that.getConfig());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getClass(), getConfig());
   }
 }

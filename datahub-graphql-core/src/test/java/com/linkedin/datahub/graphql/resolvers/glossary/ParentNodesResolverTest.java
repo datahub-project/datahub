@@ -14,10 +14,12 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.ParentNodesResult;
+import com.linkedin.datahub.graphql.loaders.ParentNodesBatchLoader;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -47,7 +49,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderRegistry;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -148,6 +153,57 @@ public class ParentNodesResolverTest {
 
     ParentNodesResolver resolver = new ParentNodesResolver(mockClient);
     assertThrows(ExecutionException.class, () -> resolver.get(mockEnv(termUrn, true)).get());
+  }
+
+  /** With the flag on, resolution must go through the loader and not touch the client. */
+  @Test
+  public void testUsesBatchLoaderWhenEnabled() throws Exception {
+    Urn termUrn = Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
+    EntityClient mockClient = mock(EntityClient.class);
+    DataFetchingEnvironment env = mockEnv(termUrn, true);
+
+    FeatureFlags flags = new FeatureFlags();
+    flags.setParentNodesBatchLoadEnabled(true);
+
+    ParentNodesResult expected = new ParentNodesResult();
+    expected.setCount(0);
+    expected.setNodes(List.of());
+
+    DataLoader<Urn, ParentNodesResult> loader = mock(DataLoader.class);
+    when(loader.load(any(Urn.class))).thenReturn(CompletableFuture.completedFuture(expected));
+    DataLoaderRegistry registry = mock(DataLoaderRegistry.class);
+    org.mockito.Mockito.doReturn(loader)
+        .when(registry)
+        .getDataLoader(ParentNodesBatchLoader.LOADER_NAME);
+    when(env.getDataLoaderRegistry()).thenReturn(registry);
+
+    ParentNodesResult result = new ParentNodesResolver(mockClient, flags).get(env).get();
+
+    assertEquals(result, expected);
+    org.mockito.Mockito.verify(loader, org.mockito.Mockito.times(1)).load(termUrn);
+    org.mockito.Mockito.verifyNoInteractions(mockClient);
+  }
+
+  /** With the flag off, behaviour must be exactly the pre-existing per-entity path. */
+  @Test
+  public void testUnbatchedWhenFlagDisabled() throws Exception {
+    Urn termUrn = Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
+    GlossaryNodeInfo parent1Info =
+        new GlossaryNodeInfo().setParentNode(PARENT_NODE_2).setDefinition("node parent 1");
+    GlossaryNodeInfo parent2Info = new GlossaryNodeInfo().setDefinition("node parent 2");
+
+    FeatureFlags flags = new FeatureFlags();
+    flags.setParentNodesBatchLoadEnabled(false);
+
+    DataFetchingEnvironment env = mockEnv(termUrn, true);
+    ParentNodesResult result =
+        new ParentNodesResolver(
+                mockEntityClient(PARENT_NODE_1, PARENT_NODE_2, parent1Info, parent2Info), flags)
+            .get(env)
+            .get();
+
+    assertEquals(result.getCount(), 2);
+    org.mockito.Mockito.verify(env, org.mockito.Mockito.never()).getDataLoaderRegistry();
   }
 
   private static DataFetchingEnvironment mockEnv(Urn sourceUrn, boolean term) {

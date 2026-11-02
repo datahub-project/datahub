@@ -6,7 +6,6 @@ import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Set;
@@ -24,7 +23,6 @@ public class CopyDocumentsToSemanticIndices implements BlockingSystemUpgrade {
 
   public CopyDocumentsToSemanticIndices(
       @Nonnull OperationContext opContext,
-      SearchClientShim<?> searchClient,
       EntityService<?> entityService,
       SemanticSearchConfiguration semanticSearchConfiguration,
       IndexConvention indexConvention,
@@ -44,8 +42,7 @@ public class CopyDocumentsToSemanticIndices implements BlockingSystemUpgrade {
     ImmutableList.Builder<UpgradeStep> builder = ImmutableList.builder();
     for (String entity : enabledEntities) {
       builder.add(
-          new CopyDocumentsToSemanticIndexStep(
-              opContext, entity, searchClient, entityService, indexConvention));
+          new CopyDocumentsToSemanticIndexStep(opContext, entity, entityService, indexConvention));
     }
     steps = builder.build();
   }

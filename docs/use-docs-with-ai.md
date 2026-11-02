@@ -1,6 +1,6 @@
 ---
 title: Use DataHub Docs with AI Tools
-sidebar_label: Use Docs with AI
+sidebar_label: Use Docs with AI Tools
 description: Connect DataHub documentation to Claude, Cursor, ChatGPT, and other AI assistants for accurate answers in your editor.
 ---
 

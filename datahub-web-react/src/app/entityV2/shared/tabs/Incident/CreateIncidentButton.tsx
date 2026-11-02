@@ -1,5 +1,5 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Dropdown, message } from 'antd';
+import { Dropdown, toast } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -27,7 +27,7 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
     const onCreateIncidentForEntity = ({ urn, platform, entityType }: Partial<EntityStagedForIncident>) => {
         if (!urn || !platform || !entityType) {
             console.error(`Params missing necessary data to author incidents:`, { urn, platform, entityType });
-            message.error(t('toast.platformLoadFailed'));
+            toast.error(t('toast.platformLoadFailed'));
             return;
         }
         if (!canEditIncidents) return;
@@ -70,7 +70,7 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
                         data-testid={getTestId()}
                         className="create-incident-button"
                     >
-                        <PlusOutlined /> {tc('create')}
+                        <Plus size={14} /> {tc('create')}
                     </CreateButton>
                 </Dropdown>
             ) : (
@@ -81,7 +81,7 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
                         data-testid={getTestId()}
                         className="create-incident-button"
                     >
-                        <PlusOutlined /> {tc('create')}
+                        <Plus size={14} /> {tc('create')}
                     </CreateButton>
                 </Tooltip>
             )}

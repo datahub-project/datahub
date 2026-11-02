@@ -1,9 +1,9 @@
-import { FolderFilled } from '@ant-design/icons';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import i18next from 'i18next';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { TagColor } from '@app/searchV2/filters/FilterOption';
@@ -30,6 +30,7 @@ import {
     ENTITY_TYPE_FIELDS,
     FIELD_GLOSSARY_TERMS_FILTER_NAME,
     FIELD_TAGS_FILTER_NAME,
+    FIELD_TO_LABEL,
     FILTER_DELIMITER,
     GLOSSARY_TERMS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
@@ -47,9 +48,9 @@ import {
     TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/searchV2/utils/constants';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
 import {
     DATE_TYPE_URN,
@@ -57,8 +58,8 @@ import {
     RICH_TEXT_TYPE_URN,
     STRING_TYPE_URN,
     URN_TYPE_URN,
-} from '@src/app/shared/constants';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+} from '@src/app/sharedV2/constants';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 import dayjs from '@utils/dayjs';
 
@@ -271,7 +272,7 @@ export function getFilterIconAndLabel(
         }
         label = filterEntity ? entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity) : filterValue;
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
-        icon = <FolderFilled style={{ fontSize: size }} />;
+        icon = <Folder size={size} weight="fill" />;
         label = getLastBrowseEntryFromFilterValue(filterValue);
     } else if (filterEntity) {
         const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
@@ -512,7 +513,10 @@ function getKnownFilterField(field: string): FilterField | undefined {
 
 export function getDynamicFilterField(field: string, availableFilters: FacetMetadata[]): FilterField {
     const associatedAvailableFilter = availableFilters?.find((availableFilter) => availableFilter.field === field);
-    const filterDisplayName = associatedAvailableFilter?.displayName;
+    // FIELD_TO_LABEL before the facet's displayName: the backend ships an English displayName
+    // (sometimes a PDL filterNameOverride) for fields we have a localized label for, and this
+    // displayName is what SearchFilter passes down as the primary filter chip's label.
+    const filterDisplayName = FIELD_TO_LABEL[field] ?? associatedAvailableFilter?.displayName;
     const filterAggregations = availableFilters?.find(
         (availableFilter) => availableFilter.field === field,
     )?.aggregations;
@@ -756,13 +760,16 @@ export function useElementDimensions(ref) {
 }
 
 export function useFilterDisplayName(filter: FacetMetadata | FilterField, predicateDisplayName?: string) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     if (filter.entity) {
         return entityRegistry.getDisplayName(filter.entity.type, filter.entity);
     }
 
-    return predicateDisplayName || filter.displayName || filter.field;
+    // FIELD_TO_LABEL before filter.displayName: raw FacetMetadata carries the backend's
+    // English displayName (or a PDL filterNameOverride), so surfaces that hand us a facet
+    // directly (the "More" filter menu) would otherwise never localize.
+    return predicateDisplayName || FIELD_TO_LABEL[filter.field] || filter.displayName || filter.field;
 }
 
 export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {

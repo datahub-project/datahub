@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.plugins;
 
 import static org.testng.Assert.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aliases.sideeffects.AliasesSideEffect;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
@@ -22,7 +23,9 @@ import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesVa
 import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
@@ -30,19 +33,26 @@ import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionV
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
-import org.mockito.Answers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-@SpringBootTest(classes = SpringStandardPluginConfiguration.class)
+@SpringBootTest(
+    classes = {
+      SpringStandardPluginConfiguration.class,
+      StandardPluginConfigurationTest.PluginTestBeans.class
+    })
 @TestPropertySource(
     properties = {
       "metadataChangeProposal.validation.ignoreUnknown=true",
@@ -53,12 +63,28 @@ import org.testng.annotations.Test;
     })
 public class StandardPluginConfigurationTest extends AbstractTestNGSpringContextTests {
 
+  @TestConfiguration
+  static class PluginTestBeans {
+    @Bean(name = "entityRegistry")
+    EntityRegistry entityRegistry() {
+      return TestOperationContexts.constructNewEntityRegistry();
+    }
+
+    @Bean
+    ConfigurationProvider configurationProvider() {
+      return PluginTestConfiguration.configurationProvider();
+    }
+  }
+
   @Autowired private ApplicationContext context;
 
-  @MockitoBean(answers = Answers.RETURNS_MOCKS)
-  private ConfigurationProvider configurationProvider;
+  @Autowired private ConfigurationProvider configurationProvider;
 
   @MockitoBean private StructuredPropertyMappingLookup structuredPropertyMappingLookup;
+
+  @MockitoBean private MeterRegistry meterRegistry;
+
+  @MockitoBean private ObjectMapper objectMapper;
 
   @BeforeClass
   private void setup() {
@@ -67,7 +93,8 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
         .thenReturn(
             StructuredPropertiesConfiguration.builder()
                 .dropMissingPropertyValuesWithWarning(true)
-                .keywordMaxLength(32766)
+                .dropOversizedKeywordValuesFromIndex(false)
+                .keywordMaxLength(ESUtils.KEYWORD_MAXLENGTH)
                 .build());
   }
 

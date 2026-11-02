@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.data_lake_common.path_spec import (
+    SUPPORTED_COMPRESSIONS,
     SUPPORTED_FILE_TYPES,
     FolderTraversalMethod,
     PathSpec,
@@ -257,16 +258,32 @@ def test_allowed_with_exclude_patterns() -> None:
 def test_allowed_with_file_extension_filter() -> None:
     """Test allowed method with file extension filtering."""
     path_spec = PathSpec(
-        include="s3://bucket/{table}/*.csv", file_types=["csv", "json"]
+        include="s3://bucket/{table}/*", file_types=["csv", "json", "jsonl"]
     )
 
-    assert path_spec.allowed("s3://bucket/table/file.csv") is True
-    # Test with different include pattern for json
-    path_spec_json = PathSpec(
-        include="s3://bucket/{table}/*.json", file_types=["csv", "json"]
+    assert path_spec.allowed("s3://bucket/table/file.csv")
+    assert path_spec.allowed("s3://bucket/table/file.json")
+    assert path_spec.allowed("s3://bucket/table/file.jsonl")
+    assert not path_spec.allowed("s3://bucket/table/file.htm")
+
+
+@pytest.mark.parametrize("compression", SUPPORTED_COMPRESSIONS)
+def test_allowed_with_compressed_file_extension_filter(compression: str) -> None:
+    path_spec = PathSpec(include="s3://bucket/{table}/*", file_types=["csv", "jsonl"])
+
+    assert path_spec.allowed(f"s3://bucket/table/file.csv.{compression}")
+    assert path_spec.allowed(f"s3://bucket/table/file.jsonl.{compression}")
+    assert not path_spec.allowed(f"s3://bucket/table/file.htm.{compression}")
+    assert not path_spec.allowed(f"s3://bucket/table/archive.{compression}")
+
+    compression_disabled_path_spec = PathSpec(
+        include="s3://bucket/{table}/*",
+        file_types=["csv"],
+        enable_compression=False,
     )
-    assert path_spec_json.allowed("s3://bucket/table/file.json") is True
-    assert path_spec.allowed("s3://bucket/table/file.parquet") is False
+    assert not compression_disabled_path_spec.allowed(
+        f"s3://bucket/table/file.csv.{compression}"
+    )
 
 
 def test_allowed_with_default_extension() -> None:
@@ -278,6 +295,40 @@ def test_allowed_with_default_extension() -> None:
     assert (
         path_spec.allowed("s3://bucket/table/file") is True
     )  # No extension, uses default
+    assert path_spec.allowed("s3://bucket/table/file.csv") is True
+    assert not path_spec.allowed("s3://bucket/table/file.json")
+
+    for compression in SUPPORTED_COMPRESSIONS:
+        assert path_spec.allowed(f"s3://bucket/table/file.{compression}")
+
+
+def test_allowed_with_default_extension_and_compression_disabled() -> None:
+    """default_extension must not admit compressed files when compression is off.
+
+    With ``enable_compression=False`` a ``.gz`` file cannot be decompressed to read
+    its inner format, so it must be skipped rather than parsed as the default type.
+    Ordinary unknown suffixes / no-extension files still fall back to the default.
+    """
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*",
+        file_types=["csv"],
+        default_extension="csv",
+        enable_compression=False,
+    )
+
+    # Compression suffix while compression is disabled: rejected despite the default.
+    for compression in SUPPORTED_COMPRESSIONS:
+        assert path_spec.allowed(f"s3://bucket/table/file.{compression}") is False, (
+            compression
+        )
+        assert (
+            path_spec.allowed(f"s3://bucket/table/file.json.{compression}") is False
+        ), compression
+
+    # Fallback still works for genuinely unknown / missing extensions.
+    assert path_spec.allowed("s3://bucket/table/file") is True
+    assert path_spec.allowed("s3://bucket/table/events.account.update-abc123") is True
+    # A recognised, wanted format is still admitted.
     assert path_spec.allowed("s3://bucket/table/file.csv") is True
 
 
@@ -649,6 +700,33 @@ def test_validate_path_spec_compression_extension() -> None:
     # The path should be allowed because .gz is a supported compression
     assert path_spec.include.endswith(".csv.gz")
     assert path_spec.enable_compression is True
+
+
+@pytest.mark.parametrize(
+    "path, enable_compression, allowed, extension",
+    [
+        ("s3://bucket/orders/data.csv.zip", True, True, ".csv"),
+        ("s3://bucket/orders/data.csv.zip", False, False, ""),
+        ("s3://bucket/orders/data.htm.zip", True, False, ""),
+        # Like a bare .gz, a bare archive needs default_extension.
+        ("s3://bucket/orders/archive.zip", True, False, ""),
+    ],
+)
+def test_zip_archive_selection(
+    path: str, enable_compression: bool, allowed: bool, extension: str
+) -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.zip", enable_compression=enable_compression
+    )
+    assert path_spec.allowed(path) is allowed
+    assert path_spec.resolve_format_extension(path) == extension
+
+
+def test_max_zip_entry_size_rejects_non_positive() -> None:
+    # A non-positive cap would silently skip every zip entry, so it must be
+    # rejected at config load rather than failing quietly at ingestion time.
+    with pytest.raises(ValidationError):
+        PathSpec(include="s3://bucket/{table}/*.csv.zip", max_zip_entry_size=0)
 
 
 # Tests for partition extraction

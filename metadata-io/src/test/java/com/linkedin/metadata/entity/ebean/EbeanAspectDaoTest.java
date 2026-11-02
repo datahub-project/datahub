@@ -391,12 +391,17 @@ public class EbeanAspectDaoTest {
   }
 
   private void insertAspect(String urn, String aspect, long version, String metadata) {
+    insertAspect(urn, aspect, version, metadata, System.currentTimeMillis());
+  }
+
+  private void insertAspect(
+      String urn, String aspect, long version, String metadata, long createdOnMs) {
     EbeanAspectV2 aspectRecord = new EbeanAspectV2();
     aspectRecord.setKey(new EbeanAspectV2.PrimaryKey(urn, aspect, version));
     aspectRecord.setMetadata(metadata);
     aspectRecord.setCreatedBy("urn:li:corpuser:tester");
     aspectRecord.setCreatedFor(null);
-    aspectRecord.setCreatedOn(new Timestamp(System.currentTimeMillis()));
+    aspectRecord.setCreatedOn(new Timestamp(createdOnMs));
     aspectRecord.setSystemMetadata(null);
     testDao.getServer().save(aspectRecord);
   }
@@ -424,6 +429,41 @@ public class EbeanAspectDaoTest {
     int count3 = testDao.countAspect(opContext, args3);
     assertEquals(
         count3, 2, "Should return count of aspects matching both URN pattern and aspect name");
+  }
+
+  @Test
+  public void testCountAspectWithPitEpochMsBounds() {
+    long nowMs = System.currentTimeMillis();
+    long oneHourAgoMs = nowMs - 3_600_000L;
+    long twoHoursAgoMs = nowMs - 7_200_000L;
+
+    insertAspect("urn:li:test:recent", "testAspect1", 0, "recent", nowMs);
+    insertAspect("urn:li:test:middle", "testAspect1", 0, "middle", oneHourAgoMs);
+    insertAspect("urn:li:test:old", "testAspect1", 0, "old", twoHoursAgoMs);
+
+    // Regression test: only gePitEpochMs set (lePitEpochMs left at its 0 default, as
+    // datahub-upgrade's RestoreIndices does) must not silently match zero rows.
+    var geOnlyArgs = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    geOnlyArgs.gePitEpochMs = oneHourAgoMs;
+    assertEquals(
+        testDao.countAspect(opContext, geOnlyArgs),
+        2,
+        "Only gePitEpochMs set: should match rows created at or after the lower bound");
+
+    var leOnlyArgs = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    leOnlyArgs.lePitEpochMs = oneHourAgoMs;
+    assertEquals(
+        testDao.countAspect(opContext, leOnlyArgs),
+        2,
+        "Only lePitEpochMs set: should match rows created at or before the upper bound");
+
+    var bothArgs = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    bothArgs.gePitEpochMs = oneHourAgoMs;
+    bothArgs.lePitEpochMs = oneHourAgoMs;
+    assertEquals(
+        testDao.countAspect(opContext, bothArgs),
+        1,
+        "Both bounds set: should match only rows created within the range");
   }
 
   @Test(dataProvider = "writabilityConfig")
@@ -487,6 +527,29 @@ public class EbeanAspectDaoTest {
       // When not writable, operation should return empty
       assertFalse(result.isPresent(), "Insert should return empty when not writable");
     }
+  }
+
+  /** Every version of every aspect counts, for the exact urn only, not one that starts with it. */
+  @Test
+  public void countUrnRowsCountsEveryVersionOfEveryAspect() {
+    final String urnA = "urn:li:corpuser:count_rows";
+    // Each lookalike would match urnA under a LIKE: "_" is a single-character wildcard, and a
+    // trailing "%" would match a longer urn.
+    final String underscoreLookalike = "urn:li:corpuser:countXrows";
+    final String prefixLookalike = "urn:li:corpuser:count_rows2";
+    insertAspect(urnA, "corpUserKey", 0, "key");
+    insertAspect(urnA, "status", 0, "v0");
+    insertAspect(urnA, "status", 1, "v1");
+    insertAspect(urnA, "status", 2, "v2");
+    for (final String lookalike : List.of(underscoreLookalike, prefixLookalike)) {
+      insertAspect(lookalike, "corpUserKey", 0, "key");
+      insertAspect(lookalike, "status", 0, "v0");
+    }
+
+    assertEquals(testDao.countUrnRows(opContext, urnA), 4);
+    assertEquals(testDao.countUrnRows(opContext, underscoreLookalike), 2);
+    assertEquals(testDao.countUrnRows(opContext, prefixLookalike), 2);
+    assertEquals(testDao.countUrnRows(opContext, "urn:li:corpuser:count_rows_none"), 0);
   }
 
   @Test(dataProvider = "writabilityConfig")
@@ -801,6 +864,54 @@ public class EbeanAspectDaoTest {
     assertFalse(
         sql.get(0).toLowerCase().contains("for update"),
         String.format("Expected no FOR UPDATE when optimisticLocking=true, got: %s", sql));
+  }
+
+  /**
+   * The delete's up-front check must hold until the transaction ends, so under optimistic locking
+   * {@code getLatestAspectsLocked} still takes the row locks; asserted on the lock flag the DAO
+   * hands the query builder, which is what decides whether FOR UPDATE is issued.
+   */
+  @Test
+  public void testGetLatestAspectsLockedTakesRowLocksEvenWhenOptimisticLockingOn() {
+    final EbeanAspectDao spyDao = spy(newOptimisticDao());
+
+    spyDao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          spyDao.getLatestAspectsLocked(
+              opContext, Map.of("urn:li:corpuser:testOptLockLocked", Set.of("status")));
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+
+    assertTrue(lockFlagHandedToQuery(spyDao), "expected row locks to be taken");
+  }
+
+  @Test
+  public void testGetLatestAspectsForUpdateStillDoesNotLockRowsWhenOptimisticLockingOn() {
+    final EbeanAspectDao spyDao = spy(newOptimisticDao());
+
+    spyDao.runInTransactionWithRetryUnlocked(
+        opContext,
+        (txContext) -> {
+          spyDao.getLatestAspects(
+              opContext, Map.of("urn:li:corpuser:testOptLockPlain", Set.of("status")), true);
+          return TransactionResult.commit("");
+        },
+        mock(AspectsBatch.class),
+        0);
+
+    assertFalse(lockFlagHandedToQuery(spyDao), "expected no row locks to be taken");
+  }
+
+  /** The {@code lockRows} flag of the one batch-get query the spied DAO ran. */
+  private static boolean lockFlagHandedToQuery(EbeanAspectDao spyDao) {
+    final ArgumentCaptor<Boolean> lockRows = ArgumentCaptor.forClass(Boolean.class);
+    verify(spyDao)
+        .batchGetSelectString(
+            any(), anyList(), anyInt(), anyInt(), lockRows.capture(), anyBoolean());
+    return lockRows.getValue();
   }
 
   @Test

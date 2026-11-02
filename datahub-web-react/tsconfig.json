@@ -25,7 +25,6 @@
             "@conf": ["./src/conf"],
             "@conf/*": ["./src/conf/*"],
             "@graphql/*": ["./src/graphql/*"],
-            "@graphql-mock/*": ["./src/graphql-mock/*"],
             "@images/*": ["./src/images/*"],
             "@providers/*": ["./src/providers/*"],
             "@utils/*": ["./src/utils/*"],
@@ -38,6 +37,7 @@
         "src",
         "src/conf/theme/styled-components.d.ts",
         "vite.config.ts",
+        "vite-plugins",
         ".eslintrc.js",
         "functions",
         "eslint-rules"

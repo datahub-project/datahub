@@ -2,7 +2,7 @@
 
 The connector extracts the following metadata:
 
-- **Cubes and views** as datasets, grouped under a container representing the deployment. The container links back to the deployment UI (derived from `api_url`, or set `deployment_url`).
+- **Cubes and views.** Cubes are ingested as datasets with subtype `Cube`. By default, views are ingested as datasets with subtype `Semantic Model` (the same subtype as dbt semantic-layer models). Set `emit_semantic_model_entities: true` to emit each view as a first-class `semanticModel` instead: included cubes become logical datasets (subtype `Semantic Model Dataset`) with lineage to the Cube datasets, and each view measure becomes a `metric` entity. The view dataset is not emitted in that mode, so re-ingest with stateful ingestion to drop previous view datasets. Requires a DataHub server that registers `semanticModel`/`metric` (Cloud >= 2.1.0, or OSS with `METRICS_ENABLED=true`). Cubes and views are grouped under a container representing the deployment. The container links back to the deployment UI (derived from `api_url`, or set `deployment_url`).
 - **Schema** — each measure and dimension becomes a schema field. Measures carry their aggregation type (e.g. `count`, `sum`) in the native data type; primary-key dimensions are flagged as part of the key. Fields are tagged `Measure` or `Dimension` — and `Temporal` for time dimensions (disable with `tag_measures_and_dimensions: false`).
 - **Descriptions and properties** — titles, descriptions, segment names, source file name, and any custom `meta` defined in the model.
 - **Structural metadata** — joins (with relationship), hierarchies (with levels), folders/nested folders (with members), and pre-aggregation names are captured as dataset custom properties (disable with `emit_member_details: false`).
@@ -15,9 +15,9 @@ The connector extracts the following metadata:
 
 Lineage is emitted when `include_lineage` is enabled (the default):
 
-- **View to cube** — views are linked to the cubes they are built on, including column-level lineage derived from each member's `aliasMember`.
+- **View to cube** — in dataset mode, views are linked to the cubes they are built on, including column-level lineage derived from each member's `aliasMember`. In semantic-model mode, that hop is `metric` → logical dataset → Cube dataset.
 - **Cube to warehouse** — on Cube Cloud with the Metadata API, table and column references are read directly. On Cube Core, table-level lineage is parsed from each cube's SQL definition when `parse_sql_for_lineage` and `warehouse_platform` are set. Column-level lineage on Cube Core is best-effort: since `/v1/meta` does not expose per-member SQL, members are matched by name against the upstream table's columns as found in DataHub (so the warehouse must be ingested first, and members whose name differs from the underlying column — e.g. aggregate measures — are not linked).
-- **Report and workbook to view** — on Cube Cloud, charts (reports) carry input lineage to the cubes/views in their query, and dashboards (workbooks) contain those charts, extending the chain to `warehouse → cube → view → chart → dashboard`.
+- **Report and workbook to view** — on Cube Cloud, charts (reports) carry input lineage to the cubes/views in their query, and dashboards (workbooks) contain those charts, extending the chain to `warehouse → cube → view → chart → dashboard`. When `emit_semantic_model_entities` is true, a report that queried a view points at that view's logical datasets instead of a view dataset.
 
 Disable column-level lineage with `include_column_lineage: false`.
 

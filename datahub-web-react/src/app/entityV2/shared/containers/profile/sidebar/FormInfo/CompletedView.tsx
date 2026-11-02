@@ -9,9 +9,9 @@ import {
     Content,
     FlexWrapper,
     StyledArrow,
+    StyledBookIcon,
     StyledButtonWrapper,
     StyledImgIcon,
-    StyledReadOutlined,
     Title,
     TitleWrapper,
 } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
@@ -39,7 +39,7 @@ export default function CompletedView({
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <CTAWrapper backgroundColor="transparent" borderColor={theme.colors.textSuccess}>
+        <CTAWrapper backgroundColor="transparent" borderColor={theme.colors.borderSuccess}>
             <FlexWrapper>
                 <Content>
                     <TitleWrapper
@@ -51,13 +51,13 @@ export default function CompletedView({
                             {showVerificationStyles ? (
                                 <StyledImgIcon src={ShieldCheck} addLineHeight />
                             ) : (
-                                <StyledReadOutlined color={theme.colors.textSuccess} addLineHeight />
+                                <StyledBookIcon color={theme.colors.iconSuccess} $addLineHeight />
                             )}
                             {showVerificationStyles
                                 ? t('sidebar.formInfo.verifiedTitle')
                                 : t('sidebar.formInfo.documentedTitle')}
                         </Title>
-                        {isUserAssigned && <StyledArrow isOpen={isOpen} />}
+                        {isUserAssigned && <StyledArrow $isOpen={isOpen} />}
                     </TitleWrapper>
                     {isUserAssigned && isOpen && (
                         <>
