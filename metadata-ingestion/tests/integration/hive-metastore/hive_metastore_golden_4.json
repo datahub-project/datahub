@@ -1835,14 +1835,46 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=struct].[type=null].service",
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service",
                     "nullable": true,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "record"
+                                ]
+                            }
                         }
                     },
                     "nativeDataType": "array(row(\"type\" varchar,\"provider\" array(integer)))",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=string].type",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "int"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<int>",
                     "recursive": false,
                     "isPartOfKey": false
                 }
