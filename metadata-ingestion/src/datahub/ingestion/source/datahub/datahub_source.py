@@ -25,6 +25,7 @@ from datahub.ingestion.source.datahub.datahub_database_reader import (
     DataHubDatabaseReader,
 )
 from datahub.ingestion.source.datahub.datahub_kafka_reader import DataHubKafkaReader
+from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.ingestion.source.datahub.state import StatefulDataHubIngestionHandler
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -75,6 +76,14 @@ class DataHubSource(StatefulIngestionSourceBase):
                 message=warning_msg, context="urn_pattern_override", log=False
             )
 
+        self.quarantine: Optional[QuarantineWriter] = None
+        if self.config.parse_error_log.enabled:
+            filename = (
+                self.config.parse_error_log.filename
+                or f"parse-errors-{ctx.run_id}.jsonl"
+            )
+            self.quarantine = QuarantineWriter(filename)
+
         self.stateful_ingestion_handler = StatefulDataHubIngestionHandler(self)
 
     @classmethod
@@ -84,6 +93,11 @@ class DataHubSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> SourceReport:
         return self.report
+
+    def close(self) -> None:
+        if self.quarantine is not None:
+            self.quarantine.close()
+        super().close()
 
     def get_allowed_workunit_processors(self):
         # Exactly replicate data from DataHub source — avoid processors that create/remove workunits
@@ -103,7 +117,10 @@ class DataHubSource(StatefulIngestionSourceBase):
 
         if self.config.database_connection is not None:
             database_reader = DataHubDatabaseReader(
-                self.config, self.config.database_connection, self.report
+                self.config,
+                self.config.database_connection,
+                self.report,
+                self.quarantine,
             )
 
             yield from self._get_database_workunits(
