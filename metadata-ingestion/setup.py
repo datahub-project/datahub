@@ -665,6 +665,11 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_sharing_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
+    "boomi": {
+        "requests<3.0.0",
+        # Safe parsing of Platform API component XML.
+        "defusedxml>=0.7.1,<0.8.0",
+    },
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "cockroachdb": sql_common
@@ -1244,6 +1249,7 @@ entry_points = {
         "bigid = datahub.ingestion.source.bigid.bigid_source:BigIDSource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
+        "boomi = datahub.ingestion.source.boomi.source:BoomiSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",

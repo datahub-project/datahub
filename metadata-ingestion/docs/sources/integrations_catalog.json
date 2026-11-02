@@ -41,6 +41,13 @@
       "Status Aspect"
     ]
   },
+  "boomi": {
+    "platform_type": "ETL/ELT",
+    "support_status": "Alpha",
+    "title": "Boomi",
+    "description": "Import folders, processes, deployments, and ownership from Boomi Integration.",
+    "img_path": "img/logos/platforms/boomi.svg"
+  },
   "business-glossary": {
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",

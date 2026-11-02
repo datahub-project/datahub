@@ -4,6 +4,7 @@ import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
 import bigidLogo from '@images/bigidlogo.png';
 import bigqueryLogo from '@images/bigquerylogo.png';
+import boomiLogo from '@images/boomilogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
 import cockroachdbLogo from '@images/cockroachdblogo.png';
@@ -240,6 +241,8 @@ const INFORMATICA = 'informatica';
 const INFORMATICA_URN = `urn:li:dataPlatform:${INFORMATICA}`;
 const MONTECARLO = 'montecarlo';
 const MONTECARLO_URN = `urn:li:dataPlatform:${MONTECARLO}`;
+const BOOMI = 'boomi';
+const BOOMI_URN = `urn:li:dataPlatform:${BOOMI}`;
 const SNAPLOGIC = 'snaplogic';
 const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
 const DLT = 'dlt';
@@ -331,6 +334,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [VERTEXAI_URN]: vertexAI,
     [INFORMATICA_URN]: informaticaLogo,
     [MONTECARLO_URN]: montecarloLogo,
+    [BOOMI_URN]: boomiLogo,
     [SNAPLOGIC_URN]: snaplogicLogo,
     [FABRIC_URN]: fabricLogo,
     [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,

@@ -1,0 +1,32 @@
+source:
+  type: boomi
+  config:
+    account_id: "mycompany-AB1CD2"
+    # Sent as BOOMI_TOKEN.<username>; do not add the prefix.
+    username: "svc-datahub@example.com"
+    api_token: "${BOOMI_API_TOKEN}"
+    # UK accounts: https://api.platform.gb.boomi.com
+    api_url: "https://api.boomi.com"
+
+    # Set when Branch and Merge is enabled on the account.
+    # branch_name: main
+
+    folder_pattern:
+      allow:
+        - "^MyCompany/Production(/.*)?$"
+    process_pattern:
+      deny:
+        - ".*[Tt]est.*"
+    environment_pattern:
+      allow:
+        - ".*"
+
+    include_undeployed_processes: false
+    extract_owners: true
+    max_requests_per_second: 8
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  # sink configs

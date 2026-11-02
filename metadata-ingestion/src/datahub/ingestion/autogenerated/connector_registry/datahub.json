@@ -415,6 +415,44 @@
       "platform_name": "BigQuery",
       "support_status": "GA"
     },
+    "boomi": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Folders as containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "From process createdBy and modifiedBy",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.boomi.source.BoomiSource",
+      "platform_id": "boomi",
+      "platform_name": "Boomi",
+      "support_status": "ALPHA"
+    },
     "cassandra": {
       "capabilities": [
         {

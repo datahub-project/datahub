@@ -5,6 +5,7 @@ import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
 import bigidLogo from '@images/bigidlogo.png';
 import bigqueryLogo from '@images/bigquerylogo.png';
+import boomiLogo from '@images/boomilogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
 import cockroachdbLogo from '@images/cockroachdblogo.png';
@@ -143,6 +144,8 @@ const MONGO_DB = 'mongodb';
 const MONGO_DB_URN = `urn:li:dataPlatform:${MONGO_DB}`;
 export const MONTECARLO = 'montecarlo';
 export const MONTECARLO_URN = `urn:li:dataPlatform:${MONTECARLO}`;
+export const BOOMI = 'boomi';
+export const BOOMI_URN = `urn:li:dataPlatform:${BOOMI}`;
 const MSSQL = 'mssql';
 const MSSQL_URN = `urn:li:dataPlatform:${MSSQL}`;
 export const MYSQL = 'mysql';
@@ -274,6 +277,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
     [MONTECARLO_URN]: montecarloLogo,
+    [BOOMI_URN]: boomiLogo,
     [MSSQL_URN]: mssqlLogo,
     [MYSQL_URN]: mysqlLogo,
     [NOTION_URN]: notionLogo,
