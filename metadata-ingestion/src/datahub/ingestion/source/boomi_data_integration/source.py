@@ -490,13 +490,11 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
         )
         yield flow
         for spec in jobs:
-            yield DataJob(
-                name=spec.name,
-                flow=flow,
-                display_name=spec.display_name,
-                subtype=spec.subtype,
-                custom_properties=spec.custom_properties,
-                extra_aspects=[
+            # An empty input/output aspect would overwrite lineage added in the
+            # UI or by other sources, so it is only written when there is some.
+            io_aspects: List[DataJobInputOutputClass] = []
+            if spec.outputs or spec.upstream_jobs:
+                io_aspects.append(
                     DataJobInputOutputClass(
                         inputDatasets=[],
                         outputDatasets=spec.outputs,
@@ -505,7 +503,14 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                             for step_id in spec.upstream_jobs
                         ],
                     )
-                ],
+                )
+            yield DataJob(
+                name=spec.name,
+                flow=flow,
+                display_name=spec.display_name,
+                subtype=spec.subtype,
+                custom_properties=spec.custom_properties,
+                extra_aspects=io_aspects,
             )
 
     def _job_specs(

@@ -982,24 +982,6 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),97e1c551d9a9456a9932712efc968c7d)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
@@ -2195,24 +2177,6 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),735f9f564b8640819f8a31cf0f2990e2)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -2576,24 +2540,6 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:boomi-data-integration"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": []
         }
     },
     "systemMetadata": {
@@ -3404,24 +3350,6 @@
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:databricks,main.gold.region_totals,PROD)"
             ],
-            "inputDatajobs": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD),run)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
             "inputDatajobs": []
         }
     },

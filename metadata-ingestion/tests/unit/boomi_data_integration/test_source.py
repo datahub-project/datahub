@@ -193,8 +193,8 @@ def test_river_get_400_falls_back_to_list_fields() -> None:
         ("load", "Load"),
         ("run", "Run"),
     ]
-    io = jobs[0]._get_aspect(DataJobInputOutputClass)
-    assert io is not None and io.outputDatasets == []
+    # No lineage is known, so no input/output aspect overwrites existing lineage.
+    assert jobs[0]._get_aspect(DataJobInputOutputClass) is None
 
     report = source.get_report()
     assert report.rivers_without_definition == 2
