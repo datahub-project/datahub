@@ -6,7 +6,17 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Literal, Optional, Union
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Union,
+)
 
 import smart_open
 from pydantic import (
@@ -51,6 +61,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.elastic_search_common import ElasticsearchConnectionConfig
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
@@ -146,6 +157,68 @@ class ElasticsearchQuerySourceConfig(ConfigModel):
     )
 
 
+class SqlTableQueryFieldMappings(ConfigModel):
+    """Maps QueryEntry fields to columns of the query SELECT result."""
+
+    query: str = Field("query", description="Result column holding the SQL query text.")
+    timestamp: Optional[str] = Field(
+        None, description="Result column holding the query timestamp."
+    )
+    user: Optional[str] = Field(
+        None, description="Result column holding the executing user."
+    )
+    session_id: Optional[str] = Field(
+        None, description="Result column holding the session/connection id."
+    )
+    default_db: Optional[str] = Field(
+        None,
+        description="Result column holding the default database for unqualified table names.",
+    )
+    default_schema: Optional[str] = Field(
+        None,
+        description="Result column holding the default schema for unqualified table names.",
+    )
+
+
+class SqlTableQuerySourceConfig(ConfigModel):
+    type: Literal["sql_table"] = "sql_table"
+    connection: SQLAlchemyConnectionConfig = Field(
+        description="SQLAlchemy connection to the database holding the query records. "
+        "The `query` below is executed verbatim, so use a dedicated read-only account "
+        "scoped to just the audit table(s) — the database grants are the authorization "
+        "boundary, not this connector."
+    )
+    query: str = Field(
+        description="SQL SELECT returning one row per query record. Use it to pick the "
+        "audit table and columns, and ORDER BY the timestamp column so session "
+        "temp-table lineage resolves (the aggregator assumes ascending time order).",
+    )
+    field_mappings: SqlTableQueryFieldMappings = Field(
+        default_factory=SqlTableQueryFieldMappings,
+        description="Maps QueryEntry fields to result columns.",
+    )
+    unescape_sql: bool = Field(
+        False,
+        description="Unescape backslash-escaped quotes in the SQL text.",
+    )
+    email_domain: Optional[str] = Field(
+        None,
+        description="If set, bare user values are turned into CorpUser URNs by "
+        "appending '@' and this domain (e.g. a user value of 'alice' with "
+        "email_domain 'example.com' becomes alice@example.com).",
+    )
+    batch_size: int = Field(
+        1000, description="Rows fetched per round-trip via a server-side cursor."
+    )
+
+
+# Discriminated on `type` so new backends can be added without touching callers.
+QuerySourceConfig = Annotated[
+    Union[ElasticsearchQuerySourceConfig, SqlTableQuerySourceConfig],
+    Field(discriminator="type"),
+]
+
+
 class SqlQueriesSourceConfig(
     PlatformInstanceConfigMixin, EnvConfigMixin, IncrementalLineageConfigMixin
 ):
@@ -154,10 +227,10 @@ class SqlQueriesSourceConfig(
         description="Path to a newline-delimited JSON file of query records "
         "(local path or s3:// URI). Mutually exclusive with query_source.",
     )
-    query_source: Optional[ElasticsearchQuerySourceConfig] = Field(
+    query_source: Optional[QuerySourceConfig] = Field(
         None,
-        description="A non-file backend to read query records from. "
-        "Mutually exclusive with query_file.",
+        description="A non-file backend to read query records from (elasticsearch or "
+        "sql_table). Mutually exclusive with query_file.",
     )
 
     platform: str = Field(
@@ -387,6 +460,119 @@ class FileQueryLogReader(QueryLogReader):
             yield entry
 
 
+def _query_source_label(source: Optional["QuerySourceConfig"]) -> str:
+    if isinstance(source, ElasticsearchQuerySourceConfig):
+        return f"elasticsearch:{source.index}"
+    if isinstance(source, SqlTableQuerySourceConfig):
+        return "sql_table"
+    return "unknown"
+
+
+def _coerce_text(value: Any) -> Any:
+    """Decode bytes-valued columns to text, leaving other types untouched.
+
+    SQLAlchemy returns bytes for BLOB/VARBINARY columns, which is the usual type
+    for MySQL/MariaDB general_log / audit SQL text. A bare str() on bytes yields a
+    "b'...'" repr rather than the statement (and makes an empty b"" look non-empty),
+    so decode first; ES documents are already JSON text and pass through unchanged.
+    """
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value).decode("utf-8", errors="replace")
+    return value
+
+
+def _build_query_entry(
+    *,
+    raw_sql: Any,
+    timestamp: Any,
+    user: Any,
+    session_id: Any,
+    default_db: Any,
+    default_schema: Any,
+    unescape_sql: bool,
+    email_domain: Optional[str],
+    report: "SqlQueriesSourceReport",
+) -> Optional["QueryEntry"]:
+    """Map raw record values to a QueryEntry, or None when there is no SQL.
+
+    Shared by the dict-based readers (Elasticsearch documents, SQL table rows); the
+    file reader builds QueryEntry directly from parsed JSON.
+    """
+    raw_sql = _coerce_text(raw_sql)
+    user = _coerce_text(user)
+    session_id = _coerce_text(session_id)
+    default_db = _coerce_text(default_db)
+    default_schema = _coerce_text(default_schema)
+
+    if raw_sql is None or not str(raw_sql).strip():
+        return None
+
+    sql = str(raw_sql)
+    if unescape_sql:
+        # Audit logs often store SQL with escaped quotes; undo so it parses.
+        sql = sql.replace("\\'", "'").replace('\\"', '"')
+
+    # Blank/whitespace actors are dropped so a system row with no user doesn't
+    # become a domain-only "@<email_domain>" corp user.
+    user_str = str(user).strip() if user is not None else ""
+    if user_str and email_domain and "@" not in user_str:
+        user_str = f"{user_str}@{email_domain}"
+
+    # Validate via the model so QueryEntry's field validators run. No config
+    # context needed: query records carry no table-name hints.
+    return QueryEntry.model_validate(
+        {
+            "query": sql,
+            "timestamp": timestamp,
+            "user": user_str or None,
+            "session_id": str(session_id) if session_id is not None else None,
+            "default_db": default_db,
+            "default_schema": default_schema,
+        },
+        context={"report": report},
+    )
+
+
+def _tolerant_query_entries(
+    records: Iterable[Any],
+    to_entry: Callable[[Any], Optional["QueryEntry"]],
+    report: "SqlQueriesSourceReport",
+    context_of: Callable[[Any], Optional[str]],
+) -> Iterable["QueryEntry"]:
+    """Convert records to QueryEntry, skipping and counting malformed ones.
+
+    One malformed record must never abort the run, mirroring the file reader's
+    per-row tolerance.
+    """
+    for record in records:
+        try:
+            entry = to_entry(record)
+        except (MemoryError, SystemExit, KeyboardInterrupt):
+            raise
+        except Exception as e:
+            report.num_entries_failed += 1
+            report.warning(
+                title="Error processing query record",
+                message="Query record skipped due to parsing error",
+                context=context_of(record),
+                exc=e,
+                log=False,
+            )
+            if report.num_entries_failed % 1000 == 0:
+                # Warnings are sampled; without this the true volume of a
+                # systematically-malformed source never reaches the log.
+                logger.warning(
+                    f"{report.num_entries_failed} query records have failed to parse"
+                )
+            continue
+        if entry is None:
+            continue
+        report.num_entries_processed += 1
+        if report.num_entries_processed % 1000 == 0:
+            logger.info(f"Processed {report.num_entries_processed} query records")
+        yield entry
+
+
 class ElasticsearchQueryLogReader(QueryLogReader):
     """Reads query records from an Elasticsearch/OpenSearch index.
 
@@ -416,36 +602,16 @@ class ElasticsearchQueryLogReader(QueryLogReader):
 
     def _to_entry(self, source: Dict[str, Any]) -> Optional["QueryEntry"]:
         fm = self.config.field_mappings
-        raw_sql = self._get(source, fm.query)
-        if raw_sql is None or not str(raw_sql).strip():
-            return None
-
-        sql = str(raw_sql)
-        if self.config.unescape_sql:
-            # Audit logs often store SQL with escaped quotes; undo so it parses.
-            sql = sql.replace("\\'", "'").replace('\\"', '"')
-
-        user = self._get(source, fm.user)
-        # Treat blank/whitespace users as absent so a system/background row with no
-        # actor doesn't become a domain-only "@<email_domain>" corp user.
-        user = str(user).strip() if user is not None else ""
-        if user and self.config.email_domain and "@" not in user:
-            user = f"{user}@{self.config.email_domain}"
-        user = user or None
-
-        session_id = self._get(source, fm.session_id)
-        # Validate via the model so QueryEntry's field validators run. No config
-        # context needed: query records carry no table-name hints.
-        return QueryEntry.model_validate(
-            {
-                "query": sql,
-                "timestamp": self._get(source, fm.timestamp),
-                "user": user,
-                "session_id": str(session_id) if session_id is not None else None,
-                "default_db": self._get(source, fm.default_db),
-                "default_schema": self._get(source, fm.default_schema),
-            },
-            context={"report": self.report},
+        return _build_query_entry(
+            raw_sql=self._get(source, fm.query),
+            timestamp=self._get(source, fm.timestamp),
+            user=self._get(source, fm.user),
+            session_id=self._get(source, fm.session_id),
+            default_db=self._get(source, fm.default_db),
+            default_schema=self._get(source, fm.default_schema),
+            unescape_sql=self.config.unescape_sql,
+            email_domain=self.config.email_domain,
+            report=self.report,
         )
 
     def get_query_entries(self) -> Iterable["QueryEntry"]:
@@ -482,45 +648,84 @@ class ElasticsearchQueryLogReader(QueryLogReader):
         # (batch_size * matching shards, not batch_size); a page slower than
         # scroll_keepalive still fails. The upgrade path for very large/slow runs is
         # PIT + search_after, which is stateless per page.
-        for hit in scan(
+        hits = scan(
             client,
             index=self.config.index,
             query=query,
             size=self.config.batch_size,
             preserve_order=preserve_order,
             scroll=self.config.scroll_keepalive,
-        ):
-            source = hit.get("_source", {})
-            try:
-                entry = self._to_entry(source)
-            except (MemoryError, SystemExit, KeyboardInterrupt):
-                raise
-            except Exception as e:
-                # One malformed document must never abort the run; mirror the
-                # per-row tolerance of the file reader.
-                self.report.num_entries_failed += 1
-                self.report.warning(
-                    title="Error processing query record",
-                    message="Query record skipped due to parsing error",
-                    context=str(hit.get("_id")),
-                    exc=e,
-                    log=False,
+        )
+        yield from _tolerant_query_entries(
+            hits,
+            lambda hit: self._to_entry(hit.get("_source", {})),
+            self.report,
+            context_of=lambda hit: str(hit.get("_id")),
+        )
+
+
+class SqlTableQueryLogReader(QueryLogReader):
+    """Reads query records from a relational database via SQLAlchemy.
+
+    Rows with no SQL in the mapped query column are skipped, mirroring the file
+    and Elasticsearch readers.
+    """
+
+    def __init__(
+        self,
+        config: SqlTableQuerySourceConfig,
+        report: SqlQueriesSourceReport,
+    ) -> None:
+        self.config = config
+        self.report = report
+
+    def _to_entry(self, row: Dict[str, Any]) -> Optional["QueryEntry"]:
+        fm = self.config.field_mappings
+        return _build_query_entry(
+            raw_sql=row.get(fm.query),
+            timestamp=row.get(fm.timestamp) if fm.timestamp else None,
+            user=row.get(fm.user) if fm.user else None,
+            session_id=row.get(fm.session_id) if fm.session_id else None,
+            default_db=row.get(fm.default_db) if fm.default_db else None,
+            default_schema=row.get(fm.default_schema) if fm.default_schema else None,
+            unescape_sql=self.config.unescape_sql,
+            email_domain=self.config.email_domain,
+            report=self.report,
+        )
+
+    def get_query_entries(self) -> Iterable["QueryEntry"]:
+        try:
+            from sqlalchemy import create_engine, text
+        except ImportError as e:
+            raise ImportError(
+                "The SQL table query source requires sqlalchemy: "
+                "pip install 'acryl-datahub[sql-queries]'"
+            ) from e
+
+        engine = create_engine(
+            self.config.connection.get_sql_alchemy_url(),
+            **self.config.connection.options,
+        )
+        logger.info("Reading query records from SQL table source")
+        try:
+            with engine.connect() as conn:
+                # stream_results + yield_per keep a server-side cursor so a large
+                # audit table isn't buffered into memory at once.
+                result = conn.execution_options(stream_results=True).execute(
+                    text(self.config.query)
                 )
-                if self.report.num_entries_failed % 1000 == 0:
-                    # Warnings are sampled; without this the true volume of a
-                    # systematically-malformed index never reaches the log.
-                    logger.warning(
-                        f"{self.report.num_entries_failed} query records have failed to parse"
-                    )
-                continue
-            if entry is None:
-                continue
-            self.report.num_entries_processed += 1
-            if self.report.num_entries_processed % 1000 == 0:
-                logger.info(
-                    f"Processed {self.report.num_entries_processed} query records"
+                rows = (
+                    dict(mapping)
+                    for mapping in result.mappings().yield_per(self.config.batch_size)
                 )
-            yield entry
+                yield from _tolerant_query_entries(
+                    rows,
+                    self._to_entry,
+                    self.report,
+                    context_of=lambda _row: None,
+                )
+        finally:
+            engine.dispose()
 
 
 @platform_name("SQL Queries", id="sql-queries")
@@ -590,8 +795,11 @@ class SqlQueriesSource(Source):
         self.reader: QueryLogReader = self._create_reader()
 
     def _create_reader(self) -> QueryLogReader:
-        if self.config.query_source is not None:
-            return ElasticsearchQueryLogReader(self.config.query_source, self.report)
+        source = self.config.query_source
+        if isinstance(source, ElasticsearchQuerySourceConfig):
+            return ElasticsearchQueryLogReader(source, self.report)
+        if isinstance(source, SqlTableQuerySourceConfig):
+            return SqlTableQueryLogReader(source, self.report)
         return FileQueryLogReader(self.config, self.report)
 
     @classmethod
@@ -658,11 +866,7 @@ class SqlQueriesSource(Source):
                     title="Empty input",
                     message="No query entries found in input",
                     context=self.config.query_file
-                    or (
-                        f"elasticsearch:{self.config.query_source.index}"
-                        if self.config.query_source
-                        else "unknown"
-                    ),
+                    or _query_source_label(self.config.query_source),
                 )
             return
 
