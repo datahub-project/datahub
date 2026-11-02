@@ -42,6 +42,9 @@ SQL_ENDPOINT_ID = "6F2E7D8C-9B0A-4C1D-8E2F-3A4B5C6D7E8F"
 WAREHOUSE_ID = "9A8B7C6D-5E4F-4A3B-8C2D-1E0F9A8B7C6D"
 WAREHOUSE_MODEL_ID = "2B3C4D5E-6F7A-4B8C-9D0E-1F2A3B4C5D6E"
 REPORT_ID = "584cf13a-1485-41c2-a514-b1bb66fff163"
+# The default mock dashboard of the first workspace; its first tile is
+# re-pointed at the Loss Report so a report-backed tile exists in this mode.
+DASHBOARD_ID = "7D668CAD-7FFC-4505-9215-655BCA5BEBAE"
 # Second workspace of the default group listing; it hosts a composite model
 # whose remote tables read the first workspace's Insurance Model.
 SECOND_WORKSPACE_ID = "64ED5CAD-7C22-4684-8180-826122881108"
@@ -230,6 +233,27 @@ def workspace_apis_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
                         "datasetId": IMPORT_MODEL_ID,
                         "description": "Loss ratio by state",
                     }
+                ]
+            },
+        },
+        f"{PBI}/groups/{WORKSPACE_ID}/dashboards/{DASHBOARD_ID}/tiles": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "id": "B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
+                        "title": "test_tile",
+                        "embedUrl": "https://localhost/tiles/embed/1",
+                        "datasetId": IMPORT_MODEL_ID,
+                        "reportId": REPORT_ID,
+                    },
+                    {
+                        "id": "23212598-23b5-4980-87cc-5fc0ecd84385",
+                        "title": "yearly_sales",
+                        "embedUrl": "https://localhost/tiles/embed/2",
+                        "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
+                    },
                 ]
             },
         },
@@ -595,13 +619,33 @@ def test_workspace_apis_ingest_with_enrichment(
     assert report.report_definitions_parsed == 1
     # The page resolves six distinct fields (visuals, visual filters and the
     # report/page filter targets, deduplicated); the fixture's
-    # `NotInModel[Ghost]` does not.
+    # `NotInModel[Ghost]` names a table the model lacks.
     assert report.report_field_references_resolved == 6
     assert report.report_field_references_unresolved == 1
+    assert report.report_field_references_field_unresolved == 0
+    assert report.report_pages_inputs_fallback == 0
     # The visual charts resolve their own fields again (1 + 3 + 1 + 3) and
     # fail on `NotInModel[Ghost]` once more.
     assert report.report_visual_field_references_resolved == 8
     assert report.report_visual_field_references_unresolved == 1
+    assert report.report_visual_field_references_field_unresolved == 0
+    # The tile pinned from the Loss Report lists only the tables its page
+    # reads and links to the report.
+    tile_info = next(
+        mcp["aspect"]["json"]
+        for mcp in mcps
+        if mcp.get("aspectName") == "chartInfo"
+        and mcp["entityUrn"]
+        == "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)"
+    )
+    assert [i["string"] for i in tile_info["inputs"]] == [
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    ]
+    assert tile_info["externalUrl"] == (
+        f"https://app.powerbi.com/groups/{WORKSPACE_ID}/reports/{REPORT_ID}"
+    )
     # The warehouse model's refresh listing is empty but still fetched.
     assert report.refresh_history_fetched == 4
     # Only the fixture's `'Budget'[Amount]` points outside the model; it is
@@ -711,6 +755,7 @@ def test_workspace_apis_field_usage_without_visuals(
     assert isinstance(report, PowerBiDashboardSourceReport)
     assert report.report_field_references_resolved == 6
     assert report.report_field_references_unresolved == 1
+    assert report.report_field_references_field_unresolved == 0
     assert report.report_filters_parsed == 2
     assert report.report_filters_failed == 0
 

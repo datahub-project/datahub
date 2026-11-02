@@ -2080,8 +2080,10 @@
                 "createdFrom": "Report",
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "datasetWebUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
-                "reportId": "5b218778-e7a5-4d73-8187-f10824047715"
+                "reportId": "584cf13a-1485-41c2-a514-b1bb66fff163",
+                "reportWebUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163"
             },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163",
             "title": "test_tile",
             "description": "test_tile",
             "lastModified": {
@@ -2096,19 +2098,13 @@
             },
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
-                },
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
-                },
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Dataflow_Policies,DEV)"
-                },
-                {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
                 },
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
                 }
             ]
         }
@@ -2381,6 +2377,13 @@
                 "op": "add",
                 "path": "/dashboardUrl",
                 "value": "https://localhost/dashboards/web/1"
+            },
+            {
+                "op": "add",
+                "path": "/dashboards/urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+                "value": {
+                    "destinationUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)"
+                }
             },
             {
                 "op": "add",
