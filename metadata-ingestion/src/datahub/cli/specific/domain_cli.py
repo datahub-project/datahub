@@ -125,10 +125,13 @@ def get(urn: str, to_file: str) -> None:
     type=click.Path(exists=True),
     help="A YAML file describing the domain to delete",
 )
-@click.option("--hard/--soft", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
-def delete(urn: str, file: Path, hard: bool) -> None:
-    """Delete a Domain. Soft-delete by default; ``--hard`` removes references too."""
+def delete(urn: str, file: Path) -> None:
+    """Delete a Domain and remove references to it.
+
+    Always a hard delete: the domain entity has no ``status`` aspect, so it
+    cannot be soft-deleted.
+    """
     if not urn and not file:
         click.secho("Must provide either an urn or a file to delete a domain", fg="red")
         raise click.Abort()
@@ -140,9 +143,8 @@ def delete(urn: str, file: Path, hard: bool) -> None:
             domain_urn = loaded.urn
 
         _abort_if_non_existent_urn(graph, domain_urn, "delete")
-        if hard:
-            graph.delete_references_to_urn(domain_urn)
-        graph.delete_entity(domain_urn, hard=hard)
+        graph.delete_references_to_urn(domain_urn)
+        graph.delete_entity(domain_urn, hard=True)
         click.secho(f"Domain {domain_urn} deleted")
 
 

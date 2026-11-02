@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any, Dict, cast
 
@@ -7,11 +8,9 @@ from datahub.api.entities.domain.domain import Domain, Ownership
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
-    GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    TagAssociationClass,
 )
 from datahub.specific.domain import DomainPatchBuilder
 from tests.test_helpers.graph_helpers import MockDataHubGraph
@@ -87,15 +86,8 @@ def test_domain_from_yaml_emits_full_snapshot(
     assert owner_types["urn:li:corpuser:jdoe"] == OwnershipTypeClass.BUSINESS_OWNER
     assert owner_types["urn:li:corpuser:asmith"] == OwnershipTypeClass.TECHNICAL_OWNER
 
-    assert "globalTags" in emitted
-    assert [t.tag for t in emitted["globalTags"].tags] == ["urn:li:tag:gold-tier"]
-
-    assert "glossaryTerms" in emitted
-    assert [t.urn for t in emitted["glossaryTerms"].terms] == [
-        "urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance"
-    ]
-
-    assert "status" in emitted and emitted["status"].removed is False
+    # GMS rejects aspects the domain entity doesn't declare in entity-registry.yml.
+    assert set(emitted) <= {"domainProperties", "ownership", "institutionalMemory"}
 
 
 # ---------------------------------------------------------------------------
@@ -174,8 +166,6 @@ def test_domain_round_trip_from_datahub(
     assert reloaded.display_name == "Marketing"
     assert reloaded.description and "brand" in reloaded.description
     assert reloaded.parent_domain is None
-    assert reloaded.tags == ["urn:li:tag:gold-tier"]
-    assert reloaded.terms == ["urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance"]
 
 
 def test_domain_from_datahub_translates_custom_ownership_type() -> None:
@@ -193,10 +183,6 @@ def test_domain_from_datahub_translates_custom_ownership_type() -> None:
                         )
                     ]
                 ),
-                "globalTags": GlobalTagsClass(
-                    tags=[TagAssociationClass(tag="urn:li:tag:a")]
-                ),
-                "glossaryTerms": None,
             }
         }
     )
@@ -231,25 +217,36 @@ def test_generate_mcp_upsert_uses_patch_builder(test_resources_dir: Path) -> Non
     ]
 
 
+def test_generate_mcp_upsert_without_display_name_keeps_existing_name() -> None:
+    domain = Domain(id="urn:li:domain:marketing", description="New description")
+    ops = [
+        op
+        for mcp in domain.generate_mcp(upsert=True)
+        if mcp.aspectName == "domainProperties"
+        for op in _patch_ops(mcp)
+    ]
+    assert {"op": "add", "path": "/description", "value": "New description"} in ops
+    assert not any(op["path"] == "/name" for op in ops)
+
+
 # ---------------------------------------------------------------------------
 # DomainPatchBuilder
 # ---------------------------------------------------------------------------
 
 
+def _patch_ops(mcp: Any) -> list:
+    """PATCH MCPs carry the raw JSON-Patch array in ``aspect.value``."""
+    raw_bytes = mcp.aspect.value
+    text = raw_bytes.decode("utf-8") if isinstance(raw_bytes, bytes) else raw_bytes
+    return json.loads(text)
+
+
 def _patch_ops_for_aspect(builder: DomainPatchBuilder, aspect_name: str) -> list:
-    """Return all JSON-Patch ops targeting ``aspect_name``.
-
-    PATCH MCPs carry the raw JSON-Patch array in ``aspect.value``.
-    """
-    import json
-
+    """Return all JSON-Patch ops targeting ``aspect_name``."""
     ops: list = []
     for mcp in builder.build():
-        if mcp.aspectName != aspect_name or mcp.aspect is None:
-            continue
-        raw_bytes = mcp.aspect.value
-        text = raw_bytes.decode("utf-8") if isinstance(raw_bytes, bytes) else raw_bytes
-        ops.extend(json.loads(text))
+        if mcp.aspectName == aspect_name and mcp.aspect is not None:
+            ops.extend(_patch_ops(mcp))
     return ops
 
 
@@ -291,25 +288,6 @@ def test_patch_builder_supports_ownership_mixin() -> None:
     )
     ownership_mcps = [m for m in builder.build() if m.aspectName == "ownership"]
     assert ownership_mcps, "Expected ownership patch MCP from add_owner"
-
-
-def test_patch_builder_supports_tag_and_term_mixins() -> None:
-    """Pin that ``HasTagsPatch`` / ``HasTermsPatch`` stay wired on the
-    Domain builder. ``GlobalTagsTemplate`` / ``GlossaryTermsTemplate``
-    are registered as common templates on the backend, so these
-    patches apply against a real Domain instance.
-    """
-    builder = DomainPatchBuilder("urn:li:domain:x")
-    builder.add_tag(TagAssociationClass(tag="urn:li:tag:gold"))
-    tag_mcps = [m for m in builder.build() if m.aspectName == "globalTags"]
-    assert tag_mcps, "Expected globalTags patch MCP from add_tag"
-
-    builder = DomainPatchBuilder("urn:li:domain:x")
-    from datahub.metadata.schema_classes import GlossaryTermAssociationClass
-
-    builder.add_term(GlossaryTermAssociationClass(urn="urn:li:glossaryTerm:Revenue"))
-    term_mcps = [m for m in builder.build() if m.aspectName == "glossaryTerms"]
-    assert term_mcps, "Expected glossaryTerms patch MCP from add_term"
 
 
 # ---------------------------------------------------------------------------

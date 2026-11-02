@@ -13,9 +13,6 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DomainPropertiesClass,
-    GlobalTagsClass,
-    GlossaryTermAssociationClass,
-    GlossaryTermsClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     KafkaAuditHeaderClass,
@@ -23,9 +20,7 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    StatusClass,
     SystemMetadataClass,
-    TagAssociationClass,
 )
 from datahub.specific.domain import DomainPatchBuilder
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -65,8 +60,6 @@ class Domain(ConfigModel):
     description: Optional[str] = None
     parent_domain: Optional[str] = None
     owners: Optional[List[Union[str, Ownership]]] = None
-    tags: Optional[List[str]] = None
-    terms: Optional[List[str]] = None
     institutional_memory: Optional[InstitutionMemory] = None
     _resolved_parent_domain_urn: Optional[str] = None
     _original_yaml_dict: Optional[dict] = None
@@ -140,7 +133,10 @@ class Domain(ConfigModel):
 
         if upsert:
             patch = DomainPatchBuilder(self.urn)
-            patch.set_name(self.display_name or self.id)
+            # Only patch the name when the YAML sets one, so an upsert never
+            # renames an existing Domain to its raw id.
+            if self.display_name is not None:
+                patch.set_name(self.display_name)
             if self.description is not None:
                 patch.set_description(self.description)
             if self._resolved_parent_domain_urn is not None:
@@ -153,29 +149,6 @@ class Domain(ConfigModel):
                     name=self.display_name or self.id,
                     description=self.description,
                     parentDomain=self._resolved_parent_domain_urn,
-                ),
-            )
-
-        if self.tags:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=self.urn,
-                aspect=GlobalTagsClass(
-                    tags=[
-                        TagAssociationClass(tag=builder.make_tag_urn(tag))
-                        for tag in self.tags
-                    ]
-                ),
-            )
-
-        if self.terms:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=self.urn,
-                aspect=GlossaryTermsClass(
-                    terms=[
-                        GlossaryTermAssociationClass(urn=builder.make_term_urn(term))
-                        for term in self.terms
-                    ],
-                    auditStamp=self._mint_auditstamp("yaml"),
                 ),
             )
 
@@ -201,10 +174,6 @@ class Domain(ConfigModel):
                     ]
                 ),
             )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=self.urn, aspect=StatusClass(removed=False)
-        )
 
     def emit(
         self,
@@ -272,21 +241,12 @@ class Domain(ConfigModel):
                 else:
                     yaml_owners.append(Ownership(id=o.owner, type=str(o.type)))
 
-        glossary_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
-            id, GlossaryTermsClass
-        )
-        tags: Optional[GlobalTagsClass] = graph.get_aspect(id, GlobalTagsClass)
-
         return Domain(
             id=id,
             display_name=properties.name,
             description=properties.description,
             parent_domain=properties.parentDomain,
             owners=yaml_owners,
-            tags=[tag.tag for tag in tags.tags] if tags else None,
-            terms=(
-                [term.urn for term in glossary_terms.terms] if glossary_terms else None
-            ),
         )
 
     def to_yaml(self, file: Path) -> None:
