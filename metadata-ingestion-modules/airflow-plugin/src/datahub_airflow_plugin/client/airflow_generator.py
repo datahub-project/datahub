@@ -141,20 +141,8 @@ class AirflowGenerator:
     def _get_schedule(dag: "DagType") -> Optional[str]:
         """Return the DAG's timetable summary, as shown in the Airflow UI.
 
-        The DataFlow is emitted from both the DAG-run hooks (SerializedDAG, no
-        `schedule` attribute) and the task hooks (Task SDK DAG), so read the
-        timetable rather than `schedule` to get one value for both. Core
-        timetables expose `summary`; Task SDK timetables (split out in Airflow
-        3.2) don't, and are converted to core first. Mirrors the OpenLineage
-        provider's `DagInfo.timetable_summary`.
-
-        For an unscheduled DAG this intentionally returns the *literal string*
-        `"None"` (Airflow's `NullTimetable.summary`), not Python `None`, so the
-        emitted `schedule` property matches what the Airflow UI displays. Do not
-        "normalize" `"None"` to `None` -- that would drop the property for
-        unscheduled DAGs and diverge from the UI. Python `None` is returned only
-        when no summary could be determined at all (no timetable, or coercion
-        failed).
+        Task SDK timetables (Airflow 3.2+) have no `summary` and are coerced to
+        core first. `"None"` means unscheduled; Python `None` means unknown.
         """
         timetable = getattr(dag, "timetable", None)
         if timetable is None:
@@ -163,9 +151,8 @@ class AirflowGenerator:
         if summary is None:
             try:
                 from airflow.serialization.encoders import coerce_to_core_timetable
-            except (
-                ImportError
-            ):  # Airflow < 3.2: core timetables always expose `summary`
+            except ImportError:
+                # Airflow < 3.2: core timetables always expose `summary`.
                 return None
             try:
                 summary = coerce_to_core_timetable(timetable).summary
