@@ -121,6 +121,12 @@ class BoomiSourceConfig(
             raise ValueError(
                 f"api_url must be a base URL such as https://api.boomi.com, without a query or fragment, got {value!r}"
             )
+        # The client appends /api/rest/v1/<account_id>, so a full Platform API
+        # URL here would double the prefix.
+        if parsed.path not in ("", "/"):
+            raise ValueError(
+                f"api_url must be only the host, such as https://api.boomi.com, without a path, got {value!r}"
+            )
         # The token is sent as basic auth, so plain http is only allowed for
         # local test servers.
         if parsed.scheme == SCHEME_HTTP and parsed.hostname not in LOOPBACK_HOSTS:

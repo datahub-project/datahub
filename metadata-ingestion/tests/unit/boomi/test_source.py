@@ -356,6 +356,7 @@ def test_xml_failure_still_emits_process() -> None:
         "http://api.boomi.com",
         "https://api.boomi.com?region=us",
         "https://api.boomi.com#build",
+        "https://api.boomi.com/api/rest/v1/acct",
     ],
 )
 def test_config_rejects_invalid_api_url(api_url: str) -> None:
