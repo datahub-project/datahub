@@ -277,6 +277,8 @@ def map_field_edges(component: MapComponent) -> List[MapFieldEdge]:
 @dataclass
 class _ShapeDatasets:
     urns: List[str]
+    # Tables a writing statement reads, such as the SELECT of INSERT ... SELECT.
+    read_urns: List[str] = field(default_factory=list)
     sql: Optional[str] = None
     sql_result: Optional[SqlParsingResult] = None
 
@@ -294,6 +296,9 @@ class _FieldColumns:
     # Field URNs of one connector operation's profile fields, by field key.
     columns: Dict[str, List[str]] = field(default_factory=dict)
     skipped: Dict[str, ColumnSkipReason] = field(default_factory=dict)
+    # Skipped keys already counted, so a field shared by several map edges or
+    # connector pairs is reported once.
+    counted: Set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -421,7 +426,10 @@ class BoomiLineageResolver:
             else edges.outputs
         )
         destination.update(datasets.urns)
-        self.report.lineage_edges_resolved += len(datasets.urns)
+        edges.inputs.update(datasets.read_urns)
+        self.report.lineage_edges_resolved += len(datasets.urns) + len(
+            datasets.read_urns
+        )
         if shape.shape_name:
             edges.resolved[shape.shape_name] = _ResolvedShape(
                 sub_type=sub_type,
@@ -605,13 +613,15 @@ class BoomiLineageResolver:
                 exc=error,
             )
             return None
-        tables = (
-            result.in_tables
-            if direction == OperationDirection.READ
-            else result.out_tables
-        )
+        in_urns = {self._rebuild_urn(urn, target) for urn in result.in_tables}
+        if direction == OperationDirection.READ:
+            return _ShapeDatasets(urns=sorted(in_urns), sql=sql, sql_result=result)
+        out_urns = {self._rebuild_urn(urn, target) for urn in result.out_tables}
+        # The parser lists an UPDATE's own target as read too; that is not an
+        # input of the process.
         return _ShapeDatasets(
-            urns=sorted({self._rebuild_urn(urn, target) for urn in tables}),
+            urns=sorted(out_urns),
+            read_urns=sorted(in_urns - out_urns),
             sql=sql,
             sql_result=result,
         )
@@ -654,7 +664,7 @@ class BoomiLineageResolver:
             return
         insert = insert_columns(sql, target.platform)
         for info in written:
-            column: Optional[str] = info.downstream.column
+            column: Optional[str] = info.downstream.column or None
             if not insert.parsed:
                 column = None
             elif insert.is_insert:
@@ -665,7 +675,9 @@ class BoomiLineageResolver:
             if column is None or info.downstream.table is None:
                 self._skip_column(ColumnSkipReason.UNMAPPED_SQL_COLUMN)
                 continue
-            if not info.upstreams:
+            # sqlglot leaves the column empty when it cannot name the source.
+            refs = [ref for ref in info.upstreams if ref.column]
+            if not refs:
                 self._skip_column(ColumnSkipReason.NO_SOURCE_COLUMN)
                 continue
             downstream = self._field_urn(
@@ -674,22 +686,16 @@ class BoomiLineageResolver:
                 sub_type,
                 target,
             )
-            upstream_datasets = {
-                ref.table: self._rebuild_urn(ref.table, target)
-                for ref in info.upstreams
-            }
             upstreams = [
                 self._field_urn(
-                    upstream_datasets[ref.table], ref.column, sub_type, target
+                    self._rebuild_urn(ref.table, target), ref.column, sub_type, target
                 )
-                for ref in info.upstreams
+                for ref in refs
             ]
             resolved = [urn for urn in upstreams if urn is not None]
             if downstream is None or not resolved:
                 self._skip_column(ColumnSkipReason.NOT_IN_SCHEMA)
                 continue
-            # A statement that writes from a SELECT also reads its sources.
-            edges.inputs.update(upstream_datasets.values())
             transform = (
                 TRANSFORM_IDENTITY
                 if info.logic is not None and info.logic.is_direct_copy
@@ -751,21 +757,26 @@ class BoomiLineageResolver:
             return
         self.report.column_lineage_maps_resolved += 1
         field_edges = map_field_edges(component)
-        for source in sources:
-            for target in targets:
-                for field_edge in field_edges:
-                    downstream = self._columns_for(target, field_edge.to_key)
-                    if not downstream:
-                        continue
-                    upstreams = [
-                        urn
-                        for key in field_edge.from_keys
-                        for urn in self._columns_for(source, key)
-                    ]
-                    if upstreams:
-                        edges.add_column_edge(
-                            upstreams, downstream[0], field_edge.transform
-                        )
+        for field_edge in field_edges:
+            downstreams = [
+                columns[0]
+                for columns in (
+                    self._columns_for(target, field_edge.to_key) for target in targets
+                )
+                if columns
+            ]
+            if not downstreams:
+                continue
+            upstreams = [
+                urn
+                for source in sources
+                for key in field_edge.from_keys
+                for urn in self._columns_for(source, key)
+            ]
+            if not upstreams:
+                continue
+            for downstream in downstreams:
+                edges.add_column_edge(upstreams, downstream, field_edge.transform)
 
     def _neighbour_operations(
         self,
@@ -844,7 +855,11 @@ class BoomiLineageResolver:
                     profile.sql, write, profile, dataset_urn
                 )
             return self._direct_columns(write, profile, dataset_urn)
-        if write.sub_type == SUBTYPE_DATABASE_V2 and not write.operation.query:
+        if write.sub_type == SUBTYPE_DATABASE_V2:
+            if write.operation.query:
+                return self._insert_field_columns(
+                    write.operation.query, write, profile, dataset_urn
+                )
             return self._direct_columns(write, profile, dataset_urn)
         if write.sub_type == SUBTYPE_SALESFORCE:
             return self._direct_columns(write, profile, dataset_urn)
@@ -890,7 +905,7 @@ class BoomiLineageResolver:
         by_output: Dict[str, List[str]] = {}
         for info in result.column_lineage or []:
             by_output[info.downstream.column.lower()] = [
-                ref.column for ref in info.upstreams
+                ref.column for ref in info.upstreams if ref.column
             ]
         has_star = select_has_star(sql, target.platform)
         for key, profile_field in profile.fields.items():
@@ -956,7 +971,11 @@ class BoomiLineageResolver:
     def _columns_for(self, columns: _FieldColumns, key: str) -> List[str]:
         if key in columns.columns:
             return columns.columns[key]
-        self._skip_column(columns.skipped.get(key, ColumnSkipReason.UNKNOWN_FIELD_KEY))
+        if key not in columns.counted:
+            columns.counted.add(key)
+            self._skip_column(
+                columns.skipped.get(key, ColumnSkipReason.UNKNOWN_FIELD_KEY)
+            )
         return []
 
     def _field_urn(
@@ -965,6 +984,8 @@ class BoomiLineageResolver:
         # Columns follow the table name's casing; the Salesforce source keeps
         # field API names as they are.
         name = column.strip(_QUOTE_CHARS)
+        if not name:
+            return None
         if sub_type != SUBTYPE_SALESFORCE and target.convert_urns_to_lowercase:
             name = name.lower()
         schema = self._schema_fields(dataset_urn)

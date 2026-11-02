@@ -272,7 +272,7 @@ def dedupe_branch_copies(
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "From Map shapes and INSERT ... SELECT SQL. Enabled by default via include_column_lineage",
+    "From Map shapes and INSERT ... SELECT SQL. Enabled by default via include_column_lineage, and needs include_lineage",
 )
 @capability(SourceCapability.OWNERSHIP, "From process createdBy and modifiedBy")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")

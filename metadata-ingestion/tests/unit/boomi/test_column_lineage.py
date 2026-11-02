@@ -53,11 +53,16 @@ SF_MAP = "9dcb95d6-18ae-41b3-a92f-fa5284dafd5e"
 JSON_MAP = "ab447401-9c84-4848-b5cb-9da82e21008f"
 RNA_PROCESS = "7d88f56c-bf97-4760-ba61-170b6b0f6e8c"
 SF_PROCESS = "c7b70264-535d-423f-9f17-e80bc777dd17"
+V2_MYSQL_CONNECTION = "64f429a7-f94a-420d-a5d0-03385e9c3fc8"
+DB_V2 = "officialboomi-X3979C-dbv2da-prod"
 
 RNA_TABLE = (
     "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnc_database,PROD)"
 )
 MY_TABLE = "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.my_table,PROD)"
+V2_MY_TABLE = (
+    "urn:li:dataset:(urn:li:dataPlatform:mysql,homo_sapiens_core_116_38.my_table,PROD)"
+)
 SF_ACCOUNT = "urn:li:dataset:(urn:li:dataPlatform:salesforce,Account,PROD)"
 RNA_SQL = "SELECT id, descr, display_name FROM rnc_database ORDER BY id"
 
@@ -299,9 +304,43 @@ def test_database_read_sql_field_mapping(
     assert dict(report.column_lineage_fields_skipped) == skipped
 
 
-def test_json_source_without_dataset_is_skipped() -> None:
-    # An HTTP read has no dataset, so a map from its JSON profile has no
-    # source columns.
+def test_skipped_field_is_counted_once_across_connector_pairs() -> None:
+    # The map feeds two writes, so each source field pairs with both.
+    second_write = (
+        '<shape image="connectoraction_icon" name="shape6" '
+        'shapetype="connectoraction" userlabel="Insert my_table again" '
+        'x="723.0" y="148.0"><configuration><connectoraction actionType="Send" '
+        f'allowDynamicCredentials="NONE" connectionId="{POSTGRES_CONNECTION}" '
+        f'connectorType="database" hideSettings="false" operationId="{MY_TABLE_SEND}">'
+        "<parameters/><dynamicProperties/></connectoraction></configuration>"
+        "<dragpoints/></shape>"
+    )
+    components = _components(
+        **{
+            RNA_PROFILE: {RNA_SQL: "SELECT id, descr FROM rnc_database"},
+            RNA_PROCESS: {
+                "</shapes>": f"{second_write}</shapes>",
+                'toShape="shape4" x="707.0" y="56.0"/>': (
+                    'toShape="shape4" x="707.0" y="56.0"/>'
+                    '<dragpoint name="shape3.dragpoint2" toShape="shape6" '
+                    'x="707.0" y="156.0"/>'
+                ),
+            },
+        }
+    )
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    assert lineage.column_lineage == [
+        _edge([(RNA_TABLE, "id")], (MY_TABLE, "rna_db_id"), "IDENTITY"),
+        _edge([(RNA_TABLE, "descr")], (MY_TABLE, "rna_db_label"), "StringConcat"),
+    ]
+    assert dict(report.column_lineage_fields_skipped) == {"not_in_select": 1}
+
+
+def test_map_after_http_read_has_no_matching_read() -> None:
+    # An HTTP read resolves to no dataset, so the map finds no read to take
+    # source columns from and is skipped before its JSON profile is used.
     components = _components(
         **{
             RNA_PROCESS: {
@@ -420,6 +459,48 @@ def test_write_sql_fields_must_be_in_insert_column_list() -> None:
         _edge([(RNA_TABLE, "id")], (MY_TABLE, "rna_db_id"), "IDENTITY"),
     ]
     assert dict(report.column_lineage_fields_skipped) == {"not_in_insert_columns": 1}
+
+
+def test_db_v2_write_query_maps_fields_through_insert_columns() -> None:
+    # A Database V2 write with a query names its columns in the INSERT, as a
+    # legacy profile's SQL does.
+    v2_send = (
+        _xml(MY_TABLE_SEND)
+        .replace('subType="database"', f'subType="{DB_V2}"')
+        .replace(
+            f'<DatabaseSendAction batchCount="10" commitOption="commitrows" enableBatching="true"><WriteProfile profileId="{MY_TABLE_PROFILE}"/>\n        </DatabaseSendAction>',
+            '<GenericOperationConfig customOperationType="INSERT" objectTypeId="" '
+            f'operationType="EXECUTE" requestProfile="{MY_TABLE_PROFILE}" '
+            'requestProfileType="json" responseProfileType="json">'
+            '<field id="query" type="string" value="INSERT INTO my_table '
+            '(rna_db_label, rna_db_id) VALUES (?, ?)"/></GenericOperationConfig>',
+        )
+    )
+    assert "GenericOperationConfig" in v2_send
+    components = _components(
+        **{
+            RNA_PROCESS: {
+                f'actionType="Send" allowDynamicCredentials="NONE" connectionId="{POSTGRES_CONNECTION}" connectorType="database"': (
+                    f'actionType="Send" allowDynamicCredentials="NONE" connectionId="{V2_MYSQL_CONNECTION}" connectorType="{DB_V2}"'
+                ),
+            }
+        }
+    )
+    components[MY_TABLE_SEND] = v2_send
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    assert lineage.output_datasets == [V2_MY_TABLE]
+    assert lineage.column_lineage == [
+        _edge([(RNA_TABLE, "id")], (V2_MY_TABLE, "rna_db_id"), "IDENTITY"),
+        _edge(
+            [(RNA_TABLE, "descr"), (RNA_TABLE, "display_name")],
+            (V2_MY_TABLE, "rna_db_label"),
+            "StringConcat",
+        ),
+    ]
+    assert dict(report.column_lineage_maps_skipped) == {}
+    assert dict(report.column_lineage_fields_skipped) == {}
 
 
 @pytest.mark.parametrize("missing", [RNA_MAP, SF_PROFILE])

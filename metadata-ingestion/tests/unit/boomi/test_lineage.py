@@ -575,23 +575,37 @@ def test_legacy_database_sql_path() -> None:
     assert report.lineage_edges_resolved == 2
 
 
-def test_legacy_database_write_uses_sql_target_only() -> None:
-    # Without column lineage, a write's table lineage is its target only.
+@pytest.mark.parametrize("include_column_lineage", [True, False])
+@pytest.mark.parametrize(
+    "sql, inputs",
+    [
+        (
+            "INSERT INTO dbo.orders (id) SELECT id FROM dbo.staging_orders",
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.staging_orders,PROD)"
+            ],
+        ),
+        # The parser also lists an UPDATE's target as read.
+        ("UPDATE dbo.orders SET status = ? WHERE id = ?", []),
+    ],
+)
+def test_legacy_database_write_sql_reads_are_inputs(
+    sql: str, inputs: List[str], include_column_lineage: bool
+) -> None:
+    # Tables a write statement reads are inputs whether or not column lineage
+    # is on or any column resolves.
     resolver, _, _ = _resolver(
         {
             "conn-1": _legacy_connection(),
             "op-1": _db_operation("DatabaseSendAction", "prof-1"),
-            "prof-1": _db_profile(
-                "dbo.orders",
-                "INSERT INTO dbo.orders (id) SELECT id FROM dbo.staging_orders",
-            ),
+            "prof-1": _db_profile("dbo.orders", sql),
         },
-        include_column_lineage=False,
+        include_column_lineage=include_column_lineage,
     )
 
     lineage = resolver.resolve_process(_info(_shape("conn-1", "op-1", "Send")))
 
-    assert lineage.input_datasets == []
+    assert lineage.input_datasets == inputs
     assert lineage.output_datasets == [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.orders,PROD)"
     ]

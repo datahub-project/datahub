@@ -425,7 +425,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "From Map shapes and INSERT ... SELECT SQL. Enabled by default via include_column_lineage",
+          "description": "From Map shapes and INSERT ... SELECT SQL. Enabled by default via include_column_lineage, and needs include_lineage",
           "subtype_modifier": null,
           "supported": true
         },

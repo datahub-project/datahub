@@ -1,6 +1,6 @@
 ### Overview
 
-The `boomi` module ingests Boomi Integration processes and their folders through the Boomi Platform API. Each process becomes a DataFlow with a single `process` DataJob. The DataJob carries lineage to the tables and objects its connector operations read and write, column lineage through its Map shapes, and lineage to the processes it calls. Recent executions become run history on that DataJob. By default only processes with an active deployment are ingested.
+The `boomi` module ingests Boomi Integration processes and their folders through the Boomi Platform API. Each process becomes a DataFlow with a single `process` DataJob. The DataJob carries lineage to the tables and objects its connector operations read and write, column lineage through its Map shapes and `INSERT ... SELECT` statements, and lineage to the processes it calls. Recent executions become run history on that DataJob. By default only processes with an active deployment are ingested.
 
 ### Prerequisites
 
