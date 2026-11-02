@@ -69,32 +69,11 @@ KAFKA: Final[str] = "kafka"
 SOURCE: Final[str] = "source"
 SINK: Final[str] = "sink"
 CONNECTOR_CLASS: Final[str] = "connector.class"
-JDBC_PREFIX: Final[str] = "jdbc:"
 
 # The probe kind for a Kafka Connect connector (emitted as a DataFlow). No DataHub
 # subtype exists for it; declared once so the probe command and the Filters()
 # declaration on connector_patterns cannot drift apart.
 KAFKA_CONNECT_CONNECTOR_KIND: Final[str] = "Connector"
-
-# Regex patterns for non-standard JDBC URL formats (see normalize_jdbc_url)
-_ORACLE_THIN_RE: Final = re.compile(
-    r"^(?:jdbc:)?oracle:(?:thin|oci):@/?"
-    r"/?(?P<host>[^:/@\s]+)"
-    r":(?P<port>\d+)"
-    r"(?:[:/](?P<db>[^@?;\s]+))?"
-    r"(?:[;?].*)?$"
-)
-_SQLSERVER_RE: Final = re.compile(
-    r"^(?:jdbc:)?sqlserver://(?P<host>[^:;/\s]+)"
-    r"(?::(?P<port>\d+))?"
-    r"(?:;(?P<params>.*))?$"
-)
-_JTDS_RE: Final = re.compile(
-    r"^(?:jdbc:)?jtds:sqlserver://(?P<host>[^:/@\s]+)"
-    r"(?::(?P<port>\d+))?"
-    r"(?:/(?P<db>[^;?\s]+))?"
-    r"(?:[;?].*)?$"
-)
 
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
@@ -661,59 +640,6 @@ def unquote(
     if string.startswith(leading_quote) and string.endswith(trailing_quote):
         string = string[1:-1]
     return string
-
-
-def normalize_jdbc_url(url: str) -> str:
-    """Convert a JDBC URL to a form SQLAlchemy can parse.
-
-    Non-standard formats handled:
-    - Oracle thin/OCI (oracle:thin:@[//]host:port/service) → oracle://host:port/service
-    - SQL Server JDBC (sqlserver://host[:port][;databaseName=db;...]) → mssql://host:port/db
-    - jTDS SQL Server (jtds:sqlserver://host[:port][/db]) → mssql://host:port/db
-
-    All other URLs are returned unchanged after stripping a leading jdbc:.
-    """
-    m = _ORACLE_THIN_RE.match(url)
-    if m:
-        host = m.group("host")
-        port = m.group("port")
-        db = m.group("db") or ""
-        return f"oracle://{host}:{port}/{db}"
-
-    m = _SQLSERVER_RE.match(url)
-    if m:
-        host = m.group("host")
-        port = m.group("port") or "1433"
-        db = ""
-        params_str = m.group("params") or ""
-        for param in params_str.split(";"):
-            if "=" in param:
-                k, _, v = param.partition("=")
-                if k.strip().lower() == "databasename":
-                    db = v.strip()
-                    break
-        return f"mssql://{host}:{port}/{db}"
-
-    m = _JTDS_RE.match(url)
-    if m:
-        host = m.group("host")
-        port = m.group("port") or "1433"
-        db = m.group("db") or ""
-        return f"mssql://{host}:{port}/{db}"
-
-    return remove_prefix(url, JDBC_PREFIX)
-
-
-def validate_jdbc_url(url: str) -> bool:
-    """Return whether url is a JDBC URL format we can parse."""
-    if not url or not isinstance(url, str):
-        return False
-    if _ORACLE_THIN_RE.match(url) or _SQLSERVER_RE.match(url) or _JTDS_RE.match(url):
-        return True
-    if not url.startswith(JDBC_PREFIX):
-        return False
-    parts = url.split(":", 3)
-    return len(parts) >= 3  # jdbc:protocol:connection_details
 
 
 def parse_table_identifier(identifier: str) -> str:
