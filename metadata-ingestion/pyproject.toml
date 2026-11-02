@@ -9,7 +9,7 @@
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=83.0.0", "wheel"]
+requires = ["setuptools>=84.1.0", "wheel"]
 
 [project]
 name = "acryl-datahub"
@@ -26,6 +26,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
@@ -100,7 +101,7 @@ abs = [
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 abs-slim = [
@@ -114,7 +115,7 @@ abs-slim = [
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 aerospike = [
@@ -174,7 +175,7 @@ bigquery = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 bigquery-queries = [
@@ -190,7 +191,7 @@ bigquery-queries = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 bigquery-slim = [
@@ -201,13 +202,14 @@ bigquery-slim = [
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 cassandra = [
     "cachetools<6.0.0",
     "cassandra-driver>=3.30.1,<4.0.0",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
 ]
 
 circuit-breaker = []
@@ -387,7 +389,7 @@ delta-lake = [
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 dlt = [
@@ -453,7 +455,7 @@ excel = [
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 fabric-data-factory = [
@@ -475,7 +477,8 @@ feast = [
     "dask[dataframe]<2024.7.0",
     "feast>=0.47.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
     "starlette>=1.3.1,<2.0.0",
 ]
 
@@ -500,7 +503,7 @@ fivetran = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "tenacity>=8.0.1,<9.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 flink = [
@@ -524,7 +527,7 @@ gcs = [
     "smart-open[gcs,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 gcs-slim = [
@@ -538,7 +541,7 @@ gcs-slim = [
     "smart-open[gcs,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 github-documents = []
@@ -662,6 +665,10 @@ kinesis = [
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.84.0,<2.0.0",
     "networkx>=2.6.2,<4.0.0",
+]
+
+langfuse = [
+    "requests<3.0.0",
 ]
 
 ldap = [
@@ -920,7 +927,7 @@ redshift = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 redshift-slim = [
@@ -932,7 +939,7 @@ redshift-slim = [
     "sqlalchemy-redshift>=1.0.0,<2.0.0",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 s3 = [
@@ -946,7 +953,7 @@ s3 = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 s3-slim = [
@@ -960,7 +967,7 @@ s3-slim = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 sac = [
@@ -1004,12 +1011,14 @@ snowflake = [
     "greenlet<4.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
     "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 snowflake-queries = [
@@ -1018,12 +1027,14 @@ snowflake-queries = [
     "greenlet<4.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
     "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 snowflake-slim = [
@@ -1031,9 +1042,11 @@ snowflake-slim = [
     "cryptography>=50.0.0,<51.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
     "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 snowflake-summary = [
@@ -1042,12 +1055,14 @@ snowflake-summary = [
     "greenlet<4.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
     "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch>=10.1,<11.0.0",
 ]
 
 snowplow = [
@@ -1250,7 +1265,8 @@ all = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
     "okta~=1.7.0,<2.0.0",
     "openpyxl>=3.1.5,<4.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
@@ -1306,7 +1322,7 @@ all = [
     "thrift-sasl>=0.4.3,<1.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
     "zstd<1.5.6.8",
 ]
@@ -1404,7 +1420,8 @@ dev = [
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
     "nltk!=3.10.1",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
     "okta~=1.7.0,<2.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
@@ -1503,7 +1520,7 @@ dev = [
     "unstructured[md]==0.24.1",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
     "zstd<1.5.6.8",
 ]
@@ -1601,7 +1618,8 @@ docs = [
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
     "nltk!=3.10.1",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
     "okta~=1.7.0,<2.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
@@ -1700,7 +1718,7 @@ docs = [
     "unstructured[md]==0.24.1",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
     "zstd<1.5.6.8",
 ]
@@ -1745,7 +1763,8 @@ integration-tests = [
     "kerberos>=1.3.0,<2.0.0",
     "lark>=1.3.1,<2.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
     "openpyxl>=3.1.5,<4.0.0",
     "pandas<3.0.0",
     "parse>=1.19.0,<2.0.0",
@@ -1784,7 +1803,7 @@ integration-tests = [
     "thrift-sasl>=0.4.3,<1.0.0",
     "ujson>=5.12.1,<6.0.0",
     "vcrpy>=8.2.0,<9.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
     "zstd<1.5.6.8",
 ]
 
@@ -1848,6 +1867,7 @@ json-schema = "datahub.ingestion.source.schema.json_schema:JsonSchemaSource"
 kafka = "datahub.ingestion.source.kafka.kafka:KafkaSource"
 kafka-connect = "datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource"
 kinesis = "datahub.ingestion.source.kinesis.kinesis:KinesisSource"
+langfuse = "datahub.ingestion.source.langfuse.langfuse:LangfuseSource"
 ldap = "datahub.ingestion.source.ldap:LDAPSource"
 looker = "datahub.ingestion.source.looker.looker_source:LookerDashboardSource"
 lookml = "datahub.ingestion.source.looker.lookml_source:LookMLSource"
@@ -2044,9 +2064,11 @@ constraint-dependencies = [
     # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.8.0 is enforced here at lock time
     # only, since Airflow constraints pin urllib3 below 2.7.
     "urllib3>=2.8.0,<3.0.0",
-    # CVE-2026-59890: floored at lock time, not in base_requirements (Airflow
-    # constraint files pin setuptools, so a base floor breaks those installs).
-    "setuptools>=83.0.0",
+    # CVE-2026-59890 (fixed in 83.0.0) and GHSA-xmj3-9gf7-h52w (Windows path escape via
+    # namespace_packages.txt in legacy wheel installs, fixed in 84.1.0): floored at lock
+    # time, not in base_requirements (Airflow constraint files pin setuptools, so a base
+    # floor breaks those installs).
+    "setuptools>=84.1.0",
     # pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-8643 (path traversal
     # via entry point names, fixed in 26.1.2); CVE-2026-13346 (URL path decoded twice
     # when determining a link filename, fixed in 26.2). setup.py declares a bare "pip"
@@ -2080,6 +2102,14 @@ constraint-dependencies = [
     # dask; not in setup.py. s3fs pins fsspec to its own version, so this also moves
     # s3fs/adlfs. Docker snippet: docker/snippets/ingestion/constraints.txt.
     "fsspec>=2026.6.0",
+    # pyasn1: CVE-2026-119194, CVE-2026-119195, CVE-2026-119196, CVE-2026-119197;
+    # fixed in 0.6.5. Transitive via rsa / pyasn1-modules (google-auth, ldap); not in
+    # setup.py. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "pyasn1>=0.6.5,<0.7.0",
+    # numpy 1.x ships no 3.13 wheels and does not build there. setup.py only caps
+    # numpy<2 below 3.13, but without this uv still reuses the <3.13 fork's 1.26.4
+    # for 3.13 (numpy comes in through extras such as file_profiling and feast).
+    "numpy>=2.1; python_full_version >= '3.13'",
 ]
 
 [tool.ruff]

@@ -1,0 +1,24 @@
+namespace com.linkedin.search.template
+
+/**
+ * Bounds and shape for one ranking signal. Only the fields for {@code type} are read.
+ */
+record RankingNormalization {
+  type: RankingNormalizationType
+
+  inputMin: optional double
+
+  inputMax: optional double
+
+  steepness: optional double
+
+  scale: optional double
+
+  outputMin: optional double
+
+  outputMax: optional double
+
+  trueValue: optional double
+
+  falseValue: optional double
+}

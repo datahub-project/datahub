@@ -1439,6 +1439,11 @@ enum EntityType {
   A Semantic Model entity that groups datasets and defines metrics context.
   """
   SEMANTIC_MODEL
+
+  """
+  A source-code repository (GitHub, GitLab, internal SCM, etc.)
+  """
+  REPOSITORY
 }
 
 """

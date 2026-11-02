@@ -344,7 +344,8 @@ class ODCSSourceConfig(
         "physical DataHub Dataset URN, bypassing server-based derivation for those entries. An "
         "empty-string URN deliberately leaves the named entry unbound; schema entries absent "
         "from the map fall back to server-based derivation. Keys that match no schema entry "
-        "produce a warning (typo guard).",
+        "produce a warning (typo guard), and so does a value that is not a dataset URN "
+        "with a known env or that contains `${VAR}`, which leaves the entry unbound.",
     )
     logical_dataset_name_template: str = Field(
         default="{contract_id}.{schema_name}",

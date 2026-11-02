@@ -2,7 +2,7 @@ import { FileUploadFailureType } from '@components/components/Editor/types';
 
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
-import { Direction } from '@app/lineage/types';
+import { Direction } from '@app/lineageV3/types';
 import { FilterMode } from '@app/search/utils/constants';
 
 import {

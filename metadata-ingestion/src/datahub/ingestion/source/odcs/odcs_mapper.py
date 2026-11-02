@@ -15,6 +15,7 @@ from typing import (
 from urllib.parse import urlparse
 
 from datahub.emitter.mce_builder import (
+    ALL_ENV_TYPES,
     datahub_guid,
     make_assertion_source,
     make_assertion_urn,
@@ -86,8 +87,10 @@ from datahub.ingestion.source.odcs.odcs_constants import (
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSAuthoritativeDefinition,
+    ODCSContext,
     ODCSContract,
     ODCSDescription,
+    ODCSEnumValue,
     ODCSProperty,
     ODCSQualityArguments,
     ODCSQualityRule,
@@ -143,9 +146,10 @@ from datahub.metadata.schema_classes import (
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
-from datahub.metadata.urns import DataProductUrn
+from datahub.metadata.urns import DataProductUrn, DatasetUrn
 from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.utilities.str_enum import StrEnum
+from datahub.utilities.urns.error import InvalidUrnError
 
 
 class RefusalKind(StrEnum):
@@ -153,6 +157,7 @@ class RefusalKind(StrEnum):
     UNRESOLVED_VARIABLE = "unresolved_variable"
     EXPLICITLY_UNBOUND = "explicitly_unbound"
     NO_TABLE_NAME = "no_table_name"
+    INVALID_OVERRIDE = "invalid_override"
 
 
 @dataclass(frozen=True)
@@ -179,18 +184,23 @@ class PhysicalBinding:
     physical_urn: Optional[str]
     refusal: Optional[BindingRefusal] = None
     name_passthrough: bool = False
+    # The table as SQL names it: the URN's dataset name without a platform
+    # instance prefix. None when unbound, or when an override's name may start
+    # with an instance that the contract's server does not confirm.
+    table_name: Optional[str] = None
 
     @property
     def unmapped_reason(self) -> Optional[str]:
         return self.refusal.message if self.refusal else None
 
     @property
+    def refusal_kind(self) -> Optional[RefusalKind]:
+        return self.refusal.kind if self.refusal else None
+
+    @property
     def unresolved_variable(self) -> bool:
         # Reported as a warning, not as an unmappable server.
-        return (
-            self.refusal is not None
-            and self.refusal.kind is RefusalKind.UNRESOLVED_VARIABLE
-        )
+        return self.refusal_kind is RefusalKind.UNRESOLVED_VARIABLE
 
 
 @dataclass
@@ -454,6 +464,88 @@ def _compose_physical_name(
     return name.lower() if lowercase else name, None, False
 
 
+def _override_table_name(
+    urn: DatasetUrn,
+    resolved: Optional[ResolvedServer],
+    server_overrides: List[ServerMapping],
+) -> Optional[str]:
+    # An instance prefix cannot be told apart from the table path. Only the
+    # instance of the contract's own server on the same platform is stripped;
+    # a name that may start with any other configured instance is not guessed
+    # at. A mapping pinned to another platform can't prefix this URN.
+    name = urn.name
+    lowered = name.lower()
+    platform = urn.get_data_platform_urn().platform_name
+    if resolved is not None and resolved.mapping is not None:
+        instance = resolved.mapping.platform_instance
+        if instance and resolved.platform == platform:
+            prefix = f"{instance.lower()}."
+            if lowered.startswith(prefix):
+                return name[len(prefix) :]
+    if any(
+        m.platform_instance
+        and m.platform in (None, platform)
+        and lowered.startswith(f"{m.platform_instance.lower()}.")
+        for m in server_overrides
+    ):
+        return None
+    return name
+
+
+def _override_binding(
+    index: int,
+    schema_entry: ODCSSchemaObject,
+    logical_urn: str,
+    override: Optional[str],
+    resolved: Optional[ResolvedServer],
+    server_overrides: List[ServerMapping],
+) -> PhysicalBinding:
+    override_urn = (override or "").strip()
+    if not override_urn:
+        refusal = BindingRefusal(
+            RefusalKind.EXPLICITLY_UNBOUND,
+            "explicitly unbound by physical_urn_overrides",
+        )
+    elif VARIABLE_MARKER in override_urn:
+        refusal = BindingRefusal(
+            RefusalKind.UNRESOLVED_VARIABLE,
+            f"physical_urn_overrides value '{override_urn}' contains an unresolved "
+            "ODCS variable",
+        )
+    else:
+        try:
+            urn: Optional[DatasetUrn] = DatasetUrn.from_string(override_urn)
+        except InvalidUrnError:
+            urn = None
+        if urn is None:
+            refusal = BindingRefusal(
+                RefusalKind.INVALID_OVERRIDE,
+                f"physical_urn_overrides value '{override_urn}' is not a dataset URN",
+            )
+        # GMS only stores the FabricType spelling, so `prod` names no dataset.
+        elif urn.env not in ALL_ENV_TYPES:
+            refusal = BindingRefusal(
+                RefusalKind.INVALID_OVERRIDE,
+                f"physical_urn_overrides value '{override_urn}' has env '{urn.env}', "
+                f"not one of {', '.join(sorted(ALL_ENV_TYPES))}",
+            )
+        else:
+            return PhysicalBinding(
+                index=index,
+                schema_entry=schema_entry,
+                logical_urn=logical_urn,
+                physical_urn=urn.urn(),
+                table_name=_override_table_name(urn, resolved, server_overrides),
+            )
+    return PhysicalBinding(
+        index=index,
+        schema_entry=schema_entry,
+        logical_urn=logical_urn,
+        physical_urn=None,
+        refusal=refusal,
+    )
+
+
 def odcs_to_physical_bindings(
     contract: ODCSContract, config: ODCSSourceConfig
 ) -> List[PhysicalBinding]:
@@ -480,21 +572,14 @@ def odcs_to_physical_bindings(
         logical_urn = odcs_to_logical_dataset_urn(contract, schema_entry, config)
 
         if overrides is not None and schema_entry.name in overrides:
-            override_urn = (overrides[schema_entry.name] or "").strip()
             bindings.append(
-                PhysicalBinding(
+                _override_binding(
                     index=index,
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
-                    physical_urn=override_urn or None,
-                    refusal=(
-                        None
-                        if override_urn
-                        else BindingRefusal(
-                            RefusalKind.EXPLICITLY_UNBOUND,
-                            "explicitly unbound by physical_urn_overrides",
-                        )
-                    ),
+                    override=overrides[schema_entry.name],
+                    resolved=resolved,
+                    server_overrides=config.server_overrides,
                 )
             )
             continue
@@ -561,6 +646,7 @@ def odcs_to_physical_bindings(
                 logical_urn=logical_urn,
                 physical_urn=physical_urn,
                 name_passthrough=passthrough,
+                table_name=physical_name,
             )
         )
     return bindings
@@ -683,6 +769,60 @@ def _native_data_type(prop: ODCSProperty) -> str:
     return prop.physicalType or prop.logicalType or "unknown"
 
 
+def _backtick_fence(text: str, minimum: int) -> str:
+    # Longer than any backtick run in the text, so the text cannot close it.
+    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
+    return "`" * max(minimum, longest + 1)
+
+
+def _field_description(prop: ODCSProperty) -> Optional[str]:
+    """The property description followed by how the column is derived.
+
+    The source rewrites the whole schema aspect every run, so appended sections
+    never accumulate and disappear when the contract drops them.
+    """
+    parts = [_description_to_str(prop.description)]
+    transform_description = _description_to_str(prop.transformDescription)
+    transform_logic = _description_to_str(prop.transformLogic)
+    if transform_description or transform_logic:
+        derivation = "**Derivation:**"
+        if transform_description:
+            derivation += f" {transform_description}"
+        if transform_logic:
+            fence = _backtick_fence(transform_logic, minimum=3)
+            derivation += f"\n\n{fence}sql\n{transform_logic}\n{fence}"
+        parts.append(derivation)
+    if prop.enum:
+        parts.append(
+            "**Allowed values:**\n"
+            + "\n".join(_enum_value_line(entry) for entry in prop.enum)
+        )
+    return "\n\n".join(p for p in parts if p) or None
+
+
+def _one_line(text: Optional[str]) -> Optional[str]:
+    # A newline would end a list item and let the rest render as new items.
+    return " ".join((text or "").split()) or None
+
+
+def _code_span(text: str) -> str:
+    fence = _backtick_fence(text, minimum=1)
+    # A span that starts or ends with a backtick needs a space inside the fence.
+    pad = " " if text.startswith("`") or text.endswith("`") else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
+def _enum_value_line(entry: ODCSEnumValue) -> str:
+    line = f"- {_code_span(entry.value)}"
+    label = _one_line(entry.label)
+    if label and label != entry.value:
+        line += f" ({label})"
+    description = _one_line(entry.description)
+    if description:
+        line += f": {description}"
+    return line
+
+
 def build_schema_metadata(
     schema_entry: ODCSSchemaObject,
     tag_prefix: Optional[str] = None,
@@ -708,7 +848,7 @@ def build_schema_metadata(
                 fieldPath=field_path,
                 type=data_type,
                 nativeDataType=_native_data_type(prop),
-                description=_description_to_str(prop.description),
+                description=_field_description(prop),
                 nullable=not bool(prop.required),
                 isPartOfKey=bool(prop.primaryKey),
                 globalTags=GlobalTagsClass(tags=tag_assoc) if tag_assoc else None,
@@ -864,6 +1004,62 @@ def _field_aspect_mcps(
     return mcps
 
 
+def _dataset_description(
+    contract: ODCSContract, schema_entry: ODCSSchemaObject
+) -> Optional[str]:
+    """Table description, then its grain, then the contract description.
+
+    A multi-table contract repeats the contract description on every table:
+    each logical dataset is read on its own, by people and by Ask DataHub.
+    """
+    grain = _description_to_str(schema_entry.dataGranularityDescription)
+    parts = [
+        _description_to_str(schema_entry.description),
+        f"**Grain:** {grain}" if grain else None,
+        _description_to_str(contract.description),
+        _context_section([contract.context, schema_entry.context]),
+    ]
+    return "\n\n".join(p for p in parts if p) or None
+
+
+def _context_section(contexts: List[Optional[ODCSContext]]) -> Optional[str]:
+    """v3.2 `context`, contract level first, as one description section.
+
+    Datasets have no aiContext aspect, so the guidance goes where people and
+    Ask DataHub both read it. `${VAR}` in it is prose and kept verbatim.
+    """
+    instructions: List[str] = []
+    constraints: List[str] = []
+    statements: List[str] = []
+    for context in contexts:
+        if context is None:
+            continue
+        text = _description_to_str(context.instructions)
+        if text:
+            instructions.append(text)
+        for c in context.constraints or []:
+            constraint = _one_line(c.constraint)
+            if constraint:
+                constraints.append(f"- {constraint}")
+        for v in context.verifiedStatements or []:
+            question = _one_line(v.question)
+            if not question:
+                continue
+            statement = f"- Q: {question}"
+            answer = _one_line(v.answer)
+            if answer:
+                statement += f" A: {answer}"
+            statements.append(statement)
+    parts = list(instructions)
+    if constraints:
+        parts.append("**Constraints:**\n" + "\n".join(constraints))
+    if statements:
+        parts.append("**Verified Q&A:**\n" + "\n".join(statements))
+    if not parts:
+        return None
+    return "\n\n".join(["**Guidance for AI and analysts:**", *parts])
+
+
 def odcs_to_logical_dataset_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
@@ -881,11 +1077,7 @@ def odcs_to_logical_dataset_mcps(
     """
     mcps: List[MetadataChangeProposalWrapper] = []
 
-    # Per-table description wins; the contract description is the fallback so a
-    # multi-table contract doesn't smear one description across every table.
-    description = _description_to_str(schema_entry.description) or _description_to_str(
-        contract.description
-    )
+    description = _dataset_description(contract, schema_entry)
     custom_props: Dict[str, str] = {
         PROP_ID: contract.id,
         PROP_SCHEMA_NAME: schema_entry.name,
@@ -1623,10 +1815,32 @@ def _route_and_build(
     return _route_library_rule(ctx, trace)
 
 
+# `{{object}}` is an escaped brace pair in some templating tools, not the
+# placeholder, so a doubled brace is left alone.
+_OBJECT_PLACEHOLDER_RE = re.compile(r"(?<![{$])\$?\{object\}(?!\})")
+
+
+def has_object_placeholder(query: str) -> bool:
+    return _OBJECT_PLACEHOLDER_RE.search(query) is not None
+
+
+def has_object_reference(text: str) -> bool:
+    """Whether `{object}` is left in the text other than as an escaped `{{object}}`.
+
+    Catches a mistyped placeholder such as `{object}}` that is not substituted.
+    """
+    return "{object}" in text.replace("{{object}}", "")
+
+
+def substitute_object_placeholder(query: str, table: str) -> str:
+    return _OBJECT_PLACEHOLDER_RE.sub(lambda _: table, query)
+
+
 def odcs_to_assertion_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
     logical_urn: str,
+    bound_table: Optional[str] = None,
 ) -> Tuple[List[str], List[MetadataChangeProposalWrapper], AssertionRoutingTrace]:
     """Emit Assertion entities for every rule on one schema entry.
 
@@ -1641,6 +1855,12 @@ def odcs_to_assertion_mcps(
     api_version = (contract.apiVersion or "").lstrip("v")
 
     for index, (rule, column, scope) in enumerate(iter_schema_rules(schema_entry)):
+        if bound_table and rule.query:
+            # Before routing, so the SQL assertion and the custom-assertion
+            # fallback show the same query.
+            rule = rule.model_copy(
+                update={"query": substitute_object_placeholder(rule.query, bound_table)}
+            )
         ctx = _RuleContext(
             rule=rule,
             column=column,

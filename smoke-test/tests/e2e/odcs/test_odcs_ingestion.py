@@ -41,6 +41,7 @@ id: {contract_id}
 name: Smoke orders
 version: 1.0.0
 status: active
+context: Use for order status reporting.
 servers:
   - server: prod
     type: postgres
@@ -63,6 +64,9 @@ schema:
             mustBe: 0
       - name: status
         logicalType: string
+        enum:
+          - value: open
+          - value: shipped
         synonyms: {status_synonyms}
       - name: legacy_channel
         logicalType: string
@@ -162,10 +166,14 @@ def test_odcs_v32_contract_end_to_end(
         properties = graph_client.get_aspect(logical_urn, DatasetPropertiesClass)
         assert properties is not None
         assert properties.customProperties["odcs.apiVersion"] == "v3.2.0"
+        assert "Guidance for AI and analysts" in (properties.description or "")
         schema = graph_client.get_aspect(logical_urn, SchemaMetadataClass)
         assert schema is not None
-        # The measure stays in the logical schema.
-        assert "avg_amount" in {f.fieldPath for f in schema.fields}
+        # The measure stays in the logical schema, its derivation in the description.
+        avg_amount = next(f for f in schema.fields if f.fieldPath == "avg_amount")
+        assert "AVG(amount)" in (avg_amount.description or "")
+        status = next(f for f in schema.fields if f.fieldPath == "status")
+        assert "`shipped`" in (status.description or "")
 
         deprecation = graph_client.get_aspect(
             make_schema_field_urn(logical_urn, "legacy_channel"), DeprecationClass

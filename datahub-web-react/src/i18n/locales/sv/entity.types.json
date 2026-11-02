@@ -1,9 +1,13 @@
 {
     "api.name": "API",
     "api.namePlural": "API:er",
+    "api.signature.definedByDataset_one": "Definierad av Dataset",
+    "api.signature.definedByDataset_other": "Definierad av Dataset",
+    "api.signature.inputDatasetsTitle": "Indataschema",
     "api.signature.inputTitle": "Indataparametrar",
     "api.signature.noInput": "Inga indataparametrar",
     "api.signature.noOutput": "Ingen deklarerad utdata",
+    "api.signature.outputDatasetsTitle": "Utdataschema",
     "api.signature.outputTitle": "Utdata",
     "api.signature.returns": "Returnerar",
     "api.signature.tableDescription": "Beskrivning",

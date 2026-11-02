@@ -69,22 +69,31 @@ jobs:
           RUN_ALL: ${{ steps.ci.outputs.run_all_integration }}
           TEST_MATRIX: ${{ steps.ci.outputs.test_matrix }}
         run: |
-          # testQuick always runs (all Python versions) + testPerformance (3.11 only)
-          BASE='[{"python-version":"3.11","command":"testQuick"},{"python-version":"3.12","command":"testQuick"},{"python-version":"3.11","command":"testPerformance"}]'
+          # Python versions per job kind. testQuick runs on every supported version;
+          # integration batches and selective connector jobs run on FULL_PYTHONS.
+          # testPerformance stays on 3.11 only.
+          QUICK_PYTHONS='["3.11","3.12","3.13"]'
+          FULL_PYTHONS='["3.11","3.13"]'
+
+          BASE=$(jq -n -c --argjson v "$QUICK_PYTHONS" \
+            '[$v[] | {"python-version": ., "command": "testQuick"}] + [{"python-version":"3.11","command":"testPerformance"}]')
 
           if [ "$RUN_ALL" = "true" ]; then
-            # Full static batch list
-            INTEGRATION='[
-              {"python-version":"3.11","command":"testIntegrationBatch0"},
-              {"python-version":"3.11","command":"testIntegrationBatch1"},
-              {"python-version":"3.11","command":"testIntegrationBatch2"},
-              {"python-version":"3.11","command":"testIntegrationBatch3"},
-              {"python-version":"3.11","command":"testIntegrationBatch4"},
-              {"python-version":"3.11","command":"testIntegrationBatch5"},
-              {"python-version":"3.11","command":"testIntegrationBatchRecording"}
+            # Full static batch list, crossed with FULL_PYTHONS
+            BATCHES='[
+              "testIntegrationBatch0",
+              "testIntegrationBatch1",
+              "testIntegrationBatch2",
+              "testIntegrationBatch3",
+              "testIntegrationBatch4",
+              "testIntegrationBatch5",
+              "testIntegrationBatchRecording"
             ]'
+            INTEGRATION=$(jq -n -c --argjson b "$BATCHES" --argjson v "$FULL_PYTHONS" \
+              '[$b[] as $c | $v[] | {"python-version": ., "command": $c}]')
           elif [ -n "$TEST_MATRIX" ] && [ "$TEST_MATRIX" != "[]" ]; then
-            INTEGRATION=$(echo "$TEST_MATRIX" | jq -c '[.[] | . + {"python-version":"3.11"}]')
+            INTEGRATION=$(echo "$TEST_MATRIX" | jq -c --argjson v "$FULL_PYTHONS" \
+              '[.[] as $t | $v[] | $t + {"python-version": .}]')
           else
             # No integration tests needed
             INTEGRATION='[]'

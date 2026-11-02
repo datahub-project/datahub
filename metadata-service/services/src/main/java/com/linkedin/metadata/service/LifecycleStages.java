@@ -2,6 +2,7 @@ package com.linkedin.metadata.service;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.lifecycle.LifecycleStageTransitionPolicy;
+import com.linkedin.lifecycle.LifecycleStageTypeInfo;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -19,6 +20,15 @@ public final class LifecycleStages {
   public static final String NO_STAGE_SENTINEL = "urn:li:lifecycleStageType:__NONE__";
 
   private LifecycleStages() {}
+
+  /**
+   * Whether a stage applies to {@code entityType}: absent entityTypes means all entity types, an
+   * empty list means none (the stage is disabled).
+   */
+  public static boolean appliesToEntityType(
+      @Nonnull final LifecycleStageTypeInfo info, @Nonnull final String entityType) {
+    return !info.hasEntityTypes() || info.getEntityTypes().contains(entityType);
+  }
 
   /**
    * Whether an entity in {@code currentStage} (null = no stage) may enter {@code proposedStage}. A

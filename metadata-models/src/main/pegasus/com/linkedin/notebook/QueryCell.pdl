@@ -10,6 +10,20 @@ record QueryCell includes CommonCellAttributes {
   /**
    * Raw query to explain some specific logic in a Notebook
    */
+  @Searchable = {
+    "fieldType": "RICH_TEXT",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": false,
+      "boostScore": 0.5,
+      "searchLabel": "queryText",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   rawQuery: string
 
   /**

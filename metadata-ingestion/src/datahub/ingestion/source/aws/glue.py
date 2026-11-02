@@ -103,7 +103,10 @@ from datahub.ingestion.source.aws.tag_entities import (
     LakeFormationTagPlatformResourceId,
 )
 from datahub.ingestion.source.common.presto_view_decoder import (
+    PrestoViewColumn,
     decode_presto_view,
+    get_presto_view_column_schema,
+    get_presto_view_columns,
     is_presto_view,
 )
 from datahub.ingestion.source.common.subtypes import (
@@ -123,8 +126,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     SchemaField,
@@ -132,10 +133,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
-    DataFlowSnapshotClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
-    DataJobSnapshotClass,
     DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
@@ -148,7 +147,6 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataAttributionClass,
-    MetadataChangeEventClass,
     OperationClass,
     OperationTypeClass,
     OwnerClass,
@@ -167,6 +165,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
+    _Aspect,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlAggregatorReport,
@@ -434,7 +433,7 @@ class GlueSourceConfig(
 
     include_column_lineage: bool = Field(
         default=True,
-        description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
+        description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields, and between a Lake Formation resource link's columns and the same-named columns of the shared table it points at.",
     )
 
     resolve_resource_link_schema: bool = Field(
@@ -718,6 +717,9 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_resource_link_schema_from_datahub: int = 0
     num_resource_link_schema_from_glue: int = 0
     num_resource_link_schema_unresolved: int = 0
+    num_view_schema_from_view_definition: int = 0
+    num_view_placeholder_schema_unresolved: int = 0
+    num_view_columns_type_unresolved: int = 0
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -781,7 +783,9 @@ class GlueViewDefinition:
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
-    SourceCapability.LINEAGE_FINE, "Support via the `emit_storage_lineage` config field"
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default via `include_column_lineage` for Lake Formation resource links; "
+    "storage column lineage also needs `emit_storage_lineage` in the upstream direction",
 )
 @capability(
     SourceCapability.OPERATION_CAPTURE,
@@ -818,6 +822,12 @@ class GlueSource(StatefulIngestionSourceBase):
     # catalog) with this TableType. Everything else is a table.
     _VIRTUAL_VIEW_TABLE_TYPE = "VIRTUAL_VIEW"
 
+    # When a view has an output column whose type Hive cannot represent (e.g.
+    # `timestamp with time zone`, `char(256)`), the engine writing the view to Glue
+    # replaces StorageDescriptor.Columns with a single column of this name. The real
+    # columns survive only in the encoded Presto view definition.
+    _PLACEHOLDER_VIEW_COLUMN_NAME = "dummy"
+
     # sqlglot dialects for the two kinds of Glue view SQL. Presto/Athena views are
     # Trino SQL; raw views are authored by Spark (Glue ETL/EMR) or Hive. sqlglot's
     # "spark" dialect extends "hive", so it parses both Spark and Hive SQL — the
@@ -841,6 +851,10 @@ class GlueSource(StatefulIngestionSourceBase):
         # Tracks which structured property definitions have been emitted this run
         # so each key's definition is only upserted once.
         self._seen_column_param_urns: Set[str] = set()
+        # Views whose Presto definition already failed to decode and was reported
+        # while building the schema, so _get_view_definition does not report the
+        # same root cause again.
+        self._presto_view_decode_failures_reported: Set[str] = set()
         self._aws_account_id: Optional[str] = None
         self._aws_account_id_loaded: bool = False
 
@@ -1052,22 +1066,18 @@ class GlueSource(StatefulIngestionSourceBase):
             platform_instance=owner.platform_instance,
         )
 
-    def _resource_link_owner_upstreams(
+    def _resource_link_upstream_urn(
         self, table: Dict, dataset_urn: str
-    ) -> List[UpstreamClass]:
-        """Table-level upstream edge from a Lake Formation resource link to its owning table.
+    ) -> Optional[str]:
+        """Owner URN a Lake Formation resource link gets lineage to, if it can have any.
 
-        A resource-link table carries a ``TargetTable`` pointing at the shared table in the owning
-        account. Emit a COPY edge to the owner's table URN — stamped with the owner account's
-        instance — so the shared dataset stitches back to its source instead of appearing as an
-        unrelated duplicate. Only the table-level upstream edge is built here; the link's own schema
-        is populated separately by ``_resource_link_schema`` (when ``resolve_resource_link_schema``
-        is enabled). Returns [] for non-resource-link tables, or when the target is missing
-        identifiers or resolves to the dataset's own URN (no catalog mapping).
+        Returns None for non-resource-link tables, and reports (with a counter and a warning) a
+        target that is missing identifiers or resolves to the dataset's own URN (no catalog
+        mapping).
         """
         target = table.get("TargetTable")
         if not target:
-            return []
+            return None
 
         owner_urn = self._resource_link_owner_urn(target)
         if owner_urn is None:
@@ -1079,7 +1089,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 "The shared table will be ingested without lineage back to its owner.",
                 context=f"{table.get('DatabaseName')}.{table.get('Name')} -> {target}",
             )
-            return []
+            return None
 
         if owner_urn == dataset_urn:
             # The owner resolves to the link's own URN, so a self-upstream edge would be
@@ -1098,9 +1108,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 "rename the link.",
                 context=f"{dataset_urn} -> owning catalog {target.get('CatalogId')}",
             )
-            return []
+            return None
 
-        return [UpstreamClass(dataset=owner_urn, type=DatasetLineageTypeClass.COPY)]
+        return owner_urn
 
     def _resource_link_schema(
         self, table: Dict, dataset_urn: str, table_name: str
@@ -1930,21 +1940,16 @@ class GlueSource(StatefulIngestionSourceBase):
         if command is not None:
             custom_props["command"] = command
 
-        mce = MetadataChangeEventClass(
-            proposedSnapshot=DataFlowSnapshotClass(
-                urn=flow_urn,
-                aspects=[
-                    DataFlowInfoClass(
-                        name=job["Name"],
-                        description=job.get("Description"),
-                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
-                        # specify a few Glue-specific properties
-                        customProperties=custom_props,
-                    ),
-                ],
-            )
-        )
-        yield MetadataWorkUnit(id=job["Name"], mce=mce)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=DataFlowInfoClass(
+                name=job["Name"],
+                description=job.get("Description"),
+                externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
+                # specify a few Glue-specific properties
+                customProperties=custom_props,
+            ),
+        ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
@@ -1993,45 +1998,44 @@ class GlueSource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
-    def get_datajob_wu(self, node: Dict[str, Any], job_name: str) -> MetadataWorkUnit:
+    def gen_datajob_workunits(
+        self, node: Dict[str, Any], job_name: str
+    ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate a DataJob workunit for a component (node) in a Glue job.
+        Generate the DataJob workunits for a component (node) in a Glue job.
 
         Parameters
         ----------
             node:
                 Node from process_dataflow_graph()
-            job:
-                Job object from get_all_jobs()
+            job_name:
+                Name of the Glue job the node belongs to
         """
 
         region = self.source_config.aws_region
 
-        mce = MetadataChangeEventClass(
-            proposedSnapshot=DataJobSnapshotClass(
-                urn=node["urn"],
-                aspects=[
-                    DataJobInfoClass(
-                        name=f"{job_name}:{node['NodeType']}-{node['Id']}",
-                        type="GLUE",
-                        # there's no way to view an individual job node by link, so just show the graph
-                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job_name}/graph",
-                        customProperties={
-                            **{x["Name"]: x["Value"] for x in node["Args"]},
-                            "transformType": node["NodeType"],
-                            "nodeId": node["Id"],
-                        },
-                    ),
-                    DataJobInputOutputClass(
-                        inputDatasets=node["inputDatasets"],
-                        outputDatasets=node["outputDatasets"],
-                        inputDatajobs=node["inputDatajobs"],
-                    ),
-                ],
-            )
-        )
-
-        return MetadataWorkUnit(id=f"{job_name}-{node['Id']}", mce=mce)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=node["urn"],
+            aspect=DataJobInfoClass(
+                name=f"{job_name}:{node['NodeType']}-{node['Id']}",
+                type="GLUE",
+                # there's no way to view an individual job node by link, so just show the graph
+                externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job_name}/graph",
+                customProperties={
+                    **{x["Name"]: x["Value"] for x in node["Args"]},
+                    "transformType": node["NodeType"],
+                    "nodeId": node["Id"],
+                },
+            ),
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=node["urn"],
+            aspect=DataJobInputOutputClass(
+                inputDatasets=node["inputDatasets"],
+                outputDatasets=node["outputDatasets"],
+                inputDatajobs=node["inputDatajobs"],
+            ),
+        ).as_workunit()
 
     def get_all_databases(self) -> Iterable[Mapping[str, Any]]:
         logger.debug("Getting all databases")
@@ -2139,42 +2143,26 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_lineage_if_enabled(
         self,
-        mce: MetadataChangeEventClass,
-        extra_upstreams: Optional[List[UpstreamClass]] = None,
+        dataset_urn: str,
+        dataset_properties: DatasetPropertiesClass,
+        schema_metadata: Optional[SchemaMetadataClass],
+        resource_link_owner_urn: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit the dataset's UpstreamLineage, combining storage lineage with any ``extra_upstreams``.
-
-        This method is the single owner of the dataset's own ``UpstreamLineage`` aspect: callers pass
-        additional upstream edges (e.g. the Lake Formation resource-link edge) and this method folds
-        them into the one aspect that targets ``dataset_urn`` — so two independent sources can't emit
-        two full-replace aspects on the same URN and clobber each other.
-        """
-        dataset_urn = mce.proposedSnapshot.urn
-        extra_upstreams = extra_upstreams or []
-
+        """Emit the dataset's single UpstreamLineage aspect, merging storage lineage with the
+        resource-link edge to ``resource_link_owner_urn`` so neither overwrites the other."""
         storage_upstreams: List[UpstreamClass] = []
         storage_fine_grained: List[FineGrainedLineageClass] = []
         if self.source_config.emit_storage_lineage:
-            dataset_properties: Optional[DatasetPropertiesClass] = (
-                mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
-            )
-            schema_metadata: Optional[SchemaMetadataClass] = (
-                mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
-            )
-
             # get urn for underlying table storage
             table_storage_urn: Optional[str] = None
             if (
-                dataset_properties
-                and dataset_properties.customProperties.get("table_type")
+                dataset_properties.customProperties.get("table_type")
                 == GLUE_TABLE_TYPE_ICEBERG
             ):
                 table_storage_urn = dataset_urn.replace(
                     "urn:li:dataPlatform:glue", "urn:li:dataPlatform:iceberg"
                 )
-            elif (
-                dataset_properties and "Location" in dataset_properties.customProperties
-            ):
+            elif "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
                 if is_s3_uri(location):
                     table_storage_urn = make_s3_urn_for_lineage(
@@ -2189,14 +2177,11 @@ class GlueSource(StatefulIngestionSourceBase):
                         else None
                     )
                     if self.source_config.include_column_lineage and schema_metadata:
-                        storage_fine_grained = (
-                            self.get_fine_grained_lineages(
-                                dataset_urn,
-                                table_storage_urn,
-                                schema_metadata,
-                                schema_metadata_for_upstream or schema_metadata,
-                            )
-                            or []
+                        storage_fine_grained = self.get_fine_grained_lineages(
+                            dataset_urn,
+                            table_storage_urn,
+                            schema_metadata,
+                            schema_metadata_for_upstream or schema_metadata,
                         )
                     storage_upstreams = [
                         UpstreamClass(
@@ -2219,13 +2204,33 @@ class GlueSource(StatefulIngestionSourceBase):
                         ),
                     ).as_workunit()
 
-        upstreams = storage_upstreams + extra_upstreams
+        link_upstreams: List[UpstreamClass] = []
+        link_fine_grained: List[FineGrainedLineageClass] = []
+        if resource_link_owner_urn is not None:
+            link_upstreams = [
+                UpstreamClass(
+                    dataset=resource_link_owner_urn, type=DatasetLineageTypeClass.COPY
+                )
+            ]
+            # Glue returns the owner's live table for both kinds of resource link, and a
+            # schemaless link either gets the owner's schema copied in or has none, so any
+            # columns the link has are the owner's columns.
+            if self.source_config.include_column_lineage and schema_metadata:
+                link_fine_grained = self.get_fine_grained_lineages(
+                    dataset_urn,
+                    resource_link_owner_urn,
+                    schema_metadata,
+                    schema_metadata,
+                )
+
+        upstreams = storage_upstreams + link_upstreams
         if upstreams:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineageClass(
                     upstreams=upstreams,
-                    fineGrainedLineages=storage_fine_grained or None,
+                    fineGrainedLineages=(storage_fine_grained + link_fine_grained)
+                    or None,
                 ),
             ).as_workunit()
 
@@ -2235,48 +2240,36 @@ class GlueSource(StatefulIngestionSourceBase):
         upstream_urn: str,
         schema_metadata: SchemaMetadata,
         schema_metadata_for_upstream: SchemaMetadata,
-    ) -> Optional[List[FineGrainedLineageClass]]:
-        def simplify_field_path(field_path):
-            return Dataset._simplify_field_path(field_path)
-
-        if schema_metadata and schema_metadata_for_upstream:
-            fine_grained_lineages: List[FineGrainedLineageClass] = []
-            for field in schema_metadata.fields:
-                field_path_v1 = simplify_field_path(field.fieldPath)
-                matching_upstream_field = next(
-                    (
-                        f
-                        for f in schema_metadata_for_upstream.fields
-                        if simplify_field_path(f.fieldPath) == field_path_v1
-                    ),
-                    None,
-                )
-                if matching_upstream_field:
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                mce_builder.make_schema_field_urn(
-                                    dataset_urn, field_path_v1
-                                )
-                            ],
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                mce_builder.make_schema_field_urn(
-                                    upstream_urn,
-                                    simplify_field_path(
-                                        matching_upstream_field.fieldPath
-                                    ),
-                                )
-                            ],
-                        )
+    ) -> List[FineGrainedLineageClass]:
+        upstream_paths = {
+            Dataset._simplify_field_path(f.fieldPath)
+            for f in schema_metadata_for_upstream.fields
+        }
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+        for field in schema_metadata.fields:
+            field_path_v1 = Dataset._simplify_field_path(field.fieldPath)
+            if field_path_v1 in upstream_paths:
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            mce_builder.make_schema_field_urn(
+                                dataset_urn, field_path_v1
+                            )
+                        ],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            mce_builder.make_schema_field_urn(
+                                upstream_urn, field_path_v1
+                            )
+                        ],
                     )
-            return fine_grained_lineages
-        return None
+                )
+        return fine_grained_lineages
 
     def _create_profile_mcp(
         self,
-        mce: MetadataChangeEventClass,
+        dataset_urn: str,
         table_stats: dict,
         column_stats: dict,
         partition_spec: Optional[str] = None,
@@ -2363,13 +2356,13 @@ class GlueSource(StatefulIngestionSourceBase):
             )
 
         mcp = MetadataChangeProposalWrapper(
-            entityUrn=mce.proposedSnapshot.urn,
+            entityUrn=dataset_urn,
             aspect=dataset_profile,
         )
         return mcp
 
     def get_profile_if_enabled(
-        self, mce: MetadataChangeEventClass, database_name: str, table_name: str
+        self, dataset_urn: str, database_name: str, table_name: str
     ) -> Iterable[MetadataWorkUnit]:
         if self.source_config.is_profiling_enabled():
             # for cross-account ingestion
@@ -2410,7 +2403,7 @@ class GlueSource(StatefulIngestionSourceBase):
                         partition_spec
                     ):
                         profile_mcp = self._create_profile_mcp(
-                            mce, table_stats, column_stats, partition_spec
+                            dataset_urn, table_stats, column_stats, partition_spec
                         )
                         if profile_mcp:
                             yield profile_mcp.as_workunit()
@@ -2420,7 +2413,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 # ingest data profile without partition
                 table_stats = response["Table"]["Parameters"]
                 column_stats = response["Table"]["StorageDescriptor"]["Columns"]
-                profile_mcp = self._create_profile_mcp(mce, table_stats, column_stats)
+                profile_mcp = self._create_profile_mcp(
+                    dataset_urn, table_stats, column_stats
+                )
                 if profile_mcp:
                     yield profile_mcp.as_workunit()
 
@@ -2619,9 +2614,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
         is_view = table.get("TableType") == self._VIRTUAL_VIEW_TABLE_TYPE
 
-        # We assign the "Table"/"View" subType to the dataset representing the glue
-        # table - unfortunately it is not possible via the Dataset snapshot embedded
-        # in an mce, so we have to generate a separate mcp.
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=SubTypes(
@@ -2661,6 +2653,14 @@ class GlueSource(StatefulIngestionSourceBase):
             dataset_urn=dataset_urn, db_name=database_name
         )
 
+    @staticmethod
+    def _glue_table_key(table: Dict) -> str:
+        # Includes the catalog because a shared owner table and a local table can
+        # have the same database and name.
+        return (
+            f"{table.get('CatalogId')}:{table.get('DatabaseName')}.{table.get('Name')}"
+        )
+
     def _get_view_definition(
         self, table: Dict, full_table_name: str
     ) -> Optional[GlueViewDefinition]:
@@ -2687,11 +2687,15 @@ class GlueSource(StatefulIngestionSourceBase):
             try:
                 original_sql = decode_presto_view(view_text).get("originalSql")
             except Exception as e:
-                self.report.warning(
-                    message="Failed to decode Presto view definition",
-                    context=f"table={full_table_name}: {e}",
-                    log=False,
-                )
+                if (
+                    self._glue_table_key(table)
+                    not in self._presto_view_decode_failures_reported
+                ):
+                    self.report.warning(
+                        message="Failed to decode Presto view definition",
+                        context=f"table={full_table_name}: {e}",
+                        log=False,
+                    )
                 return None
             if isinstance(original_sql, str) and original_sql:
                 return GlueViewDefinition(
@@ -2740,7 +2744,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
             for node in nodes.values():
                 if node["NodeType"] not in ["DataSource", "DataSink"]:
-                    yield self.get_datajob_wu(node, job["Name"])
+                    yield from self.gen_datajob_workunits(node, job["Name"])
                 elif (node["NodeType"] == "DataSource" and node["outputDatasets"]) or (
                     node["NodeType"] == "DataSink" and node["inputDatasets"]
                 ):
@@ -2755,15 +2759,8 @@ class GlueSource(StatefulIngestionSourceBase):
             f"extract record from table={table_name} for dataset={dataset_urn}"
         )
 
-        # Create the main dataset snapshot
         dataset_properties = self._get_dataset_properties(table)
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[
-                Status(removed=False),
-                dataset_properties,
-            ],
-        )
+        aspects: List[_Aspect] = [Status(removed=False), dataset_properties]
 
         # Add operations if available
         if dataset_properties.created:
@@ -2829,25 +2826,25 @@ class GlueSource(StatefulIngestionSourceBase):
             # Schemaless so far — try to populate a Lake Formation resource link from its owner.
             schema_metadata = self._resource_link_schema(table, dataset_urn, table_name)
         if schema_metadata:
-            dataset_snapshot.aspects.append(schema_metadata)
+            aspects.append(schema_metadata)
             # Register every table/view schema so the aggregator can resolve
             # column-level lineage when it parses view definitions.
             if self.aggregator:
                 self.aggregator.register_schema(dataset_urn, schema_metadata)
 
         # Add platform instance
-        dataset_snapshot.aspects.append(self._get_data_platform_instance())
+        aspects.append(self._get_data_platform_instance())
 
         # Add ownership if enabled
         if self.extract_owners:
             ownership = GlueSource._get_ownership(table.get("Owner"))
             if ownership:
-                dataset_snapshot.aspects.append(ownership)
+                aspects.append(ownership)
 
         # Add S3 tags if enabled
         s3_tags = self._get_s3_tags(table, dataset_urn)
         if s3_tags:
-            dataset_snapshot.aspects.append(s3_tags)
+            aspects.append(s3_tags)
 
         # Add Lake Formation tags if enabled
         if table_lf_tags is not None:
@@ -2860,7 +2857,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 propagated_origin=db_container_urn,
             )
             if global_tags:
-                dataset_snapshot.aspects.append(global_tags)
+                aspects.append(global_tags)
                 # Generate platform resources for table-level LF tags
                 for tag in [
                     *resolved_table_tags.direct,
@@ -2874,24 +2871,31 @@ class GlueSource(StatefulIngestionSourceBase):
                 }:
                     yield from self.gen_platform_resource(column_tag)
 
-        # Create and yield the main metadata work unit
-        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        yield MetadataWorkUnit(table_name, mce=metadata_record)
+        # S3 tags and Lake Formation tags are two globalTags writes in that order, so the
+        # Lake Formation copy is the one the server keeps.
+        for aspect in aspects:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=aspect
+            ).as_workunit()
 
         if self.source_config.extract_column_parameters:
             yield from self._get_column_param_workunits(table, dataset_urn)
 
-        # Pass the resource-link table-level edge to get_lineage_if_enabled so it merges with any
-        # storage lineage into one aspect rather than being emitted as a competing one.
+        # Reads the same SchemaMetadata object that was yielded: the field-path validators
+        # edit it in place, so dropped field paths stay out of column lineage.
         yield from self.get_lineage_if_enabled(
-            metadata_record,
-            self._resource_link_owner_upstreams(table, dataset_urn),
+            dataset_urn,
+            dataset_properties,
+            schema_metadata,
+            resource_link_owner_urn=self._resource_link_upstream_urn(
+                table, dataset_urn
+            ),
         )
 
         # Add profile if enabled
         try:
             yield from self.get_profile_if_enabled(
-                metadata_record, table["DatabaseName"], table["Name"]
+                dataset_urn, table["DatabaseName"], table["Name"]
             )
         except KeyError as e:
             self.report.failure(
@@ -3042,6 +3046,17 @@ class GlueSource(StatefulIngestionSourceBase):
         schema = table["StorageDescriptor"]["Columns"]
         fields: List[SchemaField] = []
 
+        view_fields = self._get_placeholder_view_schema_fields(
+            table,
+            table_name,
+            column_tags,
+            column_parent_tags,
+            column_parent_origin,
+        )
+        if view_fields is not None:
+            fields.extend(view_fields)
+            schema = []
+
         # Process regular columns
         for field in schema:
             schema_fields = get_schema_fields_for_hive_column(
@@ -3087,6 +3102,102 @@ class GlueSource(StatefulIngestionSourceBase):
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
         )
+
+    def _get_placeholder_view_schema_fields(
+        self,
+        table: Dict,
+        table_name: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]],
+        column_parent_tags: Optional[List[LakeFormationTag]],
+        column_parent_origin: Optional[str],
+    ) -> Optional[List[SchemaField]]:
+        """Recover a view's columns from its Presto definition when Glue only holds
+        the ``dummy`` placeholder column.
+
+        Returns ``None`` when the table is not a view with a placeholder schema, or
+        when the real columns cannot be recovered, so the caller falls back to
+        ``StorageDescriptor.Columns``.
+        """
+        if table.get("TableType") != self._VIRTUAL_VIEW_TABLE_TYPE:
+            return None
+        columns = table["StorageDescriptor"].get("Columns") or []
+        if (
+            len(columns) != 1
+            or str(columns[0].get("Name", "")).lower()
+            != self._PLACEHOLDER_VIEW_COLUMN_NAME
+        ):
+            return None
+
+        view_text = table.get("ViewOriginalText")
+        if not isinstance(view_text, str) or not is_presto_view(view_text):
+            # Only Presto/Athena writes the placeholder; a Spark/Hive view whose
+            # single column happens to be named `dummy` is a real column.
+            return None
+
+        # On the resource-link path table_name is the link, so name the owning
+        # view too.
+        view_name = f"{table.get('DatabaseName')}.{table.get('Name')}"
+        context_name = (
+            table_name if table_name == view_name else f"{table_name} -> {view_name}"
+        )
+
+        view_columns: Optional[List[PrestoViewColumn]] = None
+        decode_error: Optional[Exception] = None
+        try:
+            definition = decode_presto_view(view_text)
+        except ValueError as e:
+            # Covers bad base64/JSON/Unicode and over-nested payloads, which must
+            # not escape the table loop. Reported here rather than only in
+            # _get_view_definition, because the resource-link owner path reaches
+            # this method without it.
+            decode_error = e
+            reason = "view definition could not be decoded"
+            self._presto_view_decode_failures_reported.add(self._glue_table_key(table))
+        else:
+            view_columns = get_presto_view_columns(definition)
+            reason = "view definition has no valid 'columns' list"
+
+        if view_columns is None:
+            self.report.num_view_placeholder_schema_unresolved += 1
+            self.report.warning(
+                title="View schema is a placeholder column",
+                message="Glue stores only a placeholder 'dummy' column for this view "
+                "because one of its output columns has a type Hive cannot represent, "
+                "and the real columns could not be read from the view definition.",
+                context=f"{context_name}: {reason}",
+                exc=decode_error,
+                log=False,
+            )
+            return None
+
+        fields: List[SchemaField] = []
+        unconverted_columns: List[str] = []
+        for column in view_columns:
+            column_schema = get_presto_view_column_schema(column)
+            if column_schema.type_unresolved:
+                unconverted_columns.append(f"{column['name']} ({column['type']})")
+            if column_schema.fields:
+                self._apply_column_lf_tags(
+                    column_schema.fields,
+                    column["name"],
+                    column_tags,
+                    column_parent_tags,
+                    column_parent_origin,
+                )
+                fields.extend(column_schema.fields)
+
+        if unconverted_columns:
+            self.report.num_view_columns_type_unresolved += len(unconverted_columns)
+            self.report.warning(
+                title="View column types could not be converted",
+                message="Some columns recovered from this view's definition have a "
+                "type DataHub could not convert, so they are ingested without a type "
+                "(or with part of their type missing) or typed as string.",
+                context=f"{context_name}: {', '.join(unconverted_columns)}",
+                log=False,
+            )
+        self.report.num_view_schema_from_view_definition += 1
+        return fields
 
     def _get_delta_schema_metadata(
         self,

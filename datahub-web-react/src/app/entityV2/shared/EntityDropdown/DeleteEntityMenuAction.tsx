@@ -12,7 +12,11 @@ import {
     ENTITY_HEADER_ACTION_ICON_WEIGHT,
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
-import { isDeleteDisabled, shouldDisplayChildDeletionWarning } from '@app/entityV2/shared/EntityDropdown/utils';
+import {
+    isDeleteDisabled,
+    isGlossaryTermVersion,
+    shouldDisplayChildDeletionWarning,
+} from '@app/entityV2/shared/EntityDropdown/utils';
 import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -56,6 +60,7 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
                         ? t('delete.cantDeleteSubDomain', { entityName })
                         : t('delete.cantDeleteChild', { entityName });
                 }
+                if (isGlossaryTermVersion(entityType, entityData)) return t('delete.versionTitle');
                 return t('delete.tooltip', { entityName });
             })()}
         >

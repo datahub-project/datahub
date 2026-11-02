@@ -2395,7 +2395,10 @@ def _sqlglot_lineage_inner(
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     joins = None
-    if generate_column_lineage:
+    # DELETE has no column lineage by construction. Attempting it raises
+    # UnsupportedStatementTypeError, which callers count as a column-lineage
+    # failure and inflates parse-failure stats for query-log sources.
+    if generate_column_lineage and not isinstance(statement, sqlglot.exp.Delete):
         try:
             with cooperative_timeout(
                 timeout=(

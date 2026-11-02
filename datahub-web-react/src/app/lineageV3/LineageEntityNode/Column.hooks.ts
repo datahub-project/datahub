@@ -1,9 +1,9 @@
 import { useCallback, useContext, useRef } from 'react';
 
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageNodesContext, generateIgnoreAsHops, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
 import { ColumnAsset } from '@app/lineageV3/types';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 
 import { useGetColumnLineageCountsLazyQuery } from '@graphql/lineage.generated';

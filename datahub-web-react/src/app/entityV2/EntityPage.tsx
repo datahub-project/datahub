@@ -7,7 +7,7 @@ import { BrowsableEntityPage } from '@app/browse/BrowsableEntityPage';
 import { useUserContext } from '@app/context/useUserContext';
 import { VIEW_ENTITY_PAGE } from '@app/entityV2/shared/constants';
 import { decodeUrn } from '@app/entityV2/shared/utils';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import useIsLineageMode from '@app/lineageV3/utils/useIsLineageMode';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import TabFullSizedContext from '@app/sharedV2/TabFullsizedContext';
 import { ErrorSection } from '@app/sharedV2/error/ErrorSection';

@@ -21,6 +21,7 @@ from datahub.configuration.env_vars import (
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.transform_operation import cap_transform_operation
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -1733,7 +1734,8 @@ class SqlParsingAggregator(Closeable):
                         ],
                         query=self._query_urn_if_emitted(query),
                         confidenceScore=query.confidence_score,
-                        transformOperation=(
+                        # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
+                        transformOperation=cap_transform_operation(
                             (
                                 f"COPY: {column_logic.column_logic}"
                                 if column_logic.is_direct_copy

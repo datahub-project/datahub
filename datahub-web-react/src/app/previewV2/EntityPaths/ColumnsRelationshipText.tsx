@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
-import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import { decodeSchemaField } from '@app/lineageV3/utils/columnLineageUtils';
 import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import DisplayedColumns from '@app/previewV2/EntityPaths/DisplayedColumns';
 

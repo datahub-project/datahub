@@ -1,0 +1,187 @@
+extend type Query {
+  """
+  Fetch a Repository by primary key (urn).
+  """
+  repository(urn: String!): Repository
+}
+
+"""
+A source-code repository (GitHub, GitLab, internal SCM, etc.).
+"""
+type Repository implements EntityWithRelationships & Entity {
+  """
+  The URN of the Repository.
+  """
+  urn: String! @noAspects
+
+  """
+  The standard Entity Type, always REPOSITORY.
+  """
+  type: EntityType! @noAspects
+
+  """
+  Code-specific properties of the repository.
+  """
+  properties: RepositoryProperties
+    @aspectMapping(aspects: ["repositoryProperties"])
+
+  """
+  The source binding: where the repository lives and how it's identified.
+  """
+  source: RepositorySource @aspectMapping(aspects: ["repositorySource"])
+
+  """
+  Whether or not this entity exists on DataHub.
+  """
+  exists: Boolean @noAspects
+
+  """
+  The repository this one is a git fork of (the RepositoryForkOf provenance edge).
+  """
+  forkOf: Repository @aspectMapping(aspects: ["repositoryLineage"])
+
+  """
+  The standardized subtypes of this repository, from the shared subTypes aspect.
+  """
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
+
+  """
+  The data platform this repository is hosted on (e.g. github, gitlab).
+  """
+  platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
+
+  """
+  The data platform instance this repository is associated with.
+  """
+  dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
+
+  """
+  Ownership information for this repository.
+  """
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
+
+  """
+  Soft deletion status.
+  """
+  status: Status @aspectMapping(aspects: ["status"])
+
+  """
+  Tags associated with this repository.
+  """
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
+
+  """
+  Glossary terms applied to this repository.
+  """
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
+
+  """
+  The Domain this repository is cataloged under, if any.
+  """
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
+
+  """
+  References to internal/external documentation for this repository.
+  """
+  institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
+
+  """
+  Structured properties attached to this repository.
+  """
+  structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
+
+  """
+  The browse path (hierarchical location) of this repository, if any.
+  """
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
+
+  """
+  Edges extending from this entity.
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
+
+  """
+  Edges grouped by direction in the lineage graph, so a Repository renders as a lineage node,
+  for example upstream of a pipeline or task that links to it through repositoryLineage.
+  """
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
+
+  """
+  Experimental: standardized entity properties accessible through the aspects field.
+  """
+  aspects(input: AspectParams): [RawAspect!] @noAspects
+
+  """
+  Privileges the current actor has on this repository (e.g. canEditTags).
+  """
+  privileges: EntityPrivileges @noAspects
+}
+
+"""
+Code-specific properties for a Repository entity.
+"""
+type RepositoryProperties {
+  """
+  Display name of the repository.
+  """
+  name: String!
+
+  """
+  Description of the repository.
+  """
+  description: String
+
+  """
+  Default branch (e.g. main).
+  """
+  defaultBranch: String
+
+  """
+  Programming languages used in the repository.
+  """
+  languages: [String!]
+
+  """
+  License identifier (e.g. Apache-2.0).
+  """
+  license: String
+
+  """
+  Project homepage URL.
+  """
+  homepageUrl: String
+
+  """
+  Whether the repository is archived.
+  """
+  archived: Boolean
+
+  """
+  When the repository was created in the source system.
+  """
+  created: AuditStamp
+
+  """
+  When the repository was last modified in the source system.
+  """
+  lastModified: AuditStamp
+}
+
+"""
+The source binding for a Repository.
+"""
+type RepositorySource {
+  """
+  URL of the repository in its source system.
+  """
+  externalUrl: String
+
+  """
+  Identifier of the repository in its source system.
+  """
+  externalId: String
+}

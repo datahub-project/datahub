@@ -9,7 +9,7 @@ import styled from 'styled-components';
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
-import { Direction } from '@src/app/lineage/types';
+import { Direction } from '@src/app/lineageV3/types';
 
 import { EntityType, LineageDirection } from '@types';
 

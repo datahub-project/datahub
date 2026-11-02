@@ -1,9 +1,12 @@
 {
     "autoPropagatedDescription": "Tämä kuvaus levitettiin automaattisesti ylävirran sarakkeesta. <learnMore>Lue lisää</learnMore>",
+    "ingested": "Sisäänluettu",
+    "ingestedFrom": "Sisäänluettu lähteestä {{origin}}",
     "origin": "alkuperä",
     "originLabel": "Alkuperä",
     "propagated": "Levitetty",
     "propagatedDescriptionTitle": "Levitetty kuvaus",
+    "sourceLabel": "Lähde",
     "via": "kautta",
     "viaLabel": "Kautta"
 }
