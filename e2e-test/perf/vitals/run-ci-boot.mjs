@@ -2,7 +2,7 @@
 // PR and master entry point for the boot web-vitals comment.
 // Login stays on Lantern. Home is a second pass: signed-in shell, devtools, CPU 4×.
 // A home failure still leaves the login section in the comment.
-import { spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -54,6 +54,9 @@ export function pushLoginConfig(env = process.env) {
 // A wedged Lighthouse child must not block the other pass. The login comment
 // is written after both attempts, so a timed-out home run still leaves /login.
 export const LH_PASS_TIMEOUT_MS = 20 * 60 * 1000;
+// Puppeteer traps SIGTERM and closes Chrome from that handler. A wedged browser
+// never leaves the handler, so the process group is SIGKILLed after this grace.
+export const LH_KILL_GRACE_MS = 15 * 1000;
 
 export function bootOutcome({ loginRc, homeRc, loginReport, homeReport }) {
     const loginError = loginReport ? null : `exit ${loginRc}`;
@@ -63,18 +66,60 @@ export function bootOutcome({ loginRc, homeRc, loginReport, homeReport }) {
     return { loginError, homeError, warning, exitCode };
 }
 
-function runLh(configPath, { noAuth, out, mdOut }) {
+function signalProcessGroup(pid, signal) {
+    if (!pid) return;
+    try {
+        // The child is a process-group leader, so this also reaches Chrome.
+        process.kill(-pid, signal);
+    } catch {
+        try {
+            process.kill(pid, signal);
+        } catch {
+            // already exited
+        }
+    }
+}
+
+// spawnSync's timeout only sends SIGTERM and then waits forever if the child
+// handles that signal. This starts a new process group, signals it, and SIGKILLs
+// the group if it is still alive after the grace period.
+export function runBoundedProcess(execPath, args, { cwd, timeoutMs, graceMs, stdio = 'inherit' } = {}) {
+    return new Promise((resolve) => {
+        const child = spawn(execPath, args, { cwd, stdio, detached: true });
+        let settled = false;
+        let timedOut = false;
+        let timer;
+        let killTimer;
+        const finish = (code) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            clearTimeout(killTimer);
+            resolve({ code: code == null ? 1 : code, timedOut });
+        };
+        child.on('exit', (code) => finish(code));
+        child.on('error', () => finish(1));
+        timer = setTimeout(() => {
+            timedOut = true;
+            signalProcessGroup(child.pid, 'SIGTERM');
+            killTimer = setTimeout(() => signalProcessGroup(child.pid, 'SIGKILL'), graceMs);
+        }, timeoutMs);
+    });
+}
+
+async function runLh(configPath, { noAuth, out, mdOut }) {
     const args = [path.join(__dirname, 'lh-ab.mjs'), '--config', configPath, '--out', out, '--md-out', mdOut];
     if (noAuth) args.push('--no-auth');
-    const result = spawnSync(process.execPath, args, {
+    const { code, timedOut } = await runBoundedProcess(process.execPath, args, {
         cwd: __dirname,
-        stdio: 'inherit',
-        timeout: LH_PASS_TIMEOUT_MS,
+        timeoutMs: LH_PASS_TIMEOUT_MS,
+        graceMs: LH_KILL_GRACE_MS,
     });
-    if (result.error && result.error.code === 'ETIMEDOUT') {
+    if (timedOut) {
         process.stdout.write(`lighthouse pass timed out after ${LH_PASS_TIMEOUT_MS}ms: ${configPath}\n`);
+        return 1;
     }
-    return result.status == null ? 1 : result.status;
+    return code;
 }
 
 function loadReport(file) {
@@ -86,7 +131,7 @@ function loadReport(file) {
     }
 }
 
-function main() {
+async function main() {
     const args = parseArgs(process.argv.slice(2));
     const mode = args.mode === 'push' ? 'push' : 'pr';
     const results = path.join(__dirname, 'results');
@@ -101,12 +146,12 @@ function main() {
 
     const loginOut = path.join(results, 'ci-boot-login.json');
     const homeOut = path.join(results, 'ci-boot-home.json');
-    const loginRc = runLh(loginConfigPath, {
+    const loginRc = await runLh(loginConfigPath, {
         noAuth: true,
         out: loginOut,
         mdOut: path.join(results, 'ci-boot-login.md'),
     });
-    const homeRc = runLh(homeConfigPath, {
+    const homeRc = await runLh(homeConfigPath, {
         noAuth: false,
         out: homeOut,
         mdOut: path.join(results, 'ci-boot-home.md'),
@@ -146,4 +191,9 @@ function main() {
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isDirectRun) main();
+if (isDirectRun) {
+    main().catch((error) => {
+        process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+        process.exit(1);
+    });
+}

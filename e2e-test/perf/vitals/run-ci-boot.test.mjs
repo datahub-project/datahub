@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { bootOutcome } from './run-ci-boot.mjs';
+import { bootOutcome, runBoundedProcess } from './run-ci-boot.mjs';
 
 describe('bootOutcome', () => {
     it('warns and exits 0 when only the home pass fails', () => {
@@ -29,5 +29,32 @@ describe('bootOutcome', () => {
         assert.equal(outcome.warning, null);
         assert.equal(outcome.loginError, null);
         assert.equal(outcome.homeError, null);
+    });
+});
+
+describe('runBoundedProcess', () => {
+    it('returns a normal exit without waiting for the deadline', async () => {
+        const started = Date.now();
+        const result = await runBoundedProcess(process.execPath, ['-e', 'process.exit(0)'], {
+            timeoutMs: 5000,
+            graceMs: 1000,
+            stdio: 'ignore',
+        });
+        assert.equal(result.timedOut, false);
+        assert.equal(result.code, 0);
+        assert.ok(Date.now() - started < 4000);
+    });
+
+    it('SIGKILLs a child that ignores SIGTERM', async () => {
+        const started = Date.now();
+        const result = await runBoundedProcess(
+            process.execPath,
+            ['-e', 'process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);'],
+            { timeoutMs: 300, graceMs: 400, stdio: 'ignore' },
+        );
+        assert.equal(result.timedOut, true);
+        assert.equal(result.code, 1);
+        const elapsed = Date.now() - started;
+        assert.ok(elapsed < 3000, `returned in ${elapsed}ms`);
     });
 });
