@@ -124,125 +124,144 @@ def get_current_user_info(session):
         return None
 
 
-def set_base_platform_privileges_policy_status(status, session):
-    base_platform_privileges = {
-        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
-            updatePolicy(urn: $urn, input: $input) }""",
-        "variables": {
-            "urn": "urn:li:dataHubPolicy:7",
-            "input": {
-                "type": "PLATFORM",
-                "state": status,
-                "name": "All Users - Base Platform Privileges",
-                "description": "Grants base platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
-                "privileges": [
-                    "MANAGE_INGESTION",
-                    "MANAGE_SECRETS",
-                    "MANAGE_USERS_AND_GROUPS",
-                    "VIEW_ANALYTICS",
-                    "GENERATE_PERSONAL_ACCESS_TOKENS",
-                    "MANAGE_DOMAINS",
-                    "MANAGE_GLOBAL_ANNOUNCEMENTS",
-                    "MANAGE_TESTS",
-                    "MANAGE_GLOSSARIES",
-                    "MANAGE_TAGS",
-                    "MANAGE_GLOBAL_VIEWS",
-                    "MANAGE_GLOBAL_OWNERSHIP_TYPES",
-                ],
-                "actors": {
-                    "users": [],
-                    "groups": None,
-                    "resourceOwners": False,
-                    "allUsers": True,
-                    "allGroups": False,
-                    "resourceOwnersTypes": None,
-                },
+BASE_PLATFORM_PRIVILEGES_POLICY_URN = "urn:li:dataHubPolicy:7"
+VIEW_DATASET_SENSITIVE_POLICY_URN = "urn:li:dataHubPolicy:view-dataset-sensitive"
+VIEW_ENTITY_PAGE_POLICY_URN = "urn:li:dataHubPolicy:view-entity-page-all"
+
+_LIST_POLICIES_QUERY = """
+query listPolicies($input: ListPoliciesInput!) {
+  listPolicies(input: $input) {
+    total
+    policies {
+      urn
+      type
+      name
+      state
+      description
+      privileges
+      actors { users groups resourceOwners resourceOwnersTypes allUsers allGroups }
+      resources {
+        allResources
+        resources
+        filter { criteria { field values { value } condition } }
+      }
+    }
+  }
+}
+"""
+
+
+def _fetch_policy(session, urn):
+    """Read a policy's live definition, or None if it is not present."""
+    start, count = 0, 100
+    while True:
+        response = session.post(
+            f"{get_frontend_url()}/api/v2/graphql",
+            json={
+                "query": _LIST_POLICIES_QUERY,
+                "variables": {"input": {"start": start, "count": count}},
             },
+        )
+        response.raise_for_status()
+        result = (response.json().get("data") or {}).get("listPolicies") or {}
+        policies = result.get("policies") or []
+        for policy in policies:
+            if policy.get("urn") == urn:
+                return policy
+        start += count
+        if not policies or start >= result.get("total", 0):
+            return None
+
+
+def _policy_to_update_input(policy, state):
+    """Turn a Policy read back from GraphQL into a PolicyUpdateInput, changing only state."""
+    actors = policy.get("actors") or {}
+    update_input = {
+        "type": policy["type"],
+        "state": state,
+        "name": policy["name"],
+        "description": policy.get("description"),
+        "privileges": policy.get("privileges") or [],
+        "actors": {
+            "users": actors.get("users"),
+            "groups": actors.get("groups"),
+            "resourceOwners": bool(actors.get("resourceOwners")),
+            "resourceOwnersTypes": actors.get("resourceOwnersTypes"),
+            "allUsers": bool(actors.get("allUsers")),
+            "allGroups": bool(actors.get("allGroups")),
         },
     }
-    base_privileges_response = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=base_platform_privileges
+
+    resources = policy.get("resources")
+    if resources:
+        resource_filter = resources.get("filter")
+        update_input["resources"] = {
+            "allResources": resources.get("allResources"),
+            "resources": resources.get("resources"),
+            "filter": {
+                "criteria": [
+                    {
+                        "field": criterion["field"],
+                        "values": [v["value"] for v in criterion.get("values") or []],
+                        "condition": criterion.get("condition"),
+                    }
+                    for criterion in (resource_filter.get("criteria") or [])
+                ]
+            }
+            if resource_filter
+            else None,
+        }
+    return update_input
+
+
+def _set_policy_status(urn, status, session):
+    """Flip one bootstrap policy's state, preserving everything else about it.
+
+    These helpers are used as save/restore pairs around tests that need an "all users" policy
+    temporarily disabled. They used to write a hardcoded policy definition on the way back, which
+    made "restore" a misnomer: whatever the deployment actually had was replaced by the constant
+    baked into this file, for the rest of the pytest process.
+
+    Both directions of drift were live here, and both leak into unrelated tests:
+
+    * ``dataHubPolicy:7`` gained MANAGE_USERS_AND_GROUPS for ALL users. That is the self floor
+      for adding yourself to a group, so test_group_owner_cannot_add_self_to_owned_group then saw
+      its self-add legitimately succeed and reported a privilege escalation that never happened.
+    * ``view-dataset-sensitive`` lost VIEW_DATASET_OPERATIONS and ``view-entity-page-all`` lost
+      ES_EXPLAIN_QUERY_PRIVILEGE, silently revoking them from all users.
+
+    Reading the live definition also keeps this correct across deployments, which ship different
+    privilege sets on these bootstrap policies.
+    """
+    policy = _fetch_policy(session, urn)
+    assert policy is not None, (
+        f"{urn} not found; cannot toggle it without knowing its definition, and writing a "
+        f"guessed one would change what all users can do."
     )
-    base_privileges_response.raise_for_status()
-    base_res_data = base_privileges_response.json()
-    assert base_res_data["data"]["updatePolicy"] == "urn:li:dataHubPolicy:7"
+
+    response = session.post(
+        f"{get_frontend_url()}/api/v2/graphql",
+        json={
+            "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
+            updatePolicy(urn: $urn, input: $input) }""",
+            "variables": {"urn": urn, "input": _policy_to_update_input(policy, status)},
+        },
+    )
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data["data"]["updatePolicy"] == urn, res_data
+
+
+def set_base_platform_privileges_policy_status(status, session):
+    _set_policy_status(BASE_PLATFORM_PRIVILEGES_POLICY_URN, status, session)
 
 
 def set_view_dataset_sensitive_info_policy_status(status, session):
-    dataset_sensitive_information = {
-        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
-            updatePolicy(urn: $urn, input: $input) }""",
-        "variables": {
-            "urn": "urn:li:dataHubPolicy:view-dataset-sensitive",
-            "input": {
-                "type": "METADATA",
-                "state": status,
-                "name": "All Users - View Dataset Sensitive Information",
-                "description": "Grants viewing privileges of usage and profile information of all datasets for all users",
-                "privileges": ["VIEW_DATASET_USAGE", "VIEW_DATASET_PROFILE"],
-                "actors": {
-                    "users": [],
-                    "groups": None,
-                    "resourceOwners": False,
-                    "allUsers": True,
-                    "allGroups": False,
-                    "resourceOwnersTypes": None,
-                },
-            },
-        },
-    }
-    sensitive_info_response = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=dataset_sensitive_information
-    )
-    sensitive_info_response.raise_for_status()
-    sens_info_data = sensitive_info_response.json()
-    assert (
-        sens_info_data["data"]["updatePolicy"]
-        == "urn:li:dataHubPolicy:view-dataset-sensitive"
-    )
+    _set_policy_status(VIEW_DATASET_SENSITIVE_POLICY_URN, status, session)
 
 
 def set_view_entity_profile_privileges_policy_status(status, session):
-    view_entity_page = {
-        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
-            updatePolicy(urn: $urn, input: $input) }""",
-        "variables": {
-            "urn": "urn:li:dataHubPolicy:view-entity-page-all",
-            "input": {
-                "type": "METADATA",
-                "state": status,
-                "name": "All Users - View Entity Page",
-                "description": "Grants entity view to all users",
-                "privileges": [
-                    "VIEW_ENTITY_PAGE",
-                    "VIEW_ENTITY_QUERIES",
-                    "VIEW_ALL_QUERIES",
-                    "SEARCH_PRIVILEGE",
-                    "GET_COUNTS_PRIVILEGE",
-                    "GET_TIMESERIES_ASPECT_PRIVILEGE",
-                    "GET_ENTITY_PRIVILEGE",
-                    "GET_TIMELINE_PRIVILEGE",
-                ],
-                "actors": {
-                    "users": [],
-                    "groups": None,
-                    "resourceOwners": False,
-                    "allUsers": True,
-                    "allGroups": False,
-                    "resourceOwnersTypes": None,
-                },
-            },
-        },
-    }
-    view_entity_response = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=view_entity_page
-    )
-    view_entity_response.raise_for_status()
-    view_entity_data = view_entity_response.json()
-    assert (
-        view_entity_data["data"]["updatePolicy"]
-        == "urn:li:dataHubPolicy:view-entity-page-all"
-    )
+    _set_policy_status(VIEW_ENTITY_PAGE_POLICY_URN, status, session)
 
 
 def create_user(session, email, password):

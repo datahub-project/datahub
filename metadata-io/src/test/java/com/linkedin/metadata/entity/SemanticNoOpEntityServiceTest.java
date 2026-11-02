@@ -245,15 +245,56 @@ public class SemanticNoOpEntityServiceTest {
     RetentionService<ChangeItemImpl> retention = mock(RetentionService.class);
     service.setRetentionService(retention);
 
-    // A re-sent aspect is a separate record with an equal body and is not a semantic no-op.
+    // A re-sent aspect is a separate record with an equal body and is not a semantic no-op. It
+    // keeps the stored version, so no history row was written (maxVersion 0).
     UpstreamLineage stored = lineage(1L);
     UpstreamLineage resent = lineage(1L);
     assertTrue(stored != resent);
-    service.applyRetentionPostCommit(opContext, List.of(upsertResult(stored, resent, false, 2L)));
+    service.applyRetentionPostCommit(opContext, List.of(upsertResult(stored, resent, false, 0L)));
     verify(retention, never()).applyRetentionWithPolicyDefaults(any(), anyList());
 
     service.applyRetentionPostCommit(
         opContext, List.of(upsertResult(stored, lineage(2L), false, 3L)));
+    verify(retention, times(1)).applyRetentionWithPolicyDefaults(any(), anyList());
+  }
+
+  @Test
+  public void equalBodyThatWroteAHistoryRowIsStillTrimmed() throws Exception {
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mock(AspectDao.class),
+            mock(com.linkedin.metadata.event.EventProducer.class),
+            mock(PreProcessHooks.class),
+            new EntityServiceConfiguration().setPostCommitRetentionEnabled(true),
+            null);
+    @SuppressWarnings("unchecked")
+    RetentionService<ChangeItemImpl> retention = mock(RetentionService.class);
+    service.setRetentionService(retention);
+
+    // A write hook can make the final body equal after the version advanced and a history row was
+    // written. Skipping retention here would leave that row untrimmed.
+    service.applyRetentionPostCommit(
+        opContext, List.of(upsertResult(lineage(1L), lineage(1L), false, 4L)));
+    verify(retention, times(1)).applyRetentionWithPolicyDefaults(any(), anyList());
+  }
+
+  @Test
+  public void bodyChangeWithoutAHistoryRowIsStillTrimmed() throws Exception {
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mock(AspectDao.class),
+            mock(com.linkedin.metadata.event.EventProducer.class),
+            mock(PreProcessHooks.class),
+            new EntityServiceConfiguration().setPostCommitRetentionEnabled(true),
+            null);
+    @SuppressWarnings("unchecked")
+    RetentionService<ChangeItemImpl> retention = mock(RetentionService.class);
+    service.setRetentionService(retention);
+
+    // A time-only policy keeps one version, so a real change writes no history row (maxVersion 0).
+    // Retention still runs to age out older rows.
+    service.applyRetentionPostCommit(
+        opContext, List.of(upsertResult(lineage(1L), lineage(2L), false, 0L)));
     verify(retention, times(1)).applyRetentionWithPolicyDefaults(any(), anyList());
   }
 

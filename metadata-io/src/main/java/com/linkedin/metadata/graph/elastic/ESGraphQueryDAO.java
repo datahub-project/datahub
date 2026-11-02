@@ -4,12 +4,14 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
+import com.linkedin.metadata.graph.LineageCountResult;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -61,6 +63,15 @@ public class ESGraphQueryDAO implements GraphQueryDAO, DisposableBean {
       @Nullable Integer count,
       int maxHops) {
     return delegate.getLineage(opContext, entityUrn, lineageGraphFilters, offset, count, maxHops);
+  }
+
+  @Override
+  public LineageCountResult getLineageCount(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int sampleSize) {
+    return delegate.getLineageCount(opContext, entityUrns, lineageGraphFilters, sampleSize);
   }
 
   @Override

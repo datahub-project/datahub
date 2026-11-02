@@ -58,7 +58,8 @@ dev_requirements = {
     "ruff==0.15.22",
     "mypy==1.17.1",
     "pydantic>=2.0.0",
-    "pytest>=6.2.2",
+    # Cap matching metadata-ingestion.
+    "pytest>=6.2.2,<10.0.0",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "tox",

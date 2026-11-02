@@ -279,6 +279,20 @@ path_specs:
       - "**/*.txt"
 ```
 
+#### Compressed files
+
+When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types above. Supported compression formats are `.gz` (and its `.gzip` alias), `.bz2`, and `.zip`.
+
+For `.zip` archives:
+
+- Only the **first entry with a supported extension** is read. If an archive contains more than one supported entry, a warning is added to the ingestion report and only the first is processed.
+- The archive is selected by its name like any other compressed file, so name it with the inner format (`data.csv.zip`) or set `default_extension` for bare `archive.zip` files. The member that is read is the first one whose extension is in `file_types`, and its extension decides how it is parsed.
+- macOS `__MACOSX/` and `._*` metadata members are ignored.
+- Only the bytes needed (the central directory and the selected entry) are downloaded from S3 via range requests, so large archives are not fully downloaded for schema inference.
+- To guard against zip-bomb archives, an entry whose **uncompressed** size exceeds `path_spec.max_zip_entry_size` (default 512 MiB) is skipped with a warning. Increase this value if you need to read larger entries.
+
+Set `path_spec.enable_compression` to `false` to skip compressed files; they are not ingested.
+
 #### S3-specific mapping details
 
 This ingestion source maps the following source system concepts to DataHub concepts:

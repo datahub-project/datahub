@@ -1,5 +1,6 @@
 """Tests for the data pack loader."""
 
+import base64
 import hashlib
 import json
 import os
@@ -24,6 +25,9 @@ from datahub.cli.datapack.loader import (
     _DatapackSinkConfig,
     _run_pipeline_for_file,
     _sha256_file,
+    actor_urn_from_client,
+    actor_urn_from_token,
+    attribute_certifications,
     check_trust,
     download_pack,
     get_load_record,
@@ -1303,3 +1307,118 @@ class TestReferentialIntegrity:
         _check_referential_integrity(pack_path)
         captured = capsys.readouterr()
         assert "dangling" not in captured.out
+
+
+def _unsigned_jwt(claims: dict[str, object]) -> str:
+    header = base64.urlsafe_b64encode(b'{"alg":"none"}').decode().rstrip("=")
+    payload = (
+        base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode())
+        .decode()
+        .rstrip("=")
+    )
+    return f"{header}.{payload}.sig"
+
+
+class TestCertificationAttribution:
+    def test_actor_urn_from_token(self) -> None:
+        assert actor_urn_from_token(None) is None
+        assert actor_urn_from_token("tok") is None
+        assert actor_urn_from_token(_unsigned_jwt({})) is None
+        assert actor_urn_from_token(_unsigned_jwt({"actorId": "bad urn"})) is None
+        assert (
+            actor_urn_from_token(_unsigned_jwt({"actorId": "admin"}))
+            == "urn:li:corpuser:admin"
+        )
+        assert (
+            actor_urn_from_token(
+                _unsigned_jwt({"iss": "https://login.example.com", "sub": "app-1"})
+            )
+            == "urn:li:corpuser:__oauth_login_example_com_app-1"
+        )
+        assert (
+            actor_urn_from_token(
+                _unsigned_jwt(
+                    {
+                        "actorId": "admin",
+                        "iss": "https://login.example.com",
+                        "sub": "app-1",
+                    }
+                )
+            )
+            == "urn:li:corpuser:admin"
+        )
+
+    def test_oauth_subject_keeps_characters_gms_allows(self) -> None:
+        k8s_actor = actor_urn_from_token(
+            _unsigned_jwt(
+                {
+                    "iss": "https://kubernetes.default.svc",
+                    "sub": "system:serviceaccount:ns:sa",
+                }
+            )
+        )
+        assert k8s_actor == (
+            "urn:li:corpuser:__oauth_kubernetes_default_svc_system:serviceaccount:ns:sa"
+        )
+        auth0_actor = actor_urn_from_token(
+            _unsigned_jwt({"iss": "https://login.example.com", "sub": "auth0|abc"})
+        )
+        assert auth0_actor == "urn:li:corpuser:__oauth_login_example_com_auth0|abc"
+
+    def test_actor_urn_from_client_reads_auth_provider(self) -> None:
+        from datahub.ingestion.auth.registry import AuthConfig
+        from datahub.ingestion.graph.config import DatahubClientConfig
+
+        token = _unsigned_jwt({"actorId": "admin"})
+        config = DatahubClientConfig(
+            server="http://localhost:8080",
+            auth=AuthConfig(type="static", config={"token": token}),
+        )
+        assert actor_urn_from_client(config) == "urn:li:corpuser:admin"
+
+    def test_attribute_certifications_rewrites_only_certification_stamps(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        source = tmp_path / "pack.json"
+        source.write_text(
+            json.dumps(
+                [
+                    {
+                        "aspectName": "certification",
+                        "aspect": {
+                            "json": {
+                                "current": {
+                                    "certified": {
+                                        "time": 0,
+                                        "actor": "urn:li:corpuser:datahub",
+                                    }
+                                },
+                                "lastModified": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub",
+                                },
+                            }
+                        },
+                    },
+                    {
+                        "aspectName": "datasetProperties",
+                        "aspect": {
+                            "json": {
+                                "name": "kept",
+                                "actor": "urn:li:corpuser:datahub",
+                            }
+                        },
+                    },
+                ]
+            )
+        )
+
+        rewritten = attribute_certifications(source, "urn:li:corpuser:admin")
+
+        assert rewritten != source
+        data = json.loads(rewritten.read_text())
+        certification = data[0]["aspect"]["json"]
+        assert certification["lastModified"]["actor"] == "urn:li:corpuser:admin"
+        assert certification["current"]["certified"]["actor"] == "urn:li:corpuser:admin"
+        assert data[1]["aspect"]["json"]["actor"] == "urn:li:corpuser:datahub"
+        assert attribute_certifications(rewritten, "urn:li:corpuser:admin") == rewritten

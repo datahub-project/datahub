@@ -33,12 +33,15 @@ public final class SearchTemplateContextVariables {
   public static final String LETTER_DIGIT_QUERY = "letterDigitQuery";
   public static final String FQN_QUERY = "fqnQuery";
   public static final String DEFAULT_QUERY_FIELDS_JSON = "defaultQueryFieldsJson";
-  public static final String DEFAULT_FIELDS_WITHOUT_QUALIFIED_NAME_JSON =
-      "defaultFieldsWithoutQualifiedNameJson";
+  public static final String DEFAULT_FIELDS_WITHOUT_IDENTITY_JSON =
+      "defaultFieldsWithoutIdentityJson";
   public static final String IDENTITY_QUERY_FIELDS_JSON = "identityQueryFieldsJson";
+  public static final String NAME_FIELDS = "nameFields";
   public static final String NAME_FIELDS_JSON = "nameFieldsJson";
   public static final String QUALIFIED_NAME_FIELDS = "qualifiedNameFields";
   public static final String QUALIFIED_NAME_FIELDS_JSON = "qualifiedNameFieldsJson";
+  public static final String ID_FIELDS = "idFields";
+  public static final String ID_FIELDS_JSON = "idFieldsJson";
   public static final String LIGHT_FIELDS_JSON = "lightFieldsJson";
   public static final String LIGHT_OPERATOR = "lightOperator";
   public static final String ENTITY_NAME_FIELD = "entityNameField";
@@ -80,6 +83,7 @@ public final class SearchTemplateContextVariables {
   public static final String SYNONYM = "synonym";
 
   public static final String MULTI_WORD = "multiWord";
+  public static final String NAME_ONLY = "nameOnly";
   public static final String LONG_QUERY = "longQuery";
   public static final String DOTTED_QUERY = "dottedQuery";
   public static final String FULLY_QUALIFIED_NAME = "fullyQualifiedName";
@@ -141,11 +145,14 @@ public final class SearchTemplateContextVariables {
           LETTER_DIGIT_QUERY,
           FQN_QUERY,
           DEFAULT_QUERY_FIELDS_JSON,
-          DEFAULT_FIELDS_WITHOUT_QUALIFIED_NAME_JSON,
+          DEFAULT_FIELDS_WITHOUT_IDENTITY_JSON,
           IDENTITY_QUERY_FIELDS_JSON,
+          NAME_FIELDS,
           NAME_FIELDS_JSON,
           QUALIFIED_NAME_FIELDS,
           QUALIFIED_NAME_FIELDS_JSON,
+          ID_FIELDS,
+          ID_FIELDS_JSON,
           LIGHT_FIELDS_JSON,
           LIGHT_OPERATOR,
           ENTITY_NAME_FIELD,
@@ -180,6 +187,7 @@ public final class SearchTemplateContextVariables {
           FLAGS,
           SYNONYMS,
           MULTI_WORD,
+          NAME_ONLY,
           LONG_QUERY,
           DOTTED_QUERY,
           FULLY_QUALIFIED_NAME,
