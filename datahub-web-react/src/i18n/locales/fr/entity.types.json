@@ -1,9 +1,13 @@
 {
     "api.name": "API",
     "api.namePlural": "API",
+    "api.signature.definedByDataset_one": "Défini par le Dataset",
+    "api.signature.definedByDataset_other": "Défini par les Datasets",
+    "api.signature.inputDatasetsTitle": "Schéma d'entrée",
     "api.signature.inputTitle": "Paramètres d'entrée",
     "api.signature.noInput": "Aucun paramètre d'entrée",
     "api.signature.noOutput": "Aucune sortie déclarée",
+    "api.signature.outputDatasetsTitle": "Schéma de sortie",
     "api.signature.outputTitle": "Sortie",
     "api.signature.returns": "Retourne",
     "api.signature.tableDescription": "Description",

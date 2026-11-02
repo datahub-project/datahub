@@ -80,7 +80,7 @@ def test_hive_metastore_ingest(
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
         # Run the metadata ingestion pipeline for presto catalog referring to postgres database
-        mce_out_file = f"hive_metastore_mces{test_suffix}.json"
+        mce_out_file = f"hive_metastore{test_suffix}.json"
         events_file = tmp_path / mce_out_file
 
         pipeline_config: Dict = {
@@ -121,13 +121,6 @@ def test_hive_metastore_ingest(
         # config_file = (test_resources_dir / "presto_on_hive_to_file.yml").resolve()
         # run_datahub_cmd(["ingest", "-c", f"{config_file}"])
 
-        ignore_paths: Sequence[str] = [
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastDdlTime'\]",
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['create_date'\]",
-        ]
-
         ignore_paths_v2: Sequence[str] = [
             "/customProperties/create_date",
             "/customProperties/transient_lastDdlTime",
@@ -138,11 +131,10 @@ def test_hive_metastore_ingest(
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=f"hive_metastore_mces{test_suffix}.json",
-            golden_path=test_resources_dir
-            / f"hive_metastore_mces_golden{test_suffix}.json",
-            ignore_paths=ignore_paths,
+            output_path=f"hive_metastore{test_suffix}.json",
+            golden_path=test_resources_dir / f"hive_metastore_golden{test_suffix}.json",
             ignore_paths_v2=ignore_paths_v2,
+            fail_on_output_mces=True,
         )
 
 
@@ -152,7 +144,7 @@ def test_hive_metastore_instance_ingest(
 ):
     instance = "production_warehouse"
     platform = "hive"
-    mce_out_file = "hive_metastore_instance_mces.json"
+    mce_out_file = "hive_metastore_instance.json"
     events_file = tmp_path / mce_out_file
 
     pipeline_config: Dict = {

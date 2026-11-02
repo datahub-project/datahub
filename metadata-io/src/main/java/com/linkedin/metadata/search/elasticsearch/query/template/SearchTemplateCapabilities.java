@@ -45,7 +45,9 @@ public final class SearchTemplateCapabilities {
               "sort",
               "boosts",
               "queryFragments",
-              "component"));
+              "component",
+              "rankingSignals",
+              "rankingFormula"));
 
   public static final Set<String> PRESETS = Set.of("none", "usage", "usageAndMatchTier");
   public static final Set<String> SIZERS = Set.of("fixed", "tokenCurve");
@@ -155,12 +157,14 @@ public final class SearchTemplateCapabilities {
     }
     SearchTemplateRanking ranking = template.getRanking();
     if (ranking != null) {
+      boolean signals =
+          ranking.hasSignals() && ranking.getSignals() != null && !ranking.getSignals().isEmpty();
       String preset = ranking.hasPreset() ? ranking.getPreset() : null;
-      if (preset != null && !preset.isBlank() && !"none".equals(preset)) {
+      if (!signals && preset != null && !preset.isBlank() && !"none".equals(preset)) {
         return "rankingPreset";
       }
       String sizer = ranking.hasWindowSizer() ? ranking.getWindowSizer() : null;
-      if (sizer != null && !sizer.isBlank() && !"fixed".equals(sizer)) {
+      if (!signals && sizer != null && !sizer.isBlank() && !"fixed".equals(sizer)) {
         return "rankingWindow";
       }
     }

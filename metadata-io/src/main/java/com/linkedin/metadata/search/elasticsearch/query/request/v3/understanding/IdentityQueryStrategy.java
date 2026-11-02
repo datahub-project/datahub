@@ -50,9 +50,11 @@ public class IdentityQueryStrategy implements QueryStrategy {
     // adds to the term match's score
     boolQuery.should(QueryBuilders.matchPhraseQuery("urn", trimmed).boost(URN_PHRASE_BOOST));
 
-    // Phrase match on qualifiedName — for FQN and S3 path queries
+    // Whole qualifiedName match — for FQN and S3 path queries. The V3 root keeps the stored casing.
     boolQuery.should(
-        QueryBuilders.matchPhraseQuery("qualifiedName", trimmed).boost(QUALIFIED_NAME_BOOST));
+        QueryBuilders.termQuery("qualifiedName", trimmed)
+            .caseInsensitive(true)
+            .boost(QUALIFIED_NAME_BOOST));
 
     // Exact name match on the last dotted segment, e.g. "orders" for a URN cut off after
     // "my_db.orders". FQN queries take the general query instead
@@ -60,16 +62,14 @@ public class IdentityQueryStrategy implements QueryStrategy {
         trimmed.contains(".") ? trimmed.substring(trimmed.lastIndexOf('.') + 1) : trimmed;
     if (!lastSegment.isEmpty() && !lastSegment.equals(trimmed)) {
       boolQuery.should(
-          QueryBuilders.termQuery("name.keyword", lastSegment)
+          QueryBuilders.termQuery("name", lastSegment)
               .caseInsensitive(true)
               .boost(NAME_KEYWORD_BOOST));
     }
 
     // Exact ID match
     boolQuery.should(
-        QueryBuilders.termQuery("id.keyword", trimmed)
-            .caseInsensitive(true)
-            .boost(ID_KEYWORD_BOOST));
+        QueryBuilders.termQuery("id", trimmed).caseInsensitive(true).boost(ID_KEYWORD_BOOST));
 
     boolQuery.minimumShouldMatch(1);
     return boolQuery;

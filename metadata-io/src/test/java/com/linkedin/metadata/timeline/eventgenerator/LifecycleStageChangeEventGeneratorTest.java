@@ -52,6 +52,23 @@ public class LifecycleStageChangeEventGeneratorTest {
     assertEquals(event.getParameters().get("newState"), "published");
   }
 
+  // The Change History sidebar shows each entry's author from the transaction actor.
+  @Test
+  public void testTransactionCarriesActor() {
+    Status newStatus = new Status();
+    newStatus.setLifecycleStage(UrnUtils.getUrn("urn:li:lifecycleStageType:PUBLISHED"));
+
+    ChangeTransaction transaction =
+        generator.getSemanticDiff(
+            createEntityAspect(new Status(), TEST_TIME - 1000),
+            createEntityAspect(newStatus, TEST_TIME),
+            ChangeCategory.LIFECYCLE,
+            null,
+            false);
+
+    assertEquals(transaction.getActor(), TEST_USER);
+  }
+
   @Test
   public void testLifecycleStageTransition() {
     Status oldStatus = new Status();

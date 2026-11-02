@@ -1,5 +1,6 @@
 import dataclasses
 import functools
+import io
 import logging
 import os
 import posixpath
@@ -7,7 +8,7 @@ import re
 import time
 from datetime import datetime
 from pathlib import PurePath
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
 from smart_open import open as smart_open
@@ -56,6 +57,11 @@ from datahub.ingestion.source.data_lake_common.path_spec import (
     FolderTraversalMethod,
     PathSpec,
 )
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    ZipEntry,
+    is_zip_path,
+    read_first_supported_zip_entry,
+)
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
@@ -79,6 +85,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -315,26 +324,57 @@ class S3Source(StatefulIngestionSourceBase):
 
         return cls(config, ctx)
 
+    def _open_zip_entry(
+        self,
+        full_path: str,
+        s3_client: Optional["S3Client"],
+        path_spec: PathSpec,
+    ) -> Optional[ZipEntry]:
+        # smart_open's S3 reader is seekable, so zipfile fetches only the central
+        # directory and the chosen member with range requests. Storage errors
+        # propagate so ingest_table drops the schema, as it does for other files.
+        with self._smart_open(full_path, s3_client) as zip_file:
+            return read_first_supported_zip_entry(
+                zip_file,
+                context=full_path,
+                report=self.report,
+                file_types=path_spec.file_types,
+                max_entry_size=path_spec.max_zip_entry_size,
+            )
+
+    def _smart_open(self, full_path: str, s3_client: Optional["S3Client"]) -> IO[bytes]:
+        if s3_client is not None:
+            path = re.sub(URI_SCHEME_REGEX, "s3://", full_path)
+            return smart_open(path, "rb", transport_params={"client": s3_client})
+        return smart_open(full_path, "rb")
+
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
+        s3_client: Optional["S3Client"] = None
         if self.is_s3_platform():
             if self.source_config.aws_config is None:
                 raise ValueError("AWS config is required for S3 file sources")
-
             s3_client = self.source_config.aws_config.get_s3_client(
                 self.source_config.verify_ssl
             )
 
-            path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
-            file = smart_open(path, "rb", transport_params={"client": s3_client})
+        content_type = table_data.content_type
+        if path_spec.enable_compression and is_zip_path(table_data.full_path):
+            entry = self._open_zip_entry(table_data.full_path, s3_client, path_spec)
+            if entry is None:
+                return []
+            file: IO[bytes] = io.BytesIO(entry.data)
+            extension = entry.suffix
+            # A zip's content type describes the archive, not the member we
+            # just unwrapped, so it must not drive inference of the inner file.
+            content_type = None
         else:
-            # We still use smart_open here to take advantage of the compression
-            # capabilities of smart_open.
-            file = smart_open(table_data.full_path, "rb")
-
-        extension = path_spec.resolve_format_extension(table_data.full_path)
+            # smart_open decompresses .gz / .bz2 transparently. Their content type
+            # describes the inner payload (e.g. application/json for a .json.gz).
+            file = self._smart_open(table_data.full_path, s3_client)
+            extension = path_spec.resolve_format_extension(table_data.full_path)
 
         fields = []
-        inferrer = self._get_inferrer(extension, table_data.content_type)
+        inferrer = self._get_inferrer(extension, content_type)
         if inferrer:
             try:
                 fields = inferrer.infer_schema(file)
@@ -613,7 +653,9 @@ class S3Source(StatefulIngestionSourceBase):
         )
 
         if self.source_config.is_profiling_enabled():
-            yield from self.profiler.get_table_profile(table_data, dataset_urn)
+            yield from self.profiler.get_table_profile(
+                table_data, dataset_urn, path_spec
+            )
 
     def get_prefix(self, relative_path: str) -> str:
         return get_prefix(relative_path)
