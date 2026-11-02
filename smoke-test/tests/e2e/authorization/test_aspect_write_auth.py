@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+import requests
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -307,11 +308,25 @@ def _auth_test_setup_impl(graph_client, auth_session):
 
 
 @with_test_retry(max_attempts=10)
-def _post_graphql_as_user(email: str, password: str, payload: dict) -> dict:
-    user_session = login_as(email, password)
+def _login_as_user(email: str, password: str) -> requests.Session:
+    return login_as(email, password)
+
+
+def _post_graphql_as_user_once(email: str, password: str, payload: dict) -> dict:
+    """Send a GraphQL request exactly once; only the login is retried.
+
+    Use this for non-idempotent mutations (e.g. createDataProduct), where a retry after
+    a committed request with a lost response would create an untracked duplicate.
+    """
+    user_session = _login_as_user(email, password)
     response = user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=payload)
     response.raise_for_status()
     return response.json()
+
+
+@with_test_retry(max_attempts=10)
+def _post_graphql_as_user(email: str, password: str, payload: dict) -> dict:
+    return _post_graphql_as_user_once(email, password, payload)
 
 
 def _assert_graphql_auth_denied(res: dict) -> None:
@@ -886,14 +901,18 @@ def test_create_data_product_allowed_with_manage_data_products_on_domain(
     )
     wait_for_writes_to_sync(mcp_only=True)
 
-    created_urn = None
+    # Choose the id up front so the URN is known even if the response is lost, and
+    # send the mutation exactly once so a retry can never create a second product.
+    data_product_id = f"auth-created-{_UNIQUE}"
+    expected_urn = f"urn:li:dataProduct:{data_product_id}"
     try:
-        res = _post_graphql_as_user(
+        res = _post_graphql_as_user_once(
             TEST_USER_EMAIL,
             TEST_USER_PASSWORD,
             {
                 "query": CREATE_DATA_PRODUCT_MUTATION,
                 "variables": {
+                    "id": data_product_id,
                     "domainUrn": TEST_DOMAIN_URN,
                     "name": f"Created via manage {_UNIQUE}",
                     "description": "Data product created with domain-scoped privilege",
@@ -901,12 +920,10 @@ def test_create_data_product_allowed_with_manage_data_products_on_domain(
             },
         )
         created = (res.get("data") or {}).get("createDataProduct") or {}
-        created_urn = created.get("urn")
-        assert created_urn, res
+        assert created.get("urn") == expected_urn, res
     finally:
-        if created_urn:
-            try:
-                graph_client.hard_delete_entity(urn=created_urn)
-            except Exception:
-                logger.warning("Failed to delete %s during cleanup", created_urn)
+        try:
+            graph_client.hard_delete_entity(urn=expected_urn)
+        except Exception:
+            logger.warning("Failed to delete %s during cleanup", expected_urn)
         remove_policy(policy_urn, admin_session)
