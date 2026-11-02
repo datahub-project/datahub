@@ -1,0 +1,386 @@
+package com.linkedin.metadata.aspect.validation;
+
+import static com.linkedin.metadata.Constants.ASSERTION_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ASSERTION_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ASSERTION_KEY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationSession;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.EntitySpec;
+import com.datahub.context.OperationFingerprint;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionRunEvent;
+import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionSource;
+import com.linkedin.assertion.AssertionSourceType;
+import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionType;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.test.metadata.aspect.TestEntityRegistry;
+import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+public class AssertionAuthorizationValidatorTest {
+
+  private static final Urn ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test-assertion");
+  private static final Urn DATASET_A =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.table_a,PROD)");
+  private static final Urn DATASET_B =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.table_b,PROD)");
+  private static final DisjunctivePrivilegeGroup EDIT_ASSERTIONS_PRIVILEGES =
+      new DisjunctivePrivilegeGroup(
+          ImmutableList.of(
+              new ConjunctivePrivilegeGroup(
+                  ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())),
+              new ConjunctivePrivilegeGroup(
+                  ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))));
+
+  private AssertionAuthorizationValidator validator;
+  private AuthorizationSession session;
+  private AspectRetriever aspectRetriever;
+  private MockedStatic<AuthUtil> authUtilMockedStatic;
+
+  @BeforeMethod
+  public void setup() {
+    authUtilMockedStatic = Mockito.mockStatic(AuthUtil.class);
+    validator = new AssertionAuthorizationValidator();
+    validator.setConfig(
+        AspectPluginConfig.builder()
+            .className(AssertionAuthorizationValidator.class.getName())
+            .enabled(true)
+            .supportedOperations(List.of("UPSERT", "PATCH", "DELETE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(ASSERTION_ENTITY_NAME)
+                        .aspectName(ASSERTION_KEY_ASPECT_NAME)
+                        .build(),
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(ASSERTION_ENTITY_NAME)
+                        .aspectName(ASSERTION_INFO_ASPECT_NAME)
+                        .build(),
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(ASSERTION_ENTITY_NAME)
+                        .aspectName(ASSERTION_RUN_EVENT_ASPECT_NAME)
+                        .build()))
+            .build());
+    session = mock(AuthorizationSession.class);
+    aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(new TestEntityRegistry());
+    mockPersisted(null);
+  }
+
+  @AfterMethod
+  public void tearDown() {
+    authUtilMockedStatic.close();
+  }
+
+  @Test
+  public void testCreateAllowedWithEditAssertionsOnAssertee() {
+    grantEditAssertionsOn(DATASET_A);
+
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_A))).isEmpty());
+  }
+
+  @Test
+  public void testCreateDeniedWithoutEditAssertionsOnAssertee() {
+    // Holding privileges on a different dataset (or on the assertion itself) is not enough.
+    grantEditAssertionsOn(DATASET_B);
+
+    List<AspectValidationException> failures =
+        validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_A)));
+
+    Assert.assertEquals(failures.size(), 1);
+    Assert.assertEquals(failures.get(0).getEntityUrn(), ASSERTION_URN);
+  }
+
+  @Test
+  public void testSpoofedEntityUrnRequiresPrivilegeOnBothTargets() {
+    grantEditAssertionsOn(DATASET_A);
+    AssertionInfo info = freshnessOn(DATASET_A).setEntityUrn(DATASET_B);
+
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, upsert(info)).isEmpty());
+  }
+
+  @Test
+  public void testUpdateKeepingSameAssertee_noAssertedEntityCheck() {
+    // EDIT_ENTITY on the assertion itself (enforced by the API gate) keeps working for edits that
+    // don't change which entity the assertion is attached to.
+    mockPersisted(freshnessOn(DATASET_A).setEntityUrn(DATASET_A));
+
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_A).setDescription("x")))
+            .isEmpty());
+  }
+
+  @Test
+  public void testRetargetRequiresPrivilegeOnBothEntities() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_B);
+
+    Assert.assertFalse(
+        validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_B))).isEmpty());
+
+    grantEditAssertionsOn(DATASET_A);
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_B))).isEmpty());
+  }
+
+  @Test
+  public void testSystemActorSkipsCheck() {
+    OperationFingerprint systemFingerprint = mock(OperationFingerprint.class);
+    when(systemFingerprint.isSystemAuth()).thenReturn(true);
+
+    Assert.assertTrue(validate(systemFingerprint, upsert(freshnessOn(DATASET_A))).isEmpty());
+  }
+
+  @Test
+  public void testPatchRetargetRequiresPrivilegeOnNewTarget() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+
+    Assert.assertFalse(
+        validate(
+                OperationFingerprint.EMPTY,
+                genericPatch("/freshnessAssertion/entity", DATASET_B.toString()))
+            .isEmpty());
+  }
+
+  @Test
+  public void testPatchKeepingTarget_noAssertedEntityCheck() {
+    mockPersisted(freshnessOn(DATASET_A));
+
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, genericPatch("/description", "updated")).isEmpty());
+  }
+
+  @Test
+  public void testRunEventMustNameAssertionTarget() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+    grantEditAssertionsOn(DATASET_B);
+
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_B)).isEmpty());
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_A)).isEmpty());
+  }
+
+  @Test
+  public void testSameBatchInfoAndRunEventForNewTarget() {
+    grantEditAssertionsOn(DATASET_A);
+
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_A)), runEventOn(DATASET_A))
+            .isEmpty());
+  }
+
+  @Test
+  public void testSameBatchRunEventForOtherAssertee() {
+    grantEditAssertionsOn(DATASET_A);
+    grantEditAssertionsOn(DATASET_B);
+
+    List<AspectValidationException> failures =
+        validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_A)), runEventOn(DATASET_B));
+
+    Assert.assertEquals(failures.size(), 1);
+    Assert.assertEquals(failures.get(0).getAspectName(), ASSERTION_RUN_EVENT_ASPECT_NAME);
+  }
+
+  @Test
+  public void testRetargetWithRunEventAllowedWithPrivilegeOnBothEntities() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+    grantEditAssertionsOn(DATASET_B);
+
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_B)), runEventOn(DATASET_B))
+            .isEmpty());
+  }
+
+  @Test
+  public void testRunEventDeniedWithoutEditAssertionsOnAssertee() {
+    // The generic privilege on the assertion (checked by the API gate) does not cover the assertee.
+    mockPersisted(freshnessOn(DATASET_A));
+
+    List<AspectValidationException> failures =
+        validate(OperationFingerprint.EMPTY, runEventOn(DATASET_A));
+
+    Assert.assertEquals(failures.size(), 1);
+    Assert.assertEquals(failures.get(0).getAspectName(), ASSERTION_RUN_EVENT_ASPECT_NAME);
+  }
+
+  @Test
+  public void testRunEventWithoutTargetRequiresPrivilegeOnAssertee() {
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_A)).isEmpty());
+
+    grantEditAssertionsOn(DATASET_A);
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_A)).isEmpty());
+  }
+
+  @Test
+  public void testDeleteDeniedWithoutEditAssertionsOnTarget() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_B);
+
+    Assert.assertFalse(
+        validate(OperationFingerprint.EMPTY, delete(ASSERTION_KEY_ASPECT_NAME)).isEmpty());
+    Assert.assertFalse(
+        validate(OperationFingerprint.EMPTY, delete(ASSERTION_INFO_ASPECT_NAME)).isEmpty());
+  }
+
+  @Test
+  public void testDeleteAllowedWithEditAssertionsOnTarget() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, delete(ASSERTION_KEY_ASPECT_NAME)).isEmpty());
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, delete(ASSERTION_INFO_ASPECT_NAME)).isEmpty());
+  }
+
+  @Test
+  public void testDeleteWithoutAssertionInfo_noAssertedEntityCheck() {
+    // Matches DeleteAssertionResolver: with no assertionInfo only the API gate applies.
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, delete(ASSERTION_KEY_ASPECT_NAME)).isEmpty());
+  }
+
+  @Test
+  public void testSystemActorSkipsDeleteCheck() {
+    mockPersisted(freshnessOn(DATASET_A));
+    OperationFingerprint systemFingerprint = mock(OperationFingerprint.class);
+    when(systemFingerprint.isSystemAuth()).thenReturn(true);
+
+    Assert.assertTrue(validate(systemFingerprint, delete(ASSERTION_KEY_ASPECT_NAME)).isEmpty());
+  }
+
+  private void grantEditAssertionsOn(Urn entityUrn) {
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(session),
+                    eq(EDIT_ASSERTIONS_PRIVILEGES),
+                    eq(new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()))))
+        .thenReturn(true);
+  }
+
+  private void mockPersisted(AssertionInfo info) {
+    when(aspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(ASSERTION_URN)), eq(Set.of(ASSERTION_INFO_ASPECT_NAME))))
+        .thenReturn(
+            info == null
+                ? Map.of()
+                : Map.of(
+                    ASSERTION_URN, Map.of(ASSERTION_INFO_ASPECT_NAME, new Aspect(info.data()))));
+  }
+
+  private static AssertionInfo freshnessOn(Urn entityUrn) {
+    return new AssertionInfo()
+        .setType(AssertionType.FRESHNESS)
+        .setFreshnessAssertion(
+            new FreshnessAssertionInfo()
+                .setType(FreshnessAssertionType.DATASET_CHANGE)
+                .setEntity(entityUrn))
+        .setSource(new AssertionSource().setType(AssertionSourceType.NATIVE));
+  }
+
+  private static BatchItem genericPatch(String path, String value) {
+    GenericJsonPatch.PatchOp op = new GenericJsonPatch.PatchOp();
+    op.setOp("add");
+    op.setPath(path);
+    op.setValue(value);
+    return patchItem(
+        new MetadataChangeProposal()
+            .setEntityUrn(ASSERTION_URN)
+            .setEntityType(ASSERTION_ENTITY_NAME)
+            .setAspectName(ASSERTION_INFO_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(
+                GenericRecordUtils.serializePatch(
+                    GenericJsonPatch.builder().patch(List.of(op)).forceGenericPatch(true).build(),
+                    new ObjectMapper())));
+  }
+
+  private static BatchItem patchItem(MetadataChangeProposal mcp) {
+    return PatchItemImpl.builder()
+        .build(mcp, AuditStampUtils.createDefaultAuditStamp(), new TestEntityRegistry());
+  }
+
+  private static BatchItem runEventOn(Urn asserteeUrn) {
+    AssertionRunEvent runEvent =
+        new AssertionRunEvent()
+            .setTimestampMillis(0L)
+            .setRunId("run")
+            .setAssertionUrn(ASSERTION_URN)
+            .setAsserteeUrn(asserteeUrn)
+            .setStatus(AssertionRunStatus.COMPLETE);
+    return TestMCP.ofOneUpsertItem(ASSERTION_URN, runEvent, new TestEntityRegistry()).stream()
+        .findFirst()
+        .get();
+  }
+
+  private static BatchItem delete(String aspectName) {
+    com.linkedin.metadata.models.EntitySpec entitySpec =
+        new TestEntityRegistry().getEntitySpec(ASSERTION_ENTITY_NAME);
+    return TestMCP.builder()
+        .urn(ASSERTION_URN)
+        .changeType(ChangeType.DELETE)
+        .entitySpec(entitySpec)
+        .aspectSpec(entitySpec.getAspectSpec(aspectName))
+        .build();
+  }
+
+  private static TestMCP upsert(AssertionInfo info) {
+    return TestMCP.ofOneUpsertItem(ASSERTION_URN, info, new TestEntityRegistry()).stream()
+        .map(i -> (TestMCP) i)
+        .findFirst()
+        .get();
+  }
+
+  private List<AspectValidationException> validate(
+      OperationFingerprint fingerprint, BatchItem... items) {
+    return validator
+        .validateProposedAspectsWithAuth(
+            fingerprint,
+            List.of(items),
+            TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever)
+                .getRetrieverContext(),
+            session)
+        .collect(Collectors.toList());
+  }
+}
