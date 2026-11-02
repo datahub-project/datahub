@@ -317,5 +317,11 @@ class TestDremioPartitioning:
         # between them — i.e. directly on the scan, where pushdown can fire.
         assert columns_idx < marker_idx < query.index("ORDER BY")
         assert "JOIN" not in query[columns_idx:marker_idx]
-        # An INNER JOIN would drop datasets whose columns can't be read.
-        assert "LEFT JOIN" in query
+        # An INNER JOIN on COLUMNS would drop datasets whose columns can't be
+        # read. Comment lines are dropped first: the CE template mentions
+        # LEFT JOIN in one.
+        sql = "\n".join(
+            line for line in query.splitlines() if not line.strip().startswith("--")
+        )
+        before_columns = sql[: sql.index("INFORMATION_SCHEMA.COLUMNS")]
+        assert before_columns.rsplit("JOIN", 1)[0].split()[-1] == "LEFT"
