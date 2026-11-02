@@ -28,6 +28,10 @@
  *       SPRING_APPLICATION_JSON='{"elasticsearch":{"search":{"v3":{"templates":{"surfaces":
  *       {"searchEntities":{"fulltext":{"default":"urn:li:searchTemplate:rankingClassOrderSearch"}}}}}}}}'
  *     and SEARCH_RANKING_MODE=classOrder says so; without it the suite skips.
+ *   - The no-copy variant: SEARCH_RANKING_MODE=classOrderNoCopy with RANKING_TITLE_PROPERTY=plainTitle
+ *     writes the titles to a property defined without copyTo, and the search-box default is
+ *     urn:li:searchTemplate:rankingClassOrderNoCopySearch, whose template reads that property's own
+ *     field. The property still needs the system-update described below.
  *   - The two structured properties must exist before the Search V3 index is built, or a
  *     system-update must run after the first seeding: a property created later is mapped as a
  *     keyword only, so its copied title is not searchable as text. The suite skips with that reason.
@@ -105,8 +109,8 @@ const rowOf = (query: string, rank: number, urn: string, e: CorpusEntry | undefi
 test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () => {
   test.setTimeout(5 * 60_000);
   test.skip(
-    MODE !== 'classOrder',
-    'Set SEARCH_RANKING_MODE=classOrder on a stack whose search-box default is the class-order router',
+    MODE !== 'classOrder' && MODE !== 'classOrderNoCopy',
+    'Set SEARCH_RANKING_MODE=classOrder (or classOrderNoCopy) on a stack whose search-box default is that router',
   );
 
   let rankingPage: SearchRankingPage;

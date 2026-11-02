@@ -25,19 +25,36 @@ import type { APIRequestContext } from '@playwright/test';
 import { waitUntilSearchable } from './search-wait';
 
 export const PLATFORM_URN = 'urn:li:dataPlatform:hive';
-const PREFIX = 'rank_req';
+/**
+ * The no-copy catalog lives under its own names, so none of its search documents ever carried a
+ * copied title: a document keeps a structured-property value after the value is removed.
+ */
+const NO_COPY = process.env.RANKING_TITLE_PROPERTY === 'plainTitle';
+const PREFIX = NO_COPY ? 'rank_req_nc' : 'rank_req';
 
 export const DISPLAY_TITLE = 'io.example.displayTitle';
 export const RECORD_ID = 'io.example.recordId';
 export const DISPLAY_TITLE_URN = `urn:li:structuredProperty:${DISPLAY_TITLE}`;
+/** The same title, defined without copyTo: Search V3 searches it only on the property's own field. */
+export const PLAIN_TITLE = 'io.example.plainTitle';
+export const PLAIN_TITLE_URN = `urn:li:structuredProperty:${PLAIN_TITLE}`;
+/**
+ * Which property carries the catalog's titles. RANKING_TITLE_PROPERTY=plainTitle writes them to the
+ * property without copyTo (and clears the copied one), for the no-copy class-order template.
+ */
+export const TITLE_PROPERTY_URN =
+  process.env.RANKING_TITLE_PROPERTY === 'plainTitle' ? PLAIN_TITLE_URN : DISPLAY_TITLE_URN;
 export const RECORD_ID_URN = `urn:li:structuredProperty:${RECORD_ID}`;
 
 export const CLASS_ORDER_TEMPLATE_URN = 'urn:li:searchTemplate:rankingClassOrder';
 export const CLASS_ORDER_ROUTER_URN = 'urn:li:searchTemplate:rankingClassOrderSearch';
+export const CLASS_ORDER_NO_COPY_TEMPLATE_URN = 'urn:li:searchTemplate:rankingClassOrderNoCopy';
+export const CLASS_ORDER_NO_COPY_ROUTER_URN = 'urn:li:searchTemplate:rankingClassOrderNoCopySearch';
 
 export const datasetUrn = (name: string): string => `urn:li:dataset:(${PLATFORM_URN},${PREFIX}.${name},PROD)`;
 /** A dataset whose key differs from its display name, e.g. a table in a schema named like it. */
-export const keyedDatasetUrn = (key: string): string => `urn:li:dataset:(${PLATFORM_URN},${key},PROD)`;
+export const keyedDatasetUrn = (key: string): string =>
+  `urn:li:dataset:(${PLATFORM_URN},${NO_COPY ? `nc_${key}` : key},PROD)`;
 export const columnUrn = (dataset: string, fieldPath: string): string =>
   `urn:li:schemaField:(${datasetUrn(dataset)},${fieldPath})`;
 
@@ -324,8 +341,86 @@ export function classOrderTemplateBody(): Record<string, unknown> {
   };
 }
 
+/**
+ * The class-order body when the title is not copied into the name: the name tiers read only the name
+ * field, and the title tiers read the property's own field (keyword for exact, `.text` for partial).
+ * Nothing has to be inferred, so there is no must_not.
+ */
+export function classOrderNoCopyTemplateBody(): Record<string, unknown> {
+  const title = ref(PLAIN_TITLE, '');
+  const ds = { term: { _entityType: 'dataset' } };
+  const col = { term: { _entityType: 'schemaField' } };
+  const exactName = { term: { 'name.lowercase': { value: '{{normalizedKeyword}}' } } };
+  // The stored value keeps its case; compare the query as typed, ignoring case.
+  const exactTitle = { term: { [title]: { value: '{{raw}}', case_insensitive: true } } };
+  const partial = (field: string) => ({
+    bool: {
+      should: [
+        { match: { [field]: { query: '{{alphanumericSplit}}' } } },
+        { match_bool_prefix: { [field]: { query: '{{alphanumericSplit}}' } } },
+      ],
+    },
+  });
+  const partialAny = { bool: { should: [partial('name.text'), partial(`${title}.text`)] } };
+  const tier = (boost: number, name: string, filter: unknown[]) => ({
+    constant_score: { boost, _name: `class:${name}`, filter: { bool: { filter } } },
+  });
+  const tiers = [
+    tier(10000, 'IDENTIFIER', [ds, { term: { [ref(RECORD_ID, '')]: { value: '{{raw}}', case_insensitive: true } } }]),
+    tier(9000, 'EXACT_NAME', [ds, exactName]),
+    tier(8000, 'EXACT_TITLE', [ds, exactTitle]),
+    tier(7000, 'COLUMN_EXACT_NAME', [col, exactName]),
+    tier(6000, 'COLUMN_EXACT_TITLE', [col, exactTitle]),
+    tier(5000, 'PARTIAL', [ds, partialAny]),
+    tier(2000, 'COLUMN_PARTIAL', [col, partialAny]),
+  ];
+  return {
+    bool: {
+      minimum_should_match: 1,
+      should: [
+        { dis_max: { tie_breaker: 0.0, queries: tiers } },
+        { match: { 'name.text': { query: '{{alphanumericSplit}}', boost: 0.001 } } },
+      ],
+    },
+  };
+}
+
+const template = (urn: string, body: Record<string, unknown>) => ({
+  urn,
+  searchTemplateProperties: {
+    value: {
+      name: 'Class order',
+      description: 'Strict match-class order in the engine score.',
+      dialect: 'ELASTICSEARCH',
+      apiVersion: 1,
+      editable: true,
+      matchedFields: true,
+      query: JSON.stringify(body),
+      functionScore: JSON.stringify({ functions: [{ weight: 1.0 }], score_mode: 'multiply', boost_mode: 'multiply' }),
+      routes: [],
+    },
+  },
+});
+
+const router = (urn: string, bodyUrn: string) => ({
+  urn,
+  searchTemplateProperties: {
+    value: {
+      name: 'Class order search',
+      description: 'The shipped interactive router; ordinary queries use the class-order body.',
+      dialect: 'ELASTICSEARCH',
+      apiVersion: 1,
+      editable: true,
+      parent: 'urn:li:searchTemplate:searchLight',
+      defaultRoute: { template: bodyUrn },
+    },
+  },
+});
+
 export function classOrderTemplates(): { urn: string; searchTemplateProperties: { value: Record<string, unknown> } }[] {
   return [
+    template(CLASS_ORDER_NO_COPY_TEMPLATE_URN, classOrderNoCopyTemplateBody()),
+    router(CLASS_ORDER_NO_COPY_ROUTER_URN, CLASS_ORDER_NO_COPY_TEMPLATE_URN),
     {
       urn: CLASS_ORDER_TEMPLATE_URN,
       searchTemplateProperties: {
@@ -372,6 +467,13 @@ const PROPERTIES = [
     displayName: 'Display title',
     entityTypes: ['dataset', 'schemaField'],
     searchConfiguration: { queryByDefault: true, copyTo: ['name'] },
+  },
+  {
+    urn: PLAIN_TITLE_URN,
+    qualifiedName: PLAIN_TITLE,
+    displayName: 'Plain title',
+    entityTypes: ['dataset', 'schemaField'],
+    searchConfiguration: { queryByDefault: true },
   },
   {
     urn: RECORD_ID_URN,
@@ -453,7 +555,7 @@ export class SearchRankingSeeder {
   async seedCorpus(corpus: CorpusEntry[]): Promise<void> {
     const properties = (e: CorpusEntry) => {
       const values = [
-        ...(e.title ? [{ propertyUrn: DISPLAY_TITLE_URN, values: [{ string: e.title }] }] : []),
+        ...(e.title ? [{ propertyUrn: TITLE_PROPERTY_URN, values: [{ string: e.title }] }] : []),
         ...(e.recordId ? [{ propertyUrn: RECORD_ID_URN, values: [{ string: e.recordId }] }] : []),
       ];
       return values.length ? { structuredProperties: { value: { properties: values } } } : {};
