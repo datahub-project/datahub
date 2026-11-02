@@ -104,16 +104,28 @@ def _env_tokens(**tokens: str) -> List[Dict[str, str]]:
 
 def test_environment_tokens_use_their_own_token() -> None:
     source = _source(
-        api_token=None, environment_tokens=_env_tokens(**{"env-a": "tok-a"})
+        api_token=None,
+        environment_tokens=_env_tokens(**{"env-a": "tok-a", "env-b": "tok-b"}),
     )
     with requests_mock.Mocker() as mock:
-        mock.get(f"{BASE_URL}/environments/env-a", json=_environment("env-a", "A"))
-        mock.get(f"{BASE_URL}/environments/env-a/rivers", json=_page([]))
-        _entities(source)
+        for environment_id, name in [("env-a", "A"), ("env-b", "B")]:
+            mock.get(
+                f"{BASE_URL}/environments/{environment_id}",
+                json=_environment(environment_id, name),
+            )
+            mock.get(f"{BASE_URL}/environments/{environment_id}/rivers", json=_page([]))
+        entities = _entities(source)
         auth = {r.path: r.headers["Authorization"] for r in mock.request_history}
 
-    assert auth["/v1/accounts/acct-0001/environments/env-a"] == "Bearer tok-a"
-    assert auth["/v1/accounts/acct-0001/environments/env-a/rivers"] == "Bearer tok-a"
+    assert sorted(
+        e.display_name or "" for e in entities if isinstance(e, Container)
+    ) == ["A", "B"]
+    assert auth == {
+        "/v1/accounts/acct-0001/environments/env-a": "Bearer tok-a",
+        "/v1/accounts/acct-0001/environments/env-a/rivers": "Bearer tok-a",
+        "/v1/accounts/acct-0001/environments/env-b": "Bearer tok-b",
+        "/v1/accounts/acct-0001/environments/env-b/rivers": "Bearer tok-b",
+    }
 
 
 def test_unreadable_configured_environment_is_a_failure() -> None:

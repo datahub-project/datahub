@@ -2,7 +2,7 @@
 
 Boomi Data Integration (formerly Rivery) is a cloud ELT service where you build rivers that load data from SaaS applications and databases into a warehouse, and logic rivers that orchestrate SQL, Python and other rivers. Learn more in the [Boomi Data Integration API reference](https://developer.boomi.com/docs/api/dataintegration/Rivers).
 
-The DataHub integration for Boomi Data Integration reads the Data Integration REST API. It ingests environments and groups as containers, each river as a DataFlow, and the river's load or logic steps as DataJobs, with lineage from source-to-target rivers and logic SQL steps to the tables they write, where the target platform and table name can be determined. Targets that would need guessing are skipped and listed in the ingestion report. Stateful ingestion removes rivers that were deleted or filtered out.
+The DataHub integration for Boomi Data Integration reads the Data Integration REST API. It ingests environments and groups as containers, each river as a DataFlow, and the river's load, run or logic steps as DataJobs, with lineage from source-to-target rivers and logic SQL steps to the tables they write, where the target platform and table name can be determined. Targets that would need guessing are skipped and listed in the ingestion report. Stateful ingestion removes rivers that were deleted or filtered out.
 
 ## Concept Mapping
 
