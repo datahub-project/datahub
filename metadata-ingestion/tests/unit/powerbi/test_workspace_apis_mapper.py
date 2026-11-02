@@ -1818,6 +1818,24 @@ def test_page_inputs_stay_the_whole_model_when_nothing_resolves() -> None:
     assert reporter.report_field_references_unresolved == 1
 
 
+def test_page_inputs_keep_a_table_whose_field_is_missing_from_the_schema() -> None:
+    """A renamed column proves the page reads the table even though the
+    field itself cannot be matched: the table-level edge stays, the field
+    is counted as unresolved and gets no inputField."""
+    mapper = _mapper(_config(extract_report_field_usage=True, platform_instance="prod"))
+    report = _three_table_report()
+    report.pages[0].field_references = [
+        PageFieldReference("Policies", "State", "column"),
+        PageFieldReference("Claims", "Renamed", "column"),
+    ]
+    info, reporter = _page_chart_info(mapper, report)
+    assert report.dataset is not None
+    policies, claims, _ = report.dataset.tables
+    assert info.inputs == [_urn(mapper, policies), _urn(mapper, claims)]
+    assert reporter.report_field_references_resolved == 1
+    assert reporter.report_field_references_unresolved == 1
+
+
 def _tile(
     tile_id: str,
     dataset: Optional[PowerBIDataset],

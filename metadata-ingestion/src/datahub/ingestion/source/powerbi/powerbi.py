@@ -2179,7 +2179,8 @@ class Mapper:
         ds_mcps: List[MetadataChangeProposalWrapper],
         workspace: powerbi_data_classes.Workspace,
         dashboard: powerbi_data_classes.Dashboard,
-        position: int = 1,
+        *,
+        position: int,
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi tile to datahub chart. `position` is the tile's 1-based
@@ -2830,6 +2831,12 @@ class Mapper:
                     report.dataset.id,
                 )
                 continue
+            # The table-level edge is justified by the table match alone: a
+            # reference whose field is missing from the schema (renamed
+            # column, hierarchy level) still proves the chart reads the table.
+            table_urn = self.make_dataset_urn_for_table(table)
+            if table_urn not in result.dataset_urns:
+                result.dataset_urns.append(table_urn)
             model_fields: List[
                 Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]
             ] = [*(table.columns or []), *(table.measures or [])]
@@ -2850,9 +2857,6 @@ class Mapper:
                     context,
                 )
                 continue
-            table_urn = self.make_dataset_urn_for_table(table)
-            if table_urn not in result.dataset_urns:
-                result.dataset_urns.append(table_urn)
             field_urn = builder.make_schema_field_urn(table_urn, reference.field)
             fields.append(
                 InputFieldClass(
