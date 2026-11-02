@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,6 +8,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.hive.hive_source import HiveSource
 from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineage
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, SqlWorkUnit
 from datahub.ingestion.source.sql.two_tier_sql_source import TwoTierSQLAlchemySource
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -161,10 +162,11 @@ def test_storage_lineage_follows_hive_table_schema(direction: str) -> None:
     assert_storage_lineage(source, workunits, direction)
 
 
-def test_storage_lineage_error_is_reported_and_table_still_emitted() -> None:
-    with patch.object(
-        HiveStorageLineage, "get_lineage_mcp", side_effect=ValueError("bad location")
-    ):
+@pytest.mark.parametrize("error", [ValueError("bad location"), RuntimeError("boom")])
+def test_storage_lineage_error_is_reported_and_table_still_emitted(
+    error: Exception,
+) -> None:
+    with patch.object(HiveStorageLineage, "get_lineage_mcp", side_effect=error):
         source, workunits = run_scenario("upstream")
     found = rows(workunits)
 
@@ -178,3 +180,24 @@ def test_storage_lineage_error_is_reported_and_table_still_emitted() -> None:
         "schemaMetadata",
         "subTypes",
     ]
+
+
+def test_storage_lineage_without_schema_metadata() -> None:
+    parent = SQLAlchemySource._process_table
+
+    def without_schema(
+        self: SQLAlchemySource, *args: Any, **kwargs: Any
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        for wu in parent(self, *args, **kwargs):
+            if wu.get_aspect_of_type(SchemaMetadataClass) is None:
+                yield wu
+
+    with patch.object(SQLAlchemySource, "_process_table", without_schema):
+        source, workunits = run_scenario("upstream")
+    found = rows(workunits)
+
+    assert not source.report.warnings
+    lineage = _find(found, HIVE_TABLE, "upstreamLineage")
+    assert isinstance(lineage, UpstreamLineageClass)
+    assert [u.dataset for u in lineage.upstreams] == [STORAGE]
+    assert not lineage.fineGrainedLineages

@@ -158,28 +158,37 @@ class HiveSource(TwoTierSQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         # Storage lineage needs DatasetProperties (Location) and SchemaMetadata (columns);
         # collect them by aspect type, since they may arrive in different work units.
+        dataset_urn: Optional[str] = None
         dataset_props: Optional[DatasetPropertiesClass] = None
         schema_metadata: Optional[SchemaMetadataClass] = None
+        lineage_emitted = False
         for wu in super()._process_table(
             dataset_name, inspector, schema, table, sql_config, data_reader
         ):
             yield wu
-            if dataset_props is not None and schema_metadata is not None:
+            if lineage_emitted:
                 continue
             if dataset_props is None:
                 dataset_props = wu.get_aspect_of_type(DatasetPropertiesClass)
+                dataset_urn = wu.get_urn()
             if schema_metadata is None:
                 schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
             if dataset_props is not None and schema_metadata is not None:
+                lineage_emitted = True
                 yield from self._gen_storage_lineage_workunits(
                     wu.get_urn(), dataset_props, schema_metadata
                 )
+        # Without a schema, storage lineage still goes out, only without column lineage.
+        if not lineage_emitted and dataset_urn and dataset_props is not None:
+            yield from self._gen_storage_lineage_workunits(
+                dataset_urn, dataset_props, None
+            )
 
     def _gen_storage_lineage_workunits(
         self,
         dataset_urn: str,
         dataset_props: DatasetPropertiesClass,
-        schema_metadata: SchemaMetadataClass,
+        schema_metadata: Optional[SchemaMetadataClass],
     ) -> Iterable[MetadataWorkUnit]:
         location = dataset_props.customProperties.get("Location")
         if not location:

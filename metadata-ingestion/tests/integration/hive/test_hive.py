@@ -84,8 +84,6 @@ def test_hive_ingest(loaded_hive, pytestconfig, test_resources_dir, tmp_path):
         ],
     )
 
-    # Limitation - native data types for union does not show up as expected
-
 
 @time_machine.travel(FROZEN_TIME_DT, tick=False)
 @pytest.mark.integration_batch_1
@@ -110,8 +108,6 @@ def test_hive_ingest_all_db(loaded_hive, pytestconfig, test_resources_dir, tmp_p
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['.*Time.*'\]",
         ],
     )
-
-    # Limitation - native data types for union does not show up as expected
 
 
 @time_machine.travel(FROZEN_TIME_DT, tick=False)
