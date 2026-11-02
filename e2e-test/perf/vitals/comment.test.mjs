@@ -136,6 +136,12 @@ describe('renderBootComment', () => {
 });
 
 describe('renderReport', () => {
+    it('describes a devtools run with its request latency', () => {
+        const body = renderReport(mixedHome());
+        assert.match(body, /devtools, CPU 4×, 150 ms, 10 Mbps/);
+        assert.doesNotMatch(body, /rtt 40/);
+    });
+
     it('does not call overlapping first paint a regression', () => {
         const body = renderReport(noiseLogin());
         assert.match(body, /noise/);

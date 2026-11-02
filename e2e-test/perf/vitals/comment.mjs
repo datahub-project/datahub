@@ -228,13 +228,10 @@ function reportHeading(report) {
 }
 
 function methodParagraph(report) {
-    const throttling = report.config?.throttling;
-    const settings = throttling?.throttling || {};
     const ab = isAb(report);
     return (
-        `Lighthouse ${report.lighthouseVersion || '?'}, throttling **${throttling?.method || '?'}** ` +
-        `(cpu ${settings.cpuSlowdownMultiplier}x, rtt ${settings.rttMs} ms, ` +
-        `${settings.throughputKbps} kbps). Form factor: ${report.config?.formFactor}. ` +
+        `Lighthouse ${report.lighthouseVersion || '?'}, ${throttlingNote(report.config?.throttling)}. ` +
+        `Form factor: ${report.config?.formFactor}. ` +
         `Cache: ${report.config?.cachePolicy}. target n=${report.config?.runsPerBuild}/build, ` +
         `${report.config?.warmupRunsPerBuild} warm-up discarded` +
         (ab ? ', alternating A,B.' : '.')
