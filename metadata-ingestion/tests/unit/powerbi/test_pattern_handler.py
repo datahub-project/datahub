@@ -17,6 +17,7 @@ import sqlglot.errors
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
+    AthenaPlatformOverride,
     Constant,
     DataPlatformPair,
     OraclePlatformDetail,
@@ -1508,6 +1509,41 @@ def test_odbc_athena_nav_schema_table_without_catalog_emits_database_table():
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
+
+
+def test_odbc_athena_nav_applies_table_platform_override():
+    """The navigation path must apply athena_table_platform_override end to end:
+    resolve the Athena platform_instance, split that prefix off the URN, match the
+    override, and re-point to the federated platform without the Athena instance."""
+    instance = _build_odbc_lineage(
+        platform_detail=PlatformDetail(platform_instance="athena_inst"),
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="my_schema", table="my_table", platform="mysql"
+            )
+        ],
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "my_schema"),
+            ("Table", "my_table"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,my_schema.my_table,PROD)"
     ]
 
 
