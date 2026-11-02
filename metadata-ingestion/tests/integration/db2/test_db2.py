@@ -223,6 +223,5 @@ def test_db2_ingest(
         ignore_paths=[
             r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
             r"root\[\d+\]\['aspect'\]\['json'\].+\[\d+\]\['auditStamp'\]\['time'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
         ],
     )
