@@ -314,8 +314,11 @@ class DremioSource(StatefulIngestionSourceBase):
 
     def _catalog_names_incomplete(self) -> bool:
         # An empty catalog with query lineage on is far more likely a fetch
-        # that silently returned nothing than a Dremio with no datasets.
-        return self.report.dataset_fetch_incomplete or not self.catalog_dataset_names
+        # that silently returned nothing than a Dremio with no datasets. A walk
+        # that only found column-less datasets did return something.
+        return self.report.dataset_fetch_incomplete or not (
+            self.catalog_dataset_names or self.dremio_api.datasets_without_columns
+        )
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":

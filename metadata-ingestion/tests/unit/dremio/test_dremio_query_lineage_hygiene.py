@@ -227,6 +227,18 @@ def test_incomplete_dataset_fetch_falls_back_to_filters(source, cause):
     assert not source._is_allowed_table("dremio.other_source.sales.orders")
 
 
+def test_walk_with_only_column_less_datasets_is_complete(source):
+    # The walk returned rows, so an empty catalog here is not a silent failure.
+    source.catalog_dataset_names = set()
+    source.dremio_api.datasets_without_columns.add("my_s3.materialize.no_columns")
+
+    assert source._is_allowed_table("dremio.my_s3.materialize.no_columns")
+    assert not source._is_allowed_table("dremio.my_s3.materialize.orders_blue")
+    assert list(source.report.lineage_dropped_not_in_catalog) == [
+        "my_s3.materialize.orders_blue"
+    ]
+
+
 def _warning_titles(source: DremioSource) -> List[str]:
     return [w.title for w in source.report.warnings if w.title]
 
