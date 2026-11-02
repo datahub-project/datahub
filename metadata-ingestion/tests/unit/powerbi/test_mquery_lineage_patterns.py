@@ -177,9 +177,9 @@ def test_navigation_record_without_expected_keys_is_reported_not_an_error(
     assert lineages == []
     assert reporter.m_query_resolver_errors == 0
     assert reporter.m_query_resolver_no_lineage == 1
-    assert [w.title for w in reporter.warnings] == [
-        Constant.M_QUERY_NAVIGATION_UNRESOLVED
-    ]
+    [warning] = reporter.warnings
+    assert warning.title == Constant.M_QUERY_NAVIGATION_UNRESOLVED
+    assert any("table-name=ws.ds.t" in c for c in warning.context), warning.context
 
 
 def test_mssql_unresolved_server_parameter_emits_partial_lineage() -> None:
