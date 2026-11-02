@@ -145,7 +145,9 @@ def normalize_jdbc_url(url: str) -> str:
 
     All other URLs are returned unchanged after stripping a leading jdbc:.
     """
-    fixed = _match_fixed_format_url(url, _SQLSERVER_NORMALIZE_DATABASE_KEYS)
+    fixed = _match_fixed_format_url(
+        url, _SQLSERVER_NORMALIZE_DATABASE_KEYS, skip_blank_database=False
+    )
     if fixed is not None:
         # Oracle URLs always carry a port; SQL Server and jTDS default it.
         port = fixed.port or SQLSERVER_DEFAULT_PORT
@@ -155,7 +157,7 @@ def normalize_jdbc_url(url: str) -> str:
 
 
 def _match_fixed_format_url(
-    url: str, sqlserver_database_keys: FrozenSet[str]
+    url: str, sqlserver_database_keys: FrozenSet[str], skip_blank_database: bool
 ) -> Optional[_FixedFormatJdbcUrl]:
     m = _ORACLE_THIN_RE.match(url)
     if m:
@@ -173,7 +175,7 @@ def _match_fixed_format_url(
             host=m.group("host"),
             port=m.group("port"),
             database=_sqlserver_database(
-                m.group("params") or "", sqlserver_database_keys
+                m.group("params") or "", sqlserver_database_keys, skip_blank_database
             ),
         )
 
@@ -228,7 +230,9 @@ def _lowercase_scheme_prefix(url: str) -> str:
 
 
 def _parse_valid_jdbc_url(url: str) -> JdbcUrlInfo:
-    fixed = _match_fixed_format_url(url, SQLSERVER_DATABASE_KEYS)
+    fixed = _match_fixed_format_url(
+        url, SQLSERVER_DATABASE_KEYS, skip_blank_database=True
+    )
     if fixed is not None:
         return JdbcUrlInfo(
             platform=fixed.platform,
@@ -282,10 +286,17 @@ def _platform_for_scheme(scheme: str, host: str) -> Optional[str]:
     return platform
 
 
-def _sqlserver_database(params: str, keys: FrozenSet[str]) -> Optional[str]:
+def _sqlserver_database(
+    params: str, keys: FrozenSet[str], skip_blank: bool
+) -> Optional[str]:
+    # normalize_jdbc_url stops at the first `databaseName` even when blank, and
+    # kafka_connect depends on that; parse_jdbc_url keeps looking so
+    # `databaseName=;database=db` still yields `db`.
     for param in params.split(";"):
         key, sep, value = param.partition("=")
-        if sep and key.strip().lower() in keys:
+        if not sep or key.strip().lower() not in keys:
+            continue
+        if value.strip() or not skip_blank:
             return value.strip()
     return None
 

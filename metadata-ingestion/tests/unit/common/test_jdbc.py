@@ -26,6 +26,7 @@ from datahub.ingestion.source.common.jdbc import (
         ),
         ("jdbc:sqlserver://host;databaseName=mydb", "mssql://host:1433/mydb"),
         ("jdbc:sqlserver://host:1433", "mssql://host:1433/"),
+        ("jdbc:sqlserver://host;databaseName=;databaseName=db", "mssql://host:1433/"),
         (
             "jdbc:sqlserver://host:1433;databaseName=db;password=p@ss",
             "mssql://host:1433/db",
@@ -109,6 +110,10 @@ def test_validate_jdbc_url(url: str, valid: bool) -> None:
         ),
         (
             "jdbc:sqlserver://sql.example.com;database=sales",
+            JdbcUrlInfo(platform="mssql", host="sql.example.com", database="sales"),
+        ),
+        (
+            "jdbc:sqlserver://sql.example.com;databaseName=;database=sales",
             JdbcUrlInfo(platform="mssql", host="sql.example.com", database="sales"),
         ),
         (
