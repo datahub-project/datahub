@@ -70,10 +70,10 @@ def _mutate(file: Path, upsert: bool) -> None:
                 graph.emit(mcp)
             click.secho(f"Update succeeded for urn {loaded.urn}.", fg="green")
         except Exception as e:
-            click.secho(
-                f"Update failed for id {loaded.id}. due to {e}",
-                fg="red",
-            )
+            # Exit non-zero so CI/GitOps pipelines see a failed apply.
+            raise click.ClickException(
+                f"Update failed for id {loaded.id} due to {e}"
+            ) from e
 
 
 @domain.command(name="upsert")
