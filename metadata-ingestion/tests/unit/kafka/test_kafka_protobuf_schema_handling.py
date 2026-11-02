@@ -49,9 +49,8 @@ class TestProtobufSchemaHandling:
 
         sample_data = b"\x00\x00\x00\x00\x01some binary protobuf data"
 
-        result = kafka_source._process_message_part(
+        result = kafka_source._decode_message_part(
             data=sample_data,
-            prefix="value",
             topic="test_topic",
             schema_metadata=protobuf_schema_metadata,
             is_key=False,
@@ -87,9 +86,8 @@ class TestProtobufSchemaHandling:
             mock_reader_instance.read.return_value = {"id": 1, "name": "Alice"}
             mock_reader.return_value = mock_reader_instance
 
-            result = kafka_source._process_message_part(
+            result = kafka_source._decode_message_part(
                 data=sample_data,
-                prefix="value",
                 topic="test_topic",
                 schema_metadata=avro_schema_metadata,
                 is_key=False,
@@ -113,9 +111,8 @@ class TestProtobufSchemaHandling:
 
         sample_data = b'{"id": 123, "name": "test"}'
 
-        result = kafka_source._process_message_part(
+        result = kafka_source._decode_message_part(
             data=sample_data,
-            prefix="value",
             topic="test_topic",
             schema_metadata=json_schema_metadata,
             is_key=False,
@@ -143,9 +140,8 @@ class TestProtobufSchemaHandling:
 
         sample_key_data = b"\x00\x00\x00\x00\x01some binary protobuf key data"
 
-        result = kafka_source._process_message_part(
+        result = kafka_source._decode_message_part(
             data=sample_key_data,
-            prefix="key",
             topic="test_topic",
             schema_metadata=protobuf_key_schema_metadata,
             is_key=True,
@@ -169,9 +165,8 @@ class TestProtobufSchemaHandling:
 
         sample_data = b'{"id": 123, "name": "test"}'
 
-        result = kafka_source._process_message_part(
+        result = kafka_source._decode_message_part(
             data=sample_data,
-            prefix="value",
             topic="test_topic",
             schema_metadata=schema_metadata_no_type,
             is_key=False,

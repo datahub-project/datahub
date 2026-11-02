@@ -34,7 +34,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
 from tests.unit.bigquery.conftest import make_table
 
 
-def test_not_generate_partition_profiler_query_if_not_partitioned_shardedmake_table():
+def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table():
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
     test_table = BigqueryTable(
         name="test_table",

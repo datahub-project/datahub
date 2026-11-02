@@ -113,7 +113,9 @@ _CONFIG_MODELS = (
 )
 
 
-@pytest.fixture(autouse=True, scope="session")
+# Package-scoped so the flip is undone as soon as this directory's tests finish,
+# even when the env var is set for a wider selection.
+@pytest.fixture(autouse=True, scope="package")
 def _preserve_column_case_sweep() -> Iterator[None]:
     if os.environ.get(PRESERVE_COLUMN_CASE_SWEEP) != "1":
         yield
@@ -129,9 +131,8 @@ def _preserve_column_case_sweep() -> Iterator[None]:
 
     yield
 
-    # These are class-level defaults, so without this the flip leaks into every
-    # Snowflake config built for the rest of the session -- including tests outside
-    # this directory, when someone runs a wider selection with the env var set.
+    # These are class-level defaults, so without this the flip would leak into
+    # every Snowflake config built by tests outside this directory.
     for model in _CONFIG_MODELS:
         model.model_fields["preserve_column_case"].default = False
         model.model_rebuild(force=True)

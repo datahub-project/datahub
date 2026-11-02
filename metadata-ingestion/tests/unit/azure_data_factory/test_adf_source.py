@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from azure.mgmt.datafactory import models as adf
 from azure.mgmt.datafactory.models import Activity
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
@@ -52,7 +53,13 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataJobUrn
 from datahub.sdk.dataflow import DataFlow
-from tests.unit.azure_data_factory.conftest import build_adf_source, schema_metadata
+from tests.unit.azure_data_factory.conftest import (
+    build_adf_source,
+    dataset_resource,
+    ls_ref,
+    raw,
+    schema_metadata,
+)
 from tests.unit.conftest import log_titles
 
 
@@ -1831,67 +1838,44 @@ class TestSinkColumnCasing:
 
 
 class TestSourceDatasetSchemaExtraction:
-    """Tests for dataset schema extraction logic.
+    @pytest.mark.parametrize(
+        "schema, structure, expected",
+        [
+            pytest.param(
+                [{"name": "id", "type": "int"}, {"name": "name"}],
+                [{"name": "legacy"}],
+                ["id", "name"],
+                id="schema-wins-over-structure",
+            ),
+            pytest.param(
+                None,
+                [{"name": "column_a"}, {"name": "column_b"}],
+                ["column_a", "column_b"],
+                id="structure-is-the-fallback",
+            ),
+            pytest.param(None, None, None, id="neither-gives-no-schema"),
+        ],
+    )
+    def test_dataset_columns_come_from_schema_then_structure(
+        self,
+        schema: Optional[List[Dict[str, str]]],
+        structure: Optional[List[Dict[str, str]]],
+        expected: Optional[List[str]],
+    ) -> None:
+        """The newer `schema` property is read first and the legacy `structure`
+        only when it yields no columns; a dataset with neither has no schema."""
+        dataset = dataset_resource(
+            "ds",
+            adf.AzureSqlTableDataset(
+                linked_service_name=ls_ref("sql_ls"),
+                schema=raw(schema),
+                structure=raw(structure),
+            ),
+        )
 
-    These tests verify the schema extraction patterns used by
-    _get_source_dataset_schema and _extract_dataset_schema.
-    """
+        info = build_adf_source()._extract_dataset_schema(dataset)
 
-    def test_extract_columns_from_schema_definition(self) -> None:
-        """Should extract columns from dataset's schema property (newer format)."""
-        schema = [
-            {"name": "id", "type": "int"},
-            {"name": "name", "type": "string"},
-            {"name": "created_at", "type": "datetime"},
-        ]
-
-        # Logic pattern from _extract_dataset_schema
-        columns = []
-        for field in schema:
-            if isinstance(field, dict):
-                name = field.get("name")
-                if name:
-                    columns.append(str(name))
-
-        assert columns == ["id", "name", "created_at"]
-
-    def test_extract_columns_from_structure(self) -> None:
-        """Should extract columns from dataset's structure property (legacy format)."""
-        structure = [
-            {"name": "column_a"},
-            {"name": "column_b"},
-        ]
-
-        columns = []
-        for field in structure:
-            if isinstance(field, dict):
-                name = field.get("name")
-                if name:
-                    columns.append(str(name))
-
-        assert columns == ["column_a", "column_b"]
-
-    def test_returns_empty_when_no_schema(self) -> None:
-        """Should return empty list when no schema or structure."""
-        schema = None
-        structure = None
-
-        columns: list[str] = []
-        if schema and isinstance(schema, list):
-            for field in schema:
-                if isinstance(field, dict):
-                    name = field.get("name")
-                    if name:
-                        columns.append(str(name))
-
-        if not columns and structure and isinstance(structure, list):
-            for field in structure:
-                if isinstance(field, dict):
-                    name = field.get("name")
-                    if name:
-                        columns.append(str(name))
-
-        assert columns == []
+        assert (info.columns if info else None) == expected
 
 
 class TestFineGrainedLineageOutput:

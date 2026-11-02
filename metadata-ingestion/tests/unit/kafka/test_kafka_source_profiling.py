@@ -13,7 +13,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 )
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.source.kafka.kafka import KafkaSource
+from datahub.ingestion.source.kafka.kafka import _UNDECODABLE, KafkaSource
 from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     KafkaSchemaClass,
@@ -303,8 +303,8 @@ def test_malformed_message_metadata_is_skipped(source: KafkaSource) -> None:
 def test_avro_record_is_decoded_with_schema(source: KafkaSource) -> None:
     data = avro_encode(RECORD_SCHEMA, {"id": 1, "name": "a"})
 
-    decoded = source._process_message_part(
-        data, "value", TOPIC, avro_schema_metadata(RECORD_SCHEMA)
+    decoded = source._decode_message_part(
+        data, TOPIC, avro_schema_metadata(RECORD_SCHEMA)
     )
 
     assert decoded == {"id": "1", "name": "a"}
@@ -313,9 +313,7 @@ def test_avro_record_is_decoded_with_schema(source: KafkaSource) -> None:
 def test_avro_primitive_is_returned_as_is(source: KafkaSource) -> None:
     data = avro_encode('"string"', "abc")
 
-    decoded = source._process_message_part(
-        data, "value", TOPIC, avro_schema_metadata('"string"')
-    )
+    decoded = source._decode_message_part(data, TOPIC, avro_schema_metadata('"string"'))
 
     assert decoded == "abc"
 
@@ -325,8 +323,8 @@ def test_avro_message_without_wire_header_falls_back_to_text(
 ) -> None:
     """Producers that bypass the Confluent serializer write plain JSON even on a
     topic with a registered Avro schema; those must still be profiled."""
-    decoded = source._process_message_part(
-        b'{"id": 7}', "value", TOPIC, avro_schema_metadata(RECORD_SCHEMA)
+    decoded = source._decode_message_part(
+        b'{"id": 7}', TOPIC, avro_schema_metadata(RECORD_SCHEMA)
     )
 
     assert decoded == {"id": "7"}
@@ -338,9 +336,7 @@ def test_bytes_without_schema_are_decoded_as_json(
 ) -> None:
     """With no usable schema the payload is decoded as JSON/text rather than
     handed to the profiler as raw bytes."""
-    decoded = source._process_message_part(
-        b'{"id": 1}', "value", TOPIC, schema_metadata
-    )
+    decoded = source._decode_message_part(b'{"id": 1}', TOPIC, schema_metadata)
 
     assert decoded == {"id": "1"}
 
@@ -349,11 +345,9 @@ def test_bytes_without_schema_are_decoded_as_json(
 def test_undecodable_binary_without_schema_is_skipped(
     source: KafkaSource, schema_metadata: Optional[SchemaMetadataClass]
 ) -> None:
-    decoded = source._process_message_part(
-        b"\x8a\x8b\xff", "value", TOPIC, schema_metadata
-    )
+    decoded = source._decode_message_part(b"\x8a\x8b\xff", TOPIC, schema_metadata)
 
-    assert decoded is None
+    assert decoded is _UNDECODABLE
     assert source.report.profiling_samples_skipped == 1
 
 
@@ -361,11 +355,9 @@ def test_unexpected_decode_error_is_reported_not_raised(source: KafkaSource) -> 
     with patch(
         f"{KAFKA_MODULE}.decode_kafka_message_value", side_effect=RuntimeError("boom")
     ):
-        decoded = source._process_message_part(
-            b"{}", "value", TOPIC, SCHEMALESS_METADATA
-        )
+        decoded = source._decode_message_part(b"{}", TOPIC, SCHEMALESS_METADATA)
 
-    assert decoded is None
+    assert decoded is _UNDECODABLE
     assert source.report.profiling_samples_skipped == 1
     assert warned_about(source.report, TOPIC)
 

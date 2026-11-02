@@ -1158,14 +1158,14 @@ class AmazonRedshiftLineage(AbstractLineage):
         table_name = accessor.next.items.get("Name")
         if not schema_name or not table_name:
             # A navigation step without a Name key is not the schema/table
-            # shape this handler understands; report no lineage rather than
-            # letting a KeyError surface as an "Unknown M-Query Pattern".
-            logger.debug(
-                "Navigation steps for Redshift table %s lack a Name key"
-                " (schema=%r, table=%r) — skipping lineage",
-                self.table.full_name,
-                schema_name,
-                table_name,
+            # shape this handler understands; report it rather than letting a
+            # KeyError surface as a misleading "Unknown M-Query Pattern".
+            self.reporter.warning(
+                title=Constant.M_QUERY_NAVIGATION_UNRESOLVED,
+                message="Redshift navigation steps lack a Name key, so the "
+                "table's lineage was skipped.",
+                context=f"table-name={self.table.full_name}, "
+                f"schema={schema_name!r}, table={table_name!r}",
             )
             return Lineage.empty()
 
@@ -1836,13 +1836,12 @@ class MSSqlMultiDatabaseLineage(AbstractLineage):
         if not db_name or not schema_name or not table_name:
             # Sql.Databases navigation is {[Name=db]} then {[Schema=..,Item=..]};
             # anything else is not a table reference this handler can resolve.
-            logger.debug(
-                "Navigation steps for MSSQL table %s lack the expected keys"
-                " (db=%r, schema=%r, table=%r) — skipping lineage",
-                self.table.full_name,
-                db_name,
-                schema_name,
-                table_name,
+            self.reporter.warning(
+                title=Constant.M_QUERY_NAVIGATION_UNRESOLVED,
+                message="MSSQL Sql.Databases navigation steps lack the expected "
+                "Name/Schema/Item keys, so the table's lineage was skipped.",
+                context=f"table-name={self.table.full_name}, db={db_name!r}, "
+                f"schema={schema_name!r}, table={table_name!r}",
             )
             return Lineage.empty()
 

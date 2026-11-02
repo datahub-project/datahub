@@ -213,20 +213,23 @@ def test_query_history_entries_that_cannot_be_parsed_are_skipped(
     assert {w.title for w in proxy.report.warnings} == {"Failed to parse query"}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "ExternalTableReference.create_from_lineage uses "
-        "`d.get('has_permission') or True`, so a lineage entry the token cannot "
-        "read is recorded as permitted and is never counted under "
-        "num_external_upstreams_lacking_permissions"
-    ),
+@pytest.mark.parametrize(
+    "lineage_entry, expected",
+    [
+        pytest.param({"has_permission": False}, False, id="denied"),
+        pytest.param({"has_permission": True}, True, id="granted"),
+        pytest.param({}, True, id="flag-absent-defaults-to-permitted"),
+    ],
 )
-def test_external_upstream_without_permission_is_recorded_as_such() -> None:
+def test_external_upstream_permission_follows_the_lineage_entry(
+    lineage_entry: Dict[str, Any], expected: bool
+) -> None:
+    """`d.get('has_permission') or True` recorded every entry as permitted, so
+    upstreams the token cannot read were never counted under
+    num_external_upstreams_lacking_permissions."""
     ref = ExternalTableReference.create_from_lineage(
-        {"path": "s3://bucket/restricted", "has_permission": False}
+        {"path": "s3://bucket/restricted", **lineage_entry}
     )
 
     assert ref is not None
-    assert not ref.has_permission
+    assert ref.has_permission is expected

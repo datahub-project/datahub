@@ -158,14 +158,15 @@ def test_mssql_multi_database_with_unresolved_server_yields_no_lineage() -> None
     ],
     ids=["mssql-multi-database", "redshift"],
 )
-def test_navigation_record_without_expected_keys_is_no_lineage_not_an_error(
+def test_navigation_record_without_expected_keys_is_reported_not_an_error(
     platform: str, navigation: str
 ) -> None:
     """A navigation step whose record lacks the keys the handler reads
     (``Schema``/``Item`` for Sql.Databases, ``Name`` for Redshift) used to
     raise ``KeyError`` out of the handler, which the parser reported as a
-    misleading "Unknown M-Query Pattern". It is simply a shape the handler
-    cannot resolve, so it must count as no lineage."""
+    misleading "Unknown M-Query Pattern". It is a shape the handler cannot
+    resolve: no lineage, and a warning naming the table so the loss is
+    visible in the report."""
     source = {
         "mssql": 'Sql.Databases("h"),\n db = Source{[Name="library"]}[Data]',
         "redshift": 'AmazonRedshift.Database("h","dev"),\n db = Source{[Name="public"]}[Data]',
@@ -176,7 +177,9 @@ def test_navigation_record_without_expected_keys_is_no_lineage_not_an_error(
     assert lineages == []
     assert reporter.m_query_resolver_errors == 0
     assert reporter.m_query_resolver_no_lineage == 1
-    assert not reporter.warnings
+    assert [w.title for w in reporter.warnings] == [
+        Constant.M_QUERY_NAVIGATION_UNRESOLVED
+    ]
 
 
 def test_mssql_unresolved_server_parameter_emits_partial_lineage() -> None:

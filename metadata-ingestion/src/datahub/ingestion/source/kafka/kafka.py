@@ -886,29 +886,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         ):
             self._locked_warning("Failed to process message", "profiling")
 
-    def _process_message_part(
-        self,
-        data: Any,
-        prefix: str,
-        topic: str,
-        schema_metadata: Optional[SchemaMetadataClass],
-        is_key: bool = False,
-    ) -> Optional[Any]:
-        """Decode one message part (key or value) using pre-fetched schema metadata.
-
-        Returns None both for a null value and for a payload that was skipped
-        because it could not be decoded."""
-        decoded = self._decode_message_part(data, topic, schema_metadata, is_key)
-        return None if decoded is _UNDECODABLE else decoded
-
     def _decode_message_part(
         self,
         data: Any,
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass],
-        is_key: bool,
+        is_key: bool = False,
     ) -> Any:
-        """Like _process_message_part, but returns _UNDECODABLE when skipped."""
+        """Decode one message part (key or value) using pre-fetched schema
+        metadata. Returns None for a null value and _UNDECODABLE for a payload
+        that was skipped because it could not be decoded."""
         if data is None:
             return None
 

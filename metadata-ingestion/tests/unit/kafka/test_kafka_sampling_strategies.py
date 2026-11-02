@@ -4,6 +4,7 @@ from unittest.mock import patch
 import confluent_kafka
 
 from datahub.ingestion.source.kafka.kafka import (
+    _UNDECODABLE,
     _full_offset,
     _latest_offset,
     _random_offset,
@@ -219,11 +220,11 @@ def test_avro_decode_failure_is_skipped_and_reported(kafka_source):
     # Valid Confluent header (magic byte 0 + 4-byte id) followed by junk payload.
     data = bytes([0, 0, 0, 0, 1, 9, 9, 9])
 
-    result = kafka_source._process_message_part(
-        data, "value", TOPIC, schema_metadata, is_key=False
+    result = kafka_source._decode_message_part(
+        data, TOPIC, schema_metadata, is_key=False
     )
 
-    assert result is None
+    assert result is _UNDECODABLE
     assert kafka_source.report.profiling_avro_decode_failures == 1
 
 
