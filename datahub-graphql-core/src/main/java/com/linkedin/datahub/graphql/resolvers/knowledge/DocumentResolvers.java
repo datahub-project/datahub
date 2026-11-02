@@ -72,8 +72,8 @@ public class DocumentResolvers {
             typeWiring
                 .dataFetcher(
                     "document",
-                    new com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver<>(
-                        documentType, (env) -> env.getArgument("urn")))
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.GetDocumentResolver(
+                        documentType))
                 .dataFetcher(
                     "searchDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.SearchDocumentsResolver(
