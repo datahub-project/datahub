@@ -279,8 +279,12 @@ class Constant:
     PAGE_NAME = "pageName"
     VISUAL = "Visual"
     VISUAL_TITLE_FALLBACK = "{visual_type} on {page}"
-    # An untitled tile is named by its 1-based position on the dashboard.
+    # An untitled tile is named by its 1-based order in the dashboard's tile
+    # list. The scan-fallback tile listing can renumber untitled tiles
+    # between runs, so this name is not stable across them.
     TILE_TITLE_FALLBACK = "Tile {position}"
+    PAGE_CONTEXT = "page {page}"
+    PAGE_INPUTS_FELL_BACK = "Page Inputs Fell Back To Whole Model"
     URL_QUERY_SEPARATOR = "?"
     TOP = "$top"
     # Scan-API column types reproduced for TMDL-sourced columns
@@ -477,7 +481,13 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     report_filters_truncated: int = 0
     report_pages_unmatched: int = 0
     report_field_references_resolved: int = 0
+    # Page references naming a table the model lacks vs. naming a known
+    # table whose field is missing from its schema.
     report_field_references_unresolved: int = 0
+    report_field_references_field_unresolved: int = 0
+    # Pages with field references that named no table of the model, so
+    # their inputs stayed the whole model.
+    report_pages_inputs_fallback: int = 0
     report_visuals_emitted: int = 0
     # Visual charts emitted without inputFields: the visual reads no fields at
     # all (a text box, say) vs. it reads fields but none resolved.
@@ -485,6 +495,7 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     report_visuals_fields_unresolved: int = 0
     report_visual_field_references_resolved: int = 0
     report_visual_field_references_unresolved: int = 0
+    report_visual_field_references_field_unresolved: int = 0
     report_visual_groups_skipped: int = 0
     report_visuals_skipped_unnamed: int = 0
     report_visuals_duplicate_name: int = 0
@@ -1179,6 +1190,10 @@ class PowerBiDashboardSourceConfig(
         "literal values it compares against, which may be business data. "
         "Page charts and tiles pinned from the report then list only the model "
         "tables their fields read as inputs, instead of every table of the model. "
+        "A table counts as read when a field reference names it, even if that "
+        "field is missing from the fetched schema; a page or tile whose references "
+        "match no table keeps the whole model, and a visual in that state has no "
+        "table inputs. "
         "Adds one Fabric getDefinition call per report. "
         "Requires `extract_reports`, `extract_dataset_schema` and either "
         "`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`.",

@@ -643,7 +643,7 @@ def test_report_definition_fills_field_usage_that_resolves_against_scan_columns(
         reporter=api.reporter,
         dataplatform_instance_resolver=create_dataplatform_instance_resolver(config),
     )
-    mcp = mapper._page_input_fields(page, report, "urn:li:chart:(powerbi,page)").mcp
+    mcp = mapper._page_input_fields(page, report).mcp
     assert mcp is not None
     assert isinstance(mcp.aspect, InputFieldsClass)
     assert [f.schemaFieldUrn.rsplit(",", 1)[1] for f in mcp.aspect.fields] == [

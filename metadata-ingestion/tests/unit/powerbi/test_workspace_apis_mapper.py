@@ -4,6 +4,8 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.powerbi.config import (
@@ -885,9 +887,7 @@ def test_page_input_fields_resolve_against_dataset_schema() -> None:
         users=[],
         tags=[],
     )
-    mcp = mapper._page_input_fields(
-        page, report, "urn:li:chart:(powerbi,pages.r1.p1)"
-    ).mcp
+    mcp = mapper._page_input_fields(page, report).mcp
     assert mcp is not None
     assert isinstance(mcp.aspect, InputFieldsClass)
     policies_urn = _urn(mapper, policies)
@@ -899,7 +899,11 @@ def test_page_input_fields_resolve_against_dataset_schema() -> None:
         "State",
         "Total",
     ]
-    assert mapper._Mapper__reporter.report_field_references_unresolved == 2  # type: ignore[attr-defined]
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    # `Other` is not a table of the model; `Policies[Gone]` names a known
+    # table whose field is missing.
+    assert reporter.report_field_references_unresolved == 1
+    assert reporter.report_field_references_field_unresolved == 1
 
 
 def _properties_table() -> Table:
@@ -1548,6 +1552,12 @@ def _report_with_visuals(dataset: PowerBIDataset, with_visuals: bool = True) -> 
         ),
         Visual(name="v-text", page_id="r1.p1", visual_type="textbox"),
         Visual(name="v-custom", page_id="r1.p1"),
+        Visual(
+            name="v-renamed",
+            page_id="r1.p1",
+            visual_type="card",
+            field_references=[PageFieldReference("Claims", "Renamed", "column")],
+        ),
     ]
     page = Page(
         id="r1.p1",
@@ -1555,7 +1565,7 @@ def _report_with_visuals(dataset: PowerBIDataset, with_visuals: bool = True) -> 
         name="p1",
         order=0,
         field_references=[state, status],
-        visual_count=4,
+        visual_count=5,
         visual_types=["card", "clusteredBarChart", "textbox"],
         visuals=visuals if with_visuals else [],
     )
@@ -1585,6 +1595,7 @@ BAR_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-bar)"
 CARD_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-card)"
 TEXT_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-text)"
 CUSTOM_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-custom)"
+RENAMED_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-renamed)"
 
 
 def _visual_charts(
@@ -1604,7 +1615,10 @@ def _visual_charts(
     claims = Table(name="Claims", full_name="Model.Claims", columns=[_column("Status")])
     report = _report_with_visuals(_dataset([policies, claims]))
     chart_mcps = mapper.pages_to_chart(
-        report.pages, workspace=workspace, ds_mcps=[], report=report
+        report.pages,
+        workspace=workspace,
+        ds_mcps=_model_mcps(mapper, report),
+        report=report,
     )
     return mapper, report, workspace, chart_mcps
 
@@ -1617,10 +1631,11 @@ def test_visual_chart_urns_and_page_chart_are_emitted_together() -> None:
         CARD_URN,
         TEXT_URN,
         CUSTOM_URN,
+        RENAMED_URN,
     }
     # The page chart keeps its own shape.
     page_info = _aspects_of(chart_mcps, PAGE_URN)["ChartInfoClass"]
-    assert page_info.customProperties["visualCount"] == "4"
+    assert page_info.customProperties["visualCount"] == "5"
     assert "visualName" not in page_info.customProperties
     assert [
         e.urn for e in _aspects_of(chart_mcps, PAGE_URN)["BrowsePathsV2Class"].path
@@ -1698,16 +1713,23 @@ def test_visual_chart_input_fields_and_counters() -> None:
     assert "InputFieldsClass" not in _aspects_of(chart_mcps, TEXT_URN)
     assert _aspects_of(chart_mcps, CARD_URN)["ChartInfoClass"].inputs == []
     assert _aspects_of(chart_mcps, TEXT_URN)["ChartInfoClass"].inputs == []
+    # A field missing from a known table's schema still proves the visual
+    # reads that table: table input kept, no inputFields.
+    renamed = _aspects_of(chart_mcps, RENAMED_URN)
+    assert "InputFieldsClass" not in renamed
+    assert renamed["ChartInfoClass"].inputs == [_urn(mapper, claims)]
 
     reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
-    assert reporter.report_visuals_emitted == 4
+    assert reporter.report_visuals_emitted == 5
     assert reporter.report_visuals_without_fields == 2
-    assert reporter.report_visuals_fields_unresolved == 1
+    assert reporter.report_visuals_fields_unresolved == 2
     assert reporter.report_visual_field_references_resolved == 2
     assert reporter.report_visual_field_references_unresolved == 1
+    assert reporter.report_visual_field_references_field_unresolved == 1
     # The page pass keeps its own counters, no double counting.
     assert reporter.report_field_references_resolved == 2
     assert reporter.report_field_references_unresolved == 0
+    assert reporter.report_field_references_field_unresolved == 0
 
 
 def test_visual_charts_are_listed_on_the_dashboard_and_dropped_when_flag_off() -> None:
@@ -1733,6 +1755,7 @@ def test_visual_charts_are_listed_on_the_dashboard_and_dropped_when_flag_off() -
         CARD_URN,
         TEXT_URN,
         CUSTOM_URN,
+        RENAMED_URN,
     ]
     # A later run with the flag off rewrites the (non-patched) chart list.
     assert dashboard_charts(False) == [PAGE_URN]
@@ -1816,12 +1839,15 @@ def test_page_inputs_stay_the_whole_model_when_nothing_resolves() -> None:
     assert report.dataset is not None
     assert info.inputs == [_urn(mapper, t) for t in report.dataset.tables]
     assert reporter.report_field_references_unresolved == 1
+    assert reporter.report_field_references_field_unresolved == 0
+    assert reporter.report_pages_inputs_fallback == 1
+    assert Constant.PAGE_INPUTS_FELL_BACK in [w.title for w in reporter.warnings]
 
 
 def test_page_inputs_keep_a_table_whose_field_is_missing_from_the_schema() -> None:
     """A renamed column proves the page reads the table even though the
     field itself cannot be matched: the table-level edge stays, the field
-    is counted as unresolved and gets no inputField."""
+    is counted as field-unresolved and gets no inputField."""
     mapper = _mapper(_config(extract_report_field_usage=True, platform_instance="prod"))
     report = _three_table_report()
     report.pages[0].field_references = [
@@ -1833,7 +1859,9 @@ def test_page_inputs_keep_a_table_whose_field_is_missing_from_the_schema() -> No
     policies, claims, _ = report.dataset.tables
     assert info.inputs == [_urn(mapper, policies), _urn(mapper, claims)]
     assert reporter.report_field_references_resolved == 1
-    assert reporter.report_field_references_unresolved == 1
+    assert reporter.report_field_references_unresolved == 0
+    assert reporter.report_field_references_field_unresolved == 1
+    assert reporter.report_pages_inputs_fallback == 0
 
 
 def _tile(
@@ -1906,17 +1934,29 @@ def test_report_tile_inputs_are_the_tables_the_report_pages_read() -> None:
     reporter = _reporter(mapper)
     assert reporter.report_field_references_resolved == 0
     assert reporter.report_field_references_unresolved == 0
-    # Resolved once per report, then served from the memo.
-    with patch.object(
-        mapper, "_resolve_input_fields", wraps=mapper._resolve_input_fields
-    ) as resolve:
-        assert mapper._report_used_dataset_urns(report) == narrowed
-        resolve.assert_not_called()
+    assert reporter.report_pages_inputs_fallback == 0
 
 
-def test_report_tile_inputs_stay_the_whole_model_without_field_usage() -> None:
-    mapper = _mapper(_config(platform_instance="prod"))
+@pytest.mark.parametrize(
+    "extract_report_field_usage, field_references",
+    [
+        (False, []),
+        (True, [PageFieldReference("Other", "Gone", "column")]),
+    ],
+)
+def test_report_tile_inputs_stay_the_whole_model_without_narrowing(
+    extract_report_field_usage: bool, field_references: List[PageFieldReference]
+) -> None:
+    """Without field usage, or when no reference names a table of the
+    model, a report tile keeps every table of the model."""
+    mapper = _mapper(
+        _config(
+            extract_report_field_usage=extract_report_field_usage,
+            platform_instance="prod",
+        )
+    )
     report = _three_table_report(with_field_references=False)
+    report.pages[0].field_references = field_references
     assert report.dataset is not None
     infos = _tile_chart_infos(
         mapper, [_tile("t1", report.dataset, report, "From report")]
@@ -1926,7 +1966,7 @@ def test_report_tile_inputs_stay_the_whole_model_without_field_usage() -> None:
     ]
 
 
-def test_untitled_tile_is_named_by_its_position_on_the_dashboard() -> None:
+def test_untitled_tile_is_named_by_its_order_in_the_tile_list() -> None:
     mapper = _mapper(_config(platform_instance="prod"))
     report = _three_table_report(with_field_references=False)
     infos = _tile_chart_infos(
@@ -1940,3 +1980,38 @@ def test_untitled_tile_is_named_by_its_position_on_the_dashboard() -> None:
     untitled = infos["urn:li:chart:(powerbi,prod.charts.t2)"]
     assert untitled.title == "Tile 2"
     assert untitled.description == "Tile 2"
+
+
+def test_filtered_out_model_leaves_page_tile_and_visual_without_inputs() -> None:
+    """`filter_dataset_endorsements` emits nothing for an untagged model, so
+    no chart may name its tables: narrowing only applies to an emitted
+    model, and a visual gets no inputs either."""
+    mapper = _mapper(
+        _config(
+            metadata_api_mode="admin_scan",
+            enrich_from_item_definitions=True,
+            extract_report_field_usage=True,
+            extract_report_visuals=True,
+            filter_dataset_endorsements={"allow": ["Certified"]},
+            platform_instance="prod",
+        )
+    )
+    workspace = _workspace()
+    mapper.workspace_key = mapper.make_container_key_for_workspace(workspace)
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("State")]
+    )
+    claims = Table(name="Claims", full_name="Model.Claims", columns=[_column("Status")])
+    report = _report_with_visuals(_dataset([policies, claims]))
+    assert report.dataset is not None
+    ds_mcps = mapper.to_datahub_dataset(report.dataset, workspace)
+    assert ds_mcps == []
+    chart_mcps = mapper.pages_to_chart(
+        report.pages, workspace=workspace, ds_mcps=ds_mcps, report=report
+    )
+    assert _aspects_of(chart_mcps, PAGE_URN)["ChartInfoClass"].inputs == []
+    assert _aspects_of(chart_mcps, BAR_URN)["ChartInfoClass"].inputs == []
+    tiles = _tile_chart_infos(
+        mapper, [_tile("t1", report.dataset, report, "From report")]
+    )
+    assert tiles["urn:li:chart:(powerbi,prod.charts.t1)"].inputs == []
