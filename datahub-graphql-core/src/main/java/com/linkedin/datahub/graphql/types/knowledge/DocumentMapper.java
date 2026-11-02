@@ -220,7 +220,9 @@ public class DocumentMapper {
     // Note: Relationships are handled separately via batch resolvers in GraphQL
     // They will be resolved lazily when accessed through the GraphQL query
 
-    if (context != null && !AuthorizationUtils.canGetDocument(entityUrn, context)) {
+    if (context != null
+        && !AuthorizationUtils.canViewDocument(
+            context.getOperationContext(), entityUrn, docInfo, subTypes)) {
       return AuthorizationUtils.restrictEntity(result, Document.class);
     }
     return result;
