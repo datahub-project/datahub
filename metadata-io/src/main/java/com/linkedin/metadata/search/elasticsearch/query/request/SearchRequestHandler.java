@@ -65,6 +65,7 @@ import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
+import io.datahubproject.metadata.context.SearchContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -235,7 +236,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
             configs,
             customSearchConfiguration,
             queryFilterRewriteChain,
-            searchServiceConfiguration),
+            searchServiceConfiguration,
+            new SearchFieldMetadataIdentity(systemOperationContext.getSearchContext())),
         k ->
             new SearchRequestHandler(
                 systemOperationContext,
@@ -1435,6 +1437,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
    * account for all configuration variants. Identical entitySpecs with different search
    * configurations would incorrectly share handlers, leading to test instability.
    *
+   * <p>A handler also copies searchable field metadata out of the {@link SearchContext} it is first
+   * built with, so {@link SearchFieldMetadataIdentity} is part of the key as well. Without it, two
+   * callers sharing a configuration but not a context get whichever metadata happened to be
+   * installed first, and a field the loser's context knows about silently loses its type.
+   *
    * <p>This key ensures each unique configuration combination gets its own handler instance.
    */
   @Value
@@ -1444,5 +1451,43 @@ public class SearchRequestHandler extends BaseRequestHandler {
     @Nullable private final CustomSearchConfiguration customSearchConfiguration;
     @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
     @Nonnull private final SearchServiceConfiguration searchServiceConfiguration;
+    @Nonnull private final SearchFieldMetadataIdentity searchFieldMetadata;
+  }
+
+  /**
+   * The searchable field metadata a handler copies out of the {@link SearchContext} it was first
+   * built with, as a cache key component.
+   *
+   * <p>Compared by reference, not by value. {@code SystemOperationContextFactory} builds both maps
+   * once per process and every derived context carries the same instances, so identity gives one
+   * cache entry per deployment while costing nothing on the search path — a value comparison would
+   * hash every searchable field of every entity on each request. Reference comparison also keeps
+   * contexts that computed their own maps on separate handlers, which is what test contexts do.
+   */
+  private static final class SearchFieldMetadataIdentity {
+    private final Map<String, Set<SearchableAnnotation.FieldType>> fieldTypes;
+    private final Map<PathSpec, String> fieldPaths;
+
+    private SearchFieldMetadataIdentity(@Nonnull SearchContext searchContext) {
+      this.fieldTypes = searchContext.getSearchableFieldTypes();
+      this.fieldPaths = searchContext.getSearchableFieldPaths();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof SearchFieldMetadataIdentity)) {
+        return false;
+      }
+      SearchFieldMetadataIdentity that = (SearchFieldMetadataIdentity) other;
+      return this.fieldTypes == that.fieldTypes && this.fieldPaths == that.fieldPaths;
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * System.identityHashCode(fieldTypes) + System.identityHashCode(fieldPaths);
+    }
   }
 }
