@@ -166,17 +166,31 @@ def test_execution_query_sends_utc_window_filter() -> None:
     with requests_mock.Mocker() as mock:
         mock.post(
             f"{BASE_URL}/ExecutionRecord/query",
-            json={
-                "result": [
+            json=_page(
+                [
                     {
-                        "executionId": "execution-1",
+                        "@type": "ExecutionRecord",
+                        "executionId": "execution-fc012985-4ccf-45e0-b74f-b291c4ad6fb1-2026.08.30",
+                        "account": ACCOUNT_ID,
                         "executionTime": "2026-08-30T14:30:00Z",
-                        "executionDuration": ["Long", 1500],
                         "status": "COMPLETE",
+                        "executionType": "exec_manual",
+                        "processName": "Orders Sync",
                         "processId": "p1",
+                        "atomName": "Production Atom",
+                        "atomId": "1d1473aa-4f4e-4db8-bd89-e0e70cf65939",
+                        "inboundDocumentCount": 1,
+                        "inboundErrorDocumentCount": 0,
+                        "outboundDocumentCount": 1,
+                        "executionDuration": ["Long", 1500],
+                        "inboundDocumentSize": ["Long", 0],
+                        "outboundDocumentSize": ["Long", 27520],
+                        "nodeId": "atom03[execution-fc012985-4ccf-45e0-b74f-b291c4ad6fb1-2026.08.30]",
+                        "recordedDate": "2026-08-30T14:30:04Z",
+                        "clusterNodeId": "atom03",
                     }
                 ]
-            },
+            ),
         )
         executions = list(client.list_executions(since))
         body = mock.request_history[0].json()
@@ -190,6 +204,6 @@ def test_execution_query_sends_utc_window_filter() -> None:
             }
         }
     }
-    assert [(e.execution_id, e.execution_duration) for e in executions] == [
-        ("execution-1", 1500)
+    assert [(e.execution_type, e.execution_duration) for e in executions] == [
+        ("exec_manual", 1500)
     ]

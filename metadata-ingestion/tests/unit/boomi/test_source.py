@@ -26,11 +26,25 @@ from datahub.sdk.dataflow import DataFlow
 
 ACCOUNT_ID = "acme-AB1CD2"
 BASE_URL = f"https://api.boomi.com/api/rest/v1/{ACCOUNT_ID}"
+# Shaped like a live GET Component/{id} response for a process.
 XML = (
-    '<bns:Component xmlns:bns="http://api.platform.boomi.com/" '
-    'folderFullPath="Acme/Orders"><bns:description>Syncs orders.</bns:description>'
-    "</bns:Component>"
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    '<bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+    'xmlns:bns="http://api.platform.boomi.com/" '
+    'folderFullPath="Test Account/Orders" componentId="p1" version="1" '
+    'name="Orders Sync" type="process" createdDate="2026-11-02T19:17:12Z" '
+    'createdBy="svc@example.com" modifiedDate="2026-11-02T19:17:12Z" '
+    'modifiedBy="svc@example.com" deleted="false" currentVersion="true" '
+    'folderName="Orders" folderId="Rjo4OTQzNDEx" branchName="main" '
+    'branchId="Qjo2MDk0Mzg"><bns:encryptedValues/>'
+    "<bns:description>Syncs orders.</bns:description><bns:object>"
+    '<process xmlns="" allowSimultaneous="false" workload="general"><shapes>'
+    '<shape image="start" name="shape1" shapetype="start" userlabel="">'
+    "<configuration><noaction/></configuration><dragpoints/></shape>"
+    "</shapes></process></bns:object><bns:processOverrides/></bns:Component>"
 )
+ORDERS_FOLDER = "Rjo4OTQzNDEx"
+PROD_ENVIRONMENT = "56c4f2be-9126-4e8a-bfb2-111c009e83d8"
 
 
 def _component(
@@ -61,14 +75,48 @@ def _source(**overrides: object) -> BoomiSource:
 
 def _process_record(component_id: str, name: str) -> Dict[str, object]:
     return {
+        "@type": "ComponentMetadata",
         "componentId": component_id,
         "version": 1,
         "name": name,
         "type": "process",
+        "createdDate": "2026-11-02T19:17:12Z",
         "createdBy": "svc@example.com",
+        "modifiedDate": "2026-11-02T19:17:12Z",
         "modifiedBy": "svc@example.com",
-        "folderId": "F1",
+        "deleted": False,
+        "currentVersion": True,
         "folderName": "Orders",
+        "folderId": ORDERS_FOLDER,
+        "branchName": "main",
+        "branchId": "Qjo2MDk0Mzg",
+    }
+
+
+def _deployment(component_id: str, branch_name: str = "main") -> Dict[str, object]:
+    return {
+        "@type": "DeployedPackage",
+        "deploymentId": "dda2f5b2-37d6-4ccb-9349-98b6c77e1c0c",
+        "version": 1,
+        "packageId": "ab44fd92-6b7d-4d91-94a1-e5f46cd129bd",
+        "packageVersion": "1.0",
+        "environmentId": PROD_ENVIRONMENT,
+        "componentId": component_id,
+        "componentVersion": 1,
+        "componentType": "process",
+        "deployedDate": "2026-11-02T19:18:22Z",
+        "deployedBy": "svc@example.com",
+        "notes": "Initial deploy",
+        "active": True,
+        "branchName": branch_name,
+    }
+
+
+def _page(records: List[Dict[str, object]]) -> Dict[str, object]:
+    return {
+        "@type": "QueryResult",
+        "result": records,
+        "numberOfResults": len(records),
     }
 
 
@@ -77,15 +125,36 @@ def _execution(
     process_id: str = "p1",
     time: str = "2026-09-30T10:00:00Z",
     status: str = "COMPLETE",
-    duration: object = 1000,
+    duration: Optional[int] = 1000,
+    execution_type: str = "exec_manual",
+    top_level_execution_id: Optional[str] = None,
 ) -> Dict[str, object]:
-    return {
+    # Shaped like a live ExecutionRecord/query result.
+    record: Dict[str, object] = {
+        "@type": "ExecutionRecord",
         "executionId": execution_id,
+        "account": ACCOUNT_ID,
         "executionTime": time,
-        "executionDuration": duration,
         "status": status,
+        "executionType": execution_type,
+        "processName": "Orders Sync",
         "processId": process_id,
+        "atomName": "Production Atom",
+        "atomId": "1d1473aa-4f4e-4db8-bd89-e0e70cf65939",
+        "inboundDocumentCount": 1,
+        "inboundErrorDocumentCount": 0,
+        "outboundDocumentCount": 1,
+        "inboundDocumentSize": ["Long", 0],
+        "outboundDocumentSize": ["Long", 0],
+        "nodeId": f"atom02[{execution_id}]",
+        "recordedDate": time,
+        "clusterNodeId": "atom02",
     }
+    if duration is not None:
+        record["executionDuration"] = ["Long", duration]
+    if top_level_execution_id:
+        record["topLevelExecutionId"] = top_level_execution_id
+    return record
 
 
 def _register(
@@ -101,23 +170,53 @@ def _register(
     mock.post(
         f"{BASE_URL}/Folder/query",
         status_code=folder_status,
-        json={"result": [{"id": "F1", "name": "Orders", "fullPath": "Acme/Orders"}]},
+        json=_page(
+            [
+                {
+                    "@type": "Folder",
+                    "id": "Rjo4OTQzMzg4",
+                    "name": "Test Account",
+                    "fullPath": "Test Account",
+                    "deleted": False,
+                    "parentId": "",
+                    "parentName": "",
+                },
+                {
+                    "@type": "Folder",
+                    "id": ORDERS_FOLDER,
+                    "name": "Orders",
+                    "fullPath": "Test Account/Orders",
+                    "deleted": False,
+                    "parentId": "Rjo4OTQzMzg4",
+                    "parentName": "Test Account",
+                },
+            ]
+        ),
     )
     mock.post(
         f"{BASE_URL}/Environment/query",
         status_code=environment_status,
-        json={"result": [{"id": "env-prod", "name": "Production"}]},
+        json=_page(
+            [
+                {
+                    "@type": "Environment",
+                    "id": PROD_ENVIRONMENT,
+                    "name": "Production",
+                    "classification": "PROD",
+                }
+            ]
+        ),
     )
     mock.post(
         f"{BASE_URL}/DeployedPackage/query",
         status_code=deployed_status,
-        json={"result": deployed or []},
+        json=_page(deployed or []),
     )
-    mock.post(f"{BASE_URL}/ComponentMetadata/query", json={"result": processes})
+    mock.post(f"{BASE_URL}/ComponentMetadata/query", json=_page(processes))
     mock.post(
         f"{BASE_URL}/ExecutionRecord/query",
         status_code=execution_status,
-        json={"result": executions or []},
+        json=_page(executions or []),
     )
 
 
@@ -206,13 +305,7 @@ def test_environment_listing_failure_includes_all_processes() -> None:
         _register(
             mock,
             [_process_record("p1", "Orders Sync")],
-            deployed=[
-                {
-                    "componentId": "p1",
-                    "environmentId": "env-prod",
-                    "packageVersion": "1",
-                }
-            ],
+            deployed=[_deployment("p1")],
             environment_status=500,
         )
         mock.get(f"{BASE_URL}/Component/p1", text=XML)
@@ -229,14 +322,7 @@ def test_deployments_on_other_branches_are_ignored() -> None:
         _register(
             mock,
             [_process_record("p1", "Orders Sync")],
-            deployed=[
-                {
-                    "componentId": "p1",
-                    "environmentId": "env-prod",
-                    "packageVersion": "1",
-                    "branchName": "feature",
-                }
-            ],
+            deployed=[_deployment("p1", branch_name="feature")],
         )
         assert _flows(source) == []
 
@@ -246,9 +332,9 @@ def test_deployments_on_other_branches_are_ignored() -> None:
 def test_folder_listing_failure_matches_component_folder_path() -> None:
     source = _source(
         include_undeployed_processes=True,
-        folder_pattern={"allow": ["^Acme/Orders$"]},
+        folder_pattern={"allow": ["^Test Account/Orders$"]},
     )
-    other_xml = XML.replace("Acme/Orders", "Acme/Archive")
+    other_xml = XML.replace("Test Account/Orders", "Test Account/Archive")
     with requests_mock.Mocker() as mock:
         _register(
             mock,
@@ -268,7 +354,7 @@ def test_folder_listing_failure_matches_component_folder_path() -> None:
 def test_unknown_folder_without_path_fails_closed() -> None:
     source = _source(
         include_undeployed_processes=True,
-        folder_pattern={"allow": ["^Acme/Orders$"]},
+        folder_pattern={"allow": ["^Test Account/Orders$"]},
     )
     with requests_mock.Mocker() as mock:
         _register(mock, [_process_record("p1", "Orders Sync")], folder_status=500)
@@ -514,7 +600,7 @@ def test_map_execution_status(
 
 def test_execution_end_adds_long_duration_in_milliseconds() -> None:
     execution = ExecutionRecord.model_validate(
-        _execution("e1", time="2026-09-30T10:00:00Z", duration=["Long", 90500])
+        _execution("e1", time="2026-09-30T10:00:00Z", duration=90500)
     )
     start = to_millis(datetime(2026, 9, 30, 10, 0, tzinfo=timezone.utc))
 
@@ -549,22 +635,22 @@ def test_select_recent_executions_caps_per_process_most_recent_first() -> None:
 
 
 def test_sub_process_run_links_to_caller_and_inherits_its_trigger() -> None:
-    caller = ExecutionRecord.model_validate(
-        {**_execution("execution-caller"), "executionType": "exec_manual"}
-    )
+    caller = ExecutionRecord.model_validate(_execution("execution-caller"))
     sub_process = ExecutionRecord.model_validate(
-        {
-            **_execution("execution-sub", process_id="p2"),
-            "executionType": "sub_process",
-            "topLevelExecutionId": "execution-caller",
-        }
+        _execution(
+            "execution-sub",
+            process_id="p2",
+            execution_type="sub_process",
+            top_level_execution_id="execution-caller",
+        )
     )
     orphan = ExecutionRecord.model_validate(
-        {
-            **_execution("execution-orphan", process_id="p2"),
-            "executionType": "sub_process",
-            "topLevelExecutionId": "execution-outside-window",
-        }
+        _execution(
+            "execution-orphan",
+            process_id="p2",
+            execution_type="sub_process",
+            top_level_execution_id="execution-outside-window",
+        )
     )
     emitted = {e.execution_id: e for e in (caller, sub_process, orphan)}
 
