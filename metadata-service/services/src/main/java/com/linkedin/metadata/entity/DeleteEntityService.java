@@ -25,6 +25,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.aspect.plugins.validation.WriteRejectedException;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.AspectSpec;
@@ -656,18 +657,23 @@ public class DeleteEntityService {
     try {
       rollbackResult =
           _entityService.deleteAspect(opContext, urn.toString(), aspectName, conditions, true);
-    } catch (RuntimeException e) {
-      // Delete-time guards can reject individual aspect deletions — e.g. the propertyDefinition
-      // of an ACTIVE structured property that references the deleted entity requires a prior
-      // soft delete, and an assertionInfo delete requires Edit Assertions on the asserted asset.
-      // Aspect validators reject with a validation exception whose type is not visible from this
-      // module, so any runtime rejection is handled here. Leave that aspect in place and continue
-      // the cascade for the remaining references instead of aborting cleanup mid-loop.
+    } catch (IllegalArgumentException | WriteRejectedException e) {
+      // Delete-time guards and aspect validators can reject individual aspect deletions — e.g.
+      // the propertyDefinition of an ACTIVE structured property that references the deleted
+      // entity requires a prior soft delete, and an assertionInfo delete requires Edit Assertions
+      // on the asserted asset. Leave that aspect in place, report it, and continue the cascade for
+      // the remaining references instead of aborting cleanup mid-loop. Other failures propagate.
       log.warn(
           "Reference cleanup skipped deleting aspect {} of {}; the aspect was left in place: {}",
           aspectName,
           urn,
           e.getMessage());
+      handleError(
+          new DeleteEntityServiceError(
+              "Aspect delete rejected",
+              DeleteEntityServiceErrorReason.ASPECT_DELETE_FAILED,
+              ImmutableMap.of("urn", urn, "aspectName", aspectName)),
+          cascade);
       return true;
     }
     if (maxVersion != null && rollbackResult.isEmpty()) {
