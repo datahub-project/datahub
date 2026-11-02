@@ -656,11 +656,13 @@ public class DeleteEntityService {
     try {
       rollbackResult =
           _entityService.deleteAspect(opContext, urn.toString(), aspectName, conditions, true);
-    } catch (IllegalArgumentException e) {
+    } catch (RuntimeException e) {
       // Delete-time guards can reject individual aspect deletions — e.g. the propertyDefinition
       // of an ACTIVE structured property that references the deleted entity requires a prior
-      // soft delete. Leave that aspect in place and continue the cascade for the remaining
-      // references instead of aborting cleanup mid-loop.
+      // soft delete, and an assertionInfo delete requires Edit Assertions on the asserted asset.
+      // Aspect validators reject with a validation exception whose type is not visible from this
+      // module, so any runtime rejection is handled here. Leave that aspect in place and continue
+      // the cascade for the remaining references instead of aborting cleanup mid-loop.
       log.warn(
           "Reference cleanup skipped deleting aspect {} of {}; the aspect was left in place: {}",
           aspectName,

@@ -32,13 +32,15 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
  * Covers {@link DeleteEntityService}'s handling of delete-time guard rejections: when the entity
  * service rejects an individual aspect deletion with {@link IllegalArgumentException} (e.g. the
- * structured-property soft-delete-first guard), reference cleanup must log, leave that aspect in
- * place, and continue with the remaining references instead of aborting the cascade.
+ * structured-property soft-delete-first guard) or an aspect validator rejection (e.g. assertion
+ * authorization), reference cleanup must log, leave that aspect in place, and continue with the
+ * remaining references instead of aborting the cascade.
  */
 public class DeleteEntityServiceGuardHandlingTest {
 
@@ -66,8 +68,27 @@ public class DeleteEntityServiceGuardHandlingTest {
     return response;
   }
 
-  @Test
-  public void testGuardRejectionDoesNotAbortReferenceCleanup() throws Exception {
+  /** Stands in for the validation exception, whose type is not visible from this module. */
+  private static class ValidatorRejection extends RuntimeException {
+    ValidatorRejection(String message) {
+      super(message);
+    }
+  }
+
+  @DataProvider(name = "rejections")
+  public Object[][] rejections() {
+    return new Object[][] {
+      {
+        new IllegalArgumentException(
+            "Hard delete rejected for structured property qualifiedName 'io.acryl.example'.")
+      },
+      {new ValidatorRejection("Unauthorized to delete assertion")}
+    };
+  }
+
+  @Test(dataProvider = "rejections")
+  public void testGuardRejectionDoesNotAbortReferenceCleanup(RuntimeException rejection)
+      throws Exception {
     final Urn container = UrnUtils.getUrn("urn:li:container:d1006cf3-3ff9-48e3-85cd-26eb23775ab2");
     final Urn dataset1 = UrnUtils.toDatasetUrn("snowflake", "guard_test_one", "DEV");
     final Urn dataset2 = UrnUtils.toDatasetUrn("snowflake", "guard_test_two", "DEV");
@@ -130,17 +151,14 @@ public class DeleteEntityServiceGuardHandlingTest {
             any(OperationContext.class), eq(dataset2.getEntityType()), eq(dataset2), anySet()))
         .thenReturn(datasetWithContainerAspect(dataset2, container));
 
-    // dataset1's aspect deletion is rejected by a delete-time guard (e.g. the structured-property
-    // soft-delete-first precondition maps to IllegalArgumentException)...
+    // dataset1's aspect deletion is rejected by a delete-time guard or an aspect validator...
     when(_entityService.deleteAspect(
             any(OperationContext.class),
             eq(dataset1.toString()),
             anyString(),
             anyMap(),
             anyBoolean()))
-        .thenThrow(
-            new IllegalArgumentException(
-                "Hard delete rejected for structured property qualifiedName 'io.acryl.example'."));
+        .thenThrow(rejection);
     // ...while dataset2's deletion succeeds: a deleted-aspect result has newValue == null, so the
     // helper's post-delete error branch is not taken and the success path completes.
     final Container deletedAspect = new Container();

@@ -14,6 +14,17 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionRunEvent;
+import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionSource;
+import com.linkedin.assertion.AssertionSourceType;
+import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionType;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
@@ -27,6 +38,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
@@ -45,9 +57,11 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -71,6 +85,7 @@ public class EntityAuthorizationUtilsTest {
   private static final Urn DATA_JOB_URN =
       UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,flow,PROD),task)");
   private static final Urn QUERY_URN = UrnUtils.getUrn("urn:li:query:facade-query");
+  private static final Urn ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:facade-assertion");
   private static final Urn SCHEMA_FIELD_URN =
       UrnUtils.getUrn(
           "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,facade,PROD),field_foo)");
@@ -427,6 +442,220 @@ public class EntityAuthorizationUtilsTest {
               opContext, entityRegistry, List.of(proposal)),
           List.of(Pair.of(proposal, 201)));
     }
+  }
+
+  @Test
+  public void testIngestAuthorization_assertionFallsBackToEditAssertionsOnProposedAssertee() {
+    MetadataChangeProposal proposal =
+        new MetadataChangeProposal()
+            .setEntityType(Constants.ASSERTION_ENTITY_NAME)
+            .setEntityUrn(ASSERTION_URN)
+            .setChangeType(ChangeType.UPSERT)
+            .setAspectName(Constants.ASSERTION_INFO_ASPECT_NAME)
+            .setAspect(GenericRecordUtils.serializeAspect(freshnessAssertionOn(DATASET_URN)));
+    Pair<ChangeType, Urn> authorizationKey = Pair.of(ChangeType.UPSERT, ASSERTION_URN);
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    when(aspectRetriever.entityExists(opContext, Set.of(ASSERTION_URN)))
+        .thenReturn(Map.of(ASSERTION_URN, false));
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    eq(opContext), eq(ENTITY), eq(Set.of(authorizationKey)), any()))
+        .thenReturn(Map.of(authorizationKey, 403));
+
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+            opContext, mock(EntityRegistry.class), List.of(proposal)),
+        List.of(Pair.of(proposal, 403)));
+
+    grantEditAssertionsOn(DATASET_URN);
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+            opContext, mock(EntityRegistry.class), List.of(proposal)),
+        List.of(Pair.of(proposal, 200)));
+  }
+
+  @Test
+  public void testIngestAuthorization_newAssertionDeniesStatusBeforeInfo() {
+    // status/dataPlatformInstance do not attach an assertion; without assertionInfo there is no
+    // entity to authorize against, so a caller denied on the assertion cannot write them.
+    MetadataChangeProposal proposal =
+        assertionProposal(Constants.STATUS_ASPECT_NAME, new Status().setRemoved(true));
+    denyOnAssertion();
+    grantEditAssertionsOn(DATASET_URN);
+
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+            opContext, mock(EntityRegistry.class), List.of(proposal)),
+        List.of(Pair.of(proposal, 403)));
+  }
+
+  @Test
+  public void testIngestAuthorization_newAssertionAllowsPlatformInstanceWithInfoInSameRequest() {
+    MetadataChangeProposal platform =
+        assertionProposal(
+            Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+            new DataPlatformInstance().setPlatform(UrnUtils.getUrn("urn:li:dataPlatform:dbt")));
+    MetadataChangeProposal info =
+        assertionProposal(Constants.ASSERTION_INFO_ASPECT_NAME, freshnessAssertionOn(DATASET_URN));
+    denyOnAssertion();
+    grantEditAssertionsOn(DATASET_URN);
+
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+            opContext, mock(EntityRegistry.class), List.of(platform, info)),
+        List.of(Pair.of(platform, 200), Pair.of(info, 200)));
+  }
+
+  @Test
+  public void testIngestAuthorization_assertionPatchRetargetNeedsBothEntities() {
+    Urn otherDataset =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,other_table,PROD)");
+    GenericJsonPatch.PatchOp op = new GenericJsonPatch.PatchOp();
+    op.setOp("add");
+    op.setPath("/freshnessAssertion/entity");
+    op.setValue(otherDataset.toString());
+    MetadataChangeProposal patch =
+        new MetadataChangeProposal()
+            .setEntityType(Constants.ASSERTION_ENTITY_NAME)
+            .setEntityUrn(ASSERTION_URN)
+            .setChangeType(ChangeType.PATCH)
+            .setAspectName(Constants.ASSERTION_INFO_ASPECT_NAME)
+            .setAspect(
+                GenericRecordUtils.serializePatch(
+                    GenericJsonPatch.builder().patch(List.of(op)).forceGenericPatch(true).build(),
+                    new ObjectMapper()));
+    EntityRegistry registry = new TestEntityRegistry();
+    when(aspectRetriever.getEntityRegistry()).thenReturn(registry);
+    when(opContext.getAuditStamp()).thenReturn(AuditStampUtils.createDefaultAuditStamp());
+    when(aspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(ASSERTION_URN)), eq(Set.of(Constants.ASSERTION_INFO_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                ASSERTION_URN,
+                Map.of(
+                    Constants.ASSERTION_INFO_ASPECT_NAME,
+                    new Aspect(freshnessAssertionOn(DATASET_URN).data()))));
+    Pair<ChangeType, Urn> authorizationKey = Pair.of(ChangeType.PATCH, ASSERTION_URN);
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    when(aspectRetriever.entityExists(opContext, Set.of(ASSERTION_URN)))
+        .thenReturn(Map.of(ASSERTION_URN, true));
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    eq(opContext), eq(ENTITY), eq(Set.of(authorizationKey)), any()))
+        .thenReturn(Map.of(authorizationKey, 403));
+    grantEditAssertionsOn(DATASET_URN);
+
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(opContext, registry, List.of(patch)),
+        List.of(Pair.of(patch, 403)));
+
+    grantEditAssertionsOn(otherDataset);
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(opContext, registry, List.of(patch)),
+        List.of(Pair.of(patch, 200)));
+  }
+
+  @Test
+  public void testIngestAuthorization_newAssertionRunEventRequiresEditAssertionsOnAssertee() {
+    MetadataChangeProposal proposal =
+        assertionProposal(
+            Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
+            new AssertionRunEvent()
+                .setTimestampMillis(0L)
+                .setRunId("run")
+                .setAssertionUrn(ASSERTION_URN)
+                .setAsserteeUrn(DATASET_URN)
+                .setStatus(AssertionRunStatus.COMPLETE));
+    denyOnAssertion();
+
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+            opContext, mock(EntityRegistry.class), List.of(proposal)),
+        List.of(Pair.of(proposal, 403)));
+
+    grantEditAssertionsOn(DATASET_URN);
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+            opContext, mock(EntityRegistry.class), List.of(proposal)),
+        List.of(Pair.of(proposal, 200)));
+  }
+
+  private static MetadataChangeProposal assertionProposal(
+      String aspectName, com.linkedin.data.template.RecordTemplate aspect) {
+    return new MetadataChangeProposal()
+        .setEntityType(Constants.ASSERTION_ENTITY_NAME)
+        .setEntityUrn(ASSERTION_URN)
+        .setChangeType(ChangeType.UPSERT)
+        .setAspectName(aspectName)
+        .setAspect(GenericRecordUtils.serializeAspect(aspect));
+  }
+
+  private void denyOnAssertion() {
+    Pair<ChangeType, Urn> authorizationKey = Pair.of(ChangeType.UPSERT, ASSERTION_URN);
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    when(aspectRetriever.entityExists(opContext, Set.of(ASSERTION_URN)))
+        .thenReturn(Map.of(ASSERTION_URN, false));
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    eq(opContext), eq(ENTITY), eq(Set.of(authorizationKey)), any()))
+        .thenReturn(Map.of(authorizationKey, 403));
+  }
+
+  @Test
+  public void testIsAPIAuthorizedEntityUrns_assertionDeleteUsesPersistedAssertee() {
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedEntityUrns(
+                    opContext, ApiOperation.DELETE, List.of(ASSERTION_URN)))
+        .thenReturn(false);
+    when(aspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(ASSERTION_URN)), eq(Set.of(Constants.ASSERTION_INFO_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                ASSERTION_URN,
+                Map.of(
+                    Constants.ASSERTION_INFO_ASPECT_NAME,
+                    new Aspect(freshnessAssertionOn(DATASET_URN).data()))));
+
+    assertFalse(
+        EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+            opContext, ApiOperation.DELETE, List.of(ASSERTION_URN)));
+
+    grantEditAssertionsOn(DATASET_URN);
+    assertTrue(
+        EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+            opContext, ApiOperation.DELETE, List.of(ASSERTION_URN)));
+  }
+
+  private void grantEditAssertionsOn(Urn entityUrn) {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(opContext),
+                    any(com.datahub.authorization.DisjunctivePrivilegeGroup.class),
+                    eq(
+                        new com.datahub.authorization.EntitySpec(
+                            entityUrn.getEntityType(), entityUrn.toString()))))
+        .thenReturn(true);
+  }
+
+  private static AssertionInfo freshnessAssertionOn(Urn entityUrn) {
+    return new AssertionInfo()
+        .setType(AssertionType.FRESHNESS)
+        .setFreshnessAssertion(
+            new FreshnessAssertionInfo()
+                .setType(FreshnessAssertionType.DATASET_CHANGE)
+                .setEntity(entityUrn))
+        .setSource(new AssertionSource().setType(AssertionSourceType.NATIVE));
   }
 
   @Test
