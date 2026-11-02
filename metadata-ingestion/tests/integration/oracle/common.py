@@ -241,7 +241,6 @@ class OracleTestCaseBase:
         pipeline.raise_from_status()
         mce_helpers.check_golden_file(
             self.pytestconfig,
-            golden_mces_as_mcps=True,
             fail_on_output_mces=True,
             output_path=output_path,
             golden_path="{}/{}".format(
