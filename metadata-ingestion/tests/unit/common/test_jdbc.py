@@ -199,6 +199,39 @@ def test_validate_jdbc_url(url: str, valid: bool) -> None:
             "jdbc:acme://acme.example.com:9999/db",
             JdbcUrlInfo(host="acme.example.com", port=9999),
         ),
+        (
+            "jdbc:mysqlx://my.example.com:33060/shop",
+            JdbcUrlInfo(host="my.example.com", port=33060),
+        ),
+        (
+            "jdbc:mysql:loadbalance://h1.example.com:3306,h2.example.com:3306/shop",
+            JdbcUrlInfo(platform="mysql", host="h1.example.com", database="shop"),
+        ),
+        (
+            "jdbc:redshift:iam://rs.example.com:5439/dev",
+            JdbcUrlInfo(
+                platform="redshift", host="rs.example.com", port=5439, database="dev"
+            ),
+        ),
+        (
+            "jdbc:clickhouse:https://ch.example.com:8443/events?ssl=true",
+            JdbcUrlInfo(
+                platform="clickhouse",
+                host="ch.example.com",
+                port=8443,
+                database="events",
+            ),
+        ),
+        (
+            "JDBC:PostgreSQL://pg.example.com:5432/Sales",
+            JdbcUrlInfo(
+                platform="postgres", host="pg.example.com", port=5432, database="Sales"
+            ),
+        ),
+        (
+            "JDBC:SQLServer://sql.example.com;databaseName=Sales",
+            JdbcUrlInfo(platform="mssql", host="sql.example.com", database="Sales"),
+        ),
     ],
 )
 def test_parse_jdbc_url(url: str, expected: JdbcUrlInfo) -> None:
@@ -207,7 +240,15 @@ def test_parse_jdbc_url(url: str, expected: JdbcUrlInfo) -> None:
 
 @pytest.mark.parametrize(
     "url",
-    ["", "not-a-url", "http://host:8080/path", "jdbc:", "jdbc:mysql://[::1/db"],
+    [
+        "",
+        "not-a-url",
+        "http://host:8080/path",
+        "jdbc:",
+        "jdbc:mysql://",
+        "jdbc:mysql://[::1/db",
+        "jdbc:mysql:unknownmode://my.example.com/shop",
+    ],
 )
 def test_parse_jdbc_url_invalid(url: str) -> None:
     assert parse_jdbc_url(url) == JdbcUrlInfo()

@@ -4,10 +4,6 @@ from urllib.parse import SplitResult, parse_qsl, urlsplit
 
 from pydantic import BaseModel
 
-from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
-    get_platform_from_sqlalchemy_uri,
-)
-
 JDBC_PREFIX: Final[str] = "jdbc:"
 
 # Regex patterns for non-standard JDBC URL formats (see normalize_jdbc_url)
@@ -30,10 +26,26 @@ _JTDS_RE: Final = re.compile(
     r"(?:[;?].*)?$"
 )
 
+# `jdbc:` plus the subprotocol tokens before `//` or `@`, matched without
+# regard to case so `JDBC:MySQL://` parses like `jdbc:mysql://`.
+_JDBC_SCHEME_PREFIX_RE: Final = re.compile(
+    r"^(?:jdbc:)?[a-z][a-z0-9+.-]*(?::[a-z][a-z0-9+.-]*)*(?=:(?://|@))",
+    re.IGNORECASE,
+)
+# `scheme:qualifier://`, e.g. `mysql:loadbalance://` or `redshift:iam://`.
+_JDBC_QUALIFIER_RE: Final = re.compile(
+    r"^(?P<scheme>[^:]+):(?P<qualifier>[^:/]+):(?=//)"
+)
+
 SQLSERVER_DEFAULT_PORT: Final[str] = "1433"
 SQLSERVER_DATABASE_NAME_KEY: Final[str] = "databasename"
 SQLSERVER_DATABASE_KEYS: Final[FrozenSet[str]] = frozenset(
     {SQLSERVER_DATABASE_NAME_KEY, "database"}
+)
+# normalize_jdbc_url predates parse_jdbc_url and kafka_connect relies on its
+# output, so it keeps reading only `databaseName`.
+_SQLSERVER_NORMALIZE_DATABASE_KEYS: Final[FrozenSet[str]] = frozenset(
+    {SQLSERVER_DATABASE_NAME_KEY}
 )
 
 ORACLE_PLATFORM: Final[str] = "oracle"
@@ -41,19 +53,51 @@ MSSQL_PLATFORM: Final[str] = "mssql"
 SNOWFLAKE_PLATFORM: Final[str] = "snowflake"
 HANA_PLATFORM: Final[str] = "hana"
 TERADATA_PLATFORM: Final[str] = "teradata"
-_SQLALCHEMY_UNKNOWN_PLATFORM: Final[str] = "external"
+POSTGRES_PLATFORM: Final[str] = "postgres"
+REDSHIFT_PLATFORM: Final[str] = "redshift"
+# The Redshift JDBC driver also accepts `jdbc:postgresql://` URLs.
+REDSHIFT_HOST_MARKER: Final[str] = "redshift.amazonaws"
 
-# JDBC subprotocols the SQLAlchemy mapper does not recognize but that are real
-# DataHub platforms. Anything else stays unknown so a mistyped URL cannot invent
-# a lineage platform.
+# JDBC subprotocols the SQLAlchemy URI mapper does not recognize but that are
+# real DataHub platforms.
 JDBC_PROTOCOL_PLATFORM_FALLBACK: Final[FrozenSet[str]] = frozenset(
     {"db2", TERADATA_PLATFORM, "cassandra"}
 )
-# Subprotocols whose name differs from the DataHub platform, or that the
-# SQLAlchemy mapper would otherwise miss.
-JDBC_SCHEME_PLATFORM_OVERRIDES: Final[Dict[str, str]] = {
-    "sap": HANA_PLATFORM,
+# Exact subprotocol matches only, so a mistyped or unrelated scheme such as
+# `mysqlx` cannot invent a lineage platform.
+JDBC_SCHEME_PLATFORMS: Final[Dict[str, str]] = {
+    "awsathena": "athena",
+    "bigquery": "bigquery",
+    "cassandra": "cassandra",
+    "clickhouse": "clickhouse",
+    "db2": "db2",
+    "hive": "hive",
+    "hive2": "hive",
+    "jtds": MSSQL_PLATFORM,
     "mariadb": "mariadb",
+    "mongodb": "mongodb",
+    "mysql": "mysql",
+    "oracle": ORACLE_PLATFORM,
+    "pinot": "pinot",
+    "postgresql": POSTGRES_PLATFORM,
+    "presto": "presto",
+    "redshift": REDSHIFT_PLATFORM,
+    "sap": HANA_PLATFORM,
+    "snowflake": SNOWFLAKE_PLATFORM,
+    "sqlserver": MSSQL_PLATFORM,
+    "teradata": TERADATA_PLATFORM,
+    "trino": "trino",
+    "vertica": "vertica",
+}
+# Driver-mode tokens between the subprotocol and `//`. They pick a connection
+# strategy, not a host or database.
+JDBC_SCHEME_QUALIFIERS: Final[Dict[str, FrozenSet[str]]] = {
+    "mysql": frozenset({"loadbalance", "replication"}),
+    "mariadb": frozenset(
+        {"loadbalance", "replication", "sequential", "failover", "aurora"}
+    ),
+    "redshift": frozenset({"iam"}),
+    "clickhouse": frozenset({"http", "https", "grpc", "tcp"}),
 }
 
 # Platforms whose JDBC URL carries the database as the first path segment.
@@ -82,6 +126,15 @@ class JdbcUrlInfo(BaseModel):
     schema_name: Optional[str] = None
 
 
+class _FixedFormatJdbcUrl(BaseModel):
+    """Oracle thin/OCI, SQL Server or jTDS URL fields, before normalization."""
+
+    platform: str
+    host: str
+    port: Optional[str] = None
+    database: Optional[str] = None
+
+
 def normalize_jdbc_url(url: str) -> str:
     """Convert a JDBC URL to a form SQLAlchemy can parse.
 
@@ -92,35 +145,47 @@ def normalize_jdbc_url(url: str) -> str:
 
     All other URLs are returned unchanged after stripping a leading jdbc:.
     """
+    fixed = _match_fixed_format_url(url, _SQLSERVER_NORMALIZE_DATABASE_KEYS)
+    if fixed is not None:
+        # Oracle URLs always carry a port; SQL Server and jTDS default it.
+        port = fixed.port or SQLSERVER_DEFAULT_PORT
+        return f"{fixed.platform}://{fixed.host}:{port}/{fixed.database or ''}"
+
+    return url[len(JDBC_PREFIX) :] if url.startswith(JDBC_PREFIX) else url
+
+
+def _match_fixed_format_url(
+    url: str, sqlserver_database_keys: FrozenSet[str]
+) -> Optional[_FixedFormatJdbcUrl]:
     m = _ORACLE_THIN_RE.match(url)
     if m:
-        host = m.group("host")
-        port = m.group("port")
-        db = m.group("db") or ""
-        return f"oracle://{host}:{port}/{db}"
+        return _FixedFormatJdbcUrl(
+            platform=ORACLE_PLATFORM,
+            host=m.group("host"),
+            port=m.group("port"),
+            database=m.group("db"),
+        )
 
     m = _SQLSERVER_RE.match(url)
     if m:
-        host = m.group("host")
-        port = m.group("port") or SQLSERVER_DEFAULT_PORT
-        db = ""
-        params_str = m.group("params") or ""
-        for param in params_str.split(";"):
-            if "=" in param:
-                k, _, v = param.partition("=")
-                if k.strip().lower() == SQLSERVER_DATABASE_NAME_KEY:
-                    db = v.strip()
-                    break
-        return f"mssql://{host}:{port}/{db}"
+        return _FixedFormatJdbcUrl(
+            platform=MSSQL_PLATFORM,
+            host=m.group("host"),
+            port=m.group("port"),
+            database=_sqlserver_database(
+                m.group("params") or "", sqlserver_database_keys
+            ),
+        )
 
     m = _JTDS_RE.match(url)
     if m:
-        host = m.group("host")
-        port = m.group("port") or SQLSERVER_DEFAULT_PORT
-        db = m.group("db") or ""
-        return f"mssql://{host}:{port}/{db}"
-
-    return url[len(JDBC_PREFIX) :] if url.startswith(JDBC_PREFIX) else url
+        return _FixedFormatJdbcUrl(
+            platform=MSSQL_PLATFORM,
+            host=m.group("host"),
+            port=m.group("port"),
+            database=m.group("db"),
+        )
+    return None
 
 
 def validate_jdbc_url(url: str) -> bool:
@@ -141,8 +206,12 @@ def parse_jdbc_url(url: str) -> JdbcUrlInfo:
     Returns an empty JdbcUrlInfo for anything it cannot parse, and one with no
     platform for a subprotocol it does not recognize. For Oracle, `database`
     holds the SID or service name, which DataHub does not use as a URN segment
-    by default, so callers decide whether to keep it.
+    by default, so callers decide whether to keep it. The `jdbc:` prefix and
+    subprotocol are matched case-insensitively.
     """
+    if not url or not isinstance(url, str):
+        return JdbcUrlInfo()
+    url = _lowercase_scheme_prefix(url)
     if not validate_jdbc_url(url):
         return JdbcUrlInfo()
     try:
@@ -151,38 +220,28 @@ def parse_jdbc_url(url: str) -> JdbcUrlInfo:
         return JdbcUrlInfo()
 
 
+def _lowercase_scheme_prefix(url: str) -> str:
+    m = _JDBC_SCHEME_PREFIX_RE.match(url)
+    if not m:
+        return url
+    return m.group(0).lower() + url[m.end() :]
+
+
 def _parse_valid_jdbc_url(url: str) -> JdbcUrlInfo:
-    m = _ORACLE_THIN_RE.match(url)
-    if m:
+    fixed = _match_fixed_format_url(url, SQLSERVER_DATABASE_KEYS)
+    if fixed is not None:
         return JdbcUrlInfo(
-            platform=ORACLE_PLATFORM,
-            host=m.group("host"),
-            port=int(m.group("port")),
-            database=m.group("db"),
+            platform=fixed.platform,
+            host=fixed.host,
+            port=_to_port(fixed.port),
+            database=fixed.database or None,
         )
 
-    m = _SQLSERVER_RE.match(url)
-    if m:
-        return JdbcUrlInfo(
-            platform=MSSQL_PLATFORM,
-            host=m.group("host"),
-            port=_to_port(m.group("port")),
-            database=_sqlserver_database(m.group("params") or ""),
-        )
-
-    m = _JTDS_RE.match(url)
-    if m:
-        return JdbcUrlInfo(
-            platform=MSSQL_PLATFORM,
-            host=m.group("host"),
-            port=_to_port(m.group("port")),
-            database=m.group("db"),
-        )
-
-    body = url[len(JDBC_PREFIX) :]
-    scheme = body.partition(":")[0].lower()
-    platform = _platform_for_scheme(scheme, body)
+    body = _strip_scheme_qualifier(url[len(JDBC_PREFIX) :])
     parts = urlsplit(body)
+    if not parts.hostname:
+        return JdbcUrlInfo()
+    platform = _platform_for_scheme(parts.scheme, parts.hostname)
     info = JdbcUrlInfo(platform=platform, host=parts.hostname, port=_split_port(parts))
     if platform is None:
         return info
@@ -207,22 +266,26 @@ def _parse_valid_jdbc_url(url: str) -> JdbcUrlInfo:
     return info
 
 
-def _platform_for_scheme(scheme: str, body: str) -> Optional[str]:
-    override = JDBC_SCHEME_PLATFORM_OVERRIDES.get(scheme)
-    if override is not None:
-        return override
-    platform = get_platform_from_sqlalchemy_uri(body)
-    if platform != _SQLALCHEMY_UNKNOWN_PLATFORM:
-        return platform
-    if scheme in JDBC_PROTOCOL_PLATFORM_FALLBACK:
-        return scheme
-    return None
+def _strip_scheme_qualifier(body: str) -> str:
+    m = _JDBC_QUALIFIER_RE.match(body)
+    if m and m.group("qualifier") in JDBC_SCHEME_QUALIFIERS.get(
+        m.group("scheme"), frozenset()
+    ):
+        return f"{m.group('scheme')}:{body[m.end() :]}"
+    return body
 
 
-def _sqlserver_database(params: str) -> Optional[str]:
+def _platform_for_scheme(scheme: str, host: str) -> Optional[str]:
+    platform = JDBC_SCHEME_PLATFORMS.get(scheme)
+    if platform == POSTGRES_PLATFORM and REDSHIFT_HOST_MARKER in host:
+        return REDSHIFT_PLATFORM
+    return platform
+
+
+def _sqlserver_database(params: str, keys: FrozenSet[str]) -> Optional[str]:
     for param in params.split(";"):
-        key, _, value = param.partition("=")
-        if key.strip().lower() in SQLSERVER_DATABASE_KEYS and value.strip():
+        key, sep, value = param.partition("=")
+        if sep and key.strip().lower() in keys:
             return value.strip()
     return None
 
