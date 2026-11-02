@@ -195,3 +195,23 @@ def test_plugin_loading_bad_ext_does_not_crash(tmp_path, monkeypatch):
     config = datahub_dev._load_config()
     assert "gms" in config.rebuild_module_aliases
     assert any(svc.name == "gms" for svc in config.services)
+
+
+@pytest.mark.parametrize(
+    "changed_files,expected_services",
+    [
+        ({"metadata-service/war/src/A.java"}, {"datahub-gms"}),
+        (
+            {"datahub-web-react/src/a.tsx", "datahub-frontend/app/B.java"},
+            {"datahub-frontend-react"},
+        ),
+        # Shared or unmapped sources keep the full build graph.
+        ({"metadata-io/src/C.java"}, set()),
+        ({"metadata-service/war/src/A.java", "README.md"}, set()),
+    ],
+)
+def test_detect_changed_modules_narrows_only_service_owned_changes(
+    changed_files, expected_services
+):
+    modules = datahub_dev._detect_changed_modules(changed_files)
+    assert {container for _, _, container in modules} == expected_services

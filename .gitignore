@@ -126,6 +126,7 @@ skills-lock.json
 *.env
 # Exception: ZDU test compose override (no secrets — only authz bypass flags)
 !docker/profiles/zdu-test.env
+!scripts/dev/gms-local.env
 
 # A bunch of binaries we never ever want to add
 datahub-frontend/bin/main/
