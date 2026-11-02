@@ -82,7 +82,8 @@ public class DeleteEntityServiceGuardHandlingTest {
   }
 
   @Test(dataProvider = "rejections")
-  public void testGuardRejectionDoesNotAbortReferenceCleanup(RuntimeException rejection) {
+  public void testGuardRejectionDoesNotAbortReferenceCleanup(RuntimeException rejection)
+      throws Exception {
     final Urn container = UrnUtils.getUrn("urn:li:container:d1006cf3-3ff9-48e3-85cd-26eb23775ab2");
     final Urn dataset1 = UrnUtils.toDatasetUrn("snowflake", "guard_test_one", "DEV");
     final Urn dataset2 = UrnUtils.toDatasetUrn("snowflake", "guard_test_two", "DEV");
@@ -115,7 +116,7 @@ public class DeleteEntityServiceGuardHandlingTest {
   }
 
   @Test
-  public void testOperationalFailurePropagates() {
+  public void testOperationalFailurePropagates() throws Exception {
     final Urn container = UrnUtils.getUrn("urn:li:container:d1006cf3-3ff9-48e3-85cd-26eb23775ab2");
     final Urn dataset1 = UrnUtils.toDatasetUrn("snowflake", "guard_test_one", "DEV");
     final Urn dataset2 = UrnUtils.toDatasetUrn("snowflake", "guard_test_two", "DEV");
@@ -128,7 +129,8 @@ public class DeleteEntityServiceGuardHandlingTest {
 
   /** Two datasets reference {@code container}; deleting dataset1's reference throws. */
   private void mockTwoReferrers(
-      Urn container, Urn dataset1, Urn dataset2, RuntimeException dataset1Failure) {
+      Urn container, Urn dataset1, Urn dataset2, RuntimeException dataset1Failure)
+      throws Exception {
     // File-reference phase scrolls the search index; return no files.
     final ScrollResult emptyFileScrollResult = new ScrollResult();
     emptyFileScrollResult.setEntities(new SearchEntityArray());
