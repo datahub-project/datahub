@@ -687,8 +687,9 @@ class DremioSource(StatefulIngestionSourceBase):
                 )
 
         # Record the time window after successful processing so subsequent runs
-        # can skip or advance past it.
-        if redundant_handler is not None:
+        # can skip or advance past it. After a truncated job fetch, keep the old
+        # state so the next run re-reads the jobs that were missed.
+        if redundant_handler is not None and not self.report.query_fetch_incomplete:
             redundant_handler.update_state(
                 start_time=effective_start,
                 end_time=effective_end,
