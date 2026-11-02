@@ -17,6 +17,7 @@ from typing import (
 import requests
 from typing_extensions import LiteralString
 
+from datahub.ingestion.source.powerbi.auth import build_msal_client_credential
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
@@ -116,7 +117,7 @@ def make_resolver(config: PowerBiDashboardSourceConfig, resolver_cls: Type[R]) -
     # The constructor fetches an MSAL token.
     return resolver_cls(
         client_id=config.client_id,
-        client_secret=config.client_secret.get_secret_value(),
+        client_credential=build_msal_client_credential(config),
         tenant_id=config.tenant_id,
         metadata_api_timeout=config.metadata_api_timeout,
         environment=config.environment,
