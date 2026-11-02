@@ -1,7 +1,7 @@
 """Debezium lineage through ByLogicalTableRouter, down to the topic's stored field paths."""
 
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 from unittest.mock import MagicMock
 
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -100,7 +100,10 @@ def _stored_value_path(schema: SchemaMetadataClass, simple_path: str) -> str:
     )
 
 
-def _extract(topic_schema: Optional[SchemaMetadataClass]) -> List[KafkaConnectLineage]:
+def _extract(
+    topic_schema: Optional[SchemaMetadataClass],
+    source_columns: Sequence[str] = COLUMNS,
+) -> List[KafkaConnectLineage]:
     connector = DebeziumSourceConnector(
         make_manifest(CONNECTOR_CONFIG, name="orders-cdc"),
         KafkaConnectSourceConfig(use_schema_resolver=True),
@@ -109,9 +112,7 @@ def _extract(topic_schema: Optional[SchemaMetadataClass]) -> List[KafkaConnectLi
     graph: MagicMock = mock_graph()
     graph.get_aspect.return_value = topic_schema
     resolver = StubSchemaResolver(platform="mysql", graph=graph)
-    resolver.add_schema(
-        SOURCE_TABLE, {"id": "BIGINT", "customer_name": "VARCHAR", "amount": "DOUBLE"}
-    )
+    resolver.add_schema(SOURCE_TABLE, {column: "VARCHAR" for column in source_columns})
     attach_resolver(connector, resolver)
     return connector.extract_lineages()
 
@@ -164,6 +165,52 @@ def test_unwrapped_topic_links_to_value_fields_not_key() -> None:
     links = _column_links(_extract(schema)[0])
 
     assert links == _expected_links(schema, topic_path_prefix="")
+
+
+def test_envelope_topic_never_links_to_envelope_metadata() -> None:
+    # A source column named "op" that isn't on the topic must not pick up the
+    # envelope's own "op" field.
+    schema = _topic_schema(ENVELOPE_SCHEMA)
+
+    links = _column_links(_extract(schema, source_columns=(*COLUMNS, "op"))[0])
+
+    assert links == _expected_links(schema, topic_path_prefix="after.")
+
+
+def test_columns_differing_only_in_case_link_to_their_own_fields() -> None:
+    value = {
+        **VALUE_RECORD,
+        "fields": [
+            {"name": "Name", "type": "string"},
+            {"name": "name", "type": "string"},
+        ],
+    }
+    schema = _topic_schema(value)
+
+    # "NAME" matches both case-insensitively, so it is ambiguous and not linked.
+    links = _column_links(_extract(schema, source_columns=("Name", "name", "NAME"))[0])
+
+    assert links == {
+        make_schema_field_urn(SOURCE_URN, column): make_schema_field_urn(
+            TOPIC_URN, _stored_value_path(schema, column)
+        )
+        for column in ("Name", "name")
+    }
+
+
+def test_unique_case_insensitive_match_is_linked() -> None:
+    schema = _topic_schema(ENVELOPE_SCHEMA)
+
+    links = _column_links(
+        _extract(schema, source_columns=tuple(c.upper() for c in COLUMNS))[0]
+    )
+
+    assert links == {
+        make_schema_field_urn(SOURCE_URN, column.upper()): make_schema_field_urn(
+            TOPIC_URN, _stored_value_path(schema, f"after.{column}")
+        )
+        for column in COLUMNS
+    }
 
 
 def test_topic_with_mismatched_schema_gets_no_column_lineage() -> None:

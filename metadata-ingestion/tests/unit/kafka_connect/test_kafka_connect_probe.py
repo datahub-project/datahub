@@ -35,6 +35,7 @@ from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
     DISCLOSED_CONFIG_KEYS,
     PROBE_REQUEST_TIMEOUT_SECONDS,
     KafkaConnectMetadataProbe,
+    disclosed_config,
     source_for_probe,
 )
 from datahub.metadata.schema_classes import DataJobInputOutputClass
@@ -553,6 +554,22 @@ def test_no_disclosed_key_names_a_credential() -> None:
         assert not any(mk in lowered for mk in ingestion_markers), key
     # Credential-bearing by value, not by name.
     assert not {"connection.url", "connection.uri", "query"} & DISCLOSED_CONFIG_KEYS
+
+
+def test_by_logical_table_router_routing_rule_is_disclosed() -> None:
+    disclosed = disclosed_config(
+        {
+            "transforms": "Reroute",
+            "transforms.Reroute.type": "io.debezium.transforms.ByLogicalTableRouter",
+            "transforms.Reroute.topic.regex": "(shard1)\\.(.*)\\.(.*)",
+            "transforms.Reroute.topic.replacement": "cdc-$3",
+            "transforms.Reroute.key.field.regex": "(.*)",
+        }
+    )
+
+    assert disclosed["transforms.Reroute.topic.regex"] == "(shard1)\\.(.*)\\.(.*)"
+    assert disclosed["transforms.Reroute.topic.replacement"] == "cdc-$3"
+    assert "transforms.Reroute.key.field.regex" not in disclosed
 
 
 def test_a_connector_deleted_after_listing_is_a_bad_argument() -> None:
