@@ -11,9 +11,12 @@ import pytest
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.dremio.dremio_api import DremioEdition
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_entities import (
     DremioCatalog,
+    DremioDataset,
+    DremioDatasetType,
     DremioQuery,
 )
 from datahub.ingestion.source.dremio.dremio_source import DremioSource
@@ -203,10 +206,14 @@ def test_out_of_scope_name_still_counted_as_filtered(source):
     assert list(source.report.lineage_dropped_not_in_catalog) == []
 
 
-def test_incomplete_dataset_fetch_falls_back_to_filters(source):
+@pytest.mark.parametrize("cause", ["fetch_failed", "empty_catalog"])
+def test_incomplete_dataset_fetch_falls_back_to_filters(source, cause):
     # A missing name may just be one the failed fetch never returned; dropping
     # its lineage would lose it for good once the query time window advances.
-    source.dremio_api.dataset_fetch_incomplete = True
+    if cause == "fetch_failed":
+        source.report.dataset_fetch_incomplete = True
+    else:
+        source.catalog_dataset_names = set()
 
     _run_query(
         source,
@@ -220,18 +227,34 @@ def test_incomplete_dataset_fetch_falls_back_to_filters(source):
     assert not source._is_allowed_table("dremio.other_source.sales.orders")
 
 
-def test_lineage_warnings(source):
-    source._warn_if_dataset_fetch_incomplete()
-    source._warn_names_not_in_catalog()
-    assert not source.report.warnings
+def _warning_titles(source: DremioSource) -> List[str]:
+    return [w.title for w in source.report.warnings if w.title]
 
-    source.dremio_api.dataset_fetch_incomplete = True
-    source._is_allowed_table("my_s3.materialize.orders_blue")
-    source._warn_if_dataset_fetch_incomplete()
-    source.dremio_api.dataset_fetch_incomplete = False
-    source._is_allowed_table("my_s3.materialize.orders_blue")
-    source._warn_names_not_in_catalog()
-    assert len(source.report.warnings) == 2
+
+def test_system_tables_are_filtered_not_reported_as_dropped(source):
+    # The connector's own metadata queries are in job history; the catalog
+    # query never returns system tables, whatever include_system_tables says.
+    for name in ["information_schema.tables", "sys.jobs_recent", "SYS.JOBS"]:
+        assert not source._is_allowed_table(f"dremio.{name}")
+    assert source.report.lineage_dropped_filtered == 3
+    assert list(source.report.lineage_dropped_not_in_catalog) == []
+
+
+def test_double_prefixed_name_is_reported_apart_from_dropped_tables(source):
+    # A two-part reference reaches the callback as dremio.dremio.<path>.
+    assert not source._is_allowed_table("dremio.dremio.src_db.sales.orders")
+    assert list(source.report.lineage_dropped_unresolved_names) == [
+        "dremio.src_db.sales.orders"
+    ]
+    assert list(source.report.lineage_dropped_not_in_catalog) == []
+
+
+def test_dataset_without_columns_keeps_query_lineage(source):
+    # Returned by the fetch with no column rows (e.g. its source is offline):
+    # it exists, so it isn't treated as dropped.
+    source.dremio_api.datasets_without_columns.add("my_s3.materialize.no_columns")
+    assert source._is_allowed_table("dremio.my_s3.materialize.no_columns")
+    assert list(source.report.lineage_dropped_not_in_catalog) == []
 
 
 @pytest.mark.parametrize(
@@ -248,3 +271,143 @@ def test_non_view_ddl_is_not_skipped(source, sql):
     _run_query(source, sql, "2024-01-01 12:00:00.000")
 
     assert source.report.num_view_ddl_queries_skipped == 0
+    assert source.sql_parsing_aggregator.report.num_observed_queries == 1
+
+
+def test_parse_errors_other_than_parse_error_reach_the_aggregator(source, monkeypatch):
+    # parse_statement can raise TypeError or RecursionError too; deciding
+    # whether to skip must never fail the query.
+    monkeypatch.setattr(
+        "datahub.ingestion.source.dremio.dremio_source.parse_statement",
+        Mock(side_effect=RecursionError),
+    )
+    _run_query(
+        source,
+        "CREATE VIEW mysys.vdata.orders AS SELECT 1",
+        "2024-01-01 12:00:00.000",
+    )
+
+    assert source.report.num_view_ddl_queries_skipped == 0
+    assert source.sql_parsing_aggregator.report.num_observed_queries == 1
+
+
+def test_statements_without_view_are_not_parsed(source, monkeypatch):
+    parse = Mock()
+    monkeypatch.setattr(
+        "datahub.ingestion.source.dremio.dremio_source.parse_statement", parse
+    )
+    _run_query(source, "SELECT * FROM src_db.sales.orders", "2024-01-01 12:00:00.000")
+
+    parse.assert_not_called()
+
+
+def _dataset(
+    path: List[str],
+    name: str,
+    dataset_type: DremioDatasetType,
+    sql_definition: Optional[str] = None,
+) -> DremioDataset:
+    dataset = Mock(spec=DremioDataset)
+    dataset.path = path
+    dataset.resource_name = name
+    dataset.dataset_type = dataset_type
+    dataset.sql_definition = sql_definition
+    dataset.default_schema = None
+    dataset.parents = None
+    dataset.glossary_terms = []
+    return dataset
+
+
+def _query(sql: str, ts: str) -> DremioQuery:
+    return DremioQuery(
+        job_id="job",
+        username="dbt_user",
+        submitted_ts=ts,
+        query=sql,
+        queried_datasets="[]",
+    )
+
+
+def _run_ingestion(
+    source: DremioSource, datasets: List[DremioDataset], queries: List[DremioQuery]
+) -> List[MetadataChangeProposalWrapper]:
+    source.catalog_dataset_names = set()
+    source._views_with_definition = set()
+    catalog = Mock(spec=DremioCatalog)
+    catalog.edition = DremioEdition.COMMUNITY
+    catalog.get_sources.return_value = []
+    catalog.get_containers.return_value = []
+    catalog.get_datasets.return_value = iter(datasets)
+    catalog.get_queries.return_value = queries
+    source.dremio_catalog = catalog
+    aspects = Mock()
+    aspects.populate_dataset_mcp.return_value = []
+    source.dremio_aspects = aspects
+    return [
+        wu.metadata
+        for wu in source.get_workunits_internal()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    ]
+
+
+def test_end_to_end_blue_green_deploy(source):
+    # The catalog walk sees the view (now on green) and green; blue was
+    # dropped, but job history still has its CTAS and the view's old DDL.
+    mcps = _run_ingestion(
+        source,
+        datasets=[
+            _dataset(
+                ["MySys", "vdata"],
+                "Orders",
+                DremioDatasetType.VIEW,
+                "SELECT * FROM my_s3.materialize.orders_green",
+            ),
+            _dataset(["my_s3", "materialize"], "orders_green", DremioDatasetType.TABLE),
+            _dataset(["src_db", "sales"], "orders", DremioDatasetType.TABLE),
+        ],
+        queries=[
+            _query(
+                "CREATE TABLE my_s3.materialize.orders_blue AS "
+                "SELECT * FROM src_db.sales.orders",
+                "2024-01-01 12:00:00.000",
+            ),
+            _query(
+                "CREATE OR REPLACE VIEW MySys.vdata.Orders AS "
+                "SELECT * FROM my_s3.materialize.orders_blue",
+                "2024-01-01 12:05:00.000",
+            ),
+        ],
+    )
+
+    instance = _instance(source)
+    view = _urn("mysys.vdata.orders", instance)
+    blue = _urn("my_s3.materialize.orders_blue", instance)
+    assert _upstreams(mcps, view) == [_urn("my_s3.materialize.orders_green", instance)]
+    assert [m.aspectName for m in mcps if m.entityUrn == blue] == []
+    assert source.report.num_view_ddl_queries_skipped == 1
+    assert list(source.report.lineage_dropped_not_in_catalog) == [
+        "my_s3.materialize.orders_blue"
+    ]
+    assert _warning_titles(source) == [
+        "Query lineage dropped for tables not in the catalog"
+    ]
+
+
+def test_end_to_end_incomplete_fetch_warns(source):
+    source.report.dataset_fetch_incomplete = True
+    mcps = _run_ingestion(
+        source,
+        datasets=[_dataset(["src_db", "sales"], "orders", DremioDatasetType.TABLE)],
+        queries=[
+            _query(
+                "CREATE TABLE my_s3.materialize.orders_blue AS "
+                "SELECT * FROM src_db.sales.orders",
+                "2024-01-01 12:00:00.000",
+            )
+        ],
+    )
+
+    assert _upstreams(
+        mcps, _urn("my_s3.materialize.orders_blue", _instance(source))
+    ) == [_urn("src_db.sales.orders", _instance(source))]
+    assert _warning_titles(source) == ["Query lineage not limited to the catalog"]

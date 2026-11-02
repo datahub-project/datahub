@@ -2,10 +2,11 @@ from unittest.mock import Mock
 
 import pytest
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.dremio.dremio_api import (
+    DremioAPIException,
     DremioAPIOperations,
     DremioEdition,
-    _CatalogWideQueryFailed,
 )
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
@@ -53,24 +54,56 @@ class TestDremioPartitioning:
         dremio_api._get_all_tables_partitioned_by_container.assert_not_called()
 
     def test_first_chunk_failure_falls_back_to_partitioned(self, dremio_api):
+        # Mocked at the query level so the real fallback path runs.
         dremio_api.report = DremioSourceReport()
         dremio_api._get_view_definitions = Mock(return_value=FileBackedDict())
-        dremio_api._get_root_container_names = Mock(return_value=["src_a"])
+        dremio_api.get = Mock(
+            return_value={"data": [{"containerType": "SOURCE", "path": ["src_a"]}]}
+        )
+        row = {
+            "FULL_TABLE_PATH": "src_a.fallback",
+            "TABLE_NAME": "fallback",
+            "TABLE_SCHEMA": "src_a",
+            "COLUMN_NAME": "id",
+            "IS_NULLABLE": "YES",
+            "DATA_TYPE": "INTEGER",
+            "COLUMN_SIZE": 4,
+        }
         # Catalog-wide query fails, the per-container retry succeeds.
-        dremio_api._get_all_tables_global_chunked = Mock(
-            side_effect=[
-                _CatalogWideQueryFailed("timeout"),
-                iter([{"TABLE_NAME": "fallback"}]),
-            ]
+        dremio_api.execute_query_iter = Mock(
+            side_effect=[DremioAPIException("timeout"), iter([row])]
         )
 
         tables = list(dremio_api.get_all_tables_and_columns())
 
         assert [t["TABLE_NAME"] for t in tables] == ["fallback"]
         # A successful fallback is a complete fetch.
-        assert not dremio_api.dataset_fetch_incomplete
         assert not dremio_api.report.dataset_fetch_incomplete
         assert not dremio_api.report.failures
+
+    def test_dataset_without_column_rows_is_recorded(self, dremio_api):
+        # LEFT JOIN on COLUMNS: a dataset whose columns can't be read (e.g.
+        # its source is offline) comes back as one row with no COLUMN_NAME.
+        dremio_api.report = DremioSourceReport()
+        dremio_api.execute_query_iter = Mock(
+            return_value=iter(
+                [{"FULL_TABLE_PATH": "Src_A.Offline", "TABLE_NAME": "Offline"}]
+            )
+        )
+
+        tables = list(
+            dremio_api._get_all_tables_global_chunked(
+                "SELECT 1 {schema_pattern} {deny_schema_pattern} "
+                "{columns_schema_filter} {limit_clause}",
+                "",
+                "",
+                view_definitions={},
+            )
+        )
+
+        assert tables == []
+        assert dremio_api.datasets_without_columns == {"src_a.offline"}
+        assert list(dremio_api.report.datasets_without_columns) == ["src_a.offline"]
 
     def test_one_scoped_query_per_container(self, dremio_api):
         dremio_api._get_root_container_names = Mock(return_value=["src_a", "src_b"])
@@ -127,7 +160,8 @@ class TestDremioPartitioning:
         assert tables == []
         dremio_api._get_all_tables_global_chunked.assert_not_called()
         dremio_api.report.failure.assert_called_once()
-        assert dremio_api.dataset_fetch_incomplete
+        # `is True`: report is a Mock, so an unset attribute would be truthy.
+        assert dremio_api.report.dataset_fetch_incomplete is True
 
     def test_outer_condition_matches_root_and_nested_paths(self):
         condition = DremioSQLQueries.container_schema_condition(
@@ -159,14 +193,27 @@ class TestDremioPartitioning:
                 ]
             }
         )
-        dremio_api.filter.should_include_container = Mock(
-            side_effect=lambda path, name: name != "space_b"
+        dremio_api.filter.is_system_schema_allowed = Mock(
+            side_effect=lambda name: name != "space_b"
         )
 
         names = dremio_api._get_root_container_names()
 
         # FOLDER is not a root; space_b is filtered out.
         assert names == ["src_a", "@me"]
+
+    def test_root_container_names_ignore_schema_pattern(self, dremio_api):
+        # Each per-container query applies schema_pattern itself; filtering
+        # roots by it here skipped `space` for ^space\.finance.* and the
+        # fallback then "succeeded" without that container.
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(
+            allow=["^space\\.finance.*"]
+        )
+        dremio_api.get = Mock(
+            return_value={"data": [{"containerType": "SPACE", "path": ["space"]}]}
+        )
+
+        assert dremio_api._get_root_container_names() == ["space"]
 
     def test_get_root_container_names_empty_catalog(self, dremio_api):
         dremio_api.get = Mock(return_value={})

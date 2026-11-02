@@ -39,11 +39,19 @@ class DremioSourceReport(
     # Query-derived tables that pass the filters but that the catalog walk did
     # not find (dropped or temporary tables still in job history).
     lineage_dropped_not_in_catalog: LossyList[str] = field(default_factory=LossyList)
+    # Query-derived names still carrying a `dremio.` prefix after one is
+    # removed: a two-part reference the schema resolver qualified twice
+    # (`dremio.dremio.space.t`). The aggregator would emit them under that URN.
+    lineage_dropped_unresolved_names: LossyList[str] = field(default_factory=LossyList)
+    # Datasets the fetch returned without column rows (e.g. their source is
+    # offline). They are not emitted, but their query lineage is kept.
+    datasets_without_columns: LossyList[str] = field(default_factory=LossyList)
     # Observed CREATE VIEW statements skipped for views whose current
     # definition the catalog registered; older DDL would add stale upstreams.
     num_view_ddl_queries_skipped: int = 0
     # The dataset fetch was cut short, so the catalog walk's names are not the
-    # whole catalog. Mirrors DremioAPIOperations.dataset_fetch_incomplete.
+    # whole catalog; query lineage then falls back to the filters alone. Set
+    # only through DremioAPIOperations._report_dataset_fetch_failure.
     dataset_fetch_incomplete: bool = False
 
     api_calls_total: int = 0

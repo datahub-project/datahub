@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Set, Tuple, Union
 from urllib.parse import quote
 
 import requests
@@ -41,6 +41,13 @@ DREMIO_SYSTEM_TABLES_PATTERN = [
     r"^information_schema\..*",
     r"^sys\..*",
 ]
+_DREMIO_SYSTEM_NAMES = AllowDenyPattern(deny=DREMIO_SYSTEM_TABLES_PATTERN)
+
+
+def is_dremio_system_name(name: str) -> bool:
+    """INFORMATION_SCHEMA / SYS, or anything under them (lowercased name)."""
+    return not _DREMIO_SYSTEM_NAMES.allowed(name.lower())
+
 
 # Defensive ceiling on the LIMIT we ever issue per page. Dremio's REST job-results
 # endpoint paginates without a documented total-row cap (it streams 500-row pages
@@ -85,6 +92,9 @@ class DremioFilter:
         self.config = config
         self.structured_reporter = structured_reporter
 
+    def is_system_schema_allowed(self, name: str) -> bool:
+        return self.config.include_system_tables or not is_dremio_system_name(name)
+
     def is_schema_allowed(
         self, schema_path: List[str], container_name: str = ""
     ) -> bool:
@@ -108,9 +118,7 @@ class DremioFilter:
 
         full_schema_name = ".".join(full_path_components).lower()
 
-        if not self.config.include_system_tables and not AllowDenyPattern(
-            deny=DREMIO_SYSTEM_TABLES_PATTERN
-        ).allowed(full_schema_name):
+        if not self.is_system_schema_allowed(full_schema_name):
             return False
 
         if len(full_path_components) == 1:
@@ -169,9 +177,7 @@ class DremioFilter:
         else:
             full_dataset_name = dataset_name.lower()
 
-        if not self.config.include_system_tables and not AllowDenyPattern(
-            deny=DREMIO_SYSTEM_TABLES_PATTERN
-        ).allowed(full_dataset_name):
+        if not self.is_system_schema_allowed(full_dataset_name):
             return False
 
         return self.config.dataset_pattern.allowed(full_dataset_name)
@@ -216,10 +222,9 @@ class DremioAPIOperations:
             )
         # Emitted at most once per run when a page fills the ceiling exactly.
         self._warned_page_at_job_cap = False
-        # True once the dataset fetch is known to have been cut short: the
-        # catalog walk's names are then not the whole catalog. Set only through
-        # _report_dataset_fetch_failure.
-        self.dataset_fetch_incomplete = False
+        # Lowercased paths of datasets the fetch returned without any column
+        # rows (e.g. their source is offline). They exist but are not emitted.
+        self.datasets_without_columns: Set[str] = set()
         # /catalog/{id} responses are id-keyed and immutable for a run, so
         # we reuse them across container walk + dataset fetch.
         self._catalog_cache: Dict[str, Any] = {}
@@ -573,17 +578,14 @@ class DremioAPIOperations:
             result = self.get_job_result(job_id, offset, limit)
 
             if "rows" not in result:
-                logger.warning(
-                    f"API response for job {job_id} missing 'rows' key. "
-                    f"Response keys: {list(result.keys())}"
-                )
                 if "errorMessage" in result:
                     raise DremioAPIException(f"Query error: {result['errorMessage']}")
-                elif "message" in result:
-                    logger.warning(
-                        f"Query warning for job {job_id}: {result['message']}"
-                    )
-                break
+                # Ending here would look like the last page, silently
+                # truncating the result for callers that page through it.
+                raise DremioAPIException(
+                    f"Result page for job {job_id} has no 'rows' key "
+                    f"(keys: {list(result.keys())}, message: {result.get('message')})"
+                )
 
             result_rows = result["rows"]
             if not result_rows:
@@ -696,11 +698,11 @@ class DremioAPIOperations:
 
         ordinal_position = 0
         for record in tables_and_columns:
-            if not record.get("COLUMN_NAME"):
-                continue
-
             table_full_path = record.get("FULL_TABLE_PATH")
             if not table_full_path:
+                continue
+            if not record.get("COLUMN_NAME"):
+                self._record_dataset_without_columns(table_full_path)
                 continue
 
             # Ensure ordinal_position is always an integer for proper sorting
@@ -784,8 +786,13 @@ class DremioAPIOperations:
         self, message: LiteralString, context: str, exc: Optional[Exception] = None
     ) -> None:
         self.report.failure(message=message, context=context, exc=exc)
-        self.dataset_fetch_incomplete = True
         self.report.dataset_fetch_incomplete = True
+
+    def _record_dataset_without_columns(self, table_full_path: str) -> None:
+        name = table_full_path.lower()
+        if name not in self.datasets_without_columns:
+            self.datasets_without_columns.add(name)
+            self.report.datasets_without_columns.append(name)
 
     def _warn_if_page_at_job_cap(self, page_len: int) -> None:
         """Nudge (once) when a fetch page reaches the configured ceiling.
@@ -932,7 +939,10 @@ class DremioAPIOperations:
                 if source.get("path")
                 else source.get("name", "")
             )
-            if name and self.filter.should_include_container([], name):
+            # Only the system-schema deny applies here: schema_pattern is part
+            # of each per-container query, and its prefix check on the root
+            # name would wrongly skip roots of patterns like ^space\.finance.*
+            if name and self.filter.is_system_schema_allowed(name):
                 names.append(name)
         return names
 
@@ -1055,11 +1065,11 @@ class DremioAPIOperations:
                         yield table
                 else:
                     for record in chunk_results:
-                        if not record.get("COLUMN_NAME"):
-                            continue
-
                         table_full_path = record.get("FULL_TABLE_PATH")
                         if not table_full_path:
+                            continue
+                        if not record.get("COLUMN_NAME"):
+                            self._record_dataset_without_columns(table_full_path)
                             continue
 
                         # Flush on table-path change — that's the first
