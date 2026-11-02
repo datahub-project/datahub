@@ -67,19 +67,24 @@ def _register(
     mock: requests_mock.Mocker,
     processes: List[Dict[str, object]],
     deployed_status: int = 200,
+    deployed: Optional[List[Dict[str, object]]] = None,
+    folder_status: int = 200,
+    environment_status: int = 200,
 ) -> None:
     mock.post(
         f"{BASE_URL}/Folder/query",
+        status_code=folder_status,
         json={"result": [{"id": "F1", "name": "Orders", "fullPath": "Acme/Orders"}]},
     )
     mock.post(
         f"{BASE_URL}/Environment/query",
+        status_code=environment_status,
         json={"result": [{"id": "env-prod", "name": "Production"}]},
     )
     mock.post(
         f"{BASE_URL}/DeployedPackage/query",
         status_code=deployed_status,
-        json={"result": []},
+        json={"result": deployed or []},
     )
     mock.post(f"{BASE_URL}/ComponentMetadata/query", json={"result": processes})
 
@@ -115,6 +120,16 @@ def test_dedupe_keeps_most_recent_branch_copy() -> None:
     assert {(c.component_id, c.version) for c in kept} == {("p1", 2), ("p2", 1)}
 
 
+def test_dedupe_handles_naive_and_missing_dates() -> None:
+    naive = _component("p1", version=1, modified=datetime(2026, 6, 1))
+    missing = _component("p1", version=2)
+
+    kept, duplicates = dedupe_branch_copies([missing, naive])
+
+    assert duplicates == 1
+    assert [c.version for c in kept] == [1]
+
+
 def test_deployed_package_403_includes_all_processes() -> None:
     source = _source()
     with requests_mock.Mocker() as mock:
@@ -143,6 +158,84 @@ def test_undeployed_processes_skipped_by_default() -> None:
     assert list(source.get_report().processes_undeployed_skipped) == ["Orders Sync"]
 
 
+def test_environment_listing_failure_includes_all_processes() -> None:
+    source = _source(environment_pattern={"allow": ["^Production$"]})
+    with requests_mock.Mocker() as mock:
+        _register(
+            mock,
+            [_process_record("p1", "Orders Sync")],
+            deployed=[
+                {
+                    "componentId": "p1",
+                    "environmentId": "env-prod",
+                    "packageVersion": "1",
+                }
+            ],
+            environment_status=500,
+        )
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        flows = _flows(source)
+
+    assert [f.display_name for f in flows] == ["Orders Sync"]
+    assert "deployments" not in flows[0].custom_properties
+    assert source.get_report().deployments_unavailable
+
+
+def test_deployments_on_other_branches_are_ignored() -> None:
+    source = _source(branch_name="main")
+    with requests_mock.Mocker() as mock:
+        _register(
+            mock,
+            [_process_record("p1", "Orders Sync")],
+            deployed=[
+                {
+                    "componentId": "p1",
+                    "environmentId": "env-prod",
+                    "packageVersion": "1",
+                    "branchName": "feature",
+                }
+            ],
+        )
+        assert _flows(source) == []
+
+    assert list(source.get_report().processes_undeployed_skipped) == ["Orders Sync"]
+
+
+def test_folder_listing_failure_matches_component_folder_path() -> None:
+    source = _source(
+        include_undeployed_processes=True,
+        folder_pattern={"allow": ["^Acme/Orders$"]},
+    )
+    other_xml = XML.replace("Acme/Orders", "Acme/Archive")
+    with requests_mock.Mocker() as mock:
+        _register(
+            mock,
+            [_process_record("p1", "Orders Sync"), _process_record("p2", "Old")],
+            folder_status=500,
+        )
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        mock.get(f"{BASE_URL}/Component/p2", text=other_xml)
+        flows = _flows(source)
+
+    report = source.get_report()
+    assert [f.display_name for f in flows] == ["Orders Sync"]
+    assert list(report.processes_filtered) == ["Old"]
+    assert [f.title for f in report.failures] == ["Failed to list Boomi folders"]
+
+
+def test_unknown_folder_without_path_fails_closed() -> None:
+    source = _source(
+        include_undeployed_processes=True,
+        folder_pattern={"allow": ["^Acme/Orders$"]},
+    )
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")], folder_status=500)
+        mock.get(f"{BASE_URL}/Component/p1", text="<not-closed")
+        assert _flows(source) == []
+
+    assert list(source.get_report().processes_filtered) == ["Orders Sync"]
+
+
 def test_xml_failure_still_emits_process() -> None:
     source = _source(include_undeployed_processes=True, extract_owners=False)
     with requests_mock.Mocker() as mock:
@@ -156,16 +249,40 @@ def test_xml_failure_still_emits_process() -> None:
     assert list(source.get_report().process_xml_failures) == ["p1"]
 
 
-def test_config_rejects_non_http_api_url() -> None:
+@pytest.mark.parametrize(
+    "api_url",
+    [
+        "api.boomi.com",
+        "http://api.boomi.com",
+        "https://api.boomi.com?region=us",
+        "https://api.boomi.com#build",
+    ],
+)
+def test_config_rejects_invalid_api_url(api_url: str) -> None:
     with pytest.raises(ValidationError):
         BoomiSourceConfig.model_validate(
             {
                 "account_id": ACCOUNT_ID,
                 "username": "svc@example.com",
                 "api_token": "secret-token",
-                "api_url": "api.boomi.com",
+                "api_url": api_url,
             }
         )
+
+
+@pytest.mark.parametrize(
+    "api_url", ["http://localhost:8080", "http://127.0.0.1:9000", "http://[::1]:80"]
+)
+def test_config_allows_http_for_loopback(api_url: str) -> None:
+    config = BoomiSourceConfig.model_validate(
+        {
+            "account_id": ACCOUNT_ID,
+            "username": "svc@example.com",
+            "api_token": "secret-token",
+            "api_url": api_url,
+        }
+    )
+    assert config.api_url == api_url
 
 
 def test_config_rejects_rate_above_boomi_limit() -> None:

@@ -5,6 +5,9 @@ PLATFORM = "boomi"
 DEFAULT_API_URL = "https://api.boomi.com"
 API_PATH_TEMPLATE = "{api_url}/api/rest/v1/{account_id}"
 TOKEN_USERNAME_PREFIX = "BOOMI_TOKEN."
+SCHEME_HTTP = "http"
+SCHEME_HTTPS = "https"
+LOOPBACK_HOSTS: FrozenSet[str] = frozenset({"localhost", "127.0.0.1", "::1"})
 
 OBJECT_COMPONENT = "Component"
 OBJECT_COMPONENT_METADATA = "ComponentMetadata"

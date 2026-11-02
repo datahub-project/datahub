@@ -4,14 +4,14 @@
 
 The source plugin queries `ComponentMetadata` for current, non-deleted components of type `process`. For each process it reads the component XML to get the description, then emits:
 
-- A DataFlow named after the process, with the custom properties `componentId`, `version`, `branchName`, `modifiedDate`, `folderFullPath` and `deployments`.
+- A DataFlow keyed by the component ID, with the process name as its display name and the custom properties `componentId`, `version`, `branchName`, `modifiedDate`, `folderFullPath` and `deployments`.
 - One DataJob with the ID `process`. Its inputs and outputs are empty in this release.
 
 Active deployments come from `DeployedPackage`, joined to environment names. `environment_pattern` controls which environments count. With `include_undeployed_processes: false` (the default), a process that has no active deployment in an allowed environment is skipped, and stateful ingestion soft-deletes it if it was ingested before.
 
 #### Folders
 
-Every folder that matches `folder_pattern` is emitted as a container, together with its parent folders so the browse path stays complete. `folder_pattern` is matched against the full folder path, for example `Acme/Production/Orders`. Processes in folders that do not match are skipped.
+Every folder that matches `folder_pattern` is emitted as a container, together with its parent folders so the browse path stays complete. `folder_pattern` is matched against the full folder path, for example `Acme/Production/Orders`. Processes in folders that do not match are skipped. If a process's folder is not in the folder listing, the path is read from the process component instead, and the process is skipped when no path is available and `folder_pattern` is set.
 
 #### Branches
 

@@ -12,14 +12,15 @@ from datahub.ingestion.source.boomi.constants import (
     DEFAULT_API_URL,
     DEFAULT_MAX_REQUESTS_PER_SECOND,
     DEFAULT_REQUEST_TIMEOUT_SECONDS,
+    LOOPBACK_HOSTS,
     MAX_REQUESTS_PER_SECOND_LIMIT,
+    SCHEME_HTTP,
+    SCHEME_HTTPS,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
 )
-
-_HTTP_SCHEMES = ("http", "https")
 
 
 class BoomiSourceConfig(
@@ -43,7 +44,7 @@ class BoomiSourceConfig(
         default=DEFAULT_API_URL,
         description=(
             "Platform API host. Use `https://api.platform.gb.boomi.com` for accounts "
-            "hosted in the UK."
+            "hosted in the UK. Must use https unless the host is a loopback address."
         ),
     )
     branch_name: Optional[str] = Field(
@@ -111,8 +112,19 @@ class BoomiSourceConfig(
     @classmethod
     def _validate_api_url(cls, value: str) -> str:
         parsed = urlparse(value)
-        if parsed.scheme not in _HTTP_SCHEMES or not parsed.netloc:
+        if (
+            parsed.scheme not in (SCHEME_HTTP, SCHEME_HTTPS)
+            or not parsed.hostname
+            or parsed.query
+            or parsed.fragment
+        ):
             raise ValueError(
-                f"api_url must be an http(s) URL such as https://api.boomi.com, got {value!r}"
+                f"api_url must be a base URL such as https://api.boomi.com, without a query or fragment, got {value!r}"
+            )
+        # The token is sent as basic auth, so plain http is only allowed for
+        # local test servers.
+        if parsed.scheme == SCHEME_HTTP and parsed.hostname not in LOOPBACK_HOSTS:
+            raise ValueError(
+                f"api_url must use https for non-loopback hosts, got {value!r}"
             )
         return value.rstrip("/")

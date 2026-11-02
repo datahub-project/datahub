@@ -16,7 +16,7 @@ source:
         - "^MyCompany/Production(/.*)?$"
     process_pattern:
       deny:
-        - ".*[Tt]est.*"
+        - ".*\\b[Tt]est\\b.*"
     environment_pattern:
       allow:
         - ".*"

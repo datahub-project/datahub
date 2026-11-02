@@ -93,6 +93,14 @@ def ui_host_for_api_url(api_url: str) -> Optional[str]:
     return API_HOST_TO_UI_HOST.get(host) if host else None
 
 
+def _as_utc(value: Optional[datetime]) -> datetime:
+    if value is None:
+        return _EPOCH
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
 def dedupe_branch_copies(
     components: Iterable[ComponentMetadata],
 ) -> Tuple[List[ComponentMetadata], int]:
@@ -106,8 +114,8 @@ def dedupe_branch_copies(
             latest[component.component_id] = component
             continue
         duplicates += 1
-        if (component.modified_date or _EPOCH, component.version) > (
-            existing.modified_date or _EPOCH,
+        if (_as_utc(component.modified_date), component.version) > (
+            _as_utc(existing.modified_date),
             existing.version,
         ):
             latest[component.component_id] = component
@@ -192,7 +200,9 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                 else:
                     self.report.folders_filtered.append(folder.full_path)
         except (BoomiApiError, requests.RequestException, ValidationError) as e:
-            self.report.warning(
+            # A failure, not a warning, so stale entity removal does not
+            # soft-delete the folders that were not emitted this run.
+            self.report.failure(
                 title="Failed to list Boomi folders",
                 message="Processes are emitted without folder containers.",
                 exc=e,
@@ -239,7 +249,7 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             folder_id=folder_id,
         )
 
-    def _load_environment_names(self) -> Dict[str, str]:
+    def _load_environment_names(self) -> Optional[Dict[str, str]]:
         names: Dict[str, str] = {}
         try:
             for environment in self.client.list_environments():
@@ -248,20 +258,30 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         except (BoomiApiError, requests.RequestException, ValidationError) as e:
             self.report.warning(
                 title="Failed to list Boomi environments",
-                message="Deployments are labelled with environment IDs instead of names, and environment_pattern is matched against the IDs.",
+                message="environment_pattern cannot be applied, so deployment properties are skipped and all processes are ingested.",
                 exc=e,
             )
+            return None
         return names
 
     def _load_deployments(self) -> Optional[Dict[str, List[str]]]:
         # componentId -> sorted `environment=packageVersion` labels. None means
         # deployments are unknown, so undeployed processes cannot be told apart.
         environment_names = self._load_environment_names()
+        if environment_names is None:
+            self.report.deployments_unavailable = True
+            return None
         deployments: Dict[str, List[str]] = {}
         filtered_environments: Set[str] = set()
         try:
             for package in self.client.list_active_process_deployments():
                 self.report.deployments_scanned += 1
+                if (
+                    self.config.branch_name
+                    and package.branch_name
+                    and package.branch_name != self.config.branch_name
+                ):
+                    continue
                 environment = environment_names.get(
                     package.environment_id, package.environment_id
                 )
@@ -292,14 +312,12 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             self.report.environments_filtered.append(environment)
         return {key: sorted(values) for key, values in deployments.items()}
 
-    def _process_folder_allowed(
-        self, process: ComponentMetadata, index: FolderIndex
-    ) -> bool:
-        if process.folder_id and process.folder_id in index.folders:
-            return process.folder_id in index.allowed_ids
-        # The folder is hidden from this token (or listing failed), so fall back
-        # to the folder name, which is all ComponentMetadata carries.
-        return self.config.folder_pattern.allowed(process.folder_name or "")
+    def _folder_path_allowed(self, folder_path: Optional[str]) -> bool:
+        # The folder is hidden from this token or listing failed, so match the
+        # path from the component XML and fail closed when it is missing.
+        if folder_path is None:
+            return self.config.folder_pattern.is_allow_all()
+        return self.config.folder_pattern.allowed(folder_path)
 
     def _emit_processes(
         self,
@@ -320,9 +338,11 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         self.report.processes_duplicate_branch_copies = duplicates
         for process in sorted(processes, key=lambda p: p.component_id):
             self.report.processes_scanned += 1
-            if not self.config.process_pattern.allowed(
-                process.name
-            ) or not self._process_folder_allowed(process, index):
+            if not self.config.process_pattern.allowed(process.name):
+                self.report.processes_filtered.append(process.name)
+                continue
+            folder = index.folders.get(process.folder_id) if process.folder_id else None
+            if folder is not None and folder.id not in index.allowed_ids:
                 self.report.processes_filtered.append(process.name)
                 continue
             process_deployments: List[str] = []
@@ -335,8 +355,14 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.processes_undeployed_skipped.append(process.name)
                     continue
             try:
+                info = self._fetch_process_info(process)
+                if folder is None and not self._folder_path_allowed(
+                    info.folder_full_path
+                ):
+                    self.report.processes_filtered.append(process.name)
+                    continue
                 yield from self._make_process_entities(
-                    process, index, process_deployments
+                    process, index, info, process_deployments
                 )
                 self.report.processes_emitted += 1
             except Exception as e:
@@ -371,9 +397,9 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         self,
         process: ComponentMetadata,
         index: FolderIndex,
+        info: ProcessComponentInfo,
         process_deployments: List[str],
     ) -> Iterable[Entity]:
-        info = self._fetch_process_info(process)
         folder = index.folders.get(process.folder_id) if process.folder_id else None
         folder_path = folder.full_path if folder else info.folder_full_path
         custom_properties = {

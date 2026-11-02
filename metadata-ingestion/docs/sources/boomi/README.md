@@ -2,7 +2,7 @@
 
 Boomi Integration (the Boomi Enterprise Platform, formerly AtomSphere) is an integration platform as a service where you build processes that move data between applications, databases and files. Learn more in the [Boomi Platform API documentation](https://developer.boomi.com/docs/APIs/PlatformAPI/Introduction/Getting_started_platform).
 
-The DataHub integration for Boomi reads the Platform API. It ingests folders as containers and each process as a DataFlow with one DataJob, along with the process description, active deployments per environment, a link back to the Boomi build page, and owners taken from the process creator and last modifier. Stateful ingestion removes processes that were deleted or are no longer deployed.
+The DataHub integration for Boomi reads the Platform API. It ingests folders as containers and each process as a DataFlow with one DataJob, along with the process description, active deployments per environment, owners taken from the process creator and last modifier, and a link back to the Boomi build page for accounts on the US and UK API hosts. Stateful ingestion removes processes that were deleted. It also removes processes that are no longer deployed, as long as `include_undeployed_processes` is `false` and the token can read deployments.
 
 ## Concept Mapping
 
