@@ -310,6 +310,8 @@ def test_generate_dataflow_captures_schedule(
         serialized_dag = DagSerialization.from_dict(DagSerialization.to_dict(dag))
     except ImportError:
         # Airflow 3.0 and 3.1 keep the (de)serializers on SerializedDAG itself.
+        # mypy checks against 3.2+, where they moved to DagSerialization, hence
+        # the attr-defined ignore.
         from airflow.serialization.serialized_objects import SerializedDAG
 
         serialized_dag = SerializedDAG.from_dict(SerializedDAG.to_dict(dag))  # type: ignore[attr-defined]
