@@ -43,10 +43,13 @@ def infer_single_source_columns(expression: exp.Expr, schema: Schema) -> exp.Exp
             for column in candidates
             if not column.table or _names_enclosing_source(scope, column)
         ]
+        # Compared by identity: sqlglot's == walks the whole node.
+        unqualified_ids = {id(column) for column in unqualified}
         struct_paths = [
             column
             for column in candidates
-            if column not in unqualified and _is_unresolved_struct_path(scope, column)
+            if id(column) not in unqualified_ids
+            and _is_unresolved_struct_path(scope, column)
         ]
         table_columns = scope.table_columns
         if not unqualified and not struct_paths and not table_columns:

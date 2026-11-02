@@ -2110,7 +2110,8 @@ SELECT PARSE_DATE('%Y%m%d', _TABLE_SUFFIX) AS event_date, col_a
 FROM my_project.my_dataset.events_*
 WHERE _TABLE_SUFFIX BETWEEN '20240101' AND '20240131'
 """,
-            {"my_project.my_dataset.events_*": {"col_a": "STRING"}},
+            # The resolver looks wildcard tables up under their normalized name.
+            {"my_project.my_dataset.events_yyyymmdd": {"col_a": "STRING"}},
             {
                 "event_date": [],
                 "col_a": ["my_project.my_dataset.events_yyyymmdd.col_a"],
