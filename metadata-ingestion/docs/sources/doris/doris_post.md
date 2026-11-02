@@ -65,6 +65,6 @@ Confirm the ingestion account can query `information_schema.TABLES` and `informa
 
 #### "Lost the Doris connection while reflecting a table"
 
-The connection dropped while the table named in the failure context was being reflected, so the table was skipped rather than ingested with an empty schema, and stale-entity removal is skipped for this run so the table is not deleted. Tables reflected after it in the same database usually fail the same way.
+The connection dropped while the table or view named in the failure context was being read, so it was skipped rather than ingested with an empty or partial schema, and stale-entity removal is skipped for this run so it is not deleted. Tables reflected after it in the same database usually fail the same way.
 
 Check FE availability and any proxy or load-balancer idle timeout between the ingestion executor and Doris, then rerun.

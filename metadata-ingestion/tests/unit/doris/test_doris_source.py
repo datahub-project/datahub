@@ -2,7 +2,7 @@ from typing import Any, Generator, Iterator, List, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import INTEGER, create_engine
 from sqlalchemy.engine import Connection, Inspector
 from sqlalchemy.exc import PendingRollbackError, ProgrammingError
 
@@ -583,24 +583,68 @@ class TestDorisSourceMethods:
             True,
         ]
 
-    def test_lost_connection_skips_the_table_instead_of_emptying_its_schema(self):
-        """The base class would emit the table with no columns, overwriting its
-        schema in DataHub."""
+    @staticmethod
+    def _inspector_losing_connection_on(method: str) -> MagicMock:
+        inspector = MagicMock(spec=Inspector)
+        inspector.bind = MagicMock(spec=Connection, invalidated=False)
+        inspector.get_columns.return_value = [
+            {"name": "col_a", "type": INTEGER(), "nullable": True, "comment": None}
+        ]
+        inspector.get_table_comment.return_value = {"text": None}
+        inspector.get_pk_constraint.return_value = {}
+        inspector.get_foreign_keys.return_value = []
+        inspector.get_view_definition.return_value = "SELECT 1"
+
+        def drop_connection(*args: Any, **kwargs: Any) -> None:
+            inspector.bind.invalidated = True
+            raise PendingRollbackError("Can't reconnect until invalid transaction")
+
+        getattr(inspector, method).side_effect = drop_connection
+        return inspector
+
+    @pytest.mark.parametrize(
+        "method,error",
+        [
+            # The base class would emit the table with no columns, overwriting its
+            # schema in DataHub.
+            ("get_columns", DorisConnectionLostError),
+            # Read after the columns, as a separate round trip.
+            ("get_table_comment", PendingRollbackError),
+        ],
+    )
+    def test_lost_connection_fails_the_table_rather_than_emptying_or_deleting_it(
+        self, method, error
+    ):
         config = DorisConfig(host_port="localhost:9030")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
-        inspector = MagicMock(spec=Inspector)
-        inspector.get_columns.side_effect = PendingRollbackError(
-            "Can't reconnect until invalid transaction is rolled back."
-        )
-        inspector.bind = MagicMock(spec=Connection, invalidated=True)
+        inspector = self._inspector_losing_connection_on(method)
 
-        with pytest.raises(DorisConnectionLostError):
-            source._get_columns("db1.my_table", inspector, "db1", "my_table")
+        with pytest.raises(error):
+            list(
+                source._process_table(
+                    "db1.my_table", inspector, "db1", "my_table", source.config, None
+                )
+            )
 
-        # A failure, not a warning, so stale-entity removal leaves the table alone.
+        # loop_tables only warns about a table that raises, which would leave
+        # stale-entity removal free to delete it; the failure stops that.
         assert [failure.title for failure in source.report.failures] == [
             "Lost the Doris connection while reflecting a table"
         ]
+
+    def test_lost_connection_fails_a_view_too(self):
+        config = DorisConfig(host_port="localhost:9030")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+        inspector = self._inspector_losing_connection_on("get_columns")
+
+        with pytest.raises(PendingRollbackError):
+            list(
+                source._process_view(
+                    "db1.my_view", inspector, "db1", "my_view", source.config
+                )
+            )
+
+        assert len(source.report.failures) == 1
 
     def test_column_errors_on_a_live_connection_keep_the_base_behaviour(self):
         config = DorisConfig(host_port="localhost:9030")

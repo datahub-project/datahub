@@ -2,7 +2,7 @@ import functools
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Union
 
 from pydantic import Field, field_validator, model_validator
 from sqlalchemy import create_engine, inspect, text
@@ -20,6 +20,8 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source_protocols import MetadataWorkUnitIterable
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.sql.doris.doris_dialect import (
     AGG_STATE,
     BITMAP,
@@ -40,7 +42,8 @@ from datahub.ingestion.source.sql.mysql import (
     MySQLProfilingConfig,
     MySQLSource,
 )
-from datahub.ingestion.source.sql.sql_common import register_custom_type
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
@@ -223,6 +226,11 @@ class DorisConfig(MySQLConfig):
                 "letters, digits, underscores and hyphens"
             )
         return self
+
+
+def _connection_lost(inspector: Inspector) -> bool:
+    connection = inspector.bind
+    return isinstance(connection, Connection) and connection.invalidated
 
 
 class DorisConnectionLostError(Exception):
@@ -446,19 +454,60 @@ class DorisSource(MySQLSource):
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
     ) -> Sequence[Mapping[str, Any]]:
         columns = super()._get_columns(dataset_name, inspector, schema, table)
-        connection = inspector.bind
-        if isinstance(connection, Connection) and connection.invalidated:
+        if _connection_lost(inspector):
             # The base class turns any reflection error into an empty column list,
             # and the table would then be emitted with a field-less schema that
-            # overwrites the good one. Abort the table instead, so loop_tables skips
-            # it. The failure keeps stale-entity removal from deleting it, too.
-            self.report.failure(
-                title="Lost the Doris connection while reflecting a table",
-                message="The connection dropped while reading the table's columns, so the table was skipped rather than ingested without them.",
-                context=dataset_name,
-            )
+            # overwrites the good one. Abort the table instead; _process_table
+            # reports it.
             raise DorisConnectionLostError(dataset_name)
         return columns
+
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        try:
+            yield from super()._process_table(
+                dataset_name, inspector, schema, table, sql_config, data_reader
+            )
+        except Exception:
+            self._report_if_connection_lost(dataset_name, inspector)
+            raise
+
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        try:
+            yield from super()._process_view(
+                dataset_name, inspector, schema, view, sql_config
+            )
+        except Exception:
+            self._report_if_connection_lost(dataset_name, inspector)
+            raise
+
+    def _report_if_connection_lost(
+        self, dataset_name: str, inspector: Inspector
+    ) -> None:
+        # loop_tables and loop_views skip a table that raises with only a warning,
+        # so stale-entity removal would then delete it. A failure stops that, which
+        # is right when the connection dropped: the table still exists, it just
+        # could not be read.
+        if _connection_lost(inspector):
+            self.report.failure(
+                title="Lost the Doris connection while reflecting a table",
+                message="The connection dropped while the table or view was being read, so it was skipped rather than ingested incomplete.",
+                context=dataset_name,
+            )
 
     def get_platform(self) -> str:
         return "doris"
