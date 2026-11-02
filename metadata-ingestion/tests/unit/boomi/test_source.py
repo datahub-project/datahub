@@ -5,37 +5,30 @@ import pytest
 import requests_mock
 from pydantic import ValidationError
 
+from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.boomi.config import BoomiSourceConfig
-from datahub.ingestion.source.boomi.models import ComponentMetadata
+from datahub.ingestion.source.boomi.models import ComponentMetadata, ExecutionRecord
 from datahub.ingestion.source.boomi.source import (
     BoomiSource,
     dedupe_branch_copies,
+    execution_end_millis,
+    map_execution_status,
+    select_recent_executions,
+    to_millis,
     ui_host_for_api_url,
 )
+from datahub.metadata.schema_classes import DataProcessInstanceRunEventClass
 from datahub.sdk.dataflow import DataFlow
 
 ACCOUNT_ID = "acme-AB1CD2"
 BASE_URL = f"https://api.boomi.com/api/rest/v1/{ACCOUNT_ID}"
-# Shaped like a live GET Component/{id} response for a process.
 XML = (
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    '<bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
-    'xmlns:bns="http://api.platform.boomi.com/" '
-    'folderFullPath="Test Account/Orders" componentId="p1" version="1" '
-    'name="Orders Sync" type="process" createdDate="2026-11-02T19:17:12Z" '
-    'createdBy="svc@example.com" modifiedDate="2026-11-02T19:17:12Z" '
-    'modifiedBy="svc@example.com" deleted="false" currentVersion="true" '
-    'folderName="Orders" folderId="Rjo4OTQzNDEx" branchName="main" '
-    'branchId="Qjo2MDk0Mzg"><bns:encryptedValues/>'
-    "<bns:description>Syncs orders.</bns:description><bns:object>"
-    '<process xmlns="" allowSimultaneous="false" workload="general"><shapes>'
-    '<shape image="start" name="shape1" shapetype="start" userlabel="">'
-    "<configuration><noaction/></configuration><dragpoints/></shape>"
-    "</shapes></process></bns:object><bns:processOverrides/></bns:Component>"
+    '<bns:Component xmlns:bns="http://api.platform.boomi.com/" '
+    'folderFullPath="Acme/Orders"><bns:description>Syncs orders.</bns:description>'
+    "</bns:Component>"
 )
-ORDERS_FOLDER = "Rjo4OTQzNDEx"
-PROD_ENVIRONMENT = "56c4f2be-9126-4e8a-bfb2-111c009e83d8"
 
 
 def _component(
@@ -66,48 +59,30 @@ def _source(**overrides: object) -> BoomiSource:
 
 def _process_record(component_id: str, name: str) -> Dict[str, object]:
     return {
-        "@type": "ComponentMetadata",
         "componentId": component_id,
         "version": 1,
         "name": name,
         "type": "process",
-        "createdDate": "2026-11-02T19:17:12Z",
         "createdBy": "svc@example.com",
-        "modifiedDate": "2026-11-02T19:17:12Z",
         "modifiedBy": "svc@example.com",
-        "deleted": False,
-        "currentVersion": True,
+        "folderId": "F1",
         "folderName": "Orders",
-        "folderId": ORDERS_FOLDER,
-        "branchName": "main",
-        "branchId": "Qjo2MDk0Mzg",
     }
 
 
-def _deployment(component_id: str, branch_name: str = "main") -> Dict[str, object]:
+def _execution(
+    execution_id: str,
+    process_id: str = "p1",
+    time: str = "2026-09-30T10:00:00Z",
+    status: str = "COMPLETE",
+    duration: object = 1000,
+) -> Dict[str, object]:
     return {
-        "@type": "DeployedPackage",
-        "deploymentId": "dda2f5b2-37d6-4ccb-9349-98b6c77e1c0c",
-        "version": 1,
-        "packageId": "ab44fd92-6b7d-4d91-94a1-e5f46cd129bd",
-        "packageVersion": "1.0",
-        "environmentId": PROD_ENVIRONMENT,
-        "componentId": component_id,
-        "componentVersion": 1,
-        "componentType": "process",
-        "deployedDate": "2026-11-02T19:18:22Z",
-        "deployedBy": "svc@example.com",
-        "notes": "Initial deploy",
-        "active": True,
-        "branchName": branch_name,
-    }
-
-
-def _page(records: List[Dict[str, object]]) -> Dict[str, object]:
-    return {
-        "@type": "QueryResult",
-        "result": records,
-        "numberOfResults": len(records),
+        "executionId": execution_id,
+        "executionTime": time,
+        "executionDuration": duration,
+        "status": status,
+        "processId": process_id,
     }
 
 
@@ -118,57 +93,44 @@ def _register(
     deployed: Optional[List[Dict[str, object]]] = None,
     folder_status: int = 200,
     environment_status: int = 200,
+    executions: Optional[List[Dict[str, object]]] = None,
+    execution_status: int = 200,
 ) -> None:
     mock.post(
         f"{BASE_URL}/Folder/query",
         status_code=folder_status,
-        json=_page(
-            [
-                {
-                    "@type": "Folder",
-                    "id": "Rjo4OTQzMzg4",
-                    "name": "Test Account",
-                    "fullPath": "Test Account",
-                    "deleted": False,
-                    "parentId": "",
-                    "parentName": "",
-                },
-                {
-                    "@type": "Folder",
-                    "id": ORDERS_FOLDER,
-                    "name": "Orders",
-                    "fullPath": "Test Account/Orders",
-                    "deleted": False,
-                    "parentId": "Rjo4OTQzMzg4",
-                    "parentName": "Test Account",
-                },
-            ]
-        ),
+        json={"result": [{"id": "F1", "name": "Orders", "fullPath": "Acme/Orders"}]},
     )
     mock.post(
         f"{BASE_URL}/Environment/query",
         status_code=environment_status,
-        json=_page(
-            [
-                {
-                    "@type": "Environment",
-                    "id": PROD_ENVIRONMENT,
-                    "name": "Production",
-                    "classification": "PROD",
-                }
-            ]
-        ),
+        json={"result": [{"id": "env-prod", "name": "Production"}]},
     )
     mock.post(
         f"{BASE_URL}/DeployedPackage/query",
         status_code=deployed_status,
-        json=_page(deployed or []),
+        json={"result": deployed or []},
     )
-    mock.post(f"{BASE_URL}/ComponentMetadata/query", json=_page(processes))
+    mock.post(f"{BASE_URL}/ComponentMetadata/query", json={"result": processes})
+    mock.post(
+        f"{BASE_URL}/ExecutionRecord/query",
+        status_code=execution_status,
+        json={"result": executions or []},
+    )
 
 
 def _flows(source: BoomiSource) -> List[DataFlow]:
     return [e for e in source.get_workunits_internal() if isinstance(e, DataFlow)]
+
+
+def _run_events(source: BoomiSource) -> List[DataProcessInstanceRunEventClass]:
+    events = []
+    for item in source.get_workunits_internal():
+        if isinstance(item, MetadataWorkUnit):
+            aspect = item.get_aspect_of_type(DataProcessInstanceRunEventClass)
+            if aspect is not None:
+                events.append(aspect)
+    return events
 
 
 @pytest.mark.parametrize(
@@ -242,7 +204,13 @@ def test_environment_listing_failure_includes_all_processes() -> None:
         _register(
             mock,
             [_process_record("p1", "Orders Sync")],
-            deployed=[_deployment("p1")],
+            deployed=[
+                {
+                    "componentId": "p1",
+                    "environmentId": "env-prod",
+                    "packageVersion": "1",
+                }
+            ],
             environment_status=500,
         )
         mock.get(f"{BASE_URL}/Component/p1", text=XML)
@@ -259,7 +227,14 @@ def test_deployments_on_other_branches_are_ignored() -> None:
         _register(
             mock,
             [_process_record("p1", "Orders Sync")],
-            deployed=[_deployment("p1", branch_name="feature")],
+            deployed=[
+                {
+                    "componentId": "p1",
+                    "environmentId": "env-prod",
+                    "packageVersion": "1",
+                    "branchName": "feature",
+                }
+            ],
         )
         assert _flows(source) == []
 
@@ -269,9 +244,9 @@ def test_deployments_on_other_branches_are_ignored() -> None:
 def test_folder_listing_failure_matches_component_folder_path() -> None:
     source = _source(
         include_undeployed_processes=True,
-        folder_pattern={"allow": ["^Test Account/Orders$"]},
+        folder_pattern={"allow": ["^Acme/Orders$"]},
     )
-    other_xml = XML.replace("Test Account/Orders", "Test Account/Archive")
+    other_xml = XML.replace("Acme/Orders", "Acme/Archive")
     with requests_mock.Mocker() as mock:
         _register(
             mock,
@@ -291,7 +266,7 @@ def test_folder_listing_failure_matches_component_folder_path() -> None:
 def test_unknown_folder_without_path_fails_closed() -> None:
     source = _source(
         include_undeployed_processes=True,
-        folder_pattern={"allow": ["^Test Account/Orders$"]},
+        folder_pattern={"allow": ["^Acme/Orders$"]},
     )
     with requests_mock.Mocker() as mock:
         _register(mock, [_process_record("p1", "Orders Sync")], folder_status=500)
@@ -512,3 +487,122 @@ def test_process_in_denied_folder_is_filtered() -> None:
         assert _flows(source) == []
 
     assert list(source.get_report().processes_filtered) == ["Orders Sync"]
+
+
+@pytest.mark.parametrize(
+    "status, expected",
+    [
+        ("COMPLETE", InstanceRunResult.SUCCESS),
+        ("complete_warn", InstanceRunResult.SUCCESS),
+        ("ERROR", InstanceRunResult.FAILURE),
+        ("Aborted", InstanceRunResult.FAILURE),
+        ("DISCARDED", InstanceRunResult.SKIPPED),
+        ("INPROCESS", None),
+        ("STARTED", None),
+        ("ENQUEUED", None),
+        ("ABORTED_RECOVERING", None),
+        ("SOMETHING_NEW", None),
+    ],
+)
+def test_map_execution_status(
+    status: str, expected: Optional[InstanceRunResult]
+) -> None:
+    assert map_execution_status(status) == expected
+
+
+def test_execution_end_adds_long_duration_in_milliseconds() -> None:
+    execution = ExecutionRecord.model_validate(
+        _execution("e1", time="2026-09-30T10:00:00Z", duration=["Long", 90500])
+    )
+    start = to_millis(datetime(2026, 9, 30, 10, 0, tzinfo=timezone.utc))
+
+    assert execution_end_millis(execution) == start + 90500
+    assert (
+        execution_end_millis(execution.model_copy(update={"execution_duration": None}))
+        is None
+    )
+
+
+def test_select_recent_executions_caps_per_process_most_recent_first() -> None:
+    records = [
+        ExecutionRecord.model_validate(record)
+        for record in [
+            _execution("old", time="2026-09-28T10:00:00Z"),
+            _execution("newest", time="2026-09-30T10:00:00Z"),
+            _execution("middle", time="2026-09-29T10:00:00Z"),
+            _execution("other", process_id="p2"),
+            _execution("filtered", process_id="p-not-emitted"),
+        ]
+    ]
+
+    selection = select_recent_executions(records, {"p1", "p2"}, max_per_process=2)
+
+    assert {
+        process_id: [e.execution_id for e in executions]
+        for process_id, executions in selection.by_process.items()
+    } == {"p1": ["newest", "middle"], "p2": ["other"]}
+    assert selection.scanned == 5
+    assert selection.over_cap == 1
+    assert selection.process_not_emitted == 1
+
+
+def test_executions_emit_end_event_only_for_terminal_status() -> None:
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(
+            mock,
+            [_process_record("p1", "Orders Sync")],
+            executions=[
+                _execution("done", status="COMPLETE"),
+                _execution("running", status="INPROCESS", duration=None),
+                _execution("new-1", status="PAUSED"),
+                _execution("new-2", status="PAUSED"),
+                _execution("orphan", process_id="p-unknown"),
+            ],
+        )
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        events = _run_events(source)
+
+    report = source.get_report()
+    assert sorted(
+        (e.status, e.result.type if e.result else None) for e in events
+    ) == sorted(
+        [
+            ("STARTED", None),
+            ("STARTED", None),
+            ("STARTED", None),
+            ("STARTED", None),
+            ("COMPLETE", "SUCCESS"),
+        ]
+    )
+    assert report.executions_emitted == 4
+    assert report.executions_process_not_emitted == 1
+    assert report.executions_unknown_status == 2
+    assert [w.title for w in report.warnings] == ["Unknown Boomi execution status"]
+
+
+def test_execution_403_skips_history_with_one_warning() -> None:
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")], execution_status=403)
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        flows = _flows(source)
+
+    report = source.get_report()
+    assert len(flows) == 1
+    assert report.executions_unavailable
+    assert [w.title for w in report.warnings] == ["Cannot read Boomi execution history"]
+    assert not report.failures
+
+
+def test_execution_server_error_is_a_failure_and_processes_still_emit() -> None:
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")], execution_status=400)
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        flows = _flows(source)
+
+    assert len(flows) == 1
+    assert [f.title for f in source.get_report().failures] == [
+        "Failed to list Boomi executions"
+    ]

@@ -1,13 +1,18 @@
+import heapq
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from datetime import datetime, timedelta, timezone
+from typing import Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 import requests
 from defusedxml.common import DefusedXmlException
 from pydantic import ValidationError
 
+from datahub.api.entities.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -31,19 +36,31 @@ from datahub.ingestion.source.boomi.constants import (
     API_HOST_TO_UI_HOST,
     DEPLOYMENT_FORMAT,
     DEPLOYMENT_SEPARATOR,
+    EXECUTION_STATUS_RESULTS,
+    EXECUTION_STATUSES_IN_PROGRESS,
+    EXECUTION_TYPE_MANUAL,
     HTTP_FORBIDDEN,
     PLATFORM,
     PROCESS_JOB_ID,
     PROCESS_URL_TEMPLATE,
+    PROP_ATOM_NAME,
     PROP_BRANCH_NAME,
     PROP_COMPONENT_ID,
     PROP_DEPLOYMENTS,
+    PROP_EXECUTION_TYPE,
     PROP_FOLDER_PATH,
+    PROP_INBOUND_DOCUMENT_COUNT,
+    PROP_INBOUND_ERROR_DOCUMENT_COUNT,
     PROP_MODIFIED_DATE,
+    PROP_OUTBOUND_DOCUMENT_COUNT,
+    PROP_PARENT_EXECUTION_ID,
+    PROP_STATUS,
+    PROP_TOP_LEVEL_EXECUTION_ID,
     PROP_VERSION,
 )
 from datahub.ingestion.source.boomi.models import (
     ComponentMetadata,
+    ExecutionRecord,
     Folder,
     ProcessComponentInfo,
 )
@@ -56,8 +73,11 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.schema_classes import OwnershipTypeClass
-from datahub.metadata.urns import CorpUserUrn
+from datahub.metadata.schema_classes import (
+    DataProcessTypeClass,
+    OwnershipTypeClass,
+)
+from datahub.metadata.urns import CorpUserUrn, DataJobUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -69,6 +89,7 @@ logger = logging.getLogger(__name__)
 STAGE_FOLDERS = "Folders"
 STAGE_DEPLOYMENTS = "Deployments"
 STAGE_PROCESSES = "Processes"
+STAGE_EXECUTIONS = "Executions"
 
 _EPOCH = datetime.min.replace(tzinfo=timezone.utc)
 # AllowDenyPattern's default allow entry.
@@ -85,6 +106,64 @@ class FolderIndex:
     allowed_ids: Set[str] = field(default_factory=set)
     # Emitted containers are kept so children inherit their full browse path.
     emitted: Dict[str, Container] = field(default_factory=dict)
+
+
+@dataclass
+class ExecutionSelection:
+    # processId -> executions to emit, most recent first.
+    by_process: Dict[str, List[ExecutionRecord]] = field(default_factory=dict)
+    scanned: int = 0
+    process_not_emitted: int = 0
+    over_cap: int = 0
+
+
+def to_millis(value: datetime) -> int:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return int(value.timestamp() * 1000)
+
+
+def execution_end_millis(execution: ExecutionRecord) -> Optional[int]:
+    if execution.execution_duration is None:
+        return None
+    return to_millis(execution.execution_time) + execution.execution_duration
+
+
+def map_execution_status(status: str) -> Optional[InstanceRunResult]:
+    return EXECUTION_STATUS_RESULTS.get(status.upper())
+
+
+def select_recent_executions(
+    executions: Iterable[ExecutionRecord],
+    process_ids: Collection[str],
+    max_per_process: int,
+) -> ExecutionSelection:
+    # A bounded min-heap per process keeps memory flat however many runs the
+    # window holds. The sequence number breaks ties so records are never compared.
+    selection = ExecutionSelection()
+    heaps: Dict[str, List[Tuple[int, str, int, ExecutionRecord]]] = {}
+    for sequence, execution in enumerate(executions):
+        selection.scanned += 1
+        if execution.process_id not in process_ids:
+            selection.process_not_emitted += 1
+            continue
+        heap = heaps.setdefault(execution.process_id, [])
+        entry = (
+            to_millis(execution.execution_time),
+            execution.execution_id,
+            sequence,
+            execution,
+        )
+        if len(heap) < max_per_process:
+            heapq.heappush(heap, entry)
+        else:
+            selection.over_cap += 1
+            heapq.heappushpop(heap, entry)
+    for process_id, heap in heaps.items():
+        selection.by_process[process_id] = [
+            entry[3] for entry in sorted(heap, reverse=True)
+        ]
+    return selection
 
 
 def ui_host_for_api_url(api_url: str) -> Optional[str]:
@@ -183,8 +262,12 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._emit_folders(index)
         with self.report.new_stage(STAGE_DEPLOYMENTS):
             deployments = self._load_deployments()
+        process_jobs: Dict[str, DataJobUrn] = {}
         with self.report.new_stage(STAGE_PROCESSES):
-            yield from self._emit_processes(index, deployments)
+            yield from self._emit_processes(index, deployments, process_jobs)
+        if self.config.include_execution_history:
+            with self.report.new_stage(STAGE_EXECUTIONS):
+                yield from self._emit_executions(process_jobs)
 
     def _load_folders(self) -> FolderIndex:
         index = FolderIndex()
@@ -327,6 +410,7 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         self,
         index: FolderIndex,
         deployments: Optional[Dict[str, List[str]]],
+        process_jobs: Dict[str, DataJobUrn],
     ) -> Iterable[Entity]:
         try:
             processes, duplicates = dedupe_branch_copies(
@@ -366,7 +450,7 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.processes_filtered.append(process.name)
                     continue
                 yield from self._make_process_entities(
-                    process, index, info, process_deployments
+                    process, index, info, process_deployments, process_jobs
                 )
                 self.report.processes_emitted += 1
             except Exception as e:
@@ -403,6 +487,7 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         index: FolderIndex,
         info: ProcessComponentInfo,
         process_deployments: List[str],
+        process_jobs: Dict[str, DataJobUrn],
     ) -> Iterable[Entity]:
         folder = index.folders.get(process.folder_id) if process.folder_id else None
         folder_path = folder.full_path if folder else info.folder_full_path
@@ -438,7 +523,7 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             parent_container=folder_container if folder_container else unset,
         )
         yield flow
-        yield DataJob(
+        job = DataJob(
             name=PROCESS_JOB_ID,
             flow=flow,
             display_name=process.name,
@@ -446,6 +531,8 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             subtype=DataJobSubTypes.BOOMI_PROCESS_JOB,
             owners=owners,
         )
+        yield job
+        process_jobs[process.component_id] = job.urn
 
     def _process_url(self, component_id: str) -> Optional[str]:
         if self._ui_host is None:
@@ -471,3 +558,112 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                 (CorpUserUrn(process.modified_by), OwnershipTypeClass.TECHNICAL_OWNER)
             )
         return owners or None
+
+    def _emit_executions(
+        self, process_jobs: Dict[str, DataJobUrn]
+    ) -> Iterable[MetadataWorkUnit]:
+        since = datetime.now(timezone.utc) - timedelta(
+            days=self.config.execution_history_days
+        )
+        try:
+            selection = select_recent_executions(
+                self.client.list_executions(since),
+                process_jobs.keys(),
+                self.config.max_executions_per_process,
+            )
+        except (BoomiApiError, requests.RequestException, ValidationError) as e:
+            self.report.executions_unavailable = True
+            if isinstance(e, BoomiApiError) and e.status_code == HTTP_FORBIDDEN:
+                self.report.warning(
+                    title="Cannot read Boomi execution history",
+                    message="The API token lacks the View Results privilege, so execution history is skipped.",
+                    exc=e,
+                )
+            else:
+                self.report.failure(
+                    title="Failed to list Boomi executions",
+                    message="Execution history is skipped.",
+                    exc=e,
+                )
+            return
+        self.report.executions_scanned += selection.scanned
+        self.report.executions_process_not_emitted += selection.process_not_emitted
+        self.report.executions_over_cap += selection.over_cap
+        unknown_statuses: Set[str] = set()
+        for process_id in sorted(selection.by_process):
+            for execution in selection.by_process[process_id]:
+                yield from self._make_execution_workunits(
+                    execution, process_jobs[process_id], unknown_statuses
+                )
+                self.report.executions_emitted += 1
+
+    def _make_execution_workunits(
+        self,
+        execution: ExecutionRecord,
+        job_urn: DataJobUrn,
+        unknown_statuses: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        result = map_execution_status(execution.status)
+        if (
+            result is None
+            and execution.status.upper() not in EXECUTION_STATUSES_IN_PROGRESS
+        ):
+            self.report.executions_unknown_status += 1
+            if execution.status not in unknown_statuses:
+                unknown_statuses.add(execution.status)
+                self.report.warning(
+                    title="Unknown Boomi execution status",
+                    message="Executions with this status are emitted with a start event only.",
+                    context=f"status={execution.status}",
+                )
+        is_manual = (execution.execution_type or "").lower() == EXECUTION_TYPE_MANUAL
+        dpi = DataProcessInstance(
+            id=execution.execution_id,
+            orchestrator=PLATFORM,
+            cluster=self.config.env,
+            type=(
+                DataProcessTypeClass.BATCH_AD_HOC
+                if is_manual
+                else DataProcessTypeClass.BATCH_SCHEDULED
+            ),
+            template_urn=job_urn,
+            properties=self._execution_properties(execution),
+            data_platform_instance=self.config.platform_instance,
+        )
+        start_millis = to_millis(execution.execution_time)
+        for mcp in dpi.generate_mcp(
+            created_ts_millis=start_millis, materialize_iolets=False
+        ):
+            yield mcp.as_workunit()
+        for mcp in dpi.start_event_mcp(start_millis):
+            yield mcp.as_workunit()
+        if result is None:
+            return
+        end_millis = execution_end_millis(execution)
+        # Without a duration the end time is unknown, so the result is recorded
+        # at the start time with no duration rather than a made-up one.
+        for mcp in dpi.end_event_mcp(
+            end_timestamp_millis=end_millis if end_millis is not None else start_millis,
+            result=result,
+            result_type=execution.status,
+            start_timestamp_millis=start_millis if end_millis is not None else None,
+        ):
+            yield mcp.as_workunit()
+
+    @staticmethod
+    def _execution_properties(execution: ExecutionRecord) -> Dict[str, str]:
+        candidates: Dict[str, Optional[object]] = {
+            PROP_STATUS: execution.status,
+            PROP_ATOM_NAME: execution.atom_name,
+            PROP_EXECUTION_TYPE: execution.execution_type,
+            PROP_PARENT_EXECUTION_ID: execution.parent_execution_id,
+            PROP_TOP_LEVEL_EXECUTION_ID: execution.top_level_execution_id,
+            PROP_INBOUND_DOCUMENT_COUNT: execution.inbound_document_count,
+            PROP_OUTBOUND_DOCUMENT_COUNT: execution.outbound_document_count,
+            PROP_INBOUND_ERROR_DOCUMENT_COUNT: execution.inbound_error_document_count,
+        }
+        return {
+            key: str(value)
+            for key, value in candidates.items()
+            if value is not None and value != ""
+        }

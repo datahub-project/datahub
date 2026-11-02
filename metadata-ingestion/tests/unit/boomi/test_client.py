@@ -1,6 +1,7 @@
 import base64
 import json
 import threading
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Iterator, List, Optional
 
@@ -157,3 +158,38 @@ def test_retries_after_503(throttling_server: ThreadingHTTPServer) -> None:
 
     assert [f.id for f in client.list_folders()] == ["a"]
     assert _ThrottlingHandler.statuses == []
+
+
+def test_execution_query_sends_utc_window_filter() -> None:
+    client = _client()
+    since = datetime(2026, 8, 30, 16, 22, 10, tzinfo=timezone(timedelta(hours=2)))
+    with requests_mock.Mocker() as mock:
+        mock.post(
+            f"{BASE_URL}/ExecutionRecord/query",
+            json={
+                "result": [
+                    {
+                        "executionId": "execution-1",
+                        "executionTime": "2026-08-30T14:30:00Z",
+                        "executionDuration": ["Long", 1500],
+                        "status": "COMPLETE",
+                        "processId": "p1",
+                    }
+                ]
+            },
+        )
+        executions = list(client.list_executions(since))
+        body = mock.request_history[0].json()
+
+    assert body == {
+        "QueryFilter": {
+            "expression": {
+                "property": "executionTime",
+                "operator": "GREATER_THAN_OR_EQUAL",
+                "argument": ["2026-08-30T14:22:10Z"],
+            }
+        }
+    }
+    assert [(e.execution_id, e.execution_duration) for e in executions] == [
+        ("execution-1", 1500)
+    ]

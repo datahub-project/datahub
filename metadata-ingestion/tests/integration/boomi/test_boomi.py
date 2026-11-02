@@ -1,6 +1,4 @@
-import copy
 import json
-import re
 from pathlib import Path
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
@@ -18,176 +16,303 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-FROZEN_TIME = "2026-11-02 20:00:00"
+FROZEN_TIME = "2026-10-01 12:00:00"
 ACCOUNT_ID = "acme-AB1CD2"
 BASE_URL = f"https://api.boomi.com/api/rest/v1/{ACCOUNT_ID}"
 GOLDEN_DIR = Path(__file__).parent / "golden"
-# Responses captured from a Boomi trial account and anonymised: the account id
-# and user emails are replaced and encrypted passwords zeroed.
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
-ORDERS_EXTRACT = "e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc"
-CATALOG_SYNC = "6363d3f8-93fa-4c4d-a399-45bde722ee63"
+FOLDERS: List[Dict[str, object]] = [
+    {"id": "F0", "name": "Acme", "fullPath": "Acme", "deleted": False},
+    {
+        "id": "F1",
+        "name": "Production",
+        "parentId": "F0",
+        "fullPath": "Acme/Production",
+        "deleted": False,
+    },
+    {
+        "id": "F2",
+        "name": "Orders",
+        "parentId": "F1",
+        "fullPath": "Acme/Production/Orders",
+        "deleted": False,
+    },
+    {
+        "id": "F3",
+        "name": "Finance",
+        "parentId": "F1",
+        "fullPath": "Acme/Production/Finance",
+        "deleted": False,
+    },
+    {
+        "id": "F4",
+        "name": "Sandbox",
+        "parentId": "F0",
+        "fullPath": "Acme/Sandbox",
+        "deleted": False,
+    },
+    {
+        "id": "F5",
+        "name": "Archive",
+        "parentId": "F0",
+        "fullPath": "Acme/Archive",
+        "deleted": True,
+    },
+]
 
-# The ids below are not in the captures. Their records are copied from
-# captured ones, so the shape stays real, and cover cases the trial account
-# does not have.
-INVOICE_EXPORT = "5b1e0c2a-6f0d-4c1e-9a43-000000000001"
-SHIPMENT_NOTIFY = "5b1e0c2a-6f0d-4c1e-9a43-000000000002"
-SANDBOX_PROBE = "5b1e0c2a-6f0d-4c1e-9a43-000000000003"
-ORDERS_EXTRACT_TEST = "5b1e0c2a-6f0d-4c1e-9a43-000000000004"
-SANDBOX_FOLDER = "Rjo4OTQzNDk5"
-DEV_ENVIRONMENT = "9c0a7e51-2d4b-4f3e-8a61-000000000001"
-
-START_STOP_SHAPES = (
-    '<shape image="start" name="shape1" shapetype="start" userlabel="" x="48.0" y="48.0">'
-    "<configuration><noaction/></configuration><dragpoints>"
-    '<dragpoint name="shape1.dragpoint1" toShape="shape2" x="257.0" y="56.0"/>'
-    "</dragpoints></shape>"
-    '<shape image="stop_icon" name="shape2" shapetype="stop" userlabel="" x="273.0" y="48.0">'
-    '<configuration><stop continue="true"/></configuration><dragpoints/></shape>'
-)
-
-_COMPONENT_ID_RE = re.compile(f'componentId="{ORDERS_EXTRACT}"')
-_NAME_RE = re.compile(re.escape(' name="DH Test - Orders Extract"'))
-_DESCRIPTION_RE = re.compile("<bns:description>.*?</bns:description>", re.S)
-_SHAPES_RE = re.compile("<shapes>.*</shapes>", re.S)
-
-
-def _fixture(name: str) -> str:
-    return (FIXTURES_DIR / name).read_text()
-
-
-def _records(name: str) -> List[Dict[str, object]]:
-    return json.loads(_fixture(name))["result"]
-
-
-def _copy(record: Dict[str, object], **overrides: object) -> Dict[str, object]:
-    copied = copy.deepcopy(record)
-    copied.update(overrides)
-    return copied
-
-
-def _splice(xml: str, pattern: "re.Pattern[str]", replacement: str) -> str:
-    # Fail loudly if a fixture refresh moves a target, rather than letting the
-    # golden file silently pick up the base process's values.
-    spliced, count = pattern.subn(lambda _: replacement, xml)
-    assert count == 1, f"{pattern.pattern!r} matched {count} times in the fixture"
-    return spliced
+ENVIRONMENTS: List[Dict[str, object]] = [
+    {"id": "env-prod", "name": "Production", "classification": "PROD"},
+    {"id": "env-test", "name": "Test", "classification": "TEST"},
+    {"id": "env-dev", "name": "Dev", "classification": "TEST"},
+]
 
 
-def _process_xml(
-    component_id: str, name: str, description: str, shapes: str = START_STOP_SHAPES
-) -> str:
-    xml = _fixture(f"components/{ORDERS_EXTRACT}.xml")
-    xml = _splice(xml, _COMPONENT_ID_RE, f'componentId="{component_id}"')
-    xml = _splice(xml, _NAME_RE, f' name="{name}"')
-    xml = _splice(
-        xml, _DESCRIPTION_RE, f"<bns:description>{description}</bns:description>"
-    )
-    return _splice(xml, _SHAPES_RE, f"<shapes>{shapes}</shapes>")
+def _process(
+    component_id: str,
+    name: str,
+    folder_id: str,
+    folder_name: str,
+    version: object = 1,
+    created_by: str = "svc@example.com",
+    modified_by: str = "svc@example.com",
+    modified_date: str = "2026-09-01T10:00:00Z",
+    branch_name: Optional[str] = "main",
+) -> Dict[str, object]:
+    record: Dict[str, object] = {
+        "@type": "ComponentMetadata",
+        "componentId": component_id,
+        "version": version,
+        "name": name,
+        "type": "process",
+        "subType": "",
+        "createdBy": created_by,
+        "createdDate": "2026-01-15T08:30:00Z",
+        "modifiedBy": modified_by,
+        "modifiedDate": modified_date,
+        "deleted": False,
+        "currentVersion": True,
+        "folderName": folder_name,
+        "folderId": folder_id,
+    }
+    if branch_name:
+        record["branchName"] = branch_name
+        record["branchId"] = f"branch-{branch_name}"
+    return record
 
 
-FOLDERS = _records("folder_query.json")
-FOLDERS.extend(
-    [
-        _copy(
-            FOLDERS[-1],
-            id=SANDBOX_FOLDER,
-            name="Sandbox",
-            fullPath="Test Account/DataHub Test/Sandbox",
-        ),
-        _copy(
-            FOLDERS[-1],
-            id="Rjo4OTQzNDk4",
-            name="Archive",
-            fullPath="Test Account/DataHub Test/Archive",
-            deleted=True,
-        ),
-    ]
-)
-
-ENVIRONMENTS = _records("environment_query.json")
-ENVIRONMENTS.append(_copy(ENVIRONMENTS[0], id=DEV_ENVIRONMENT, name="DH Test Dev Env"))
-
-DEPLOYMENTS = _records("deployed_package_query.json")
-DEPLOYMENTS.extend(
-    [
-        _copy(
-            DEPLOYMENTS[-1],
-            deploymentId="0d1e2f30-0000-4000-8000-000000000001",
-            componentId=INVOICE_EXPORT,
-            packageVersion="2.0",
-        ),
-        _copy(
-            DEPLOYMENTS[-1],
-            deploymentId="0d1e2f30-0000-4000-8000-000000000002",
-            componentId=SANDBOX_PROBE,
-        ),
-        _copy(
-            DEPLOYMENTS[-1],
-            deploymentId="0d1e2f30-0000-4000-8000-000000000003",
-            componentId=ORDERS_EXTRACT_TEST,
-        ),
-        # Only deployed to an environment denied by environment_pattern.
-        _copy(
-            DEPLOYMENTS[-1],
-            deploymentId="0d1e2f30-0000-4000-8000-000000000004",
-            componentId=SHIPMENT_NOTIFY,
-            environmentId=DEV_ENVIRONMENT,
-        ),
-    ]
-)
-
-PROCESSES_PAGE_1 = _records("component_metadata_query.json")
-_PROCESS_TEMPLATE = PROCESSES_PAGE_1[0]
+PROCESSES_PAGE_1 = [
+    _process(
+        "p-orders-sync",
+        "Orders Sync",
+        "F2",
+        "Orders",
+        version=["Long", 7],
+        modified_by="dev@example.com",
+    ),
+    _process("p-invoice-export", "Invoice Export", "F3", "Finance", version=3),
+    _process(
+        "p-customer-upsert",
+        "Customer Upsert",
+        "F2",
+        "Orders",
+        version=2,
+        modified_date="2026-08-01T10:00:00Z",
+    ),
+]
 PROCESSES_PAGE_2 = [
-    _copy(
-        _PROCESS_TEMPLATE,
-        componentId=INVOICE_EXPORT,
-        name="DH Test - Invoice Export",
-        version=["Long", 3],
-        modifiedBy="dev@example.com",
-        modifiedDate="2026-11-02T19:30:00Z",
-    ),
-    # A stale branch copy of Orders Extract; the newer copy on page 1 wins.
-    _copy(
-        _PROCESS_TEMPLATE,
+    # Same component returned twice; the newer copy must win.
+    _process(
+        "p-customer-upsert",
+        "Customer Upsert",
+        "F2",
+        "Orders",
         version=4,
-        modifiedBy="dev@example.com",
-        modifiedDate="2026-10-20T10:00:00Z",
+        modified_by="ops@example.com",
+        modified_date="2026-09-20T10:00:00Z",
     ),
-    _copy(
-        _PROCESS_TEMPLATE,
-        componentId=SHIPMENT_NOTIFY,
-        name="DH Test - Shipment Notify",
+    _process("p-legacy-cleanup", "Legacy Cleanup", "F1", "Production"),
+    _process("p-orders-sync-test", "Orders Sync Test", "F2", "Orders"),
+    _process("p-sandbox-probe", "Sandbox Probe", "F4", "Sandbox"),
+    _process("p-shipment-notify", "Shipment Notify", "F3", "Finance"),
+]
+
+DEPLOYMENTS: List[Dict[str, object]] = [
+    {
+        "componentId": "p-orders-sync",
+        "componentType": "process",
+        "environmentId": "env-prod",
+        "packageVersion": "3.0",
+        "active": True,
+    },
+    {
+        "componentId": "p-orders-sync",
+        "componentType": "process",
+        "environmentId": "env-test",
+        "packageVersion": "4.0",
+        "active": True,
+    },
+    {
+        "componentId": "p-invoice-export",
+        "componentType": "process",
+        "environmentId": "env-prod",
+        "packageVersion": "1.2",
+        "active": True,
+    },
+    {
+        "componentId": "p-customer-upsert",
+        "componentType": "process",
+        "environmentId": "env-test",
+        "packageVersion": "2.0",
+        "active": True,
+    },
+    {
+        "componentId": "p-orders-sync-test",
+        "componentType": "process",
+        "environmentId": "env-test",
+        "packageVersion": "1.0",
+        "active": True,
+    },
+    {
+        "componentId": "p-sandbox-probe",
+        "componentType": "process",
+        "environmentId": "env-prod",
+        "packageVersion": "1.0",
+        "active": True,
+    },
+    # Only deployed to an environment denied by environment_pattern.
+    {
+        "componentId": "p-shipment-notify",
+        "componentType": "process",
+        "environmentId": "env-dev",
+        "packageVersion": "1.0",
+        "active": True,
+    },
+]
+
+
+def _execution(
+    execution_id: str,
+    process_id: str,
+    time: str,
+    status: str,
+    duration: object = None,
+    execution_type: str = "exec_scheduled",
+) -> Dict[str, object]:
+    record: Dict[str, object] = {
+        "@type": "ExecutionRecord",
+        "executionId": execution_id,
+        "executionTime": time,
+        "status": status,
+        "processId": process_id,
+        "atomId": "atom-1",
+        "atomName": "Production Atom",
+        "executionType": execution_type,
+        "topLevelExecutionId": execution_id,
+        "inboundDocumentCount": ["Long", 12],
+        "outboundDocumentCount": 10,
+        "inboundErrorDocumentCount": 0,
+    }
+    if duration is not None:
+        record["executionDuration"] = duration
+    return record
+
+
+EXECUTIONS_PAGE_1: List[Dict[str, object]] = [
+    _execution(
+        "execution-os-1",
+        "p-orders-sync",
+        "2026-09-30T08:00:00Z",
+        "COMPLETE",
+        ["Long", 125000],
     ),
-    _copy(
-        _PROCESS_TEMPLATE,
-        componentId=SANDBOX_PROBE,
-        name="DH Test - Sandbox Probe",
-        folderName="Sandbox",
-        folderId=SANDBOX_FOLDER,
+    _execution(
+        "execution-os-2", "p-orders-sync", "2026-09-30T09:00:00Z", "COMPLETE_WARN", 5000
     ),
-    _copy(
-        _PROCESS_TEMPLATE,
-        componentId=ORDERS_EXTRACT_TEST,
-        name="DH Test - Orders Extract Test",
+    _execution(
+        "execution-os-3",
+        "p-orders-sync",
+        "2026-09-30T10:00:00Z",
+        "error",
+        ["Long", 2500],
+        execution_type="exec_manual",
+    ),
+    _execution(
+        "execution-os-0", "p-orders-sync", "2026-09-29T08:00:00Z", "COMPLETE", 1000
+    ),
+    # Oldest orders-sync run; dropped by max_executions_per_process.
+    _execution(
+        "execution-os-old", "p-orders-sync", "2026-09-25T08:00:00Z", "COMPLETE", 1000
+    ),
+    _execution(
+        "execution-ie-1", "p-invoice-export", "2026-09-30T11:00:00Z", "ABORTED", 700
+    ),
+    _execution(
+        "execution-ie-2", "p-invoice-export", "2026-09-30T11:30:00Z", "DISCARDED", 0
+    ),
+    _execution(
+        "execution-ie-3", "p-invoice-export", "2026-10-01T11:55:00Z", "INPROCESS"
+    ),
+]
+EXECUTIONS_PAGE_2: List[Dict[str, object]] = [
+    _execution(
+        "execution-cu-1", "p-customer-upsert", "2026-10-01T11:58:00Z", "STARTED"
+    ),
+    _execution(
+        "execution-cu-2", "p-customer-upsert", "2026-10-01T11:59:00Z", "ENQUEUED"
+    ),
+    _execution(
+        "execution-cu-3",
+        "p-customer-upsert",
+        "2026-10-01T11:00:00Z",
+        "ABORTED_RECOVERING",
+    ),
+    _execution(
+        "execution-cu-4", "p-customer-upsert", "2026-09-30T07:00:00Z", "PAUSED", 400
+    ),
+    # Processes that are filtered out or undeployed.
+    _execution(
+        "execution-sp-1", "p-sandbox-probe", "2026-09-30T08:00:00Z", "COMPLETE", 100
+    ),
+    _execution(
+        "execution-lc-1", "p-legacy-cleanup", "2026-09-30T08:00:00Z", "COMPLETE", 100
     ),
 ]
 
+COMPONENT_XML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
+<bns:Component xmlns:bns="http://api.platform.boomi.com/" componentId="{id}" name="{name}" type="process" folderFullPath="{path}" createdBy="svc@example.com" branchName="main">
+  <bns:encryptedValues/>
+  <bns:description>{description}</bns:description>
+  <bns:object>
+    <process xmlns="" allowSimultaneous="false">
+      <shapes>
+        <shape shapetype="start" name="shape1"/>
+        <shape shapetype="stop" name="shape2"/>
+      </shapes>
+    </process>
+  </bns:object>
+</bns:Component>
+"""
+
 COMPONENT_XML: Dict[str, str] = {
-    path.stem: path.read_text()
-    for path in sorted((FIXTURES_DIR / "components").glob("*.xml"))
+    "p-orders-sync": COMPONENT_XML_TEMPLATE.format(
+        id="p-orders-sync",
+        name="Orders Sync",
+        path="Acme/Production/Orders",
+        description="Copies new orders from the web shop into the ERP.",
+    ),
+    "p-invoice-export": COMPONENT_XML_TEMPLATE.format(
+        id="p-invoice-export",
+        name="Invoice Export",
+        path="Acme/Production/Finance",
+        description="Exports posted invoices to the finance warehouse.",
+    ),
+    "p-customer-upsert": COMPONENT_XML_TEMPLATE.format(
+        id="p-customer-upsert",
+        name="Customer Upsert",
+        path="Acme/Production/Orders",
+        description="",
+    ),
 }
-COMPONENT_XML[INVOICE_EXPORT] = _process_xml(
-    INVOICE_EXPORT,
-    "DH Test - Invoice Export",
-    "Exports posted invoices to the finance warehouse.",
-)
-COMPONENT_XML[SHIPMENT_NOTIFY] = _process_xml(
-    SHIPMENT_NOTIFY, "DH Test - Shipment Notify", ""
-)
 
 
 def _page(
@@ -217,6 +342,11 @@ def _register_mocks(
         f"{BASE_URL}/ComponentMetadata/queryMore",
         json=_page(PROCESSES_PAGE_2),
     )
+    mock.post(
+        f"{BASE_URL}/ExecutionRecord/query",
+        json=_page(EXECUTIONS_PAGE_1, token="executions-page-2-token"),
+    )
+    mock.post(f"{BASE_URL}/ExecutionRecord/queryMore", json=_page(EXECUTIONS_PAGE_2))
     for component_id, xml in COMPONENT_XML.items():
         mock.get(f"{BASE_URL}/Component/{component_id}", text=xml)
 
@@ -231,11 +361,11 @@ def _recipe(output_path: Path) -> Dict[str, object]:
                 "username": "svc@example.com",
                 "api_token": "dummy-token",
                 "branch_name": "main",
-                "folder_pattern": {"deny": [".*/Sandbox$"]},
+                "folder_pattern": {"deny": ["^Acme/Sandbox.*"]},
                 "process_pattern": {"deny": [".* Test$"]},
-                "environment_pattern": {"deny": [".* Dev Env$"]},
-                "include_undeployed_processes": True,
+                "environment_pattern": {"deny": ["^Dev$"]},
                 "max_requests_per_second": 10,
+                "max_executions_per_process": 4,
             },
         },
         "sink": {"type": "file", "config": {"filename": str(output_path)}},
@@ -253,22 +383,32 @@ def test_boomi_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
         pipeline.raise_from_status()
 
         query_more = [r for r in mock.request_history if r.path.endswith("/querymore")]
-        assert len(query_more) == 1
-        assert query_more[0].text == "page-2-token"
+        assert [r.text for r in query_more] == [
+            "page-2-token",
+            "executions-page-2-token",
+        ]
         assert query_more[0].headers["Content-Type"] == "text/plain"
+        execution_query = next(
+            r for r in mock.request_history if r.path.endswith("/executionrecord/query")
+        )
+        assert execution_query.json()["QueryFilter"]["expression"]["argument"] == [
+            "2026-09-24T12:00:00Z"
+        ]
 
     report = pipeline.source.get_report()
     assert isinstance(report, BoomiSourceReport)
-    assert report.folders_emitted == 5
-    assert report.processes_emitted == 7
+    assert report.processes_emitted == 3
     assert report.processes_duplicate_branch_copies == 1
-    assert list(report.processes_undeployed_skipped) == []
-    assert list(report.environments_filtered) == ["DH Test Dev Env"]
-    assert sorted(report.processes_filtered) == [
-        "DH Test - Orders Extract Test",
-        "DH Test - Sandbox Probe",
+    assert sorted(report.processes_undeployed_skipped) == [
+        "Legacy Cleanup",
+        "Shipment Notify",
     ]
-    assert not report.warnings
+    assert sorted(report.processes_filtered) == ["Orders Sync Test", "Sandbox Probe"]
+    assert report.executions_scanned == 14
+    assert report.executions_emitted == 11
+    assert report.executions_over_cap == 1
+    assert report.executions_process_not_emitted == 2
+    assert report.executions_unknown_status == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -284,7 +424,6 @@ def test_boomi_stateful_removes_undeployed_process(
 ) -> None:
     recipe = _recipe(tmp_path / "run1.json")
     source_config = recipe["source"]["config"]  # type: ignore[index]
-    source_config["include_undeployed_processes"] = False
     source_config["stateful_ingestion"] = {
         "enabled": True,
         "remove_stale_metadata": True,
@@ -308,10 +447,12 @@ def test_boomi_stateful_removes_undeployed_process(
         pipeline_run1 = run_and_get_pipeline(recipe)
         checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
 
-        # Catalog Sync loses its only deployment between runs.
+        # The invoice export loses its only deployment between runs.
         _register_mocks(
             mock,
-            deployments=[d for d in DEPLOYMENTS if d["componentId"] != CATALOG_SYNC],
+            deployments=[
+                d for d in DEPLOYMENTS if d["componentId"] != "p-invoice-export"
+            ],
         )
         recipe["sink"] = {
             "type": "file",
@@ -320,15 +461,6 @@ def test_boomi_stateful_removes_undeployed_process(
         pipeline_run2 = run_and_get_pipeline(recipe)
         checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
 
-    report = pipeline_run1.source.get_report()
-    assert isinstance(report, BoomiSourceReport)
-    # The trial account's two never-deployed processes, plus one deployed only
-    # to a denied environment.
-    assert sorted(report.processes_undeployed_skipped) == [
-        "DH Test - SFTP Pickup",
-        "DH Test - Salesforce Accounts",
-        "DH Test - Shipment Notify",
-    ]
     assert checkpoint1 and checkpoint1.state
     assert checkpoint2 and checkpoint2.state
     validate_all_providers_have_committed_successfully(pipeline_run1, 1)
@@ -343,8 +475,8 @@ def test_boomi_stateful_removes_undeployed_process(
         )
     )
     assert removed == {
-        f"urn:li:dataFlow:(boomi,{CATALOG_SYNC},PROD)",
-        f"urn:li:dataJob:(urn:li:dataFlow:(boomi,{CATALOG_SYNC},PROD),process)",
+        "urn:li:dataFlow:(boomi,p-invoice-export,PROD)",
+        "urn:li:dataJob:(urn:li:dataFlow:(boomi,p-invoice-export,PROD),process)",
     }
     soft_deleted = {
         mcp["entityUrn"]

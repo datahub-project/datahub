@@ -1,5 +1,7 @@
 from typing import Dict, FrozenSet, Tuple
 
+from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+
 PLATFORM = "boomi"
 
 DEFAULT_API_URL = "https://api.boomi.com"
@@ -13,6 +15,7 @@ OBJECT_COMPONENT = "Component"
 OBJECT_COMPONENT_METADATA = "ComponentMetadata"
 OBJECT_DEPLOYED_PACKAGE = "DeployedPackage"
 OBJECT_ENVIRONMENT = "Environment"
+OBJECT_EXECUTION_RECORD = "ExecutionRecord"
 OBJECT_FOLDER = "Folder"
 QUERY_SUFFIX = "query"
 QUERY_FILTER_KEY = "QueryFilter"
@@ -29,6 +32,7 @@ HEADER_CONTENT_TYPE = "Content-Type"
 
 OPERATOR_AND = "and"
 OPERATOR_EQUALS = "EQUALS"
+OPERATOR_GREATER_THAN_OR_EQUAL = "GREATER_THAN_OR_EQUAL"
 FIELD_TYPE = "type"
 FIELD_CURRENT_VERSION = "currentVersion"
 FIELD_DELETED = "deleted"
@@ -38,6 +42,8 @@ FIELD_ACTIVE = "active"
 VALUE_TRUE = "true"
 VALUE_FALSE = "false"
 COMPONENT_TYPE_PROCESS = "process"
+FIELD_EXECUTION_TIME = "executionTime"
+EXECUTION_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 # Query responses can render a long as ["Long", n] instead of a plain number.
 LONG_TYPE_TAG = "Long"
@@ -79,3 +85,31 @@ PROP_FOLDER_PATH = "folderFullPath"
 PROP_DEPLOYMENTS = "deployments"
 DEPLOYMENT_SEPARATOR = ", "
 DEPLOYMENT_FORMAT = "{environment}={version}"
+
+PROP_STATUS = "status"
+PROP_ATOM_NAME = "atomName"
+PROP_EXECUTION_TYPE = "executionType"
+PROP_PARENT_EXECUTION_ID = "parentExecutionId"
+PROP_TOP_LEVEL_EXECUTION_ID = "topLevelExecutionId"
+PROP_INBOUND_DOCUMENT_COUNT = "inboundDocumentCount"
+PROP_OUTBOUND_DOCUMENT_COUNT = "outboundDocumentCount"
+PROP_INBOUND_ERROR_DOCUMENT_COUNT = "inboundErrorDocumentCount"
+
+EXECUTION_TYPE_MANUAL = "exec_manual"
+
+# Boomi purges run history after the runtime's purgeHistoryDays, 30 by default.
+MAX_EXECUTION_HISTORY_DAYS = 30
+DEFAULT_EXECUTION_HISTORY_DAYS = 7
+DEFAULT_MAX_EXECUTIONS_PER_PROCESS = 50
+
+EXECUTION_STATUS_RESULTS: Dict[str, InstanceRunResult] = {
+    "COMPLETE": InstanceRunResult.SUCCESS,
+    "COMPLETE_WARN": InstanceRunResult.SUCCESS,
+    "ERROR": InstanceRunResult.FAILURE,
+    "ABORTED": InstanceRunResult.FAILURE,
+    "DISCARDED": InstanceRunResult.SKIPPED,
+}
+# ABORTED_RECOVERING is still being recovered by the runtime, so it is not final.
+EXECUTION_STATUSES_IN_PROGRESS: FrozenSet[str] = frozenset(
+    {"INPROCESS", "STARTED", "ENQUEUED", "ABORTED_RECOVERING"}
+)

@@ -27,5 +27,12 @@ class BoomiSourceReport(StaleEntityRemovalSourceReport):
     process_xml_failures: LossyList[str] = field(default_factory=LossyList)
     invalid_records: int = 0
 
+    executions_scanned: int = 0
+    executions_emitted: int = 0
+    executions_unavailable: bool = False
+    executions_process_not_emitted: int = 0
+    executions_over_cap: int = 0
+    executions_unknown_status: int = 0
+
     def report_api_call(self) -> None:
         self.api_calls += 1

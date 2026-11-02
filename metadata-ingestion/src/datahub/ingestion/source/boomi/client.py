@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import Dict, Iterator, List, Optional, Type, TypeVar, Union
 
 import requests
@@ -14,11 +15,13 @@ from datahub.ingestion.source.boomi.constants import (
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_TEXT,
     CONTENT_TYPE_XML,
+    EXECUTION_TIME_FORMAT,
     FIELD_ACTIVE,
     FIELD_BRANCH_NAME,
     FIELD_COMPONENT_TYPE,
     FIELD_CURRENT_VERSION,
     FIELD_DELETED,
+    FIELD_EXECUTION_TIME,
     FIELD_TYPE,
     HEADER_ACCEPT,
     HEADER_CONTENT_TYPE,
@@ -28,8 +31,10 @@ from datahub.ingestion.source.boomi.constants import (
     OBJECT_COMPONENT_METADATA,
     OBJECT_DEPLOYED_PACKAGE,
     OBJECT_ENVIRONMENT,
+    OBJECT_EXECUTION_RECORD,
     OBJECT_FOLDER,
     OPERATOR_EQUALS,
+    OPERATOR_GREATER_THAN_OR_EQUAL,
     QUERY_EXPRESSION_KEY,
     QUERY_FILTER_KEY,
     QUERY_MORE_SUFFIX,
@@ -47,6 +52,7 @@ from datahub.ingestion.source.boomi.models import (
     ComponentMetadata,
     DeployedPackage,
     Environment,
+    ExecutionRecord,
     Folder,
     GroupingExpression,
     QueryResponse,
@@ -128,7 +134,9 @@ class BoomiClient:
         return response
 
     def query(
-        self, object_type: str, expression: Optional[GroupingExpression] = None
+        self,
+        object_type: str,
+        expression: Optional[Union[SimpleExpression, GroupingExpression]] = None,
     ) -> Iterator[Dict[str, object]]:
         headers = {
             HEADER_ACCEPT: CONTENT_TYPE_JSON,
@@ -165,7 +173,7 @@ class BoomiClient:
         self,
         object_type: str,
         model: Type[M],
-        expression: Optional[GroupingExpression] = None,
+        expression: Optional[Union[SimpleExpression, GroupingExpression]] = None,
     ) -> Iterator[M]:
         for record in self.query(object_type, expression):
             try:
@@ -207,6 +215,16 @@ class BoomiClient:
             ComponentMetadata,
             GroupingExpression(nested_expression=filters),
         )
+
+    def list_executions(self, since: datetime) -> Iterator[ExecutionRecord]:
+        # One window query for the whole account; filtering per process would
+        # cost a query per process against the shared 10 requests/second limit.
+        expression = SimpleExpression(
+            property=FIELD_EXECUTION_TIME,
+            operator=OPERATOR_GREATER_THAN_OR_EQUAL,
+            argument=[since.astimezone(timezone.utc).strftime(EXECUTION_TIME_FORMAT)],
+        )
+        return self._query_models(OBJECT_EXECUTION_RECORD, ExecutionRecord, expression)
 
     def get_component_xml(self, component_id: str) -> str:
         response = self._request(
