@@ -256,8 +256,9 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     addColumn("tray_logs", "sand_depth_cm", null);
     addColumn("tray_logs", "m_008", "Sand Depth Notes");
     add("sand", null);
-    // A real name with a longer title of its own, against 12 tables titled exactly the query that
-    // live in a schema named like the table family; and a control whose real name has no title.
+    // An asset whose name equals the search, with a longer title of its own, against 12 tables
+    // titled exactly the search in a schema named like the table family; and a control with no
+    // title.
     add("ragdoll lounge", "Ragdoll Lounge Visits");
     add("siberian lounge", null);
     for (int i = 0; i < 12; i++) {
@@ -379,26 +380,27 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   }
 
   /**
-   * An exact real name whose own title is longer stays first on the first page, above 12 datasets
-   * titled exactly the query whose names and schema repeat it.
+   * An asset whose name equals the search ranks first, even when its own title, and other assets'
+   * titles and names, are longer matches that contain the search: "ragdoll lounge" (titled "Ragdoll
+   * Lounge Visits") above 12 tables titled "Ragdoll Lounge" in the schema ragdoll_lounge.
    */
-  protected void assertExactNameWithLongerOwnTitleStaysFirst() throws Exception {
-    assertFirstOnFirstPage("ragdoll lounge");
+  protected void assertExactNameRanksFirstAboveLongerMatches() throws Exception {
+    assertFirst("ragdoll lounge");
   }
 
-  /** Control for the case above: the same shape, but the real name has no title of its own. */
-  protected void assertExactNameWithoutOwnTitleStaysFirst() throws Exception {
-    assertFirstOnFirstPage("siberian lounge");
+  /** Control for the case above: the same shape, but the asset has no title of its own. */
+  protected void assertExactNameWithoutOwnTitleRanksFirst() throws Exception {
+    assertFirst("siberian lounge");
   }
 
-  /** The dataset named exactly {@code name} is #1 on the first page of 10 for that query. */
-  private void assertFirstOnFirstPage(String name) throws Exception {
+  /** The dataset named exactly {@code name} is the first result for that query. */
+  private void assertFirst(String name) throws Exception {
     List<Dataset> firstPage = search(name, 0, 10).served();
     assertEquals(
         firstPage.isEmpty() ? null : firstPage.get(0).name(),
         name,
         String.format(
-            "query %s: %s (EXACT_NAME) should be #1 on the first page, at #%s%n  actual: %s",
+            "query %s: %s (EXACT_NAME) should be #1, at #%s%n  actual: %s",
             name,
             name,
             indexOfName(search(name, 0, 30).served(), name) + 1,

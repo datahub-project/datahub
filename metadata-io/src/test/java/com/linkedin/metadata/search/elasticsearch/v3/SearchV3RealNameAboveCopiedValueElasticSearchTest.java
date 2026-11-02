@@ -68,12 +68,12 @@ public class SearchV3RealNameAboveCopiedValueElasticSearchTest
   }
 
   @Test
-  public void testClassOrderDefaultExactNameWithLongerOwnTitleStaysFirst() throws Exception {
-    assertExactNameWithLongerOwnTitleStaysFirst();
+  public void testClassOrderDefaultExactNameRanksFirstAboveLongerMatches() throws Exception {
+    assertExactNameRanksFirstAboveLongerMatches();
   }
 
   @Test
-  public void testClassOrderDefaultExactNameWithoutOwnTitleStaysFirst() throws Exception {
-    assertExactNameWithoutOwnTitleStaysFirst();
+  public void testClassOrderDefaultExactNameWithoutOwnTitleRanksFirst() throws Exception {
+    assertExactNameWithoutOwnTitleRanksFirst();
   }
 }

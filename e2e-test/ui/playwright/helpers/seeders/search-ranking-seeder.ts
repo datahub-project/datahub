@@ -114,8 +114,8 @@ export function buildRankingCorpus(): CorpusEntry[] {
   entries.push(dataset('tray_logs'));
   entries.push({ urn: columnUrn('tray_logs', 'litter_tray'), kind: 'column', name: 'litter_tray' });
 
-  // A real name with a longer title of its own, against 12 tables titled exactly the query that
-  // live in a schema named like the table family; and a control whose real name has no title.
+  // An asset whose name equals the search, with a longer title of its own, against 12 tables titled
+  // exactly the search in a schema named like the table family; and a control with no title.
   entries.push(dataset('ragdoll lounge', 'Ragdoll Lounge Visits'));
   entries.push(dataset('siberian lounge'));
   for (let i = 0; i < 12; i += 1) {
