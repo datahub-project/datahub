@@ -1,7 +1,9 @@
+from typing import List
 from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
+from wcmatch import pathlib as wcmatch_pathlib
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.data_lake_common.path_spec import (
@@ -877,9 +879,8 @@ def test_extract_table_name_and_path_with_table() -> None:
     assert table_path == "s3://bucket/users"
 
 
-# Equivalence guard for the precompiled matcher (CLEAN-1). The precompiled
-# _include_matcher / _exclude_matcher must be byte-identical to the reference
-# wcmatch PurePath.globmatch across a representative path table.
+# The precompiled include/exclude matchers must give the same verdicts as the
+# per-call PurePath.globmatch they replaced.
 @pytest.mark.parametrize(
     "include, exclude, allow_double_stars",
     [
@@ -890,13 +891,15 @@ def test_extract_table_name_and_path_with_table() -> None:
         ("s3://bucket/data/*/*.parquet", ["*/_delta_log/*"], False),
     ],
 )
-def test_precompiled_matcher_matches_reference(
-    include: str, exclude: list, allow_double_stars: bool
+def test_rejection_reason_matches_reference_globmatch(
+    include: str, exclude: List[str], allow_double_stars: bool
 ) -> None:
-    from wcmatch import pathlib as wpathlib
-
+    # Hidden folders are let through so `_delta_log` reaches the glob checks.
     path_spec = PathSpec(
-        include=include, exclude=exclude, allow_double_stars=allow_double_stars
+        include=include,
+        exclude=exclude,
+        allow_double_stars=allow_double_stars,
+        include_hidden_folders=True,
     )
 
     paths = [
@@ -912,20 +915,17 @@ def test_precompiled_matcher_matches_reference(
         "s3://bucket/table/sub/",
     ]
     for path in paths:
-        expected_include = wpathlib.PurePath(path).globmatch(
-            path_spec.glob_include, flags=wpathlib.GLOBSTAR
+        included = wcmatch_pathlib.PurePath(path).globmatch(
+            path_spec.glob_include, flags=wcmatch_pathlib.GLOBSTAR
         )
-        assert (
-            path_spec._globmatch(path_spec._include_matcher, path) == expected_include
-        ), f"include mismatch for {path!r}"
-
-        if path_spec.exclude:
-            expected_exclude = any(
-                wpathlib.PurePath(path).globmatch(e, flags=wpathlib.GLOBSTAR)
-                for e in path_spec.exclude
-            )
-            assert path_spec._exclude_matcher is not None
-            assert (
-                path_spec._globmatch(path_spec._exclude_matcher, path)
-                == expected_exclude
-            ), f"exclude mismatch for {path!r}"
+        excluded = any(
+            wcmatch_pathlib.PurePath(path).globmatch(e, flags=wcmatch_pathlib.GLOBSTAR)
+            for e in exclude
+        )
+        reason = path_spec.rejection_reason(path)
+        if not included:
+            assert reason == "include", path
+        elif excluded:
+            assert reason == "exclude", path
+        else:
+            assert reason not in ("include", "exclude"), path
