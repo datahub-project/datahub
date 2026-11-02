@@ -285,8 +285,8 @@ class AwsConnectionConfig(ConfigModel):
 
     _credentials_expiration: Optional[datetime] = None
     _cached_credentials: Optional[dict] = None
-    # The assumed-role credentials the cached S3 clients were built with.
-    _s3_client_cache_credentials: Optional[dict] = None
+    # Access key of the assumed-role session the cached S3 clients were built with.
+    _s3_client_cache_access_key: Optional[str] = None
     # boto3 clients are thread-safe (Sessions are not), so cached clients may be
     # shared across threads; only construction is guarded by the lock.
     _s3_client_cache: Dict[Optional[Union[bool, str]], "S3Client"] = PrivateAttr(
@@ -507,21 +507,30 @@ class AwsConnectionConfig(ConfigModel):
             # Another client getter (e.g. get_glue_client) may already have
             # re-assumed the role through get_session, which swaps
             # _cached_credentials and pushes the expiry out; the cached clients
-            # still hold the old keys then, so compare against what they were
-            # built with.
-            if (
-                self._cached_credentials is not None
-                and self._should_refresh_credentials()
-            ) or self._cached_credentials is not self._s3_client_cache_credentials:
+            # still hold the old keys then, so compare against the key they were
+            # built with. Dropped clients aren't closed: other threads may still
+            # be mid-request on them.
+            if self._cached_credentials is not None and (
+                self._should_refresh_credentials()
+                or self._cached_credentials.get("AccessKeyId")
+                != self._s3_client_cache_access_key
+            ):
                 self._s3_client_cache.clear()
             if verify_ssl not in self._s3_client_cache:
-                self._s3_client_cache[verify_ssl] = self.get_session().client(
+                session = self.get_session()
+                self._s3_client_cache[verify_ssl] = session.client(
                     "s3",
                     endpoint_url=self.aws_endpoint_url,
                     config=self._aws_config(),
                     verify=verify_ssl,
                 )
-                self._s3_client_cache_credentials = self._cached_credentials
+                if self._cached_credentials is not None:
+                    # Read from the session itself: another getter can swap
+                    # _cached_credentials while this client is being built.
+                    credentials = session.get_credentials()
+                    self._s3_client_cache_access_key = (
+                        credentials.access_key if credentials else None
+                    )
             return self._s3_client_cache[verify_ssl]
 
     def close_cached_s3_clients(self) -> None:

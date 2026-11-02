@@ -584,6 +584,9 @@ class TestAwsCommon:
             mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
                 MagicMock()
             )
+            mock_get_session.return_value.get_credentials.return_value.access_key = (
+                "ASSUMED_KEY"
+            )
 
             mock_should_refresh.return_value = False
             client1 = config.get_s3_client()
@@ -609,18 +612,25 @@ class TestAwsCommon:
         config._cached_credentials = {"AccessKeyId": "OLD_KEY"}
         config._credentials_expiration = datetime.now(timezone.utc) + timedelta(hours=1)
 
-        with patch.object(AwsConnectionConfig, "get_session") as mock_get_session:
-            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
-                MagicMock()
+        def session_for_current_credentials() -> MagicMock:
+            assert config._cached_credentials is not None
+            session = MagicMock()
+            session.client.side_effect = lambda *args, **kwargs: MagicMock()
+            session.get_credentials.return_value.access_key = (
+                config._cached_credentials["AccessKeyId"]
             )
+            return session
+
+        with patch.object(
+            AwsConnectionConfig,
+            "get_session",
+            side_effect=session_for_current_credentials,
+        ):
             client1 = config.get_s3_client()
             assert config.get_s3_client() is client1
 
             # What get_session does when e.g. get_glue_client triggers a refresh.
             config._cached_credentials = {"AccessKeyId": "NEW_KEY"}
-            config._credentials_expiration = datetime.now(timezone.utc) + timedelta(
-                hours=1
-            )
 
             client2 = config.get_s3_client()
             assert client2 is not client1
