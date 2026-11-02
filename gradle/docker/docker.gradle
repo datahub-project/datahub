@@ -153,6 +153,10 @@ project.afterEvaluate {
     inputs.files(project.fileTree(extension.dockerfile.get().parentFile) {
       include "${extension.dockerfile.get().name}.dockerignore"
     })
+    // A staged context holds only what the image copies, so track it to rebuild when those files change.
+    if (extension.contextDirectory.isPresent()) {
+      inputs.dir(buildContext)
+    }
     inputs.property("tags", extension.tags)
     inputs.property("buildArgs", extension.buildArgs)
     outputs.file(marker)
