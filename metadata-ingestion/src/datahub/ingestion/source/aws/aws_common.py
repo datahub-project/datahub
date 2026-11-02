@@ -1,8 +1,19 @@
 import logging
+import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 from urllib.parse import parse_qs, urlparse
 
 import boto3
@@ -11,6 +22,7 @@ from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
 from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
+from pydantic import PrivateAttr
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -271,6 +283,17 @@ class AwsConnectionConfig(ConfigModel):
 
     _credentials_expiration: Optional[datetime] = None
     _cached_credentials: Optional[dict] = None
+    # boto3 clients are thread-safe (Sessions are not), so cached clients may be
+    # shared across threads; only construction is guarded by the lock.
+    _s3_client_cache: Dict[Optional[Union[bool, str]], "S3Client"] = PrivateAttr(
+        default_factory=dict
+    )
+    # Class-level, not a PrivateAttr: a threading.Lock cannot be deep-copied, and
+    # dbt's config validators run copy.deepcopy over the recipe values (see
+    # DBTCommonConfig / DBTCloudConfig), so a per-instance lock would break
+    # DBTCoreConfig(aws_connection=AwsConnectionConfig(...)). One shared lock only
+    # serializes the brief, one-time client construction across configs.
+    _s3_client_lock: ClassVar[threading.Lock] = threading.Lock()
 
     aws_access_key_id: Optional[str] = Field(
         default=None,
@@ -461,12 +484,46 @@ class AwsConnectionConfig(ConfigModel):
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3Client":
-        return self.get_session().client(
-            "s3",
-            endpoint_url=self.aws_endpoint_url,
-            config=self._aws_config(),
-            verify=verify_ssl,
-        )
+        # Building a session + client per call is expensive (fresh TLS pool and
+        # credential resolution, ~seconds with an SSO profile), so memoize the
+        # client per verify_ssl value. Manually-assumed role credentials are
+        # static, so drop cached clients once those credentials need a refresh.
+        # This invalidation only covers the manual assume-role path; profile,
+        # instance-profile, ECS task-role, and explicit-key sessions self-refresh
+        # inside botocore's cached client and need no invalidation here.
+        with self._s3_client_lock:
+            # _cached_credentials is set only when a role was actually assumed (see
+            # get_session); that is the one path whose static creds expire. Guard on
+            # it rather than on aws_role merely being configured, else a role that
+            # matches the ambient identity (never assumed, so no expiry recorded)
+            # would rebuild the client on every call.
+            if (
+                self._cached_credentials is not None
+                and self._should_refresh_credentials()
+            ):
+                self._s3_client_cache.clear()
+            if verify_ssl not in self._s3_client_cache:
+                self._s3_client_cache[verify_ssl] = self.get_session().client(
+                    "s3",
+                    endpoint_url=self.aws_endpoint_url,
+                    config=self._aws_config(),
+                    verify=verify_ssl,
+                )
+            return self._s3_client_cache[verify_ssl]
+
+    def close_cached_s3_clients(self) -> None:
+        """Close and forget the clients get_s3_client memoized, for a caller that
+        owns this config and is done with it (the probe's __exit__)."""
+        with self._s3_client_lock:
+            clients = list(self._s3_client_cache.values())
+            self._s3_client_cache.clear()
+        # Taken out of the cache first, and each closed on its own: one close
+        # raising leaves no client cached and still closes the rest.
+        for client in clients:
+            try:
+                client.close()
+            except Exception as e:
+                logger.debug(f"Closing a cached S3 client failed: {e}")
 
     def get_s3_resource(
         self, verify_ssl: Optional[Union[bool, str]] = None
@@ -486,10 +543,16 @@ class AwsConnectionConfig(ConfigModel):
         return resource
 
     def get_glue_client(self) -> "GlueClient":
+        # TODO: apply aws_endpoint_url consistently across all service clients (and
+        # a separate S3 endpoint) in a dedicated PR — doing it here would redirect
+        # Glue for recipes that set the field to steer only their S3 reads.
         return self.get_session().client("glue", config=self._aws_config())
 
     def get_dynamodb_client(self) -> "DynamoDBClient":
-        return self.get_session().client("dynamodb", config=self._aws_config())
+        # Safe to honor here: DynamoDB has no sibling S3 client (see get_glue_client).
+        return self.get_session().client(
+            "dynamodb", endpoint_url=self.aws_endpoint_url, config=self._aws_config()
+        )
 
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker", config=self._aws_config())
@@ -500,6 +563,19 @@ class AwsConnectionConfig(ConfigModel):
     def get_rds_client(self):
         """Get an RDS client for generating IAM auth tokens."""
         return self.get_session().client("rds", config=self._aws_config())
+
+    def get_sts_client(self) -> "STSClient":
+        """Get an STS client that honors the shared AWS config (proxy, retries, etc.)."""
+        return self.get_session().client("sts", config=self._aws_config())
+
+
+def make_dynamodb_dataset_name(region: str, table_name: str) -> str:
+    """Single definition of the ``{region}.{table}`` DynamoDB dataset name.
+
+    The DynamoDB and Glue sources must build identical names so Glue job lineage joins the
+    DynamoDB tables emitted by the DynamoDB source.
+    """
+    return f"{region}.{table_name}"
 
 
 def generate_rds_iam_token(
@@ -698,3 +774,17 @@ def aws_error_code(e: Union[ClientError, BotoCoreError]) -> str:
     # BotoCoreError subclasses don't carry a structured code; the class name
     # (e.g. "NoCredentialsError") is the next-best stable identifier.
     return type(e).__name__
+
+
+def aws_probe_error_code(exc: BaseException) -> Optional[str]:
+    """The error code of a botocore ClientError (`AccessDenied`,
+    `EntityNotFoundException`), for an AWS probe provider's `probe_error_code`;
+    None for any other exception. Only the code: the message names the calling
+    principal's ARN. S3 answers a HEAD request with the bare HTTP status as its
+    code, which is given as `HTTP 404`."""
+    if not isinstance(exc, ClientError):
+        return None
+    code = aws_error_code(exc)
+    if not isinstance(code, str) or not code:
+        return None
+    return f"HTTP {code}" if code.isdigit() else code

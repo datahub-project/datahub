@@ -15,9 +15,12 @@ import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
@@ -49,6 +52,7 @@ import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.PipelineAggregatorBuilders;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -189,6 +193,26 @@ public class ESAggregatedStatsDAO {
         throw new IllegalArgumentException(
             "Unknown date grouping bucking time window size unit: " + timeWindowSize.getUnit());
     }
+  }
+
+  /**
+   * Whether to gap-fill empty date-histogram buckets ({@code min_doc_count=0}) between the first
+   * and last matching document.
+   *
+   * <p>Usage/operations DAY (and coarser) clients expect empty interstitial buckets. Applying the
+   * same to HOUR/MINUTE on sparse long-range data can materialize tens of thousands of empty
+   * buckets and trip OpenSearch {@code too_many_buckets_exception}.
+   */
+  static boolean shouldIncludeEmptyDateBuckets(@Nullable TimeWindowSize timeWindowSize) {
+    if (timeWindowSize == null || !timeWindowSize.hasUnit()) {
+      return false;
+    }
+    CalendarInterval unit = timeWindowSize.getUnit();
+    return unit == CalendarInterval.DAY
+        || unit == CalendarInterval.WEEK
+        || unit == CalendarInterval.MONTH
+        || unit == CalendarInterval.QUARTER
+        || unit == CalendarInterval.YEAR;
   }
 
   private static DataSchema.Type getTimeseriesFieldType(AspectSpec aspectSpec, String fieldPath) {
@@ -418,14 +442,17 @@ public class ESAggregatedStatsDAO {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName);
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     searchRequest.indices(indexName);
 
-    log.debug("Search request is: " + searchRequest);
+    log.debug("Search request is: {}", searchRequest);
 
     try {
       final SearchResponse searchResponse =
-          searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.TIMESERIES,
+              () -> searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return generateResponseFromElastic(
           searchResponse, groupingBuckets, aggregationSpecs, aspectSpec);
     } catch (Exception e) {
@@ -519,11 +546,18 @@ public class ESAggregatedStatsDAO {
         AggregationBuilder curAggregationBuilder = null;
         if (curGroupingBucket.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
           // Process the date grouping bucket using 'date-histogram' aggregation.
-          curAggregationBuilder =
+          DateHistogramAggregationBuilder dateHistogram =
               AggregationBuilders.dateHistogram(ES_AGGREGATION_PREFIX + curGroupingBucket.getKey())
                   .field(curGroupingBucket.getKey())
                   .timeZone(getZoneId(curGroupingBucket))
                   .calendarInterval(getHistogramInterval(curGroupingBucket.getTimeWindowSize()));
+          // OpenSearch defaults min_doc_count to 1 (drops empty interstitial buckets). Usage DAY+
+          // clients expect those empties; HOUR/MINUTE stay at the default to avoid
+          // too_many_buckets_exception on sparse long-range data.
+          if (shouldIncludeEmptyDateBuckets(curGroupingBucket.getTimeWindowSize())) {
+            dateHistogram.minDocCount(0);
+          }
+          curAggregationBuilder = dateHistogram;
         } else if (curGroupingBucket.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
           // Process the string grouping bucket using the 'terms' aggregation.
           // The field can be Keyword, Numeric, ip, boolean, or binary.
@@ -692,13 +726,17 @@ public class ESAggregatedStatsDAO {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName));
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName));
 
     log.debug("Batch aggregated stats search request: {}", searchRequest);
 
     final SearchResponse searchResponse;
     try {
-      searchResponse = searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      searchResponse =
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.TIMESERIES,
+              () -> searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
     } catch (Exception e) {
       log.error("Batch aggregated stats query failed: {}", e.getMessage());
       throw new ESQueryException("Batch aggregated stats query failed:", e);

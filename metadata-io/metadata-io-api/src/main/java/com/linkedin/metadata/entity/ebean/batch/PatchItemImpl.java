@@ -1,22 +1,19 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
-import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
-import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
-import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
-import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
-
+import com.datahub.context.OperationFingerprint;
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
@@ -29,19 +26,19 @@ import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonPatch;
-import jakarta.json.JsonReader;
 import jakarta.json.JsonString;
-import jakarta.json.JsonStructure;
 import jakarta.json.JsonValue;
-import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -52,26 +49,6 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @Builder(toBuilder = true)
 public class PatchItemImpl implements PatchMCP {
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-  static {
-    int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    int maxNameLength =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
-    OBJECT_MAPPER
-        .getFactory()
-        .setStreamReadConstraints(
-            StreamReadConstraints.builder()
-                .maxStringLength(maxSize)
-                .maxNameLength(maxNameLength)
-                .build());
-  }
-
   // A JSON property name (patch key) longer than this previously failed with a Jackson
   // StreamConstraintsException (default maxNameLength=50000). Such names are now accepted, but we
   // log which entity/aspect/key was oversized — the exception never included the offending name, so
@@ -141,6 +118,63 @@ public class PatchItemImpl implements PatchMCP {
     if (this.metadataChangeProposal != null) {
       this.metadataChangeProposal.setSystemMetadata(systemMetadata);
     }
+  }
+
+  /**
+   * The aspect {@code item} would write, for validators that run before the transaction. A PATCH
+   * arrives as a {@link PatchItemImpl} by default, or as a {@code ProposedItem} under alternate MCP
+   * validation; neither carries the resulting aspect, so the patch is applied to {@code current}
+   * here. {@code current} may be null: a generic JSON patch can create the aspect from scratch.
+   * Throws if the patch cannot be applied; callers choose whether that fails closed.
+   */
+  @Nullable
+  public static <T extends RecordTemplate> T resolveProposedAspect(
+      @Nonnull BatchItem item,
+      @Nullable T current,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Class<T> clazz) {
+    if (!ChangeType.PATCH.equals(item.getChangeType()) || !(item instanceof MCPItem)) {
+      return item.getAspect(clazz);
+    }
+    PatchItemImpl patchItem =
+        item instanceof PatchItemImpl
+            ? (PatchItemImpl) item
+            : PatchItemImpl.builder()
+                .build(
+                    ((MCPItem) item).getMetadataChangeProposal(),
+                    item.getAuditStamp(),
+                    aspectRetriever.getEntityRegistry());
+    return patchItem.applyPatch(current, aspectRetriever).getAspect(clazz);
+  }
+
+  /**
+   * Stored values of {@code aspectName} for the PATCH items in {@code items}, read in one batched
+   * lookup, as the base for {@link #resolveProposedAspect}. Non-PATCH items carry their own aspect,
+   * so writes without a PATCH cost no read.
+   */
+  @Nonnull
+  public static <T extends RecordTemplate> Map<Urn, T> readStoredForPatches(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Collection<? extends BatchItem> items,
+      @Nonnull String aspectName,
+      @Nonnull Class<T> clazz) {
+    Set<Urn> patchUrns =
+        items.stream()
+            .filter(item -> ChangeType.PATCH.equals(item.getChangeType()))
+            .map(BatchItem::getUrn)
+            .collect(Collectors.toSet());
+    Map<Urn, T> stored = new HashMap<>();
+    AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+            aspectRetriever, operationContext, patchUrns, Set.of(aspectName))
+        .forEach(
+            (urn, aspects) -> {
+              Aspect aspect = aspects.get(aspectName);
+              if (aspect != null) {
+                stored.put(urn, RecordUtils.toRecordTemplate(clazz, aspect.data()));
+              }
+            });
+    return stored;
   }
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
@@ -291,7 +325,14 @@ public class PatchItemImpl implements PatchMCP {
               .templateDefault(templateDefault)
               .build();
       return ChangeItemImpl.fromPatch(
-          urn, aspectSpec, recordTemplate, genericPatchTemplate, auditStamp, aspectRetriever);
+          urn,
+          aspectSpec,
+          recordTemplate,
+          genericPatchTemplate,
+          getMetadataChangeProposal(),
+          getSystemMetadata(),
+          auditStamp,
+          aspectRetriever);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -405,7 +446,8 @@ public class PatchItemImpl implements PatchMCP {
       this.auditStamp = auditStamp;
       this.aspectName = mcp.getAspectName();
       systemMetadata(mcp.getSystemMetadata());
-      Pair<JsonPatch, Optional<GenericJsonPatch>> parsedJson = convertToJsonPatch(mcp);
+      Pair<JsonPatch, Optional<GenericJsonPatch>> parsedJson =
+          PatchOperationUtils.convertToJsonPatch(mcp);
       patch(parsedJson.getFirst());
       parsedJson.getSecond().ifPresent(generic -> this.genericJsonPatch = generic);
 
@@ -422,45 +464,6 @@ public class PatchItemImpl implements PatchMCP {
           this.metadataChangeProposal,
           this.entitySpec,
           this.aspectSpec);
-    }
-
-    private static Pair<JsonPatch, Optional<GenericJsonPatch>> convertToJsonPatch(
-        MetadataChangeProposal mcp) {
-      try {
-        String jsonString = mcp.getAspect().getValue().asString(StandardCharsets.UTF_8);
-        JsonReader reader = Json.createReader(new StringReader(jsonString));
-
-        // Check if the JSON contains a "patch" key
-        JsonStructure jsonStructure = reader.read();
-        JsonPatch jsonPatch;
-        Optional<GenericJsonPatch> genericJsonPatch = Optional.empty();
-
-        if (jsonStructure.getValueType() == JsonValue.ValueType.OBJECT) {
-          JsonObject jsonObject = (JsonObject) jsonStructure;
-
-          if (jsonObject.containsKey("patch")) {
-            // If "patch" key exists, read the array from this key
-            jsonPatch = Json.createPatch(jsonObject.getJsonArray("patch"));
-
-            // Convert to GenericJsonPatch
-            genericJsonPatch =
-                Optional.of(OBJECT_MAPPER.readValue(jsonString, GenericJsonPatch.class));
-
-            return Pair.of(jsonPatch, genericJsonPatch);
-          }
-        }
-
-        // If no "patch" key or not an object, fallback to original behavior
-        jsonPatch = Json.createPatch(Json.createReader(new StringReader(jsonString)).readArray());
-
-        return Pair.of(jsonPatch, genericJsonPatch);
-      } catch (RuntimeException e) {
-        throw new IllegalArgumentException(
-            "Invalid JSON Patch: " + mcp.getAspect().getValue().asString(StandardCharsets.UTF_8),
-            e);
-      } catch (JsonProcessingException e) {
-        throw new RuntimeException(e);
-      }
     }
   }
 

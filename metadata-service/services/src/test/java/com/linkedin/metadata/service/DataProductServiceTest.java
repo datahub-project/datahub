@@ -21,6 +21,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -377,5 +378,56 @@ public class DataProductServiceTest {
 
     assertFalse(result);
     verify(mockClient, times(1)).exists(any(OperationContext.class), eq(TEST_RESOURCE_URN_1));
+  }
+
+  /** The reference cleanup runs in the background, so only the entity delete is asserted. */
+  @Test
+  public void testDeleteDataProductDeletesEntityThenHandsOffReferences() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final GraphClient mockGraphClient = mock(GraphClient.class);
+    final DataProductService service = new DataProductService(mockClient, mockGraphClient);
+    when(mockClient.deleteEntityThenReferences(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(mock(EntityClient.ReferencesCleanup.class));
+
+    service.deleteDataProduct(opContext, TEST_DATA_PRODUCT_URN);
+
+    verify(mockClient, times(1))
+        .deleteEntityThenReferences(any(OperationContext.class), eq(TEST_DATA_PRODUCT_URN));
+  }
+
+  @Test
+  public void testDeleteDataProductPropagatesEntityDeleteFailure() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final GraphClient mockGraphClient = mock(GraphClient.class);
+    final DataProductService service = new DataProductService(mockClient, mockGraphClient);
+    when(mockClient.deleteEntityThenReferences(any(OperationContext.class), any(Urn.class)))
+        .thenThrow(new RuntimeException("delete failed"));
+
+    assertThrows(
+        RuntimeException.class, () -> service.deleteDataProduct(opContext, TEST_DATA_PRODUCT_URN));
+  }
+
+  @Test
+  public void testFilterExistingUrns() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final GraphClient mockGraphClient = mock(GraphClient.class);
+    final DataProductService service = new DataProductService(mockClient, mockGraphClient);
+
+    when(mockClient.filterExistingUrns(
+            eq(opContext), eq(ImmutableList.of(TEST_RESOURCE_URN_1, TEST_RESOURCE_URN_2))))
+        .thenReturn(ImmutableSet.of(TEST_RESOURCE_URN_1));
+
+    assertEquals(
+        service.filterExistingUrns(
+            opContext, ImmutableList.of(TEST_RESOURCE_URN_1, TEST_RESOURCE_URN_2)),
+        ImmutableSet.of(TEST_RESOURCE_URN_1));
+
+    assertEquals(service.filterExistingUrns(opContext, List.of()), ImmutableSet.of());
+
+    when(mockClient.filterExistingUrns(eq(opContext), eq(ImmutableList.of(TEST_DATA_PRODUCT_URN))))
+        .thenThrow(new RuntimeException("Client error"));
+    assertThrows(
+        RuntimeException.class,
+        () -> service.filterExistingUrns(opContext, ImmutableList.of(TEST_DATA_PRODUCT_URN)));
   }
 }

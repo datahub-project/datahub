@@ -17,11 +17,9 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.key.DataHubStepStateKey;
-import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.step.DataHubStepStateProperties;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +52,8 @@ public class BatchGetStepStatesResolver
           Map<Urn, EntityResponse> entityResponseMap;
 
           try {
-            urnsToIdsMap = buildUrnToIdMap(context.getOperationContext(), input.getIds());
+
+            urnsToIdsMap = buildUrnToIdMap(input.getIds());
             urns = urnsToIdsMap.keySet();
             entityResponseMap =
                 _entityClient.batchGetV2(
@@ -90,16 +89,16 @@ public class BatchGetStepStatesResolver
         "get");
   }
 
+  /**
+   * No existence check is needed here: {@code batchGetV2} omits the properties aspect for step
+   * states that were never written, and those are filtered out downstream. Probing with {@code
+   * exists} first would only add one query per id on top of the batch fetch.
+   */
   @Nonnull
-  private Map<Urn, String> buildUrnToIdMap(
-      @Nonnull OperationContext opContext, @Nonnull final List<String> ids)
-      throws RemoteInvocationException {
+  private Map<Urn, String> buildUrnToIdMap(@Nonnull final List<String> ids) {
     final Map<Urn, String> urnToIdMap = new HashMap<>();
     for (final String id : ids) {
-      final Urn urn = getStepStateUrn(id);
-      if (_entityClient.exists(opContext, urn)) {
-        urnToIdMap.put(urn, id);
-      }
+      urnToIdMap.put(getStepStateUrn(id), id);
     }
 
     return urnToIdMap;
@@ -115,9 +114,10 @@ public class BatchGetStepStatesResolver
   private DataHubStepStateProperties getStepStateProperties(
       @Nonnull final Urn urn, @Nonnull final EntityResponse entityResponse) {
     final EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    // If aspect is not present, log the error and return null.
+    // A missing aspect just means the step was never completed, which is the expected state for any
+    // step the user has not reached yet - not an error.
     if (!aspectMap.containsKey(DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME)) {
-      log.error("Failed to find step state properties for urn: " + urn);
+      log.debug("No step state properties for urn: {}", urn);
       return null;
     }
     return new DataHubStepStateProperties(

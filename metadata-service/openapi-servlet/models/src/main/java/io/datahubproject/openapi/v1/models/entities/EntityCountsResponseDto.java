@@ -1,6 +1,5 @@
 package io.datahubproject.openapi.v1.models.entities;
 
-import java.time.Instant;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,6 +16,6 @@ public class EntityCountsResponseDto {
   private Long softDeletedTotal;
   private Long totalCount;
   private List<String> requestedTypes;
-  private Instant computedAt;
+  private long computedAtMillis;
   private boolean cacheHit;
 }

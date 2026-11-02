@@ -1,4 +1,4 @@
-import { ApiOutlined } from '@ant-design/icons';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
@@ -6,14 +6,12 @@ import styled from 'styled-components';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { lowerFirstLetter } from '@app/shared/textUtil';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
-import { cronToString } from '@utils/cronstrue';
 
 import { Assertion, AssertionResultType, AssertionType, EntityType } from '@types';
 
-const StyledApiOutlined = styled(ApiOutlined)`
+const StyledApiOutlined = styled(Plugs)`
     && {
         margin: 0px;
         padding: 0px;
@@ -50,8 +48,6 @@ export const ASSERTION_INFO = [
         icon: React.createElement(getStyledIconComponent(AssertionType.Freshness)),
         type: AssertionType.Freshness,
         entityTypes: [EntityType.Dataset],
-        enabled: true,
-        visible: true,
     },
     {
         get name() {
@@ -63,8 +59,6 @@ export const ASSERTION_INFO = [
         icon: React.createElement(getStyledIconComponent(AssertionType.Volume)),
         type: AssertionType.Volume,
         entityTypes: [EntityType.Dataset],
-        enabled: true,
-        visible: true,
     },
     {
         get name() {
@@ -76,9 +70,6 @@ export const ASSERTION_INFO = [
         icon: React.createElement(getStyledIconComponent(AssertionType.Field)),
         type: AssertionType.Field,
         entityTypes: [EntityType.Dataset],
-        enabled: true,
-        visible: true,
-        requiresConnectionSupportedByMonitors: false,
     },
     {
         get name() {
@@ -90,8 +81,6 @@ export const ASSERTION_INFO = [
         icon: React.createElement(getStyledIconComponent(AssertionType.DataSchema)),
         type: AssertionType.DataSchema,
         entityTypes: [EntityType.Dataset],
-        enabled: true,
-        visible: true,
     },
     {
         get name() {
@@ -103,9 +92,17 @@ export const ASSERTION_INFO = [
         icon: React.createElement(getStyledIconComponent(AssertionType.Sql)),
         type: AssertionType.Sql,
         entityTypes: [EntityType.Dataset],
-        enabled: true,
-        visible: true,
-        requiresConnectionSupportedByMonitors: true,
+    },
+    {
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.custom');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.custom');
+        },
+        icon: React.createElement(getStyledIconComponent(AssertionType.Custom)),
+        type: AssertionType.Custom,
+        entityTypes: [EntityType.Dataset],
     },
     {
         get name() {
@@ -117,8 +114,6 @@ export const ASSERTION_INFO = [
         icon: React.createElement(getStyledIconComponent(AssertionType.Dataset)),
         type: AssertionType.Dataset,
         entityTypes: [EntityType.Dataset],
-        enabled: false,
-        visible: false,
     },
 ];
 
@@ -131,11 +126,11 @@ export const getAssertionGroupName = (type: string): string => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
-const getAssertionGroupTypeIcon = (type: string) => {
+export const getAssertionGroupTypeIcon = (type: string) => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
 };
 
-export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (
+export const extractAssertionsFromQuery = (
     queryData?: GetDatasetAssertionsWithRunEventsQuery,
 ): Assertion[] | undefined => {
     return queryData?.dataset?.assertions?.assertions?.map((assertion) => ({
@@ -153,6 +148,8 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
         passing: 0,
         failing: 0,
         erroring: 0,
+        initializing: 0,
+        notRunning: 0,
         total: 0,
         totalAssertions: assertions.length,
     };
@@ -169,16 +166,35 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
             if (AssertionResultType.Error === resultType) {
                 summary.erroring++;
             }
+            if (AssertionResultType.Init === resultType) {
+                summary.initializing++;
+            }
             if (AssertionResultType.Init !== resultType) {
                 summary.total++; // only count assertions for which there is one completed run event, ignoring INIT statuses!
             }
+        } else {
+            summary.notRunning++;
         }
     });
     return summary;
 };
 
+// Uses the stored info.type only, so the list's label, grouping and type filter agree with the
+// server-side assertionType index that filters and sorts the list.
 export const getAssertionType = (assertion: Assertion): string | undefined => {
-    return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
+    return assertion?.info?.type?.toUpperCase();
+};
+
+/**
+ * Free-text type reported for a CUSTOM assertion (e.g. "dbt", or a Monte Carlo monitor type such as
+ * "FRESHNESS"). The custom assertion API documents it as how the assertion is categorized, so the
+ * list shows it on hover over the Custom type rather than replacing that type.
+ */
+export const getCustomAssertionType = (assertion: Assertion): string | undefined => {
+    if (assertion?.info?.type !== AssertionType.Custom) {
+        return undefined;
+    }
+    return assertion.info.customAssertion?.type || undefined;
 };
 
 /**
@@ -217,27 +233,6 @@ export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGr
     });
 
     return assertionGroups;
-};
-
-export const getCronAsText = (interval: string, options: { verbose: boolean } = { verbose: false }) => {
-    const { verbose } = options;
-    if (interval) {
-        try {
-            return {
-                text: `${lowerFirstLetter(cronToString(interval, { verbose }))}.`,
-                error: false,
-            };
-        } catch (e) {
-            return {
-                text: undefined,
-                error: true,
-            };
-        }
-    }
-    return {
-        text: undefined,
-        error: false,
-    };
 };
 
 export const getEntityUrnForAssertion = (assertion: Assertion) => {

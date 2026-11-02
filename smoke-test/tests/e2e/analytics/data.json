@@ -1,0 +1,57 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-highlights-annotated,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset carrying every facet the highlights panel reports on.",
+              "uri": null,
+              "tags": [],
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:HighlightsTest"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlossaryTerms": {
+              "terms": [
+                {
+                  "urn": "urn:li:glossaryTerm:HighlightsTestTerm"
+                }
+              ],
+              "auditStamp": {
+                "time": 0,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]

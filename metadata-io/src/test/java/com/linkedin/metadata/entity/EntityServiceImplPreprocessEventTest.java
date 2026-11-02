@@ -17,11 +17,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -46,7 +48,12 @@ public class EntityServiceImplPreprocessEventTest {
     MockitoAnnotations.openMocks(this);
     when(mockOperationContext.getEntityGraphCache()).thenReturn(EntityGraphCache.NO_OP);
     entityService =
-        new EntityServiceImpl(mockAspectDao, mockEventProducer, false, mockPreProcessHooks, true);
+        new EntityServiceImpl(
+            mockAspectDao,
+            mockEventProducer,
+            mockPreProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            mock(MetricUtils.class));
     entityService.setUpdateIndicesService(mockUpdateIndicesService);
   }
 

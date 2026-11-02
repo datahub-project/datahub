@@ -42,10 +42,11 @@ export class HomePage extends BasePage {
 
   async navigateToHome(): Promise<void> {
     await this.navigate('/');
+    await this.waitForPageLoad();
   }
 
   async waitForPageLoad(): Promise<void> {
-    await super.waitForPageLoad();
+    await this.page.waitForLoadState('domcontentloaded');
     await this.templateWrapper.waitFor({ state: 'visible' });
   }
 

@@ -6,7 +6,7 @@ variants in ``add_dataset_ownership.py`` delegate to these with
 """
 
 import logging
-from typing import Callable, Dict, List, Optional, Union, cast
+from typing import Callable, Dict, List, Optional, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -29,6 +29,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.specific.dashboard import DashboardPatchBuilder
+from datahub.utilities.dedup_list import deduplicate_list
 
 logger = logging.getLogger(__name__)
 
@@ -111,13 +112,16 @@ class AddOwnership(OwnershipTransformer):
 
         server_ownership = graph.get_ownership(entity_urn=urn)
         if server_ownership:
+            # Same identity as _dedupe_owners and HasOwnershipPatch.add_owner, so
+            # a server owner and an incoming one collapse here exactly when the
+            # transformer would have collapsed them itself.
             owners = {
-                (owner.owner, owner.type, owner.typeUrn): owner
+                AddOwnership._owner_identity(owner): owner
                 for owner in server_ownership.owners
             }
             owners.update(
                 {
-                    (owner.owner, owner.type, owner.typeUrn): owner
+                    AddOwnership._owner_identity(owner): owner
                     for owner in mce_ownership.owners
                 }
             )
@@ -165,11 +169,33 @@ class AddOwnership(OwnershipTransformer):
 
         for urn, owners in ownership_container_mapping.items():
             patch_builder = DashboardPatchBuilder(urn)
-            for owner in owners:
+            for owner in self._dedupe_owners(owners):
                 patch_builder.add_owner(owner)
             mcps.extend(list(patch_builder.build()))
 
         return mcps
+
+    @staticmethod
+    def _owner_identity(owner: OwnerClass) -> Tuple[str, str, str, str]:
+        # Key matches HasOwnershipPatch.
+        source = (
+            owner.attribution.source
+            if (owner.attribution and owner.attribution.source)
+            else ""
+        )
+        return (
+            owner.owner,
+            str(owner.type) if owner.type else "",
+            str(owner.typeUrn) if owner.typeUrn else "",
+            source,
+        )
+
+    @staticmethod
+    def _dedupe_owners(owners: List[OwnerClass]) -> List[OwnerClass]:
+        # Container rollup concatenates owners from every child. Without
+        # dedup, large folders emit one identical add_owner op per child
+        # and can exceed GMS's payload limit.
+        return deduplicate_list(owners, key=AddOwnership._owner_identity, keep="last")
 
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
@@ -190,6 +216,14 @@ class AddOwnership(OwnershipTransformer):
         owners_to_add = self.config.get_owners_to_add(entity_urn)
         if owners_to_add is not None:
             out_ownership_aspect.owners.extend(owners_to_add)
+
+        # The incoming aspect may already carry owners we are about to add, for
+        # example when a source merges current server state into the stream
+        # before transformers run. Appending unconditionally would then store a
+        # second identical entry: the aspect is written as an UPSERT and GMS
+        # persists the collection verbatim - there is no mutation hook for
+        # ownership - so the duplicate sticks and recurs on every run.
+        out_ownership_aspect.owners = self._dedupe_owners(out_ownership_aspect.owners)
 
         if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph

@@ -117,7 +117,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808220000
+            "lastUpdatedTimestamp": 1586847820000
         }
     },
     "systemMetadata": {
@@ -218,6 +218,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -290,10 +306,15 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -304,17 +325,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
-                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
-                }
-            ]
+            "container": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
         }
     },
     "systemMetadata": {
@@ -399,22 +415,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -428,6 +428,22 @@
                     "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
         }
     },
     "systemMetadata": {
@@ -512,22 +528,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -545,6 +545,22 @@
                     "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
         }
     },
     "systemMetadata": {
@@ -629,22 +645,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -666,6 +666,22 @@
                     "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:93525defb812252106d3b0c08a55e39a"
         }
     },
     "systemMetadata": {
@@ -750,22 +766,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:93525defb812252106d3b0c08a55e39a"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -791,6 +791,22 @@
                     "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
         }
     },
     "systemMetadata": {
@@ -875,22 +891,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -920,6 +920,22 @@
                     "urn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:98a716614da5246426edd48260406364"
         }
     },
     "systemMetadata": {
@@ -992,22 +1008,6 @@
             "typeNames": [
                 "Folder"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:98a716614da5246426edd48260406364"
         }
     },
     "systemMetadata": {
@@ -1388,7 +1388,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808240000
+            "lastUpdatedTimestamp": 1586847840000
         }
     },
     "systemMetadata": {
@@ -1430,15 +1430,11 @@
             "fieldProfiles": [
                 {
                     "fieldPath": "name",
-                    "uniqueCount": 9,
-                    "uniqueProportion": 0.13043478260869565,
+                    "uniqueCount": 10,
+                    "uniqueProportion": 0.14492753623188406,
                     "nullCount": 1,
                     "nullProportion": 0.014285714285714285,
                     "distinctValueFrequencies": [
-                        {
-                            "value": "NullValue",
-                            "frequency": 1
-                        },
                         {
                             "value": "apple",
                             "frequency": 7
@@ -1485,21 +1481,21 @@
                         "apple",
                         "apple",
                         "chicken",
-                        "cookie",
-                        "cookie",
-                        "cookie",
-                        "lasagna",
+                        "chicken",
+                        "chicken",
+                        "chicken",
+                        "hamburger",
+                        "hamburger",
+                        "hamburger",
                         "lasagna",
                         "orange",
                         "orange",
-                        "pasta",
-                        "pasta",
+                        "orange",
                         "pasta",
                         "pasta",
                         "spinach",
                         "spinach",
-                        "spinach",
-                        "water",
+                        "sushi",
                         "water"
                     ]
                 },
@@ -1555,21 +1551,21 @@
                         "10",
                         "10",
                         "10",
-                        "23",
-                        "23",
-                        "23",
+                        "2",
+                        "2",
+                        "2",
                         "32",
-                        "32",
+                        "36",
+                        "36",
                         "36",
                         "43",
                         "43",
+                        "43",
                         "49",
                         "49",
                         "50",
                         "50",
-                        "50",
-                        "72",
-                        "72",
+                        "53",
                         "72",
                         "72"
                     ]
@@ -1605,18 +1601,18 @@
                         "4",
                         "4",
                         "4",
-                        "4",
                         "5",
                         "5",
                         "5",
                         "5",
-                        "5",
                         "6",
                         "6",
                         "6",
                         "6",
                         "6",
                         "6",
+                        "7",
+                        "7",
                         "7",
                         "7"
                     ]
@@ -1659,7 +1655,6 @@
                     ],
                     "sampleValues": [
                         "blue",
-                        "blue",
                         "brown",
                         "brown",
                         "brown",
@@ -1668,14 +1663,15 @@
                         "green",
                         "orange",
                         "orange",
-                        "red",
+                        "orange",
+                        "orange",
                         "red",
                         "red",
                         "red",
                         "red",
                         "white",
-                        "yellow",
-                        "yellow",
+                        "white",
+                        "white",
                         "yellow",
                         "yellow"
                     ]
@@ -1695,8 +1691,8 @@
                         "False",
                         "False",
                         "False",
-                        "False",
-                        "None",
+                        "True",
+                        "True",
                         "True",
                         "True",
                         "True",
@@ -1810,7 +1806,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808220000
+                    "time": 1586847820000
                 }
             }
         ]
@@ -1832,7 +1828,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808240000
+                    "time": 1586847840000
                 }
             }
         ]

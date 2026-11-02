@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASP
 import static com.linkedin.metadata.utils.SearchUtil.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -30,10 +31,12 @@ import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,7 +47,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.filter.Filters;
+import org.opensearch.search.aggregations.bucket.filter.ParsedFilters;
+import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -62,6 +72,7 @@ public class AggregationQueryBuilderTest {
     Urn abFghTenUrn = Urn.createFromString("urn:li:structuredProperty:ab.fgh.ten");
     Urn underscoresAndDotsUrn =
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
+    Urn stewardUrn = Urn.createFromString("urn:li:structuredProperty:steward");
 
     // legacy
     aspectRetriever = mock(CachingAspectRetriever.class);
@@ -94,6 +105,19 @@ public class AggregationQueryBuilderTest {
                 Map.of(
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(structPropAbFghTenDefinition.data()))));
+
+    StructuredPropertyDefinition stewardDefinition = new StructuredPropertyDefinition();
+    stewardDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
+    stewardDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "urn"));
+    stewardDefinition.setQualifiedName("steward");
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(stewardUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                stewardUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(stewardDefinition.data()))));
 
     StructuredPropertyDefinition structPropUnderscoresAndDotsDefinition =
         new StructuredPropertyDefinition();
@@ -178,7 +202,6 @@ public class AggregationQueryBuilderTest {
       boolean includeQueryEmptyAggregation,
       boolean includeSystemModifiedAt,
       Optional<String> systemModifiedAtFieldName,
-      Optional<Integer> searchTier,
       Optional<String> searchLabel,
       Optional<Boolean> searchIndexed,
       Optional<String> entityFieldName,
@@ -201,7 +224,6 @@ public class AggregationQueryBuilderTest {
         includeQueryEmptyAggregation,
         includeSystemModifiedAt,
         systemModifiedAtFieldName,
-        searchTier,
         searchLabel,
         searchIndexed,
         entityFieldName,
@@ -228,7 +250,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -274,7 +295,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             false);
 
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
@@ -313,7 +333,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -334,7 +353,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -450,6 +468,28 @@ public class AggregationQueryBuilderTest {
   }
 
   @Test
+  public void testAggregateOverUrnStructuredProperty() {
+    // URN SPs aggregate on the parent keyword field — no .keyword subfield.
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    List<AggregationBuilder> aggs =
+        builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
+            List.of("structuredProperties.steward"));
+    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(
+        aggs.stream()
+            .map(aggr -> ((TermsAggregationBuilder) aggr).field())
+            .collect(Collectors.toSet()),
+        Set.of("structuredProperties.steward", DEFAULT_FILTER));
+  }
+
+  @Test
   public void testAggregateOverStructuredPropertyV1() {
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -556,7 +596,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -577,7 +616,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -619,6 +657,64 @@ public class AggregationQueryBuilderTest {
             DEFAULT_FILTER));
   }
 
+  /** V3 root fields keep the V2 .keyword subfield, so facets aggregate on it as on V2. */
+  @Test
+  public void testV3KeywordReadFacetsUseKeywordSubfields() {
+    SearchableAnnotation annotation =
+        new SearchableAnnotation(
+            "test1",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            false,
+            Optional.empty(),
+            Optional.of("Has Test"),
+            1.0,
+            Optional.of("hasTest1"),
+            Optional.empty(),
+            Collections.<Object, Double>emptyMap(),
+            Collections.<String>emptyList(),
+            false,
+            false,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            false);
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(entitySpec.getName()).thenReturn("dataset");
+    AggregationQueryBuilder builder =
+        new V3AggregationQueryBuilder(
+            config, ImmutableMap.of(entitySpec, ImmutableList.of(annotation)));
+
+    List<TermsAggregationBuilder> aggs =
+        builder
+            .getAggregations(
+                TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
+                ImmutableList.of("test1", "hasTest1", "structuredProperties.hello"))
+            .stream()
+            .map(TermsAggregationBuilder.class::cast)
+            .collect(Collectors.toList());
+    // V3 documents store their entity type, so the type facet does not read _index
+    Assert.assertEquals(
+        aggs.stream().map(TermsAggregationBuilder::field).collect(Collectors.toSet()),
+        ImmutableSet.of(
+            "test1.keyword",
+            "hasTest1",
+            "structuredProperties.hello.keyword",
+            INDEX_VIRTUAL_FIELD));
+    // A V3 index can hold other entity types; only the requested ones are reported
+    TermsAggregationBuilder entityTypeAgg =
+        aggs.stream().filter(agg -> agg.field().equals(INDEX_VIRTUAL_FIELD)).findFirst().get();
+    Assert.assertEquals(
+        entityTypeAgg.includeExclude(), new IncludeExclude(new String[] {"dataset"}, null));
+  }
+
   @Test
   public void testAggregateOverFieldsAndStructPropV1() {
     SearchableAnnotation annotation1 =
@@ -638,7 +734,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -663,7 +758,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -732,7 +826,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -787,6 +880,65 @@ public class AggregationQueryBuilderTest {
 
     builder.updateAggregationEntity(aggregationMetadata);
     Assert.assertNull(aggregationMetadata.getEntity());
+  }
+
+  @Test
+  public void testProcessTermAggregationsConvertsDateStringKeysToEpochMillis() {
+    final Terms.Bucket dateBucket = mock(Terms.Bucket.class);
+    final String dateKey = "2023-01-01T00:00:00Z";
+    when(dateBucket.getKeyAsString()).thenReturn(dateKey);
+    when(dateBucket.getDocCount()).thenReturn(5L);
+    when(dateBucket.getAggregations()).thenReturn(null);
+
+    final Terms.Bucket nonDateBucket = mock(Terms.Bucket.class);
+    final String nonDateKey = "not-a-date";
+    when(nonDateBucket.getKeyAsString()).thenReturn(nonDateKey);
+    when(nonDateBucket.getDocCount()).thenReturn(3L);
+    when(nonDateBucket.getAggregations()).thenReturn(null);
+
+    final ParsedTerms terms = mock(ParsedTerms.class);
+    Mockito.doReturn(ImmutableList.of(dateBucket, nonDateBucket)).when(terms).getBuckets();
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(Map.entry("myDateField", terms), aggregationMetadataList);
+
+    Map<String, Long> aggregations = aggregationMetadataList.get(0).getAggregations();
+    String expectedEpochMillisKey =
+        String.valueOf(OffsetDateTime.parse(dateKey).toEpochSecond() * 1000);
+    Assert.assertEquals(aggregations.get(expectedEpochMillisKey), Long.valueOf(5));
+    Assert.assertEquals(aggregations.get(nonDateKey), Long.valueOf(3));
+  }
+
+  @Test
+  public void testProcessTermAggregationsConvertsMinutePrecisionDateStringKeysToEpochMillis() {
+    final Terms.Bucket dateBucket = mock(Terms.Bucket.class);
+    final String dateKey = "2023-01-01T00:00Z";
+    when(dateBucket.getKeyAsString()).thenReturn(dateKey);
+    when(dateBucket.getDocCount()).thenReturn(5L);
+    when(dateBucket.getAggregations()).thenReturn(null);
+
+    final ParsedTerms terms = mock(ParsedTerms.class);
+    Mockito.doReturn(ImmutableList.of(dateBucket)).when(terms).getBuckets();
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(Map.entry("myDateField", terms), aggregationMetadataList);
+
+    Map<String, Long> aggregations = aggregationMetadataList.get(0).getAggregations();
+    String expectedEpochMillisKey =
+        String.valueOf(OffsetDateTime.parse(dateKey).toEpochSecond() * 1000);
+    Assert.assertEquals(aggregations.get(expectedEpochMillisKey), Long.valueOf(5));
   }
 
   @Test
@@ -887,7 +1039,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -908,7 +1059,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -970,7 +1120,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -995,7 +1144,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -1016,7 +1164,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -1077,7 +1224,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1102,7 +1248,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1158,7 +1303,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1183,7 +1327,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1239,7 +1382,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1264,7 +1406,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1321,7 +1462,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1346,7 +1486,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1422,7 +1561,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1447,7 +1585,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1472,7 +1609,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1514,6 +1650,27 @@ public class AggregationQueryBuilderTest {
     } catch (Exception e) {
       Assert.fail("Failed to test warning log: " + e.getMessage());
     }
+  }
+
+  @Test
+  public void testExtractAggregationsFromResponseReadsFilters() {
+    Filters.Bucket present = mock(Filters.Bucket.class);
+    doReturn("true").when(present).getKeyAsString();
+    doReturn(3L).when(present).getDocCount();
+    Filters.Bucket absent = mock(Filters.Bucket.class);
+    doReturn("false").when(absent).getKeyAsString();
+    doReturn(0L).when(absent).getDocCount();
+
+    ParsedFilters parsedFilters = mock(ParsedFilters.class);
+    doReturn(List.of(present, absent)).when(parsedFilters).getBuckets();
+    Aggregations aggregations = mock(Aggregations.class);
+    when(aggregations.get("hasActiveIncidents")).thenReturn(parsedFilters);
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getAggregations()).thenReturn(aggregations);
+
+    Assert.assertEquals(
+        AggregationQueryBuilder.extractAggregationsFromResponse(response, "hasActiveIncidents"),
+        Map.of("true", 3L));
   }
 
   private AspectRetriever getMockAspectRetriever(Urn propertyUrn) {

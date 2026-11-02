@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import {
     ASSERTION_TYPE_TO_HEADER_SUBTITLE,
     getAssertionSummaryCardHeaderByStatus,
@@ -44,7 +45,7 @@ const StyledCard = styled.div`
 
 const StyledCardChartSection = styled.div`
     padding: 24px;
-    border-top: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     flex-direction: column;
     gap: 24px;
@@ -109,11 +110,9 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
 
     const headerByStatus = getAssertionSummaryCardHeaderByStatus(theme.colors);
 
-    const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
-    // add No running state if there is no running state assertions
-    if (visibleStatuses.length === 0) {
-        visibleStatuses.push(NO_RUNNING_STATE);
-    }
+    const visibleStatuses: string[] = ['passing', 'failing', 'erroring', 'initializing', 'notRunning'].filter(
+        (status) => group.summary?.[status],
+    );
 
     const status = ASSERTION_SUMMARY_CARD_STATUSES.find((key) => group.summary[key]) || NO_RUNNING_STATE;
     const headerTitle = status ? headerByStatus[status].headerComponent : null;
@@ -124,12 +123,12 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
         const url = `${entityRegistry.getEntityUrl(
             EntityType.Dataset,
             entityData.urn,
-        )}/Quality/List${buildAssertionUrlSearch({ type })}`;
+        )}/${EntityTabPath.QUALITY}/List${buildAssertionUrlSearch({ type })}`;
         history.push(url);
     };
 
     return (
-        <StyledCard onClick={(event) => handleCardClick(group.type, event)}>
+        <StyledCard onClick={(event) => handleCardClick(group.type, event)} data-testid="assertion-summary-card">
             {/* **********************Render Summary Card header **************************** */}
             <div>{headerTitle}</div>
 

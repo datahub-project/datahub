@@ -47,16 +47,10 @@ def test_notion_synced_blocks_ingestion(
     caplog: pytest.LogCaptureFixture,
     request: pytest.FixtureRequest,
 ) -> None:
-    """Test that pages with synced blocks can be ingested without errors.
+    """Test that pages with synced blocks ingest without errors.
 
-    This validates the SyncBlock monkeypatch that fixes the synced_from field handling
-    for both original and reference synced blocks.
-
-    Expected behavior:
-        - Ingestion succeeds without KeyError on synced blocks
-        - Log shows "Applied monkeypatch to SyncBlock for synced blocks compatibility"
-        - Both original (synced_from=null) and reference (synced_from={block_id}) blocks are handled
-        - Page is successfully processed
+    unstructured-ingest 1.4.28 already dispatches original vs duplicate
+    SyncBlock correctly; this test checks live ingest still completes.
     """
     caplog.set_level(logging.INFO)
 
@@ -105,17 +99,11 @@ def test_notion_synced_blocks_ingestion(
     pipeline.run()
     pipeline.raise_from_status()
 
-    # Verify monkeypatch was applied with the correct message
+    # 1.4.28 handles synced blocks natively; remaining patches still load.
     assert any(
-        "Applied monkeypatch to SyncBlock" in record.message
+        "Applied generic unknown-field filter" in record.message
         for record in caplog.records
-    ), "SyncBlock monkeypatch was not applied"
-
-    # Verify the full message mentions both original and reference blocks
-    assert any(
-        "synced blocks compatibility (original + reference)" in record.message
-        for record in caplog.records
-    ), "SyncBlock monkeypatch message should mention original + reference blocks"
+    ), "generic Notion field filter was not applied"
 
     # Verify ingestion succeeded
     output_file = tmp_path / "notion_synced_blocks.json"
@@ -181,12 +169,12 @@ def test_notion_synced_blocks_ingestion(
                 "✓ Synced block content successfully ingested - both original and reference blocks processed"
             )
         else:
-            # Still valid: ingestion succeeded without errors, confirming monkeypatch works
+            # Still valid: ingestion succeeded without errors
             # Content may be missing due to unstructured-ingest limitations, but no KeyError occurred
             logging.info(
                 f"✓ Ingestion succeeded without KeyError (monkeypatch validated). "
                 f"Content check - Original: {has_original_content}, Bullet: {has_bullet_content}. "
-                "Note: Content may be missing due to unstructured-ingest v0.7.2 limitations, "
+                "Note: Content may be missing due to unstructured-ingest limitations, "
                 "but the fact that ingestion completed confirms synced blocks were handled correctly."
             )
 
@@ -196,14 +184,10 @@ def test_notion_numbered_lists_ingestion(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test that the NumberedListItem monkeypatch is applied.
+    """Test numbered-list pages ingest with extra Notion API fields.
 
-    This validates that the NumberedListItem monkeypatch is loaded, which handles
-    new Notion API fields (list_start_index, list_format) when they appear.
-
-    Expected behavior:
-        - Log shows "Applied monkeypatch to NumberedListItem"
-        - Page is successfully processed (even with simple content)
+    list_start_index / list_format are dropped by the generic unknown-field
+    filter (unstructured-ingest 1.4.28 still uses cls(**data) here).
     """
     caplog.set_level(logging.INFO)
 
@@ -236,11 +220,10 @@ def test_notion_numbered_lists_ingestion(
 
     pipeline.run()
 
-    # Verify monkeypatch was applied (this is the critical validation)
     assert any(
-        "Applied monkeypatch to NumberedListItem" in record.message
+        "Applied generic unknown-field filter" in record.message
         for record in caplog.records
-    ), "NumberedListItem monkeypatch was not applied"
+    ), "generic Notion field filter was not applied"
 
     # Verify ingestion succeeded
     output_file = tmp_path / "notion_numbered_lists.json"
@@ -293,7 +276,7 @@ def test_notion_numbered_lists_ingestion(
             logging.info(
                 f"✓ Ingestion succeeded without TypeError (monkeypatch validated). "
                 f"Content check - First: {has_first_item}, Second: {has_second_item}, Third: {has_third_item}. "
-                "Note: Content may be missing due to unstructured-ingest v0.7.2 limitations, "
+                "Note: Content may be missing due to unstructured-ingest limitations, "
                 "but the fact that ingestion completed confirms numbered lists were handled correctly."
             )
 
@@ -345,10 +328,9 @@ def test_notion_full_ingestion(
 
     # Verify all monkeypatches were applied (this is the critical validation)
     monkeypatches = [
-        "Applied monkeypatch to SyncBlock",  # Updated to match new log message
-        "Applied monkeypatch to NumberedListItem",
-        "Applied monkeypatch to unstructured-ingest Page class",
-        "database property classes",  # Part of "Applied monkeypatch to 22 database property classes"
+        "Applied monkeypatch to extract_database_html",
+        "Applied monkeypatch to Icon dispatcher",
+        "Applied generic unknown-field filter",
     ]
 
     for patch_message in monkeypatches:

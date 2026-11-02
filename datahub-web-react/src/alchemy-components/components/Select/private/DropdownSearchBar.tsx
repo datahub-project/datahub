@@ -1,9 +1,9 @@
-import { Input } from '@components';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Input } from '@components/components/Input';
 import { SelectSizeOptions } from '@components/components/Select/types';
 
 const SearchInputContainer = styled.div({

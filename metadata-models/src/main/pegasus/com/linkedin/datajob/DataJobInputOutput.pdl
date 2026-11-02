@@ -10,7 +10,8 @@ import com.linkedin.common.Edge
  * Information about the inputs and outputs of a Data processing job
  */
 @Aspect = {
-  "name": "dataJobInputOutput"
+  "name": "dataJobInputOutput",
+  "schemaVersion": 2
 }
 record DataJobInputOutput {
 

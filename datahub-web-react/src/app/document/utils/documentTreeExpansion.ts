@@ -1,6 +1,14 @@
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
 
 /**
+ * Caps for section expand-all. Uncapped BFS + Promise.all freezes large libraries.
+ * Single-caret expand is unaffected (one node, one page of children).
+ */
+export const EXPAND_ALL_MAX_DEPTH = 3;
+export const EXPAND_ALL_MAX_FOLDERS = 75;
+export const EXPAND_ALL_CONCURRENCY = 6;
+
+/**
  * Collect the urns of every expandable node (a node that `hasChildren`) reachable
  * from `roots` through the already-loaded tree, including the roots themselves.
  *
@@ -8,9 +16,6 @@ import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
  * not been fetched yet still contribute their own urn (they are expandable), we
  * just can't see below them until they load. Drives section-level collapse-all
  * (which urns to clear) and the expand-state check below.
- *
- * @param roots - The section's root nodes to walk
- * @returns Urns of expandable nodes in depth-first order
  */
 export function collectExpandableUrns(roots: DocumentTreeNode[]): string[] {
     const urns: string[] = [];
@@ -25,41 +30,65 @@ export function collectExpandableUrns(roots: DocumentTreeNode[]): string[] {
 /**
  * True when any expandable node under `roots` is currently expanded. Drives the
  * section toggle glyph: collapse-all when something is open, expand-all otherwise.
- *
- * @param roots - The section's root nodes to walk
- * @param expandedUrns - The set of currently-expanded node urns
  */
 export function hasExpandedDescendant(roots: DocumentTreeNode[], expandedUrns: Set<string>): boolean {
     return collectExpandableUrns(roots).some((urn) => expandedUrns.has(urn));
 }
 
 interface ExpandAllFoldersArgs {
-    /** The section's root nodes to expand from. */
     roots: DocumentTreeNode[];
-    /** Loads (and returns) the freshly-fetched children of a parent urn. */
     loadChildren: (urn: string) => Promise<DocumentTreeNode[]>;
-    /** Invoked with each breadth-first level's urns so the caller can expand them. */
     onExpandLevel: (urns: string[]) => void;
+    /** When present, reuse already-loaded children instead of refetching. */
+    getLoadedChildren?: (urn: string) => DocumentTreeNode[] | undefined;
+    maxDepth?: number;
+    maxFolders?: number;
+    concurrency?: number;
+}
+
+export type ExpandAllFoldersResult = {
+    truncated: boolean;
+    foldersExpanded: number;
+};
+
+/** Run `fn` over `items` with at most `concurrency` in flight. */
+export async function mapPool<T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+    if (items.length === 0) return [];
+    const results: R[] = new Array(items.length);
+    let nextIndex = 0;
+
+    const worker = async () => {
+        while (nextIndex < items.length) {
+            const index = nextIndex;
+            nextIndex += 1;
+            // Sequential per worker so we never exceed `concurrency` in flight.
+            // eslint-disable-next-line no-await-in-loop
+            results[index] = await fn(items[index]);
+        }
+    };
+
+    const poolSize = Math.min(Math.max(1, concurrency), items.length);
+    await Promise.all(Array.from({ length: poolSize }, () => worker()));
+    return results;
 }
 
 /**
- * Breadth-first expand of every folder under `roots`, loading children one level
- * at a time.
- *
- * `loadChildren` returns the nodes it just loaded, so we discover the next level
- * of folders from its return value rather than reading back potentially-stale
- * tree state. `onExpandLevel` fires per level so expansion state updates as the
- * walk progresses (rather than in one batch at the end). A `seen` set makes the
- * walk resilient to repeats/cycles and prevents redundant fetches.
- *
- * @returns Resolves once the whole reachable folder subtree has been expanded.
+ * Breadth-first expand of folders under `roots`, capped by depth, folder count,
+ * and fetch concurrency so large libraries cannot freeze the sidebar.
  */
-export async function expandAllFolders({ roots, loadChildren, onExpandLevel }: ExpandAllFoldersArgs): Promise<void> {
+export async function expandAllFolders({
+    roots,
+    loadChildren,
+    onExpandLevel,
+    getLoadedChildren,
+    maxDepth = EXPAND_ALL_MAX_DEPTH,
+    maxFolders = EXPAND_ALL_MAX_FOLDERS,
+    concurrency = EXPAND_ALL_CONCURRENCY,
+}: ExpandAllFoldersArgs): Promise<ExpandAllFoldersResult> {
     const seen = new Set<string>();
+    let foldersExpanded = 0;
+    let truncated = false;
 
-    // Keep only urns we haven't queued before, marking them seen as we go. This
-    // dedupes both within a level (two parents sharing a child) and across levels
-    // (a folder reachable by more than one path), so each folder loads/expands once.
     const enqueue = (urns: string[]): string[] => {
         const fresh: string[] = [];
         urns.forEach((urn) => {
@@ -71,19 +100,51 @@ export async function expandAllFolders({ roots, loadChildren, onExpandLevel }: E
         return fresh;
     };
 
+    const resolveChildren = async (urn: string): Promise<DocumentTreeNode[]> => {
+        const loaded = getLoadedChildren?.(urn);
+        if (loaded !== undefined) return loaded;
+        return loadChildren(urn);
+    };
+
     let current = enqueue(roots.filter((node) => node.hasChildren).map((node) => node.urn));
+    let depth = 0;
 
     while (current.length > 0) {
+        if (depth >= maxDepth) {
+            truncated = true;
+            break;
+        }
+
+        const remaining = maxFolders - foldersExpanded;
+        if (remaining <= 0) {
+            truncated = true;
+            break;
+        }
+
+        if (current.length > remaining) {
+            truncated = true;
+            current = current.slice(0, remaining);
+        }
+
         onExpandLevel(current);
+        foldersExpanded += current.length;
 
         // eslint-disable-next-line no-await-in-loop
-        const results = await Promise.all(current.map((urn) => loadChildren(urn)));
+        const results = await mapPool(current, concurrency, resolveChildren);
         const candidates: string[] = [];
         results.forEach((children) => {
             children.forEach((child) => {
                 if (child.hasChildren) candidates.push(child.urn);
             });
         });
+
+        depth += 1;
         current = enqueue(candidates);
+        if (current.length > 0 && (depth >= maxDepth || foldersExpanded >= maxFolders)) {
+            truncated = true;
+            current = [];
+        }
     }
+
+    return { truncated, foldersExpanded };
 }

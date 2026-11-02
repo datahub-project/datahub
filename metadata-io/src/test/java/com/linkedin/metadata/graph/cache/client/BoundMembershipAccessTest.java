@@ -29,11 +29,13 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.graph.cache.EntityGraphBinding;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
+import com.linkedin.metadata.graph.cache.KnownEntityGraph;
 import com.linkedin.metadata.graph.cache.MembershipNeighborResult;
 import com.linkedin.metadata.graph.cache.ReadMissReason;
 import com.linkedin.metadata.graph.cache.ReadMode;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.ActorGroupMembershipService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -41,6 +43,7 @@ import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -62,6 +65,8 @@ public class BoundMembershipAccessTest {
   public void setUp() {
     spec = MembershipReadSpecs.membership(MEMBERSHIP_BINDING);
     entityGraphCache = mock(EntityGraphCache.class);
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.of(MEMBERSHIP_BINDING));
   }
 
   @Test
@@ -332,6 +337,31 @@ public class BoundMembershipAccessTest {
   }
 
   @Test
+  public void listRelatedSkipsCacheWhenKnownGraphUnbound() {
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.empty());
+
+    GraphRetriever graphRetriever = mock(GraphRetriever.class);
+    when(graphRetriever.scrollRelatedEntities(
+            any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), any(), any()))
+        .thenReturn(new RelatedEntitiesScrollResult(0, 0, null, List.of()));
+
+    OperationContext opContext = contextWithCache(entityGraphCache, graphRetriever);
+
+    BoundMembershipAccess.listRelated(
+        opContext,
+        spec,
+        USER,
+        TraversalDirection.FORWARD,
+        Set.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
+        0,
+        10);
+
+    verify(entityGraphCache, never())
+        .listRelated(any(), any(), any(), any(), any(), anyInt(), anyInt(), anyInt(), any());
+  }
+
+  @Test
   public void groupsForUserCollectsNeighborUrnsFromScrollFallback() {
     when(entityGraphCache.listRelated(
             any(), any(), any(), any(), any(), anyInt(), anyInt(), anyInt(), any()))
@@ -524,7 +554,7 @@ public class BoundMembershipAccessTest {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
             eq(Set.of(CORP_USER_ENTITY_NAME)),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of(CORP_GROUP_ENTITY_NAME)),
             any(),
             eq(spec.getGroupRelationshipTypes()),

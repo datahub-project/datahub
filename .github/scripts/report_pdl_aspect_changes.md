@@ -100,41 +100,47 @@ filtered to `*.pdl`. Files that exist on only one side (added or deleted) are st
 
 ### Step 3 — Classify each changed file
 
-For every changed file the classifier compares base vs. head content and emits findings against **five breaking-change criteria** plus **two `schemaVersion` anomalies**:
+For every changed file the classifier compares base vs. head content and emits findings against **six breaking-change criteria** plus **two `schemaVersion` anomalies**:
 
-| #   | Criterion                                                                 | Bucket   |
-| --- | ------------------------------------------------------------------------- | -------- |
-| 1   | Removed fields                                                            | breaking |
-| 2   | Renamed record without `@renamedFrom` annotation                          | breaking |
-| 3   | `optional → required` flip                                                | breaking |
-| 4   | Enum value removal                                                        | breaking |
-| 5   | Field type change                                                         | breaking |
-|     | Added required field                                                      | breaking |
-|     | **Structural change without `schemaVersion` bump**                        | breaking |
-|     | Added optional field                                                      | additive |
-|     | Added enum value                                                          | additive |
-|     | `required → optional` flip                                                | noisy    |
-|     | Renamed record **with** `@renamedFrom` annotation                         | noisy    |
-|     | **`schemaVersion` bump without structural change** (the PR #9579 pattern) | noisy    |
+| #   | Criterion                                                                                                                                                                                                                                                 | Bucket   | Bump required? |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------- |
+| 1   | Removed fields                                                                                                                                                                                                                                            | breaking | yes            |
+| 2   | Renamed record without `@renamedFrom` annotation                                                                                                                                                                                                          | breaking | yes            |
+| 3   | `optional → required` flip                                                                                                                                                                                                                                | breaking | yes            |
+| 4   | Enum value removal                                                                                                                                                                                                                                        | breaking | yes            |
+| 5   | Field type change                                                                                                                                                                                                                                         | breaking | yes            |
+| 6   | Changed/added/removed `@Searchable`, `@Relationship`, `@SearchableRef`, `@TimeseriesField`, or `@TimeseriesFieldCollection` on an existing field (reindex-relevant — see [bump_schema_versions.md](bump_schema_versions.md#reindex-relevant-annotations)) | breaking | yes            |
+|     | Added required field                                                                                                                                                                                                                                      | breaking | yes            |
+|     | **Breaking change without `schemaVersion` bump**                                                                                                                                                                                                          | breaking | (flag)         |
+|     | Added optional field                                                                                                                                                                                                                                      | additive | **no**         |
+|     | Added enum value                                                                                                                                                                                                                                          | additive | **no**         |
+|     | `required → optional` flip                                                                                                                                                                                                                                | noisy    | yes            |
+|     | Renamed record **with** `@renamedFrom` annotation                                                                                                                                                                                                         | noisy    | yes            |
+|     | **`schemaVersion` bump without bump-required change** (e.g. CorpUserInfo #18278)                                                                                                                                                                          | noisy    | — (spurious)   |
+|     | Changed a **non-whitelisted** field annotation (e.g. `@deprecated`, `@compliance`, `@UrnValidation`)                                                                                                                                                      | _(none)_ | no             |
+
+The table describes how changes are _labelled_. Whether a file's change is bump-required is decided by `bump_schema_versions.py`'s own rule, so the two tools always agree: a changed file needs a bump unless it is comment-only or backward-compatible per `is_backward_compatible_change`. That also covers changes the table does not list — an `includes` change, an `@Aspect` annotation change other than `schemaVersion`, or a construct the parser cannot model (e.g. `typeref`), which fails closed. When the bumper requires a bump the labels above did not explain, the finding states the reason.
 
 ### Step 4 — Walk the dependency graph (transitive impact)
 
-For each changed **non-aspect** record, the tool delegates to `bump_schema_versions.py`'s reverse-include graph + BFS to find every aspect that depends on the record via PDL `includes` OR field-type references. Those aspects are surfaced even if they weren't directly edited.
+For each changed file whose change is bump-required — aspect or not, exactly the files `bump_schema_versions.py` cascades from — the tool delegates to its reverse-include graph + BFS to find every aspect that depends on the file via PDL `includes` OR field-type references. Those aspects are surfaced even if they weren't directly edited. The graph is built from the PDL tree at `head` (via `git archive`), so a historical window sees the dependencies that existed at that commit, as the bumper did when it ran there.
 
 ### Step 5 — Reclassify directly-edited aspects
 
-Aspects that were both directly edited AND reached by the BFS get their `bump_status` re-evaluated with transitive context — so an aspect bumped _because_ a sibling non-aspect changed in the same PR is correctly classified as `bump_done` (legitimate), not `bump_spurious`.
+Aspects that were both directly edited AND reached by the BFS get their `bump_status` re-evaluated with transitive context — so an aspect bumped _because_ a record it depends on changed in the same PR is correctly classified as `bump_done` (legitimate), not `bump_spurious`.
 
 ### Step 6 — Per-aspect bump-status classification
 
 Each aspect ends with one of four bump statuses:
 
-| Status          | Trigger                                                                                  |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| `bump_done`     | `head schemaVersion > base AND a real change exists` (direct or transitive). Legitimate. |
-| `bump_needed`   | change exists but version NOT bumped — silent migration hazard.                          |
-| `bump_spurious` | version bumped with NO schema change at all (auto-bumper side-effect).                   |
-| `not_sure`      | version regressed (head < base) — manual review.                                         |
+| Status          | Trigger                                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
+| `bump_done`     | `head schemaVersion > base AND a bump-required (breaking) change exists` (direct or transitive).      |
+| `bump_needed`   | breaking change exists but version NOT bumped — silent migration hazard.                              |
+| `bump_spurious` | version bumped with NO bump-required change (auto-bumper side-effect; additive-only bumps land here). |
+| `not_sure`      | version regressed (head < base) — manual review.                                                      |
+
+Additive-only changes (new optional fields, new enum values) do **not** require a bump — previously-serialized aspects remain valid. Bumping for them is classified `bump_spurious` (see CorpUserInfo / #18278). This matches [`bump_schema_versions.py`](bump_schema_versions.md)'s backward-compatible skip.
 
 `schemaVersion` defaults to 1 when absent, matching [`bump_schema_versions.md`](bump_schema_versions.md) semantics.
 
@@ -153,7 +159,7 @@ Then per-bucket sections (each omitted when empty), in fixed order:
 | #   | Section                            | What lands here                                                                       | Bullet style          |
 | --- | ---------------------------------- | ------------------------------------------------------------------------------------- | --------------------- |
 | 1   | `## ⚠️ BREAKING`                   | Hits any of the 5 breaking criteria + structural-change-without-bump.                 | Full per-finding      |
-| 2   | `## Transitively affected aspects` | Aspects pulled in via include / field-type from a changed non-aspect record.          | Full per-finding      |
+| 2   | `## Transitively affected aspects` | Aspects pulled in via include / field-type from a changed record (aspect or not).     | Full per-finding      |
 | 3   | `## Additive`                      | New optional fields, new enum values, new files.                                      | Full per-finding      |
 | 4   | `## Noisy`                         | `required→optional` flips · `renamedFrom` renames · `schemaVersion` bumps w/o change. | Full per-finding      |
 | 5   | `## No logical change`             | File in git diff but no aspect-relevant difference (comment/whitespace).              | Collapsed (path only) |
@@ -358,8 +364,8 @@ If you want to keep the report alongside release notes, redirect `--output` to a
 
 - **Heuristic regex-based parsing.** The classifier does not use a full PDL grammar. Edge cases that aren't valid PDL (which would fail codegen anyway) are silently skipped — false negatives are not expected on syntactically-valid PDLs, but a future PDL syntax extension may require updates.
 - **PDL root pinned to `metadata-models/src/main/pegasus/`.** Other PDL sources (e.g. plugin modules) aren't scanned. `bump_schema_versions.py` supports `PDL_ROOTS`; if you set it, that override flows through.
-- **Transitive walk reads the working tree.** `find_transitively_affected_aspects` (in `bump_schema_versions.py`) walks files on disk, not at arbitrary git refs. The workflow always checks out the head ref, so the default invocation is safe; if you ever invoke with `--head <some-other-ref>` while the working tree is checked out elsewhere, the transitive closure reflects the checkout rather than `head`.
-- **Single-hop "affected via" labels.** When a transitively-affected aspect's content references the changed non-aspect directly, the trail names that record. For multi-hop chains (Aspect → Intermediate → ChangedRecord), the label falls back to a generic "transitive dependency" — the BFS still surfaces the aspect correctly, but the proximate-hop name isn't displayed.
+- **Field defaults count as changes.** `bump_schema_versions.py` strips a field default only at the very end of the field's type text, which misses the usual multi-line layout, so a default-only edit is treated as bump-required. The report shares that parser, so it reports the same.
+- **Single-hop "affected via" labels.** When a transitively-affected aspect's content references the changed record directly, the trail names that record. For multi-hop chains (Aspect → Intermediate → ChangedRecord), the label names the changed record the BFS started from, not the intermediate hop.
 - **Cumulative-diff classification.** Findings reflect the cumulative `base..head` diff, not per-PR slices. Wide windows can therefore mask per-PR `bump_spurious` cases when legitimate changes from other PRs in the window justify the same version bump. See [Choosing the window](#choosing-the-window-cumulative-diff-trade-offs) above for the full nuance and the recipe for true per-PR analysis.
 - **Read-only.** This script never writes under `metadata-models/`. Compare with `bump_schema_versions.py`, which rewrites `schemaVersion` annotations in place.
-- **Tests.** Coverage is in `.github/scripts/test/test_report_aspect_changes.py` (59 unit + smoke tests).
+- **Tests.** Coverage is in `.github/scripts/test/test_report_aspect_changes.py` (unit + smoke tests).

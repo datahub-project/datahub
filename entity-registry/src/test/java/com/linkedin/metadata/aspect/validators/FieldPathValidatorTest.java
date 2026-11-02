@@ -26,6 +26,7 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -194,6 +195,78 @@ public class FieldPathValidatorTest {
         Set.of(
             AspectValidationException.forItem(
                 testItem, "SchemaMetadata aspect has empty field path.")));
+  }
+
+  /** A patch item is validated from its own add/replace values at the request stage. */
+  @Test
+  public void testValidatePatchAddEmptyFieldPathRejected() {
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"/editableSchemaFieldInfo/col_a\",\"value\":{\"fieldPath\":\"\"}}]";
+    assertEquals(
+        test.validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestPatchMCP.of(TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testValidatePatchWholeAspectDuplicatesRejected() {
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"\",\"value\":"
+            + "{\"fields\":[{\"fieldPath\":\"col_a\"},{\"fieldPath\":\"col_a\"}]}}]";
+    assertEquals(
+        test.validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1);
+  }
+
+  /**
+   * With alternate MCP validation (the quickstart/docker default) a patch reaches the proposed hook
+   * as a raw proposal item, not a PatchMCP — the serialized patch must be read from the MCP payload
+   * itself.
+   */
+  @Test
+  public void testValidatePatchViaProposedItemShape() {
+    String serialized =
+        "{\"arrayPrimaryKeys\":{\"editableSchemaFieldInfo\":[\"fieldPath\"]},\"patch\":"
+            + "[{\"op\":\"add\",\"path\":\"/editableSchemaFieldInfo/col_a\","
+            + "\"value\":{\"fieldPath\":\"\"}}]}";
+    assertEquals(
+        test.validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestPatchMCP.ofProposed(
+                        TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, serialized)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1);
+  }
+
+  /** Sub-field ops (e.g. a tag under an existing field) and removes carry no field path. */
+  @Test
+  public void testValidatePatchSubFieldAndRemoveOpsIgnored() {
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"/editableSchemaFieldInfo/col_a/globalTags\","
+            + "\"value\":{\"tags\":[]}},"
+            + "{\"op\":\"remove\",\"path\":\"/editableSchemaFieldInfo/col_b\"}]";
+    assertEquals(
+        test.validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestPatchMCP.of(TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0);
   }
 
   private static SchemaMetadata getMockSchemaMetadataAspect(boolean duplicateFields) {

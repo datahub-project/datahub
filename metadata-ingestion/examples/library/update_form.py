@@ -1,4 +1,3 @@
-import logging
 from typing import Union
 
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
@@ -14,9 +13,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import FormUrn
 from datahub.specific.form import FormPatchBuilder
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 
 # Get an emitter, either REST or Kafka, this example shows you both

@@ -9,7 +9,6 @@ import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
-import { colors } from '@src/alchemy-components/theme';
 import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
@@ -45,7 +44,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
     .ant-tabs-tab {
         padding: 8px 0;
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.textSecondary};
         ${({ $tabBorderRadius }) => $tabBorderRadius && `border-radius: ${$tabBorderRadius};`};
     }
 
@@ -138,7 +137,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
         padding: 8px 8px;
         border-radius: ${({ $tabBorderRadius }) => $tabBorderRadius || '4px'};
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 
     ${({ $addPaddingLeft }) =>
@@ -192,17 +191,17 @@ const StyledTabsSecondary = styled(AntTabs)<{
         }
     }
 
-    ${({ $stickyHeader }) =>
+    ${({ $stickyHeader, theme }) =>
         $stickyHeader &&
         `
             .ant-tabs-nav::before {
                 display: none;
             }
-            
+    
             .ant-tabs-nav-wrap::before {
                 display: none;
             }
-            
+
             .ant-tabs-nav-list::after {
                 content: '';
                 position: absolute;
@@ -210,7 +209,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 left: 0;
                 right: 0;
                 height: 1px;
-                background-color: ${colors.gray[200]};
+                background-color: ${theme.colors.border};
             }
         `}
 
@@ -236,7 +235,7 @@ const TabViewWrapper = styled.div<{ $disabled?: boolean; $width?: string; $maxWi
     display: flex;
     align-items: center;
     gap: 4px;
-    ${({ $disabled }) => $disabled && `color: ${colors.gray[1800]};`}
+    ${({ $disabled, theme }) => $disabled && `color: ${theme.colors.textDisabled};`}
     ${({ $width }) => $width && `width: ${$width};`}
     ${({ $maxWidth }) => $maxWidth && `max-width: ${$maxWidth};`}
     ${({ $minWidth }) => $minWidth && `min-width: ${$minWidth};`}
@@ -338,6 +337,8 @@ export interface Tab {
     dataTestId?: string;
     disabled?: boolean;
     closable?: boolean;
+    /** Included in the tab error boundary reset keys so a new value clears a stuck fallback. */
+    errorResetKey?: string;
 }
 
 export interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
@@ -441,7 +442,7 @@ export function Tabs({
         ),
         disabled: tab.disabled,
         children: (
-            <ErrorBoundary resetKeys={[tab.key]} variant="tab">
+            <ErrorBoundary resetKeys={[tab.key, tab.errorResetKey ?? '']} variant="tab">
                 {tab.component}
             </ErrorBoundary>
         ),

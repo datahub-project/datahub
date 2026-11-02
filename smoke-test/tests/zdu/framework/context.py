@@ -401,6 +401,8 @@ class ValidationResult:
 
 @dataclass
 class TestContext:
+    __test__ = False
+
     gms_url: str = "http://localhost:8080"
 
     # BuildImagesPhase writes (Phase 0 — opt-in via ZDU_BUILD_IMAGES=1)

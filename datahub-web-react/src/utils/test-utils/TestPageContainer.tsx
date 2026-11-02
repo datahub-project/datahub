@@ -7,7 +7,6 @@ import { ItalicExtension, UnderlineExtension } from 'remirror/extensions';
 import buildEntityRegistryV2 from '@app/buildEntityRegistryV2';
 import UserContextProvider from '@app/context/UserContextProvider';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
 import { CLIENT_AUTH_COOKIE } from '@conf/Global';
 import AppConfigProvider from '@src/AppConfigProvider';
 import CustomThemeProvider from '@src/CustomThemeProvider';
@@ -44,26 +43,7 @@ export default ({ children, initialEntries }: Props) => {
                         <UserContextProvider>
                             <AppConfigProvider>
                                 <Remirror manager={manager} state={state}>
-                                    <LineageExplorerContext.Provider
-                                        value={{
-                                            expandTitles: false,
-                                            showColumns: false,
-                                            collapsedColumnsNodes: {},
-                                            setCollapsedColumnsNodes: null,
-                                            fineGrainedMap: {},
-                                            selectedField: null,
-                                            setSelectedField: () => {},
-                                            highlightedEdges: [],
-                                            setHighlightedEdges: () => {},
-                                            visibleColumnsByUrn: {},
-                                            setVisibleColumnsByUrn: () => {},
-                                            columnsByUrn: {},
-                                            setColumnsByUrn: () => {},
-                                            refetchCenterNode: () => {},
-                                        }}
-                                    >
-                                        {children}
-                                    </LineageExplorerContext.Provider>
+                                    {children}
                                 </Remirror>
                             </AppConfigProvider>
                         </UserContextProvider>

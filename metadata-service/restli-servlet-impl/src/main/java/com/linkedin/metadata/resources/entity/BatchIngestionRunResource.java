@@ -26,6 +26,7 @@ import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.run.IngestionRunSummaryArray;
 import com.linkedin.metadata.run.RollbackResponse;
+import com.linkedin.metadata.service.RollbackNotHandedOffException;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.parseq.Task;
@@ -90,7 +91,7 @@ public class BatchIngestionRunResource
       throws Exception {
 
       Authentication auth = AuthenticationContext.getAuthentication();
-      final OperationContext opContext = OperationContext.asSession(
+      final OperationContext opContext = RestliUtils.asSession(
               systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()).withUsageOperation(UsageOperation.OTHER_OPERATIONS), authorizer, auth, true);
 
 
@@ -112,7 +113,7 @@ public class BatchIngestionRunResource
           "Both Safe & hardDelete flags were defined, honouring safe flag as hardDelete is deprecated");
     }
     try {
-      return RestliUtils.toTask(systemOperationContext,
+      return RestliUtils.toTask(opContext,
           () -> {
 
               try {
@@ -124,10 +125,27 @@ public class BatchIngestionRunResource
           },
           MetricRegistry.name(this.getClass(), "rollback"));
     } catch (Exception e) {
-      rollbackService.updateExecutionRequestStatus(opContext, runId, ROLLBACK_FAILED_STATUS);
+      if (isNotHandedOff(e)) {
+        // Nothing started (e.g. this run is already rolling back): keep its status, and answer
+        // 409 so clients do not resend as they do on a 500.
+        throw new RestLiServiceException(HttpStatus.S_409_CONFLICT, e.getMessage(), e);
+      }
+      if (!Boolean.TRUE.equals(dryRun)) {
+        // A dry run rolls nothing back, so a failure there must not mark the run failed.
+        rollbackService.updateExecutionRequestStatus(opContext, runId, ROLLBACK_FAILED_STATUS);
+      }
       throw new RuntimeException(
           String.format("There was an issue rolling back ingestion run with runId %s", runId), e);
     }
+  }
+
+  private static boolean isNotHandedOff(@Nonnull final Throwable throwable) {
+    for (Throwable t = throwable; t != null; t = t.getCause()) {
+      if (t instanceof RollbackNotHandedOffException) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Retrieves the ingestion run summaries. */
@@ -140,13 +158,20 @@ public class BatchIngestionRunResource
       @ActionParam("includeSoft") @Optional @Nullable Boolean includeSoft) {
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
-    return RestliUtils.toTask(systemOperationContext,
-        () -> {
-          Authentication auth = AuthenticationContext.getAuthentication();
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          "list", List.of()).withUsageOperation(UsageOperation.OTHER_READ), authorizer, auth, true);
+    Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext =
+        RestliUtils.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildRestli(auth.getActor().toUrnStr(), getContext(), "list", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
+            authorizer,
+            auth,
+            true);
 
+    return RestliUtils.toTask(
+        opContext,
+        () -> {
           List<IngestionRunSummary> summaries =
               systemMetadataService.listRuns(
                   opContext,
@@ -170,21 +195,26 @@ public class BatchIngestionRunResource
       @ActionParam("includeAspect") @Optional @Nullable Boolean includeAspect) {
     log.info("DESCRIBE RUN runId: {}, start: {}, count: {}", runId, start, count);
 
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext =
+        RestliUtils.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildRestli(
+                    auth.getActor().toUrnStr(), getContext(), "describe", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
+            authorizer,
+            auth,
+            true);
+
+    if (!AuthUtil.isAPIAuthorized(opContext, ENTITY, READ)) {
+      throw new RestLiServiceException(
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
+    }
+
+    return RestliUtils.toTask(
+        opContext,
         () -> {
-
-            Authentication auth = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            "describe", List.of()).withUsageOperation(UsageOperation.OTHER_READ), authorizer, auth, true);
-
-            if (!AuthUtil.isAPIAuthorized(
-                    opContext,
-                    ENTITY, READ)) {
-                throw new RestLiServiceException(
-                        HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
-            }
-
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(
                   opContext, runId, includeSoft != null && includeSoft, start, count);
@@ -195,8 +225,8 @@ public class BatchIngestionRunResource
                   Urn urn = UrnUtils.getUrn(summary.getUrn());
                   try {
                     EnvelopedAspect aspect =
-                        entityService.getLatestEnvelopedAspect(opContext,
-                            urn.getEntityType(), urn, summary.getAspectName());
+                        entityService.getLatestEnvelopedAspect(
+                            opContext, urn.getEntityType(), urn, summary.getAspectName());
                     if (aspect == null) {
                       log.error("Aspect for summary {} not found", summary);
                     } else {

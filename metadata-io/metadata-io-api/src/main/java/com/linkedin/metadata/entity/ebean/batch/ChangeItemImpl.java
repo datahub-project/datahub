@@ -43,10 +43,19 @@ public class ChangeItemImpl implements ChangeMCP {
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate recordTemplate,
       GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
+      @Nonnull MetadataChangeProposal metadataChangeProposal,
+      @Nullable SystemMetadata systemMetadata,
       @Nonnull AuditStamp auditStamp,
       AspectRetriever aspectRetriever) {
+    // Keep the source PATCH MCP, as the template patch path does: its headers carry write
+    // preconditions (If-Version-Match, If-Unmodified-Since, ...) that pre-commit validators read.
     ChangeItemImplBuilder builder =
-        ChangeItemImpl.builder().urn(urn).auditStamp(auditStamp).aspectName(aspectSpec.getName());
+        ChangeItemImpl.builder()
+            .urn(urn)
+            .auditStamp(auditStamp)
+            .aspectName(aspectSpec.getName())
+            .metadataChangeProposal(metadataChangeProposal)
+            .systemMetadata(systemMetadata);
 
     RecordTemplate currentValue =
         recordTemplate != null ? recordTemplate : genericPatchTemplate.getDefault();
@@ -83,6 +92,9 @@ public class ChangeItemImpl implements ChangeMCP {
 
   @Setter @Nullable private SystemAspect previousSystemAspect;
   @Setter private long nextAspectVersion;
+  @Setter private boolean semanticNoOp;
+  @Setter private int semanticNoOpStrategyMask;
+  @Setter private long semanticNoOpProposedVersion;
   private final Map<String, String> headers;
 
   @Nonnull
@@ -197,6 +209,9 @@ public class ChangeItemImpl implements ChangeMCP {
           this.aspectSpec,
           this.previousSystemAspect,
           this.nextAspectVersion,
+          this.semanticNoOp,
+          this.semanticNoOpStrategyMask,
+          this.semanticNoOpProposedVersion,
           this.headers);
     }
 

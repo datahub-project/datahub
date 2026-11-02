@@ -75,12 +75,16 @@ class DataProductPatchBuilder(
         )
         return self
 
-    def add_asset(self, asset_urn: str) -> "DataProductPatchBuilder":
+    def add_asset(
+        self, asset_urn: str, output_port: bool = False
+    ) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
             path=("assets", asset_urn),
-            value=DataProductAssociation(destinationUrn=asset_urn),
+            value=DataProductAssociation(
+                destinationUrn=asset_urn, outputPort=output_port
+            ),
         )
         return self
 
@@ -99,5 +103,14 @@ class DataProductPatchBuilder(
             "add",
             path=("externalUrl",),
             value=external_url,
+        )
+        return self
+
+    def set_parent_data_product(self, parent_urn: str) -> "DataProductPatchBuilder":
+        self._add_patch(
+            DataProductProperties.ASPECT_NAME,
+            "add",
+            path=("parentDataProduct",),
+            value=parent_urn,
         )
         return self

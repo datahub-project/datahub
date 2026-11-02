@@ -65,7 +65,7 @@ def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     )
 
     # Note: the .airflowignore file skips the snowflake DAG.
-    dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
+    dag_bag = DagBag(dag_folder=str(airflow_examples_folder))
 
     import_errors = dag_bag.import_errors
 

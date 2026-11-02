@@ -261,7 +261,7 @@ class DltClient:
                 self.report.warning(
                     title="dlt SDK attach failed; using filesystem fallback",
                     message=(
-                        f"Could not attach to pipeline via dlt SDK ({type(e).__name__}: {e}). "
+                        "Could not attach to pipeline via dlt SDK. "
                         "Falling back to filesystem schema parsing — destination/dataset_name "
                         "may be incomplete. Verify dlt version compatibility."
                     ),
@@ -304,10 +304,7 @@ class DltClient:
             if self.report is not None:
                 self.report.warning(
                     title="Failed to read schema from dlt SDK",
-                    message=(
-                        f"Schema could not be converted from the dlt SDK object "
-                        f"({type(e).__name__}: {e}). Skipping."
-                    ),
+                    message="Schema could not be converted from the dlt SDK object. Skipping.",
                     context=schema_name,
                     exc=e,
                 )
@@ -355,7 +352,7 @@ class DltClient:
                     self.report.warning(
                         title="Failed to parse pipeline state.json",
                         message=(
-                            f"Could not parse state.json ({type(e).__name__}: {e}). "
+                            "Could not parse state.json. "
                             "destination and dataset_name will be empty — outlet lineage "
                             "will not be emitted for this pipeline."
                         ),
@@ -468,10 +465,7 @@ class DltClient:
             if self.report is not None:
                 self.report.warning(
                     title="Malformed _dlt_loads row",
-                    message=(
-                        f"Could not parse a row from _dlt_loads "
-                        f"({type(e).__name__}: {e}); skipping."
-                    ),
+                    message="Could not parse a row from _dlt_loads; skipping.",
                     context=f"pipeline={pipeline_name}, row={row!r}",
                     exc=e,
                 )
@@ -538,8 +532,7 @@ class DltClient:
                 self.report.warning(
                     title="Run history query failed",
                     message=(
-                        f"Exception while querying _dlt_loads "
-                        f"({type(e).__name__}: {e}). "
+                        "Exception while querying _dlt_loads. "
                         "Check destination credentials and see logs."
                     ),
                     context=pipeline_name,

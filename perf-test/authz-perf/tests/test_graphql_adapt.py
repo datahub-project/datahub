@@ -1,11 +1,10 @@
 from unittest.mock import MagicMock, patch
 
 from lib.graphql_adapt import (
-    GraphqlQueryRegistry,
     create_graphql_query_registry,
     setup_graphql_queries,
 )
-from lib.personas import BenchmarkPack, PersonaBenchmark, Scenario
+from lib.personas import BenchmarkPack
 from lib.query_spec import QuerySpec
 
 

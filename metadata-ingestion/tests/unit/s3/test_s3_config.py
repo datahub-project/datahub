@@ -1,6 +1,47 @@
 import pytest
+from pydantic import ValidationError
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.s3.source import S3Source
+
+
+def test_incorrect_config_raises_error():
+    """Reject invalid path specs at config time (bad table var, exclude var, unsupported
+    file type, ``**`` in include)."""
+    ctx = PipelineContext(run_id="test-s3")
+
+    # Baseline: valid config
+    source: dict = {
+        "path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table}"}
+    }
+    s3 = S3Source.create(source, ctx)
+    assert s3.source_config.platform == "file"
+
+    # Case 1 : named variable in table name is not present in include
+    source = {"path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table1}"}}
+    with pytest.raises(ValidationError, match="table_name"):
+        S3Source.create(source, ctx)
+
+    # Case 2 : named variable in exclude is not allowed
+    source = {
+        "path_spec": {
+            "include": "a/b/c/d/{table}/*.*",
+            "exclude": ["a/b/c/d/a-{exclude}/**"],
+        },
+    }
+    with pytest.raises(ValidationError, match=r"exclude.*named variable"):
+        S3Source.create(source, ctx)
+
+    # Case 3 : unsupported file type not allowed
+    source = {"path_spec": {"include": "a/b/c/d/{table}/*.hd5"}}
+    with pytest.raises(ValidationError, match="file type"):
+        S3Source.create(source, ctx)
+
+    # Case 4 : ** in include not allowed
+    source = {"path_spec": {"include": "a/b/c/d/**/*.*"}}
+    with pytest.raises(ValidationError, match=r"\*\*"):
+        S3Source.create(source, ctx)
 
 
 class TestS3Config:
@@ -53,3 +94,30 @@ class TestS3Config:
 
         error_msg = str(exc_info.value).lower()
         assert "s3 bucket tags" in error_msg and "platform is not s3" in error_msg
+
+    def test_enable_schema_inference_defaults_to_true(self):
+        config = DataLakeSourceConfig.parse_obj(
+            {"path_specs": [{"include": "s3://bucket/data/*.parquet"}]}
+        )
+        assert config.enable_schema_inference is True
+
+    def test_enable_schema_inference_can_be_disabled(self):
+        config = DataLakeSourceConfig.parse_obj(
+            {
+                "path_specs": [{"include": "s3://bucket/data/*.parquet"}],
+                "enable_schema_inference": False,
+            }
+        )
+        assert config.enable_schema_inference is False
+
+    def test_add_partition_columns_rejected_without_schema_inference(self):
+        with pytest.raises(
+            ValidationError, match="add_partition_columns_to_schema has no effect"
+        ):
+            DataLakeSourceConfig.parse_obj(
+                {
+                    "path_specs": [{"include": "s3://bucket/data/*.parquet"}],
+                    "enable_schema_inference": False,
+                    "add_partition_columns_to_schema": True,
+                }
+            )

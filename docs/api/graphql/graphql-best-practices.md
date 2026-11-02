@@ -701,7 +701,9 @@ Response:
 
 ### Limit Search Entity Types
 
-When querying for specific entities, enumerate only the entity types required using `types` , for example [`DATASET` , `CHART`]
+When querying for specific entities, enumerate only the entity types required using `types`, for example [`DATASET`, `CHART`].
+Omitting `types` uses the server's configured default search entity-type list (`SEARCH_DEFAULT_ENTITY_TYPES` /
+`elasticsearch.search.defaultEntityTypes`) — see [Default search entity types](../../how/search.md#default-search-entity-types).
 
 ### Limit Results
 

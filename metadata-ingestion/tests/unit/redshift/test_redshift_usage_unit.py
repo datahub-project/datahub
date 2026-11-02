@@ -13,7 +13,11 @@ from datahub.ingestion.source.redshift.usage import (
     RedshiftAccessEvent,
     RedshiftUsageExtractor,
 )
-from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
+    OperationClass,
+    OperationTypeClass,
+)
 
 ALL_TABLES: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {
     "dev": {
@@ -137,6 +141,57 @@ def test_access_event_normalizes_non_utc_aware_starttime():
 
 def test_usage_user_urn_blank_username_falls_back_to_unknown():
     assert str(_usage_extractor()._user_urn("")) == "urn:li:corpuser:unknown"
+
+
+def test_access_event_accepts_null_username():
+    # svl_user_info / SVV_USER_INFO are superuser/self-only, so a LEFT-joined username
+    # can be NULL. A required-str field would turn every such row into a validation skip.
+    event = RedshiftAccessEvent(
+        userid=7,
+        username=None,
+        query=1,
+        querytxt="select col_a from public.users",
+        tbl=1,
+        database="dev",
+        schema="public",
+        table="users",
+        starttime=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        endtime=datetime(2024, 1, 1, 12, 0, 1, tzinfo=timezone.utc),
+    )
+    assert event.username is None
+
+
+def test_usage_user_urn_none_username_falls_back_to_unknown():
+    assert str(_usage_extractor()._user_urn(None)) == "urn:li:corpuser:unknown"
+
+
+def test_operation_aspect_emitted_without_actor_when_user_unresolved():
+    # An unresolved user must NOT drop the operation: actor is optional, so emit the
+    # record with actor=None rather than losing the fact that the table was modified.
+    extractor = _usage_extractor(include_operational_stats=True)
+    event = RedshiftAccessEvent(
+        userid=7,
+        username=None,
+        query=1,
+        querytxt="insert into public.users values (1)",
+        tbl=1,
+        database="dev",
+        schema="public",
+        table="users",
+        operation_type="insert",
+        starttime=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        endtime=datetime(2024, 1, 1, 12, 0, 1, tzinfo=timezone.utc),
+    )
+    mcps = list(
+        extractor._gen_operation_aspect_workunits_from_access_events(
+            iter([event]), all_tables=ALL_TABLES
+        )
+    )
+    assert len(mcps) == 1
+    aspect = mcps[0].aspect
+    assert isinstance(aspect, OperationClass)
+    assert aspect.actor is None
+    assert aspect.operationType == OperationTypeClass.INSERT
 
 
 def test_usage_user_urn_strips_domain_when_email_already_present():

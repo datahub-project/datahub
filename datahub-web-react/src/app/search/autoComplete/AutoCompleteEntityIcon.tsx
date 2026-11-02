@@ -2,8 +2,8 @@ import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
 import { getPlatformName } from '@app/entity/shared/utils';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity } from '@types';

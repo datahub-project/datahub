@@ -63,6 +63,7 @@ export function useSearchDocuments(input: SearchDocumentsInput) {
                 rootOnly: input.rootOnly,
                 types: input.types,
                 sourceType,
+                states: input.states,
                 viewUrn,
             },
             includeParentDocuments: input.includeParentDocuments || false,

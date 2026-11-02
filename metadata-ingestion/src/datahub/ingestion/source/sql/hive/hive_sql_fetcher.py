@@ -13,9 +13,11 @@ string concatenation - no user data is ever interpolated into SQL strings.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional
+from types import TracebackType
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Connection, Engine
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.sql.hive.hive_metastore_config import HiveMetastore
@@ -264,15 +266,16 @@ class SQLAlchemyClient:
 
     def __init__(self, config: "HiveMetastore"):
         self.config = config
-        self._connection = None
+        self._engine: Optional[Engine] = None
+        self._connection: Optional[Connection] = None
 
     @property
-    def connection(self) -> Any:
+    def connection(self) -> Connection:
         """Lazy connection initialization."""
         if self._connection is None:
             url = self.config.get_sql_alchemy_url()
-            engine = create_engine(url, **self.config.options)
-            self._connection = engine.connect()
+            self._engine = create_engine(url, **self.config.options)
+            self._connection = self._engine.connect()
         return self._connection
 
     def execute_query(
@@ -290,15 +293,34 @@ class SQLAlchemyClient:
             results = self.connection.execute(sql, bind_params)
         else:
             results = self.connection.execute(sql)
-        # Convert Row objects to dicts for consistent interface
-        for row in results:
-            yield dict(row._mapping)
+        # Rows are streamed lazily, so release the cursor even if the caller raises or
+        # abandons iteration part-way; close() (or the context manager) handles the
+        # connection itself.
+        try:
+            for row in results:
+                yield dict(row._mapping)
+        finally:
+            results.close()
 
     def close(self) -> None:
         """Close the database connection."""
         if self._connection is not None:
             self._connection.close()
             self._connection = None
+        if self._engine is not None:
+            self._engine.dispose()
+            self._engine = None
+
+    def __enter__(self) -> "SQLAlchemyClient":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self.close()
 
 
 # =============================================================================
@@ -395,3 +417,14 @@ class SQLAlchemyDataFetcher:
     def close(self) -> None:
         """Close the database connection."""
         self._client.close()
+
+    def __enter__(self) -> "SQLAlchemyDataFetcher":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self.close()

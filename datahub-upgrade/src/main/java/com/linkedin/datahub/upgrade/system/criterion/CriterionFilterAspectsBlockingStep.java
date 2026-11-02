@@ -25,7 +25,6 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
@@ -181,94 +180,100 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
       java.util.concurrent.atomic.AtomicLong totalIngested =
           new java.util.concurrent.atomic.AtomicLong(0);
 
-      try (PartitionedStream<EbeanAspectV2> stream =
-          aspectDao.streamAspectBatches(context.opContext(), args)) {
-        stream
-            .partition(args.batchSize)
-            .forEach(
-                rawBatch -> {
-                  List<EbeanAspectV2> batchList = rawBatch.collect(Collectors.toList());
+      aspectDao.streamAspectBatches(
+          context.opContext(),
+          args,
+          stream -> {
+            stream
+                .partition(args.batchSize)
+                .forEach(
+                    rawBatch -> {
+                      List<EbeanAspectV2> batchList = rawBatch.collect(Collectors.toList());
 
-                  List<ChangeItemImpl> items =
-                      batchList.stream()
-                          .flatMap(
-                              ea ->
-                                  EntityUtils.toSystemAspectFromEbeanAspects(
-                                      opContext, opContext.getRetrieverContext(), Set.of(ea))
-                                      .stream())
-                          .map(
-                              CriterionFilterAspectsBlockingStep
-                                  ::prepareSystemAspectForBlockingIngest)
-                          .map(
-                              prepared ->
-                                  ChangeItemImpl.builder()
-                                      .changeType(ChangeType.UPSERT)
-                                      .urn(prepared.getUrn())
-                                      .entitySpec(prepared.getEntitySpec())
-                                      .aspectName(prepared.getAspectName())
-                                      .aspectSpec(prepared.getAspectSpec())
-                                      .recordTemplate(prepared.getRecordTemplate())
-                                      .auditStamp(prepared.getAuditStamp())
-                                      .systemMetadata(withAppSource(prepared.getSystemMetadata()))
-                                      .headers(
-                                          versionHeaders(prepared.getSystemMetadata().getVersion()))
-                                      .build(opContext.getAspectRetriever()))
-                          .collect(Collectors.toList());
+                      List<ChangeItemImpl> items =
+                          batchList.stream()
+                              .flatMap(
+                                  ea ->
+                                      EntityUtils.toSystemAspectFromEbeanAspects(
+                                          opContext, opContext.getRetrieverContext(), Set.of(ea))
+                                          .stream())
+                              .map(
+                                  CriterionFilterAspectsBlockingStep
+                                      ::prepareSystemAspectForBlockingIngest)
+                              .map(
+                                  prepared ->
+                                      ChangeItemImpl.builder()
+                                          .changeType(ChangeType.UPSERT)
+                                          .urn(prepared.getUrn())
+                                          .entitySpec(prepared.getEntitySpec())
+                                          .aspectName(prepared.getAspectName())
+                                          .aspectSpec(prepared.getAspectSpec())
+                                          .recordTemplate(prepared.getRecordTemplate())
+                                          .auditStamp(prepared.getAuditStamp())
+                                          .systemMetadata(
+                                              withAppSource(prepared.getSystemMetadata()))
+                                          .headers(
+                                              versionHeaders(
+                                                  prepared.getSystemMetadata().getVersion()))
+                                          .build(opContext.getAspectRetriever()))
+                              .collect(Collectors.toList());
 
-                  AspectsBatch aspectsBatch =
-                      AspectsBatchImpl.builder()
-                          .retrieverContext(opContext.getRetrieverContext())
-                          .items(items)
-                          .build(opContext);
+                      AspectsBatch aspectsBatch =
+                          AspectsBatchImpl.builder()
+                              .retrieverContext(opContext.getRetrieverContext())
+                              .items(items)
+                              .build(opContext);
 
-                  if (!aspectsBatch.getItems().isEmpty()) {
-                    // Re-ingest like GenerateSchemaFieldsFromSchemaMetadataStep: persist MCPs to
-                    // local DB then emit MCLs (emitMCL=true, overwrite=false).
-                    entityService.ingestAspects(opContext, aspectsBatch, true, false);
-                    totalIngested.addAndGet(aspectsBatch.getItems().size());
-                    log.info(
-                        "{}: Re-ingested {} aspect row(s) in batch (DB + MCL).",
-                        id(),
-                        items.size());
-                  }
+                      if (!aspectsBatch.getItems().isEmpty()) {
+                        // Re-ingest like GenerateSchemaFieldsFromSchemaMetadataStep: persist MCPs
+                        // to
+                        // local DB then emit MCLs (emitMCL=true, overwrite=false).
+                        entityService.ingestAspects(opContext, aspectsBatch, true, false);
+                        totalIngested.addAndGet(aspectsBatch.getItems().size());
+                        log.info(
+                            "{}: Re-ingested {} aspect row(s) in batch (DB + MCL).",
+                            id(),
+                            items.size());
+                      }
 
-                  Urn lastUrn =
-                      aspectsBatch.getItems().stream()
-                          .reduce((a, b) -> b)
-                          .map(ReadItem::getUrn)
-                          .orElse(null);
-                  if (lastUrn != null) {
-                    log.info("{}: Saving state. Last urn:{}", getUpgradeIdUrn(), lastUrn);
-                    context
-                        .upgrade()
-                        .setUpgradeResult(
-                            opContext,
-                            getUpgradeIdUrn(),
-                            entityService,
-                            DataHubUpgradeState.IN_PROGRESS,
-                            Map.of(LAST_URN_KEY, lastUrn.toString()));
-                  } else if (!batchList.isEmpty()) {
-                    String lastUrnStr = batchList.get(batchList.size() - 1).getKey().getUrn();
-                    log.info("{}: Saving state. Last urn: {}", getUpgradeIdUrn(), lastUrnStr);
-                    context
-                        .upgrade()
-                        .setUpgradeResult(
-                            opContext,
-                            getUpgradeIdUrn(),
-                            entityService,
-                            DataHubUpgradeState.IN_PROGRESS,
-                            Map.of(LAST_URN_KEY, lastUrnStr));
-                  }
+                      Urn lastUrn =
+                          aspectsBatch.getItems().stream()
+                              .reduce((a, b) -> b)
+                              .map(ReadItem::getUrn)
+                              .orElse(null);
+                      if (lastUrn != null) {
+                        log.info("{}: Saving state. Last urn:{}", getUpgradeIdUrn(), lastUrn);
+                        context
+                            .upgrade()
+                            .setUpgradeResult(
+                                opContext,
+                                getUpgradeIdUrn(),
+                                entityService,
+                                DataHubUpgradeState.IN_PROGRESS,
+                                Map.of(LAST_URN_KEY, lastUrn.toString()));
+                      } else if (!batchList.isEmpty()) {
+                        String lastUrnStr = batchList.get(batchList.size() - 1).getKey().getUrn();
+                        log.info("{}: Saving state. Last urn: {}", getUpgradeIdUrn(), lastUrnStr);
+                        context
+                            .upgrade()
+                            .setUpgradeResult(
+                                opContext,
+                                getUpgradeIdUrn(),
+                                entityService,
+                                DataHubUpgradeState.IN_PROGRESS,
+                                Map.of(LAST_URN_KEY, lastUrnStr));
+                      }
 
-                  if (batchDelayMs > 0) {
-                    try {
-                      Thread.sleep(batchDelayMs);
-                    } catch (InterruptedException e) {
-                      throw new RuntimeException(e);
-                    }
-                  }
-                });
-      }
+                      if (batchDelayMs > 0) {
+                        try {
+                          Thread.sleep(batchDelayMs);
+                        } catch (InterruptedException e) {
+                          throw new RuntimeException(e);
+                        }
+                      }
+                    });
+            return null;
+          });
 
       log.info("{}: Sweep complete. Total aspect rows re-ingested: {}.", id(), totalIngested.get());
       BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);

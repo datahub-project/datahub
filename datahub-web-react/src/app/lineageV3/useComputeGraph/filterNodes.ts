@@ -12,6 +12,7 @@ import {
     parseEdgeId,
     setDefault,
 } from '@app/lineageV3/common';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -30,6 +31,7 @@ type ContextSubset = Pick<NodeContext, 'nodes' | 'edges' | 'adjacencyList'>;
 export default function hideNodes(
     rootUrn: string,
     rootType: EntityType,
+    entityRegistry: EntityRegistry,
     { hideTransformations, hideDataProcessInstances, hideGhostEntities, ignoreSchemaFieldStatus }: HideNodesConfig,
     { nodes, edges, adjacencyList }: ContextSubset,
     filter?: (node: LineageEntity) => boolean,
@@ -62,7 +64,7 @@ export default function hideNodes(
         newNodes = new Map(
             Array.from(newNodes).filter(([urn, node]) => urn === rootUrn || !isTransformational(node, rootType)),
         );
-        ({ newEdges, newAdjacencyList } = connectEdges(rootUrn, {
+        ({ newEdges, newAdjacencyList } = connectEdges(rootUrn, entityRegistry, {
             nodes: newNodes,
             edges: newEdges,
             adjacencyList: newAdjacencyList,
@@ -76,7 +78,7 @@ export default function hideNodes(
                 ([urn, node]) => urn === rootUrn || node.type !== EntityType.DataProcessInstance,
             ),
         );
-        ({ newEdges, newAdjacencyList } = connectEdges(rootUrn, {
+        ({ newEdges, newAdjacencyList } = connectEdges(rootUrn, entityRegistry, {
             nodes: newNodes,
             edges: newEdges,
             adjacencyList: newAdjacencyList,
@@ -119,7 +121,7 @@ function pruneEdges({ nodes, edges }: ContextSubset) {
 /**
  * Return new adjacency list and edge map, connecting edges through the removed nodes.
  */
-function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextSubset) {
+function connectEdges(rootUrn: string, entityRegistry: EntityRegistry, { nodes, edges, adjacencyList }: ContextSubset) {
     const seen = new Set<string>();
     const intermediateAdjacencyList: NodeContext['adjacencyList'] = {
         [LineageDirection.Upstream]: new Map(),
@@ -134,7 +136,7 @@ function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextS
         seen.add(id);
 
         adjacencyList[direction].get(id)?.forEach((neighbor) => {
-            if (isUrnQuery(neighbor)) {
+            if (isUrnQuery(neighbor, entityRegistry)) {
                 return;
             }
             if (nodes.has(neighbor)) {

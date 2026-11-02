@@ -1,7 +1,9 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -97,6 +99,11 @@ public class CleanIndicesStepTest {
     when(upgradeContext.opContext()).thenReturn(opContext);
     when(upgradeContext.upgrade()).thenReturn(upgrade);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(reindexConfig));
+    when(reindexConfig.name()).thenReturn("datasetindex_v2");
+    ESIndexBuilder indexBuilder = mock(ESIndexBuilder.class);
+    when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
+    doReturn(searchClient).when(indexBuilder).getSearchClient();
 
     Map<String, String> phase1State =
         IncrementalReindexState.setPhase1State(

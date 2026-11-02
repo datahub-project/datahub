@@ -1,4 +1,3 @@
-import { Icon } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Placeholder } from '@phosphor-icons/react/dist/csr/Placeholder';
@@ -6,9 +5,11 @@ import { Skeleton } from 'antd';
 import React, { HTMLAttributes, forwardRef } from 'react';
 import styled from 'styled-components';
 
+import { Icon } from '@components/components/Icon';
+
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { LINEAGE_HANDLE_OFFSET } from '@app/lineageV3/common';
 import MultiLineSkeleton from '@app/lineageV3/components/MultiLineSkeleton';
+import { LINEAGE_HANDLE_OFFSET } from '@app/lineageV3/lineageLayout';
 import { GenericPropertiesContextPath } from '@app/previewV2/ContextPath';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 
@@ -159,6 +160,9 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
     name: string;
     nameExtra?: React.ReactNode;
     nameHighlight?: { text: string; color: string };
+
+    // Rendered when there are no platform icons
+    typeIcon?: React.ReactNode;
     platformIcons: string[];
     menuActions?: React.ReactNode[];
 
@@ -185,6 +189,7 @@ function LineageCard(
         name,
         nameExtra,
         nameHighlight,
+        typeIcon,
         platformIcons,
         menuActions,
         extraDetails,
@@ -204,6 +209,7 @@ function LineageCard(
             ) : (
                 <CardWrapper {...props} ref={ref}>
                     <PlatformIconsWrapper>
+                        {platformIcons.length === 0 && typeIcon}
                         {platformIcons.map((icon) => (
                             /* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) internal alt fallback, not user-facing */
                             <PlatformIcon key={icon} src={icon} alt="Platform" />

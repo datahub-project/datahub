@@ -17,6 +17,7 @@ import requests
 from typing_extensions import deprecated
 
 from datahub._codegen.aspect import _Aspect
+from datahub.configuration.common import OperationalError
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.filters import RawSearchFilter, RawSearchFilterRule
@@ -137,7 +138,14 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         entities: List[Dict[str, Any]],
         with_system_metadata: bool,
         context: str = "response",
+        allow_empty: bool = False,
     ) -> Dict[str, EntityAspects]:
+        """Deserialize entity dicts into typed aspects keyed by urn.
+
+        By default, entities that come back with no (deserializable) aspects are
+        dropped. Set ``allow_empty=True`` to keep them as urn -> {} — useful when
+        scrolling without requesting aspects, where the server returns urns only.
+        """
         result: Dict[str, EntityAspects] = {}
         for entity in entities:
             entity_urn = entity.get("urn")
@@ -184,7 +192,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
                     logger.error(f"Error deserializing aspect {aspect_name}: {e}")
                     raise
 
-            if entity_aspects:
+            if entity_aspects or allow_empty:
                 result[entity_urn] = entity_aspects
 
         return result
@@ -248,7 +256,9 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         Args:
             entity_names: Entity type names to restrict results to (e.g. ["dataset", "dashboard"]).
                 If None or empty, all entity types are returned.
-            aspects: Aspect names to include in the response. If None, all aspects are returned.
+            aspects: Aspect names to include in the response. If None, no aspects are fetched and
+                only urns are returned (see allow_empty). Pass an empty list to fetch all aspects,
+                or a specific list to fetch just those.
             count: Number of results per page.
             query: Search query string.
             scroll_id: Pagination cursor from a previous scroll response.
@@ -320,6 +330,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
                 resp_json.get("entities", []),
                 with_system_metadata=bool(with_system_metadata),
                 context="scroll response",
+                allow_empty=aspects is None,
             ),
             total_count=resp_json.get("totalCount", 0),
         )
@@ -571,22 +582,29 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         self,
     ) -> dict:
         """
-        Get Kafka consumer offsets from the DataHub API.
+        Get consumer offsets and lag from the DataHub API.
 
-        Args:
-            graph (DataHubGraph): The DataHub graph client
-
+        Tries the transport-neutral messaging endpoints first; falls back to the
+        deprecated kafka endpoints on servers that do not have them.
         """
-        urls = {
-            "mcp": f"{self.config.server}/openapi/operations/kafka/mcp/consumer/offsets",
-            "mcl": f"{self.config.server}/openapi/operations/kafka/mcl/consumer/offsets",
-            "mcl-timeseries": f"{self.config.server}/openapi/operations/kafka/mcl-timeseries/consumer/offsets",
-        }
-
         params = {"skipCache": "true", "detailed": "true"}
         results = {}
-        for key, url in urls.items():
-            response = self._get_generic(url=url, params=params)
+        for key in ("mcp", "mcl", "mcl-timeseries"):
+            url = (
+                f"{self.config.server}/openapi/operations/messaging/{key}/consumer/lag"
+            )
+            try:
+                response = self._get_generic(url=url, params=params)
+            except OperationalError as e:
+                cause = e.__cause__
+                status = getattr(getattr(cause, "response", None), "status_code", None)
+                if status not in (404, 405):
+                    raise
+                legacy_url = f"{self.config.server}/openapi/operations/kafka/{key}/consumer/offsets"
+                logger.debug(
+                    f"Messaging endpoint {url} returned {status}; falling back to {legacy_url}"
+                )
+                response = self._get_generic(url=legacy_url, params=params)
             results[key] = response
             if "errors" in response:
                 logger.error(f"Error: {response['errors']}")

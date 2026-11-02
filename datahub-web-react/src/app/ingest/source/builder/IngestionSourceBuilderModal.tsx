@@ -1,6 +1,6 @@
 import { Modal, Steps, Typography } from 'antd';
 import i18next from 'i18next';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 

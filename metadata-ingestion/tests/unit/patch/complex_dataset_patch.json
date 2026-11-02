@@ -32,10 +32,7 @@
     "aspect": {
         "json": {
             "arrayPrimaryKeys": {
-                "tags": [
-                    "attribution\u241fsource",
-                    "tag"
-                ]
+                "tags": ["attribution\u241fsource", "tag"]
             },
             "patch": [
                 {
@@ -104,11 +101,6 @@
     "aspectName": "editableSchemaMetadata",
     "aspect": {
         "json": [
-            {
-                "op": "add",
-                "path": "/editableSchemaFieldInfo/field1/fieldPath",
-                "value": "field1"
-            },
             {
                 "op": "add",
                 "path": "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag1",

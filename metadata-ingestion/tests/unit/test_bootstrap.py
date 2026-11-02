@@ -6,7 +6,19 @@ infrastructure (logging filter + exception hook). Secret discovery happens
 automatically at point-of-read (config expansion, Pydantic validation).
 """
 
+import logging
+import sys
+import threading
+from io import StringIO
 from unittest.mock import patch
+
+from datahub.masking.bootstrap import (
+    initialize_secret_masking,
+    shutdown_secret_masking,
+)
+from datahub.masking.logging_utils import get_masking_safe_logger
+from datahub.masking.masking_filter import SecretMaskingFilter, StreamMaskingWrapper
+from datahub.masking.secret_registry import SecretRegistry
 
 
 class TestBootstrapErrorHandling:
@@ -58,7 +70,7 @@ class TestBootstrapErrorHandling:
             # Second attempt: simulate success
             with patch("datahub.masking.bootstrap.install_masking_filter"):
                 # This time it succeeds (no side_effect)
-                initialize_secret_masking(force=True)
+                initialize_secret_masking()
 
                 # Verify initialization succeeded
                 assert is_bootstrapped(), (
@@ -112,324 +124,131 @@ class TestBootstrapErrorHandling:
         finally:
             shutdown_secret_masking()
 
-    def test_bootstrap_thread_safety(self):
-        """
-        Verify that initialize_secret_masking is thread-safe.
-
-        Test that when multiple threads call initialize_secret_masking()
-        simultaneously, only one thread performs the actual initialization.
-
-        Without the lock, this test would fail because:
-        - Multiple filters would be installed
-        - Streams would be double-wrapped
-        - Initialization would run multiple times
-        """
-        import threading
-        import time
-
-        from datahub.masking.bootstrap import (
-            initialize_secret_masking,
-            shutdown_secret_masking,
-        )
-
+    def test_concurrent_initialization_is_idempotent(self):
+        probe_handler = logging.NullHandler()
+        logging.getLogger().addHandler(probe_handler)
         try:
-            # Start clean
-            shutdown_secret_masking()
+            threads = [
+                threading.Thread(target=initialize_secret_masking) for _ in range(10)
+            ]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(timeout=5.0)
+                assert not t.is_alive()
 
-            # Track how many times the actual initialization code runs
-            init_counter = {"count": 0}
-            lock = threading.Lock()
-
-            def counting_install(*args, **kwargs):
-                with lock:
-                    init_counter["count"] += 1
-                # Simulate some work
-                time.sleep(0.01)  # Make race condition more likely
-
-            with patch(
-                "datahub.masking.bootstrap.install_masking_filter",
-                counting_install,
-            ):
-                # Launch 10 threads that all try to initialize simultaneously
-                num_threads = 10
-                threads = []
-
-                for i in range(num_threads):
-                    t = threading.Thread(
-                        target=initialize_secret_masking, name=f"InitThread-{i}"
-                    )
-                    threads.append(t)
-
-                # Start all threads at roughly the same time
-                for t in threads:
-                    t.start()
-
-                # Wait for all threads to complete
-                for t in threads:
-                    t.join(timeout=5.0)
-                    assert not t.is_alive(), f"Thread {t.name} timed out"
-
-            # Critical assertion: should only initialize ONCE, not 10 times
-            assert init_counter["count"] == 1, (
-                f"Expected initialization to run exactly 1 time, but it ran {init_counter['count']} times. "
-                f"This indicates a race condition - the lock is not working correctly!"
-            )
-
+            masking_filters = [
+                f for f in probe_handler.filters if isinstance(f, SecretMaskingFilter)
+            ]
+            assert len(masking_filters) == 1
+            assert isinstance(sys.stdout, StreamMaskingWrapper)
+            assert not isinstance(sys.stdout._original, StreamMaskingWrapper)
         finally:
-            shutdown_secret_masking()
-
-    def test_bootstrap_concurrent_with_force(self):
-        """
-        Verify thread safety when force=True is used.
-
-        When force=True, initialization should run even if already completed,
-        but it should still be thread-safe (only one thread at a time).
-        """
-        import threading
-        import time
-
-        from datahub.masking.bootstrap import (
-            initialize_secret_masking,
-            shutdown_secret_masking,
-        )
-
-        try:
-            shutdown_secret_masking()
-
-            # First initialization
-            with patch("datahub.masking.bootstrap.install_masking_filter"):
-                initialize_secret_masking()
-
-            # Track calls with force=True
-            init_counter = {"count": 0}
-            lock = threading.Lock()
-
-            def counting_install(*args, **kwargs):
-                with lock:
-                    init_counter["count"] += 1
-                time.sleep(0.01)
-
-            with patch(
-                "datahub.masking.bootstrap.install_masking_filter",
-                counting_install,
-            ):
-                # Launch threads with force=True
-                threads = []
-                for i in range(5):
-                    t = threading.Thread(
-                        target=lambda: initialize_secret_masking(force=True),
-                        name=f"ForceThread-{i}",
-                    )
-                    threads.append(t)
-
-                for t in threads:
-                    t.start()
-
-                for t in threads:
-                    t.join(timeout=5.0)
-
-            # With force=True, all threads should initialize (sequentially)
-            # This is expected behavior - force=True bypasses the completion check
-            # The lock ensures they run sequentially, not concurrently
-            assert init_counter["count"] == 5, (
-                f"Expected 5 initializations with force=True, got {init_counter['count']}"
-            )
-
-        finally:
-            shutdown_secret_masking()
+            logging.getLogger().removeHandler(probe_handler)
 
 
 class TestExceptionHookOptimization:
     """Test exception hook filter reuse optimization."""
 
-    def test_exception_hook_reuses_filter(self):
-        """
-        Verify exception hook reuses filter instance for better performance
-        and proper circuit breaker behavior.
+    def test_exception_hook_reuses_installed_filter(self):
+        SecretRegistry.get_instance().register_secret("TEST_SECRET", "secret123")
 
-        Critical: If a new filter is created every time, the circuit breaker
-        failure count resets to 0, defeating the circuit breaker mechanism.
-        """
-        from datahub.masking.bootstrap import (
-            _install_exception_hook,
-            shutdown_secret_masking,
-        )
-        from datahub.masking.masking_filter import SecretMaskingFilter
-        from datahub.masking.secret_registry import SecretRegistry
+        created_filters = []
+        original_init = SecretMaskingFilter.__init__
 
-        try:
-            shutdown_secret_masking()
-            registry = SecretRegistry.get_instance()
-            registry.register_secret("TEST_SECRET", "secret123")
+        def track_init(self, *args, **kwargs):
+            created_filters.append(self)
+            return original_init(self, *args, **kwargs)
 
-            # Track how many filter instances are created
-            filter_instances = []
-            original_init = SecretMaskingFilter.__init__
+        with patch.object(SecretMaskingFilter, "__init__", track_init):
+            initialize_secret_masking()
+            assert len(created_filters) == 1
 
-            def track_init(self, *args, **kwargs):
-                filter_instances.append(self)
-                return original_init(self, *args, **kwargs)
-
-            with patch.object(SecretMaskingFilter, "__init__", track_init):
-                # Install exception hook
-                _install_exception_hook(registry)
-
-                # Verify only ONE filter was created during installation
-                assert len(filter_instances) == 1, (
-                    f"Expected 1 filter instance during installation, got {len(filter_instances)}"
-                )
-
-                initial_count = len(filter_instances)
-
-                # Simulate exception hook being called multiple times
-                # Get the installed hook
-                import sys
-
-                current_hook = sys.excepthook
-
-                # Trigger the hook 5 times
-                for i in range(5):
-                    try:
-                        raise ValueError(f"Test exception {i} with secret123")
-                    except ValueError as e:
-                        # Call the hook directly
-                        current_hook(ValueError, e, e.__traceback__)
-
-                # Verify NO additional filters were created
-                assert len(filter_instances) == initial_count, (
-                    f"Filter instances increased from {initial_count} to {len(filter_instances)}. "
-                    f"Exception hook is creating new filters instead of reusing! "
-                    f"This defeats the circuit breaker mechanism."
-                )
-
-        finally:
-            shutdown_secret_masking()
-
-    def test_exception_hook_circuit_breaker_persistence(self):
-        """
-        Verify that circuit breaker state persists across exception hook calls.
-
-        With filter reuse, failures accumulate and circuit opens.
-        Without filter reuse, failures reset to 0 each time (broken).
-        """
-        import sys
-
-        from datahub.masking.bootstrap import (
-            _install_exception_hook,
-            shutdown_secret_masking,
-        )
-        from datahub.masking.masking_filter import SecretMaskingFilter
-        from datahub.masking.secret_registry import SecretRegistry
-
-        try:
-            shutdown_secret_masking()
-            registry = SecretRegistry.get_instance()
-
-            # Track the filter instance
-            captured_filter = None
-
-            original_init = SecretMaskingFilter.__init__
-
-            def capture_init(self, *args, **kwargs):
-                nonlocal captured_filter
-                result = original_init(self, *args, **kwargs)
-                if captured_filter is None:
-                    captured_filter = self
-                return result
-
-            with patch.object(SecretMaskingFilter, "__init__", capture_init):
-                # Install exception hook
-                _install_exception_hook(registry)
-
-                # Get the filter that was created
-                assert captured_filter is not None, "Filter should have been created"
-
-                # Check initial circuit breaker state
-                assert captured_filter._failure_count == 0, (
-                    "Should start with 0 failures"
-                )
-                assert not captured_filter._circuit_open, "Circuit should be closed"
-
-                # Simulate a masking failure by making mask_text raise exception
-                def failing_mask(text):
-                    captured_filter._failure_count += 1
-                    if captured_filter._failure_count >= captured_filter._max_failures:
-                        captured_filter._circuit_open = True
-                    raise Exception("Simulated masking failure")
-
-                # Patch mask_text to simulate failures
-                with patch.object(captured_filter, "mask_text", failing_mask):
-                    # Get the installed hook
-                    current_hook = sys.excepthook
-
-                    # Trigger exceptions to accumulate failures
-                    for i in range(12):
-                        try:
-                            raise ValueError(f"Test {i}")
-                        except ValueError as e:
-                            try:
-                                current_hook(ValueError, e, e.__traceback__)
-                            except Exception:
-                                pass  # Hook may fail, that's expected
-
-                # Verify failures accumulated (circuit breaker triggered)
-                assert captured_filter._failure_count >= 10, (
-                    f"Expected at least 10 failures to accumulate, got {captured_filter._failure_count}. "
-                    f"This indicates filter is NOT being reused!"
-                )
-
-        finally:
-            shutdown_secret_masking()
-
-    def test_exception_hook_updates_secrets(self):
-        """
-        Verify that reused filter detects and uses newly registered secrets.
-
-        The filter checks version on every call, so even though it's reused,
-        it will pick up new secrets registered after hook installation.
-        """
-        import sys
-
-        from datahub.masking.bootstrap import (
-            _install_exception_hook,
-            shutdown_secret_masking,
-        )
-        from datahub.masking.secret_registry import SecretRegistry
-
-        try:
-            shutdown_secret_masking()
-            registry = SecretRegistry.get_instance()
-
-            # Install hook with one secret
-            registry.register_secret("SECRET1", "value123")
-            _install_exception_hook(registry)
-
-            # Add a new secret AFTER hook installation
-            registry.register_secret("SECRET2", "value456")
-
-            # Get the installed hook
             current_hook = sys.excepthook
-
-            # Capture what the hook produces
-            masked_output = []
-
-            def capture_hook(exc_type, exc_value, exc_traceback):
-                # Capture the masked exception value
-                if exc_value and hasattr(exc_value, "args"):
-                    masked_output.append(exc_value.args[0] if exc_value.args else "")
-
-            with patch.object(sys, "excepthook", current_hook):
-                # Trigger exception with BOTH secrets
+            for i in range(5):
                 try:
-                    raise ValueError("Contains value123 and value456")
+                    raise ValueError(f"Test exception {i} with secret123")
                 except ValueError as e:
-                    # Call the masking hook
                     current_hook(ValueError, e, e.__traceback__)
 
-            # The hook should have masked BOTH secrets even though SECRET2
-            # was added after installation (because filter checks version)
-            # Note: This test verifies the mechanism exists, actual masking
-            # behavior is tested in test_masking_filter.py
+            assert len(created_filters) == 1
 
+    def test_exception_hook_masks_secrets_registered_after_installation(self):
+        registry = SecretRegistry.get_instance()
+        registry.register_secret("SECRET1", "value123")
+        initialize_secret_masking()
+        registry.register_secret("SECRET2", "value456")
+
+        current_hook = sys.excepthook
+        captured = StringIO()
+        original_stderr = sys.stderr
+        sys.stderr = captured
+        try:
+            try:
+                raise ValueError("Contains value123 and value456")
+            except ValueError as e:
+                current_hook(ValueError, e, e.__traceback__)
         finally:
+            sys.stderr = original_stderr
+
+        output = captured.getvalue()
+        assert "value123" not in output
+        assert "value456" not in output
+        assert "***REDACTED:SECRET1***" in output
+        assert "***REDACTED:SECRET2***" in output
+
+
+class TestProcessLifetimeMasking:
+    def test_shutdown_does_not_unmask_concurrent_use(self):
+        sink = StringIO()
+        probe_handler = logging.StreamHandler(sink)
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            initialize_secret_masking()
+            SecretRegistry.get_instance().register_secret("DB_PASS", "hunter2secret")
+
             shutdown_secret_masking()
+
+            logging.getLogger("myapp.connector").error("pw=hunter2secret")
+            assert "hunter2secret" not in sink.getvalue()
+            assert "***REDACTED:DB_PASS***" in sink.getvalue()
+            assert SecretRegistry.get_instance().has_secret("DB_PASS")
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
+
+    def test_propagated_child_logger_records_are_masked(self):
+        sink = StringIO()
+        probe_handler = logging.StreamHandler(sink)
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            initialize_secret_masking()
+            SecretRegistry.get_instance().register_secret("TOKEN", "tok-abc-123")
+
+            logging.getLogger("myapp.database.connection").error(
+                "connecting with tok-abc-123"
+            )
+            assert "tok-abc-123" not in sink.getvalue()
+            assert "***REDACTED:TOKEN***" in sink.getvalue()
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
+
+    def test_reinitialize_attaches_to_handlers_created_later(self):
+        initialize_secret_masking()
+
+        late_logger = logging.getLogger("late.created.logger")
+        late_handler = logging.NullHandler()
+        late_logger.addHandler(late_handler)
+        try:
+            assert not any(
+                isinstance(f, SecretMaskingFilter) for f in late_handler.filters
+            )
+            initialize_secret_masking()
+            assert any(isinstance(f, SecretMaskingFilter) for f in late_handler.filters)
+        finally:
+            late_logger.removeHandler(late_handler)
+
+    def test_masking_safe_logger_handlers_are_excluded(self):
+        safe_logger = get_masking_safe_logger("datahub.masking.probe")
+        initialize_secret_masking()
+        for handler in safe_logger.handlers:
+            assert not any(isinstance(f, SecretMaskingFilter) for f in handler.filters)

@@ -2,6 +2,8 @@ package com.linkedin.metadata.schemafields.sideeffects;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_KEY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ALIASES_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_KEY_ASPECT;
@@ -14,19 +16,29 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.hooks.DomainsSyncMutationHook;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
@@ -724,5 +736,721 @@ public class SchemaFieldSideEffectTest {
         }
       }
     }
+  }
+
+  @Test
+  public void domainsToSchemaFieldDomainsTest() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setDomainEnabled(true);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Domains domains = testDomains();
+
+    stubSchemaMetadataStored(schemaMetadata);
+
+    ChangeItemImpl domainsChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(DOMAINS_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(DOMAINS_ASPECT_NAME))
+            .recordTemplate(domains)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            domainsChangeItem, null, null, retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    assertEquals(testOutput.size(), 2);
+    assertEquals(
+        testOutput.stream().map(MCPItem::getAspectName).collect(Collectors.toSet()),
+        Set.of(DOMAINS_ASPECT_NAME));
+    assertEquals(
+        testOutput.stream()
+            .map(item -> item.getAspect(Domains.class).getDomains())
+            .collect(Collectors.toSet()),
+        Set.of(domains.getDomains()));
+  }
+
+  @Test
+  public void domainsFlagOffEmitsNoDomainMcps() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setDomainEnabled(false);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Domains domains = testDomains();
+
+    stubSchemaMetadataStored(schemaMetadata);
+
+    ChangeItemImpl domainsChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(DOMAINS_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(DOMAINS_ASPECT_NAME))
+            .recordTemplate(domains)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            domainsChangeItem, null, null, retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    assertEquals(testOutput.size(), 0);
+  }
+
+  @Test
+  public void mirroredDomainMcpsHaveIndependentRecordsAfterDomainsSync() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setDomainEnabled(true);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Domains domains = testDomains();
+
+    stubSchemaMetadataStored(schemaMetadata);
+
+    ChangeItemImpl domainsChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(DOMAINS_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(DOMAINS_ASPECT_NAME))
+            .recordTemplate(domains)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<ChangeMCP> fieldDomainMcps =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            domainsChangeItem, null, null, retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .map(item -> (ChangeMCP) item)
+            .toList();
+
+    assertEquals(fieldDomainMcps.size(), 2);
+    assertNotSame(
+        fieldDomainMcps.get(0).getRecordTemplate().data(),
+        fieldDomainMcps.get(1).getRecordTemplate().data());
+
+    DomainsSyncMutationHook domainsSync = new DomainsSyncMutationHook();
+    domainsSync.setConfig(
+        AspectPluginConfig.builder()
+            .className(DomainsSyncMutationHook.class.getName())
+            .enabled(true)
+            .supportedOperations(List.of("UPSERT"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName("*")
+                        .aspectName(DOMAINS_ASPECT_NAME)
+                        .build()))
+            .build());
+    domainsSync
+        .applyWriteMutation(OperationFingerprint.EMPTY, fieldDomainMcps, retrieverContext)
+        .toList();
+
+    Domains domains0 = fieldDomainMcps.get(0).getAspect(Domains.class);
+    Domains domains1 = fieldDomainMcps.get(1).getAspect(Domains.class);
+    assertNotSame(domains0.data(), domains1.data());
+    assertTrue(domains0.hasDomainAssociations());
+    assertTrue(domains1.hasDomainAssociations());
+    assertEquals(domains0.getDomainAssociations(), domains1.getDomainAssociations());
+
+    // Mutating one field's Domains must not leak into the other.
+    domains0.setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:other"))));
+    assertNotEquals(domains0.getDomains(), domains1.getDomains());
+  }
+
+  @Test
+  public void ownershipToSchemaFieldOwnershipTest() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setOwnershipEnabled(true);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Ownership ownership = testOwnership();
+
+    stubSchemaMetadataStored(schemaMetadata);
+
+    ChangeItemImpl ownershipChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(OWNERSHIP_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(OWNERSHIP_ASPECT_NAME))
+            .recordTemplate(ownership)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            ownershipChangeItem,
+                            null,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    assertEquals(testOutput.size(), 2);
+    assertEquals(
+        testOutput.stream().map(MCPItem::getAspectName).collect(Collectors.toSet()),
+        Set.of(OWNERSHIP_ASPECT_NAME));
+    assertEquals(
+        testOutput.stream()
+            .map(item -> item.getAspect(Ownership.class).getOwners())
+            .collect(Collectors.toSet()),
+        Set.of(ownership.getOwners()));
+  }
+
+  @Test
+  public void ownershipFlagOffEmitsNoOwnershipMcps() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setOwnershipEnabled(false);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Ownership ownership = testOwnership();
+
+    stubSchemaMetadataStored(schemaMetadata);
+
+    ChangeItemImpl ownershipChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(OWNERSHIP_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(OWNERSHIP_ASPECT_NAME))
+            .recordTemplate(ownership)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            ownershipChangeItem,
+                            null,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    assertEquals(testOutput.size(), 0);
+  }
+
+  @Test
+  public void schemaMetadataAfterDomainsMirrorsStoredDomains() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setDomainEnabled(true);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Domains domains = testDomains();
+
+    stubLatestAspects(Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data())));
+
+    ChangeItemImpl schemaMetadataChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
+            .recordTemplate(schemaMetadata)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            schemaMetadataChangeItem,
+                            null,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    assertEquals(
+        testOutput.stream()
+            .filter(item -> DOMAINS_ASPECT_NAME.equals(item.getAspectName()))
+            .count(),
+        2);
+    assertEquals(
+        testOutput.stream()
+            .filter(item -> DOMAINS_ASPECT_NAME.equals(item.getAspectName()))
+            .map(item -> item.getAspect(Domains.class).getDomains())
+            .collect(Collectors.toSet()),
+        Set.of(domains.getDomains()));
+    assertTrue(
+        testOutput.stream()
+            .anyMatch(item -> SCHEMA_FIELD_ALIASES_ASPECT.equals(item.getAspectName())));
+  }
+
+  @Test
+  public void schemaMetadataAfterOwnershipMirrorsStoredOwnership() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setOwnershipEnabled(true);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Ownership ownership = testOwnership();
+
+    stubLatestAspects(Map.of(OWNERSHIP_ASPECT_NAME, new Aspect(ownership.data())));
+
+    ChangeItemImpl schemaMetadataChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
+            .recordTemplate(schemaMetadata)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            schemaMetadataChangeItem,
+                            null,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    assertEquals(
+        testOutput.stream()
+            .filter(item -> OWNERSHIP_ASPECT_NAME.equals(item.getAspectName()))
+            .count(),
+        2);
+    assertEquals(
+        testOutput.stream()
+            .filter(item -> OWNERSHIP_ASPECT_NAME.equals(item.getAspectName()))
+            .map(item -> item.getAspect(Ownership.class).getOwners())
+            .collect(Collectors.toSet()),
+        Set.of(ownership.getOwners()));
+  }
+
+  @Test
+  public void domainsDeleteMirrorsToSchemaFields() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setDomainEnabled(true);
+    Domains domains = testDomains();
+
+    stubSchemaMetadataStored(getTestSchemaMetadata());
+
+    MCLItem domainsDeleteItem =
+        MCLItemImpl.builder()
+            .metadataChangeLog(
+                new MetadataChangeLog()
+                    .setChangeType(ChangeType.DELETE)
+                    .setEntityUrn(TEST_URN)
+                    .setEntityType(DATASET_ENTITY_NAME)
+                    .setAspectName(DOMAINS_ASPECT_NAME)
+                    .setPreviousAspectValue(GenericRecordUtils.serializeAspect(domains))
+                    .setCreated(AuditStampUtils.createDefaultAuditStamp()))
+            .build(retrieverContext.getAspectRetriever());
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY, List.of(domainsDeleteItem), retrieverContext)
+            .toList();
+
+    assertEquals(testOutput.size(), 2);
+    assertEquals(
+        testOutput.stream().map(MCPItem::getAspectName).collect(Collectors.toSet()),
+        Set.of(DOMAINS_ASPECT_NAME));
+    assertTrue(testOutput.stream().allMatch(item -> item instanceof DeleteItemImpl));
+    assertEquals(
+        testOutput.stream().map(item -> item.getUrn().toString()).collect(Collectors.toSet()),
+        Set.of(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)",
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"));
+  }
+
+  @Test
+  public void ownershipDeleteMirrorsToSchemaFields() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setOwnershipEnabled(true);
+    Ownership ownership = testOwnership();
+
+    stubSchemaMetadataStored(getTestSchemaMetadata());
+
+    MCLItem ownershipDeleteItem =
+        MCLItemImpl.builder()
+            .metadataChangeLog(
+                new MetadataChangeLog()
+                    .setChangeType(ChangeType.DELETE)
+                    .setEntityUrn(TEST_URN)
+                    .setEntityType(DATASET_ENTITY_NAME)
+                    .setAspectName(OWNERSHIP_ASPECT_NAME)
+                    .setPreviousAspectValue(GenericRecordUtils.serializeAspect(ownership))
+                    .setCreated(AuditStampUtils.createDefaultAuditStamp()))
+            .build(retrieverContext.getAspectRetriever());
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY, List.of(ownershipDeleteItem), retrieverContext)
+            .toList();
+
+    assertEquals(testOutput.size(), 2);
+    assertEquals(
+        testOutput.stream().map(MCPItem::getAspectName).collect(Collectors.toSet()),
+        Set.of(OWNERSHIP_ASPECT_NAME));
+    assertTrue(testOutput.stream().allMatch(item -> item instanceof DeleteItemImpl));
+    assertEquals(
+        testOutput.stream().map(item -> item.getUrn().toString()).collect(Collectors.toSet()),
+        Set.of(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)",
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"));
+  }
+
+  @Test
+  public void domainsDeleteFlagOffEmitsNoDeletes() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setDomainEnabled(false);
+    Domains domains = testDomains();
+
+    stubSchemaMetadataStored(getTestSchemaMetadata());
+
+    MCLItem domainsDeleteItem =
+        MCLItemImpl.builder()
+            .metadataChangeLog(
+                new MetadataChangeLog()
+                    .setChangeType(ChangeType.DELETE)
+                    .setEntityUrn(TEST_URN)
+                    .setEntityType(DATASET_ENTITY_NAME)
+                    .setAspectName(DOMAINS_ASPECT_NAME)
+                    .setPreviousAspectValue(GenericRecordUtils.serializeAspect(domains))
+                    .setCreated(AuditStampUtils.createDefaultAuditStamp()))
+            .build(retrieverContext.getAspectRetriever());
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY, List.of(domainsDeleteItem), retrieverContext)
+            .toList();
+
+    assertEquals(testOutput.size(), 0);
+  }
+
+  @Test
+  public void schemaMetadataUpsertMirrorsDomainsOnlyForNewFields() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setEntityChangeEventGeneratorRegistry(buildEntityChangeEventGeneratorRegistry());
+    test.setDomainEnabled(true);
+    SchemaMetadata previousSchema = getTestSchemaMetadataWithRemovedField(); // user_id only
+    SchemaMetadata currentSchema = getTestSchemaMetadata(); // user_id + user_name
+    Domains domains = testDomains();
+
+    stubLatestAspects(Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data())));
+
+    ChangeItemImpl schemaMetadataChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
+            .recordTemplate(currentSchema)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> domainMirrors =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            schemaMetadataChangeItem,
+                            previousSchema,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .filter(item -> DOMAINS_ASPECT_NAME.equals(item.getAspectName()))
+            .toList();
+
+    assertEquals(domainMirrors.size(), 1);
+    assertEquals(
+        domainMirrors.get(0).getUrn().toString(),
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)");
+  }
+
+  @Test
+  public void schemaMetadataUpsertSkipsDomainMirrorsForUnchangedFields() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setEntityChangeEventGeneratorRegistry(buildEntityChangeEventGeneratorRegistry());
+    test.setDomainEnabled(true);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Domains domains = testDomains();
+
+    stubLatestAspects(Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data())));
+
+    ChangeItemImpl schemaMetadataChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
+            .recordTemplate(schemaMetadata)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    long domainMirrorCount =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            schemaMetadataChangeItem,
+                            schemaMetadata,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .filter(item -> DOMAINS_ASPECT_NAME.equals(item.getAspectName()))
+            .count();
+
+    assertEquals(domainMirrorCount, 0);
+  }
+
+  @Test
+  public void schemaMetadataRestateMirrorsDomainsForAllFields() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setEntityChangeEventGeneratorRegistry(buildEntityChangeEventGeneratorRegistry());
+    test.setDomainEnabled(true);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Domains domains = testDomains();
+
+    stubLatestAspects(Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data())));
+
+    MCLItem restateItem =
+        MCLItemImpl.builder()
+            .metadataChangeLog(
+                new MetadataChangeLog()
+                    .setEntityUrn(TEST_URN)
+                    .setEntityType(DATASET_ENTITY_NAME)
+                    .setChangeType(ChangeType.RESTATE)
+                    .setAspectName(SCHEMA_METADATA_ASPECT_NAME)
+                    .setAspect(GenericRecordUtils.serializeAspect(schemaMetadata))
+                    .setPreviousAspectValue(GenericRecordUtils.serializeAspect(schemaMetadata))
+                    .setCreated(AuditStampUtils.createDefaultAuditStamp()))
+            .build(retrieverContext.getAspectRetriever());
+
+    long domainMirrorCount =
+        test.postMCPSideEffect(OperationFingerprint.EMPTY, List.of(restateItem), retrieverContext)
+            .filter(item -> DOMAINS_ASPECT_NAME.equals(item.getAspectName()))
+            .count();
+
+    assertEquals(domainMirrorCount, 2);
+  }
+
+  @Test
+  public void schemaMetadataSystemUpdateMirrorsDomainsForAllFields() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setEntityChangeEventGeneratorRegistry(buildEntityChangeEventGeneratorRegistry());
+    test.setDomainEnabled(true);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Domains domains = testDomains();
+
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    systemMetadata.setProperties(
+        new com.linkedin.data.template.StringMap(
+            Map.of(
+                com.linkedin.metadata.Constants.APP_SOURCE,
+                com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE)));
+
+    stubLatestAspects(Map.of(DOMAINS_ASPECT_NAME, new Aspect(domains.data())));
+
+    ChangeItemImpl schemaMetadataChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
+            .recordTemplate(schemaMetadata)
+            .systemMetadata(systemMetadata)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    long domainMirrorCount =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            schemaMetadataChangeItem,
+                            schemaMetadata,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .filter(item -> DOMAINS_ASPECT_NAME.equals(item.getAspectName()))
+            .count();
+
+    assertEquals(domainMirrorCount, 2);
+  }
+
+  @Test
+  public void domainsCoBatchedWithUnchangedSchemaMetadataMirrorsAllFields() {
+    // schemaMetadata path only mirrors new fields; domains must still fan out when co-batched.
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setEntityChangeEventGeneratorRegistry(buildEntityChangeEventGeneratorRegistry());
+    test.setDomainEnabled(true);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+    Domains domains = testDomains();
+
+    stubEmptyAspectFetch();
+
+    ChangeItemImpl schemaMetadataChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
+            .recordTemplate(schemaMetadata)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    ChangeItemImpl domainsChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(DOMAINS_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(DOMAINS_ASPECT_NAME))
+            .recordTemplate(domains)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> domainMirrors =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            schemaMetadataChangeItem,
+                            schemaMetadata,
+                            null,
+                            retrieverContext.getAspectRetriever()),
+                    MCLItemImpl.builder()
+                        .build(
+                            domainsChangeItem, null, null, retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .filter(item -> DOMAINS_ASPECT_NAME.equals(item.getAspectName()))
+            .toList();
+
+    assertEquals(domainMirrors.size(), 2);
+    assertEquals(
+        domainMirrors.stream().map(item -> item.getUrn().toString()).collect(Collectors.toSet()),
+        Set.of(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)",
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"));
+    assertTrue(domainMirrors.stream().allMatch(item -> item instanceof ChangeItemImpl));
+    assertEquals(
+        domainMirrors.stream()
+            .map(item -> item.getAspect(Domains.class).getDomains())
+            .collect(Collectors.toSet()),
+        Set.of(domains.getDomains()));
+  }
+
+  private void stubSchemaMetadataStored(SchemaMetadata schemaMetadata) {
+    stubLatestAspects(Map.of(SCHEMA_METADATA_ASPECT_NAME, new Aspect(schemaMetadata.data())));
+  }
+
+  private void stubLatestAspects(Map<String, Aspect> aspectsForTestUrn) {
+    reset(mockAspectRetriever);
+    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
+        .thenReturn(Map.of(TEST_URN, aspectsForTestUrn));
+  }
+
+  private void stubEmptyAspectFetch() {
+    reset(mockAspectRetriever);
+    when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
+        .thenReturn(Map.of());
+  }
+
+  private static Domains testDomains() {
+    return new Domains()
+        .setDomains(new UrnArray(List.of(UrnUtils.getUrn("urn:li:domain:finance"))));
+  }
+
+  private static Ownership testOwnership() {
+    return new Ownership()
+        .setOwners(
+            new OwnerArray(
+                List.of(
+                    new Owner()
+                        .setOwner(UrnUtils.getUrn("urn:li:corpuser:jdoe"))
+                        .setType(OwnershipType.TECHNICAL_OWNER))))
+        .setLastModified(AuditStampUtils.createDefaultAuditStamp());
   }
 }

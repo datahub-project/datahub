@@ -1,15 +1,11 @@
-import { AssertionSourceType, AssertionType } from '@types';
-
 /**
- * Returns true if the assertion is definitely an external assertion,
- * meaning that was reported using a custom source or a well-supported integration
- * like dbt test or Great Expectations.
+ * Returns true if the assertion is an external assertion, meaning it was reported using a custom
+ * source or a well-supported integration like dbt test or Great Expectations.
+ *
+ * In OSS every assertion is external: assertions are produced via the API / ingestion sources
+ * rather than natively created and executed by DataHub. Native and inferred ("smart") assertions
+ * are DataHub Cloud only, so this always returns true here.
  */
-export const isExternalAssertion = (assertion) => {
-    return (
-        assertion?.info?.type === AssertionType.Dataset || // Legacy, non-native assertion type.
-        assertion?.info?.type === AssertionType.Custom ||
-        (assertion?.info?.source?.type !== AssertionSourceType.Inferred &&
-            assertion?.info?.source?.type !== AssertionSourceType.Native)
-    );
+export const isExternalAssertion = (_assertion?: unknown): boolean => {
+    return true;
 };

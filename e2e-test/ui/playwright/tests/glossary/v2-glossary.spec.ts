@@ -16,13 +16,14 @@ import { test } from '../../fixtures/base-test';
 import { GlossaryPage } from '../../pages/glossary.page';
 import { DatasetPage } from '../../pages/dataset.page';
 import { withRandomSuffix } from '../../utils/random';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'glossary' });
 
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightGlossaryDataset,PROD)';
 const BATCH_ADD_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightGlossaryBatchAddDataset,PROD)';
 
-test.describe('glossary term group and term lifecycle', () => {
+test.describe('glossary term group and term lifecycle', { tag: [TestTag.P0] }, () => {
   // Run tests serially to avoid parallel browser instances competing for memory
   // and to prevent ES index contention between concurrent mutations.
   test.describe.configure({ mode: 'serial' });
@@ -34,7 +35,7 @@ test.describe('glossary term group and term lifecycle', () => {
     await glossaryPage.navigateToGlossary();
   });
 
-  test('create term group at root level', async ({ cleanup }) => {
+  test('create term group at root level', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     // expectSidebarContainsNode retries for up to 120 s; allow 60 s overhead on top.
     test.setTimeout(180000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
@@ -46,7 +47,7 @@ test.describe('glossary term group and term lifecycle', () => {
     await glossaryPage.expectSidebarContainsNode(termGroupUrn);
   });
 
-  test('create glossary term inside term group', async ({ cleanup }) => {
+  test('create glossary term inside term group', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     // expectEntityInContentsTab retries for up to 90 s; allow 60 s overhead on top.
     test.setTimeout(150000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
@@ -62,52 +63,60 @@ test.describe('glossary term group and term lifecycle', () => {
     await glossaryPage.expectEntityInContentsTab(termUrn);
   });
 
-  test('add glossary term to dataset via sidebar', async ({ page, logger, logDir, cleanup }) => {
-    test.setTimeout(150000);
-    const termGroupName = withRandomSuffix('GlossaryGroup');
-    const termName = withRandomSuffix('GlossaryTerm');
+  test(
+    'add glossary term to dataset via sidebar',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger, logDir, cleanup }) => {
+      test.setTimeout(150000);
+      const termGroupName = withRandomSuffix('GlossaryGroup');
+      const termName = withRandomSuffix('GlossaryTerm');
 
-    const termGroupUrn = await glossaryPage.createTermGroup(termGroupName);
-    cleanup.track(termGroupUrn);
-    await glossaryPage.navigateToGlossaryNodeByUrn(termGroupUrn);
-    await glossaryPage.openContentsTab();
-    const termUrn = await glossaryPage.createTermInContentsTab(termName);
-    cleanup.track(termUrn);
+      const termGroupUrn = await glossaryPage.createTermGroup(termGroupName);
+      cleanup.track(termGroupUrn);
+      await glossaryPage.navigateToGlossaryNodeByUrn(termGroupUrn);
+      await glossaryPage.openContentsTab();
+      const termUrn = await glossaryPage.createTermInContentsTab(termName);
+      cleanup.track(termUrn);
 
-    const datasetPage = new DatasetPage(page, logger, logDir);
-    await datasetPage.navigateToDataset(DATASET_URN);
-    await datasetPage.addGlossaryTerm(termName);
-    await datasetPage.expectGlossaryTermVisible(termName);
-    await datasetPage.removeGlossaryTerm(termName);
-    await datasetPage.expectGlossaryTermNotVisible(termName);
-  });
+      const datasetPage = new DatasetPage(page, logger, logDir);
+      await datasetPage.navigateToDataset(DATASET_URN);
+      await datasetPage.addGlossaryTerm(termName);
+      await datasetPage.expectGlossaryTermVisible(termName);
+      await datasetPage.removeGlossaryTerm(termName);
+      await datasetPage.expectGlossaryTermNotVisible(termName);
+    },
+  );
 
-  test('batch add term to dataset via Add to Assets', async ({ page, logger, logDir, cleanup }) => {
-    test.setTimeout(150000);
-    const termGroupName = withRandomSuffix('GlossaryGroup');
-    const termName = withRandomSuffix('GlossaryTerm');
+  test(
+    'batch add term to dataset via Add to Assets',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger, logDir, cleanup }) => {
+      test.setTimeout(150000);
+      const termGroupName = withRandomSuffix('GlossaryGroup');
+      const termName = withRandomSuffix('GlossaryTerm');
 
-    const termGroupUrn = await glossaryPage.createTermGroup(termGroupName);
-    cleanup.track(termGroupUrn);
-    await glossaryPage.navigateToGlossaryNodeByUrn(termGroupUrn);
-    await glossaryPage.openContentsTab();
-    const termUrn = await glossaryPage.createTermInContentsTab(termName);
-    cleanup.track(termUrn);
+      const termGroupUrn = await glossaryPage.createTermGroup(termGroupName);
+      cleanup.track(termGroupUrn);
+      await glossaryPage.navigateToGlossaryNodeByUrn(termGroupUrn);
+      await glossaryPage.openContentsTab();
+      const termUrn = await glossaryPage.createTermInContentsTab(termName);
+      cleanup.track(termUrn);
 
-    await glossaryPage.navigateToGlossaryTermByUrn(termUrn);
-    await glossaryPage.clickBatchAddButton();
-    await glossaryPage.searchInBatchAddModal('PlaywrightGlossaryBatchAddDataset');
-    await glossaryPage.selectEntityInBatchAddModal(BATCH_ADD_DATASET_URN);
-    await glossaryPage.confirmBatchAdd();
+      await glossaryPage.navigateToGlossaryTermByUrn(termUrn);
+      await glossaryPage.clickBatchAddButton();
+      await glossaryPage.searchInBatchAddModal('PlaywrightGlossaryBatchAddDataset');
+      await glossaryPage.selectEntityInBatchAddModal(BATCH_ADD_DATASET_URN);
+      await glossaryPage.confirmBatchAdd();
 
-    const datasetPage = new DatasetPage(page, logger, logDir);
-    await datasetPage.navigateToDataset(BATCH_ADD_DATASET_URN);
-    await datasetPage.expectGlossaryTermVisible(termName);
-    await datasetPage.removeGlossaryTerm(termName);
-    await datasetPage.expectGlossaryTermNotVisible(termName);
-  });
+      const datasetPage = new DatasetPage(page, logger, logDir);
+      await datasetPage.navigateToDataset(BATCH_ADD_DATASET_URN);
+      await datasetPage.expectGlossaryTermVisible(termName);
+      await datasetPage.removeGlossaryTerm(termName);
+      await datasetPage.expectGlossaryTermNotVisible(termName);
+    },
+  );
 
-  test('delete glossary term', async ({ cleanup }) => {
+  test('delete glossary term', { tag: [DomainTag.Catalog] }, async ({ cleanup }) => {
     test.setTimeout(120000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
     const termName = withRandomSuffix('GlossaryTerm');
@@ -126,7 +135,7 @@ test.describe('glossary term group and term lifecycle', () => {
     await glossaryPage.expectEntityNotInContentsTab(termUrn);
   });
 
-  test('delete term group', async () => {
+  test('delete term group', { tag: [DomainTag.Catalog] }, async () => {
     const termGroupName = withRandomSuffix('GlossaryGroup');
 
     const termGroupUrn = await glossaryPage.createTermGroup(termGroupName);

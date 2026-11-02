@@ -19,6 +19,10 @@ interface Props {
     displayProperties?: Maybe<DisplayProperties>;
     showAsCard?: boolean; // Currently only supported for Nodes!
     node?: GlossaryNode | GlossaryNodeFragment | RootGlossaryNodeWithFourLayersFragment;
+    versionProperties?: { version?: { versionTag?: string | null } | null; isLatest?: boolean | null } | null;
+    termStatus?: {
+        lifecycleStage?: { urn: string; name: string; description?: string | null } | null;
+    } | null;
 }
 
 // iterates through the layers of descendents and counts the max number of layers
@@ -62,7 +66,7 @@ function countTermsAndNodes(initialNode?: RootGlossaryNodeWithFourLayersFragment
 }
 
 function GlossaryEntityItem(props: Props) {
-    const { name, description, urn, type, displayProperties, node } = props;
+    const { name, description, urn, type, displayProperties, node, versionProperties, termStatus } = props;
     const entityRegistry = useEntityRegistry();
     const { entityData } = useEntityData();
 
@@ -93,6 +97,8 @@ function GlossaryEntityItem(props: Props) {
                     displayProperties={displayProperties}
                     termCount={termCount}
                     nodeCount={nodeCount}
+                    versionProperties={versionProperties}
+                    termStatus={termStatus}
                 />
             )}
         </Link>

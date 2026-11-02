@@ -273,6 +273,7 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
     platform_instance: Optional[str],
     enable_datajob_lineage: bool,
     cluster: Optional[str] = None,
+    dataset_pattern: Optional[str] = None,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -401,6 +402,9 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
 
     if cluster:
         environment["AIRFLOW__DATAHUB__CLUSTER"] = cluster
+
+    if dataset_pattern:
+        environment["AIRFLOW__DATAHUB__DATASET_PATTERN"] = dataset_pattern
 
     if multiple_connections:
         environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
@@ -632,6 +636,7 @@ class DagTestCase:
     platform_instance: Optional[str] = None
     enable_datajob_lineage: bool = True
     cluster: Optional[str] = None
+    dataset_pattern: Optional[str] = None
 
     # used to identify the test case in the golden file when same DAG is used in multiple tests
     test_variant: Optional[str] = None
@@ -653,6 +658,13 @@ test_cases = [
         test_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
+    # Denied datasets must be absent from the run instance too, not only the DataJob.
+    DagTestCase(
+        "basic_iolets",
+        platform_instance=PLATFORM_INSTANCE,
+        dataset_pattern='{"deny": ["snowflake:mydb.schema.tableA", "snowflake:mydb.schema.tableE"]}',
+        test_variant="_dataset_pattern",
+    ),
     DagTestCase("airflow_asset_iolets", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("decorated_asset_producer", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("decorated_asset_with_file", platform_instance=PLATFORM_INSTANCE),
@@ -715,14 +727,19 @@ def test_airflow_plugin(
     max_attempts = 3 if test_case.success else 1
     airflow_instance: Optional[AirflowInstance] = None
     for attempt in range(1, max_attempts + 1):
+        # Fresh home (and thus fresh metadata DB) per attempt. Reusing the DB would
+        # make the trigger below fail with DagRunAlreadyExists on retry, since the
+        # run_id is fixed ("manual_run_test" is baked into the golden's URNs).
+        attempt_home = tmp_path / f"attempt_{attempt}"
         try:
             with _run_airflow(
-                tmp_path,
+                attempt_home,
                 dags_folder=DAGS_FOLDER,
                 multiple_connections=test_case.multiple_connections,
                 platform_instance=test_case.platform_instance,
                 enable_datajob_lineage=test_case.enable_datajob_lineage,
                 cluster=test_case.cluster,
+                dataset_pattern=test_case.dataset_pattern,
             ) as airflow_instance:
                 print(f"Running DAG {dag_id} (attempt {attempt}/{max_attempts})...")
                 _wait_for_dag_to_load(airflow_instance, dag_id)
@@ -743,10 +760,23 @@ def test_airflow_plugin(
                     dag_id,
                 ]
 
-                subprocess.check_call(
+                # Capture output so a trigger failure is diagnosable rather than an
+                # opaque "returned non-zero exit status 1", and retriable below.
+                trigger_result = subprocess.run(
                     trigger_cmd,
                     env=airflow_instance.env_vars,
+                    capture_output=True,
+                    text=True,
                 )
+                if trigger_result.returncode != 0:
+                    print(f"[trigger stdout]\n{trigger_result.stdout}")
+                    print(f"[trigger stderr]\n{trigger_result.stderr}")
+                    raise subprocess.CalledProcessError(
+                        trigger_result.returncode,
+                        trigger_cmd,
+                        output=trigger_result.stdout,
+                        stderr=trigger_result.stderr,
+                    )
 
                 print("Waiting for DAG to finish...")
                 _wait_for_dag_finish(
@@ -761,7 +791,7 @@ def test_airflow_plugin(
                 except Exception as e:
                     print(f"Failed to dump DAG logs: {e}")
             break
-        except (ValueError, NotReadyError) as e:
+        except (ValueError, NotReadyError, subprocess.CalledProcessError) as e:
             if attempt >= max_attempts:
                 raise
             print(

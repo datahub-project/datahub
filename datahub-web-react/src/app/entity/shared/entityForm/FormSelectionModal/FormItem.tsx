@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -11,7 +11,7 @@ import {
     shouldShowVerificationInfo,
 } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
 import FormRequestedBy from '@app/entity/shared/entityForm/FormSelectionModal/FormRequestedBy';
-import { WhiteButton } from '@app/shared/components';
+import { WhiteButton } from '@app/sharedV2/components';
 
 import { FormAssociation } from '@types';
 

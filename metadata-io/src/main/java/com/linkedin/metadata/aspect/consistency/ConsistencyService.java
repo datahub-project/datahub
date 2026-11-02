@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -42,7 +43,8 @@ import org.opensearch.search.SearchHit;
  * upgrade jobs) are responsible for:
  *
  * <ul>
- *   <li>Looping through batches
+ *   <li>Looping through batches (or use {@link
+ *       com.linkedin.metadata.aspect.consistency.scan.ConsistencyScanRunner} for full scans)
  *   <li>Managing batch size and delays
  *   <li>Handling pagination via scrollId
  * </ul>
@@ -50,8 +52,10 @@ import org.opensearch.search.SearchHit;
  * <p>Key methods:
  *
  * <ul>
- *   <li>{@link #checkBatch(OperationContext, String, List, int, String, SystemMetadataFilterConfig,
- *       CheckContext)} - Run checks for a single entity type
+ *   <li>{@link #checkBatch(OperationContext, CheckBatchRequest, CheckContext)} - Run checks for a
+ *       single entity type batch
+ *   <li>{@link #countMatching(OperationContext, CheckBatchRequest)} - Estimate matching SM docs for
+ *       progress/ETA
  *   <li>{@link #fixIssues} - Apply fixes to a list of issues
  * </ul>
  *
@@ -391,6 +395,37 @@ public class ConsistencyService {
         .issues(issues)
         .scrollId(nextScrollId)
         .build();
+  }
+
+  /**
+   * Count system-metadata documents matching the same discovery query used by {@link #checkBatch}.
+   *
+   * <p>With {@code keyAspectOnly=true} (upgrade default), the count approximates unique entities.
+   * Returns empty when the ES count query fails ({@link ESSystemMetadataDAO#count} soft-fails).
+   * Validation errors from entity-type resolution propagate to the caller.
+   *
+   * @param opContext operation context
+   * @param request same shape as checkBatch (entity type, check IDs, filter, URNs)
+   * @return matching document count, or empty when count cannot be obtained
+   */
+  @Nonnull
+  public Optional<Long> countMatching(
+      @Nonnull OperationContext opContext, @Nonnull CheckBatchRequest request) {
+    String resolvedEntityType = resolveEntityType(request);
+    List<ConsistencyCheck> checks =
+        checkRegistry.getDefaultByEntityTypeAndIds(resolvedEntityType, request.getCheckIds());
+    if (checks.isEmpty()) {
+      return Optional.of(0L);
+    }
+    BoolQueryBuilder query =
+        buildSystemMetadataQuery(
+            opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
+    try {
+      return esSystemMetadataDAO.count(opContext, query, request.isIncludeSoftDeleted());
+    } catch (RuntimeException e) {
+      log.warn("countMatching failed (continuing without total): {}", e.getMessage(), e);
+      return Optional.empty();
+    }
   }
 
   /**

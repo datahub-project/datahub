@@ -35,16 +35,16 @@ Each entity event is serialized to JSON & follows a common base structure.
 
 **Common Fields**
 
-| Name                 | Type   | Description                                                                                                                                                                                            | Optional  |
-| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| **entityUrn**        | String | The unique identifier for the Entity being changed. For example, a Dataset's urn.                                                                                                                      | Fals**e** |
-| **entityType**       | String | The type of the entity being changed. Supported values include `dataset`, `chart`, `dashboard`, `dataFlow (Pipeline)`, `dataJob` (Task), `domain`, `tag`, `glossaryTerm`, `corpGroup`, & `corpUser.`   | False     |
-| **category**         | String | The category of the change, related to the kind of operation that was performed. Examples include `TAG`, `GLOSSARY_TERM`, `DOMAIN`, `LIFECYCLE`, and more.                                             | False     |
-| **operation**        | String | The operation being performed on the entity given the category. For example, `ADD` ,`REMOVE`, `MODIFY`. For the set of valid operations, see the full catalog below.                                   | False     |
-| **modifier**         | String | The modifier that has been applied to the entity. The value depends on the category. An example includes the URN of a tag being applied to a Dataset or Schema Field.                                  | True      |
-| **parameters**       | Dict   | Additional key-value parameters used to provide specific context. The precise contents depends on the category + operation of the event. See the catalog below for a full summary of the combinations. | True      |
-| **auditStamp.actor** | String | The urn of the actor who triggered the change.                                                                                                                                                         | False     |
-| **auditStamp.time**  | Number | The timestamp in milliseconds corresponding to the event.                                                                                                                                              | False     |
+| Name                 | Type   | Description                                                                                                                                                                                            | Optional |
+| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| **entityUrn**        | String | The unique identifier for the Entity being changed. For example, a Dataset's urn.                                                                                                                      | False    |
+| **entityType**       | String | The type of the entity being changed. Supported values include `dataset`, `chart`, `dashboard`, `dataFlow (Pipeline)`, `dataJob` (Task), `domain`, `tag`, `glossaryTerm`, `corpGroup`, & `corpUser.`   | False    |
+| **category**         | String | The category of the change, related to the kind of operation that was performed. Examples include `TAG`, `GLOSSARY_TERM`, `DOMAIN`, `LIFECYCLE`, and more.                                             | False    |
+| **operation**        | String | The operation being performed on the entity given the category. For example, `ADD` ,`REMOVE`, `MODIFY`. For the set of valid operations, see the full catalog below.                                   | False    |
+| **modifier**         | String | The modifier that has been applied to the entity. The value depends on the category. An example includes the URN of a tag being applied to a Dataset or Schema Field.                                  | True     |
+| **parameters**       | Dict   | Additional key-value parameters used to provide specific context. The precise contents depends on the category + operation of the event. See the catalog below for a full summary of the combinations. | True     |
+| **auditStamp.actor** | String | The urn of the actor who triggered the change.                                                                                                                                                         | False    |
+| **auditStamp.time**  | Number | The timestamp in milliseconds corresponding to the event.                                                                                                                                              | False    |
 
 For example, an event indicating that a Tag has been added to a particular Dataset would populate each of these fields:
 
@@ -283,7 +283,7 @@ This event is emitted when a new owner has been assigned to an entity on DataHub
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>OWNER</td><td>ADD</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>container</code>, <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>OWNERSHIP</td><td>ADD</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>container</code>, <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
@@ -298,7 +298,7 @@ This event is emitted when a new owner has been assigned to an entity on DataHub
 {
   "entityUrn": "urn:li:dataset:abc",
   "entityType": "dataset",
-  "category": "OWNER",
+  "category": "OWNERSHIP",
   "operation": "ADD",
   "modifier": "urn:li:corpuser:jdoe",
   "parameters": {
@@ -318,7 +318,7 @@ This event is emitted when an existing owner has been removed from an entity on 
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>OWNER</td><td>REMOVE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>container</code> ,<code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>OWNERSHIP</td><td>REMOVE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>container</code> ,<code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
@@ -333,7 +333,7 @@ This event is emitted when an existing owner has been removed from an entity on 
 {
   "entityUrn": "urn:li:dataset:abc",
   "entityType": "dataset",
-  "category": "OWNER",
+  "category": "OWNERSHIP",
   "operation": "REMOVE",
   "modifier": "urn:li:corpuser:jdoe",
   "parameters": {

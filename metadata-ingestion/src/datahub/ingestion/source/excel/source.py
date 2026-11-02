@@ -130,7 +130,7 @@ class UriType(Enum):
 
 @platform_name("Excel")
 @config_class(ExcelSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")

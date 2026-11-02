@@ -8,14 +8,21 @@ import { DataContract } from '@types';
 type Props = {
     urn: string;
     contract?: DataContract;
+    contractLoading?: boolean;
     closeDrawer: () => void;
     refetch?: () => void;
 };
 
-export const AssertionProfileDrawer = ({ urn, contract, closeDrawer, refetch }: Props) => {
+export const AssertionProfileDrawer = ({ urn, contract, contractLoading, closeDrawer, refetch }: Props) => {
     return (
         <Drawer width={600} placement="right" closable={false} visible bodyStyle={{ padding: 0 }} onClose={closeDrawer}>
-            <AssertionProfile urn={urn} contract={contract} close={closeDrawer} refetch={refetch} />
+            <AssertionProfile
+                urn={urn}
+                contract={contract}
+                contractLoading={contractLoading}
+                close={closeDrawer}
+                refetch={refetch}
+            />
         </Drawer>
     );
 };

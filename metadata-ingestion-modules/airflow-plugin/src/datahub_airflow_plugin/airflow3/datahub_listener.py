@@ -61,10 +61,13 @@ from datahub_airflow_plugin._airflow_asset_adapter import (
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
+from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_datasets
+from datahub_airflow_plugin._dataset_filter import DatasetFilter, apply_dataset_filter
 from datahub_airflow_plugin._version import __package_name__, __version__
 
 # Import Airflow 3.x compatibility and patches before any Airflow imports
 from datahub_airflow_plugin.airflow3 import _airflow_compat  # noqa: F401
+from datahub_airflow_plugin.airflow3._extraction_scope import datahub_extraction_scope
 from datahub_airflow_plugin.airflow3._shims import (
     OpenLineagePlugin,
     Operator,
@@ -419,6 +422,12 @@ class DataHubListener:
         # Cache initial datajob objects to merge with completion events
         self._datajob_holder: Dict[str, DataJob] = {}
 
+        self._dataset_filter = DatasetFilter(
+            pattern=config.dataset_pattern,
+            bigquery_temp_table_dataset_prefix=config.bigquery_temp_table_dataset_prefix,
+            capture_bigquery_temp_datasets=config.capture_bigquery_temp_datasets,
+        )
+
     def _get_emitter(self):
         """
         Lazy-load emitter on first use during task execution.
@@ -554,8 +563,10 @@ class DataHubListener:
                     bootstrap = ":".join(map(str, filter(None, [conn.host, conn.port])))
                     obj["connection"]["bootstrap"] = bootstrap
 
-                config = datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.parse_obj(
-                    obj
+                config = (
+                    datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.model_validate(
+                        obj
+                    )
                 )
                 logger.debug(
                     f"Retrieved connection '{conn_id}' from connection API: type=datahub-kafka"
@@ -685,10 +696,6 @@ class DataHubListener:
         )
         logger.debug("Airflow 3.0+: Attempting to get lineage from OpenLineage")
         try:
-            from datahub_airflow_plugin._datahub_ol_adapter import (
-                translate_ol_to_datahub_urn,
-            )
-
             # Check if the operator has OpenLineage support
             facet_method_name = (
                 "get_openlineage_facets_on_complete"
@@ -710,10 +717,14 @@ class DataHubListener:
             facet_method = getattr(task, facet_method_name)
 
             try:
-                # Call the appropriate facet method
-                operator_lineage = (
-                    facet_method(task_instance) if complete else facet_method()
-                )
+                # These methods are not side-effect free: the OpenLineage provider
+                # only re-runs them because it forks. Mark the call so the DataHub
+                # patches skip the warehouse lookups and provider-side event
+                # emission that DataHub never reads. See _extraction_scope.
+                with datahub_extraction_scope():
+                    operator_lineage = (
+                        facet_method(task_instance) if complete else facet_method()
+                    )
 
                 if not operator_lineage:
                     logger.debug(
@@ -728,23 +739,24 @@ class DataHubListener:
                 )
 
                 # Translate OpenLineage datasets to DataHub URNs
-                for ol_dataset in operator_lineage.inputs:
-                    urn = translate_ol_to_datahub_urn(
-                        ol_dataset, env=self.config.cluster
+                input_urns.extend(
+                    translate_ol_datasets(
+                        operator_lineage.inputs,
+                        "Input",
+                        env=self.config.cluster,
+                        normalize_object_storage=self.config.normalize_object_storage_urns,
+                        capture_file_datasets=self.config.capture_ol_file_datasets,
                     )
-                    input_urns.append(urn)
-                    logger.debug(
-                        f"  Input: {ol_dataset.namespace}/{ol_dataset.name} -> {urn}"
+                )
+                output_urns.extend(
+                    translate_ol_datasets(
+                        operator_lineage.outputs,
+                        "Output",
+                        env=self.config.cluster,
+                        normalize_object_storage=self.config.normalize_object_storage_urns,
+                        capture_file_datasets=self.config.capture_ol_file_datasets,
                     )
-
-                for ol_dataset in operator_lineage.outputs:
-                    urn = translate_ol_to_datahub_urn(
-                        ol_dataset, env=self.config.cluster
-                    )
-                    output_urns.append(urn)
-                    logger.debug(
-                        f"  Output: {ol_dataset.namespace}/{ol_dataset.name} -> {urn}"
-                    )
+                )
 
                 # Check if DataHub SQL parsing result is in run_facets (from our patch)
                 logger.debug(
@@ -855,8 +867,19 @@ class DataHubListener:
                     f"Created {len(fine_grained_lineages)} FGLs from {len(sql_parsing_result.column_lineage)} column_lineage items for task {datajob.urn}"
                 )
         else:
+            table_error = sql_parsing_result.debug_info.table_error
+            dropped = (
+                f"dropped {len(sql_parsing_result.in_tables)} input(s) / "
+                f"{len(sql_parsing_result.out_tables)} output(s)"
+            )
             logger.warning(
-                f"SQL parsing table error for task {datajob.urn}: {sql_parsing_result.debug_info.table_error}"
+                f"SQL parsing table error for task {datajob.urn} ({dropped}): {table_error}"
+            )
+            # Surface this on the DataJob like datahub_sql_parser_error above. With the
+            # OpenLineage provider enabled, DataHub's parser is the only table source
+            # during DataHub extraction, so a table error here means lost lineage.
+            datajob.properties["datahub_sql_parser_table_error"] = (
+                f"{type(table_error).__name__}: {table_error} ({dropped})"
             )
 
         return input_urns, output_urns, fine_grained_lineages
@@ -1065,6 +1088,10 @@ class DataHubListener:
         datajob.upstream_urns = list(
             sorted(set(datajob.upstream_urns), key=lambda x: str(x))
         )
+
+        # Filter here, once every lineage source (OpenLineage, SQL parsing, manual
+        # inlets/outlets, Assets) has been merged, rather than in each extractor.
+        apply_dataset_filter(datajob, self._dataset_filter)
 
         # Write all other OL facets as DataHub properties
         if task_metadata:

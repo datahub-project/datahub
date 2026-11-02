@@ -11,13 +11,19 @@ package com.linkedin.metadata.ingestion;
  * <p>Current implementations:
  *
  * <ul>
- *   <li>{@link HttpUrlIngestionCliVersionMatrixSource} — periodic GET of a JSON document from a
- *       remote URL (S3, CDN, GitHub raw, …).
+ *   <li>{@link PollingIngestionCliVersionMatrixSource} — periodic read of a JSON document, with the
+ *       backend supplied as a {@link MatrixDocumentReader}: {@link HttpMatrixDocumentReader} for an
+ *       {@code http(s)} URL (CDN, GitHub raw, gist, …), or {@code
+ *       ObjectStorageMatrixDocumentReader} (factories module, where the storage clients live) for
+ *       {@code s3://}, {@code gs://} and {@code file://} using GMS's ambient cloud credentials.
  *   <li>{@link NoOpIngestionCliVersionMatrixSource} — always returns an empty matrix. Used as the
  *       default when no source is configured, so the resolution service never needs null checks.
  * </ul>
  *
- * <p>Future implementations could include:
+ * <p>A new document-backed store should be a new {@link MatrixDocumentReader}, not a new
+ * implementation of this interface — caching, refresh cadence and failure handling are already
+ * uniform in the polling source. Implement this directly only for a backend whose refresh semantics
+ * genuinely differ, e.g.:
  *
  * <ul>
  *   <li>{@code GmsAspectIngestionCliVersionMatrixSource} — reads the matrix from a metadata aspect

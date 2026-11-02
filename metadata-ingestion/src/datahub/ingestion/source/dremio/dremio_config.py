@@ -19,7 +19,7 @@ from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -111,7 +111,7 @@ class DremioConnectionConfig(ConfigModel):
         return value
 
 
-class ProfileConfig(GEProfilingConfig):
+class ProfileConfig(ProfilingConfig):
     query_timeout: int = Field(
         default=300, description="Time before cancelling Dremio profiling query"
     )
@@ -212,6 +212,18 @@ class DremioSourceConfig(
     max_workers: int = Field(
         default=5 * (os.cpu_count() or 4),
         description="Number of worker threads to use for parallel processing",
+    )
+
+    batch_size: int = Field(
+        default=10000,
+        ge=0,
+        description="Number of rows to fetch per page when reading Dremio's system "
+        "tables (datasets, columns, view definitions, and queries) via LIMIT/OFFSET. "
+        "Dremio's system tables can be slow, so a larger batch reduces the number of "
+        "round-trips. Set to 0 to fetch as much as possible per page. Values are "
+        "clamped to a safety ceiling of 1,000,000 rows per page to keep pagination "
+        "reliable. A larger batch also raises the amount Dremio must materialize per "
+        "job, so lower this value if Dremio runs out of memory during extraction.",
     )
 
     include_query_lineage: bool = Field(

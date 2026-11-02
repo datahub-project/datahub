@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+// eslint-disable-next-line no-restricted-imports -- (untranslated-text) ANTD_GRAY is deprecated; left as-is here, not part of this i18n string-extraction change
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { AdvancedFilterSelectValueModal } from '@app/search/AdvancedFilterSelectValueModal';
 import { AdvancedSearchFilterConditionSelect } from '@app/search/AdvancedSearchFilterConditionSelect';
@@ -8,7 +9,7 @@ import { AdvancedSearchFilterValuesSection } from '@app/search/AdvancedSearchFil
 import AdvancedFilterCloseButton from '@app/search/advanced/AdvancedFilterCloseButton';
 import EntitySubTypeAdvancedFilterLabel from '@app/search/advanced/EntitySubTypeAdvancedFilterLabel';
 import { FilterContainer } from '@app/search/advanced/styles';
-import { ENTITY_SUB_TYPE_FILTER_NAME, FIELD_TO_LABEL } from '@app/search/utils/constants';
+import { ENTITY_SUB_TYPE_FILTER_NAME, getFieldToLabel } from '@app/search/utils/constants';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
 
@@ -22,22 +23,22 @@ type Props = {
     disabled?: boolean;
 };
 
-const FieldFilterSection = styled.span<{ isCompact: boolean }>`
+const FieldFilterSection = styled.span<{ $isCompact: boolean }>`
     color: ${ANTD_GRAY[9]};
-    padding: ${(props) => (props.isCompact ? '2px 4px' : '4px')};
+    padding: ${(props) => (props.$isCompact ? '2px 4px' : '4px')};
     display: flex;
     justify-content: space-between;
 
     ${(props) =>
-        props.isCompact &&
+        props.$isCompact &&
         `
         display: flex;
         align-items: center;
     `}
 `;
 
-const FieldFilterSelect = styled.span<{ isCompact: boolean }>`
-    padding-right: ${(props) => (props.isCompact ? '0' : '8px;')};
+const FieldFilterSelect = styled.span<{ $isCompact: boolean }>`
+    padding-right: ${(props) => (props.$isCompact ? '0' : '8px;')};
 `;
 
 const FilterFieldLabel = styled.span`
@@ -73,11 +74,11 @@ export const AdvancedSearchFilter = ({
                 onClick={() => {
                     setIsEditing(!isEditing);
                 }}
-                isCompact={isCompact}
+                $isCompact={isCompact}
             >
-                <FieldFilterSection isCompact={isCompact}>
-                    <FieldFilterSelect isCompact={isCompact}>
-                        <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
+                <FieldFilterSection $isCompact={isCompact}>
+                    <FieldFilterSelect $isCompact={isCompact}>
+                        <FilterFieldLabel>{getFieldToLabel()[filter.field]} </FilterFieldLabel>
                         <AdvancedSearchFilterConditionSelect filter={filter} onUpdate={onUpdate} />
                     </FieldFilterSelect>
                     {!loading && isCompact && (

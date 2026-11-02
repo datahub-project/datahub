@@ -176,9 +176,45 @@ public class IncrementalReindexStateTest {
         IncrementalReindexState.get(
             state, INDEX_NAME, IncrementalReindexState.REINDEX_COMPLETE_TIME),
         Optional.of("200"));
+    // Recording the reindex completion time must NOT flip the status to COMPLETED — the index stays
+    // IN_PROGRESS until the alias swap succeeds (see setPhase1Completed). Marking COMPLETED here
+    // would make a failed swap unrecoverable (resumed runs skip it instead of retrying the swap).
+    assertEquals(
+        IncrementalReindexState.getStatus(state, INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.IN_PROGRESS));
+  }
+
+  @Test
+  public void testSetPhase1Completed() {
+    Map<String, String> state =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            NEXT_INDEX,
+            null,
+            100L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.IN_PROGRESS);
+    state = IncrementalReindexState.setReindexCompleteTime(state, INDEX_NAME, 200L);
+
+    // Still IN_PROGRESS after reindex completion; only setPhase1Completed (post-swap) marks
+    // COMPLETED
+    assertEquals(
+        IncrementalReindexState.getStatus(state, INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.IN_PROGRESS));
+
+    state = IncrementalReindexState.setPhase1Completed(state, INDEX_NAME);
+
     assertEquals(
         IncrementalReindexState.getStatus(state, INDEX_NAME),
         Optional.of(IncrementalReindexState.Status.COMPLETED));
+    // completion time is preserved
+    assertEquals(
+        IncrementalReindexState.get(
+            state, INDEX_NAME, IncrementalReindexState.REINDEX_COMPLETE_TIME),
+        Optional.of("200"));
   }
 
   @Test

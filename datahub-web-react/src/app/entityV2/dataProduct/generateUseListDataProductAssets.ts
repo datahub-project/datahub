@@ -1,15 +1,27 @@
 import { GetSearchResultsParams } from '@app/entityV2/shared/components/styled/search/types';
 
 import { useListDataProductAssetsQuery } from '@graphql/search.generated';
+import { FacetFilterInput } from '@types';
 
-export default function generateUseListDataProductAssets({ urn }: { urn: string }) {
+export default function generateUseListDataProductAssets({
+    urn,
+    extraFilters,
+}: {
+    urn: string;
+    extraFilters?: FacetFilterInput[];
+}) {
     return (params: GetSearchResultsParams) => {
         const {
             variables: { input },
         } = params;
 
+        const inputWithFilters = {
+            ...input,
+            filters: [...(input.filters || []), ...(extraFilters || [])],
+        };
+
         const { data, loading, error, refetch } = useListDataProductAssetsQuery({
-            variables: { urn, input },
+            variables: { urn, input: inputWithFilters },
         });
 
         return {
@@ -17,7 +29,13 @@ export default function generateUseListDataProductAssets({ urn }: { urn: string 
             loading,
             error,
             refetch: (refetchParams: GetSearchResultsParams['variables']) => {
-                return refetch({ urn, input: refetchParams.input }).then((res) => res.data.listDataProductAssets);
+                return refetch({
+                    urn,
+                    input: {
+                        ...refetchParams.input,
+                        filters: [...(refetchParams.input.filters || []), ...(extraFilters || [])],
+                    },
+                }).then((res) => res.data.listDataProductAssets);
             },
         };
     };

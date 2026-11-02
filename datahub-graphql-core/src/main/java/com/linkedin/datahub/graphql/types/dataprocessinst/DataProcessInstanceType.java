@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessInstanceMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
@@ -71,12 +72,15 @@ public class DataProcessInstanceType
     try {
       Map<Urn, EntityResponse> entities = new HashMap<>();
       if (_featureFlags.isDataProcessInstanceEntityEnabled()) {
+        Set<String> aspectsToResolve =
+            AspectUtils.getOptimizedAspects(
+                context, name(), ASPECTS_TO_FETCH, DATA_PROCESS_INSTANCE_KEY_ASPECT_NAME);
         entities =
             _entityClient.batchGetV2(
                 context.getOperationContext(),
                 DATA_PROCESS_INSTANCE_ENTITY_NAME,
                 new HashSet<>(dataProcessInstanceUrns),
-                ASPECTS_TO_FETCH);
+                aspectsToResolve);
       }
 
       final List<EntityResponse> gmsResults = new ArrayList<>();

@@ -11,6 +11,11 @@ from datahub.configuration.source_common import (
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
+from datahub.ingestion.source.airbyte.constants import (
+    DEFAULT_CLOUD_API_URL,
+    DEFAULT_CLOUD_OAUTH_TOKEN_URL,
+    DEFAULT_CLOUD_UI_URL,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -30,70 +35,7 @@ class OAuth2GrantType(StrEnum):
     CLIENT_CREDENTIALS = "client_credentials"
 
 
-# Default Airbyte Cloud URLs
-DEFAULT_CLOUD_API_URL = "https://api.airbyte.com/v1"
-DEFAULT_CLOUD_OAUTH_TOKEN_URL = "https://auth.airbyte.com/oauth/token"
-
-# Known source type to DataHub platform mapping
-KNOWN_SOURCE_TYPE_MAPPING = {
-    # Relational Databases
-    "postgres": "postgres",
-    "postgresql": "postgres",
-    "mysql": "mysql",
-    "mariadb": "mariadb",
-    "mssql": "mssql",
-    "sql-server": "mssql",
-    "sqlserver": "mssql",
-    "oracle": "oracle",
-    "db2": "db2",
-    # Cloud Data Warehouses
-    "snowflake": "snowflake",
-    "bigquery": "bigquery",
-    "redshift": "redshift",
-    "databricks": "databricks",
-    "synapse": "mssql",
-    # NoSQL Databases
-    "mongodb": "mongodb",
-    "mongo": "mongodb",
-    "cassandra": "cassandra",
-    "dynamodb": "dynamodb",
-    "elasticsearch": "elasticsearch",
-    "opensearch": "opensearch",
-    "clickhouse": "clickhouse",
-    # Big Data & Analytics
-    "hive": "hive",
-    "presto": "presto",
-    "trino": "trino",
-    "athena": "athena",
-    "vertica": "vertica",
-    "teradata": "teradata",
-    "druid": "druid",
-    # Cloud Storage
-    "s3": "s3",
-    "gcs": "gcs",
-    "google-cloud-storage": "gcs",
-    "azure-blob-storage": "abs",
-    "abs": "abs",
-    # Streaming & Messaging
-    "kafka": "kafka",
-    "pulsar": "pulsar",
-    "kinesis": "kinesis",
-    # File Formats & Data Lakes
-    "delta-lake": "delta-lake",
-    "iceberg": "iceberg",
-    "hudi": "hudi",
-    # Other
-    "glue": "glue",
-    "salesforce": "salesforce",
-    "netsuite": "netsuite",
-    "sap-hana": "hana",
-    "hana": "hana",
-}
-
-
 class PlatformDetail(ConfigModel):
-    """Configuration for mapping a specific Airbyte source/destination to DataHub URNs."""
-
     platform: Optional[str] = Field(
         default=None,
         description="Override the platform type detection (e.g., 'postgres', 'mysql')",
@@ -112,6 +54,15 @@ class PlatformDetail(ConfigModel):
         "If None (default), automatically detects 2-tier vs 3-tier platforms by checking if schema equals database. "
         "Set to True to force 3-tier (database.schema.table), or False to force 2-tier (database.table).",
     )
+    default_schema: Optional[str] = Field(
+        default=None,
+        description="Schema to use when no per-stream schema is known (e.g. 'dbo' for SQL Server). "
+        "Airbyte only exposes per-stream namespaces from version 1.7.0 onwards, "
+        "so on older deployments this is the only way to get a schema tier into the dataset URN. "
+        "Only a namespace reported by Airbyte, or a per-table schema in the connector configuration, "
+        "takes precedence; this deliberately outranks the connector-wide schema key, which sometimes "
+        "holds a database name rather than a schema.",
+    )
     convert_urns_to_lowercase: bool = Field(
         default=True,
         description=(
@@ -123,8 +74,6 @@ class PlatformDetail(ConfigModel):
 
 
 class AirbyteClientConfig(ConfigModel):
-    """Base Airbyte Client Configuration"""
-
     deployment_type: AirbyteDeploymentType = Field(
         default=AirbyteDeploymentType.OPEN_SOURCE,
         description="Type of Airbyte deployment ('oss' or 'cloud')",
@@ -215,12 +164,12 @@ class AirbyteClientConfig(ConfigModel):
 
     @property
     def external_url_base(self) -> str:
-        # Base URL used to build `externalUrl` aspects. OSS uses the
-        # configured `host_port`; Cloud always points at cloud.airbyte.com
-        # (the Cloud API host is a different domain and isn't web-browsable).
+        # Base URL used to build `externalUrl` aspects. OSS uses the configured
+        # `host_port`; Cloud always points at cloud.airbyte.com (the Cloud API
+        # host is a different domain and isn't web-browsable).
         if self.deployment_type == AirbyteDeploymentType.OPEN_SOURCE:
             return self.host_port or ""
-        return "https://cloud.airbyte.com"
+        return DEFAULT_CLOUD_UI_URL
 
     @model_validator(mode="after")
     def validate_deployment_requirements(self) -> "AirbyteClientConfig":
@@ -268,8 +217,6 @@ class AirbyteSourceConfig(
     EnvConfigMixin,
     IncrementalLineageConfigMixin,
 ):
-    """Airbyte source configuration for metadata ingestion"""
-
     extract_column_level_lineage: bool = Field(
         default=True,
         description="Extract column-level lineage",
@@ -314,6 +261,15 @@ class AirbyteSourceConfig(
         default_factory=dict,
         description="A mapping from Airbyte destination ID to its platform/instance/env/database details. "
         "Use this to override platform details for specific destinations.",
+    )
+
+    include_inactive_connections: bool = Field(
+        default=False,
+        description=(
+            "Also ingest connections that are disabled in Airbyte. "
+            "By default, connections reported as inactive are skipped with no "
+            "warning, even if they still appear healthy in the Airbyte UI."
+        ),
     )
 
     include_statuses: bool = Field(

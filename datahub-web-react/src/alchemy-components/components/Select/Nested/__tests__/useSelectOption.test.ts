@@ -4,9 +4,9 @@ import useNestedOption from '@components/components/Select/Nested/useSelectOptio
 
 const option = { value: '1', label: '1', isParent: true };
 const children = [
-    { value: '2', label: '2' },
-    { value: '3', label: '3' },
-    { value: '4', label: '4' },
+    { value: '2', label: '2', isParent: false, parentValue: '1' },
+    { value: '3', label: '3', isParent: false, parentValue: '1' },
+    { value: '4', label: '4', isParent: false, parentValue: '1' },
 ];
 
 const defaultProps = {
@@ -16,6 +16,7 @@ const defaultProps = {
     selectableChildren: children,
     areParentsSelectable: true,
     implicitlySelectChildren: false,
+    selectChildrenWithParent: true,
     isMultiSelect: true,
     addOptions: () => {},
     removeOptions: () => {},
@@ -228,6 +229,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
 
     it('should clear previous selections when selecting a new option', () => {
         const mockSetSelectedOptions = vi.fn();
+        const mockHandleOptionChange = vi.fn((opt) => mockSetSelectedOptions([opt]));
         const previouslySelected = { value: '5', label: '5' };
 
         const { result } = renderHook(() =>
@@ -235,6 +237,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
                 ...singleSelectProps,
                 selectedOptions: [previouslySelected],
                 setSelectedOptions: mockSetSelectedOptions,
+                handleOptionChange: mockHandleOptionChange,
             }),
         );
 
@@ -242,7 +245,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
         selectOption();
 
         // Should replace all previous selections with just the current option
-        expect(mockSetSelectedOptions).toHaveBeenCalledWith([option]);
+        expect(mockHandleOptionChange).toHaveBeenCalledWith(option);
     });
 
     it('should not show partial selection state when areParentsSelectable is true', () => {
@@ -262,6 +265,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
 
     it('should replace selection when selecting a child option', () => {
         const mockSetSelectedOptions = vi.fn();
+        const mockHandleOptionChange = vi.fn((opt) => mockSetSelectedOptions([opt]));
         const childOption = children[0];
         const previouslySelected = { value: '5', label: '5' };
 
@@ -271,13 +275,14 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
                 option: childOption,
                 selectedOptions: [previouslySelected],
                 setSelectedOptions: mockSetSelectedOptions,
+                handleOptionChange: mockHandleOptionChange,
             }),
         );
 
         const { selectOption } = result.current;
         selectOption();
 
-        expect(mockSetSelectedOptions).toHaveBeenCalledWith([childOption]);
+        expect(mockHandleOptionChange).toHaveBeenCalledWith(childOption);
     });
 
     it('should show implicit selection correctly even in single select mode', () => {
@@ -301,12 +306,14 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
 
     it('should handle parent selection with areParentsSelectable=false in single select mode', () => {
         const mockSetSelectedOptions = vi.fn();
+        const mockHandleOptionChange = vi.fn((opt) => mockSetSelectedOptions([opt]));
 
         const { result } = renderHook(() =>
             useNestedOption({
                 ...singleSelectProps,
                 areParentsSelectable: false,
                 setSelectedOptions: mockSetSelectedOptions,
+                handleOptionChange: mockHandleOptionChange,
             }),
         );
 
@@ -316,7 +323,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
         selectOption();
 
         // Should still replace selections, but only with the parent option
-        expect(mockSetSelectedOptions).toHaveBeenCalledWith([option]);
+        expect(mockHandleOptionChange).toHaveBeenCalledWith(option);
     });
 
     it('should handle implicit selection in single select mode', () => {
@@ -337,6 +344,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
         selectOption();
 
         // In single select mode with implicit selection, should set only the parent
+        // The selectChildrenImplicitly path uses setSelectedOptions directly
         expect(mockSetSelectedOptions).toHaveBeenCalledWith([option]);
     });
 
@@ -405,6 +413,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
 
     it('should properly handle child option selection in single select mode', () => {
         const mockSetSelectedOptions = vi.fn();
+        const mockHandleOptionChange = vi.fn((opt) => mockSetSelectedOptions([opt]));
         const childOption = children[0];
 
         const { result } = renderHook(() =>
@@ -414,6 +423,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
                 children: [],
                 selectableChildren: [],
                 setSelectedOptions: mockSetSelectedOptions,
+                handleOptionChange: mockHandleOptionChange,
             }),
         );
 
@@ -423,7 +433,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
         expect(isPartialSelected).toBe(false);
 
         selectOption();
-        expect(mockSetSelectedOptions).toHaveBeenCalledWith([childOption]);
+        expect(mockHandleOptionChange).toHaveBeenCalledWith(childOption);
     });
 
     it('should prevent showing implicitly selected state for parents in single select mode', () => {
@@ -451,6 +461,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
 
     it('should ensure only one selection at a time with various option types', () => {
         const mockSetSelectedOptions = vi.fn();
+        const mockHandleOptionChange = vi.fn((opt) => mockSetSelectedOptions([opt]));
         const existingOption = { value: 'existing', label: 'Existing' };
 
         // Test selecting parent when another option is already selected
@@ -459,11 +470,15 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
                 ...singleSelectProps,
                 selectedOptions: [existingOption],
                 setSelectedOptions: mockSetSelectedOptions,
+                handleOptionChange: mockHandleOptionChange,
             }),
         );
 
         parentResult.current.selectOption();
-        expect(mockSetSelectedOptions).toHaveBeenCalledWith([option]);
+        expect(mockHandleOptionChange).toHaveBeenCalledWith(option);
+
+        // Reset mock for child test
+        mockHandleOptionChange.mockClear();
 
         // Test selecting child when another option is already selected
         const childOption = children[0];
@@ -475,10 +490,85 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
                 selectableChildren: [],
                 selectedOptions: [existingOption],
                 setSelectedOptions: mockSetSelectedOptions,
+                handleOptionChange: mockHandleOptionChange,
             }),
         );
 
         childResult.current.selectOption();
-        expect(mockSetSelectedOptions).toHaveBeenCalledWith([childOption]);
+        expect(mockHandleOptionChange).toHaveBeenCalledWith(childOption);
+    });
+});
+
+describe('useSelectChildren - selectChildrenWithParent is false (granular selection)', () => {
+    it('should deselect parent when parent is selected alone without children', () => {
+        const mockRemoveOptions = vi.fn();
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...defaultProps,
+                selectChildrenWithParent: false,
+                selectedOptions: [option], // Only parent is selected, not children
+                removeOptions: mockRemoveOptions,
+            }),
+        );
+
+        const { selectOption, isSelected } = result.current;
+
+        expect(isSelected).toBe(true);
+        selectOption();
+        // Should remove only the parent
+        expect(mockRemoveOptions).toHaveBeenCalledWith([option]);
+    });
+
+    it('should add only parent when parent is not selected', () => {
+        const mockAddOptions = vi.fn();
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...defaultProps,
+                selectChildrenWithParent: false,
+                addOptions: mockAddOptions,
+            }),
+        );
+
+        const { selectOption } = result.current;
+
+        selectOption();
+        // Should add only the parent, not children
+        expect(mockAddOptions).toHaveBeenCalledWith([option]);
+    });
+
+    it('should deselect only parent even when all children are selected', () => {
+        const mockRemoveOptions = vi.fn();
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...defaultProps,
+                selectChildrenWithParent: false,
+                selectedOptions: [option, ...children], // Both parent and all children selected
+                removeOptions: mockRemoveOptions,
+            }),
+        );
+
+        const { selectOption } = result.current;
+
+        selectOption();
+        // Should remove only the parent, children stay selected
+        expect(mockRemoveOptions).toHaveBeenCalledWith([option]);
+    });
+
+    it('should deselect only parent even when some children are selected', () => {
+        const mockRemoveOptions = vi.fn();
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...defaultProps,
+                selectChildrenWithParent: false,
+                selectedOptions: [option, children[0], children[1]], // Parent and some children selected
+                removeOptions: mockRemoveOptions,
+            }),
+        );
+
+        const { selectOption } = result.current;
+
+        selectOption();
+        // Should remove only the parent, children stay selected
+        expect(mockRemoveOptions).toHaveBeenCalledWith([option]);
     });
 });
