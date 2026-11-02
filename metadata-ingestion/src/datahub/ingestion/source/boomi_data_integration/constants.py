@@ -34,6 +34,7 @@ PARAM_ITEMS_PER_PAGE = "items_per_page"
 # The API caps items_per_page at 500 on every list endpoint.
 ENVIRONMENTS_PAGE_SIZE = 100
 RIVERS_PAGE_SIZE = 500
+RIVERS_PROBE_PAGE_SIZE = 1
 # Guards against an API that keeps returning a next_page link; 500 pages of
 # 500 rivers is far beyond any real environment.
 MAX_PAGES = 500

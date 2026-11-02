@@ -30,7 +30,15 @@ def _source(**overrides: object) -> BoomiDataIntegrationSource:
 
 
 def _environment(cross_id: str, name: str) -> Dict[str, object]:
-    return {"cross_id": cross_id, "environment_name": name, "variables": {}}
+    return {
+        "_id": cross_id,
+        "account": ACCOUNT_ID,
+        "cross_id": cross_id,
+        "environment_name": name,
+        "variables": {"Mail_Alert_Group": "svc@example.com"},
+        "is_default": False,
+        "is_deleted": False,
+    }
 
 
 def _summary(river_id: str, river_type: str = "source_to_target") -> Dict:
@@ -44,11 +52,23 @@ def _summary(river_id: str, river_type: str = "source_to_target") -> Dict:
         "datasource_id": "salesforce",
         "description": "From the list.",
         "river_schedulers": ["0 6 * * *"],
+        "last_user_name_modified": "Example User",
+        "is_api_v2": False,
+        "created_at": "2026-11-02T20:14:55.701000Z",
+        "last_updated_at": "2026-11-02T20:14:55.701000Z",
     }
 
 
 def _page(items: List[Dict[str, object]]) -> Dict[str, object]:
-    return {"items": items, "next_page": None, "current_page_size": len(items)}
+    # The live API marks the last page with an empty next_page string.
+    return {"items": items, "next_page": "", "current_page_size": len(items)}
+
+
+# The live API's response to a token outside the environment's scope.
+FORBIDDEN: Dict[str, object] = {
+    "status_code": 403,
+    "json": {"detail": "Insufficient permissions"},
+}
 
 
 def _entities(source: BoomiDataIntegrationSource) -> List[Entity]:
@@ -66,7 +86,7 @@ def test_forbidden_environment_is_skipped_with_one_warning() -> None:
             ),
         )
         mock.get(f"{BASE_URL}/environments/env-a/rivers", json=_page([]))
-        mock.get(f"{BASE_URL}/environments/env-b/rivers", status_code=403)
+        mock.get(f"{BASE_URL}/environments/env-b/rivers", **FORBIDDEN)
         entities = _entities(source)
 
     report = source.get_report()
@@ -205,23 +225,45 @@ def test_test_connection_reports_auth_failure() -> None:
 
 
 def test_test_connection_passes_when_one_environment_is_reachable() -> None:
+    # The live API serves any environment record to any token of the account,
+    # and only refuses the rivers of environments outside the token's scope.
     config = {
         "account_id": ACCOUNT_ID,
-        "environment_tokens": _env_tokens(**{"env-a": "tok-a", "env-b": "tok-b"}),
+        "environment_tokens": _env_tokens(**{"env-a": "tok-a", "env-b": "tok-a"}),
     }
     with requests_mock.Mocker() as mock:
-        mock.get(f"{BASE_URL}/environments/env-a", json=_environment("env-a", "A"))
-        mock.get(f"{BASE_URL}/environments/env-b", status_code=403)
+        mock.get(f"{BASE_URL}/environments/env-b", json=_environment("env-b", "B"))
+        mock.get(f"{BASE_URL}/environments/env-a/rivers", json=_page([]))
+        mock.get(f"{BASE_URL}/environments/env-b/rivers", **FORBIDDEN)
         partial = BoomiDataIntegrationSource.test_connection(config)
-        mock.get(f"{BASE_URL}/environments/env-a", status_code=403)
+        probes = [r.qs for r in mock.request_history]
+        mock.get(f"{BASE_URL}/environments/env-a/rivers", **FORBIDDEN)
         none = BoomiDataIntegrationSource.test_connection(config)
 
     assert partial.basic_connectivity is not None
     assert partial.basic_connectivity.capable
     assert "env-b" in (partial.basic_connectivity.mitigation_message or "")
     assert "env-a" not in (partial.basic_connectivity.mitigation_message or "")
+    assert all(qs["items_per_page"] == ["1"] for qs in probes)
     assert none.basic_connectivity is not None
     assert not none.basic_connectivity.capable
+
+
+def test_test_connection_with_api_token_probes_listed_environments() -> None:
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            f"{BASE_URL}/environments",
+            json=_page([_environment("env-a", "Prod"), _environment("env-b", "Dev")]),
+        )
+        mock.get(f"{BASE_URL}/environments/env-a/rivers", json=_page([]))
+        mock.get(f"{BASE_URL}/environments/env-b/rivers", **FORBIDDEN)
+        report = BoomiDataIntegrationSource.test_connection(
+            {"account_id": ACCOUNT_ID, "api_token": "tok-a"}
+        )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert "env-b" in (report.basic_connectivity.mitigation_message or "")
 
 
 def test_test_connection_rejects_bad_config() -> None:

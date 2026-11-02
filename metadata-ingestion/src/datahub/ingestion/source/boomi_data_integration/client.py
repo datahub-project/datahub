@@ -29,6 +29,7 @@ from datahub.ingestion.source.boomi_data_integration.constants import (
     RIVER_PATH_TEMPLATE,
     RIVERS_PAGE_SIZE,
     RIVERS_PATH_TEMPLATE,
+    RIVERS_PROBE_PAGE_SIZE,
 )
 from datahub.ingestion.source.boomi_data_integration.models import (
     DIModel,
@@ -175,6 +176,13 @@ class BoomiDataIntegrationClient:
             token,
             RIVERS_PAGE_SIZE,
             RiverSummary,
+        )
+
+    def check_river_access(self, environment_id: str, token: SecretStr) -> None:
+        self._get(
+            RIVERS_PATH_TEMPLATE.format(environment_id=environment_id),
+            token,
+            {PARAM_PAGE: 1, PARAM_ITEMS_PER_PAGE: RIVERS_PROBE_PAGE_SIZE},
         )
 
     def get_river(self, environment_id: str, river_id: str, token: SecretStr) -> River:

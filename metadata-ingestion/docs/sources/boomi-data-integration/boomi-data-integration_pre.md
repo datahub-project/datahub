@@ -10,9 +10,11 @@ A Data Integration API token belongs to one account and one environment. Create 
 
 1. Sign in as an Account Administrator and switch to the environment.
 2. Open **Settings** > **API Tokens** and create a token with these scopes:
-   - `data flow:list`
+   - `river:list`
    - `environment:list`
 3. Copy the token and note the environment ID.
+
+The source plugin only reads, so it does not need `river:execute` or any `:edit` scope.
 
 Add one entry per environment to `environment_tokens`, each with an `environment_id` and an `api_token`. If an environment in `environment_tokens` cannot be read, the run is reported as failed so that stale entity removal does not delete that environment's entities. If you only ingest one environment, you can set `api_token` instead. With `api_token`, the source plugin lists the environments the token can see and skips, with a warning, any environment the token is not allowed to read.
 

@@ -125,18 +125,20 @@ def _is_access_denied(error: Exception) -> bool:
     )
 
 
-def _test_environment_tokens(
+def _test_environment_access(
     client: BoomiDataIntegrationClient, entries: List[EnvironmentToken]
 ) -> TestConnectionReport:
-    # Ingestion skips an environment it cannot read and carries on, so the
-    # connection only fails when no configured environment can be read.
+    # Any token can read every environment record of the account, but only the
+    # rivers of the environment it is scoped to, so probe the rivers. Ingestion
+    # skips an environment it cannot read and carries on, so the connection
+    # only fails when no environment can be read.
     unreachable: List[str] = []
     for entry in entries:
         try:
-            client.get_environment(entry.environment_id, entry.api_token)
+            client.check_river_access(entry.environment_id, entry.api_token)
         except _API_ERRORS as e:
             unreachable.append(f"{entry.environment_id} ({e})")
-    if len(unreachable) == len(entries):
+    if entries and len(unreachable) == len(entries):
         return TestConnectionReport(
             basic_connectivity=CapabilityReport(
                 capable=False,
@@ -212,13 +214,17 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             )
         client = BoomiDataIntegrationClient(config, BoomiDataIntegrationSourceReport())
         try:
-            if config.environment_tokens:
-                return _test_environment_tokens(client, config.environment_tokens)
+            entries: List[EnvironmentToken] = list(config.environment_tokens or [])
             if config.api_token is not None:
-                next(iter(client.list_environments(config.api_token)), None)
-            return TestConnectionReport(
-                basic_connectivity=CapabilityReport(capable=True)
-            )
+                token = config.api_token
+                entries = [
+                    EnvironmentToken(
+                        environment_id=environment.cross_id, api_token=token
+                    )
+                    for environment in client.list_environments(token)
+                    if not environment.is_deleted
+                ]
+            return _test_environment_access(client, entries)
         except _API_ERRORS as e:
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(
