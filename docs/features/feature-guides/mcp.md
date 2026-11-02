@@ -529,7 +529,7 @@ Run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub
 3. A [personal access token](../../authentication/personal-access-tokens.md), if your instance has Metadata Service Authentication enabled
 
 :::note
-On a stock `datahub docker quickstart`, [Metadata Service Authentication is disabled by default](../../authentication/introducing-metadata-service-authentication.md), so no token is required — the self-hosted MCP server connects to `http://localhost:8080` with `DATAHUB_GMS_URL` alone. A token is needed when `METADATA_SERVICE_AUTH_ENABLED` is `true` on `datahub-gms`, and always for DataHub Cloud.
+On a stock `datahub docker quickstart`, [Metadata Service Authentication is disabled by default](../../authentication/introducing-metadata-service-authentication.md), so no token is required — a locally run MCP server connects to `http://localhost:8080` with `DATAHUB_GMS_URL` alone. A token is needed when `METADATA_SERVICE_AUTH_ENABLED` is `true` on `datahub-gms`, and always for DataHub Cloud.
 :::
 
 ### Connecting & Authenticating
@@ -541,7 +541,8 @@ The self-hosted server authenticates via environment variables:
 
 These are passed to the `mcp-server-datahub` process at startup (see configuration examples below).
 
-The configuration examples below all set `DATAHUB_GMS_TOKEN`, since that is what DataHub Cloud and any auth-enabled instance need. If your instance has Metadata Service Authentication disabled, delete the `DATAHUB_GMS_TOKEN` line from whichever example you copy and leave `DATAHUB_GMS_URL` on its own — the server starts unauthenticated. In the JSON examples, remember to drop the now-trailing comma after the `DATAHUB_GMS_URL` value, or the config will fail to parse.
+The configuration examples below all set `DATAHUB_GMS_TOKEN`, since that is what DataHub Cloud and any auth-enabled instance need. If your instance has Metadata Service Authentication disabled, delete the `DATAHUB_GMS_TOKEN` line from whichever example you copy and leave `DATAHUB_GMS_URL` on its own — the server starts unauthenticated. In the JSON examples, remember to drop the now-trailing comma after the `DATAHUB_GMS_URL` value, or the config will fail to parse. This applies to local setups only: a [shared HTTP deployment](#shared-http-deployment) always requires Metadata Service Authentication and a per-user token.
+
 ### Verify from the Terminal
 
 Before adding the server to an MCP client, call a read-only tool directly to check the DataHub connection. Replace the example URN and environment variables with values from your instance.
