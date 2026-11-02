@@ -1,0 +1,54 @@
+{
+  "@type": "QueryResult",
+  "result": [
+    {
+      "@type": "DeployedPackage",
+      "deploymentId": "dda2f5b2-37d6-4ccb-9349-98b6c77e1c0c",
+      "version": 1,
+      "packageId": "ab44fd92-6b7d-4d91-94a1-e5f46cd129bd",
+      "packageVersion": "1.0",
+      "environmentId": "8087318a-a42c-41df-98ab-cf57609d7654",
+      "componentId": "e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc",
+      "componentVersion": 1,
+      "componentType": "process",
+      "deployedDate": "2026-11-02T19:18:22Z",
+      "deployedBy": "svc@example.com",
+      "notes": "DH Test deploy",
+      "active": true,
+      "branchName": "main"
+    },
+    {
+      "@type": "DeployedPackage",
+      "deploymentId": "87621615-2505-4f4c-9c75-1ec46ae89f4e",
+      "version": 2,
+      "packageId": "5b073036-65a3-4907-bca1-1d2694466627",
+      "packageVersion": "1.1",
+      "environmentId": "8087318a-a42c-41df-98ab-cf57609d7654",
+      "componentId": "6363d3f8-93fa-4c4d-a399-45bde722ee63",
+      "componentVersion": 1,
+      "componentType": "process",
+      "deployedDate": "2026-11-02T19:21:29Z",
+      "deployedBy": "svc@example.com",
+      "notes": "DH Test redeploy 1.1",
+      "active": true,
+      "branchName": "main"
+    },
+    {
+      "@type": "DeployedPackage",
+      "deploymentId": "e00cc504-f975-4a1c-be46-0fc87c42791e",
+      "version": 2,
+      "packageId": "87705646-2d4c-429d-ba17-e4ffea2ad7a7",
+      "packageVersion": "1.1",
+      "environmentId": "56c4f2be-9126-4e8a-bfb2-111c009e83d8",
+      "componentId": "161c2360-f2fb-4e20-aba5-db60101ce2b1",
+      "componentVersion": 2,
+      "componentType": "process",
+      "deployedDate": "2026-11-02T19:22:18Z",
+      "deployedBy": "svc@example.com",
+      "notes": "DH Test redeploy 1.1",
+      "active": true,
+      "branchName": "main"
+    }
+  ],
+  "numberOfResults": 3
+}

@@ -1,0 +1,18 @@
+{
+  "@type": "QueryResult",
+  "result": [
+    {
+      "@type": "Environment",
+      "id": "8087318a-a42c-41df-98ab-cf57609d7654",
+      "name": "DH Test Env",
+      "classification": "TEST"
+    },
+    {
+      "@type": "Environment",
+      "id": "56c4f2be-9126-4e8a-bfb2-111c009e83d8",
+      "name": "DH Test Prod Env",
+      "classification": "PROD"
+    }
+  ],
+  "numberOfResults": 2
+}

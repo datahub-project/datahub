@@ -5,16 +5,10 @@ from pydantic import ValidationError
 from datahub.ingestion.source.boomi.component_parser import parse_process_component
 from datahub.ingestion.source.boomi.models import ComponentMetadata, QueryResponse
 
-EXPORT_STYLE_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<bns:Component xmlns:bns="http://api.platform.boomi.com/" componentId="p1" folderFullPath="Acme/Production/Orders">
-  <bns:encryptedValues/>
-  <bns:description>Copies orders into the ERP.</bns:description>
-  <bns:object>
-    <process xmlns="">
-      <description>shape-level text that must not be picked up</description>
-    </process>
-  </bns:object>
-</bns:Component>
+# Shaped like a live GET Component/{id} response.
+EXPORT_STYLE_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bns="http://api.platform.boomi.com/" folderFullPath="Test Account/DataHub Test/Orders" componentId="p1" version="1" name="Orders Sync" type="process" createdDate="2026-11-02T19:17:12Z" createdBy="svc@example.com" modifiedDate="2026-11-02T19:17:12Z" modifiedBy="svc@example.com" deleted="false" currentVersion="true" folderName="Orders" folderId="Rjo4OTQzNDEx" branchName="main" branchId="Qjo2MDk0Mzg"><bns:encryptedValues/><bns:description>Copies orders into the ERP.</bns:description><bns:object><process xmlns="" allowSimultaneous="false" workload="general">
+      <description>shape-level text that must not be picked up</description><shapes/>
+</process></bns:object><bns:processOverrides/></bns:Component>
 """
 
 DOCS_STYLE_XML = """<Component xmlns="http://api.platform.boomi.com/" componentId="p2" folderFullPath="Acme/Finance">
@@ -27,7 +21,7 @@ DOCS_STYLE_XML = """<Component xmlns="http://api.platform.boomi.com/" componentI
 def test_parse_export_with_empty_default_namespace_children() -> None:
     info = parse_process_component(EXPORT_STYLE_XML)
     assert info.description == "Copies orders into the ERP."
-    assert info.folder_full_path == "Acme/Production/Orders"
+    assert info.folder_full_path == "Test Account/DataHub Test/Orders"
 
 
 def test_parse_default_namespace_variant() -> None:

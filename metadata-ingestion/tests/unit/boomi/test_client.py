@@ -2,7 +2,7 @@ import base64
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Iterator, List
+from typing import Iterator, List, Optional
 
 import pytest
 import requests_mock
@@ -29,7 +29,22 @@ def _client(api_url: str = "https://api.boomi.com") -> BoomiClient:
 
 
 def _folder(folder_id: str) -> dict:
-    return {"id": folder_id, "name": folder_id, "fullPath": f"Acme/{folder_id}"}
+    return {
+        "@type": "Folder",
+        "id": folder_id,
+        "name": folder_id,
+        "fullPath": f"Test Account/{folder_id}",
+        "deleted": False,
+        "parentId": "Rjo4OTQzMzg4",
+        "parentName": "Test Account",
+    }
+
+
+def _page(records: List[dict], token: Optional[str] = None) -> dict:
+    page = {"@type": "QueryResult", "result": records, "numberOfResults": len(records)}
+    if token:
+        page["queryToken"] = token
+    return page
 
 
 def test_query_follows_query_tokens_until_exhausted() -> None:
@@ -37,13 +52,13 @@ def test_query_follows_query_tokens_until_exhausted() -> None:
     with requests_mock.Mocker() as mock:
         mock.post(
             f"{BASE_URL}/Folder/query",
-            json={"result": [_folder("a")], "queryToken": "token-1"},
+            json=_page([_folder("a")], token="token-1"),
         )
         mock.post(
             f"{BASE_URL}/Folder/queryMore",
             [
-                {"json": {"result": [_folder("b")], "queryToken": "token-2"}},
-                {"json": {"result": [_folder("c")]}},
+                {"json": _page([_folder("b")], token="token-2")},
+                {"json": _page([_folder("c")])},
             ],
         )
         folders = [f.id for f in client.list_folders()]
@@ -62,7 +77,7 @@ def test_query_follows_query_tokens_until_exhausted() -> None:
 def test_process_query_sends_branch_filter() -> None:
     client = _client()
     with requests_mock.Mocker() as mock:
-        mock.post(f"{BASE_URL}/ComponentMetadata/query", json={"result": []})
+        mock.post(f"{BASE_URL}/ComponentMetadata/query", json=_page([]))
         assert list(client.list_processes("main")) == []
         body = mock.request_history[0].json()
 
@@ -81,7 +96,7 @@ def test_invalid_record_is_skipped_with_warning() -> None:
     with requests_mock.Mocker() as mock:
         mock.post(
             f"{BASE_URL}/Folder/query",
-            json={"result": [_folder("a"), {"id": "no-name"}]},
+            json=_page([_folder("a"), {"@type": "Folder", "id": "no-name"}]),
         )
         folders = [f.id for f in client.list_folders()]
 
@@ -93,7 +108,14 @@ def test_invalid_record_is_skipped_with_warning() -> None:
 def test_http_error_carries_status_code() -> None:
     client = _client()
     with requests_mock.Mocker() as mock:
-        mock.post(f"{BASE_URL}/DeployedPackage/query", status_code=403, text="denied")
+        mock.post(
+            f"{BASE_URL}/DeployedPackage/query",
+            status_code=403,
+            json={
+                "@type": "Error",
+                "message": "The authenticated user does not have access rights to this functionality.",
+            },
+        )
         with pytest.raises(BoomiApiError) as excinfo:
             list(client.list_active_process_deployments())
 
@@ -106,7 +128,7 @@ class _ThrottlingHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         self.rfile.read(int(self.headers.get("Content-Length", 0)))
         status = self.statuses.pop(0)
-        body = json.dumps({"result": [_folder("a")]}).encode()
+        body = json.dumps(_page([_folder("a")])).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
