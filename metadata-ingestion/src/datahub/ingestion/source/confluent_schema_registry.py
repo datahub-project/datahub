@@ -534,6 +534,14 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         key_fields: List[SchemaField],
     ) -> Optional[SchemaMetadata]:
         """Build SchemaMetadata from pre-fetched value and key schema data."""
+        # Fallback resolution can return a registry schema without parsed fields.
+        if value_schema is not None and not value_fields:
+            value_fields = self._get_schema_fields(
+                topic, value_schema, is_key_schema=False
+            )
+        if key_schema is not None and not key_fields:
+            key_fields = self._get_schema_fields(topic, key_schema, is_key_schema=True)
+
         if (
             value_schema is not None
             or key_schema is not None

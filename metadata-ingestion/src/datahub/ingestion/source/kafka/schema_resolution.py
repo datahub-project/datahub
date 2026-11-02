@@ -111,7 +111,7 @@ class KafkaSchemaResolver:
                 f"after registry resolution failed"
             )
             inferred_schemas = self.schema_inference.infer_schemas_batch(
-                topics_needing_inference
+                topics_needing_inference, is_key_schema=is_key_schema
             )
 
             for topic in topics_needing_inference:
@@ -309,7 +309,9 @@ class KafkaSchemaResolver:
             # Use the schema inference infrastructure to sample messages
             if not self.schema_inference:
                 return record_names
-            sample_messages = self.schema_inference.sample_topic_messages(topic)
+            sample_messages = self.schema_inference.sample_topic_messages(
+                topic, is_key_schema=is_key_schema, decode_messages=False
+            )
 
             # Use the configured fallback config to determine how many messages to sample
             fallback_config = self.source_config.schema_resolution
@@ -319,11 +321,6 @@ class KafkaSchemaResolver:
 
             for message_value in sample_messages:
                 if message_value is None:
-                    continue
-
-                # For schema resolution, we only work with value schemas for now
-                # Key schema resolution would need a separate sampling approach
-                if is_key_schema:
                     continue
 
                 # Try to extract record name from the message

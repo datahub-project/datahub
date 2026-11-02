@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Set, Union
 from confluent_kafka import Consumer
 
 from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
+from datahub.ingestion.extractor.json_schema_util import FieldElement, FieldPath
 from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_CPU_COUNT_FALLBACK,
@@ -69,7 +70,9 @@ class KafkaSchemaInference:
                 log=False,
             )
 
-    def infer_schemas_batch(self, topics: List[str]) -> Dict[str, List[SchemaField]]:
+    def infer_schemas_batch(
+        self, topics: List[str], is_key_schema: bool = False
+    ) -> Dict[str, List[SchemaField]]:
         if not topics:
             return {}
 
@@ -80,7 +83,7 @@ class KafkaSchemaInference:
             logger.info(
                 f"Processing {len(topics)} topics in parallel for schema inference"
             )
-            parallel_results = self._infer_schemas_parallel(topics)
+            parallel_results = self._infer_schemas_parallel(topics, is_key_schema)
             results.update(parallel_results)
         else:
             # Sequential processing
@@ -89,7 +92,9 @@ class KafkaSchemaInference:
             )
             for topic in topics:
                 try:
-                    schema_fields = self._infer_schema_from_messages(topic)
+                    schema_fields = self._infer_schema_from_messages(
+                        topic, is_key_schema
+                    )
                     results[topic] = schema_fields
                 except Exception as e:
                     self._note_inference_failure(topic, e)
@@ -98,7 +103,7 @@ class KafkaSchemaInference:
         return results
 
     def _infer_schemas_parallel(
-        self, topics: List[str]
+        self, topics: List[str], is_key_schema: bool = False
     ) -> Dict[str, List[SchemaField]]:
         results = {}
 
@@ -119,7 +124,9 @@ class KafkaSchemaInference:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
             future_to_topic = {
-                executor.submit(self._infer_schema_from_messages, topic): topic
+                executor.submit(
+                    self._infer_schema_from_messages, topic, is_key_schema
+                ): topic
                 for topic in topics
             }
 
@@ -137,14 +144,23 @@ class KafkaSchemaInference:
         logger.info(f"Completed parallel schema inference for {len(topics)} topics")
         return results
 
-    def sample_topic_messages(self, topic: str) -> List[MessageValue]:
+    def sample_topic_messages(
+        self,
+        topic: str,
+        is_key_schema: bool = False,
+        *,
+        decode_messages: bool = True,
+    ) -> List[MessageValue]:
         strategy = self.fallback_config.offset_reset_strategy
 
         if strategy == OffsetResetStrategy.HYBRID:
             # Try latest first for speed
             logger.debug(f"Trying 'latest' sampling for topic {topic}")
             messages = self._sample_messages_with_strategy(
-                topic, OffsetResetStrategy.LATEST
+                topic,
+                OffsetResetStrategy.LATEST,
+                is_key_schema,
+                decode_messages=decode_messages,
             )
 
             if not messages:
@@ -152,21 +168,35 @@ class KafkaSchemaInference:
                     f"No recent messages found, trying 'earliest' for topic {topic}"
                 )
                 messages = self._sample_messages_with_strategy(
-                    topic, OffsetResetStrategy.EARLIEST
+                    topic,
+                    OffsetResetStrategy.EARLIEST,
+                    is_key_schema,
+                    decode_messages=decode_messages,
                 )
 
             return messages
         elif strategy == OffsetResetStrategy.LATEST:
             return self._sample_messages_with_strategy(
-                topic, OffsetResetStrategy.LATEST
+                topic,
+                OffsetResetStrategy.LATEST,
+                is_key_schema,
+                decode_messages=decode_messages,
             )
         else:  # earliest
             return self._sample_messages_with_strategy(
-                topic, OffsetResetStrategy.EARLIEST
+                topic,
+                OffsetResetStrategy.EARLIEST,
+                is_key_schema,
+                decode_messages=decode_messages,
             )
 
     def _sample_messages_with_strategy(
-        self, topic: str, offset_strategy: OffsetResetStrategy
+        self,
+        topic: str,
+        offset_strategy: OffsetResetStrategy,
+        is_key_schema: bool = False,
+        *,
+        decode_messages: bool = True,
     ) -> List[MessageValue]:
         start_time = time.time()
 
@@ -236,12 +266,16 @@ class KafkaSchemaInference:
                     continue
 
                 try:
-                    # Try to decode the message value
-                    value = msg.value()
-                    if value is None:
+                    payload = msg.key() if is_key_schema else msg.value()
+                    if payload is None:
                         continue
 
-                    processed_message = process_kafka_message_for_sampling(value)
+                    # Record-name lookup needs the original schema-ID header.
+                    processed_message = (
+                        process_kafka_message_for_sampling(payload)
+                        if decode_messages
+                        else payload
+                    )
                     messages.append(processed_message)
 
                 except Exception as e:
@@ -285,15 +319,36 @@ class KafkaSchemaInference:
             # consumer-group slots across the ThreadPoolExecutor workers.
             consumer.close()
 
-    def _infer_schema_from_messages(self, topic: str) -> List[SchemaField]:
+    def _infer_schema_from_messages(
+        self, topic: str, is_key_schema: bool = False
+    ) -> List[SchemaField]:
         try:
-            sample_messages = self.sample_topic_messages(topic)
+            sample_messages = self.sample_topic_messages(topic, is_key_schema)
 
             if not sample_messages:
                 logger.debug(f"Skipping empty topic {topic} for schema inference")
                 return []
 
             inferred_fields = self._extract_fields_from_samples(topic, sample_messages)
+            if is_key_schema:
+                for field in inferred_fields:
+                    path_parts = field.fieldPath.split(".")
+                    field.fieldPath = FieldPath(
+                        is_key_schema=True,
+                        path=[
+                            FieldElement(
+                                name=name,
+                                type=[
+                                    field.nativeDataType
+                                    if i == len(path_parts) - 1
+                                    else "record"
+                                ],
+                                schema_types=[],
+                            )
+                            for i, name in enumerate(path_parts)
+                        ],
+                    ).as_string()
+                    field.isPartOfKey = True
 
             if not inferred_fields and self.report is not None:
                 # We had samples but every one failed to yield a field; without
