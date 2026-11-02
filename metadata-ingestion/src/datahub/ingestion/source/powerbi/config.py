@@ -279,6 +279,8 @@ class Constant:
     PAGE_NAME = "pageName"
     VISUAL = "Visual"
     VISUAL_TITLE_FALLBACK = "{visual_type} on {page}"
+    # An untitled tile is named by its 1-based position on the dashboard.
+    TILE_TITLE_FALLBACK = "Tile {position}"
     URL_QUERY_SEPARATOR = "?"
     TOP = "$top"
     # Scan-API column types reproduced for TMDL-sourced columns
@@ -1175,6 +1177,8 @@ class PowerBiDashboardSourceConfig(
         "page filter reads join that page's `inputFields`, and the fields a report "
         "filter reads join every page's. Note that a filter's condition includes the "
         "literal values it compares against, which may be business data. "
+        "Page charts and tiles pinned from the report then list only the model "
+        "tables their fields read as inputs, instead of every table of the model. "
         "Adds one Fabric getDefinition call per report. "
         "Requires `extract_reports`, `extract_dataset_schema` and either "
         "`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`.",

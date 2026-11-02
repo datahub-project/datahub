@@ -3817,6 +3817,7 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
+            "chartUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/ReportSection",
             "inputs": [
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)"
@@ -3945,6 +3946,7 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
+            "chartUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/ReportSection1",
             "inputs": [
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)"

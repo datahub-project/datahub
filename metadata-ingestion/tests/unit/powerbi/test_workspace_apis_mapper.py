@@ -4,6 +4,7 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.powerbi.config import (
     Constant,
@@ -22,6 +23,7 @@ from datahub.ingestion.source.powerbi.powerbi import MAX_FILTERS_IN_PROPERTY, Ma
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FABRIC_ARTIFACT_LAKEHOUSE,
     Column,
+    Dashboard,
     DatasetRefresh,
     DatasetRefreshSchedule,
     DaxFieldReference,
@@ -40,6 +42,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     ReportType,
     RlsTableFilter,
     Table,
+    Tile,
     Visual,
     Workspace,
 )
@@ -55,6 +58,7 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     OperationTypeClass,
     SchemaMetadataClass,
+    StatusClass,
     StringTypeClass,
     UpstreamLineageClass,
 )
@@ -881,9 +885,9 @@ def test_page_input_fields_resolve_against_dataset_schema() -> None:
         users=[],
         tags=[],
     )
-    mcp = mapper._page_input_fields_mcp(
+    mcp = mapper._page_input_fields(
         page, report, "urn:li:chart:(powerbi,pages.r1.p1)"
-    )
+    ).mcp
     assert mcp is not None
     assert isinstance(mcp.aspect, InputFieldsClass)
     policies_urn = _urn(mapper, policies)
@@ -1738,3 +1742,183 @@ def test_visuals_are_not_emitted_when_flag_is_off() -> None:
     mapper, _, _, chart_mcps = _visual_charts(extract_report_visuals=False)
     assert {mcp.entityUrn for mcp in chart_mcps} == {PAGE_URN}
     assert mapper._Mapper__reporter.report_visuals_emitted == 0  # type: ignore[attr-defined]
+
+
+def _three_table_report(with_field_references: bool = True) -> Report:
+    """A report over three tables whose single page reads only the first
+    two; without field references it is what the API gives when
+    `extract_report_field_usage` is off."""
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("State")]
+    )
+    claims = Table(name="Claims", full_name="Model.Claims", columns=[_column("Status")])
+    unused = Table(name="Unused", full_name="Model.Unused", columns=[_column("X")])
+    report = _report_with_visuals(
+        _dataset([policies, claims, unused]), with_visuals=False
+    )
+    if not with_field_references:
+        report.pages[0].field_references = []
+    return report
+
+
+def _model_mcps(mapper: Mapper, report: Report) -> List[MetadataChangeProposalWrapper]:
+    assert report.dataset is not None
+    return [
+        MetadataChangeProposalWrapper(
+            entityUrn=_urn(mapper, table), aspect=StatusClass(removed=False)
+        )
+        for table in report.dataset.tables
+    ]
+
+
+def _page_chart_info(
+    mapper: Mapper, report: Report
+) -> Tuple[ChartInfoClass, PowerBiDashboardSourceReport]:
+    workspace = _workspace()
+    mapper.workspace_key = mapper.make_container_key_for_workspace(workspace)
+    chart_mcps = mapper.pages_to_chart(
+        report.pages,
+        workspace=workspace,
+        ds_mcps=_model_mcps(mapper, report),
+        report=report,
+    )
+    return _aspects_of(chart_mcps, PAGE_URN)["ChartInfoClass"], _reporter(mapper)
+
+
+def test_page_inputs_are_the_tables_its_fields_read_with_field_usage() -> None:
+    mapper = _mapper(_config(extract_report_field_usage=True, platform_instance="prod"))
+    report = _three_table_report()
+    info, reporter = _page_chart_info(mapper, report)
+    assert report.dataset is not None
+    policies, claims, _ = report.dataset.tables
+    assert info.inputs == [_urn(mapper, policies), _urn(mapper, claims)]
+    assert info.chartUrl == "https://app.powerbi.com/groups/ws-1/reports/r1/p1"
+    assert reporter.report_field_references_resolved == 2
+    assert reporter.report_field_references_unresolved == 0
+
+
+def test_page_inputs_stay_the_whole_model_without_field_usage() -> None:
+    mapper = _mapper(_config(platform_instance="prod"))
+    report = _three_table_report(with_field_references=False)
+    info, reporter = _page_chart_info(mapper, report)
+    assert report.dataset is not None
+    assert info.inputs == [_urn(mapper, t) for t in report.dataset.tables]
+    # The page URL does not depend on field usage.
+    assert info.chartUrl == "https://app.powerbi.com/groups/ws-1/reports/r1/p1"
+    assert reporter.report_field_references_resolved == 0
+
+
+def test_page_inputs_stay_the_whole_model_when_nothing_resolves() -> None:
+    mapper = _mapper(_config(extract_report_field_usage=True, platform_instance="prod"))
+    report = _three_table_report()
+    report.pages[0].field_references = [PageFieldReference("Other", "Gone", "column")]
+    info, reporter = _page_chart_info(mapper, report)
+    assert report.dataset is not None
+    assert info.inputs == [_urn(mapper, t) for t in report.dataset.tables]
+    assert reporter.report_field_references_unresolved == 1
+
+
+def _tile(
+    tile_id: str,
+    dataset: Optional[PowerBIDataset],
+    report: Optional[Report],
+    title: Optional[str],
+) -> Tile:
+    """A tile pinned from `report`, or straight from `dataset` when there
+    is no report."""
+    return Tile(
+        id=tile_id,
+        title=title,
+        embedUrl=None,
+        dataset_id=dataset.id if dataset is not None else None,
+        report_id=report.id if report is not None else None,
+        createdFrom=(
+            Tile.CreatedFrom.REPORT if report is not None else Tile.CreatedFrom.DATASET
+        ),
+        dataset=dataset,
+        report=report,
+    )
+
+
+def _tile_chart_infos(mapper: Mapper, tiles: List[Tile]) -> Dict[str, ChartInfoClass]:
+    workspace = _workspace()
+    mapper.workspace_key = mapper.make_container_key_for_workspace(workspace)
+    dashboard = Dashboard(
+        id="d1",
+        displayName="Board",
+        description="",
+        embedUrl=None,
+        isReadOnly=False,
+        workspace_id=workspace.id,
+        workspace_name=workspace.name,
+        tiles=tiles,
+        users=[],
+        tags=[],
+        webUrl=None,
+    )
+    _, chart_mcps = mapper.to_datahub_chart(tiles, workspace, dashboard)
+    infos: Dict[str, ChartInfoClass] = {}
+    for mcp in chart_mcps:
+        if isinstance(mcp.aspect, ChartInfoClass):
+            assert mcp.entityUrn is not None
+            infos[mcp.entityUrn] = mcp.aspect
+    return infos
+
+
+def test_report_tile_inputs_are_the_tables_the_report_pages_read() -> None:
+    mapper = _mapper(_config(extract_report_field_usage=True, platform_instance="prod"))
+    report = _three_table_report()
+    assert report.dataset is not None
+    policies, claims, _ = report.dataset.tables
+    whole_model = [_urn(mapper, t) for t in report.dataset.tables]
+    infos = _tile_chart_infos(
+        mapper,
+        [
+            _tile("t1", report.dataset, report, "From report"),
+            _tile("t2", report.dataset, report, "Also from report"),
+            _tile("t3", report.dataset, None, "Pinned from the model"),
+        ],
+    )
+    narrowed = [_urn(mapper, policies), _urn(mapper, claims)]
+    assert infos["urn:li:chart:(powerbi,prod.charts.t1)"].inputs == narrowed
+    assert infos["urn:li:chart:(powerbi,prod.charts.t2)"].inputs == narrowed
+    # A tile pinned straight from the model has no report pages to narrow by.
+    assert infos["urn:li:chart:(powerbi,prod.charts.t3)"].inputs == whole_model
+    # Tiles never feed the page counters; the page pass does that once.
+    reporter = _reporter(mapper)
+    assert reporter.report_field_references_resolved == 0
+    assert reporter.report_field_references_unresolved == 0
+    # Resolved once per report, then served from the memo.
+    with patch.object(
+        mapper, "_resolve_input_fields", wraps=mapper._resolve_input_fields
+    ) as resolve:
+        assert mapper._report_used_dataset_urns(report) == narrowed
+        resolve.assert_not_called()
+
+
+def test_report_tile_inputs_stay_the_whole_model_without_field_usage() -> None:
+    mapper = _mapper(_config(platform_instance="prod"))
+    report = _three_table_report(with_field_references=False)
+    assert report.dataset is not None
+    infos = _tile_chart_infos(
+        mapper, [_tile("t1", report.dataset, report, "From report")]
+    )
+    assert infos["urn:li:chart:(powerbi,prod.charts.t1)"].inputs == [
+        _urn(mapper, t) for t in report.dataset.tables
+    ]
+
+
+def test_untitled_tile_is_named_by_its_position_on_the_dashboard() -> None:
+    mapper = _mapper(_config(platform_instance="prod"))
+    report = _three_table_report(with_field_references=False)
+    infos = _tile_chart_infos(
+        mapper,
+        [
+            _tile("t1", report.dataset, report, "Titled"),
+            _tile("t2", report.dataset, None, None),
+        ],
+    )
+    assert infos["urn:li:chart:(powerbi,prod.charts.t1)"].title == "Titled"
+    untitled = infos["urn:li:chart:(powerbi,prod.charts.t2)"]
+    assert untitled.title == "Tile 2"
+    assert untitled.description == "Tile 2"

@@ -485,6 +485,9 @@ class Mapper:
         # Refresh Operations are decided once per dataset and emitted on each
         # of its tables, so counters and warnings fire per dataset.
         self.__refresh_plans: Dict[str, List[_RefreshOperationPlan]] = {}
+        # Tables a report's pages read (from their resolved field references),
+        # by report id: every tile built from the report asks for them.
+        self.__report_used_dataset_urns: Dict[str, List[str]] = {}
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -2176,9 +2179,11 @@ class Mapper:
         ds_mcps: List[MetadataChangeProposalWrapper],
         workspace: powerbi_data_classes.Workspace,
         dashboard: powerbi_data_classes.Dashboard,
+        position: int = 1,
     ) -> List[MetadataChangeProposalWrapper]:
         """
-        Map PowerBi tile to datahub chart
+        Map PowerBi tile to datahub chart. `position` is the tile's 1-based
+        place on the dashboard, which names a tile that has no title.
         """
         logger.info(
             f"Converting tile {tile.title or '(untitled)'}(id={tile.id}) to chart"
@@ -2195,6 +2200,12 @@ class Mapper:
         ds_input: List[str] = self.to_urn_set(
             [x for x in ds_mcps if x.entityType == Constant.DATASET]
         )
+        # A tile pinned from a report shows one of its visuals, so when the
+        # report's definition told us which tables its pages read, those are
+        # the tile's inputs rather than every table of the model.
+        if tile.report is not None:
+            ds_input = self._report_used_dataset_urns(tile.report) or ds_input
+        title = tile.title or Constant.TILE_TITLE_FALLBACK.format(position=position)
 
         def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
             custom_properties: dict = {
@@ -2218,8 +2229,8 @@ class Mapper:
         # Create chartInfo mcp
         # Set chartUrl only if tile is created from Report
         chart_info_instance = ChartInfoClass(
-            title=tile.title or "",
-            description=tile.title or "",
+            title=title,
+            description=title,
             lastModified=ChangeAuditStamps(),
             inputs=ds_input,
             externalUrl=tile.report.webUrl if tile.report else None,
@@ -2648,14 +2659,14 @@ class Mapper:
 
         logger.info(f"Converting tiles(count={len(tiles)}) to charts")
 
-        for tile in tiles:
+        for position, tile in enumerate(tiles, start=1):
             if tile is None:
                 continue
             # First convert the dataset to MCP, because dataset mcp is used in input attribute of chart mcp
             dataset_mcps = self.to_datahub_dataset(tile.dataset, workspace)
             # Now convert tile to chart MCP
             chart_mcp = self.to_datahub_chart_mcp(
-                tile, dataset_mcps, workspace, dashboard
+                tile, dataset_mcps, workspace, dashboard, position=position
             )
 
             ds_mcps.extend(dataset_mcps)
@@ -2748,20 +2759,47 @@ class Mapper:
             self.__reporter.report_filters_truncated += len(filters) - len(kept)
         return properties
 
-    def _page_input_fields_mcp(
+    def _page_input_fields(
         self,
         page: powerbi_data_classes.Page,
         report: powerbi_data_classes.Report,
         chart_urn: str,
-    ) -> Optional[MetadataChangeProposalWrapper]:
+    ) -> ResolvedInputFields:
         """Model columns and measures the page's visuals read, as inputFields
-        pointing at the semantic-model tables' schema fields."""
+        pointing at the semantic-model tables' schema fields, plus the tables
+        they belong to. This page pass is the only place feeding the page
+        counters."""
         resolved = self._resolve_input_fields(
             page.field_references, report, chart_urn, f"page {page.name}"
         )
         self.__reporter.report_field_references_resolved += resolved.resolved
         self.__reporter.report_field_references_unresolved += resolved.unresolved
-        return resolved.mcp
+        return resolved
+
+    def _report_used_dataset_urns(
+        self, report: powerbi_data_classes.Report
+    ) -> List[str]:
+        """Tables the report's pages read, from their resolved field references,
+        in first-seen order; empty when no definition was fetched or nothing
+        resolved. Memoised per report id and counter-free: the page pass
+        already counts these references, and every tile of the report asks."""
+        cached = self.__report_used_dataset_urns.get(report.id)
+        if cached is not None:
+            return cached
+        dataset_urns: List[str] = []
+        if self.__config.extract_report_field_usage:
+            for page in report.pages:
+                resolved = self._resolve_input_fields(
+                    page.field_references,
+                    report,
+                    self.make_chart_urn_for_page(page),
+                    f"page {page.name}",
+                )
+                for dataset_urn in resolved.dataset_urns:
+                    if dataset_urn not in dataset_urns:
+                        dataset_urns.append(dataset_urn)
+        self.__report_used_dataset_urns[report.id] = dataset_urns
+        return dataset_urns
 
     def _resolve_input_fields(
         self,
@@ -3002,12 +3040,18 @@ class Mapper:
                 custom_properties[Constant.VISUAL_TYPES] = ", ".join(page.visual_types)
             custom_properties.update(self._filter_properties(page.filters))
 
-            # Create chartInfo mcp
-            # Set chartUrl only if tile is created from Report
+            resolved = self._page_input_fields(page, report, chart_urn)
+            # When the report definition told us which tables the page's
+            # visuals read, those are the page's inputs; without field usage
+            # (or when nothing resolved) the whole model stays, as before.
+            if self.__config.extract_report_field_usage and resolved.dataset_urns:
+                ds_input = resolved.dataset_urns
+
             chart_info_instance = ChartInfoClass(
                 title=page.displayName or "",
                 description=page.displayName or "",
                 lastModified=ChangeAuditStamps(),
+                chartUrl=self._page_url(report, page),
                 inputs=ds_input,
                 customProperties=custom_properties,
             )
@@ -3017,8 +3061,6 @@ class Mapper:
                 aspect=chart_info_instance,
             )
 
-            input_fields_mcp = self._page_input_fields_mcp(page, report, chart_urn)
-
             list_of_mcps = [
                 info_mcp,
                 *self._chart_common_mcps(
@@ -3026,7 +3068,7 @@ class Mapper:
                     BIAssetSubTypes.POWERBI_PAGE,
                     workspace,
                     report,
-                    input_fields_mcp,
+                    resolved.mcp,
                 ),
             ]
 
