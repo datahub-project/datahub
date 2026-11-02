@@ -96,7 +96,19 @@ class MockDataHubGraph(DataHubGraph):
         **kwargs: Any,
     ) -> Iterable[str]:
         """Supports EQUAL filters on top-level fields of the entity's properties
-        aspect (e.g. domainProperties.name / parentDomain)."""
+        aspect, including their ``.keyword`` subfield and ``has<Field>`` flags
+        (e.g. domainProperties ``name``, ``parentDomain.keyword``,
+        ``hasParentDomain``)."""
+
+        def field_value(properties: Any, field: str) -> Any:
+            field = field.removesuffix(".keyword")
+            if hasattr(properties, field):
+                return getattr(properties, field)
+            if field.startswith("has"):
+                flag_of = field[3].lower() + field[4:]
+                return "true" if getattr(properties, flag_of, None) else "false"
+            return None
+
         for urn, aspects in self.entity_graph.items():
             entity_type = urn.split(":")[2]
             if entity_types and entity_type not in entity_types:
@@ -104,7 +116,7 @@ class MockDataHubGraph(DataHubGraph):
             properties = aspects.get(f"{entity_type}Properties")
             if all(
                 properties is not None
-                and getattr(properties, rule["field"], None) in rule["values"]
+                and field_value(properties, rule["field"]) in rule["values"]
                 for rule in extraFilters or []
             ):
                 yield urn

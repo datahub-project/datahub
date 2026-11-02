@@ -1,11 +1,12 @@
 import json
 from pathlib import Path
 from typing import Any, Dict, List
+from unittest.mock import patch
 
 import pytest
 
 from datahub.api.entities.dataproduct.dataproduct import Ownership
-from datahub.api.entities.domain.domain import Domain
+from datahub.api.entities.domain.domain import Domain, find_domain_urns
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -242,6 +243,31 @@ def test_cycle_check_stops_on_a_cycle_already_in_the_hierarchy(tmp_path: Path) -
     assert Domain.from_yaml(yaml_file, graph).resolved_parent_domain_urn == (
         "urn:li:domain:a"
     )
+
+
+def test_find_child_domains_uses_the_gms_parent_criteria(
+    hierarchy_graph: MockDataHubGraph,
+) -> None:
+    with patch.object(
+        hierarchy_graph,
+        "get_urns_by_filter",
+        wraps=hierarchy_graph.get_urns_by_filter,
+    ) as get_urns_by_filter:
+        children = find_domain_urns(
+            hierarchy_graph, parent_domain_urn="urn:li:domain:root"
+        )
+
+    assert children == ["urn:li:domain:child"]
+    # parentDomain is an analyzed URN field; an exact match on it can miss
+    # children, so mirror GMS DomainUtils.buildParentDomainCriteria.
+    assert get_urns_by_filter.call_args.kwargs["extraFilters"] == [
+        {"field": "hasParentDomain", "condition": "EQUAL", "values": ["true"]},
+        {
+            "field": "parentDomain.keyword",
+            "condition": "EQUAL",
+            "values": ["urn:li:domain:root"],
+        },
+    ]
 
 
 def test_emit_to_a_graph_checks_the_parent(hierarchy_graph: MockDataHubGraph) -> None:

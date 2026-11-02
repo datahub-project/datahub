@@ -55,9 +55,14 @@ def find_domain_urns(
     if name is not None:
         filters.append({"field": "name", "condition": "EQUAL", "values": [name]})
     if parent_domain_urn is not None:
+        # Same criteria as GMS DomainUtils: parentDomain is an analyzed URN
+        # field, so exact matches go through its keyword subfield.
+        filters.append(
+            {"field": "hasParentDomain", "condition": "EQUAL", "values": ["true"]}
+        )
         filters.append(
             {
-                "field": "parentDomain",
+                "field": "parentDomain.keyword",
                 "condition": "EQUAL",
                 "values": [parent_domain_urn],
             }
