@@ -430,14 +430,14 @@
           "supported": true
         },
         {
-          "capability": "LINEAGE_COARSE",
-          "description": "Rivers and logic SQL steps to the target tables they load",
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         },
         {
-          "capability": "PLATFORM_INSTANCE",
-          "description": "Enabled by default",
+          "capability": "LINEAGE_COARSE",
+          "description": "Rivers and logic SQL steps to the target tables they load",
           "subtype_modifier": null,
           "supported": true
         },
