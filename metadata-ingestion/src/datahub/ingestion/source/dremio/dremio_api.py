@@ -49,6 +49,9 @@ _REGEX_SPECIAL = frozenset(".^$*+?{}[]|()\\")
 
 def _regex_literal_prefix(pattern: str) -> str:
     """Text every match of `pattern` starts with ("" when unknown)."""
+    if "|" in pattern:
+        # Each alternative has its own prefix.
+        return ""
     chars: List[str] = []
     rest = pattern.removeprefix("^")
     i = 0
@@ -765,6 +768,8 @@ class DremioAPIOperations:
                     if key in dictionary
                 ): dictionary
                 for dictionary in tables_and_columns
+                # Column-less rows are recorded above, not emitted.
+                if dictionary.get("COLUMN_NAME")
             }.values()
         )
 

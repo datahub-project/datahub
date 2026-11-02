@@ -245,6 +245,9 @@ def test_system_tables_are_filtered_not_reported_as_dropped(source, fetch_incomp
 
 
 def test_double_prefixed_name_is_reported_apart_from_dropped_tables(source):
+    # A real space named dremio is in the catalog and keeps its lineage.
+    source.catalog_dataset_names.add("dremio.sales.orders")
+    assert source._is_allowed_table("dremio.dremio.sales.orders")
     # A two-part reference reaches the callback as dremio.dremio.<path>.
     assert not source._is_allowed_table("dremio.dremio.src_db.sales.orders")
     assert not source._is_allowed_table("dremio.dremio.src_db.sales.orders")
@@ -259,6 +262,9 @@ def test_dataset_without_columns_keeps_query_lineage(source):
     # it exists, so it isn't treated as dropped.
     source.dremio_api.datasets_without_columns.add("my_s3.materialize.no_columns")
     assert source._is_allowed_table("dremio.my_s3.materialize.no_columns")
+    # The filters still apply to it.
+    source.config.dataset_pattern = AllowDenyPattern(deny=[".*\\.no_columns$"])
+    assert not source._is_allowed_table("dremio.my_s3.materialize.no_columns")
     assert list(source.report.lineage_dropped_not_in_catalog) == []
 
 
@@ -420,6 +426,8 @@ def test_end_to_end_incomplete_fetch_warns(source):
 
 def test_no_query_lineage_scope_warning_without_query_lineage(source):
     source.config.include_query_lineage = False
+    # State that would warn if the helper ran.
+    source._names_not_in_catalog.add("my_s3.materialize.orders_blue")
     _run_ingestion(source, datasets=[], queries=[])
 
     assert _warning_titles(source) == []

@@ -409,9 +409,9 @@ def test_view_definition_gets_one_dremio_prefix(
     assert result.in_tables == [_urn(expected_name)]
 
 
-def test_paths_over_3_parts_get_table_lineage_only() -> None:
-    # sqlglot's schema mapping holds 3 levels at most, so a longer path gets no
-    # column-level lineage. Pinned so a fix shows up here.
+def test_paths_over_3_parts_get_column_lineage() -> None:
+    # Before sqlglot 30.22 its schema mapping held 3 levels at most, so a
+    # longer path got no column-level lineage.
     resolver = DremioSchemaResolver(platform="dremio", env="PROD")
     for name in ("dremio.my_space.orders", "dremio.my_space.folder.sub.orders"):
         resolver.add_raw_schema_info(_urn(name), {"id": "INT"})
@@ -424,4 +424,6 @@ def test_paths_over_3_parts_get_table_lineage_only() -> None:
     assert upstreams("SELECT id FROM my_space.orders") == [
         _urn("dremio.my_space.orders")
     ]
-    assert upstreams("SELECT id FROM my_space.folder.sub.orders") == []
+    assert upstreams("SELECT id FROM my_space.folder.sub.orders") == [
+        _urn("dremio.my_space.folder.sub.orders")
+    ]

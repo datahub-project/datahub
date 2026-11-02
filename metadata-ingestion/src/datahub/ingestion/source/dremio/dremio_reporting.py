@@ -33,7 +33,9 @@ class DremioSourceReport(
     # _is_allowed_table). The same denied URN can be checked by the
     # aggregator multiple times (usage, lineage, operations), so a single
     # dropped dataset can contribute multiple increments; use it as a
-    # "is the filter biting?" signal, not an exact edge count.
+    # "is the filter biting?" signal, not an exact edge count. Also counts
+    # sys / INFORMATION_SCHEMA references, including the connector's own job
+    # history reads, so it is not zero even with no patterns set.
     lineage_dropped_filtered: int = 0
 
     # Query-derived tables that pass the filters but that the catalog walk did

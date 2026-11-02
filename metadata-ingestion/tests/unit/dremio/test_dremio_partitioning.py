@@ -115,6 +115,29 @@ class TestDremioPartitioning:
         assert tables == []
         assert dremio_api.datasets_without_columns == {"src_a.offline"}
 
+    def test_column_less_table_not_emitted_beside_one_with_columns_community(
+        self, dremio_api
+    ):
+        dremio_api.report = DremioSourceReport()
+        dremio_api.get_dataset_id = Mock(return_value="id")
+        row = {"TABLE_SCHEMA": "src_a", "IS_NULLABLE": "YES", "COLUMN_SIZE": 1}
+
+        tables = dremio_api.community_get_formatted_tables(
+            [
+                {
+                    **row,
+                    "FULL_TABLE_PATH": "src_a.ok",
+                    "TABLE_NAME": "ok",
+                    "COLUMN_NAME": "col_a",
+                    "DATA_TYPE": "INTEGER",
+                },
+                {**row, "FULL_TABLE_PATH": "src_a.offline", "TABLE_NAME": "offline"},
+            ]
+        )
+
+        assert [t["TABLE_NAME"] for t in tables] == ["ok"]
+        assert dremio_api.datasets_without_columns == {"src_a.offline"}
+
     def test_one_scoped_query_per_container(self, dremio_api):
         dremio_api._get_root_container_names = Mock(return_value=["src_a", "src_b"])
         dremio_api._get_all_tables_global_chunked = Mock(
@@ -226,10 +249,14 @@ class TestDremioPartitioning:
     @pytest.mark.parametrize(
         "allow, expected",
         [
-            (["^space\\.finance.*"], ["space"]),
+            (["^space\\.finance.*"], ["Space"]),
+            (["^SPACE\\.FINANCE.*"], ["Space"]),
             (["^finance.*"], ["finance_src"]),
+            # The s is optional, so `space` itself can match.
+            (["^spaces?\\..*"], ["Space"]),
             # No literal prefix to rule a root out with: keep every root.
-            (["^(space|other)\\..*"], ["space", "finance_src", "@alice"]),
+            (["^(space|other)\\..*"], ["Space", "finance_src", "@alice"]),
+            (["^finance.*|space\\..*"], ["Space", "finance_src", "@alice"]),
         ],
     )
     def test_root_container_names_skip_roots_schema_pattern_cannot_match(
@@ -239,7 +266,7 @@ class TestDremioPartitioning:
         dremio_api.get = Mock(
             return_value={
                 "data": [
-                    {"containerType": "SPACE", "path": ["space"]},
+                    {"containerType": "SPACE", "path": ["Space"]},
                     {"containerType": "SOURCE", "path": ["finance_src"]},
                     {"containerType": "HOME", "name": "@alice"},
                 ]
@@ -290,3 +317,5 @@ class TestDremioPartitioning:
         # between them — i.e. directly on the scan, where pushdown can fire.
         assert columns_idx < marker_idx < query.index("ORDER BY")
         assert "JOIN" not in query[columns_idx:marker_idx]
+        # An INNER JOIN would drop datasets whose columns can't be read.
+        assert "LEFT JOIN" in query
