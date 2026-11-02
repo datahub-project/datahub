@@ -1,9 +1,19 @@
+import json
+from pathlib import Path
 from typing import Dict, List, Sequence
 
 from datahub.ingestion.source.boomi_data_integration.models import River
 from datahub.ingestion.source.boomi_data_integration.river_parser import (
     FlattenedLogic,
     flatten_logic_steps,
+)
+
+# Anonymised captures of live API responses, shared with the integration test.
+API_RESPONSES_DIR = (
+    Path(__file__).parents[2]
+    / "integration"
+    / "boomi_data_integration"
+    / "api_responses"
 )
 
 
@@ -134,3 +144,31 @@ def test_malformed_child_only_drops_that_child() -> None:
     result = _flatten([_run_once([_step("a"), "not an object", _step("b")])])
     assert _edges(result) == {"a": [], "b": ["a"]}
     assert result.invalid == 1
+
+
+def test_live_logic_river_definition() -> None:
+    # Main container: sql step, river step, parallel container (river step and
+    # sql step), disabled step; then a condition whose else branch has no step.
+    river = River.model_validate(
+        json.loads(
+            (API_RESPONSES_DIR / "river_6ae8ef6f61a8be2df8f864ca.json").read_text()
+        )
+    )
+    result = flatten_logic_steps(river)
+
+    sql, run_river, parallel_river, parallel_sql, final = (
+        "96542bd28b184cc9b1aa2ba3b92a3fbb",
+        "1d306f8dbb0d4284bf72028a8fdccaae",
+        "735f9f564b8640819f8a31cf0f2990e2",
+        "97e1c551d9a9456a9932712efc968c7d",
+        "d00c1958b9a649efbcb3b2d493164c15",
+    )
+    assert _edges(result) == {
+        sql: [],
+        run_river: [sql],
+        parallel_river: [run_river],
+        parallel_sql: [run_river],
+        final: [parallel_river, parallel_sql],
+    }
+    assert result.disabled == 1
+    assert result.invalid == 0

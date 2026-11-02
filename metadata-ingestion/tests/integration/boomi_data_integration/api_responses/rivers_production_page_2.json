@@ -1,0 +1,41 @@
+{
+  "next_page": "",
+  "previous_page": null,
+  "page": 2,
+  "current_page_size": 2,
+  "total_items": 4,
+  "account_id": "acct000000000000000000001",
+  "environment_id": "e00000000000000000000001",
+  "items": [
+    {
+      "name": "DH Test - PG to Snowflake prefixed",
+      "river_status": "disabled",
+      "group_name": "DH Test - Group B",
+      "group_id": "6ae8ef3f29efd511dc74a702",
+      "river_schedulers": [],
+      "datasource_id": "postgres",
+      "last_user_name_modified": "Example User",
+      "river_cross_id": "6ae8ef4a4921540c5370cd42",
+      "last_updated_at": "2026-11-02T20:15:06.816000Z",
+      "description": "Created by DataHub connector validation",
+      "is_api_v2": true,
+      "river_type": "source_to_target",
+      "created_at": "2026-11-02T20:15:06.816000Z"
+    },
+    {
+      "name": "DH Test - PG to Snowflake multi",
+      "river_status": "disabled",
+      "group_name": "DH Test - Group A",
+      "group_id": "6ae8ef37ec3547181e1dd4d6",
+      "river_schedulers": [],
+      "datasource_id": "postgres",
+      "last_user_name_modified": "Example User",
+      "river_cross_id": "6ae8ef3fa9fd03374b44b3bd",
+      "last_updated_at": "2026-11-02T20:14:55.701000Z",
+      "description": "Created by DataHub connector validation",
+      "is_api_v2": true,
+      "river_type": "source_to_target",
+      "created_at": "2026-11-02T20:14:55.701000Z"
+    }
+  ]
+}

@@ -172,6 +172,21 @@ def test_list_rivers_follows_pages_with_bearer_token() -> None:
     assert client.report.api_calls == 2
 
 
+@pytest.mark.parametrize("last_page", ["", None])
+def test_blank_next_page_ends_pagination(last_page: Optional[str]) -> None:
+    # The live API sends "" on the last page of a non-empty list and null when
+    # the list is empty.
+    client = _client()
+    url = f"{client.base_url}/environments/env-1/rivers"
+    with requests_mock.Mocker() as mock:
+        mock.get(f"{url}?page=1", json=_page([_river("a")], f"{url}?page=2"))
+        mock.get(f"{url}?page=2", json=_page([_river("b")], last_page))
+        rivers = [r.river_cross_id for r in client.list_rivers("env-1", TOKEN)]
+
+    assert rivers == ["a", "b"]
+    assert client.report.api_calls == 2
+
+
 def test_invalid_record_is_skipped_with_warning() -> None:
     client = _client()
     with requests_mock.Mocker() as mock:

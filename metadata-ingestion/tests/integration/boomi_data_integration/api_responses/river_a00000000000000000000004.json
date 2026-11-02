@@ -1,0 +1,53 @@
+{
+  "cross_id": "a00000000000000000000004",
+  "account_id": "acct000000000000000000001",
+  "kind": "main_river",
+  "type": "actions",
+  "name": "Call Payments API",
+  "environment_id": "e00000000000000000000002",
+  "environment_name": "Development",
+  "group_id": "a00000000000000000000010",
+  "group_name": "Sandbox",
+  "metadata": {
+    "description": "Synthetic Call Payments API river.",
+    "river_status": "active",
+    "current_version_id": "6ae8ef3f616e536a6130b419",
+    "created_by": "Example User",
+    "last_updated_by": "Example User",
+    "created_at": "2026-11-02T20:14:55.701000Z",
+    "last_updated_at": "2026-11-02T20:14:55.701000Z",
+    "is_deleted": false,
+    "suspended": null,
+    "last_activated": null,
+    "last_disabled": null
+  },
+  "properties": {
+    "properties_type": "actions"
+  },
+  "settings": {
+    "run_timeout_seconds": null,
+    "notification": {
+      "warning": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      },
+      "failure": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      },
+      "run_threshold": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      }
+    },
+    "schedule_retry_config": {
+      "enable_scheduler_retry": false,
+      "retry_count": null,
+      "delay_between_retries": null
+    }
+  },
+  "schedulers": []
+}
