@@ -182,6 +182,8 @@ When profiling is enabled, the `bigquery.tables.getData` permission is **require
 :::
 
 For performance reasons, we only profile the latest partition for partitioned tables and the latest shard for sharded tables.
+
+A sharded table's `size_in_bytes` and billable-bytes properties, and its profile's `rowCount` and `sizeInBytes`, are totals across all of its shards. They are read from `INFORMATION_SCHEMA.PARTITIONS`, which is only queried when profiling is enabled or `use_tables_list_query_v2` is set; otherwise those properties describe only the latest shard.
 You can set partition explicitly with `partition.partition_datetime` property if you want, though note that partition config will be applied to all partitioned tables.
 
 #### Caveats

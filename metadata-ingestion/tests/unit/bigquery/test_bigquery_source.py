@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, cast
@@ -42,6 +43,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTableSnapshot,
     BigqueryView,
     ExternalTableOptions,
+    ShardedTableStats,
     get_projects,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
@@ -2973,3 +2975,226 @@ def test_probe_qualifies_tables_through_the_project_ids_field():
     # get_identifier shim cannot build `project.dataset.table`; the Qualifier
     # on `project_ids` declares it.
     assert declares_qualifier(BigQueryV2Config.model_construct())
+
+
+def _list_item(table_id: str, table_type: str = "TABLE") -> TableListItem:
+    return TableListItem(
+        {
+            "tableReference": {
+                "projectId": "test-project",
+                "datasetId": "test-dataset",
+                "tableId": table_id,
+            },
+            "type": table_type,
+        }
+    )
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_get_core_table_details_records_shard_families(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    client_mock.list_tables.return_value = [
+        _list_item("events_20250101"),
+        _list_item("events_20250102"),
+        _list_item("events20250103"),
+        _list_item("single_20250101"),
+        # Copies of a real table are skipped, so they form no family.
+        _list_item("orders"),
+        _list_item("orders_20250101"),
+        _list_item("orders_20250102"),
+        _list_item("customers"),
+    ]
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    shard_families: Dict[str, List[str]] = {}
+    tables = source.bq_schema_extractor.get_core_table_details(
+        "test-dataset", "test-project", "_", shard_families=shard_families
+    )
+
+    assert sorted(tables) == [
+        "customers",
+        "events20250103",
+        "orders",
+        "single_20250101",
+    ]
+    assert shard_families == {
+        "events20250103": ["events_20250101", "events_20250102", "events20250103"]
+    }
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_get_core_table_details_skips_sharded_view_families(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    # PARTITIONS has no rows for views, so recording the family would only cost a
+    # query; the latest view shard is still kept as a table.
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    client_mock.list_tables.return_value = [
+        _list_item("daily_20250101", "VIEW"),
+        _list_item("daily_20250102", "VIEW"),
+    ]
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    shard_families: Dict[str, List[str]] = {}
+    tables = source.bq_schema_extractor.get_core_table_details(
+        "test-dataset", "test-project", "_", shard_families=shard_families
+    )
+
+    assert sorted(tables) == ["daily_20250102"]
+    assert shard_families == {}
+
+
+def _partition_row(
+    table_name: str, rows: int, logical: int, active: int, long_term: int
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        table_name=table_name,
+        total_rows=rows,
+        total_logical_bytes=logical,
+        active_billable_bytes=active,
+        long_term_billable_bytes=long_term,
+    )
+
+
+def test_get_sharded_table_stats_sums_each_family_in_bounded_queries() -> None:
+    # PARTITIONS rejects a query that reads more than 1000 tables, so a long shard
+    # history must be summed over several filtered queries.
+    events = [f"events_{20200101 + i}" for i in range(1001)]
+    families = {events[-1]: events, "logs_20250102": ["logs_20250101", "logs_20250102"]}
+    queries: List[str] = []
+
+    def run(query: str) -> List[SimpleNamespace]:
+        queries.append(query)
+        return [
+            _partition_row(name, 10, 100, 60, 40)
+            for name in sorted(n for shards in families.values() for n in shards)
+            if f"'{name}'" in query
+        ]
+
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+    with patch.object(schema_api, "get_query_result", side_effect=run):
+        totals = schema_api.get_sharded_table_stats(
+            "test-project", "test-dataset", families
+        )
+
+    assert len(queries) == 2
+    assert all(len(re.findall(r"'(?:events|logs)_\d+'", q)) <= 1000 for q in queries)
+    assert totals == {
+        events[-1]: ShardedTableStats(10010, 100100, 60060, 40040),
+        "logs_20250102": ShardedTableStats(20, 200, 120, 80),
+    }
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize("fails", [False, True])
+def test_table_batch_attaches_shard_totals_or_warns(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock, fails: bool
+) -> None:
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+    latest = BigqueryTable(
+        name="events_20250102",
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+    plain = BigqueryTable(
+        name="customers",
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+    totals = ShardedTableStats(rows_count=30, size_in_bytes=300)
+
+    with (
+        patch.object(
+            schema_gen.schema_api,
+            "get_tables_for_dataset",
+            return_value=iter([latest, plain]),
+        ),
+        patch.object(
+            schema_gen.schema_api,
+            "get_sharded_table_stats",
+            side_effect=RuntimeError("boom") if fails else None,
+            return_value={"events_20250102": totals},
+        ) as stats_mock,
+    ):
+        tables = list(
+            schema_gen._get_table_batch(
+                "test-project",
+                "test-dataset",
+                {"events_20250102": MagicMock(), "customers": MagicMock()},
+                True,
+                {
+                    "events_20250102": ["events_20250101", "events_20250102"],
+                    "other_20250102": ["other_20250101", "other_20250102"],
+                },
+            )
+        )
+
+    # Only families in this batch are queried.
+    assert stats_mock.call_args.args[2] == {
+        "events_20250102": ["events_20250101", "events_20250102"]
+    }
+    assert latest.sharded_table_stats == (None if fails else totals)
+    assert plain.sharded_table_stats is None
+    assert len(tables) == 2
+    assert bool(source.report.warnings) is fails
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_gen_table_dataset_workunits_reports_shard_totals(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    table = BigqueryTable(
+        name="events_20250102",
+        comment=None,
+        created=None,
+        last_altered=None,
+        rows_count=10,
+        size_in_bytes=100,
+        active_billable_bytes=60,
+        long_term_billable_bytes=40,
+        sharded_table_stats=ShardedTableStats(
+            rows_count=30,
+            size_in_bytes=300,
+            active_billable_bytes=180,
+            long_term_billable_bytes=120,
+        ),
+    )
+
+    mcps = list(
+        source.bq_schema_extractor.gen_table_dataset_workunits(
+            table, [], "test-project", "test-dataset"
+        )
+    )
+
+    properties = next(
+        mcp.metadata.aspect  # type: ignore
+        for mcp in mcps
+        if isinstance(mcp.metadata.aspect, DatasetPropertiesClass)  # type: ignore
+    )
+    assert properties.customProperties["size_in_bytes"] == "300"
+    assert properties.customProperties["billable_bytes_active"] == "180"
+    assert properties.customProperties["billable_bytes_long_term"] == "120"
