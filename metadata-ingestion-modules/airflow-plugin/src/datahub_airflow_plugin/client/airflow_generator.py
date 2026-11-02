@@ -163,14 +163,20 @@ class AirflowGenerator:
         if summary is None:
             try:
                 from airflow.serialization.encoders import coerce_to_core_timetable
-
+            except (
+                ImportError
+            ):  # Airflow < 3.2: core timetables always expose `summary`
+                return None
+            try:
                 summary = coerce_to_core_timetable(timetable).summary
-            except Exception as e:
-                logger.debug(
-                    "Could not derive schedule from timetable %r: %s",
+            except Exception:
+                logger.warning(
+                    "Could not derive schedule for DAG %s from timetable %s; omitting `schedule`",
+                    getattr(dag, "dag_id", "<unknown>"),
                     type(timetable).__name__,
-                    e,
+                    exc_info=True,
                 )
+                return None
         # NullTimetable.summary is the string "None" (unscheduled DAG).
         return summary if isinstance(summary, str) else None
 

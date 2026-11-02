@@ -1,4 +1,5 @@
 import json
+import logging
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Iterator, List, Optional, Union
@@ -329,11 +330,14 @@ def test_generate_dataflow_captures_schedule(
         assert properties["schedule"] == expected
 
 
-def test_get_schedule_swallows_coercion_errors() -> None:
+def test_get_schedule_swallows_coercion_errors(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """A timetable the serializer can't convert (e.g. an unregistered custom
     timetable raises TimetableNotRegistered) must degrade to None rather than
     propagating out of generate_dataflow and dropping the entire DAG's
-    metadata emission."""
+    metadata emission. The failure is logged at warning so the missing
+    `schedule` property is diagnosable."""
     from types import SimpleNamespace
 
     from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
@@ -344,14 +348,22 @@ def test_get_schedule_swallows_coercion_errors() -> None:
 
     # A timetable with no `summary`, forcing the coercion fallback path.
     # `_get_schedule` only duck-types `dag.timetable.summary`, so a stub suffices.
-    dag = SimpleNamespace(timetable=SimpleNamespace(summary=None))
+    dag = SimpleNamespace(dag_id="my_dag", timetable=SimpleNamespace(summary=None))
 
-    with mock.patch.object(
-        encoders,
-        "coerce_to_core_timetable",
-        side_effect=RuntimeError("can not serialize timetable"),
+    with (
+        mock.patch.object(
+            encoders,
+            "coerce_to_core_timetable",
+            side_effect=RuntimeError("can not serialize timetable"),
+        ),
+        caplog.at_level(logging.WARNING),
     ):
         assert AirflowGenerator._get_schedule(dag) is None  # type: ignore[arg-type]
+
+    assert any(
+        r.levelno == logging.WARNING and "my_dag" in r.getMessage()
+        for r in caplog.records
+    )
 
 
 def test_entities():
