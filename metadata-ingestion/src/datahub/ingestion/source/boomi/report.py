@@ -4,6 +4,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 
 @dataclass
@@ -26,6 +27,16 @@ class BoomiSourceReport(StaleEntityRemovalSourceReport):
     processes_undeployed_skipped: LossyList[str] = field(default_factory=LossyList)
     process_xml_failures: LossyList[str] = field(default_factory=LossyList)
     invalid_records: int = 0
+
+    lineage_edges_resolved: int = 0
+    lineage_edges_unresolved: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    lineage_skipped_subtypes: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    lineage_listen_shapes_skipped: int = 0
+    lineage_sql_parse_failures: int = 0
+    lineage_components_fetched: int = 0
+    lineage_component_failures: LossyList[str] = field(default_factory=LossyList)
+    process_calls_resolved: int = 0
+    process_calls_child_not_emitted: int = 0
 
     executions_scanned: int = 0
     executions_emitted: int = 0

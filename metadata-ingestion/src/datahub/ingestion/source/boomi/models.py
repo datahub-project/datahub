@@ -5,7 +5,11 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from typing_extensions import Annotated
 
-from datahub.ingestion.source.boomi.constants import LONG_TYPE_TAG, OPERATOR_AND
+from datahub.ingestion.source.boomi.constants import (
+    LONG_TYPE_TAG,
+    OPERATOR_AND,
+    OperationDirection,
+)
 
 
 def parse_long(value: object) -> object:
@@ -102,6 +106,67 @@ class GroupingExpression(BoomiModel):
     nested_expression: List[Union[SimpleExpression, "GroupingExpression"]]
 
 
+class ConnectorActionShape(BaseModel):
+    connector_type: Optional[str] = None
+    action_type: Optional[str] = None
+    connection_id: Optional[str] = None
+    operation_id: Optional[str] = None
+
+
 class ProcessComponentInfo(BaseModel):
     description: Optional[str] = None
     folder_full_path: Optional[str] = None
+    connector_actions: List[ConnectorActionShape] = Field(default_factory=list)
+    process_call_ids: List[str] = Field(default_factory=list)
+
+
+class ConnectionComponent(BaseModel):
+    sub_type: Optional[str] = None
+    # Legacy Database connector.
+    driver_id: Optional[str] = None
+    dbname: Optional[str] = None
+    url_format: Optional[str] = None
+    # Database V2 connector.
+    url: Optional[str] = None
+    schema_name: Optional[str] = None
+
+
+class OperationComponent(BaseModel):
+    sub_type: Optional[str] = None
+    direction: OperationDirection = OperationDirection.UNKNOWN
+    # The element that configures the action, e.g. `DatabaseGetAction`.
+    action_element: Optional[str] = None
+    operation_type: Optional[str] = None
+    custom_operation_type: Optional[str] = None
+    object_type_id: Optional[str] = None
+    object_type_name: Optional[str] = None
+    query: Optional[str] = None
+    object_name: Optional[str] = None
+    profile_ids: List[str] = Field(default_factory=list)
+
+
+class DatabaseProfileComponent(BaseModel):
+    table_name: Optional[str] = None
+    statement_type: Optional[str] = None
+    sql: Optional[str] = None
+
+
+class JdbcLocation(BaseModel):
+    platform: Optional[str] = None
+    database: Optional[str] = None
+    schema_name: Optional[str] = None
+
+
+class ConnectionTarget(BaseModel):
+    platform: str
+    platform_instance: Optional[str] = None
+    env: str
+    database: Optional[str] = None
+    default_schema: Optional[str] = None
+    convert_urns_to_lowercase: bool = True
+
+
+class ProcessLineage(BaseModel):
+    input_datasets: List[str] = Field(default_factory=list)
+    output_datasets: List[str] = Field(default_factory=list)
+    child_process_ids: List[str] = Field(default_factory=list)

@@ -1,0 +1,637 @@
+from typing import Dict, List, Optional, Tuple
+from unittest.mock import MagicMock
+
+import pytest
+
+from datahub.ingestion.source.boomi.client import BoomiApiError
+from datahub.ingestion.source.boomi.component_parser import (
+    operation_direction,
+    parse_connection_component,
+    parse_database_profile_component,
+    parse_operation_component,
+    parse_process_component,
+)
+from datahub.ingestion.source.boomi.config import BoomiSourceConfig
+from datahub.ingestion.source.boomi.constants import OperationDirection
+from datahub.ingestion.source.boomi.lineage import (
+    BoomiLineageResolver,
+    connection_location,
+    parse_jdbc_url,
+    qualify_table_name,
+)
+from datahub.ingestion.source.boomi.models import (
+    ConnectionComponent,
+    ConnectorActionShape,
+    JdbcLocation,
+    ProcessComponentInfo,
+)
+from datahub.ingestion.source.boomi.report import BoomiSourceReport
+
+DB_V2 = "officialboomi-X3979C-dbv2da-prod"
+SNOWFLAKE = "officialboomi-X3979C-snowfl-prod"
+
+
+def _component(type_: str, sub_type: str, body: str) -> str:
+    return (
+        '<bns:Component xmlns:bns="http://api.platform.boomi.com/" '
+        f'componentId="c1" type="{type_}" subType="{sub_type}">'
+        f"<bns:object>{body}</bns:object></bns:Component>"
+    )
+
+
+def _legacy_connection(driver: str = "sqlserver", extra: str = "") -> str:
+    return _component(
+        "connector-settings",
+        "database",
+        '<DatabaseConnection xmlns=""><DatabaseConnectionSettings '
+        f'driverId="{driver}" host="db.example.com" port="1433" dbname="my_db" {extra}/>'
+        "</DatabaseConnection>",
+    )
+
+
+def _v2_connection(url: str, schema: Optional[str] = None) -> str:
+    schema_field = (
+        f'<field id="schemaName" type="string" value="{schema}"/>' if schema else ""
+    )
+    return _component(
+        "connector-settings",
+        DB_V2,
+        f'<GenericConnectionConfig xmlns=""><field id="url" type="string" value="{url}"/>'
+        f"{schema_field}</GenericConnectionConfig>",
+    )
+
+
+def _generic_operation(
+    sub_type: str,
+    operation_type: str,
+    object_type_id: str = "",
+    query: str = "",
+    custom_operation_type: str = "",
+) -> str:
+    query_field = f'<field id="query" type="string" value="{query}"/>' if query else ""
+    return _component(
+        "connector-action",
+        sub_type,
+        '<Operation xmlns=""><Configuration><GenericOperationConfig '
+        f'objectTypeId="{object_type_id}" operationType="{operation_type}" '
+        f'customOperationType="{custom_operation_type}">{query_field}'
+        "</GenericOperationConfig></Configuration></Operation>",
+    )
+
+
+def _db_operation(action: str, profile_attribute: str, profile_id: str) -> str:
+    return _component(
+        "connector-action",
+        "database",
+        f'<Operation xmlns=""><Configuration><{action} batchCount="0" '
+        f'{profile_attribute}="{profile_id}"/></Configuration></Operation>',
+    )
+
+
+def _db_profile(table_name: str, sql: Optional[str] = None) -> str:
+    sql_element = f"<sql>{sql}</sql>" if sql is not None else ""
+    return _component(
+        "profile.db",
+        "",
+        '<DatabaseProfile xmlns=""><ProfileProperties>'
+        f'<DBStatement statementType="select" tableName="{table_name}">{sql_element}'
+        "</DBStatement></ProfileProperties></DatabaseProfile>",
+    )
+
+
+def _salesforce_operation(action: str, object_name: str) -> str:
+    return _component(
+        "connector-action",
+        "salesforce",
+        f'<Operation xmlns=""><Configuration><{action} objectAction="query" '
+        f'objectName="{object_name}"/></Configuration></Operation>',
+    )
+
+
+SALESFORCE_CONNECTION = _component(
+    "connector-settings", "salesforce", '<SalesforceConnection xmlns=""/>'
+)
+
+
+def _resolver(
+    components: Dict[str, str], **config: object
+) -> Tuple[BoomiLineageResolver, MagicMock, BoomiSourceReport]:
+    client = MagicMock()
+
+    def get_component_xml(component_id: str) -> str:
+        if component_id not in components:
+            raise BoomiApiError(404, "not found")
+        return components[component_id]
+
+    client.get_component_xml.side_effect = get_component_xml
+    report = BoomiSourceReport()
+    source_config = BoomiSourceConfig.model_validate(
+        {
+            "account_id": "acme-AB1CD2",
+            "username": "svc@example.com",
+            "api_token": "secret-token",
+            **config,
+        }
+    )
+    return BoomiLineageResolver(source_config, client, report), client, report
+
+
+def _shape(
+    connection_id: str, operation_id: Optional[str], action_type: str = "Get"
+) -> ConnectorActionShape:
+    return ConnectorActionShape(
+        action_type=action_type,
+        connection_id=connection_id,
+        operation_id=operation_id,
+    )
+
+
+def _info(*shapes: ConnectorActionShape) -> ProcessComponentInfo:
+    return ProcessComponentInfo(connector_actions=list(shapes))
+
+
+PROCESS_XML = """<bns:Component xmlns:bns="http://api.platform.boomi.com/" type="process">
+  <bns:description>Orders</bns:description>
+  <bns:object>
+    <process xmlns="">
+      <shapes>
+        <shape shapetype="start" name="shape1"/>
+        <shape shapetype="connectoraction" name="shape2">
+          <configuration>
+            <connectoraction actionType="Listen" connectionId="conn-http" connectorType="http"/>
+          </configuration>
+        </shape>
+        <shape shapetype="connectoraction" name="shape3">
+          <configuration>
+            <connectoraction actionType="UPSERT" connectionId="conn-1" connectorType="database" operationId="op-1"/>
+          </configuration>
+        </shape>
+        <shape shapetype="processcall" name="shape4">
+          <configuration><processcall abort="true" processId="p-child" wait="true"/></configuration>
+        </shape>
+        <shape shapetype="map" name="shape5"><configuration/></shape>
+      </shapes>
+    </process>
+  </bns:object>
+</bns:Component>
+"""
+
+
+def test_parse_process_shapes() -> None:
+    info = parse_process_component(PROCESS_XML)
+
+    assert info.description == "Orders"
+    assert info.connector_actions == [
+        ConnectorActionShape(
+            connector_type="http", action_type="Listen", connection_id="conn-http"
+        ),
+        ConnectorActionShape(
+            connector_type="database",
+            action_type="UPSERT",
+            connection_id="conn-1",
+            operation_id="op-1",
+        ),
+    ]
+    assert info.process_call_ids == ["p-child"]
+
+
+def test_parse_legacy_and_v2_connections() -> None:
+    legacy = parse_connection_component(
+        _legacy_connection(
+            "custom", 'urlFormat="jdbc:mysql://db.example.com:3306/shop"'
+        )
+    )
+    assert legacy == ConnectionComponent(
+        sub_type="database",
+        driver_id="custom",
+        dbname="my_db",
+        url_format="jdbc:mysql://db.example.com:3306/shop",
+    )
+
+    v2 = parse_connection_component(
+        _v2_connection("jdbc:postgresql://pg.example.com/app", schema="sales")
+    )
+    assert v2.sub_type == DB_V2
+    assert v2.url == "jdbc:postgresql://pg.example.com/app"
+    assert v2.schema_name == "sales"
+
+
+def test_parse_operations() -> None:
+    db_get = parse_operation_component(
+        _db_operation("DatabaseGetAction", "profileId", "prof-1")
+    )
+    assert db_get.direction == OperationDirection.READ
+    assert db_get.profile_ids == ["prof-1"]
+
+    db_send = parse_operation_component(
+        _db_operation("DatabaseSendAction", "requestProfile", "prof-2")
+    )
+    assert db_send.direction == OperationDirection.WRITE
+    assert db_send.profile_ids == ["prof-2"]
+
+    generic = parse_operation_component(
+        _generic_operation(
+            DB_V2, "QUERY", object_type_id="dbo.orders", query="SELECT 1"
+        )
+    )
+    assert generic.direction == OperationDirection.READ
+    assert generic.object_type_id == "dbo.orders"
+    assert generic.query == "SELECT 1"
+
+    salesforce = parse_operation_component(
+        _salesforce_operation("SalesforceSendAction", "Account")
+    )
+    assert salesforce.direction == OperationDirection.WRITE
+    assert salesforce.object_name == "Account"
+
+
+def test_parse_database_profile() -> None:
+    profile = parse_database_profile_component(
+        _db_profile("dbo.orders", "SELECT id FROM dbo.orders WHERE id &gt; ?")
+    )
+    assert profile.table_name == "dbo.orders"
+    assert profile.statement_type == "select"
+    assert profile.sql == "SELECT id FROM dbo.orders WHERE id > ?"
+    assert parse_database_profile_component(_db_profile("orders")).sql is None
+
+
+@pytest.mark.parametrize(
+    "action, operation_type, custom_operation_type, expected",
+    [
+        ("DatabaseGetAction", None, None, OperationDirection.READ),
+        ("SalesforceSendAction", None, None, OperationDirection.WRITE),
+        (None, "query", None, OperationDirection.READ),
+        (None, "GET", None, OperationDirection.READ),
+        (None, "UPSERT", None, OperationDirection.WRITE),
+        (None, "EXECUTE", "QUERY", OperationDirection.READ),
+        (None, "DELETE", None, OperationDirection.WRITE),
+        (None, "LISTEN", None, OperationDirection.UNKNOWN),
+        (None, None, None, OperationDirection.UNKNOWN),
+    ],
+)
+def test_operation_direction(
+    action: Optional[str],
+    operation_type: Optional[str],
+    custom_operation_type: Optional[str],
+    expected: OperationDirection,
+) -> None:
+    assert operation_direction(action, operation_type, custom_operation_type) == (
+        expected
+    )
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        (
+            "jdbc:sqlserver://db.example.com:1433;encrypt=true;databaseName=my_db",
+            JdbcLocation(platform="mssql", database="my_db"),
+        ),
+        (
+            "jdbc:mysql://db.example.com:3306/shop?useSSL=true",
+            JdbcLocation(platform="mysql", database="shop"),
+        ),
+        (
+            "jdbc:postgresql://pg.example.com/app",
+            JdbcLocation(platform="postgres", database="app"),
+        ),
+        (
+            "jdbc:db2://db2.example.com:50000/SAMPLE:currentSchema=APP;",
+            JdbcLocation(platform="db2", database="SAMPLE"),
+        ),
+        (
+            "jdbc:snowflake://acct.snowflakecomputing.com/?db=MY_DB&schema=PUBLIC",
+            JdbcLocation(platform="snowflake", database="MY_DB", schema_name="PUBLIC"),
+        ),
+        (
+            "jdbc:oracle:thin:@//ora.example.com:1521/ORCL",
+            JdbcLocation(platform="oracle"),
+        ),
+        ("jdbc:sqlserver://db.example.com:1433", JdbcLocation(platform="mssql")),
+        ("jdbc:unknowndb://host/db", JdbcLocation()),
+        ("https://not-jdbc", JdbcLocation()),
+    ],
+)
+def test_parse_jdbc_url(url: str, expected: JdbcLocation) -> None:
+    assert parse_jdbc_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    "driver, expected",
+    [
+        ("sqlserver", JdbcLocation(platform="mssql", database="my_db")),
+        ("postgresql", JdbcLocation(platform="postgres", database="my_db")),
+        ("SAP HANA", JdbcLocation(platform="hana", database="my_db")),
+        # Oracle URNs leave the database out by default.
+        ("oracle", JdbcLocation(platform="oracle")),
+        ("sybase", JdbcLocation(database="my_db")),
+    ],
+)
+def test_legacy_driver_map(driver: str, expected: JdbcLocation) -> None:
+    connection = parse_connection_component(_legacy_connection(driver))
+    assert connection_location(connection) == expected
+
+
+def test_v2_schema_name_overrides_url_schema() -> None:
+    connection = parse_connection_component(
+        _v2_connection(
+            "jdbc:snowflake://acct.snowflakecomputing.com/?db=MY_DB&amp;schema=RAW",
+            schema="CURATED",
+        )
+    )
+    assert connection_location(connection) == JdbcLocation(
+        platform="snowflake", database="MY_DB", schema_name="CURATED"
+    )
+
+
+@pytest.mark.parametrize(
+    "table, platform, expected",
+    [
+        ("orders", "mssql", "my_db.dbo.orders"),
+        ("sales.orders", "mssql", "my_db.sales.orders"),
+        ("[other].[sales].[orders]", "mssql", "other.sales.orders"),
+        ("orders", "mysql", "my_db.orders"),
+        ("shop.orders", "mysql", "shop.orders"),
+    ],
+)
+def test_qualify_table_name(table: str, platform: str, expected: str) -> None:
+    assert qualify_table_name(table, platform, "my_db", "dbo") == expected
+
+
+def test_legacy_database_sql_path() -> None:
+    resolver, _, report = _resolver(
+        {
+            "conn-1": _legacy_connection(),
+            "op-1": _db_operation("DatabaseGetAction", "responseProfile", "prof-1"),
+            "prof-1": _db_profile(
+                "dbo.ignored",
+                "SELECT o.id FROM dbo.Orders o JOIN sales.customers c ON c.id = o.cid",
+            ),
+        }
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-1", "op-1")))
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.sales.customers,PROD)",
+    ]
+    assert lineage.output_datasets == []
+    assert report.lineage_edges_resolved == 2
+
+
+def test_legacy_database_write_uses_sql_target_only() -> None:
+    resolver, _, _ = _resolver(
+        {
+            "conn-1": _legacy_connection(),
+            "op-1": _db_operation("DatabaseSendAction", "requestProfile", "prof-1"),
+            "prof-1": _db_profile(
+                "dbo.orders",
+                "INSERT INTO dbo.orders (id) SELECT id FROM dbo.staging_orders",
+            ),
+        }
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-1", "op-1", "Send")))
+
+    assert lineage.input_datasets == []
+    assert lineage.output_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.orders,PROD)"
+    ]
+
+
+def test_legacy_database_table_name_fallback() -> None:
+    resolver, _, _ = _resolver(
+        {
+            "conn-1": _legacy_connection(),
+            "op-1": _db_operation("DatabaseGetAction", "profileId", "prof-1"),
+            "prof-1": _db_profile("dbo.Orders"),
+        }
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-1", "op-1")))
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.orders,PROD)"
+    ]
+
+
+def test_db_v2_object_type_and_query() -> None:
+    resolver, _, _ = _resolver(
+        {
+            "conn-1": _v2_connection(
+                "jdbc:postgresql://pg.example.com:5432/app", schema="sales"
+            ),
+            "op-table": _generic_operation(DB_V2, "QUERY", object_type_id="orders"),
+            "op-query": _generic_operation(
+                DB_V2,
+                "EXECUTE",
+                query="UPDATE invoices SET paid = ? WHERE id = ?",
+                custom_operation_type="UPDATE",
+            ),
+        }
+    )
+
+    lineage = resolver.resolve_process(
+        _info(_shape("conn-1", "op-table"), _shape("conn-1", "op-query", "EXECUTE"))
+    )
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,app.sales.orders,PROD)"
+    ]
+    assert lineage.output_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,app.sales.invoices,PROD)"
+    ]
+
+
+def test_salesforce_keeps_object_case() -> None:
+    resolver, _, _ = _resolver(
+        {
+            "conn-sf": SALESFORCE_CONNECTION,
+            "op-sf": _salesforce_operation("SalesforceGetAction", "Opportunity"),
+        }
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-sf", "op-sf")))
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:salesforce,Opportunity,PROD)"
+    ]
+
+
+def test_override_wins_over_parsed_connection() -> None:
+    resolver, _, _ = _resolver(
+        {
+            "conn-1": _legacy_connection(),
+            "op-1": _db_operation("DatabaseGetAction", "profileId", "prof-1"),
+            "prof-1": _db_profile("Orders"),
+        },
+        connection_to_platform={
+            "conn-1": {
+                "platform": "mssql",
+                "platform_instance": "erp",
+                "env": "DEV",
+                "database": "ERP_DB",
+                "default_schema": "Sales",
+                "convert_urns_to_lowercase": False,
+            }
+        },
+        connection_type_platform_map={"database": "postgres"},
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-1", "op-1")))
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,erp.ERP_DB.Sales.Orders,DEV)"
+    ]
+
+
+def test_generic_mapped_subtype() -> None:
+    resolver, _, _ = _resolver(
+        {
+            "conn-snow": _component(
+                "connector-settings", SNOWFLAKE, '<GenericConnectionConfig xmlns=""/>'
+            ),
+            "op-snow": _generic_operation(
+                SNOWFLAKE, "CREATE", object_type_id="ORDER_FACTS"
+            ),
+        },
+        connection_type_platform_map={SNOWFLAKE: "snowflake"},
+        connection_to_platform={
+            "conn-snow": {
+                "platform": "snowflake",
+                "database": "ANALYTICS",
+                "default_schema": "PUBLIC",
+            }
+        },
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-snow", "op-snow", "Send")))
+
+    assert lineage.output_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.order_facts,PROD)"
+    ]
+
+
+def test_type_map_alone_resolves_platform() -> None:
+    resolver, _, _ = _resolver(
+        {
+            "conn-snow": _component(
+                "connector-settings", SNOWFLAKE, '<GenericConnectionConfig xmlns=""/>'
+            ),
+            "op-snow": _generic_operation(
+                SNOWFLAKE, "QUERY", object_type_id="MY_DB.PUBLIC.ORDERS"
+            ),
+        },
+        connection_type_platform_map={SNOWFLAKE: "snowflake"},
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-snow", "op-snow")))
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)"
+    ]
+
+
+def test_unsupported_and_non_dataset_subtypes_are_counted() -> None:
+    netsuite = _component(
+        "connector-settings", "netsuitesdk", '<GenericConnectionConfig xmlns=""/>'
+    )
+    resolver, client, report = _resolver(
+        {
+            "conn-http": _component("connector-settings", "http", "<HttpSettings/>"),
+            "conn-sap": _component("connector-settings", "sapjco", "<SAPJCOSettings/>"),
+            "conn-ns": netsuite,
+            "conn-ns-2": netsuite,
+        }
+    )
+
+    lineage = resolver.resolve_process(
+        _info(
+            _shape("conn-http", "op-http"),
+            _shape("conn-sap", "op-sap"),
+            _shape("conn-ns", "op-ns"),
+            _shape("conn-ns-2", "op-ns-2"),
+            _shape("conn-http", None, action_type="Listen"),
+        )
+    )
+
+    assert lineage.input_datasets == [] and lineage.output_datasets == []
+    assert dict(report.lineage_skipped_subtypes) == {"http": 1, "sapjco": 1}
+    assert dict(report.lineage_edges_unresolved) == {"unsupported_connector": 2}
+    assert report.lineage_listen_shapes_skipped == 1
+    assert [w.title for w in report.warnings] == [
+        "Unsupported Boomi connector for lineage"
+    ]
+    # Operations of skipped connectors are never fetched.
+    fetched = [c.args[0] for c in client.get_component_xml.call_args_list]
+    assert not any(component_id.startswith("op-") for component_id in fetched)
+
+
+def test_unknown_direction_and_missing_table_are_unresolved() -> None:
+    resolver, _, report = _resolver(
+        {
+            "conn-1": _v2_connection("jdbc:postgresql://pg.example.com/app"),
+            "op-unknown": _generic_operation(DB_V2, "LISTEN", object_type_id="orders"),
+            "op-empty": _generic_operation(DB_V2, "QUERY"),
+        }
+    )
+
+    lineage = resolver.resolve_process(
+        _info(
+            _shape("conn-1", "op-unknown"),
+            _shape("conn-1", "op-empty"),
+            _shape("conn-1", None),
+        )
+    )
+
+    assert lineage.input_datasets == []
+    assert dict(report.lineage_edges_unresolved) == {
+        "unknown_direction": 1,
+        "no_table": 1,
+        "missing_operation": 1,
+    }
+
+
+def test_sql_parse_failure_is_counted_and_warned_once() -> None:
+    resolver, _, report = _resolver(
+        {
+            "conn-1": _legacy_connection(),
+            "op-1": _db_operation("DatabaseGetAction", "profileId", "prof-1"),
+            "op-2": _db_operation("DatabaseGetAction", "profileId", "prof-2"),
+            "prof-1": _db_profile("orders", "SELECT FROM WHERE ((("),
+            "prof-2": _db_profile("orders", "SELEC * FRM ((("),
+        }
+    )
+
+    lineage = resolver.resolve_process(
+        _info(_shape("conn-1", "op-1"), _shape("conn-1", "op-2"))
+    )
+
+    assert lineage.input_datasets == []
+    assert report.lineage_sql_parse_failures == 2
+    assert dict(report.lineage_edges_unresolved) == {"sql_parse_failed": 2}
+    assert [w.title for w in report.warnings] == ["Failed to parse Boomi SQL"]
+
+
+def test_components_are_fetched_once_including_failures() -> None:
+    resolver, client, report = _resolver(
+        {
+            "conn-sf": SALESFORCE_CONNECTION,
+            "op-sf": _salesforce_operation("SalesforceGetAction", "Account"),
+        }
+    )
+    shapes: List[ConnectorActionShape] = [
+        _shape("conn-sf", "op-sf"),
+        _shape("conn-sf", "op-sf"),
+        _shape("conn-missing", "op-sf"),
+        _shape("conn-missing", "op-sf"),
+    ]
+
+    resolver.resolve_process(_info(*shapes))
+    resolver.resolve_process(_info(*shapes))
+
+    fetched = [c.args[0] for c in client.get_component_xml.call_args_list]
+    assert sorted(fetched) == ["conn-missing", "conn-sf", "op-sf"]
+    assert list(report.lineage_component_failures) == ["conn-missing"]
+    assert dict(report.lineage_edges_unresolved) == {"component_unreadable": 4}

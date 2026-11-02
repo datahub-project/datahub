@@ -62,11 +62,13 @@ from datahub.ingestion.source.boomi.constants import (
     PROP_TOP_LEVEL_EXECUTION_ID,
     PROP_VERSION,
 )
+from datahub.ingestion.source.boomi.lineage import BoomiLineageResolver
 from datahub.ingestion.source.boomi.models import (
     ComponentMetadata,
     ExecutionRecord,
     Folder,
     ProcessComponentInfo,
+    ProcessLineage,
 )
 from datahub.ingestion.source.boomi.report import BoomiSourceReport
 from datahub.ingestion.source.common.subtypes import (
@@ -78,6 +80,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
     DataProcessTypeClass,
     OwnershipTypeClass,
 )
@@ -119,6 +122,18 @@ class ExecutionSelection:
     scanned: int = 0
     process_not_emitted: int = 0
     over_cap: int = 0
+
+
+@dataclass
+class PendingProcessJob:
+    # The job is emitted after every flow, so process-call edges can be limited
+    # to processes that were actually emitted in this run.
+    flow: DataFlow
+    component_id: str
+    display_name: str
+    description: Optional[str]
+    owners: Optional[List[Tuple[CorpUserUrn, str]]]
+    lineage: Optional[ProcessLineage]
 
 
 def to_millis(value: datetime) -> int:
@@ -248,6 +263,10 @@ def dedupe_branch_copies(
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Folders as containers")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "From connector operations and process calls. Enabled by default via include_lineage",
+)
 @capability(SourceCapability.OWNERSHIP, "From process createdBy and modifiedBy")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class BoomiSource(StatefulIngestionSourceBase, TestableSource):
@@ -261,6 +280,11 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         self.report = BoomiSourceReport()
         self.client = BoomiClient(config, self.report)
         self._ui_host = ui_host_for_api_url(config.api_url)
+        self.lineage: Optional[BoomiLineageResolver] = (
+            BoomiLineageResolver(config, self.client, self.report)
+            if config.include_lineage
+            else None
+        )
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "BoomiSource":
@@ -454,6 +478,7 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         deployments: Optional[Dict[str, List[str]]],
         process_jobs: Dict[str, DataJobUrn],
     ) -> Iterable[Entity]:
+        pending_jobs: List[PendingProcessJob] = []
         try:
             processes, duplicates = dedupe_branch_copies(
                 self.client.list_processes(self.config.branch_name)
@@ -485,16 +510,14 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.processes_undeployed_skipped.append(process.name)
                     continue
             try:
-                info = self._fetch_process_info(process)
-                if folder is None and not self._folder_path_allowed(
-                    info.folder_full_path
-                ):
+                fetched = self._fetch_process_info(process)
+                folder_path = fetched.folder_full_path if fetched else None
+                if folder is None and not self._folder_path_allowed(folder_path):
                     self.report.processes_filtered.append(process.name)
                     continue
-                yield from self._make_process_entities(
-                    process, index, info, process_deployments, process_jobs
+                pending = self._make_process(
+                    process, index, fetched, process_deployments
                 )
-                self.report.processes_emitted += 1
             except Exception as e:
                 self.report.warning(
                     title="Failed to process Boomi process",
@@ -502,8 +525,19 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"componentId={process.component_id}, name={process.name}",
                     exc=e,
                 )
+                continue
+            yield pending.flow
+            self.report.processes_emitted += 1
+            pending_jobs.append(pending)
+            process_jobs[process.component_id] = DataJobUrn(
+                pending.flow.urn, PROCESS_JOB_ID
+            )
+        for pending in pending_jobs:
+            yield self._make_process_job(pending, process_jobs)
 
-    def _fetch_process_info(self, process: ComponentMetadata) -> ProcessComponentInfo:
+    def _fetch_process_info(
+        self, process: ComponentMetadata
+    ) -> Optional[ProcessComponentInfo]:
         try:
             xml_text = self.client.get_component_xml(process.component_id)
             return parse_process_component(xml_text)
@@ -517,20 +551,38 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             self.report.process_xml_failures.append(process.component_id)
             self.report.warning(
                 title="Failed to read Boomi process component",
-                message="The process is emitted without a description.",
+                message="The process is emitted without a description or lineage.",
                 context=f"componentId={process.component_id}, name={process.name}",
                 exc=e,
             )
-            return ProcessComponentInfo()
+            return None
 
-    def _make_process_entities(
+    def _resolve_lineage(
+        self, process: ComponentMetadata, info: Optional[ProcessComponentInfo]
+    ) -> Optional[ProcessLineage]:
+        # None leaves the job's existing lineage untouched, which is safer than
+        # overwriting it with edges that could not be read.
+        if self.lineage is None or info is None:
+            return None
+        try:
+            return self.lineage.resolve_process(info)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to resolve Boomi process lineage",
+                message="The process is emitted without lineage.",
+                context=f"componentId={process.component_id}, name={process.name}",
+                exc=e,
+            )
+            return None
+
+    def _make_process(
         self,
         process: ComponentMetadata,
         index: FolderIndex,
-        info: ProcessComponentInfo,
+        fetched: Optional[ProcessComponentInfo],
         process_deployments: List[str],
-        process_jobs: Dict[str, DataJobUrn],
-    ) -> Iterable[Entity]:
+    ) -> PendingProcessJob:
+        info = fetched or ProcessComponentInfo()
         folder = index.folders.get(process.folder_id) if process.folder_id else None
         folder_path = folder.full_path if folder else info.folder_full_path
         custom_properties = {
@@ -564,17 +616,46 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             owners=owners,
             parent_container=folder_container if folder_container else unset,
         )
-        yield flow
-        job = DataJob(
-            name=PROCESS_JOB_ID,
+        return PendingProcessJob(
             flow=flow,
+            component_id=process.component_id,
             display_name=process.name,
             description=info.description,
-            subtype=DataJobSubTypes.BOOMI_PROCESS_JOB,
             owners=owners,
+            lineage=self._resolve_lineage(process, fetched),
         )
-        yield job
-        process_jobs[process.component_id] = job.urn
+
+    def _make_process_job(
+        self, pending: PendingProcessJob, process_jobs: Dict[str, DataJobUrn]
+    ) -> DataJob:
+        extra_aspects: List[DataJobInputOutputClass] = []
+        if pending.lineage is not None:
+            input_jobs: List[str] = []
+            for child_id in pending.lineage.child_process_ids:
+                if child_id == pending.component_id:
+                    continue
+                child_urn = process_jobs.get(child_id)
+                if child_urn is None:
+                    self.report.process_calls_child_not_emitted += 1
+                    continue
+                self.report.process_calls_resolved += 1
+                input_jobs.append(str(child_urn))
+            extra_aspects.append(
+                DataJobInputOutputClass(
+                    inputDatasets=pending.lineage.input_datasets,
+                    outputDatasets=pending.lineage.output_datasets,
+                    inputDatajobs=input_jobs,
+                )
+            )
+        return DataJob(
+            name=PROCESS_JOB_ID,
+            flow=pending.flow,
+            display_name=pending.display_name,
+            description=pending.description,
+            subtype=DataJobSubTypes.BOOMI_PROCESS_JOB,
+            owners=pending.owners,
+            extra_aspects=extra_aspects or None,
+        )
 
     def _process_url(self, component_id: str) -> Optional[str]:
         if self._ui_host is None:

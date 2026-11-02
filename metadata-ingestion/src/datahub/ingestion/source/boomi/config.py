@@ -1,9 +1,9 @@
-from typing import Optional
+from typing import Dict, Optional
 from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, field_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -24,6 +24,41 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
 )
+
+
+class BoomiConnectionMapping(ConfigModel):
+    platform: str = Field(
+        description="DataHub platform of the system behind the connection, for example `mssql` or `snowflake`.",
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance used when that system was ingested into DataHub.",
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="Environment of the datasets. Defaults to the source's `env`.",
+    )
+    database: Optional[str] = Field(
+        default=None,
+        description=(
+            "Database for table names that do not include one. Overrides the "
+            "database read from the connection."
+        ),
+    )
+    default_schema: Optional[str] = Field(
+        default=None,
+        description=(
+            "Schema for table names that do not include one. Overrides the "
+            "schema read from the connection."
+        ),
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description=(
+            "Lowercase table names read from operations and profiles. Set to "
+            "`false` when the system was ingested with case-preserving URNs."
+        ),
+    )
 
 
 class BoomiSourceConfig(
@@ -91,6 +126,32 @@ class BoomiSourceConfig(
         description=(
             "Emit the process creator as a data owner and the last modifier as a "
             "technical owner."
+        ),
+    )
+    include_lineage: bool = Field(
+        default=True,
+        description=(
+            "Emit lineage from each process to the datasets its connector "
+            "operations read and write, and to the processes it calls. Needs "
+            "one API call per distinct connection, operation and database profile."
+        ),
+    )
+    connection_type_platform_map: Dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Map a connector `subType` to a DataHub platform, for connectors the "
+            "source plugin cannot resolve itself, for example "
+            "`{'officialboomi-X3979C-snowfl-prod': 'snowflake'}`. Experimental: "
+            "the operation's object type ID is used as the table name."
+        ),
+    )
+    connection_to_platform: Dict[str, BoomiConnectionMapping] = Field(
+        default_factory=dict,
+        description=(
+            "Per-connection overrides keyed by the connection component ID. An "
+            "entry wins over everything the source plugin reads from the "
+            "connection, and supplies the platform instance, database and "
+            "schema needed for URNs to match other sources."
         ),
     )
     include_execution_history: bool = Field(

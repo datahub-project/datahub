@@ -24,6 +24,19 @@ source:
     include_undeployed_processes: false
     extract_owners: true
 
+    # Lineage from connector operations and process calls.
+    include_lineage: true
+    # Experimental: give connectors without built-in support a platform.
+    connection_type_platform_map:
+      "officialboomi-X3979C-snowfl-prod": snowflake
+    # Per-connection overrides, keyed by connection component ID.
+    connection_to_platform:
+      "1a2b3c4d-0000-0000-0000-000000000001":
+        platform: mssql
+        platform_instance: erp
+        database: my_db
+        default_schema: dbo
+
     # Run history. Requires the View Results privilege; set to false if the
     # token lacks it. Boomi purges executions after 30 days by default.
     include_execution_history: true

@@ -442,6 +442,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_COARSE",
+          "description": "From connector operations and process calls. Enabled by default via include_lineage",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "subtype_modifier": null,
