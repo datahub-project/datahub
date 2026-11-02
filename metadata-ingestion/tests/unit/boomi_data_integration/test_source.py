@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import Dict, Iterable, List, Union
 
 import requests_mock
@@ -15,6 +17,12 @@ from datahub.sdk.entity import Entity
 
 ACCOUNT_ID = "acct-0001"
 BASE_URL = f"https://api.rivery.io/v1/accounts/{ACCOUNT_ID}"
+API_RESPONSES = (
+    Path(__file__).parents[2]
+    / "integration"
+    / "boomi_data_integration"
+    / "api_responses"
+)
 
 
 def _source(**overrides: object) -> BoomiDataIntegrationSource:
@@ -281,3 +289,90 @@ def test_test_connection_with_api_token_probes_listed_environments() -> None:
 def test_test_connection_rejects_bad_config() -> None:
     report = BoomiDataIntegrationSource.test_connection({"account_id": ACCOUNT_ID})
     assert report.internal_failure
+
+
+def _logic_river(river_id: str, steps: List[Dict[str, object]]) -> Dict[str, object]:
+    return {
+        "cross_id": river_id,
+        "account_id": ACCOUNT_ID,
+        "kind": "main_river",
+        "type": "logic",
+        "name": f"River {river_id}",
+        "group_id": "g-1",
+        "group_name": "Sales",
+        "metadata": {"river_status": "active", "is_deleted": False},
+        "properties": {"properties_type": "logic", "logic_steps": steps},
+        "schedulers": [],
+    }
+
+
+def test_logic_steps_skip_disabled_and_invalid_steps() -> None:
+    steps: List[Dict[str, object]] = [
+        {"name": "Load", "is_enabled": True, "step_id": "s1", "type": "logicode"},
+        {"name": "Off", "is_enabled": False, "step_id": "s2", "type": "logicode"},
+        {"name": "No id", "is_enabled": True, "type": "logicode"},
+        {"name": "Publish", "is_enabled": True, "step_id": "s3", "type": "logicode"},
+    ]
+    source = _source()
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            f"{BASE_URL}/environments", json=_page([_environment("env-a", "Prod")])
+        )
+        mock.get(
+            f"{BASE_URL}/environments/env-a/rivers",
+            json=_page([_summary("r-1", river_type="logic")]),
+        )
+        mock.get(
+            f"{BASE_URL}/environments/env-a/rivers/r-1",
+            json=_logic_river("r-1", steps),
+        )
+        entities = _entities(source)
+
+    jobs = {e.urn.job_id: e for e in entities if isinstance(e, DataJob)}
+    assert sorted(jobs) == ["s1", "s3"]
+    io = jobs["s3"]._get_aspect(DataJobInputOutputClass)
+    assert io is not None
+    assert io.inputDatajobs == [str(jobs["s1"].urn)]
+    report = source.get_report()
+    assert (report.logic_steps_disabled, report.logic_steps_invalid) == (1, 1)
+    assert [w.title for w in report.warnings] == ["Invalid logic steps"]
+
+
+def test_river_definition_server_error_keeps_river_without_lineage() -> None:
+    source = _source()
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            f"{BASE_URL}/environments", json=_page([_environment("env-a", "Prod")])
+        )
+        mock.get(f"{BASE_URL}/environments/env-a/rivers", json=_page([_summary("r-1")]))
+        mock.get(f"{BASE_URL}/environments/env-a/rivers/r-1", status_code=500)
+        entities = _entities(source)
+
+    assert [e.urn.flow_id for e in entities if isinstance(e, DataFlow)] == ["r-1"]
+    report = source.get_report()
+    assert list(report.river_definition_failures) == ["r-1"]
+    assert [w.title for w in report.warnings] == ["Failed to read river definition"]
+
+
+def test_source_to_target_river_emits_load_job_with_target() -> None:
+    definition = json.loads(
+        (API_RESPONSES / "river_a00000000000000000000001.json").read_text()
+    )
+    source = _source()
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            f"{BASE_URL}/environments", json=_page([_environment("env-a", "Prod")])
+        )
+        mock.get(f"{BASE_URL}/environments/env-a/rivers", json=_page([_summary("r-1")]))
+        mock.get(f"{BASE_URL}/environments/env-a/rivers/r-1", json=definition)
+        entities = _entities(source)
+
+    flow = next(e for e in entities if isinstance(e, DataFlow))
+    assert flow.custom_properties["run_type"] == "predefined_report"
+    assert flow.custom_properties["target"] == "postgres_rds"
+    job = next(e for e in entities if isinstance(e, DataJob))
+    io = job._get_aspect(DataJobInputOutputClass)
+    assert io is not None
+    assert io.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,crm.leads,PROD)"
+    ]
