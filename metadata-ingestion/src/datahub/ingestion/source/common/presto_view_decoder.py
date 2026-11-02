@@ -13,7 +13,12 @@ the decode logic lives here to avoid duplication.
 import base64
 import json
 import re
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
+
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+from datahub.metadata.schema_classes import NullTypeClass
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 # Markers wrapping the base64-encoded payload of a Presto/Athena view.
 PRESTO_VIEW_PREFIX = "/* Presto View: "
@@ -101,6 +106,16 @@ class PrestoViewColumn(TypedDict):
 
     name: str
     type: str  # Trino type string, e.g. "timestamp(3) with time zone"
+
+
+@dataclass
+class PrestoViewColumnSchema:
+    """Schema fields built for one Presto/Athena view column."""
+
+    fields: List[SchemaField]
+    # True when the type was too long or nested to convert (typed as string), or
+    # the Hive parser left the column or one of its nested fields untyped.
+    type_unresolved: bool
 
 
 def is_presto_view(view_text: str) -> bool:
@@ -308,3 +323,32 @@ def _row_type_to_hive_struct(args: List[str], depth: int) -> str:
         field_type = _trino_type_to_hive_type(field_trino_type, depth + 1)
         struct_fields.append(f"{field_name}:{field_type}")
     return f"struct<{','.join(struct_fields)}>"
+
+
+def get_presto_view_column_schema(column: PrestoViewColumn) -> PrestoViewColumnSchema:
+    """Build the schema fields for a Presto/Athena view column.
+
+    The Trino type is converted to Hive for parsing, but the top-level field keeps
+    the engine's own type (e.g. ``timestamp(3) with time zone``) as
+    ``nativeDataType``. Callers should report columns with ``type_unresolved``.
+    """
+    try:
+        hive_type = trino_type_to_hive_type(column["type"])
+        conversion_failed = False
+    except ValueError:
+        hive_type = FALLBACK_HIVE_TYPE
+        conversion_failed = True
+    fields = get_schema_fields_for_hive_column(
+        hive_column_name=column["name"],
+        hive_column_type=hive_type,
+        default_nullable=True,
+    )
+    if fields:
+        fields[0].nativeDataType = column["type"]
+    # The Hive parser falls back to NullType instead of raising when it cannot
+    # read a type, e.g. a quoted row field name containing `:`, `,`, `<` or `>`.
+    return PrestoViewColumnSchema(
+        fields=fields,
+        type_unresolved=conversion_failed
+        or any(isinstance(field.type.type, NullTypeClass) for field in fields),
+    )
