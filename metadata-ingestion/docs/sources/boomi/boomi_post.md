@@ -35,14 +35,16 @@ With `include_lineage: true` (the default), the source plugin reads the shapes i
 
 Listen shapes, which receive documents pushed to the runtime, are skipped.
 
-| Connector         | `subType`                          | Platform                                                                                                                      | Table                                                                                                      |
-| ----------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Database (legacy) | `database`                         | From the driver: SQL Server, Oracle, MySQL, PostgreSQL, DB2, SAP HANA and Snowflake. With a custom driver, from the JDBC URL. | The profile's SQL, parsed with the connection's database as the default. Without SQL, the profile's table. |
-| Database V2       | `officialboomi-X3979C-dbv2da-prod` | From the JDBC URL: `sqlserver`, `mysql`, `mariadb`, `postgresql`, `oracle`, `snowflake`, `redshift` and `db2`.                | The operation's query, parsed, or else its object type ID. The connection's schema is the default schema.  |
-| Salesforce        | `salesforce`                       | `salesforce`                                                                                                                  | The operation's object name, with its case kept.                                                           |
-| Other, mapped     | Any subType you map                | From `connection_type_platform_map` or `connection_to_platform`.                                                              | The operation's object type ID. Experimental.                                                              |
+| Connector         | `subType`                          | Platform                                                                                                                          | Table                                                                                                      |
+| ----------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Database (legacy) | `database`                         | From the driver: SQL Server, Oracle, MySQL, PostgreSQL, DB2, SAP HANA and Snowflake. With a custom driver, from the URL template. | The profile's SQL, parsed with the connection's database as the default. Without SQL, the profile's table. |
+| Database V2       | `officialboomi-X3979C-dbv2da-prod` | From the JDBC URL: `sqlserver`, `mysql`, `mariadb`, `postgresql`, `oracle`, `snowflake`, `redshift` and `db2`.                    | The operation's query, parsed, or else its object type ID. The connection's schema is the default schema.  |
+| Salesforce        | `salesforce`                       | `salesforce`                                                                                                                      | The operation's object name, with its case kept.                                                           |
+| Other, mapped     | Any subType you map                | From `connection_type_platform_map` or `connection_to_platform`.                                                                  | The operation's object type ID. Experimental.                                                              |
 
-The database is taken from the driver settings or from the JDBC URL where the URL names one (`databaseName` for SQL Server, the path for MySQL, MariaDB, PostgreSQL, Redshift and DB2, and `db` for Snowflake). Oracle URLs carry a SID or service name, which DataHub's Oracle source does not put in URNs, so Oracle tables get no database unless you set one. Table names are lowercased by default. The source plugin never builds a URN from a host name.
+The database is taken from the driver settings or from the JDBC URL where the URL names one (`databaseName` for SQL Server, the path for MySQL, MariaDB, PostgreSQL, Redshift and DB2, and `db` for Snowflake). A legacy Database connection with a custom driver (`driverId="custom"`) stores its URL as a template, such as `jdbc:postgresql://{0}:{1}/{2}{3}`, and keeps the host, port, database name and additional options as separate settings. The source plugin fills `{0}` to `{3}` from those settings before reading the platform and database from the URL. For MySQL and MariaDB, which have no schema level, the Database V2 `schemaName` is used as the database.
+
+Unqualified table names in SQL get the connection's database but no schema, because the schema they resolve to depends on the database's search path. For PostgreSQL and SQL Server, set `default_schema` in `connection_to_platform` so the URNs match the ones from the database's own source. Oracle URLs carry a SID or service name, which DataHub's Oracle source does not put in URNs, so Oracle tables get no database unless you set one. Table names are lowercased by default. The source plugin never builds a URN from a host name.
 
 ##### Mapping connections
 
@@ -81,7 +83,7 @@ When an operation has no table or SQL cannot be parsed, the edge is skipped rath
 
 A Process Call shape adds the called process's DataJob to the caller's input DataJobs, but only when the called process is ingested in the same run. Calls to filtered or undeployed processes are counted in `process_calls_child_not_emitted`.
 
-The component XML shapes this relies on were checked against Boomi's documentation and exported components. They will be confirmed against live accounts.
+The API responses and component XML this relies on were validated against a live Boomi account, with the legacy Database connector (custom PostgreSQL driver), Database V2 (MySQL), Salesforce, HTTP Client, Disk and SFTP connectors, and a Process Call.
 
 #### Folders
 

@@ -124,7 +124,10 @@ class ConnectionComponent(BaseModel):
     sub_type: Optional[str] = None
     # Legacy Database connector.
     driver_id: Optional[str] = None
+    host: Optional[str] = None
+    port: Optional[str] = None
     dbname: Optional[str] = None
+    additional: Optional[str] = None
     url_format: Optional[str] = None
     # Database V2 connector.
     url: Optional[str] = None

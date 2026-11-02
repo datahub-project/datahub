@@ -34,6 +34,7 @@ from datahub.ingestion.source.boomi.constants import (
     SUBTYPE_DATABASE_V2,
     SUBTYPE_SALESFORCE,
     TWO_TIER_PLATFORMS,
+    URL_FORMAT_PLACEHOLDER_START,
     OperationDirection,
     UnresolvedReason,
 )
@@ -108,11 +109,29 @@ def qualify_table_name(
     return ".".join(parts)
 
 
+def fill_url_format(connection: ConnectionComponent) -> str:
+    # Replaced one by one rather than with str.format, which would fail on any
+    # other brace in the URL.
+    url = connection.url_format or ""
+    values = (
+        connection.host,
+        connection.port,
+        connection.dbname,
+        connection.additional,
+    )
+    for index, value in enumerate(values):
+        url = url.replace(f"{{{index}}}", value or "")
+    return url
+
+
 def connection_location(connection: ConnectionComponent) -> JdbcLocation:
     if connection.sub_type == SUBTYPE_DATABASE:
         driver = (connection.driver_id or "").lower()
         if driver == DRIVER_ID_CUSTOM:
-            location = parse_jdbc_url(connection.url_format or "")
+            location = parse_jdbc_url(fill_url_format(connection))
+            # A placeholder the template still holds is not a database name.
+            if location.database and URL_FORMAT_PLACEHOLDER_START in location.database:
+                location.database = None
         else:
             location = JdbcLocation(
                 platform=DRIVER_ID_PLATFORM_MAP.get(driver),
@@ -128,6 +147,11 @@ def connection_location(connection: ConnectionComponent) -> JdbcLocation:
         location = JdbcLocation()
     if location.platform in PLATFORMS_WITHOUT_DATABASE:
         location.database = None
+    if location.platform in TWO_TIER_PLATFORMS:
+        # MySQL has no schema level: Database V2 puts the database in
+        # schemaName, which would otherwise be added as a second segment.
+        location.database = location.schema_name or location.database
+        location.schema_name = None
     return location
 
 

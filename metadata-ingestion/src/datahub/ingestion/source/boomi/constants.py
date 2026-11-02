@@ -142,6 +142,7 @@ XML_ATTR_DRIVER_ID = "driverId"
 XML_ATTR_HOST = "host"
 XML_ATTR_PORT = "port"
 XML_ATTR_DB_NAME = "dbname"
+XML_ATTR_ADDITIONAL = "additional"
 XML_ATTR_URL_FORMAT = "urlFormat"
 XML_ELEMENT_GENERIC_CONNECTION_CONFIG = "GenericConnectionConfig"
 FIELD_ID_URL = "url"
@@ -211,6 +212,10 @@ WRITE_OPERATION_TYPES: FrozenSet[str] = frozenset(
 )
 
 DRIVER_ID_CUSTOM = "custom"
+# A custom driver's urlFormat is a template such as
+# `jdbc:postgresql://{0}:{1}/{2}{3}`, filled from the connection's host, port,
+# dbname and additional attributes, in that order.
+URL_FORMAT_PLACEHOLDER_START = "{"
 DRIVER_ID_PLATFORM_MAP: Dict[str, str] = {
     "sqlserver": "mssql",
     "sqlserver-jtds": "mssql",

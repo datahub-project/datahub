@@ -208,6 +208,8 @@ def test_parse_legacy_and_v2_connections() -> None:
     assert legacy == ConnectionComponent(
         sub_type="database",
         driver_id="custom",
+        host="db.example.com",
+        port="1433",
         dbname="my_db",
         url_format="jdbc:mysql://db.example.com:3306/shop",
     )
@@ -340,6 +342,107 @@ def test_parse_jdbc_url(url: str, expected: JdbcLocation) -> None:
 def test_legacy_driver_map(driver: str, expected: JdbcLocation) -> None:
     connection = parse_connection_component(_legacy_connection(driver))
     assert connection_location(connection) == expected
+
+
+# A live legacy Database connection with a custom driver: urlFormat is the
+# driver's template, and host, port and dbname are separate attributes.
+LEGACY_CUSTOM_POSTGRES_CONNECTION = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bns="http://api.platform.boomi.com/" folderFullPath="Test Account/DataHub Test/Shared" componentId="1a5d3fed-78e7-48d6-83e3-886669a42439" version="1" name="DH Test - RNAcentral Postgres" type="connector-settings" subType="database" createdDate="2026-11-02T19:14:48Z" createdBy="svc@example.com" modifiedDate="2026-11-02T19:14:48Z" modifiedBy="svc@example.com" deleted="false" currentVersion="true" folderName="Shared" folderId="Rjo4OTQzNDEy" branchName="main" branchId="Qjo2MDk0Mzg"><bns:encryptedValues><bns:encryptedValue path="//DatabaseConnectionSettings/@password" isSet="true"/></bns:encryptedValues><bns:description>RNAcentral public read-only PostgreSQL database</bns:description><bns:object><DatabaseConnectionSettings xmlns="" additional="" className="org.postgresql.Driver" dbname="pfmegrnargs" driverId="custom" host="hh-pgsql-public.ebi.ac.uk" isPoolEnabled="false" password="0000" port="5432" urlFormat="jdbc:postgresql://{0}:{1}/{2}{3}" username="reader"><WriteOptions sqlFilePath="" writeSQLToFile="false"/><AdapterPoolInfo exhaustedAction="1" maxActive="-1" maxIdle="-1" maxIdleTime="0" maxWait="0" minIdle="0" numberOfTests="0" testIdle="false" testOnBorrow="false" testOnReturn="false" timeBetweenRuns="0" validationQuery=""/>
+    </DatabaseConnectionSettings></bns:object></bns:Component>
+"""
+
+# A live Database V2 MySQL connection, which repeats the database as schemaName.
+DB_V2_MYSQL_CONNECTION = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bns="http://api.platform.boomi.com/" folderFullPath="Test Account/DataHub Test/Shared" componentId="64f429a7-f94a-420d-a5d0-03385e9c3fc8" version="1" name="DH Test - Ensembl MySQL" type="connector-settings" subType="officialboomi-X3979C-dbv2da-prod" createdDate="2026-11-02T19:15:17Z" createdBy="svc@example.com" modifiedDate="2026-11-02T19:15:17Z" modifiedBy="svc@example.com" deleted="false" currentVersion="true" folderName="Shared" folderId="Rjo4OTQzNDEy" branchName="main" branchId="Qjo2MDk0Mzg"><bns:encryptedValues/><bns:description>Ensembl public anonymous MySQL server</bns:description><bns:object><GenericConnectionConfig xmlns=""><field id="url" type="string" value="jdbc:mysql://ensembldb.ensembl.org:3306/homo_sapiens_core_116_38"/><field id="className" type="string" value="com.mysql.jdbc.Driver"/><field id="username" type="string" value="anonymous"/><field id="password" type="password" value=""/><field id="CustomProperties" type="customproperties"><customProperties/></field><field id="schemaName" type="string" value="homo_sapiens_core_116_38"/><field id="connectTimeOut" type="integer"/><field id="readTimeOut" type="integer"/><field id="enablePooling" type="boolean" value="false"/>
+    </GenericConnectionConfig></bns:object></bns:Component>
+"""
+
+
+def test_legacy_custom_driver_fills_url_template() -> None:
+    connection = parse_connection_component(LEGACY_CUSTOM_POSTGRES_CONNECTION)
+
+    assert connection.url_format == "jdbc:postgresql://{0}:{1}/{2}{3}"
+    assert connection_location(connection) == JdbcLocation(
+        platform="postgres", database="pfmegrnargs"
+    )
+
+
+@pytest.mark.parametrize(
+    "url_format, additional, expected",
+    [
+        (
+            "jdbc:sqlserver://{0}:{1};databaseName={2}{3}",
+            ";encrypt=true",
+            JdbcLocation(platform="mssql", database="my_db"),
+        ),
+        (
+            "jdbc:postgresql://{0}:{1}/{2}{3}",
+            "?ssl=true",
+            JdbcLocation(platform="postgres", database="my_db"),
+        ),
+        # An unknown placeholder never becomes the database.
+        (
+            "jdbc:postgresql://{0}:{1}/{4}",
+            "",
+            JdbcLocation(platform="postgres"),
+        ),
+    ],
+)
+def test_legacy_custom_driver_url_templates(
+    url_format: str, additional: str, expected: JdbcLocation
+) -> None:
+    connection = ConnectionComponent(
+        sub_type="database",
+        driver_id="custom",
+        host="db.example.com",
+        port="5432",
+        dbname="my_db",
+        additional=additional,
+        url_format=url_format,
+    )
+    assert connection_location(connection) == expected
+
+
+def test_legacy_custom_driver_sql_uses_dbname() -> None:
+    resolver, _, _ = _resolver(
+        {
+            "conn-1": LEGACY_CUSTOM_POSTGRES_CONNECTION,
+            "op-1": _db_operation("DatabaseGetAction", "prof-1"),
+            "prof-1": _db_profile(
+                "", "SELECT id, descr, display_name FROM rnc_database ORDER BY id"
+            ),
+        }
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-1", "op-1")))
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnc_database,PROD)"
+    ]
+
+
+def test_db_v2_mysql_schema_name_is_the_database() -> None:
+    connection = parse_connection_component(DB_V2_MYSQL_CONNECTION)
+    assert connection_location(connection) == JdbcLocation(
+        platform="mysql", database="homo_sapiens_core_116_38"
+    )
+
+    resolver, _, _ = _resolver(
+        {
+            "conn-1": DB_V2_MYSQL_CONNECTION,
+            "op-1": _generic_operation(
+                DB_V2,
+                "EXECUTE",
+                object_type_id="coord_system",
+                query="select * from coord_system",
+                custom_operation_type="GET",
+            ),
+        }
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-1", "op-1")))
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,homo_sapiens_core_116_38.coord_system,PROD)"
+    ]
 
 
 def test_v2_schema_name_overrides_url_schema() -> None:
