@@ -22,16 +22,20 @@ import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
+import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionSchedule;
+import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -41,6 +45,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -282,6 +287,30 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
+  public void testProposedItemPatchKeepingTarget_noAssertedEntityCheck() {
+    // Alternate MCP validation hands validators ProposedItems, whose PATCH payload is a JSON patch
+    // rather than an aspect. Rewriting the sub-record with the same target changes nothing that
+    // needs the asserted-entity privilege.
+    mockPersisted(datasetAssertionOn(DATASET_A));
+
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, proposedItem(datasetAssertionPatch(DATASET_A)))
+            .isEmpty());
+  }
+
+  @Test
+  public void testProposedItemPatchRetargetRequiresPrivilegeOnNewTarget() {
+    mockPersisted(datasetAssertionOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+    BatchItem patch = proposedItem(datasetAssertionPatch(DATASET_B));
+
+    Assert.assertEquals(validate(OperationFingerprint.EMPTY, patch).size(), 1);
+
+    grantEditAssertionsOn(DATASET_B);
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, patch).isEmpty());
+  }
+
+  @Test
   public void testRunEventMustNameAssertionTarget() {
     mockPersisted(freshnessOn(DATASET_A));
     grantEditAssertionsOn(DATASET_A);
@@ -408,8 +437,64 @@ public class AssertionAuthorizationValidatorTest {
         .setFreshnessAssertion(
             new FreshnessAssertionInfo()
                 .setType(FreshnessAssertionType.DATASET_CHANGE)
-                .setEntity(entityUrn))
+                .setEntity(entityUrn)
+                .setSchedule(
+                    new FreshnessAssertionSchedule()
+                        .setType(FreshnessAssertionScheduleType.FIXED_INTERVAL)))
         .setSource(new AssertionSource().setType(AssertionSourceType.NATIVE));
+  }
+
+  private static AssertionInfo datasetAssertionOn(Urn datasetUrn) {
+    return new AssertionInfo()
+        .setType(AssertionType.DATASET)
+        .setCustomProperties(new StringMap(Map.of("suite", "initial")))
+        .setDatasetAssertion(
+            new DatasetAssertionInfo()
+                .setDataset(datasetUrn)
+                .setScope(DatasetAssertionScope.DATASET_ROWS)
+                .setOperator(AssertionStdOperator.BETWEEN));
+  }
+
+  /**
+   * A generic PATCH that rewrites {@code type} and the whole dataset sub-record (pointing it at
+   * {@code datasetUrn}) and adds a custom property, as clients that re-emit a definition send it.
+   */
+  private static MetadataChangeProposal datasetAssertionPatch(Urn datasetUrn) {
+    return genericPatchProposal(
+        List.of(
+            patchOp("/type", AssertionType.DATASET.name()),
+            patchOp(
+                "/datasetAssertion",
+                Map.of(
+                    "dataset", datasetUrn.toString(),
+                    "scope", DatasetAssertionScope.DATASET_SCHEMA.name(),
+                    "operator", AssertionStdOperator.EQUAL_TO.name())),
+            patchOp("/customProperties/suite", "updated")));
+  }
+
+  private static GenericJsonPatch.PatchOp patchOp(String path, Object value) {
+    GenericJsonPatch.PatchOp op = new GenericJsonPatch.PatchOp();
+    op.setOp("add");
+    op.setPath(path);
+    op.setValue(value);
+    return op;
+  }
+
+  private static MetadataChangeProposal genericPatchProposal(List<GenericJsonPatch.PatchOp> ops) {
+    return new MetadataChangeProposal()
+        .setEntityUrn(ASSERTION_URN)
+        .setEntityType(ASSERTION_ENTITY_NAME)
+        .setAspectName(ASSERTION_INFO_ASPECT_NAME)
+        .setChangeType(ChangeType.PATCH)
+        .setAspect(
+            GenericRecordUtils.serializePatch(
+                GenericJsonPatch.builder().patch(ops).forceGenericPatch(true).build(),
+                new ObjectMapper()));
+  }
+
+  private static BatchItem proposedItem(MetadataChangeProposal mcp) {
+    return ProposedItem.builder()
+        .build(mcp, AuditStampUtils.createDefaultAuditStamp(), new TestEntityRegistry());
   }
 
   private static AssertionInfo volumeOn(Urn entityUrn) {
@@ -423,20 +508,7 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   private static BatchItem genericPatch(String path, String value) {
-    GenericJsonPatch.PatchOp op = new GenericJsonPatch.PatchOp();
-    op.setOp("add");
-    op.setPath(path);
-    op.setValue(value);
-    return patchItem(
-        new MetadataChangeProposal()
-            .setEntityUrn(ASSERTION_URN)
-            .setEntityType(ASSERTION_ENTITY_NAME)
-            .setAspectName(ASSERTION_INFO_ASPECT_NAME)
-            .setChangeType(ChangeType.PATCH)
-            .setAspect(
-                GenericRecordUtils.serializePatch(
-                    GenericJsonPatch.builder().patch(List.of(op)).forceGenericPatch(true).build(),
-                    new ObjectMapper())));
+    return patchItem(genericPatchProposal(List.of(patchOp(path, value))));
   }
 
   private static BatchItem patchItem(MetadataChangeProposal mcp) {

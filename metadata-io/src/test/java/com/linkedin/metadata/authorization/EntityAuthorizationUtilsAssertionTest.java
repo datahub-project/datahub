@@ -23,6 +23,8 @@ import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionSchedule;
+import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
@@ -351,7 +353,10 @@ public class EntityAuthorizationUtilsAssertionTest {
         .setFreshnessAssertion(
             new FreshnessAssertionInfo()
                 .setType(FreshnessAssertionType.DATASET_CHANGE)
-                .setEntity(entityUrn))
+                .setEntity(entityUrn)
+                .setSchedule(
+                    new FreshnessAssertionSchedule()
+                        .setType(FreshnessAssertionScheduleType.FIXED_INTERVAL)))
         .setSource(new AssertionSource().setType(AssertionSourceType.NATIVE));
   }
 

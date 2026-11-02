@@ -362,15 +362,24 @@ public final class AssertionAuthorizationUtils {
     }
   }
 
+  /**
+   * Under alternate MCP validation items are {@link ProposedItem}s, whose {@code getRecordTemplate}
+   * deserializes the raw payload: it throws for a JSON patch body or a DELETE without one. So the
+   * change type is checked first, and an unreadable upsert is left for ingestion to reject.
+   */
   @Nullable
   private static AssertionInfo proposedAssertionInfo(@Nonnull final BatchItem item) {
     if (!ASSERTION_INFO_ASPECT_NAME.equals(item.getAspectName())
-        || item.getRecordTemplate() == null
         || ChangeType.PATCH.equals(item.getChangeType())
         || ChangeType.DELETE.equals(item.getChangeType())) {
       return null;
     }
-    return item.getAspect(AssertionInfo.class);
+    try {
+      return item.getAspect(AssertionInfo.class);
+    } catch (RuntimeException e) {
+      log.debug("Unable to read proposed assertionInfo for {}", item.getUrn(), e);
+      return null;
+    }
   }
 
   @Nullable
@@ -390,9 +399,14 @@ public final class AssertionAuthorizationUtils {
   @Nullable
   private static AssertionRunEvent proposedRunEvent(@Nonnull final BatchItem item) {
     if (!ASSERTION_RUN_EVENT_ASPECT_NAME.equals(item.getAspectName())
-        || item.getRecordTemplate() == null) {
+        || ChangeType.DELETE.equals(item.getChangeType())) {
       return null;
     }
-    return item.getAspect(AssertionRunEvent.class);
+    try {
+      return item.getAspect(AssertionRunEvent.class);
+    } catch (RuntimeException e) {
+      log.debug("Unable to read proposed assertionRunEvent for {}", item.getUrn(), e);
+      return null;
+    }
   }
 }
