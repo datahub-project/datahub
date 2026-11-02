@@ -1,7 +1,7 @@
 import base64
 import json
 from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -16,6 +16,7 @@ from datahub.ingestion.source.sql.hive.hive_metastore_report import (
 from datahub.ingestion.source.sql.hive.hive_sql_fetcher import SQLAlchemyDataFetcher
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
+    NullTypeClass,
     RecordTypeClass,
     SchemaFieldClass,
     SchemaMetadataClass,
@@ -143,34 +144,53 @@ def test_presto_view_with_empty_columns_is_emitted_with_warning() -> None:
     assert any("db1.events_view" in c for c in _warning_contexts(processor.report))
 
 
-def test_unconvertible_presto_column_type_falls_back_to_string() -> None:
+def test_presto_column_too_nested_to_convert_falls_back_to_string() -> None:
+    nested_type = "array(" * 70 + "bigint" + ")" * 70
     processor = _processor(
         _view_text(
             {
                 "originalSql": VIEW_SQL,
                 "columns": [
                     {"name": "id", "type": "bigint"},
-                    {"name": "deep", "type": "opaque_type"},
+                    {"name": "deep", "type": nested_type},
                 ],
             }
         )
     )
 
-    def convert(trino_type: str) -> str:
-        if trino_type == "opaque_type":
-            raise ValueError("cannot convert")
-        return trino_type
-
-    with patch(
-        "datahub.ingestion.source.sql.hive.hive_metadata_processor.trino_type_to_hive_type",
-        side_effect=convert,
-    ):
-        schema = _view_schema(processor)
+    schema = _view_schema(processor)
 
     assert schema is not None
     deep = _field_by_suffix(schema, "].deep")
     assert isinstance(deep.type.type, StringTypeClass)
-    assert deep.nativeDataType == "opaque_type"
+    assert deep.nativeDataType == nested_type
     assert _field_by_suffix(schema, "].id").nativeDataType == "bigint"
     contexts = _warning_contexts(processor.report)
     assert any("db1.events_view" in c and "deep" in c for c in contexts)
+
+
+def test_presto_column_hive_parser_cannot_read_is_reported() -> None:
+    # The quoted row field name is copied into the Hive struct string as-is
+    # (`struct<a:b:bigint>`), which the Hive parser leaves untyped.
+    processor = _processor(
+        _view_text(
+            {
+                "originalSql": VIEW_SQL,
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "payload", "type": 'row("a:b" bigint)'},
+                ],
+            }
+        )
+    )
+
+    schema = _view_schema(processor)
+
+    assert schema is not None
+    # An unparsed column gets a bare (non-v2) field path.
+    payload = _field_by_suffix(schema, "payload")
+    assert isinstance(payload.type.type, NullTypeClass)
+    assert payload.nativeDataType == 'row("a:b" bigint)'
+    contexts = _warning_contexts(processor.report)
+    assert any("db1.events_view" in c and "payload" in c for c in contexts)
+    assert not any("id (bigint)" in c for c in contexts)

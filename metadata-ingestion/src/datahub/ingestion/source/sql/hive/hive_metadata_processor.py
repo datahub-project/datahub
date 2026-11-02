@@ -37,10 +37,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.presto_view_decoder import (
-    FALLBACK_HIVE_TYPE,
+    PrestoViewColumn,
     decode_presto_view,
+    get_presto_view_column_schema,
     get_presto_view_columns,
-    trino_type_to_hive_type,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -240,18 +240,12 @@ class HiveMetadataProcessor:
         Returns:
             List of SchemaField objects (may be multiple for complex types)
         """
-        schema_fields = get_schema_fields_for_hive_column(
+        return get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
             description=column.get("col_description", ""),
             default_nullable=True,
         )
-        native_type = column.get("col_native_type")
-        if native_type and schema_fields:
-            # col_type is a Hive approximation used only for parsing; keep the
-            # engine's own type (e.g. `timestamp(3) with time zone`).
-            schema_fields[0].nativeDataType = native_type
-        return schema_fields
 
     def get_schema_fields(
         self, dataset_name: str, columns: List[Dict[str, Any]]
@@ -267,9 +261,29 @@ class HiveMetadataProcessor:
             List of all SchemaField objects
         """
         schema_fields: List[SchemaField] = []
+        unconverted_columns: List[str] = []
         for column in columns:
-            fields = self.get_schema_fields_for_column(column)
-            schema_fields.extend(fields)
+            if column.get("is_presto_view_column"):
+                column_schema = get_presto_view_column_schema(
+                    PrestoViewColumn(name=column["col_name"], type=column["col_type"])
+                )
+                if column_schema.type_unresolved:
+                    unconverted_columns.append(
+                        f"{column['col_name']} ({column['col_type']})"
+                    )
+                schema_fields.extend(column_schema.fields)
+            else:
+                schema_fields.extend(self.get_schema_fields_for_column(column))
+
+        if unconverted_columns:
+            self.report.warning(
+                title="Presto view column types could not be converted",
+                message="Some Presto view columns have a type DataHub could not "
+                "convert, so they are ingested without a type (or with part of "
+                "their type missing) or typed as string.",
+                context=f"{dataset_name}: {', '.join(unconverted_columns)}",
+                log=False,
+            )
         return schema_fields
 
     @staticmethod
@@ -290,7 +304,7 @@ class HiveMetadataProcessor:
                 schema_field.isPartitioningKey = True
 
     def _get_presto_view_column_metadata(
-        self, dataset_name: str, view_original_text: str
+        self, view_original_text: str
     ) -> Tuple[List[Dict[str, Any]], str]:
         """Extract column metadata from base64-encoded Presto view definition.
 
@@ -310,30 +324,16 @@ class HiveMetadataProcessor:
         if view_columns is None:
             raise ValueError("Presto view definition has no valid 'columns' list")
 
-        columns: List[Dict[str, Any]] = []
-        unconverted_columns: List[str] = []
-        for view_column in view_columns:
-            try:
-                hive_type = trino_type_to_hive_type(view_column["type"])
-            except ValueError:
-                hive_type = FALLBACK_HIVE_TYPE
-                unconverted_columns.append(view_column["name"])
-            columns.append(
-                {
-                    "col_name": view_column["name"],
-                    "col_type": hive_type,
-                    "col_native_type": view_column["type"],
-                }
-            )
-
-        if unconverted_columns:
-            self.report.warning(
-                title="Presto view column types could not be converted",
-                message="Some Presto view columns have a type DataHub could not "
-                "convert, so they are typed as string.",
-                context=f"{dataset_name}: {', '.join(unconverted_columns)}",
-                log=False,
-            )
+        # Types are converted when the schema fields are built, so that columns
+        # the Hive parser cannot read are reported along with conversion failures.
+        columns: List[Dict[str, Any]] = [
+            {
+                "col_name": view_column["name"],
+                "col_type": view_column["type"],
+                "is_presto_view_column": True,
+            }
+            for view_column in view_columns
+        ]
 
         return columns, view_definition
 
@@ -677,12 +677,14 @@ class HiveMetadataProcessor:
 
             try:
                 columns, view_definition = self._get_presto_view_column_metadata(
-                    dataset_name, row["view_original_text"]
+                    row["view_original_text"]
                 )
             except Exception as e:
                 # A single malformed Presto view must not abort the whole database.
                 self.report.warning(
-                    message="Failed to decode Presto view definition",
+                    title="Malformed Presto view definition",
+                    message="The Presto view definition could not be decoded or "
+                    "has no SQL or valid column list, so the view is skipped.",
                     context=dataset_name,
                     exc=e,
                     log=False,

@@ -4612,7 +4612,7 @@ def test_glue_placeholder_view_reports_nested_untyped_field() -> None:
     # The decoder maps unknown scalars to string, so force a Hive type whose
     # nested field the Hive parser cannot read while the top level still parses.
     with patch(
-        "datahub.ingestion.source.aws.glue.trino_type_to_hive_type",
+        "datahub.ingestion.source.common.presto_view_decoder.trino_type_to_hive_type",
         return_value="struct<a:bigint,b:foo>",
     ):
         list(source._gen_table_wu(view))
