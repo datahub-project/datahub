@@ -1058,11 +1058,11 @@ def test_odbc_two_part_mysql_allows_database_table_fallback():
     ]
 
 
-def test_odbc_two_part_mysql_schema_nav_plus_dsn_mapping_stays_two_part():
-    """Regression: a two-part platform must never emit database.schema.table. When
-    MySQL navigation exposes Schema + Table (no Database) and a one-part
-    dsn_to_database_schema supplies the database, the schema tier must be dropped
-    so the URN stays database.table and can match MySQL's two-part entities."""
+def test_odbc_two_part_mysql_schema_nav_wins_over_dsn_mapping():
+    """A two-part platform must never emit database.schema.table, and a
+    dsn_to_database_schema value must never override a level navigation supplied.
+    MySQL navigation Schema + Table (no Database) means the schema is the
+    database, so the mapping is ignored."""
     instance = _build_odbc_lineage(
         dsn_to_database_schema={"mysql_dsn": "employees"},
     )
@@ -1084,8 +1084,44 @@ def test_odbc_two_part_mysql_schema_nav_plus_dsn_mapping_stays_two_part():
     )
 
     assert [u.urn for u in result.upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.orders,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,sales.orders,PROD)"
     ]
+
+
+@pytest.mark.parametrize("dsn_mapping", [None, {"td_dsn": "sales_db"}])
+def test_odbc_teradata_schema_nav_is_database_and_wins_over_dsn_mapping(
+    dsn_mapping: Optional[Dict[str, str]],
+) -> None:
+    """Teradata ODBC navigation is Schema -> Table, where the "schema" is the
+    database. It must emit schema.table with or without a dsn_to_database_schema
+    mapping; the mapping must not replace the navigation-supplied level (a DSN
+    serving several databases would otherwise collapse onto one)."""
+    instance = _build_odbc_lineage(dsn_to_database_schema=dsn_mapping or {})
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "other_db"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Teradata",
+        datahub_data_platform_name="teradata",
+    )
+
+    result = instance.expression_lineage(
+        detail, "teradata", pair, server_name="dsn", dsn="td_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,other_db.orders,PROD)"
+    ]
+    assert not any(
+        (w.title or "") == "Dropped ODBC navigation schema level"
+        for w in instance.reporter.warnings
+    )
 
 
 def test_odbc_two_part_teradata_allows_database_table_fallback():

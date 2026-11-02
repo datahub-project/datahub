@@ -2591,11 +2591,13 @@ class OdbcLineage(AbstractLineage):
             caller to strip back to database.table is a provable no-op here, so we
             build the two-part name directly.)
           - everything else (MySQL/Teradata/ClickHouse/...): database.table; the
-            schema tier is never spliced in (neither backfilled from config nor
-            taken from a navigation Schema node) to avoid emitting a spurious
-            three-part URN that cannot match their two-part entities. If
-            navigation did supply a Schema node it is dropped, but a warning is
-            reported so the drop is never silent.
+            schema tier is never spliced in, to avoid emitting a spurious
+            three-part URN that cannot match their two-part entities. A
+            navigation Schema with no Database node is the database (e.g.
+            Teradata ODBC's Schema -> Table) and wins over any
+            dsn_to_database_schema value. If navigation supplied both Database
+            and Schema, the Schema is dropped with a warning so the drop is
+            never silent.
         """
         if table_name is None:
             return None
@@ -2642,6 +2644,13 @@ class OdbcLineage(AbstractLineage):
             if athena_database is None:
                 return None
             return f"{athena_database}.{table_name}"
+        if database_name is None and schema_name is not None:
+            # On two-part platforms (MySQL, Teradata, ...) a navigation Schema with
+            # no Database above it *is* the database. A dsn_to_database_schema
+            # value must never override a level navigation supplied: on a DSN that
+            # serves several databases, that would collapse every table onto the
+            # one configured database.
+            return f"{schema_name}.{table_name}"
         if database is not None:
             if schema_name is not None:
                 self.reporter.warning(
