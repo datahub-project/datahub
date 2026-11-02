@@ -551,6 +551,42 @@ function customMerge(isPrimary, key) {
     };
 }
 
+// Identity fields are chosen as a whole by customMerge. Filling nulls inside them would
+// mix the two siblings' platform or sibling payloads.
+const NULL_FILL_SKIP_DESCENT = new Set(['platform', 'siblings', 'siblingsSearch', 'urn']);
+
+function fillNullsFromSecondary(merged: any, secondary: any, seen = new Set<any>()) {
+    if (!merged || !secondary || typeof merged !== 'object' || typeof secondary !== 'object') {
+        return;
+    }
+    if (seen.has(merged) || Array.isArray(merged) || Array.isArray(secondary)) {
+        return;
+    }
+    seen.add(merged);
+
+    Object.keys(secondary).forEach((key) => {
+        const secondaryValue = secondary[key];
+        if (secondaryValue == null) {
+            return;
+        }
+        if (merged[key] == null) {
+            merged[key] = secondaryValue;
+            return;
+        }
+        if (NULL_FILL_SKIP_DESCENT.has(key)) {
+            return;
+        }
+        if (
+            typeof merged[key] === 'object' &&
+            typeof secondaryValue === 'object' &&
+            !Array.isArray(merged[key]) &&
+            !Array.isArray(secondaryValue)
+        ) {
+            fillNullsFromSecondary(merged[key], secondaryValue, seen);
+        }
+    });
+}
+
 // should the entity's metadata win out against its siblings?
 export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: {
     siblings?: SiblingProperties | null;
@@ -588,13 +624,13 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
         entity,
     );
 
-    // if a key is null in the primary sibling, it will not merge with the secondary even if the secondary is not null
+    // deepmerge copies a null from the primary over a real value, and it never calls
+    // customMerge for nulls. clean() also cannot delete a null when the property is
+    // non-configurable, which is how GraphQL results show up. The fallback has to walk
+    // nested objects: properties.created, createdActor, description, qualifiedName, and
+    // lastModified all live under properties, so a root-only check leaves them null.
     const secondarySibling = isPrimary ? siblings[0] : entity;
-    Object.keys(secondarySibling).forEach((key) => {
-        if (combinedBaseEntity[key] === null && secondarySibling[key] !== null) {
-            combinedBaseEntity[key] = secondarySibling[key];
-        }
-    });
+    fillNullsFromSecondary(combinedBaseEntity, secondarySibling);
 
     // Force the urn of the combined entity to the current entity urn.
     combinedBaseEntity.urn = entity.urn;
