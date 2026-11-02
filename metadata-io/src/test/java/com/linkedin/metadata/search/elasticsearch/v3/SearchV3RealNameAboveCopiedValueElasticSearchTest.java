@@ -18,78 +18,157 @@ import org.testng.annotations.Test;
 })
 public class SearchV3RealNameAboveCopiedValueElasticSearchTest
     extends SearchV3RealNameAboveCopiedValueTestBase {
-  private static final String SHIPPED = null;
-
   @Getter @Autowired private SearchClientShim<?> searchClient;
   @Getter @Autowired private ESBulkProcessor bulkProcessor;
 
   @Test
   public void testShippedUnquotedQueryExactOnlyForWholeName() throws Exception {
-    assertUnquotedQueryExactOnlyForWholeName(SHIPPED);
+    assertUnquotedQueryExactOnlyForWholeName(Mode.SHIPPED);
   }
 
   @Test
-  public void testClassOrderUnquotedQueryExactOnlyForWholeName() throws Exception {
-    assertUnquotedQueryExactOnlyForWholeName(CLASS_ORDER);
+  public void testClassOrderPerRequestUnquotedQueryExactOnlyForWholeName() throws Exception {
+    assertUnquotedQueryExactOnlyForWholeName(Mode.CLASS_ORDER_PER_REQUEST);
+  }
+
+  @Test
+  public void testClassOrderDefaultUnquotedQueryExactOnlyForWholeName() throws Exception {
+    assertUnquotedQueryExactOnlyForWholeName(Mode.CLASS_ORDER_DEFAULT);
   }
 
   @Test
   public void testShippedQuotedQueryExactOnlyForWholeName() throws Exception {
-    assertQuotedQueryExactOnlyForWholeName(SHIPPED);
+    assertQuotedQueryExactOnlyForWholeName(Mode.SHIPPED);
   }
 
   @Test
-  public void testClassOrderQuotedQueryExactOnlyForWholeName() throws Exception {
-    assertQuotedQueryExactOnlyForWholeName(CLASS_ORDER);
+  public void testClassOrderPerRequestQuotedQueryExactOnlyForWholeName() throws Exception {
+    assertQuotedQueryExactOnlyForWholeName(Mode.CLASS_ORDER_PER_REQUEST);
+  }
+
+  @Test
+  public void testClassOrderDefaultQuotedQueryExactOnlyForWholeName() throws Exception {
+    assertQuotedQueryExactOnlyForWholeName(Mode.CLASS_ORDER_DEFAULT);
   }
 
   @Test
   public void testShippedExactCopiedOnlyForWholeTitle() throws Exception {
-    assertExactCopiedOnlyForWholeTitle(SHIPPED);
+    assertExactCopiedOnlyForWholeTitle(Mode.SHIPPED);
   }
 
   @Test
-  public void testClassOrderExactCopiedOnlyForWholeTitle() throws Exception {
-    assertExactCopiedOnlyForWholeTitle(CLASS_ORDER);
+  public void testClassOrderPerRequestExactCopiedOnlyForWholeTitle() throws Exception {
+    assertExactCopiedOnlyForWholeTitle(Mode.CLASS_ORDER_PER_REQUEST);
+  }
+
+  @Test
+  public void testClassOrderDefaultExactCopiedOnlyForWholeTitle() throws Exception {
+    assertExactCopiedOnlyForWholeTitle(Mode.CLASS_ORDER_DEFAULT);
   }
 
   @Test
   public void testShippedStemOnlyNameBelowExactCopiedTitle() throws Exception {
-    assertStemOnlyNameBelowExactCopiedTitle(SHIPPED);
+    assertStemOnlyNameBelowExactCopiedTitle(Mode.SHIPPED);
   }
 
   @Test
-  public void testClassOrderStemOnlyNameBelowExactCopiedTitle() throws Exception {
-    assertStemOnlyNameBelowExactCopiedTitle(CLASS_ORDER);
+  public void testClassOrderPerRequestStemOnlyNameBelowExactCopiedTitle() throws Exception {
+    assertStemOnlyNameBelowExactCopiedTitle(Mode.CLASS_ORDER_PER_REQUEST);
   }
 
   @Test
-  public void testShippedRealNameEqualToOwnTitleIsExactRealName() throws Exception {
-    assertRealNameEqualToOwnTitleIsExactRealName(SHIPPED);
-  }
-
-  @Test
-  public void testClassOrderRealNameEqualToOwnTitleIsExactRealName() throws Exception {
-    assertRealNameEqualToOwnTitleIsExactRealName(CLASS_ORDER);
-  }
-
-  @Test
-  public void testShippedPartialRealNameWithOwnTitleRanksAsRealName() throws Exception {
-    assertPartialRealNameWithOwnTitleRanksAsRealName(SHIPPED);
-  }
-
-  @Test
-  public void testClassOrderPartialRealNameWithOwnTitleRanksAsRealName() throws Exception {
-    assertPartialRealNameWithOwnTitleRanksAsRealName(CLASS_ORDER);
+  public void testClassOrderDefaultStemOnlyNameBelowExactCopiedTitle() throws Exception {
+    assertStemOnlyNameBelowExactCopiedTitle(Mode.CLASS_ORDER_DEFAULT);
   }
 
   @Test
   public void testShippedCanonicalExampleOrder() throws Exception {
-    assertCanonicalExampleOrder(SHIPPED);
+    assertCanonicalExampleOrder(Mode.SHIPPED);
   }
 
   @Test
-  public void testClassOrderCanonicalExampleOrder() throws Exception {
-    assertCanonicalExampleOrder(CLASS_ORDER);
+  public void testClassOrderPerRequestCanonicalExampleOrder() throws Exception {
+    assertCanonicalExampleOrder(Mode.CLASS_ORDER_PER_REQUEST);
+  }
+
+  @Test
+  public void testClassOrderDefaultCanonicalExampleOrder() throws Exception {
+    assertCanonicalExampleOrder(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testShippedRealNameEqualToOwnTitleIsExactRealName() throws Exception {
+    assertRealNameEqualToOwnTitleIsExactRealName(Mode.SHIPPED);
+  }
+
+  @Test
+  public void testClassOrderPerRequestRealNameEqualToOwnTitleIsExactRealName() throws Exception {
+    assertRealNameEqualToOwnTitleIsExactRealName(Mode.CLASS_ORDER_PER_REQUEST);
+  }
+
+  @Test
+  public void testClassOrderDefaultRealNameEqualToOwnTitleIsExactRealName() throws Exception {
+    assertRealNameEqualToOwnTitleIsExactRealName(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testShippedPartialRealNameWithOwnTitleRanksAsRealName() throws Exception {
+    assertPartialRealNameWithOwnTitleRanksAsRealName(Mode.SHIPPED);
+  }
+
+  @Test
+  public void testClassOrderPerRequestPartialRealNameWithOwnTitleRanksAsRealName()
+      throws Exception {
+    assertPartialRealNameWithOwnTitleRanksAsRealName(Mode.CLASS_ORDER_PER_REQUEST);
+  }
+
+  @Test
+  public void testClassOrderDefaultPartialRealNameWithOwnTitleRanksAsRealName() throws Exception {
+    assertPartialRealNameWithOwnTitleRanksAsRealName(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testShippedColumnsFollowDatasetsOfTheSameMatch() throws Exception {
+    assertColumnsFollowDatasetsOfTheSameMatch(Mode.SHIPPED);
+  }
+
+  @Test
+  public void testClassOrderPerRequestColumnsFollowDatasetsOfTheSameMatch() throws Exception {
+    assertColumnsFollowDatasetsOfTheSameMatch(Mode.CLASS_ORDER_PER_REQUEST);
+  }
+
+  @Test
+  public void testClassOrderDefaultColumnsFollowDatasetsOfTheSameMatch() throws Exception {
+    assertColumnsFollowDatasetsOfTheSameMatch(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testShippedRecordIdFindsItsAssetFirst() throws Exception {
+    assertRecordIdFindsItsAssetFirst(Mode.SHIPPED);
+  }
+
+  @Test
+  public void testClassOrderPerRequestRecordIdFindsItsAssetFirst() throws Exception {
+    assertRecordIdFindsItsAssetFirst(Mode.CLASS_ORDER_PER_REQUEST);
+  }
+
+  @Test
+  public void testClassOrderDefaultRecordIdFindsItsAssetFirst() throws Exception {
+    assertRecordIdFindsItsAssetFirst(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testShippedPagingKeepsTrancheOrder() throws Exception {
+    assertPagingKeepsTrancheOrder(Mode.SHIPPED);
+  }
+
+  @Test
+  public void testClassOrderPerRequestPagingKeepsTrancheOrder() throws Exception {
+    assertPagingKeepsTrancheOrder(Mode.CLASS_ORDER_PER_REQUEST);
+  }
+
+  @Test
+  public void testClassOrderDefaultPagingKeepsTrancheOrder() throws Exception {
+    assertPagingKeepsTrancheOrder(Mode.CLASS_ORDER_DEFAULT);
   }
 }

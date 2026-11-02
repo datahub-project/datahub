@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.quality;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
@@ -43,6 +44,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -74,6 +76,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.schemafield.SchemaFieldInfo;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
@@ -123,7 +126,13 @@ import org.testng.annotations.BeforeClass;
  * of the value, or the value starts with the query, with no stemming. Queries are typed without
  * quotes, as a user types them; one scenario checks that quoting gives the same order. A dataset
  * takes its best tranche, graded on its real name first, so a dataset whose own title equals or
- * holds the query is graded on its real name.
+ * holds the query is graded on its real name. Column tranches (EXACT_COLUMN, EXACT_COLUMN_COPIED,
+ * PARTIAL_COLUMN, PARTIAL_COLUMN_COPIED) follow the dataset tranches of the same match quality. A
+ * record ID typed as the query is checked on its own: that asset first.
+ *
+ * <p>Every scenario runs three ways: the shipped templates; the class-order body selected per
+ * request with {@code searchFlags.searchTemplate}; and the class-order router set as the search-box
+ * default in configuration with no per-request selection, as a deployment would set it.
  */
 public abstract class SearchV3RealNameAboveCopiedValueTestBase
     extends AbstractTestNGSpringContextTests {
@@ -134,7 +143,22 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   static final String DISPLAY_TITLE = "io.example.displayTitle";
   static final Urn DISPLAY_TITLE_URN =
       UrnUtils.getUrn("urn:li:structuredProperty:" + DISPLAY_TITLE);
-  protected static final String CLASS_ORDER = "urn:li:searchTemplate:rankingClassOrder";
+  static final String RECORD_ID = "io.example.recordId";
+  static final Urn RECORD_ID_URN = UrnUtils.getUrn("urn:li:structuredProperty:" + RECORD_ID);
+  static final String CLASS_ORDER = "urn:li:searchTemplate:rankingClassOrder";
+  static final String CLASS_ORDER_ROUTER = "urn:li:searchTemplate:rankingClassOrderSearch";
+  static final String GUID = "3f2b9c1e-7d4a-4b8e-9a61-2c5d8e0f1a7b";
+  static final String HYPHENATED_ID = "PET-ADOPT-0042";
+
+  /** How the search box selects its template. */
+  protected enum Mode {
+    /** The shipped templates. */
+    SHIPPED,
+    /** The class-order body, selected per request with searchFlags.searchTemplate. */
+    CLASS_ORDER_PER_REQUEST,
+    /** The class-order router as the configured search-box default; no per-request selection. */
+    CLASS_ORDER_DEFAULT
+  }
 
   /** More copies than the 100-row window a three- or four-word query used to get. */
   static final int EQUAL_TITLE_COPIES = 150;
@@ -142,6 +166,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   private final List<String> createdIndices = new ArrayList<>();
   private final Map<String, Dataset> corpus = new LinkedHashMap<>();
   private OperationContext opContext;
+  private OperationContext routerDefaultContext;
   private ElasticSearchService searchService;
 
   @Nonnull
@@ -150,11 +175,42 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   @Nonnull
   protected abstract ESBulkProcessor getBulkProcessor();
 
-  record Dataset(String urn, String name, @Nullable String title) {}
+  /** A dataset or a column, with its own name and the values the grading reads. */
+  record Dataset(
+      String urn,
+      String entityType,
+      String name,
+      @Nullable String title,
+      @Nullable String recordId,
+      @Nullable String description) {
+    boolean column() {
+      return SCHEMA_FIELD_ENTITY_NAME.equals(entityType);
+    }
+  }
+
+  private static String datasetUrn(String name) {
+    return "urn:li:dataset:(urn:li:dataPlatform:hive,petshop." + name + ",PROD)";
+  }
 
   private void add(String name, @Nullable String title) {
-    String urn = "urn:li:dataset:(urn:li:dataPlatform:hive,petshop." + name + ",PROD)";
-    corpus.put(urn, new Dataset(urn, name, title));
+    corpus.put(
+        datasetUrn(name),
+        new Dataset(datasetUrn(name), DATASET_ENTITY_NAME, name, title, null, null));
+  }
+
+  private void addDataset(
+      String name,
+      @Nullable String title,
+      @Nullable String recordId,
+      @Nullable String description) {
+    corpus.put(
+        datasetUrn(name),
+        new Dataset(datasetUrn(name), DATASET_ENTITY_NAME, name, title, recordId, description));
+  }
+
+  private void addColumn(String parent, String fieldPath, @Nullable String title) {
+    String urn = "urn:li:schemaField:(" + datasetUrn(parent) + "," + fieldPath + ")";
+    corpus.put(urn, new Dataset(urn, SCHEMA_FIELD_ENTITY_NAME, fieldPath, title, null, null));
   }
 
   private void buildCorpus() {
@@ -192,6 +248,22 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
       add(String.format("cr_ref_%02d", i), "Cattery Roster");
     }
     add("Cattery Roster", "Cattery Roster");
+    // One query reaching all eight tranches, datasets and columns.
+    add("sand_depth", null);
+    add("sd_ref", "sand_depth");
+    add("tray_logs", null);
+    addColumn("tray_logs", "sand_depth", null);
+    addColumn("tray_logs", "m_007", "sand_depth");
+    add("sand_depth_daily", null);
+    add("sdd_ref", "Sand Depth Weekly");
+    addColumn("tray_logs", "sand_depth_cm", null);
+    addColumn("tray_logs", "m_008", "Sand Depth Notes");
+    add("sand", null);
+    // Record identifiers, and a dataset that only mentions them in its description.
+    addDataset("adoption_register", "Adoption Register", GUID, null);
+    addDataset("adoption_ledger", null, HYPHENATED_ID, null);
+    addDataset(
+        "adoption_notes", null, null, "Cross-reference: " + GUID + " and " + HYPHENATED_ID + ".");
   }
 
   // ── Scenarios ───────────────────────────────────────────────────────────────
@@ -202,52 +274,114 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * booking_kennel, "Kennel Booking Archive", the 30 snapshots) rank below it, and the tranche
    * order holds past the old 100-row window.
    */
-  protected void assertUnquotedQueryExactOnlyForWholeName(@Nullable String template)
-      throws Exception {
-    assertTrancheOrder(template, "kennel_booking");
+  protected void assertUnquotedQueryExactOnlyForWholeName(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "kennel_booking");
   }
 
   /** The same query in quotes must give the same tranche order as the unquoted one. */
-  protected void assertQuotedQueryExactOnlyForWholeName(@Nullable String template)
-      throws Exception {
-    assertTrancheOrder(template, "\"kennel_booking\"");
+  protected void assertQuotedQueryExactOnlyForWholeName(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "\"kennel_booking\"");
   }
 
   /**
    * Only the title equal to the query is an exact copied match: groomed_journal, titled "Groomed
    * Journal Entries", ranks above the 20 titles "Groomed Journal Entries N".
    */
-  protected void assertExactCopiedOnlyForWholeTitle(@Nullable String template) throws Exception {
-    assertTrancheOrder(template, "groomed journal entries");
+  protected void assertExactCopiedOnlyForWholeTitle(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "groomed journal entries");
   }
 
   /**
    * The one copied title equal to the query ranks above groom_coat_notes_stage, which shares the
    * other words and only the stem of "groomed".
    */
-  protected void assertStemOnlyNameBelowExactCopiedTitle(@Nullable String template)
-      throws Exception {
-    assertTrancheOrder(template, "groomed coat notes");
+  protected void assertStemOnlyNameBelowExactCopiedTitle(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "groomed coat notes");
   }
 
   /**
    * For "my cat": the asset named "my cat" first, the title "My Cat" next, then "my cat frank" and
    * "awesome my cat" in either order, then "my dog" and "cat".
    */
-  protected void assertCanonicalExampleOrder(@Nullable String template) throws Exception {
-    assertTrancheOrder(template, "my cat");
+  protected void assertCanonicalExampleOrder(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "my cat");
   }
 
   /** A real name equal to its own copied title is an exact real-name match. */
-  protected void assertRealNameEqualToOwnTitleIsExactRealName(@Nullable String template)
-      throws Exception {
-    assertTrancheOrder(template, "cattery roster");
+  protected void assertRealNameEqualToOwnTitleIsExactRealName(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "cattery roster");
+  }
+
+  /**
+   * One query reaching all eight tranches: the dataset named sand_depth, the dataset titled
+   * sand_depth, the column sand_depth, the column titled sand_depth, then the partial counterparts
+   * in the same order. Datasets come before columns of the same match quality.
+   */
+  protected void assertColumnsFollowDatasetsOfTheSameMatch(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "sand_depth");
+  }
+
+  /**
+   * A record ID typed as the query finds its asset first, as typed, in upper case, and for a
+   * hyphenated ID. A dataset that only mentions the ID in its description ranks below it.
+   */
+  protected void assertRecordIdFindsItsAssetFirst(Mode mode) throws Exception {
+    for (String[] c :
+        new String[][] {
+          {GUID, "adoption_register"},
+          {GUID.toUpperCase(), "adoption_register"},
+          {HYPHENATED_ID, "adoption_ledger"}
+        }) {
+      List<Dataset> actual = search(mode, c[0], 0, 10).served();
+      int owner = indexOfName(actual, c[1]);
+      int mention = indexOfName(actual, "adoption_notes");
+      assertEquals(
+          owner,
+          0,
+          String.format(
+              "%s, query %s: %s should be #1%n  actual: %s",
+              mode, c[0], c[1], describe(c[0], actual)));
+      if (mention >= 0) {
+        assertEquals(
+            Math.min(owner, mention),
+            owner,
+            String.format(
+                "%s, query %s: the description-only mention outranks %s", mode, c[0], c[1]));
+      }
+    }
+  }
+
+  /**
+   * Walking the result in pages of 10, past the old 100-row window: every graded result appears
+   * exactly once, the tranche order holds across page boundaries, and the total does not change.
+   */
+  protected void assertPagingKeepsTrancheOrder(Mode mode) throws Exception {
+    String query = "kennel_booking";
+    List<Dataset> graded = corpus.values().stream().filter(d -> rank(query, d) != OTHER).toList();
+    List<Dataset> walked = new ArrayList<>();
+    java.util.Set<Integer> totals = new java.util.TreeSet<>();
+    for (int from = 0; from < graded.size() + 10; from += 10) {
+      Page page = search(mode, query, from, 10);
+      totals.add(page.total());
+      walked.addAll(page.served());
+      if (page.served().isEmpty()) {
+        break;
+      }
+    }
+    java.util.Set<String> seen = new java.util.HashSet<>();
+    List<String> repeated =
+        walked.stream().map(Dataset::urn).filter(u -> !seen.add(u)).distinct().toList();
+    assertEquals(repeated, List.of(), mode + ": results shown on more than one page");
+    assertEquals(totals.size(), 1, mode + ": the total changed between pages: " + totals);
+    List<String> missing =
+        graded.stream().map(Dataset::urn).filter(u -> !seen.contains(u)).toList();
+    assertEquals(missing, List.of(), mode + ": graded results never shown");
+    assertTranchesMatch(mode, query, walked, "paged in tens");
   }
 
   /** A real name holding the word ranks with the partial real names, even when its title does. */
-  protected void assertPartialRealNameWithOwnTitleRanksAsRealName(@Nullable String template)
-      throws Exception {
-    assertTrancheOrder(template, "groomed");
+  protected void assertPartialRealNameWithOwnTitleRanksAsRealName(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "groomed");
   }
 
   /**
@@ -255,12 +389,16 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * ties in any order; a position in the wrong tranche fails, and the message lists the actual
    * order beside the expected one.
    */
-  private void assertTrancheOrder(@Nullable String template, String query) throws Exception {
+  private void assertTrancheOrder(Mode mode, String query) throws Exception {
     List<Dataset> graded = corpus.values().stream().filter(d -> rank(query, d) != OTHER).toList();
-    List<Dataset> actual = search(template, query, graded.size());
+    assertTranchesMatch(mode, query, search(mode, query, 0, graded.size()).served(), "first page");
+  }
+
+  /** Compares served results with the rule's tranche sequence; order inside a tranche is free. */
+  private void assertTranchesMatch(Mode mode, String query, List<Dataset> actual, String how) {
     List<Dataset> expected =
-        graded.stream()
-            .filter(d -> rank(query, d) != SEPARATOR_ONLY)
+        corpus.values().stream()
+            .filter(d -> rank(query, d) != OTHER && rank(query, d) != SEPARATOR_ONLY)
             .sorted((a, b) -> Integer.compare(rank(query, a), rank(query, b)))
             .toList();
     // A name or title that differs from the query only in separators may rank either way.
@@ -275,11 +413,17 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         actualTranches,
         expectedTranches,
         String.format(
-            "%s, query %s: results out of tranche order%n  expected: %s%n  actual:   %s",
-            template == null ? "shipped templates" : template,
-            query,
-            describe(query, expected),
-            describe(query, actual)));
+            "%s, query %s (%s): results out of tranche order%n  expected: %s%n  actual:   %s",
+            mode, query, how, describe(query, expected), describe(query, actual)));
+  }
+
+  private static int indexOfName(List<Dataset> served, String name) {
+    for (int i = 0; i < served.size(); i++) {
+      if (served.get(i).name().equals(name)) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /** The first five results by name, then the whole list as runs of one class. */
@@ -313,10 +457,20 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   // ── Grading from the corpus definition ─────────────────────────────────────
 
   private static final String[] CLASSES = {
-    "EXACT_NAME", "EXACT_COPIED", "PARTIAL_NAME", "PARTIAL_COPIED", "OTHER", "SEPARATOR_ONLY"
+    "IDENTIFIER",
+    "EXACT_NAME",
+    "EXACT_COPIED",
+    "EXACT_COLUMN",
+    "EXACT_COLUMN_COPIED",
+    "PARTIAL_NAME",
+    "PARTIAL_COPIED",
+    "PARTIAL_COLUMN",
+    "PARTIAL_COLUMN_COPIED",
+    "OTHER",
+    "SEPARATOR_ONLY"
   };
-  private static final int OTHER = 4;
-  private static final int SEPARATOR_ONLY = 5;
+  private static final int OTHER = 9;
+  private static final int SEPARATOR_ONLY = 10;
 
   /** Words for a partial match: lowercased, accents folded, split on any separator. */
   static List<String> words(String text) {
@@ -358,25 +512,29 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
             || String.join(" ", v).startsWith(String.join(" ", q)));
   }
 
-  /** The best tranche the dataset reaches; its real name is graded before its copied title. */
+  /** The best tranche the asset reaches; its real name is graded before its copied title. */
   static int rank(String query, Dataset d) {
-    if (exact(query, d.name())) {
+    if (d.recordId() != null && d.recordId().equalsIgnoreCase(typed(query))) {
       return 0;
+    }
+    int column = d.column() ? 2 : 0;
+    if (exact(query, d.name())) {
+      return 1 + column;
     }
     if (separatorOnly(query, d.name())) {
       return SEPARATOR_ONLY;
     }
     if (exact(query, d.title())) {
-      return 1;
+      return 2 + column;
     }
     if (separatorOnly(query, d.title())) {
       return SEPARATOR_ONLY;
     }
     if (starts(query, d.name())) {
-      return 2;
+      return 5 + column;
     }
     if (starts(query, d.title())) {
-      return 3;
+      return 6 + column;
     }
     return OTHER;
   }
@@ -387,36 +545,37 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
 
   // ── Search ─────────────────────────────────────────────────────────────────
 
-  private List<Dataset> search(@Nullable String template, String query, int depth)
-      throws Exception {
+  record Page(List<Dataset> served, int total) {}
+
+  private Page search(Mode mode, String query, int from, int size) throws Exception {
+    OperationContext base = mode == Mode.CLASS_ORDER_DEFAULT ? routerDefaultContext : opContext;
     OperationContext context =
-        opContext
-            .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
+        base.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
             .withSearchFlags(
                 flags -> {
                   SearchFlags f = flags.setFulltext(true).setSkipCache(true);
-                  if (template != null) {
-                    f.setSearchTemplate(UrnUtils.getUrn(template));
+                  if (mode == Mode.CLASS_ORDER_PER_REQUEST) {
+                    f.setSearchTemplate(UrnUtils.getUrn(CLASS_ORDER));
                   }
                   return f;
                 });
-    SearchEntityArray entities =
-        searchService
-            .search(
-                context,
-                List.of(DATASET_ENTITY_NAME),
-                query,
-                null,
-                (List<SortCriterion>) null,
-                0,
-                depth)
-            .getEntities();
+    SearchResult result =
+        searchService.search(
+            context,
+            List.of(DATASET_ENTITY_NAME, SCHEMA_FIELD_ENTITY_NAME),
+            query,
+            null,
+            (List<SortCriterion>) null,
+            from,
+            size);
     List<Dataset> out = new ArrayList<>();
-    for (SearchEntity entity : entities) {
+    for (SearchEntity entity : result.getEntities()) {
       String urn = entity.getEntity().toString();
-      out.add(corpus.getOrDefault(urn, new Dataset(urn, urn, null)));
+      out.add(
+          corpus.getOrDefault(
+              urn, new Dataset(urn, entity.getEntity().getEntityType(), urn, null, null, null)));
     }
-    return out;
+    return new Page(out, result.getNumEntities());
   }
 
   // ── Templates ──────────────────────────────────────────────────────────────
@@ -424,20 +583,41 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   /** Same body as the e2e seeder's class-order template, with the title named by its URN. */
   static String classOrderBody() throws Exception {
     String title = "{{urn:li:structuredProperty:" + DISPLAY_TITLE + "}}.text";
+    String recordId = "{{urn:li:structuredProperty:" + RECORD_ID + "}}";
     Map<String, Object> ds = Map.of("term", Map.of("_entityType", "dataset"));
+    Map<String, Object> col = Map.of("term", Map.of("_entityType", "schemaField"));
     Map<String, Object> exactName =
         Map.of("term", Map.of("name.lowercase", Map.of("value", "{{normalizedKeyword}}")));
     Map<String, Object> phraseName =
         Map.of("match_phrase", Map.of("name.text", Map.of("query", "{{alphanumericSplit}}")));
     Map<String, Object> titlePhrase =
         Map.of("match_phrase", Map.of(title, Map.of("query", "{{alphanumericSplit}}")));
-    List<Object> tiers =
-        List.of(
-            tier(9000, "EXACT_NAME", List.of(ds, exactName), List.of(titlePhrase)),
-            tier(8000, "EXACT_TITLE", List.of(ds, exactName, titlePhrase), null),
-            tier(5500, "PHRASE_NAME", List.of(ds, phraseName), List.of(titlePhrase)),
-            tier(5000, "PARTIAL_NAME", List.of(ds, partial("name.text")), List.of(partial(title))),
-            tier(4000, "PARTIAL_TITLE", List.of(ds, partial(title)), null));
+    List<Object> tiers = new ArrayList<>();
+    tiers.add(
+        tier(
+            10000,
+            "IDENTIFIER",
+            List.of(ds, Map.of("term", Map.of(recordId, Map.of("value", "{{normalizedKeyword}}")))),
+            null));
+    for (Object[] t :
+        new Object[][] {
+          {ds, "", new int[] {9000, 8000, 5500, 5000, 4000}},
+          {col, "COLUMN_", new int[] {7000, 6000, 2500, 2000, 1000}}
+        }) {
+      Object type = t[0];
+      String tag = (String) t[1];
+      int[] b = (int[]) t[2];
+      tiers.add(tier(b[0], tag + "EXACT_NAME", List.of(type, exactName), List.of(titlePhrase)));
+      tiers.add(tier(b[1], tag + "EXACT_TITLE", List.of(type, exactName, titlePhrase), null));
+      tiers.add(tier(b[2], tag + "PHRASE_NAME", List.of(type, phraseName), List.of(titlePhrase)));
+      tiers.add(
+          tier(
+              b[3],
+              tag + "PARTIAL_NAME",
+              List.of(type, partial("name.text")),
+              List.of(partial(title))));
+      tiers.add(tier(b[4], tag + "PARTIAL_TITLE", List.of(type, partial(title)), null));
+    }
     Map<String, Object> body =
         Map.of(
             "bool",
@@ -491,6 +671,20 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         .setRoutes(new com.linkedin.search.template.SearchTemplateRouteArray());
   }
 
+  /** The shipped interactive router with ordinary queries sent to the class-order body. */
+  private static SearchTemplateProperties classOrderRouter() {
+    return new SearchTemplateProperties()
+        .setName("Class order search")
+        .setDescription(
+            "The shipped interactive router; ordinary queries use the class-order body.")
+        .setApiVersion(1)
+        .setEditable(true)
+        .setParent(UrnUtils.getUrn("urn:li:searchTemplate:searchLight"))
+        .setDefaultRoute(
+            new com.linkedin.search.template.SearchTemplateDefaultRoute()
+                .setTemplate(UrnUtils.getUrn(CLASS_ORDER)));
+  }
+
   // ── Index setup ────────────────────────────────────────────────────────────
 
   @BeforeClass
@@ -509,12 +703,32 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
             .entityIndex(entityIndex)
             .search(
                 TEST_ES_SEARCH_CONFIG.getSearch().toBuilder()
-                    .v3(new SearchV3Configuration().setTemplates(shippedTemplateConfiguration()))
+                    .v3(
+                        new SearchV3Configuration()
+                            .setTemplates(
+                                templateConfiguration("urn:li:searchTemplate:searchLight")))
                     .build())
             .build();
     SearchTemplateCoordinator coordinator =
         new SearchTemplateCoordinator(
             config,
+            null,
+            new SearchTemplateLoader(0, SearchTemplateSource.STORAGE),
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
+    // The same stack with the class-order router as the search-box default, set in configuration.
+    var routerConfig =
+        config.toBuilder()
+            .search(
+                config.getSearch().toBuilder()
+                    .v3(
+                        new SearchV3Configuration()
+                            .setTemplates(templateConfiguration(CLASS_ORDER_ROUTER)))
+                    .build())
+            .build();
+    SearchTemplateCoordinator routerCoordinator =
+        new SearchTemplateCoordinator(
+            routerConfig,
             null,
             new SearchTemplateLoader(0, SearchTemplateSource.STORAGE),
             ForkJoinPool.commonPool(),
@@ -531,11 +745,20 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         new StructuredPropertyDefinition()
             .setQualifiedName(DISPLAY_TITLE)
             .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
-            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+            .setEntityTypes(
+                new UrnArray(
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                    UrnUtils.getUrn("urn:li:entityType:datahub.schemaField")))
             .setSearchConfiguration(
                 new DataHubSearchConfig()
                     .setQueryByDefault(true)
                     .setCopyTo(new StringArray(List.of("name"))));
+    StructuredPropertyDefinition recordIdDefinition =
+        new StructuredPropertyDefinition()
+            .setQualifiedName(RECORD_ID)
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+            .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(true));
     Map<Urn, List<RecordTemplate>> definitionAspects = new LinkedHashMap<>();
     for (String templateUrn : SearchTemplateBootstrap.urns()) {
       SearchTemplateProperties template = SearchTemplateBootstrap.get(templateUrn);
@@ -544,48 +767,61 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
       }
     }
     definitionAspects.put(DISPLAY_TITLE_URN, List.of(displayTitle, new Status().setRemoved(false)));
+    definitionAspects.put(
+        RECORD_ID_URN, List.of(recordIdDefinition, new Status().setRemoved(false)));
     definitionAspects.put(UrnUtils.getUrn(CLASS_ORDER), List.of(classOrderTemplate()));
+    definitionAspects.put(UrnUtils.getUrn(CLASS_ORDER_ROUTER), List.of(classOrderRouter()));
     List<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
-        List.of(Pair.of(DISPLAY_TITLE_URN, displayTitle));
+        List.of(
+            Pair.of(DISPLAY_TITLE_URN, displayTitle), Pair.of(RECORD_ID_URN, recordIdDefinition));
 
     Map<Urn, List<MCLItem>> events = new LinkedHashMap<>();
     for (Dataset d : corpus.values()) {
       Urn urn = UrnUtils.getUrn(d.urn());
-      EntitySpec spec = entityRegistry.getEntitySpec(DATASET_ENTITY_NAME);
+      EntitySpec spec = entityRegistry.getEntitySpec(d.entityType());
       List<MCLItem> items = new ArrayList<>();
       items.add(
           event(
               entityRegistry,
               urn,
               EntityKeyUtils.convertUrnToEntityKey(urn, spec.getKeyAspectSpec())));
-      items.add(event(entityRegistry, urn, new DatasetProperties().setName(d.name())));
+      if (d.column()) {
+        items.add(event(entityRegistry, urn, new SchemaFieldInfo().setName(d.name())));
+      } else {
+        DatasetProperties properties = new DatasetProperties().setName(d.name());
+        if (d.description() != null) {
+          properties.setDescription(d.description());
+        }
+        items.add(event(entityRegistry, urn, properties));
+      }
+      StructuredPropertyValueAssignmentArray values = new StructuredPropertyValueAssignmentArray();
       if (d.title() != null) {
-        items.add(
-            event(
-                entityRegistry,
-                urn,
-                new StructuredProperties()
-                    .setProperties(
-                        new StructuredPropertyValueAssignmentArray(
-                            new StructuredPropertyValueAssignment()
-                                .setPropertyUrn(DISPLAY_TITLE_URN)
-                                .setValues(
-                                    new PrimitivePropertyValueArray(
-                                        PrimitivePropertyValue.create(d.title())))))));
+        values.add(assignment(DISPLAY_TITLE_URN, d.title()));
+      }
+      if (d.recordId() != null) {
+        values.add(assignment(RECORD_ID_URN, d.recordId()));
+      }
+      if (!values.isEmpty()) {
+        items.add(event(entityRegistry, urn, new StructuredProperties().setProperties(values)));
       }
       events.put(urn, items);
     }
 
     MockAspectRetriever aspectRetriever =
         new StoredTemplateRetriever(
-            definitionAspects, Map.of(UrnUtils.getUrn(CLASS_ORDER), classOrderTemplate()));
+            definitionAspects,
+            Map.of(
+                UrnUtils.getUrn(CLASS_ORDER),
+                classOrderTemplate(),
+                UrnUtils.getUrn(CLASS_ORDER_ROUTER),
+                classOrderRouter()));
     aspectRetriever.setEntityRegistry(entityRegistry);
     RetrieverContext retrieverContext =
         RetrieverContext.builder()
             .aspectRetriever(aspectRetriever)
             .cachingAspectRetriever(definitionsWithActiveUsers(aspectRetriever))
             .graphRetriever(GraphRetriever.EMPTY)
-            .searchRetriever(propertySearchRetriever(List.of(DISPLAY_TITLE_URN)))
+            .searchRetriever(propertySearchRetriever(List.of(DISPLAY_TITLE_URN, RECORD_ID_URN)))
             .build();
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
@@ -594,6 +830,17 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
                 .indexConvention(indexConvention)
                 .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
                 .searchTemplateRuntime(coordinator)
+                .searchableFieldTypes(
+                    ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
+                .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
+                .build());
+    routerDefaultContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            () -> retrieverContext,
+            SearchContext.builder()
+                .indexConvention(indexConvention)
+                .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
+                .searchTemplateRuntime(routerCoordinator)
                 .searchableFieldTypes(
                     ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
                 .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
@@ -629,17 +876,22 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
                 Collectors.toMap(
                     MappingsBuilder.IndexMapping::getIndexName,
                     MappingsBuilder.IndexMapping::getMappings));
-    String indexName =
-        indexConvention.getEntityIndexNameV3(
-            opContext, V3IndexKeys.resolve(entityRegistry.getEntitySpec(DATASET_ENTITY_NAME)));
-    indexBuilder.buildIndex(
-        opContext,
-        indexBuilder.buildReindexState(
-            opContext,
-            indexName,
-            mappings.get(indexName),
-            settingsBuilder.getSettings(config.getIndex(), indexName)));
-    createdIndices.add(indexName);
+    for (String entityType : List.of(DATASET_ENTITY_NAME, SCHEMA_FIELD_ENTITY_NAME)) {
+      String indexName =
+          indexConvention.getEntityIndexNameV3(
+              opContext, V3IndexKeys.resolve(entityRegistry.getEntitySpec(entityType)));
+      if (createdIndices.contains(indexName)) {
+        continue;
+      }
+      indexBuilder.buildIndex(
+          opContext,
+          indexBuilder.buildReindexState(
+              opContext,
+              indexName,
+              mappings.get(indexName),
+              settingsBuilder.getSettings(config.getIndex(), indexName)));
+      createdIndices.add(indexName);
+    }
     UpdateIndicesV3Strategy.builder()
         .v3Config(entityIndex.getV3())
         .elasticSearchService(searchService)
@@ -660,6 +912,12 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     }
   }
 
+  private static StructuredPropertyValueAssignment assignment(Urn property, String value) {
+    return new StructuredPropertyValueAssignment()
+        .setPropertyUrn(property)
+        .setValues(new PrimitivePropertyValueArray(PrimitivePropertyValue.create(value)));
+  }
+
   private static MCLItem event(EntityRegistry entityRegistry, Urn urn, RecordTemplate aspect) {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(urn.getEntityType());
     AspectSpec aspectSpec =
@@ -678,7 +936,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         .build();
   }
 
-  private static SearchTemplateConfiguration shippedTemplateConfiguration() {
+  /** The shipped slots, with {@code searchBox} as the search-box (SEARCH_ENTITIES) default. */
+  private static SearchTemplateConfiguration templateConfiguration(String searchBox) {
     SearchTemplateConfiguration templates = new SearchTemplateConfiguration();
     templates.setEnabled(true);
     SearchTemplateFixtures.setShippedLimits(templates);
@@ -687,9 +946,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
             "fulltext", slot("urn:li:searchTemplate:search"),
             "structured", slot("urn:li:searchTemplate:structured")));
     templates.setSurfaces(
-        Map.of(
-            SearchTemplateSurfaces.SEARCH_ENTITIES,
-            Map.of("fulltext", slot("urn:li:searchTemplate:searchLight"))));
+        Map.of(SearchTemplateSurfaces.SEARCH_ENTITIES, Map.of("fulltext", slot(searchBox))));
     return templates;
   }
 
