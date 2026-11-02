@@ -49,7 +49,13 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from tests.e2e.utils import delete_urns, get_sleep_info, run_datahub_cmd, unique_suffix
+from tests.e2e.utils import (
+    delete_urns,
+    get_sleep_info,
+    run_datahub_cmd,
+    unique_suffix,
+    wait_for_urns_searchable,
+)
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
@@ -560,7 +566,9 @@ def test_assertion_reference_is_rewritten(graph_client: DataHubGraph) -> None:
         wait_for_writes_to_sync()
 
 
-def test_container_migration_regenerates_instance(graph_client: DataHubGraph) -> None:
+def test_container_migration_regenerates_instance(
+    graph_client: DataHubGraph, auth_session
+) -> None:
     """instance2instance migrates containers and stamps the *new* instance on the
     migrated container. dataPlatformInstance is excluded from the clone, so the
     migration must regenerate it — without this the container would have no instance
@@ -580,6 +588,10 @@ def test_container_migration_regenerates_instance(graph_client: DataHubGraph) ->
     ]:
         graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
+    # instance2instance discovers containers through search. The consumer ack
+    # returns before the bulk index flush and refresh, so wait until this URN
+    # is actually searchable.
+    wait_for_urns_searchable(auth_session, [ct_src])
 
     try:
         # No dataset entities on this instance; the run still migrates containers.

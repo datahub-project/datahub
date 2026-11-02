@@ -2,7 +2,7 @@ import { Tooltip } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { formatBytes, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatBytes, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 
 export const FormattedBytesStat = ({ bytes }: { bytes: number }) => {
     const { t } = useTranslation('entity.shared.containers');

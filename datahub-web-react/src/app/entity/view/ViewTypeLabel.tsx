@@ -1,4 +1,5 @@
-import { GlobalOutlined, LockOutlined } from '@ant-design/icons';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import { Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -6,12 +7,12 @@ import styled from 'styled-components';
 
 import { DataHubViewType } from '@types';
 
-const StyledLockOutlined = styled(LockOutlined)<{ color }>`
+const StyledLockOutlined = styled(Lock)<{ color }>`
     color: ${(props) => props.color};
     margin-right: 4px;
 `;
 
-const StyledGlobalOutlined = styled(GlobalOutlined)<{ color }>`
+const StyledGlobalOutlined = styled(Globe)<{ color }>`
     color: ${(props) => props.color};
     margin-right: 4px;
 `;

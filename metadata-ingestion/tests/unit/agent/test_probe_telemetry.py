@@ -122,11 +122,9 @@ def test_a_method_that_could_not_reach_the_source_is_still_counted(
     for" has to include the ones that did not work -- otherwise a command that
     always fails looks like a command nobody wants.
 
-    The failure is forced rather than real. This used to let the CLI actually
-    dial localhost:5432 and assert on the exit code, which only held because
-    nothing happened to be listening there with user 'u' and database 'my_db';
-    a developer running postgres locally got a different code, and every run
-    paid a connection timeout for it.
+    The failure is forced rather than real: dialing localhost:5432 would
+    hold only while nothing listens there, give a developer running postgres
+    locally a different code, and cost every run a connection timeout.
 
     RuntimeError because it is NOT in recipe_cli._USER_ERRORS, so it reaches
     the `except Exception` arm and becomes the command's declared fallback --
@@ -233,15 +231,14 @@ def test_the_probe_carries_no_customer_data_into_telemetry(
                 assert secret not in leaf, f"{field} reached telemetry in {leaf!r}"
 
 
-# --- the double-count this replaced -----------------------------------------
+# --- one function-call event per command -------------------------------------
 
 
 def test_a_probe_command_fires_exactly_one_function_call_event(pings, tmp_path):
-    """with_telemetry(capture_kwargs=...) was the obvious way to add the
-    dimensions above, and it would have double-counted: the decorator is applied
-    automatically by cli_utils.enable_auto_decorators, and a second explicit one
-    used to stack on top rather than suppress it. A separate ping avoids the
-    question entirely."""
+    """The dimensions above go in a separate ping, not
+    with_telemetry(capture_kwargs=...): cli_utils.enable_auto_decorators
+    already applies the decorator, and a second one stacks on top of it, so
+    every command would count twice."""
     # Through the real entrypoint group: enable_auto_decorators runs on
     # datahub.entrypoints import, so invoking the bare `recipe` group would see
     # no telemetry wrapper at all and pass for the wrong reason.

@@ -3,7 +3,7 @@ import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity } from '@app/entityV2/Entity';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 
 import { DataPlatformInstance, EntityType } from '@types';
 

@@ -1813,6 +1813,8 @@ Example Response:
 
 Currently Structured Properties can be used to filter search results. This currently excludes fulltext search.
 
+A numeric property can also change rank. A Search V3 template turns that on by naming the property in `fieldValueScores`. The shipped templates do not set it. Omitted `inputMin`, `inputMax`, and `maxMultiplier` come from the definition's `score`. See [Numeric property scores](../../developers/search-v3-design.md#numeric-property-scores).
+
 The following examples re-use the two previously defined Structured Properties.
 
 `io.acryl.privacy.retentionTime` - An example numeric property.

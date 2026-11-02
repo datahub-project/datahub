@@ -7,9 +7,9 @@ import styled from 'styled-components';
 import { Label } from '@components/components/Input/components';
 
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { EntitySearchInputV2 } from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputV2';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetDatasetSchemaQuery } from '@graphql/dataset.generated';

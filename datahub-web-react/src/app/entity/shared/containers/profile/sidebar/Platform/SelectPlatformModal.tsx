@@ -4,7 +4,7 @@ import React, { ReactNode, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { DataPlatform, Entity, EntityType } from '@types';

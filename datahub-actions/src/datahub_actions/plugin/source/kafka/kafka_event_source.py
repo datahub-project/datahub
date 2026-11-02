@@ -14,6 +14,7 @@
 
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
@@ -26,7 +27,10 @@ from prometheus_client import Counter, Gauge
 from pydantic import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.configuration.kafka import (
+    KafkaConsumerConnectionConfig,
+    _resolve_kafka_oauth_callback,
+)
 from datahub.emitter.serialization_helper import post_json_transform
 
 # DataHub imports.
@@ -84,6 +88,70 @@ MCL_EARLY_FILTER_METRIC = Counter(
     documentation="MCL events handled by KafkaSource pre-deserialization filter",
     labelnames=["pipeline_name", "result"],  # result: rejected | passed
 )
+
+_KAFKA_PROPERTIES_ENV_PREFIX = "KAFKA_PROPERTIES_"
+# The Helm charts pass the same Kafka overrides to the Java services and to this pod.
+# librdkafka refuses to start on Java-only and schema-registry client properties, and
+# the chart default for partition.assignment.strategy is a Java class name.
+# group.id is owned by the pipeline name so that each pipeline keeps its own group.
+_ENV_SKIPPED_PROPERTY_PREFIXES = (
+    "ssl.keystore",
+    "ssl.truststore",
+    "kafkastore.",
+    "basic.auth.",
+    "schema.registry.",
+)
+_ENV_SKIPPED_PROPERTIES = frozenset(
+    {
+        "sasl.jaas.config",
+        "sasl.client.callback.handler.class",
+        "sasl.login.class",
+        "sasl.login.callback.handler.class",
+        "ssl.protocol",
+        "ssl.enabled.protocols",
+        "partition.assignment.strategy",
+        "group.id",
+    }
+)
+
+
+def kafka_consumer_config_from_env() -> Dict[str, str]:
+    """Map KAFKA_PROPERTIES_* env vars to consumer properties, the way DataHub's
+    other Python Kafka consumers do: KAFKA_PROPERTIES_SASL_MECHANISM -> sasl.mechanism,
+    KAFKA_PROPERTIES_OAUTH_CB -> oauth_cb. Empty values are ignored."""
+    if (
+        os.environ.get("DATAHUB_ACTIONS_KAFKA_ENV_PROPERTIES_ENABLED", "true").lower()
+        == "false"
+    ):
+        return {}
+
+    consumer_config: Dict[str, str] = {}
+    skipped: List[str] = []
+    for env_var, value in os.environ.items():
+        if not env_var.startswith(_KAFKA_PROPERTIES_ENV_PREFIX) or not value:
+            continue
+        param_name = env_var[len(_KAFKA_PROPERTIES_ENV_PREFIX) :]
+        prop = (
+            "oauth_cb"
+            if param_name == "OAUTH_CB"
+            else param_name.lower().replace("_", ".")
+        )
+        if prop in _ENV_SKIPPED_PROPERTIES or prop.startswith(
+            _ENV_SKIPPED_PROPERTY_PREFIXES
+        ):
+            skipped.append(env_var)
+        else:
+            consumer_config[prop] = value
+
+    if consumer_config:
+        logger.info(
+            f"Kafka consumer properties from environment: {sorted(consumer_config)}"
+        )
+    if skipped:
+        logger.info(
+            f"Ignoring environment variables that are not librdkafka consumer properties: {sorted(skipped)}"
+        )
+    return consumer_config
 
 
 # Converts a Kafka Message to a Kafka Metadata Dictionary.
@@ -155,6 +223,51 @@ def kafka_messages_observer(pipeline_name: str) -> Callable:
     return _observe
 
 
+# How long a pipeline keeps retrying its first connection to the cluster before it
+# fails. Long enough to ride out a broker restart; short enough that a client that can
+# never connect (wrong protocol, bad credentials) fails the process instead of idling.
+_STARTUP_CONNECT_TIMEOUT_SECONDS = 60.0
+
+# librdkafka recovers from these on its own, but while they persist nothing is consumed.
+_SEVERE_CLIENT_ERRORS = frozenset(
+    {KafkaError._AUTHENTICATION, KafkaError._ALL_BROKERS_DOWN}
+)
+
+
+def kafka_error_logger(pipeline_name: str) -> Callable[[KafkaError], None]:
+    # Without an error_cb these errors reach the logs only as librdkafka FAIL lines.
+    def _log(err: KafkaError) -> None:
+        severe = err.fatal() or err.code() in _SEVERE_CLIENT_ERRORS
+        logger.log(
+            logging.ERROR if severe else logging.WARNING,
+            f"Kafka client error in pipeline '{pipeline_name}': {err.name()}: {err.str()}",
+        )
+
+    return _log
+
+
+def _blocking_topic_error(metadata: Any, topic: str) -> Optional[KafkaError]:
+    """Error from a per-topic metadata response that means the broker is not usable.
+
+    ``list_topics`` returns topic errors instead of raising. A topic that does not
+    exist yet is not one of them: the consumer can subscribe and wait for it.
+    """
+    topics = getattr(metadata, "topics", None)
+    if not isinstance(topics, dict):
+        return None
+    topic_meta = topics.get(topic)
+    if topic_meta is None:
+        return None
+    error = getattr(topic_meta, "error", None)
+    if error is None:
+        return None
+    code_fn = getattr(error, "code", None)
+    code = code_fn() if callable(code_fn) else None
+    if code in (KafkaError.NO_ERROR, KafkaError.UNKNOWN_TOPIC_OR_PART):
+        return None
+    return error
+
+
 # This is the default Kafka-based Event Source.
 @dataclass
 class KafkaEventSource(EventSource):
@@ -184,6 +297,15 @@ class KafkaEventSource(EventSource):
                 self.source_config.async_commit_interval
             )
 
+        recipe_consumer_config = self.source_config.connection.consumer_config
+        env_consumer_config = _resolve_kafka_oauth_callback(
+            {
+                key: value
+                for key, value in kafka_consumer_config_from_env().items()
+                if key not in recipe_consumer_config
+            }
+        )
+
         self.consumer: confluent_kafka.Consumer = confluent_kafka.DeserializingConsumer(
             {
                 # Provide a custom group id to subscribe to multiple partitions via separate actions pods.
@@ -191,17 +313,25 @@ class KafkaEventSource(EventSource):
                 "bootstrap.servers": self.source_config.connection.bootstrap,
                 "enable.auto.commit": False,  # We manually commit offsets.
                 "auto.offset.reset": "latest",  # Latest by default, unless overwritten.
+                "error_cb": kafka_error_logger(ctx.pipeline_name),
                 "value.deserializer": AvroDeserializer(
                     schema_registry_client=self.schema_registry_client,
                     return_record_name=True,
                 ),
                 "session.timeout.ms": "10000",  # 10s timeout.
                 "max.poll.interval.ms": "10000",  # 10s poll max.
-                **self.source_config.connection.consumer_config,
+                **env_consumer_config,
+                **recipe_consumer_config,
                 **async_commit_config,
             }
         )
         self._observe_message: Callable = kafka_messages_observer(ctx.pipeline_name)
+        self.running = False
+        # request_stop() sets this before close(). events() must not set running
+        # back to true afterwards, or a SIGTERM during startup restarts the consumer.
+        self._stop_requested = False
+        # Set by close() so events() cannot use a consumer that has already been closed.
+        self._closed = False
         self._skip_mcl_entirely = False
         self._early_mcl_criteria_list: List[Dict[str, Any]] = []
         self._pipeline_name = ctx.pipeline_name
@@ -381,17 +511,86 @@ class KafkaEventSource(EventSource):
             f"Criteria (OR semantics - pass if ANY match, conservative by design): {criteria_list}"
         )
 
-    def events(self) -> Iterable[EventEnvelope]:
+    def _configured_topics(self) -> List[str]:
         topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
-        topics_to_subscribe = list(topic_routes.values())
+        return list(dict.fromkeys(topic_routes.values()))
+
+    def _wait_until_connected(self) -> None:
+        """Block until each configured topic answers a metadata request.
+
+        A cluster-wide ``list_topics()`` needs Describe on the cluster, which a
+        topic-scoped principal does not have. Requesting one topic at a time uses
+        the same permission the consumer needs to subscribe.
+        """
+        bootstrap = self.source_config.connection.bootstrap
+        topics = self._configured_topics()
+        deadline = time.monotonic() + _STARTUP_CONNECT_TIMEOUT_SECONDS
+        while True:
+            if self._closed or self._stop_requested or not self.running:
+                return
+            try:
+                timeout = max(0.1, min(5.0, deadline - time.monotonic()))
+                for topic in topics:
+                    if self._closed or self._stop_requested or not self.running:
+                        return
+                    metadata = self.consumer.list_topics(topic, timeout=timeout)
+                    # A missing topic is not a connectivity failure: the consumer can
+                    # subscribe before the topic exists. An authorization or broker
+                    # error on the metadata result does not raise, so treat it as one.
+                    error = _blocking_topic_error(metadata, topic)
+                    if error is not None:
+                        raise KafkaException(error)
+                logger.info(
+                    f"Kafka event source for pipeline '{self._pipeline_name}' "
+                    f"connected to Kafka at {bootstrap}."
+                )
+                return
+            except KafkaException as e:
+                last_error = e
+            if self._closed or self._stop_requested or not self.running:
+                return
+            # Nothing is subscribed yet, so this only serves error_cb, which logs the
+            # underlying cause (e.g. a SASL error) that list_topics does not report.
+            self.consumer.poll(1.0)
+            if time.monotonic() >= deadline:
+                logger.error(
+                    f"Could not connect to Kafka at {bootstrap} for pipeline "
+                    f"'{self._pipeline_name}' within {_STARTUP_CONNECT_TIMEOUT_SECONDS:.0f}s: "
+                    f"{last_error}. Check the source connection settings (bootstrap, "
+                    "security.protocol, SASL/SSL properties) against the broker listener."
+                )
+                raise last_error
+
+    def request_stop(self) -> None:
+        # Do not close the consumer here. events() may be about to call list_topics
+        # or subscribe, and a closed consumer raises. The flag stops events() from
+        # setting running back to true after this returns.
+        self._stop_requested = True
+        self.running = False
+
+    def events(self) -> Iterable[EventEnvelope]:
+        if self._closed or self._stop_requested:
+            return
+        self.running = True
+        # close() or request_stop() may have landed between the check and the assignment.
+        if self._closed or self._stop_requested:
+            self.running = False
+            return
+        self._wait_until_connected()
+        if not self.running or self._closed or self._stop_requested:
+            return
+
+        topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
+        topics_to_subscribe = self._configured_topics()
         logger.debug(f"Subscribing to the following topics: {topics_to_subscribe}")
+        if self._closed or self._stop_requested:
+            return
         self.consumer.subscribe(topics_to_subscribe)
 
         # Start lag monitoring after subscription
         if self._lag_monitor is not None:
             self._lag_monitor.start()
 
-        self.running = True
         while self.running:
             try:
                 msg = self.consumer.poll(timeout=2.0)
@@ -516,13 +715,17 @@ class KafkaEventSource(EventSource):
             yield EventEnvelope(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, rce, kafka_meta)
 
     def close(self) -> None:
+        # Set before running=False so events() cannot observe a live consumer and
+        # then call list_topics/subscribe after this method closes it.
+        self._closed = True
+        self._stop_requested = True
+        self.running = False
         # Stop lag monitoring first
         if self._lag_monitor is not None:
             self._lag_monitor.stop()
 
         # Then close consumer
         if self.consumer:
-            self.running = False
             self.consumer.close()
 
     def _commit_offsets(self, event: EventEnvelope) -> None:

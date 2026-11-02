@@ -1,4 +1,5 @@
-import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { Checkbox, Form, Input, Switch, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,8 +10,8 @@ import styled from 'styled-components';
 import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
-import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import { lowerFirstLetter } from '@app/shared/textUtil';
+import { RequiredFieldForm } from '@app/sharedV2/form/RequiredFieldForm';
+import { lowerFirstLetter } from '@app/sharedV2/textUtil';
 import { Button, Text } from '@src/alchemy-components';
 import { cronToString } from '@utils/cronstrue';
 
@@ -54,7 +55,7 @@ const AdvancedCheckBox = styled(Typography.Text)`
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
-const CronSuccessCheck = styled(CheckCircleOutlined)`
+const CronSuccessCheck = styled(CheckCircle)`
     color: ${(props) => props.theme.colors.textBrand};
     margin-right: 4px;
 `;
@@ -78,7 +79,7 @@ const WarningContainer = styled.div`
     color: ${(props) => props.theme.colors.textTertiary};
 `;
 
-const StyledWarningOutlined = styled(WarningOutlined)`
+const StyledWarningOutlined = styled(Warning)`
     margin-right: 4px;
     margin-top: 12px;
 `;

@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
 import CronField from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/CronField';
-import { lowerFirstLetter } from '@app/shared/textUtil';
+import { lowerFirstLetter } from '@app/sharedV2/textUtil';
 import { cronToString } from '@utils/cronstrue';
 
 const FieldsContainer = styled.div`
@@ -87,10 +87,10 @@ export function ScheduleFields({
     return (
         <FieldsContainer>
             <SwitchLabel>
-                <Text size="sm" weight="bold" color="gray" colorLevel={600}>
+                <Text size="sm" weight="bold" color="text">
                     {t('multiStep.schedule.runOnSchedule')}
                 </Text>
-                <Text size="sm" weight="bold" color="gray" colorLevel={1700}>
+                <Text size="sm" weight="bold" color="textSecondary">
                     {t('multiStep.schedule.recommended')}
                 </Text>
             </SwitchLabel>
@@ -103,8 +103,8 @@ export function ScheduleFields({
             />
             {!scheduleEnabled && (
                 <WarningContainer>
-                    <Icon icon={Warning} color="yellow" colorLevel={1000} size="md" />
-                    <Text color="yellow" colorLevel={1000} size="sm">
+                    <Icon icon={Warning} color="iconWarning" size="md" />
+                    <Text color="textWarning" size="sm">
                         {noScheduleWarning ?? t('multiStep.schedule.noScheduleWarning')}
                     </Text>
                 </WarningContainer>
@@ -115,7 +115,7 @@ export function ScheduleFields({
                 cronAsText={cronAsText}
             />
             <TimezoneContainer>
-                <Text color="gray">{t('multiStep.schedule.chooseTimezone')}</Text>
+                <Text color="textSecondary">{t('multiStep.schedule.chooseTimezone')}</Text>
                 <TimezoneSelect value={timezone} onChange={onTimezoneChange} />
             </TimezoneContainer>
         </FieldsContainer>

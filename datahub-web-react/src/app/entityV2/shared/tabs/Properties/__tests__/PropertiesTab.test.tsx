@@ -20,7 +20,7 @@ vi.mock('@app/entityV2/shared/tabs/Properties/useHydratedEntityMap', () => ({
     useHydratedEntityMap: () => ({}),
 }));
 
-vi.mock('@app/shared/Loading', () => ({
+vi.mock('@app/sharedV2/Loading', () => ({
     default: () => <div data-testid="loading-indicator" />,
 }));
 

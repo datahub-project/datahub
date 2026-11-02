@@ -32,7 +32,7 @@ dependencies {
     // Core dependencies needed for compilation
     implementation 'org.slf4j:slf4j-api:1.7.36'
     // Keep in sync with project.ext.externalDependency['guava'] in root build.gradle
-    implementation 'com.google.guava:guava:33.6.0-jre'
+    implementation 'com.google.guava:guava:33.7.2-jre'
     implementation 'jakarta.annotation:jakarta.annotation-api:3.0.0'
     
     // Testing

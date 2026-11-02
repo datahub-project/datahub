@@ -245,10 +245,10 @@ public class AuthenticationController extends Controller {
 
   private Result logInAdmitted(Http.Request request) {
     boolean jaasEnabled = jaasConfigs.isJAASEnabled();
-    logger.debug(String.format("Jaas authentication enabled: %b", jaasEnabled));
+    logger.debug("Jaas authentication enabled: {}", jaasEnabled);
     boolean nativeAuthenticationEnabled =
         nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
-    logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
+    logger.debug("Native authentication enabled: {}", nativeAuthenticationEnabled);
     boolean noAuthEnabled = !jaasEnabled && !nativeAuthenticationEnabled;
     if (noAuthEnabled) {
       String message = "Neither JAAS nor native authentication is enabled on the server.";
@@ -293,7 +293,7 @@ public class AuthenticationController extends Controller {
   private Result signUpAdmitted(Http.Request request) {
     boolean nativeAuthenticationEnabled =
         nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
-    logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
+    logger.debug("Native authentication enabled: {}", nativeAuthenticationEnabled);
     if (!nativeAuthenticationEnabled) {
       String message = "Native authentication is not enabled on the server.";
       final ObjectNode error = Json.newObject();
@@ -358,7 +358,7 @@ public class AuthenticationController extends Controller {
   private Result resetNativeUserCredentialsAdmitted(Http.Request request) {
     boolean nativeAuthenticationEnabled =
         nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
-    logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
+    logger.debug("Native authentication enabled: {}", nativeAuthenticationEnabled);
     if (!nativeAuthenticationEnabled) {
       String message = "Native authentication is not enabled on the server.";
       final ObjectNode error = Json.newObject();

@@ -1,23 +1,20 @@
-// Ported verbatim from the cloud fork. Swapping to @components would diverge this
-// convergence port, so the antd import is kept and the two repos migrate together.
-// eslint-disable-next-line rulesdir/no-antd-imports
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import InfoTooltip from '@app/sharedV2/icons/InfoTooltip';
 
 const Card = styled.div`
     display: flex;
     flex-direction: column;
     padding: 1rem;
-    background-color: white;
-    box-shadow: 0px 3px 6px 0px ${ANTD_GRAY[5]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     border-radius: 8px;
 
     text {
-        fill: ${ANTD_GRAY[8]};
+        fill: ${(props) => props.theme.colors.textSecondary};
         font-weight: 400 !important;
     }
 `;
@@ -35,12 +32,9 @@ const Body = styled.div`
     justify-content: center;
 `;
 
-const Heading = styled(Typography.Text)`
+const Heading = styled(Text)`
     display: flex;
     gap: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    color: ${ANTD_GRAY[8]};
     min-width: 300px;
 `;
 
@@ -54,7 +48,7 @@ interface Props {
 export const ChartCard = ({ title, titleInfo, chart, flex = 1 }: Props) => (
     <Card style={{ flex }}>
         <Header>
-            <Heading>
+            <Heading weight="semiBold">
                 {title} {titleInfo && <InfoTooltip content={titleInfo} />}
             </Heading>
         </Header>

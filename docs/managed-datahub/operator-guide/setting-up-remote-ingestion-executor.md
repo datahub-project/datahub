@@ -51,7 +51,7 @@ Before deploying a Remote Executor, ensure you have the following:
    The Remote Executor requires **outbound** HTTPS (port 443) connectivity only — no inbound connectivity is needed. Ensure the following endpoints are reachable from your deployment environment:
 
    - `https://<your-company>.acryl.io/*` — DataHub GMS API
-   - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch
+   - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch (not needed when the executor uses the Kafka channel)
    - A Python package index—for production, prefer an **internal mirror** (with egress or firewall rules that enforce your supply-chain policy rather than open access to arbitrary public indexes). Details: [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
    - A container registry hosting the DataHub Remote Executor image (e.g., AWS ECR or `docker.datahub.com`)
 
@@ -87,6 +87,17 @@ Once you have created an Executor Pool in DataHub Cloud, you are now ready to de
 
 :::note
 Work with DataHub team to receive deployment templates specific to your environment (Helm charts, CloudFormation, or Terraform) for deploying Remote Executors in this Pool.
+:::
+
+:::caution DataHub Cloud instances on GCP
+The executor must use the same channel as its Executor Pool, or it does not receive work. DataHub Cloud instances deployed on Google Cloud Platform (GCP) can create Executor Pools on the Kafka channel. The **Channel** column in **Data Sources > Executors** shows the channel of each pool (`SQS` or `KAFKA`).
+
+For pools on the Kafka channel, use Remote Executor v2.3.0 or later (Helm chart 0.0.70 or later) and set:
+
+- **Helm:** `--set global.datahub.executor.channel="KAFKA"` (default: `SQS`) in the `helm install` command in [Deploy on Kubernetes](#deploy-on-kubernetes).
+- **Docker or ECS:** the environment variable `DATAHUB_EXECUTOR_MODE=kafka-worker` (instead of `worker`).
+
+To move an existing pool from SQS to Kafka, follow [Removing the SQS Dependency](../remote-executor/removing-sqs-dependency.md). Do not change the channel of a running executor outside that procedure.
 :::
 
 ### Custom images with additional connectors
@@ -321,6 +332,7 @@ Required parameters:
 
 - `global.datahub.executor.pool_id`: Your Executor Pool ID
 - `global.datahub.gms.url`: Your DataHub Cloud URL (must include `/gms`)
+- `global.datahub.executor.channel`: Set to `KAFKA` if your Executor Pool uses the Kafka channel (see [Removing the SQS Dependency](../remote-executor/removing-sqs-dependency.md))
 
 4. **Configure Secret Mounting (Optional)**
 
@@ -464,6 +476,20 @@ Once you have successfully deployed the Remote Executor in your environment, Dat
 <p align="center">
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/pool-list-after.png?raw=true"/>
 </p>
+
+Each executor also sends two reports with its status, which you can open with **See more** next to the executor:
+
+- **What it is working on**, sent with every status check-in: whether it is taking new work, how many ingestion, assertion and monitor slots are in use, which runs are waiting or running, and when it last checked for new work.
+- **What it runs on**, sent about every 10 minutes: its memory and CPU limits and use, the space its working folders take up, the values of a fixed list of executor settings, how it is deployed, its Python version and the ingestion sources that come pre-installed.
+
+Both reports are on by default. To turn one off, set its variable to `false` and restart the executor:
+
+| Variable                                  | Default | Report                |
+| ----------------------------------------- | ------- | --------------------- |
+| `DATAHUB_EXECUTOR_STATUS_DETAILS_ENABLED` | `true`  | What it is working on |
+| `DATAHUB_EXECUTOR_REPORT_RUNTIME`         | `true`  | What it runs on       |
+
+Both reports need DataHub 2.4.0 or later. On an older version, the executor sends its status without them. If the executor was started before DataHub was upgraded, restart it to start sending them.
 
 ## Assigning Ingestion Sources to an Executor Pool
 
@@ -724,7 +750,7 @@ GMS enforces a caller guard on `SecretService` decryption. The default is **secu
 
 `ENFORCE` prevents humans and user PATs from fetching secret values via GraphQL, but **does not** block an **embedded executor** from resolving UI secrets. To avoid UI secrets entirely, do not create them and use local backends above.
 
-See [Environment Variables](../../deploy/environment-vars.md) and [Updating DataHub](../../how/updating-datahub.md) for migration details.
+See [Environment Variables](../../deploy/environment-vars.md) and [Breaking Changes](../../how/breaking-changes.md) for migration details.
 
 ## Advanced: Performance Settings and Task Weight-Based Queuing
 

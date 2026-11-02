@@ -112,6 +112,11 @@ module.exports = {
               id: "docs/dev-guides/agent-context/skills",
             },
             {
+              label: "DataHub Cloud Plugins",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/plugins",
+            },
+            {
               label: "Snowflake",
               type: "category",
               collapsible: true,
@@ -352,7 +357,7 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Knowledge Catalog Metadata Sync",
+              label: "Google Cloud Knowledge Catalog (Dataplex) Metadata Sync",
               type: "doc",
               id: "docs/automations/knowledge-catalog-metadata-sync",
               className: "saasOnly",
@@ -386,42 +391,6 @@ module.exports = {
           label: "Business Glossary",
           type: "doc",
           id: "docs/glossary/business-glossary",
-        },
-        {
-          label: "Ontology",
-          type: "category",
-          collapsed: true,
-          items: [
-            {
-              label: "What is an Ontology?",
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/overview",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/relating-glossary-terms",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/visualizing-your-ontology",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/querying-your-ontology",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/custom-relationships",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/ontology/sparql-api",
-              className: "saasOnly",
-            },
-          ],
         },
         {
           label: "Compliance Forms",
@@ -583,6 +552,42 @@ module.exports = {
               id: "docs/features/feature-guides/scoped-mcp-servers",
               className: "saasOnly",
             },
+            {
+              label: "Ontology",
+              type: "category",
+              collapsed: true,
+              items: [
+                {
+                  label: "What is an Ontology?",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/overview",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/relating-glossary-terms",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/visualizing-your-ontology",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/querying-your-ontology",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/custom-relationships",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/sparql-api",
+                  className: "saasOnly",
+                },
+              ],
+            },
           ],
         },
         {
@@ -700,8 +705,23 @@ module.exports = {
         },
         {
           label: "Metrics & Semantic Models",
-          type: "doc",
-          id: "docs/features/feature-guides/metrics-and-semantic-models",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/metrics-and-semantic-models",
+          },
+          items: [
+            {
+              label: "Best Practices",
+              type: "doc",
+              id: "docs/features/feature-guides/metrics-and-semantic-models-best-practices",
+            },
+            {
+              label: "Ossie Compatibility",
+              type: "doc",
+              id: "docs/features/feature-guides/ossie-compatibility",
+            },
+          ],
         },
         {
           label: "MCP Server",
@@ -952,6 +972,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_3_0",
         "docs/managed-datahub/release-notes/v_2_2_0",
         "docs/managed-datahub/release-notes/v_2_1_0",
         "docs/managed-datahub/release-notes/v_2_0_0",
@@ -1600,6 +1621,8 @@ module.exports = {
         "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
+        "docs/how/upgrading-datahub",
+        "docs/deploy/rendered-manifest-upgrade",
       ],
     },
     {
@@ -1633,6 +1656,7 @@ module.exports = {
       "Developing on DataHub": [
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
+        "docs/developers/search-v3-design",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",
@@ -1704,6 +1728,7 @@ module.exports = {
         description: "Learn about DataHub community.",
       },
       items: [
+        "docs/community",
         "docs/slack",
         { type: "doc", label: "Otto (Community Assistant)", id: "docs/otto" },
         "docs/townhalls",
@@ -1711,6 +1736,8 @@ module.exports = {
         "docs/CODE_OF_CONDUCT",
         "docs/CONTRIBUTING",
         "docs/links",
+        "docs/ecosystem",
+        "ADOPTERS",
         "docs/rfc",
         {
           type: "category",
@@ -1725,7 +1752,12 @@ module.exports = {
       ],
     },
     {
-      "Release History": ["releases", "docs/how/updating-datahub"],
+      "Release History": ["releases", "docs/how/breaking-changes"],
+    },
+    {
+      type: "doc",
+      label: "FAQ",
+      id: "docs/faq",
     },
 
     // "Candidates for Deprecation": [

@@ -56,8 +56,14 @@ class BigQueryIdentifierBuilder:
         structured_reporter: SourceReport,
     ) -> None:
         self.identifier_config = identifier_config
-        if self.identifier_config.enable_legacy_sharded_table_support:
-            BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
+        # Assign both ways round: this is process-wide state, so leaving it untouched
+        # when the flag is false let an earlier source that had it enabled decide the
+        # behaviour of every source constructed after it.
+        BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = (
+            ""
+            if self.identifier_config.enable_legacy_sharded_table_support
+            else BigqueryTableIdentifier.DEFAULT_BQ_SHARDED_TABLE_SUFFIX
+        )
         self.structured_reporter = structured_reporter
 
     def gen_dataset_urn(

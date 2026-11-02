@@ -1013,7 +1013,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         dashboard = Dashboard(
             platform=STREAMLIT_PLATFORM,
             name=dashboard_id,
-            display_name=app.title,
+            display_name=app.title if (app.title and app.title.strip()) else app.name,
             platform_instance=self.config.platform_instance,
             custom_properties=custom_properties,
             created_at=app.created,

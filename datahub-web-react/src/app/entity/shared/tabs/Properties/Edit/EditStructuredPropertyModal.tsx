@@ -5,10 +5,9 @@ import styled from 'styled-components';
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
 import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
-import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import { Modal } from '@src/alchemy-components';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Modal, toast } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
 import { useUpsertStructuredPropertiesMutation } from '@graphql/structuredProperties.generated';
@@ -42,7 +41,7 @@ export default function EditStructuredPropertyModal({
     refetch,
     isAddMode,
 }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { t } = useTranslation('entity.profile.tabs');
     const { t: tc } = useTranslation(['common.actions', 'common.feedback']);
     const { refetch: entityRefetch } = useEntityContext();
@@ -60,11 +59,7 @@ export default function EditStructuredPropertyModal({
     }, [isOpen, initialValues, setSelectedValues]);
 
     function upsertProperties() {
-        showToastMessage(
-            ToastType.LOADING,
-            isAddMode ? t('properties.adding.loading') : tc('common.feedback:updating'),
-            1,
-        );
+        toast.loading(isAddMode ? t('properties.adding.loading') : tc('common.feedback:updating'), { duration: 1 });
         const propValues = selectedValues.map((value) => {
             if (typeof value === 'string') {
                 return { stringValue: value as string };
@@ -100,11 +95,9 @@ export default function EditStructuredPropertyModal({
                 } else {
                     entityRefetch();
                 }
-                showToastMessage(
-                    ToastType.SUCCESS,
-                    isAddMode ? t('properties.added.success') : t('properties.updated.success'),
-                    3,
-                );
+                toast.success(isAddMode ? t('properties.added.success') : t('properties.updated.success'), {
+                    duration: 3,
+                });
                 closeModal();
             })
             .catch((error) => {

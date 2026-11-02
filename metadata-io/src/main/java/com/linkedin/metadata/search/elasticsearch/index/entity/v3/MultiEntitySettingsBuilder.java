@@ -6,16 +6,20 @@ import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.BaseConfigurationLoader;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 /** Builder for generating settings for elasticsearch indices with entity-based field structure */
 public class MultiEntitySettingsBuilder implements SettingsBuilder {
+  private static final String ANALYSIS_SETTING = "analysis";
 
   public final Map<String, Object> settings;
   private final Map<String, Object> analyzerConfiguration;
@@ -59,7 +63,7 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
       this.analyzerConfiguration = null;
     }
 
-    settings = buildSettings();
+    settings = buildBaseSettings();
   }
 
   @Override
@@ -71,12 +75,15 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
     if (!indexConvention.isV3EntityIndexType(indexName)) {
       return new HashMap<>();
     }
-    Map<String, Object> result = new HashMap<>(buildSettings());
-    if (SemanticEmbeddingMappings.isSemanticEnabledV3Index(semanticSearchConfiguration, indexName)
+    Map<String, Object> indexSettings = buildIndexSettings(indexConfiguration);
+    // Embeddings contributed for any entity are on every V3 index. OpenSearch rejects a
+    // knn_vector unless index.knn is true, including on entities that never store a vector.
+    // Elasticsearch keeps k-NN on dense_vector and rejects index.knn.
+    if (SemanticEmbeddingMappings.enabledForAnyEntity(semanticSearchConfiguration)
         && SemanticEmbeddingMappings.shouldEnableIndexLevelKnn(searchClientShim)) {
-      result.put("knn", true);
+      indexSettings.put("knn", true);
     }
-    return result;
+    return indexSettings;
   }
 
   /**
@@ -95,21 +102,155 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
   }
 
   /**
-   * Builds minimal settings for simple field types. Since we're only using keyword, boolean, etc.,
-   * we don't need complex analysis.
+   * Builds base settings from explicit V3 analyzer configuration. The V3 analyzers reuse V2 filters
+   * (synonyms, stop words, stem overrides), and legacy browse paths use V2's path analyzers; the V2
+   * analysis is merged in getSettings where IndexConfiguration is available.
    */
-  private Map<String, Object> buildSettings() {
+  private Map<String, Object> buildBaseSettings() {
     Map<String, Object> baseSettings = new HashMap<>();
 
     // Add analysis configuration if available
     if (analyzerConfiguration != null) {
-      baseSettings.put("analysis", analyzerConfiguration);
-      // Set field limit for v3 indices to handle many aspects and fields
-      if (maxFieldsLimit != null) {
-        baseSettings.put("mapping.total_fields.limit", maxFieldsLimit);
-      }
+      baseSettings.put(ANALYSIS_SETTING, analyzerConfiguration);
+    }
+
+    // Set field limit for v3 indices to handle many aspects and fields, regardless of analyzers.
+    if (maxFieldsLimit != null) {
+      baseSettings.put("mapping.total_fields.limit", maxFieldsLimit);
     }
 
     return baseSettings;
+  }
+
+  private Map<String, Object> buildIndexSettings(
+      @Nonnull final IndexConfiguration indexConfiguration) {
+    Map<String, Object> indexSettings = new HashMap<>(settings);
+    try {
+      indexSettings.put(ANALYSIS_SETTING, buildMergedAnalysisConfiguration(indexConfiguration));
+      indexSettings.put(V2LegacySettingsBuilder.MAX_NGRAM_DIFF, 17);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to build V3 analyzer settings", e);
+    }
+    return indexSettings;
+  }
+
+  private Map<String, Object> buildMergedAnalysisConfiguration(
+      @Nonnull final IndexConfiguration indexConfiguration) throws IOException {
+    Map<String, Object> legacyAnalysis =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention)
+            .buildAnalysisSettings(indexConfiguration);
+    if (analyzerConfiguration == null || analyzerConfiguration.isEmpty()) {
+      return withRichTextAnalyzers(new HashMap<>(legacyAnalysis));
+    }
+    return withRichTextAnalyzers(
+        withMainTokenizer(
+            mergeAnalysisSections(legacyAnalysis, analyzerConfiguration),
+            indexConfiguration.getMainTokenizer()));
+  }
+
+  /**
+   * Analyzers for a V3 {@code RICH_TEXT} source field. V2 indices do not define them; a V2 mapping
+   * of that type uses the existing text field instead.
+   */
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> withRichTextAnalyzers(
+      @Nonnull final Map<String, Object> analysis) {
+    final Map<String, Object> filters = new HashMap<>();
+    if (analysis.get(V2LegacySettingsBuilder.FILTER) instanceof Map<?, ?> existing) {
+      filters.putAll((Map<String, Object>) existing);
+    }
+    filters.put(
+        FieldTypeMapper.RICH_TEXT_DELIMITER,
+        Map.of(
+            "type",
+            V2LegacySettingsBuilder.WORD_DELIMITER_GRAPH,
+            V2LegacySettingsBuilder.SPLIT_ON_NUMERICS,
+            true,
+            V2LegacySettingsBuilder.SPLIT_ON_CASE_CHANGE,
+            true,
+            V2LegacySettingsBuilder.PRESERVE_ORIGINAL,
+            true));
+
+    final Map<String, Object> analyzers = new HashMap<>();
+    if (analysis.get(V2LegacySettingsBuilder.ANALYZER) instanceof Map<?, ?> existing) {
+      analyzers.putAll((Map<String, Object>) existing);
+    }
+    analyzers.put(
+        FieldTypeMapper.RICH_TEXT_ANALYZER,
+        Map.of(
+            V2LegacySettingsBuilder.TOKENIZER,
+            "standard",
+            V2LegacySettingsBuilder.FILTER,
+            List.of(
+                FieldTypeMapper.RICH_TEXT_DELIMITER,
+                V2LegacySettingsBuilder.FLATTEN_GRAPH,
+                V2LegacySettingsBuilder.LOWERCASE,
+                V2LegacySettingsBuilder.ASCII_FOLDING,
+                V2LegacySettingsBuilder.SNOWBALL)));
+    analyzers.put(
+        FieldTypeMapper.RICH_TEXT_SEARCH_ANALYZER,
+        Map.of(
+            V2LegacySettingsBuilder.TOKENIZER,
+            "standard",
+            V2LegacySettingsBuilder.FILTER,
+            List.of(
+                FieldTypeMapper.RICH_TEXT_DELIMITER,
+                V2LegacySettingsBuilder.LOWERCASE,
+                V2LegacySettingsBuilder.ASCII_FOLDING,
+                V2LegacySettingsBuilder.SNOWBALL)));
+
+    final Map<String, Object> result = new HashMap<>(analysis);
+    result.put(V2LegacySettingsBuilder.FILTER, filters);
+    result.put(V2LegacySettingsBuilder.ANALYZER, analyzers);
+    return result;
+  }
+
+  /**
+   * A configured main tokenizer (ELASTICSEARCH_MAIN_TOKENIZER, such as a language plugin's)
+   * replaces the word tokenizer of the shared search fields' analyzers, as it replaces V2's.
+   */
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> withMainTokenizer(
+      @Nonnull final Map<String, Object> analysis, @Nullable final String mainTokenizer) {
+    if (StringUtils.isBlank(mainTokenizer)
+        || !(analysis.get("analyzer") instanceof Map<?, ?> analyzers)) {
+      return analysis;
+    }
+    final Map<String, Object> withTokenizer = new HashMap<>();
+    ((Map<String, Object>) analyzers)
+        .forEach(
+            (name, analyzer) -> {
+              if (analyzer instanceof Map<?, ?> definition
+                  && V3SearchFields.WORD_TOKENIZER.equals(definition.get("tokenizer"))) {
+                final Map<String, Object> replaced =
+                    new HashMap<>((Map<String, Object>) definition);
+                replaced.put("tokenizer", mainTokenizer);
+                withTokenizer.put(name, replaced);
+              } else {
+                withTokenizer.put(name, analyzer);
+              }
+            });
+    final Map<String, Object> result = new HashMap<>(analysis);
+    result.put("analyzer", withTokenizer);
+    return result;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> mergeAnalysisSections(
+      @Nonnull final Map<String, Object> baseAnalysis,
+      @Nonnull final Map<String, Object> overrideAnalysis) {
+    Map<String, Object> merged = new HashMap<>(baseAnalysis);
+    overrideAnalysis.forEach(
+        (sectionName, overrideValue) -> {
+          Object baseValue = merged.get(sectionName);
+          if (baseValue instanceof Map && overrideValue instanceof Map) {
+            Map<String, Object> section = new HashMap<>((Map<String, Object>) baseValue);
+            section.putAll((Map<String, Object>) overrideValue);
+            merged.put(sectionName, section);
+          } else {
+            merged.put(sectionName, overrideValue);
+          }
+        });
+    return merged;
   }
 }

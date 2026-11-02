@@ -20,7 +20,7 @@ import ModuleEntityName from '@app/homeV3/module/components/ModuleEntityName';
 import ModuleSecondaryText from '@app/homeV3/module/components/ModuleSecondaryText';
 import { ModuleProps } from '@app/homeV3/module/types';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType, SemanticModelRelationship } from '@types';
 
@@ -89,7 +89,7 @@ function withStableKeys(values: string[]): Array<{ value: string; key: string }>
 }
 
 function RelationshipEndpoint({ datasetName, columns, source, align }: EndpointSideProps) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const content = (
         <Endpoint $align={align}>

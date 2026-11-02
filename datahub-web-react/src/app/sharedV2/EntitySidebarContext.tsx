@@ -20,6 +20,8 @@ interface EntitySidebarContextProps {
     forLineage?: boolean;
     separateSiblings?: boolean;
     searchResultLineage?: SearchResultLineageCounts | null;
+    /** True while the search page is still loading counts for the visible results. */
+    searchResultLineageLoading?: boolean;
 }
 
 export const entitySidebarContextDefaults: EntitySidebarContextProps = {

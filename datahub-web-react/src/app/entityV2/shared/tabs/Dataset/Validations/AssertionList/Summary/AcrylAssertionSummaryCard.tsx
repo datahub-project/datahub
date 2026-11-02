@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import {
     ASSERTION_TYPE_TO_HEADER_SUBTITLE,
     getAssertionSummaryCardHeaderByStatus,
@@ -122,7 +123,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
         const url = `${entityRegistry.getEntityUrl(
             EntityType.Dataset,
             entityData.urn,
-        )}/Quality/List${buildAssertionUrlSearch({ type })}`;
+        )}/${EntityTabPath.QUALITY}/List${buildAssertionUrlSearch({ type })}`;
         history.push(url);
     };
 

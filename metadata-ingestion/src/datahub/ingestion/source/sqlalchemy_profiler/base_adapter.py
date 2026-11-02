@@ -2,9 +2,10 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Union, cast
+from typing import Any, List, NamedTuple, Optional, Tuple, Union, cast
 
 import sqlalchemy as sa
+from sqlalchemy import Select
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
@@ -17,6 +18,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     flattenable_query,
+    gate_query,
     single_row_query,
 )
 
@@ -24,6 +26,19 @@ logger = logging.getLogger(__name__)
 
 # Default quantiles for statistical profiling
 DEFAULT_QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
+
+
+class QueryTimeout(NamedTuple):
+    """How to read, set and put back a session statement timeout."""
+
+    read: str
+    """Returns the session's current limit, in whatever form `restore` takes."""
+
+    apply: str
+    """Sets the limit for profiling."""
+
+    restore: str
+    """Puts back what `read` returned; formatted with it as `{value}`."""
 
 
 class ProfilingConnection:
@@ -61,6 +76,7 @@ class ProfilingConnection:
         table: Any,
         expr: ColumnElement[Any],
         literal_is_aggregate: bool = False,
+        gate: bool = False,
     ) -> Any:
         """Execute one aggregate over a whole table.
 
@@ -77,7 +93,7 @@ class ProfilingConnection:
         nothing can tell `MEDIAN(v)` from `v` -- so pass
         literal_is_aggregate=True to assert that yours collapses to one row.
         """
-        query = sa.select([expr]).select_from(table)
+        query = sa.select(expr).select_from(table)
 
         inner = expr.element if isinstance(expr, Label) else expr
         # None: a function, which returns one row by construction.
@@ -91,7 +107,10 @@ class ProfilingConnection:
             )
             return self._conn.execute(query)
 
-        return self._conn.execute(flattenable_query(single_row_query(query)))
+        tagged = flattenable_query(single_row_query(query))
+        if gate:
+            tagged = gate_query(tagged)
+        return self._conn.execute(tagged)
 
     def execute_single_row(self, query: Any) -> Any:
         """Execute a query you built yourself that returns exactly one row.
@@ -402,7 +421,9 @@ class PlatformAdapter(ABC):
             result = self.get_estimated_row_count(table, conn)
             return int(result) if result is not None else 0
 
-        count_result: Any = conn.execute_aggregate(table, sa.func.count()).scalar()
+        count_result: Any = conn.execute_aggregate(
+            table, sa.func.count(), gate=True
+        ).scalar()
         # scalar() can return Any | None, so we need to handle None
         if count_result is None:
             return 0
@@ -486,35 +507,63 @@ class PlatformAdapter(ABC):
 
         return result
 
+    def get_stdev_expr(self, column: str) -> ColumnElement[Any]:
+        """
+        Sample-stddev expression. Some dialects' bare `stddev()` is population
+        stddev (MySQL, Doris, ClickHouse), so name the sample variant explicitly.
+        """
+        return sa.func.stddev_samp(sa.column(column))
+
+    def get_query_timeout_statements(self, seconds: int) -> Optional[QueryTimeout]:
+        """
+        SQL to read, set and put back a per-statement time limit on the session.
+
+        None means the platform has no session-level equivalent, in which case
+        the timeout option is ignored for it. The restore is parameterised on
+        the value read beforehand rather than resetting to DEFAULT: the session
+        may already carry a limit from init_command or a connect listener, and
+        DEFAULT would silently discard it.
+        """
+        return None
+
+    def is_query_timeout(self, e: Exception) -> bool:
+        """
+        Whether the server ended this statement because it hit the time limit.
+
+        The recovery ladder retries a failed batch in shapes that cost more --
+        a CTE re-route scans the table once per query where the flat statement
+        scanned it once -- which is worth it for a statement the server refused
+        to parse and pointless for one it ran out of time on. False is the safe
+        answer: it only means the ladder behaves as it did before.
+        """
+        return False
+
     def get_column_stdev(
         self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> Optional[Any]:
         """
         Get standard deviation for a column.
 
-        Returns the raw database result to preserve native type formatting. We use
-        `stddev_samp` explicitly (some dialects' bare `stddev()` defaults to
-        population stddev). When the dialect returns NULL we disambiguate the cause:
-          - exactly one non-null value: stddev is mathematically undefined → return None
-          - multiple rows but all-equal: zero variance → return 0.0
-          - all-null column: dialect-specific (most return None, Redshift returns 0.0)
+        Returns the raw database result to preserve native type formatting. A NULL
+        result is ambiguous; resolve_stdev_null() settles it once the non-null count
+        is known, so no extra query is issued here.
         """
-        # Some dialects' bare `stddev()` defaults to STDDEV_POP (MySQL, Doris) —
-        # calling stddev_samp explicitly keeps semantics consistent across dialects.
-        result = conn.execute_aggregate(
-            table, sa.func.stddev_samp(sa.column(column))
-        ).scalar()
-        if result is None:
-            non_null_count = self.get_column_non_null_count(table, column, conn)
-            if non_null_count == 1:
-                # Single value: stddev is mathematically undefined.
-                return None
-            if non_null_count > 1:
-                # Multiple values, all equal: zero variance.
-                return 0.0
-            # No non-null values: defer to adapter-specific behavior.
-            return self.get_stdev_null_value()
-        return result
+        return conn.execute_aggregate(table, self.get_stdev_expr(column)).scalar()
+
+    def resolve_stdev_null(self, non_null_count: Optional[int]) -> Optional[Any]:
+        """
+        Interpret a NULL stddev now that the non-null count is known:
+          - exactly one non-null value: mathematically undefined → None
+          - several, so all equal: zero variance → 0.0
+          - all-null column: dialect-specific (most None, Redshift 0.0)
+        """
+        if non_null_count is None:
+            return None
+        if non_null_count == 1:
+            return None
+        if non_null_count > 1:
+            return 0.0
+        return self.get_stdev_null_value()
 
     def get_stdev_null_value(self) -> Optional[Any]:
         """
@@ -587,8 +636,8 @@ class PlatformAdapter(ABC):
         if non_null_count == 0:
             return None
         offset = max(non_null_count // 2 - 1, 0)
-        middle_query = (
-            sa.select([sa.column(column)])
+        middle_query: Select = (
+            sa.select(sa.column(column))
             .select_from(table)
             .where(sa.column(column).is_not(None))
             .order_by(sa.column(column))
@@ -659,10 +708,10 @@ class PlatformAdapter(ABC):
                 # to be described as required by the query combiner, which is
                 # wrong: quantiles run on the main greenlet (see
                 # ProfilingConnection.execute_rows) and are never combined.
-                percentile_expr = sa.literal_column(
+                percentile_expr: Label = sa.literal_column(
                     f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {quoted_column})"
                 ).label("percentile")
-                query = sa.select([percentile_expr]).select_from(table)
+                query = sa.select(percentile_expr).select_from(table)
                 result = conn.execute_rows(query).scalar()
                 logger.debug(
                     f"Quantile {q} for {column}: result type={type(result)}, value={result}"
@@ -726,34 +775,30 @@ class PlatformAdapter(ABC):
             # Create case expression for this bucket
             if i < num_buckets - 1:
                 bucket_case_expr: Any = sa.case(
-                    [
-                        (
-                            sa.and_(
-                                sa.column(column) >= bucket_start,
-                                sa.column(column) < bucket_end,
-                            ),
-                            1,
-                        )
-                    ],
+                    (
+                        sa.and_(
+                            sa.column(column) >= bucket_start,
+                            sa.column(column) < bucket_end,
+                        ),
+                        1,
+                    ),
                     else_=0,
                 )
             else:
                 # Last bucket includes the max value
                 bucket_case_expr = sa.case(
-                    [
-                        (
-                            sa.and_(
-                                sa.column(column) >= bucket_start,
-                                sa.column(column) <= bucket_end,
-                            ),
-                            1,
-                        )
-                    ],
+                    (
+                        sa.and_(
+                            sa.column(column) >= bucket_start,
+                            sa.column(column) <= bucket_end,
+                        ),
+                        1,
+                    ),
                     else_=0,
                 )
             buckets.append(sa.func.sum(bucket_case_expr).label(f"bucket_{i}"))
 
-        query = sa.select(buckets).select_from(table)
+        query = sa.select(*buckets).select_from(table)
         # Single-row, but on the main greenlet, so not batchable regardless --
         # see ProfilingConnection.execute_rows.
         result = conn.execute_rows(query).fetchone()
@@ -789,8 +834,8 @@ class PlatformAdapter(ABC):
             List of (value, count) tuples, sorted by count descending
         """
         count_expr = sa.func.count().label("count")
-        query = (
-            sa.select([sa.column(column), count_expr])
+        query: Select = (
+            sa.select(sa.column(column), count_expr)
             .select_from(table)
             .group_by(sa.column(column))
             .order_by(count_expr.desc())
@@ -830,8 +875,8 @@ class PlatformAdapter(ABC):
             (Trino/Athena JSON) are orderable in SQL.
         """
         count_expr = sa.func.count(sa.column(column)).label("count")
-        query = (
-            sa.select([sa.column(column), count_expr])
+        query: Select = (
+            sa.select(sa.column(column), count_expr)
             .select_from(table)
             .where(sa.column(column).is_not(None))
             .group_by(sa.column(column))
@@ -877,8 +922,8 @@ class PlatformAdapter(ABC):
         Returns:
             List of sample values (may contain duplicates)
         """
-        query = (
-            sa.select([sa.column(column)])
+        query: Select = (
+            sa.select(sa.column(column))
             .select_from(table)
             .where(sa.column(column).isnot(None))
             .limit(limit)

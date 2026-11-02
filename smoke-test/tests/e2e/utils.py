@@ -259,6 +259,7 @@ def get_sleep_info() -> Tuple[int, int]:
 
 def with_test_retry(
     max_attempts: Optional[int] = None,
+    retry: Optional[tenacity.retry_base] = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator that retries with environment-based sleep settings from get_sleep_info().
@@ -269,6 +270,8 @@ def with_test_retry(
     Args:
         max_attempts: Optional maximum number of retry attempts. If not provided,
                      uses DATAHUB_TEST_SLEEP_TIMES environment variable (default 3).
+        retry: Optional tenacity retry condition. If not provided, retries on any
+               exception.
 
     Usage:
         @with_test_retry()
@@ -286,6 +289,7 @@ def with_test_retry(
     return tenacity.retry(
         stop=tenacity.stop_after_attempt(retry_count),
         wait=tenacity.wait_fixed(sleep_sec),
+        retry=retry if retry is not None else tenacity.retry_if_exception_type(),
         reraise=True,
     )
 
@@ -639,11 +643,9 @@ def _search_results_contain_urns(auth_session, urns: List[str]) -> Optional[Set[
     }
 
 
-def wait_for_ingested_urns_searchable(auth_session, filename: str) -> None:
-    """Poll GraphQL search until searchable ingested URNs are indexed."""
-    remaining: Set[str] = set(
-        searchable_ingest_urns(entity_urns_from_ingest_file(filename))
-    )
+def wait_for_urns_searchable(auth_session, urns: List[str]) -> None:
+    """Poll GraphQL search until the given catalog URNs are indexed."""
+    remaining: Set[str] = set(searchable_ingest_urns(urns))
     if not remaining:
         return
 
@@ -657,9 +659,12 @@ def wait_for_ingested_urns_searchable(auth_session, filename: str) -> None:
         if attempt < sleep_times - 1:
             time.sleep(sleep_sec)
 
-    raise AssertionError(
-        f"Entities not searchable after ingest of {filename}: {sorted(remaining)}"
-    )
+    raise AssertionError(f"Entities not searchable: {sorted(remaining)}")
+
+
+def wait_for_ingested_urns_searchable(auth_session, filename: str) -> None:
+    """Poll GraphQL search until searchable ingested URNs are indexed."""
+    wait_for_urns_searchable(auth_session, entity_urns_from_ingest_file(filename))
 
 
 def wait_for_browse_path_entities(
@@ -1017,6 +1022,8 @@ class TestSessionWrapper:
     def _wait(self, *args, **kwargs):
         if "/logIn" not in args[0]:
             logger.info("TestSessionWrapper sync wait.")
+            # Lag polls use the bootstrap admin token (register_lag_monitor_token),
+            # not this wrapper: restricted-user PATs 403 the lag endpoints.
             wait_for_writes_to_sync()
 
     @tenacity.retry(
@@ -1073,3 +1080,6 @@ class TestSessionWrapper:
             response.raise_for_status()
             # Clear the token ID after successful revocation to prevent double-call issues
             self._gms_token_id = None
+            # Only clear process env if we still own the published bootstrap token.
+            if os.environ.get("DATAHUB_GMS_TOKEN") == self._gms_token:
+                os.environ.pop("DATAHUB_GMS_TOKEN", None)

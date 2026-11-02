@@ -1,4 +1,4 @@
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -106,9 +106,13 @@ export const SummaryTab = ({
                             {tc('viewAll')}
                         </Button>
                         <Tooltip title={t('executions.downloadLogs')}>
-                            <Button variant="text" onClick={downloadLogs}>
-                                <DownloadOutlined />
-                            </Button>
+                            <Button
+                                variant="text"
+                                isCircle
+                                icon={{ icon: DownloadSimple, size: 'lg' }}
+                                aria-label={t('executions.downloadLogs')}
+                                onClick={downloadLogs}
+                            />
                         </Tooltip>
                     </ButtonGroup>
                 </SectionSubHeader>
@@ -130,9 +134,13 @@ export const SummaryTab = ({
                                 {t('executions.viewMore')}
                             </Button>
                             <Tooltip title={t('executions.downloadRecipe')}>
-                                <Button variant="text" onClick={downloadRecipe}>
-                                    <DownloadOutlined />
-                                </Button>
+                                <Button
+                                    variant="text"
+                                    isCircle
+                                    icon={{ icon: DownloadSimple, size: 'lg' }}
+                                    aria-label={t('executions.downloadRecipe')}
+                                    onClick={downloadRecipe}
+                                />
                             </Tooltip>
                         </ButtonGroup>
                     </SectionSubHeader>

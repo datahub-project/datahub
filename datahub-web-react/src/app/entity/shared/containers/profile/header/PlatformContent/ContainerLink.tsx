@@ -1,4 +1,4 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
@@ -15,7 +15,7 @@ const ContainerText = styled(Typography.Text)`
     color: ${(props) => props.theme.colors.textTertiary};
 `;
 
-const ContainerIcon = styled(FolderOpenOutlined)`
+const ContainerIcon = styled(FolderOpen)`
     color: ${(props) => props.theme.colors.textTertiary};
 
     &&& {

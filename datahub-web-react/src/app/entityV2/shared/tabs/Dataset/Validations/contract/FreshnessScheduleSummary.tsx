@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { capitalizeFirstLetter } from '@app/sharedV2/textUtil';
 import { cronToString } from '@utils/cronstrue';
 
 import { CronSchedule, FreshnessAssertionSchedule, FreshnessAssertionScheduleType } from '@types';

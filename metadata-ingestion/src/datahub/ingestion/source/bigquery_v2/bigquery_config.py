@@ -67,6 +67,9 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.getLogger(__name__)
 
+# Shared with BigQueryQueriesExtractorConfig so the two generated docs stay in sync.
+CAPTURE_JOB_LABELS_DESCRIPTION = "If enabled, capture BigQuery job labels (for example the `airflow-dag` and `airflow-task` labels set by Airflow's `BigQueryInsertJobOperator`) as custom properties on Query entities. When the same query runs with different labels, the most recently observed labels are kept."
+
 DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
 
 # Tuple (not list) so in-place mutation cannot silently drift the value used by callers.
@@ -541,6 +544,10 @@ class BigQueryV2Config(
         default=True,
         description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
     )
+    capture_job_labels_as_query_properties: bool = Field(
+        default=False,
+        description=f"{CAPTURE_JOB_LABELS_DESCRIPTION} Only applicable if `use_queries_v2` is enabled.",
+    )
 
     @property
     def have_table_data_read_permission(self) -> bool:
@@ -824,7 +831,7 @@ class BigQueryV2Config(
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         values.setdefault("options", {}).setdefault("max_overflow", -1)
 
         return values

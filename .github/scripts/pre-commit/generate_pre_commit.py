@@ -152,7 +152,7 @@ class HookGenerator:
         # Python module dirs that have a build.gradle (and thus a Gradle-managed
         # venv). These are the dirs the collapsed repo-wide ruff hooks cover.
         # Non-module .py (e.g. .github/scripts/, docker/, python-build/) is
-        # intentionally NOT covered — it had no ruff coverage before and would
+        # intentionally NOT covered - it had no ruff coverage before and would
         # fail under ruff's default rules.
         ruff_module_dirs: list[str] = []
 

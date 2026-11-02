@@ -642,6 +642,15 @@ input SearchDocumentsInput {
   domains: [String!]
 
   """
+  Optional domain-existence filter for sidebar grouping.
+  - true: only documents that have a domain assigned
+  - false: only documents with no domain (Unassigned)
+  - null / omitted: no existence filter (default)
+  When both this and `domains` are set, both conditions apply (AND).
+  """
+  hasDomain: Boolean
+
+  """
   Optional list of related asset URNs to filter by (ANDed with other filters).
   Returns documents that are related to ANY of the provided asset URNs.
   """
@@ -692,6 +701,18 @@ input SearchDocumentsInput {
   Optional sort. When omitted, defaults to createdAt descending.
   """
   sortInput: SearchSortInput
+
+  """
+  Optional list of facets to aggregate. When provided, only these facets are
+  returned (default facets are skipped) — same pattern as aggregateAcrossEntities.
+  Used by the documents sidebar Domain grouping headers.
+  """
+  facets: [String]
+
+  """
+  Optional search flags (e.g. maxAggValues for facet bucket size).
+  """
+  searchFlags: SearchFlags
 }
 
 """

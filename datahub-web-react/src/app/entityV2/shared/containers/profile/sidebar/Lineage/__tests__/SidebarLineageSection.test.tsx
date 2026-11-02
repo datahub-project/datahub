@@ -52,6 +52,7 @@ type RenderArgs = {
     contextType: TabContextType;
     operations: string[];
     searchResultLineage?: SearchResultLineageCounts | null;
+    searchResultLineageLoading?: boolean;
     entityData?: GenericEntityProperties;
     cachedTypeBreakdown?: { upstreamTotal: number; downstreamTotal: number; withFacets: boolean };
 };
@@ -60,6 +61,7 @@ function renderSection({
     contextType,
     operations,
     searchResultLineage,
+    searchResultLineageLoading,
     entityData = defaultEntityData,
     cachedTypeBreakdown,
 }: RenderArgs) {
@@ -104,37 +106,54 @@ function renderSection({
             }),
     );
 
-    return render(
-        <MockedProvider cache={cache} link={link}>
-            <TestPageContainer>
-                <EntitySidebarContext.Provider
-                    value={{
-                        width: 400,
-                        isClosed: false,
-                        setSidebarClosed: vi.fn(),
-                        searchResultLineage,
-                    }}
-                >
-                    <EntityContext.Provider
+    function SectionTree({
+        lineage,
+        lineageLoading,
+    }: {
+        lineage?: SearchResultLineageCounts | null;
+        lineageLoading?: boolean;
+    }) {
+        return (
+            <MockedProvider cache={cache} link={link}>
+                <TestPageContainer>
+                    <EntitySidebarContext.Provider
                         value={{
-                            urn: URN,
-                            entityType: EntityType.Dataset,
-                            entityData,
-                            loading: false,
-                            baseEntity: null,
-                            updateEntity: vi.fn(),
-                            routeToTab: vi.fn(),
-                            refetch: vi.fn(),
-                            lineage: undefined,
-                            dataNotCombinedWithSiblings: null,
+                            width: 400,
+                            isClosed: false,
+                            setSidebarClosed: vi.fn(),
+                            searchResultLineage: lineage,
+                            searchResultLineageLoading: lineageLoading,
                         }}
                     >
-                        <SidebarLineageSection contexType={contextType} />
-                    </EntityContext.Provider>
-                </EntitySidebarContext.Provider>
-            </TestPageContainer>
-        </MockedProvider>,
-    );
+                        <EntityContext.Provider
+                            value={{
+                                urn: URN,
+                                entityType: EntityType.Dataset,
+                                entityData,
+                                loading: false,
+                                baseEntity: null,
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarLineageSection contexType={contextType} />
+                        </EntityContext.Provider>
+                    </EntitySidebarContext.Provider>
+                </TestPageContainer>
+            </MockedProvider>
+        );
+    }
+
+    const view = render(<SectionTree lineage={searchResultLineage} lineageLoading={searchResultLineageLoading} />);
+
+    return {
+        ...view,
+        rerenderLineage: (lineage?: SearchResultLineageCounts | null, lineageLoading?: boolean) =>
+            view.rerender(<SectionTree lineage={lineage} lineageLoading={lineageLoading} />),
+    };
 }
 
 function lineageOperations(operations: string[]) {
@@ -233,6 +252,50 @@ describe('SidebarLineageSection', () => {
 
         expect(await screen.findByText(textContent('Depends on 2 assets'))).toBeInTheDocument();
         expect(lineageOperations(operations)).toEqual(['getLineageCounts']);
+    });
+
+    it('waits for page-level lineage counts then renders them without a per-URN fetch', async () => {
+        const operations: string[] = [];
+        const { rerenderLineage } = renderSection({
+            contextType: TabContextType.SEARCH_SIDEBAR,
+            operations,
+            searchResultLineageLoading: true,
+        });
+
+        expect(screen.queryByText('Lineage')).not.toBeInTheDocument();
+        expect(screen.queryByText('UPSTREAM')).not.toBeInTheDocument();
+        expect(screen.queryByText('DOWNSTREAM')).not.toBeInTheDocument();
+        expect(lineageOperations(operations)).toEqual([]);
+
+        rerenderLineage(
+            {
+                urn: URN,
+                upstream: { filtered: 0, total: 2 },
+                downstream: { filtered: 0, total: 3 },
+            },
+            false,
+        );
+
+        expect(await screen.findByText(textContent('Depends on 2 assets'))).toBeInTheDocument();
+        expect(screen.getByText(textContent('Used by 3 assets'))).toBeInTheDocument();
+        expect(lineageOperations(operations)).toEqual([]);
+    });
+
+    it('stays hidden when the settled counts are zero', async () => {
+        const operations: string[] = [];
+        renderSection({
+            contextType: TabContextType.SEARCH_SIDEBAR,
+            operations,
+            searchResultLineage: {
+                urn: URN,
+                upstream: { filtered: 0, total: 0 },
+                downstream: { filtered: 0, total: 0 },
+            },
+        });
+
+        await waitFor(() => expect(lineageOperations(operations)).toEqual([]));
+        expect(screen.queryByText('Lineage')).not.toBeInTheDocument();
+        expect(screen.queryByText('UPSTREAM')).not.toBeInTheDocument();
     });
 
     it('renders nothing for combined sibling entities', async () => {

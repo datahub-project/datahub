@@ -37,7 +37,7 @@ jobs:
     # Must be a GitHub-hosted runner: the whole point is writing to the GitHub
     # Actions cache. Depot runners use Depot Cache, which GitHub-hosted PR jobs
     # cannot read.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       UV_CACHE_DIR: /tmp/.uv-cache/
       DATAHUB_TELEMETRY_ENABLED: false
@@ -99,7 +99,7 @@ jobs:
   warm-smoke-test-lint-cache:
     name: Warm smoke-test lint uv cache
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       UV_CACHE_DIR: /tmp/.uv-cache/
       DATAHUB_TELEMETRY_ENABLED: false
@@ -143,7 +143,7 @@ jobs:
   warm-web-yarn-cache:
     name: Warm datahub-web-react yarn cache
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -184,7 +184,7 @@ jobs:
   warm-playwright-yarn-cache:
     name: Warm playwright lint yarn cache
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -219,7 +219,7 @@ jobs:
   warm-docs-website-yarn-cache:
     name: Warm docs-website yarn cache
     if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7

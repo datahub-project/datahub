@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
+from datahub.ingestion.agent.sql_passthrough import QueryBudget
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres.source import PostgresConfig
 
@@ -301,16 +302,18 @@ def test_the_unverified_warning_is_not_repeated_per_connection(
 def test_the_probes_engine_gets_the_same_listener(factory, monkeypatch):
     """The reason this moved.
 
-    `probe_prepare_engine` is a config method, so while the listener lived on the
-    Source the probe had no way to install it: an AWS_IAM recipe could not be
-    probed at all, because the password is a per-connection token and a bare
-    create_engine() has no credential to offer.
+    The probe's engine setup (probe_engine_settings) is a config method, so
+    while the listener lived on the Source the probe had no way to install it:
+    an AWS_IAM recipe could not be probed at all, because the password is a
+    per-connection token and a bare create_engine() has no credential to offer.
     """
     config = factory(**_IAM)
     _stub_manager(monkeypatch)
     registered = _capture(monkeypatch)
 
-    config.probe_prepare_engine(object())
+    prepare = config.probe_engine_settings(QueryBudget(timeout_seconds=None)).prepare
+    assert prepare is not None
+    prepare(object())
 
     assert [name for _, name, _ in registered] == ["do_connect"]
     cparams: Dict[str, Any] = {}
@@ -321,7 +324,8 @@ def test_the_probes_engine_gets_the_same_listener(factory, monkeypatch):
 @pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
 def test_probing_a_password_recipe_installs_nothing(factory, monkeypatch):
     registered = _capture(monkeypatch)
-    factory().probe_prepare_engine(object())
+    prepare = factory().probe_engine_settings(QueryBudget(timeout_seconds=None)).prepare
+    assert prepare is None
     assert registered == []
 
 

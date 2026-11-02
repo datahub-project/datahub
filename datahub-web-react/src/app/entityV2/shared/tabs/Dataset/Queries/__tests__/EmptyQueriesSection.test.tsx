@@ -26,10 +26,10 @@ const renderWithProviders = (ui: React.ReactElement) =>
     );
 
 describe('EmptyQueriesSection', () => {
-    it('should render default empty text when emptyText is not provided', () => {
+    it('should not render the removed default empty sentence', () => {
         renderWithProviders(<EmptyQueriesSection showButton={false} />);
 
-        expect(screen.getByText('No highlighted queries yet')).toBeInTheDocument();
+        expect(screen.queryByText('No highlighted queries yet')).not.toBeInTheDocument();
     });
 
     it('should render custom emptyText when provided', () => {
@@ -41,7 +41,6 @@ describe('EmptyQueriesSection', () => {
         );
 
         expect(screen.getByText("You don't have permission to view queries for this dataset.")).toBeInTheDocument();
-        expect(screen.queryByText('No highlighted queries yet')).not.toBeInTheDocument();
     });
 
     it('should render section name when provided', () => {

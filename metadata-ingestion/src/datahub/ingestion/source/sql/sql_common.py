@@ -7,10 +7,13 @@ from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Dict,
     Iterable,
     List,
+    Mapping,
     Optional,
+    Sequence,
     Set,
     Tuple,
     Type,
@@ -20,9 +23,11 @@ from typing import (
 
 import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
+from sqlalchemy.engine import make_url
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.engine.row import LegacyRow
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.engine.row import Row
+from sqlalchemy.exc import NoSuchTableError, ProgrammingError
+from sqlalchemy.pool import Pool, QueuePool
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
@@ -210,7 +215,7 @@ def get_column_type(
     sql_report: SQLSourceReport, dataset_name: str, column_type: Any
 ) -> SchemaFieldDataTypeClass:
     """
-    Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
+    Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/20/core/type_basics.html) to corresponding schema types
     """
 
     TypeClass: Optional[Type] = None
@@ -240,8 +245,8 @@ def get_schema_metadata(
     sql_report: SQLSourceReport,
     dataset_name: str,
     platform: str,
-    columns: List[dict],
-    pk_constraints: Optional[dict] = None,
+    columns: Sequence[Mapping[str, Any]],
+    pk_constraints: Optional[Mapping[str, Any]] = None,
     foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None,
     canonical_schema: Optional[List[SchemaFieldClass]] = None,
     simplify_nested_field_paths: bool = False,
@@ -272,6 +277,42 @@ config_options_to_report = [
     "include_views",
     "include_tables",
 ]
+
+
+def _pool_accepts_sizing_options(url: str, options: Dict[str, Any]) -> bool:
+    """Whether the engine's pool will accept QueuePool sizing options.
+
+    `max_overflow` is a QueuePool-only parameter. Any other pool -- NullPool,
+    StaticPool, SingletonThreadPool (in-memory SQLite, Teradata's default) --
+    makes `create_engine()` raise `TypeError: Invalid argument(s) 'max_overflow'`.
+
+    An explicit `poolclass` in the engine options wins over the dialect default,
+    since that is the pool `create_engine()` will actually build.
+
+    If the dialect cannot be resolved, for example because its driver is not
+    installed in this environment, assume it pools. That preserves the previous
+    behaviour for every dialect this check cannot positively rule out.
+    """
+    explicit = options.get("poolclass")
+    if explicit is not None:
+        return isinstance(explicit, type) and issubclass(explicit, QueuePool)
+    try:
+        parsed_url = make_url(url)
+        # get_pool_class is declared on DefaultDialect rather than on the
+        # Dialect interface that get_dialect() is typed as returning, so
+        # resolve it defensively.
+        get_pool_class = getattr(parsed_url.get_dialect(), "get_pool_class", None)
+        if get_pool_class is None:
+            return True
+        pool_class = get_pool_class(parsed_url)
+    except Exception:
+        logger.debug(
+            "Could not resolve the pool class for this connection; "
+            "assuming QueuePool sizing options are supported.",
+            exc_info=True,
+        )
+        return True
+    return issubclass(pool_class, QueuePool)
 
 
 @dataclass
@@ -366,11 +407,23 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.aggregator = self._create_aggregator()
         self.report.sql_aggregator = self.aggregator.report
 
+    # Pool class to default `poolclass` to when profiling is enabled. Sources whose
+    # dialect defaults to a pool that cannot serve parallel connections (for
+    # example Teradata's SingletonThreadPool) set this to QueuePool. It is a
+    # default: a `poolclass` in the user's options still wins.
+    _profiling_pool_class: ClassVar[Optional[Type[Pool]]] = None
+
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
         """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
+        if not sql_config.is_profiling_enabled():
+            return
+        if self._profiling_pool_class is not None:
+            sql_config.options.setdefault("poolclass", self._profiling_pool_class)
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.is_profiling_enabled():
+        # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        if _pool_accepts_sizing_options(
+            sql_config.get_sql_alchemy_url(), sql_config.options
+        ):
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
             )
@@ -667,7 +720,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_urn: str,
         schema: str,
-        fk_dict: Dict[str, str],
+        fk_dict: Mapping[str, Any],
         inspector: Inspector,
     ) -> ForeignKeyConstraintClass:
         referred_schema: Optional[str] = fk_dict.get("referred_schema")
@@ -812,7 +865,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         dataset_snapshot.aspects.append(dataset_properties)
 
         extra_tags = self.get_extra_tags(inspector, schema, table)
-        pk_constraints: dict = inspector.get_pk_constraint(table, schema)
+        pk_constraints: Mapping[str, Any] = inspector.get_pk_constraint(table, schema)
         partitions: Optional[List[str]] = self.get_partitions(inspector, schema, table)
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
         schema_fields = self.get_schema_fields(
@@ -970,7 +1023,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
 
         description = table_info.get("text")
-        if isinstance(description, LegacyRow):
+        if isinstance(description, Row):
             # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
             description = table_info["text"][0]
 
@@ -997,8 +1050,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
-    ) -> List[dict]:
-        columns = []
+    ) -> Sequence[Mapping[str, Any]]:
+        columns: Sequence[Mapping[str, Any]] = []
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
@@ -1067,9 +1120,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_schema_fields(
         self,
         dataset_name: str,
-        columns: List[dict],
+        columns: Sequence[Mapping[str, Any]],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaFieldClass]:
@@ -1092,9 +1145,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: dict,
+        column: Mapping[str, Any],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaFieldClass]:
@@ -1139,7 +1192,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
-            for view in inspector.get_view_names(schema):
+            for view in self._get_view_names(inspector, schema):
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
                 )
@@ -1172,12 +1225,27 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
 
+    def _get_view_names(self, inspector: Inspector, schema: str) -> List[str]:
+        """Names of the views loop_views ingests. Override to add view-like
+        objects the dialect lists separately (e.g. materialized views)."""
+        return inspector.get_view_names(schema)
+
     def _get_view_definition(self, inspector: Inspector, schema: str, view: str) -> str:
         try:
             view_definition = inspector.get_view_definition(view, schema)
             # Some dialects return a TextClause instead of a raw string, so we need to convert them to a string.
             return str(view_definition) if view_definition else ""
         except NotImplementedError:
+            return ""
+        except NoSuchTableError:
+            # SA 2.0 dialects (e.g. Oracle, Postgres) raise this when the
+            # catalog has no view text, where 1.4 returned None. The view was
+            # already enumerated and its columns reflected, so keep 1.4's
+            # behaviour of emitting it without a definition instead of letting
+            # loop_views drop it as "Error processing view".
+            logger.debug(
+                f"No view definition available for {schema}.{view}", exc_info=True
+            )
             return ""
 
     def get_view_default_db_schema(

@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { Entity, EntityType, PropertyValue } from '@types';
 
@@ -90,6 +90,13 @@ export const handleBatchError = (urns, e, defaultMessage) => {
             content: i18next.t('shared.error:bulkEditUnauthorized'),
             duration: 3,
         };
+    }
+    if (getGraphqlErrorCode(e) === 400) {
+        // Other 400 messages may carry server internals, so only VALIDATION ones are shown verbatim.
+        const firstError = e.graphQLErrors?.[0];
+        if (firstError?.extensions?.errorSource === 'VALIDATION' && firstError?.message) {
+            return { content: firstError.message, duration: 3 };
+        }
     }
     return defaultMessage;
 };

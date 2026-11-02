@@ -1,8 +1,9 @@
-import { CodeBlock } from '@components';
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { CodeBlock } from '@components/components/CodeBlock';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';

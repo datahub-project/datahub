@@ -1,8 +1,11 @@
 import { red } from '@ant-design/colors';
-import { DeleteOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
+import { Button as AlchemyButton, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button, Form, Input } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
@@ -20,7 +23,7 @@ const StyledButton = styled(Button)`
     width: calc(100% - 72px);
 `;
 
-export const StyledQuestion = styled(QuestionCircleOutlined)`
+export const StyledQuestion = styled(Question)`
     color: rgba(0, 0, 0, 0.45);
     margin-left: 4px;
 `;
@@ -42,7 +45,7 @@ const FieldsWrapper = styled.div`
     flex: 1;
 `;
 
-const StyledDeleteButton = styled(Button)`
+const DeleteButton = styled(AlchemyButton)`
     margin-left: 10px;
 `;
 
@@ -57,6 +60,8 @@ interface Props {
 }
 
 export default function DictField({ field, removeMargin }: Props) {
+    const { t } = useTranslation('common.actions');
+
     return (
         <Form.List name={field.name} rules={field.rules || undefined}>
             {(fields, { add, remove }, { errors }) => (
@@ -96,12 +101,17 @@ export default function DictField({ field, removeMargin }: Props) {
                                     </StyledFormItem>
                                 ))}
                             </FieldsWrapper>
-                            <StyledDeleteButton onClick={() => remove(name)} type="text" shape="circle" danger>
-                                <DeleteOutlined />
-                            </StyledDeleteButton>
+                            <DeleteButton
+                                variant="text"
+                                isCircle
+                                color="red"
+                                icon={{ icon: Trash, size: 'lg' }}
+                                aria-label={t('remove')}
+                                onClick={() => remove(name)}
+                            />
                         </SectionWrapper>
                     ))}
-                    <StyledButton type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
+                    <StyledButton type="dashed" onClick={() => add()} icon={<Plus />}>
                         {field.buttonLabel}
                     </StyledButton>
                     <ErrorWrapper>{errors}</ErrorWrapper>

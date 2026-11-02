@@ -4,6 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getAssertionSummaryCardHeaderByStatus } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
 import { buildAssertionUrlSearch } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
@@ -53,7 +54,7 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                 const url = `${entityRegistry.getEntityUrl(
                     EntityType.Dataset,
                     entityData.urn,
-                )}/Quality/List${buildAssertionUrlSearch({ type: group.type, status: status.resultType })}`;
+                )}/${EntityTabPath.QUALITY}/List${buildAssertionUrlSearch({ type: group.type, status: status.resultType })}`;
                 return (
                     <Tooltip
                         key={status.text}

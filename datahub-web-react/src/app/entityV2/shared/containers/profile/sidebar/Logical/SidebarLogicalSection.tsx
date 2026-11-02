@@ -148,6 +148,7 @@ export default function SidebarLogicalSection() {
             {physicalChildrenSection}
             {showAllChildren && (
                 <EmbeddedListSearchModal
+                    applyView
                     title={t('sidebar.logical.viewAllChildren')}
                     fixedFilters={{
                         unionType: UnionType.OR,

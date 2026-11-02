@@ -1,4 +1,3 @@
-import { EditOutlined } from '@ant-design/icons';
 import { FetchResult } from '@apollo/client';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Typography, message } from 'antd';
@@ -11,7 +10,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 import { Button } from '@src/alchemy-components';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
@@ -29,7 +28,7 @@ const DIFF_REMOVED_BG = '#ffa39e99';
 const DIFF_REMOVED_BG_HOVER = '#ffa39eaa';
 /* eslint-enable rulesdir/no-hardcoded-colors */
 
-const EditIcon = styled(EditOutlined)`
+const EditIcon = styled(PencilSimple)`
     cursor: pointer;
     display: none;
 `;
@@ -100,7 +99,8 @@ const AttributeDescription = styled.div`
 const StyledAttributeViewer = styled(Editor)`
     padding-right: 8px;
     display: block;
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
         color: ${(props) => props.theme.colors.textTertiary};
     }
