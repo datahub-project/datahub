@@ -6,6 +6,11 @@ from pydantic import field_validator, model_validator
 from ruamel.yaml import YAML
 
 import datahub.emitter.mce_builder as builder
+from datahub.api.entities.dataproduct.dataproduct import (
+    InstitutionMemory,
+    InstitutionMemoryElement,
+    Ownership,
+)
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -23,36 +28,40 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
 )
 from datahub.specific.domain import DomainPatchBuilder
-from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.urns.urn import Urn
 
 
-class Ownership(ConfigModel):
-    id: str
-    type: str
-
-    @field_validator("type", mode="after")
-    @classmethod
-    def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
-        _, _ = builder.validate_ownership_type(v)
-        return v
-
-
-class InstitutionMemoryElement(ConfigModel):
-    url: str
-    description: str
+def _parse_domain_urn(value: str, field: str) -> str:
+    try:
+        urn = Urn.from_string(value)
+    except Exception as e:
+        # Re-raise as ValueError; pydantic only wraps
+        # ValueError/TypeError/AssertionError into ValidationError.
+        raise ValueError(f"{field} {value!r} is not a valid URN: {e}") from e
+    if urn.entity_type != "domain":
+        raise ValueError(f"{field} {value!r} is not a domain URN")
+    return urn.urn()
 
 
-class InstitutionMemory(ConfigModel):
-    elements: Optional[List[InstitutionMemoryElement]] = None
+def _resolve_parent_domain_name(name: str, graph: DataHubGraph) -> str:
+    # Same order as DomainRegistry: an existing domain id first, then a
+    # display-name lookup. Unlike DomainRegistry, ids shaped like UUIDs are
+    # not passed through unresolved.
+    candidate = f"urn:li:domain:{name}"
+    if graph.get_aspect(candidate, DomainPropertiesClass):
+        return candidate
+    urn = graph.get_domain_urn_by_name(name)
+    if urn is None:
+        raise ValueError(f"Parent domain {name!r} was not found in DataHub.")
+    return urn
 
 
 class Domain(ConfigModel):
     """A DataHub Domain that can be round-tripped to and from YAML.
 
-    ``parent_domain`` accepts a display name or a fully-qualified URN.
-    Name references are resolved through :class:`DomainRegistry`, so
-    the resulting MCP stream always emits canonical URNs.
+    ``parent_domain`` accepts a display name, a domain id or a
+    fully-qualified URN. Names are resolved against DataHub in
+    :meth:`from_yaml`, so the MCP stream always emits canonical URNs.
     """
 
     id: str
@@ -70,12 +79,7 @@ class Domain(ConfigModel):
         if not v:
             raise ValueError("id cannot be empty")
         if v.startswith("urn:li:"):
-            try:
-                Urn.from_string(v)
-            except Exception as e:
-                # Re-raise as ValueError; pydantic only wraps
-                # ValueError/TypeError/AssertionError into ValidationError.
-                raise ValueError(f"id {v!r} is not a valid URN: {e}") from e
+            _parse_domain_urn(v, "id")
         return v
 
     @property
@@ -86,10 +90,10 @@ class Domain(ConfigModel):
 
     @model_validator(mode="after")
     def _resolve_urn_parent_domain(self) -> "Domain":
-        # Skip the DomainRegistry round-trip when the caller already
-        # provided a fully-qualified URN.
-        if self.parent_domain and self.parent_domain.startswith("urn:li:domain:"):
-            self._resolved_parent_domain_urn = self.parent_domain
+        if self.parent_domain and self.parent_domain.startswith("urn:li:"):
+            self._resolved_parent_domain_urn = _parse_domain_urn(
+                self.parent_domain, "parent_domain"
+            )
         return self
 
     def _mint_auditstamp(self, message: str) -> AuditStampClass:
@@ -192,9 +196,8 @@ class Domain(ConfigModel):
     ) -> "Domain":
         """Load a Domain from a YAML file.
 
-        ``graph`` is required when ``parent_domain`` is a display name
-        rather than a URN — used to resolve the name via
-        :class:`DomainRegistry`.
+        ``graph`` is required when ``parent_domain`` is a name or id
+        rather than a URN.
         """
         with open(file) as fp:
             yaml = YAML(typ="rt")
@@ -203,7 +206,7 @@ class Domain(ConfigModel):
 
             if (
                 parsed_domain.parent_domain
-                and not parsed_domain.parent_domain.startswith("urn:li:domain:")
+                and not parsed_domain.parent_domain.startswith("urn:li:")
             ):
                 if graph is None:
                     raise ValueError(
@@ -212,11 +215,8 @@ class Domain(ConfigModel):
                         "was provided to resolve it. Pass a graph or use a fully-"
                         "qualified urn:li:domain:... value."
                     )
-                registry = DomainRegistry(
-                    cached_domains=[parsed_domain.parent_domain], graph=graph
-                )
-                parsed_domain._resolved_parent_domain_urn = registry.get_domain_urn(
-                    parsed_domain.parent_domain
+                parsed_domain._resolved_parent_domain_urn = _resolve_parent_domain_name(
+                    parsed_domain.parent_domain, graph
                 )
 
             parsed_domain._original_yaml_dict = orig_dictionary
@@ -241,12 +241,29 @@ class Domain(ConfigModel):
                 else:
                     yaml_owners.append(Ownership(id=o.owner, type=str(o.type)))
 
+        memory_aspect: Optional[InstitutionalMemoryClass] = graph.get_aspect(
+            id, InstitutionalMemoryClass
+        )
+        institutional_memory = (
+            InstitutionMemory(
+                elements=[
+                    InstitutionMemoryElement(
+                        url=element.url, description=element.description
+                    )
+                    for element in memory_aspect.elements
+                ]
+            )
+            if memory_aspect and memory_aspect.elements
+            else None
+        )
+
         return Domain(
             id=id,
             display_name=properties.name,
             description=properties.description,
             parent_domain=properties.parentDomain,
             owners=yaml_owners,
+            institutional_memory=institutional_memory,
         )
 
     def to_yaml(self, file: Path) -> None:

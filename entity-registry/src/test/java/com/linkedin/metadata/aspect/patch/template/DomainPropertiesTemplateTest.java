@@ -67,4 +67,28 @@ public class DomainPropertiesTemplateTest {
     Assert.assertEquals(result.getName(), "Campaigns");
     Assert.assertFalse(result.hasParentDomain());
   }
+
+  @Test
+  public void testFirstCustomPropertyOnDefault() throws Exception {
+    DomainPropertiesTemplate template = new DomainPropertiesTemplate();
+
+    JsonPatch patch =
+        Json.createPatch(
+            Json.createArrayBuilder()
+                .add(
+                    Json.createObjectBuilder()
+                        .add("op", "add")
+                        .add("path", "/name")
+                        .add("value", "Marketing"))
+                .add(
+                    Json.createObjectBuilder()
+                        .add("op", "add")
+                        .add("path", "/customProperties/team")
+                        .add("value", "growth"))
+                .build());
+
+    DomainProperties result = template.applyPatch(template.getDefault(), patch);
+
+    Assert.assertEquals(result.getCustomProperties().get("team"), "growth");
+  }
 }

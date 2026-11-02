@@ -62,9 +62,9 @@ class DomainPatchBuilder(
     def set_parent_domain(self, parent_domain_urn: str) -> "DomainPatchBuilder":
         """Move this Domain under ``parent_domain_urn``.
 
-        Pass an empty string to promote this Domain to top-level. The
-        patch builder only emits ``add`` operations against this path,
-        so the "clear" case is modelled as an explicit ``remove``.
+        Pass an empty string to promote this Domain to top-level. That emits
+        a JSON Patch ``remove``, which fails if the Domain has no parent, so
+        only clear a parent that is set.
         """
         if parent_domain_urn:
             self._add_patch(

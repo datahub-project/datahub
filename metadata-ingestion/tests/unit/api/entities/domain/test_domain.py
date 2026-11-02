@@ -4,10 +4,14 @@ from typing import Any, Dict, cast
 
 import pytest
 
-from datahub.api.entities.domain.domain import Domain, Ownership
+from datahub.api.entities.dataproduct.dataproduct import Ownership
+from datahub.api.entities.domain.domain import Domain
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DomainPropertiesClass,
+    InstitutionalMemoryClass,
+    InstitutionalMemoryMetadataClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -95,7 +99,7 @@ def test_domain_from_yaml_emits_full_snapshot(
 # ---------------------------------------------------------------------------
 
 
-def test_domain_resolves_parent_by_name_via_registry(
+def test_domain_resolves_parent_by_name(
     test_resources_dir: Path, base_mock_graph: MockDataHubGraph
 ) -> None:
     domain = Domain.from_yaml(test_resources_dir / "domain_child.yaml", base_mock_graph)
@@ -111,6 +115,27 @@ def test_domain_resolves_parent_by_name_via_registry(
         ],
     )
     assert properties.parentDomain == "urn:li:domain:12345"
+
+
+def test_domain_resolves_parent_name_with_four_hyphens(tmp_path: Path) -> None:
+    """``DomainRegistry`` passes names with four hyphens through unresolved,
+    which would write a bare name into the URN-typed ``parentDomain``."""
+    graph = MockDataHubGraph(
+        entity_graph={
+            "urn:li:domain:abc": {
+                "domainProperties": DomainPropertiesClass(name="eu-west-1-sales-ops")
+            }
+        }
+    )
+    yaml_file = tmp_path / "child.yaml"
+    yaml_file.write_text("id: child\nparent_domain: eu-west-1-sales-ops\n")
+    assert Domain.from_yaml(yaml_file, graph)._resolved_parent_domain_urn == (
+        "urn:li:domain:abc"
+    )
+
+    yaml_file.write_text("id: child\nparent_domain: missing-a-b-c-d\n")
+    with pytest.raises(ValueError, match="not found"):
+        Domain.from_yaml(yaml_file, graph)
 
 
 def test_domain_parent_by_name_requires_graph(test_resources_dir: Path) -> None:
@@ -193,6 +218,32 @@ def test_domain_from_datahub_translates_custom_ownership_type() -> None:
             type="urn:li:ownershipType:dataSteward",
         )
     ]
+
+
+def test_domain_from_datahub_reads_institutional_memory() -> None:
+    graph = MockDataHubGraph(
+        entity_graph={
+            "urn:li:domain:abc": {
+                "domainProperties": DomainPropertiesClass(name="ABC"),
+                "institutionalMemory": InstitutionalMemoryClass(
+                    elements=[
+                        InstitutionalMemoryMetadataClass(
+                            url="https://wiki.example.com/abc",
+                            description="Runbook",
+                            createStamp=AuditStampClass(
+                                time=0, actor="urn:li:corpuser:datahub"
+                            ),
+                        )
+                    ]
+                ),
+            }
+        }
+    )
+    domain = Domain.from_datahub(graph, id="urn:li:domain:abc")
+    assert domain.institutional_memory is not None
+    assert [
+        (e.url, e.description) for e in domain.institutional_memory.elements or []
+    ] == [("https://wiki.example.com/abc", "Runbook")]
 
 
 def test_domain_from_datahub_raises_when_no_properties() -> None:
@@ -303,6 +354,20 @@ def test_domain_rejects_empty_id() -> None:
 def test_domain_rejects_malformed_urn_id() -> None:
     with pytest.raises(ValueError):
         Domain(id="urn:li:not-a-real-thing", display_name="X")
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"id": "urn:li:corpuser:jdoe"},
+        {"id": "x", "parent_domain": "urn:li:glossaryTerm:Revenue"},
+        {"id": "x", "parent_domain": "urn:li:domain"},
+        {"id": "x", "owners": [{"id": "jdoe", "type": "urn:li:"}]},
+    ],
+)
+def test_domain_rejects_non_domain_or_malformed_urns(kwargs: Dict[str, Any]) -> None:
+    with pytest.raises(ValueError):
+        Domain.model_validate(kwargs)
 
 
 def test_domain_invalid_owner_type_rejected() -> None:

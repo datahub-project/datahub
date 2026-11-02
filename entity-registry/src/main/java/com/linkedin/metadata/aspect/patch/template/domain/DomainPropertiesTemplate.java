@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.patch.template.domain;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.metadata.aspect.patch.template.Template;
 import javax.annotation.Nonnull;
@@ -24,7 +25,9 @@ public class DomainPropertiesTemplate implements Template<DomainProperties> {
   @Nonnull
   @Override
   public DomainProperties getDefault() {
-    return new DomainProperties();
+    DomainProperties domainProperties = new DomainProperties();
+    domainProperties.setCustomProperties(new StringMap());
+    return domainProperties;
   }
 
   @Nonnull

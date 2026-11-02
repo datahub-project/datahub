@@ -6,46 +6,23 @@ import click
 from click_default_group import DefaultGroup
 
 from datahub.api.entities.domain.domain import Domain
-from datahub.emitter.mce_builder import (
-    make_group_urn,
-    make_user_urn,
-    validate_ownership_type,
+from datahub.cli.specific.dataproduct_cli import (
+    _abort_if_non_existent_urn,
+    _get_owner_urn,
 )
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.emitter.mce_builder import validate_ownership_type
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.metadata.schema_classes import OwnerClass, OwnershipTypeClass
+from datahub.metadata.schema_classes import (
+    DomainPropertiesClass,
+    OwnerClass,
+    OwnershipTypeClass,
+)
 from datahub.specific.domain import DomainPatchBuilder
 from datahub.upgrade import upgrade
-from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
-
-
-def _get_owner_urn(maybe_urn: str) -> str:
-    """Return ``maybe_urn`` if it's already a corpuser/corpGroup URN,
-    otherwise mint a corpuser URN."""
-    if make_user_urn(maybe_urn) == maybe_urn or make_group_urn(maybe_urn) == maybe_urn:
-        return maybe_urn
-    if maybe_urn.startswith("urn:li:"):
-        raise Exception(
-            f"Owner urn {maybe_urn} not recognized as one of the supported types (corpuser, corpGroup)"
-        )
-    return make_user_urn(maybe_urn)
-
-
-def _abort_if_non_existent_urn(graph: DataHubGraph, urn: str, operation: str) -> None:
-    try:
-        parsed_urn: Urn = Urn.from_string(urn)
-        entity_type = parsed_urn.get_type()
-    except Exception:
-        click.secho(f"Provided urn {urn} does not seem valid", fg="red")
-        raise click.Abort() from None
-    if not graph.exists(urn):
-        click.secho(
-            f"{entity_type.title()} {urn} does not exist. Will not {operation}.",
-            fg="red",
-        )
-        raise click.Abort()
 
 
 def _normalize_domain_urn(urn: str) -> str:
@@ -65,8 +42,18 @@ def _mutate(file: Path, upsert: bool) -> None:
         if upsert and not graph.exists(loaded.urn):
             logger.info(f"Domain {loaded.urn} does not exist, will create.")
             upsert = False
+        existing = (
+            None if upsert else graph.get_aspect(loaded.urn, DomainPropertiesClass)
+        )
         try:
             for mcp in loaded.generate_mcp(upsert=upsert):
+                # A full replace must not wipe the server-set creation stamp.
+                if (
+                    existing
+                    and isinstance(mcp, MetadataChangeProposalWrapper)
+                    and isinstance(mcp.aspect, DomainPropertiesClass)
+                ):
+                    mcp.aspect.created = existing.created
                 graph.emit(mcp)
             click.secho(f"Update succeeded for urn {loaded.urn}.", fg="green")
         except Exception as e:
@@ -88,7 +75,8 @@ def upsert(file: Path) -> None:
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @upgrade.check_upgrade
 def update(file: Path) -> None:
-    """Create or fully replace a Domain in DataHub."""
+    """Create a Domain, or overwrite the aspects the YAML sets. Aspects the YAML
+    omits (owners, links) are left as they are; use upsert for partial updates."""
     _mutate(file, upsert=False)
 
 
@@ -206,6 +194,12 @@ def set_parent(urn: str, parent: str) -> None:
         _abort_if_non_existent_urn(graph, urn, "set parent")
         if parent_urn:
             _abort_if_non_existent_urn(graph, parent_urn, "set parent")
+        else:
+            current = graph.get_aspect(urn, DomainPropertiesClass)
+            # JSON Patch rejects removing a field that isn't there.
+            if not current or not current.parentDomain:
+                click.secho(f"Domain {urn} is already a top-level domain.")
+                return
         for mcp in patch.build():
             graph.emit(mcp)
 
