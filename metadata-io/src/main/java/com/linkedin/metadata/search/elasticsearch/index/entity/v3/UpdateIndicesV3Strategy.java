@@ -483,9 +483,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             .collect(Collectors.toList());
     for (String runId : distinctRunIds) {
       if (fillTarget != null) {
-        elasticSearchService.appendRunIdByIndexName(opContext, fillTarget, docId, urn, runId);
+        elasticSearchService.appendRunIdByIndexName(opContext, fillTarget, docId, runId);
       } else {
-        elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
+        elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, runId);
       }
     }
 
@@ -508,8 +508,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
           elasticSearchService.upsertDocumentByIndexName(
               opContext, oldBackingIndex, finalDocument, docId);
           for (String runId : distinctRunIds) {
-            elasticSearchService.appendRunIdByIndexName(
-                opContext, oldBackingIndex, docId, urn, runId);
+            elasticSearchService.appendRunIdByIndexName(opContext, oldBackingIndex, docId, runId);
           }
         });
     return mirrored.map(List::of).orElse(List.of());

@@ -448,25 +448,19 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   /**
-   * Appends a run ID to the runId list on a document in a V3 search group index. Used by
-   * MAE-consumer when updating the search index so runId is written in the same bulk batch as the
-   * document.
+   * Appends a run ID to the runId list on an existing document in a V3 search group index. Used by
+   * MAE-consumer after it writes the document, in the same bulk batch. It never creates the
+   * document: a document holding only run ids would block a fill that writes only absent ones.
    */
   public void appendRunIdBySearchGroup(
       @Nonnull OperationContext opContext,
       @Nonnull String searchGroup,
       @Nonnull String docId,
-      @Nonnull Urn urn,
       @Nullable String runId) {
     log.debug(
         "Appending run id for searchGroup '{}', docId='{}', runId='{}'", searchGroup, docId, runId);
     esWriteDAO.applyScriptUpdateBySearchGroup(
-        opContext,
-        searchGroup,
-        docId,
-        SCRIPT_SOURCE,
-        runIdScriptParams(runId),
-        runIdUpsert(urn, runId));
+        opContext, searchGroup, docId, SCRIPT_SOURCE, runIdScriptParams(runId), null);
   }
 
   /**
@@ -478,23 +472,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull String docId,
-      @Nonnull Urn urn,
       @Nullable String runId) {
     log.debug("Appending run id for index '{}', docId='{}', runId='{}'", indexName, docId, runId);
     esWriteDAO.applyScriptUpdateByIndexName(
-        opContext,
-        indexName,
-        docId,
-        SCRIPT_SOURCE,
-        runIdScriptParams(runId),
-        runIdUpsert(urn, runId));
-  }
-
-  private static Map<String, Object> runIdUpsert(@Nonnull Urn urn, @Nullable String runId) {
-    Map<String, Object> upsert = new HashMap<>();
-    upsert.put("urn", urn.toString());
-    upsert.put("runId", Collections.singletonList(runId));
-    return upsert;
+        opContext, indexName, docId, SCRIPT_SOURCE, runIdScriptParams(runId), null);
   }
 
   private static Map<String, Object> runIdScriptParams(@Nullable String runId) {

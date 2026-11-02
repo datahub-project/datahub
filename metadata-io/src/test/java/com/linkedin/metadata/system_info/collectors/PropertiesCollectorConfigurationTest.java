@@ -836,6 +836,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.prioritizedDatahubEntityTypes.value",
           "elasticsearch.search.prioritizedDatahubEntityTypes.add",
           "elasticsearch.search.prioritizedDatahubEntityTypes.remove",
+          "elasticsearch.search.v3.businessAttributeExpansionEnabled",
           "elasticsearch.search.v3.templates.cacheMaximumSize",
           "elasticsearch.search.v3.templates.concurrency.corePoolSize",
           "elasticsearch.search.v3.templates.concurrency.keepAlive",

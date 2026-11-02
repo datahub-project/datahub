@@ -228,7 +228,7 @@ public class UpdateIndicesV3StrategyTest {
             eq(operationContext), eq("dataset"), anyString(), eq(expectedDocId));
     verify(elasticSearchService)
         .appendRunIdBySearchGroup(
-            eq(operationContext), eq("dataset"), eq(expectedDocId), eq(testUrn), eq("run-456"));
+            eq(operationContext), eq("dataset"), eq(expectedDocId), eq("run-456"));
   }
 
   @Test
@@ -1822,7 +1822,7 @@ public class UpdateIndicesV3StrategyTest {
             eq(operationContext), eq(FILL_TARGET), anyString(), eq(expectedDocId));
     verify(elasticSearchService)
         .appendRunIdByIndexName(
-            eq(operationContext), eq(FILL_TARGET), eq(expectedDocId), eq(testUrn), eq("run-fill"));
+            eq(operationContext), eq(FILL_TARGET), eq(expectedDocId), eq("run-fill"));
     verify(elasticSearchService, never())
         .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
     // A backfill checkpoints what it has written once the batch returns, so the batch is drained.

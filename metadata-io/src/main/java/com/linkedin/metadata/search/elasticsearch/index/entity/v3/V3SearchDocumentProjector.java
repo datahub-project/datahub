@@ -170,6 +170,7 @@ public class V3SearchDocumentProjector {
       @Nonnull final MCLItem event,
       @Nonnull final AspectSpec aspectSpec) {
     try {
+      SearchDocumentTransformer.beginV3Projection();
       final boolean isDelete = ChangeType.DELETE.equals(event.getChangeType());
       Optional<ObjectNode> transformed =
           searchDocumentTransformer
@@ -194,6 +195,8 @@ public class V3SearchDocumentProjector {
     } catch (Exception e) {
       throw propagate(
           "Failed to transform V3 aspect " + aspectSpec.getName() + " for " + event.getUrn(), e);
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
     }
   }
 
@@ -224,6 +227,7 @@ public class V3SearchDocumentProjector {
       return Optional.empty();
     }
     try {
+      SearchDocumentTransformer.beginV3Projection();
       Optional<ObjectNode> transformed =
           searchDocumentTransformer.transformAspect(
               opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
@@ -231,6 +235,8 @@ public class V3SearchDocumentProjector {
     } catch (Exception e) {
       throw propagate(
           "Failed to transform previous V3 aspect " + aspectSpec.getName() + " for " + urn, e);
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
     }
   }
 

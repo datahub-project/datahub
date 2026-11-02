@@ -22,6 +22,7 @@ public class BulkListener implements BulkProcessor.Listener {
   private static final String METRIC_ITEM_REQUEUE = "bulk_item_requeue";
   private static final String METRIC_LWW_EXHAUSTED = "bulk_item_lww_exhausted";
   private static final String METRIC_TRANSFER_FAILURE = "bulk_item_transfer_failure";
+  private static final String METRIC_CREATE_EXISTS = "bulk_item_create_exists";
 
   public static BulkListener getInstance(MetricUtils metricUtils) {
     return INSTANCES.computeIfAbsent("null", p -> new BulkListener(null, metricUtils, null, null));
@@ -190,10 +191,24 @@ public class BulkListener implements BulkProcessor.Listener {
         continue;
       }
 
+      // A create-only write that finds the document already present lost to a newer write.
+      if (BulkItemFailureClassifier.isCreateConflict(writeRequest, status, failureMessage)) {
+        log.debug(
+            "Skipping create for existing document in index [{}] id [{}]",
+            item.getIndex(),
+            item.getId());
+        if (requeueSupport != null && writeRequest != null) {
+          requeueSupport.clearAttempts(writeRequest);
+        }
+        if (tracker != null) {
+          tracker.recordCompleted(1);
+        }
+        incrementMetric(METRIC_CREATE_EXISTS);
+        continue;
+      }
+
       boolean versionConflict = BulkItemFailureClassifier.isVersionConflict(failureMessage);
-      boolean retriable =
-          !BulkItemFailureClassifier.isCreateConflict(writeRequest, status, failureMessage)
-              && BulkItemFailureClassifier.isRetriableFailure(status, failureMessage);
+      boolean retriable = BulkItemFailureClassifier.isRetriableFailure(status, failureMessage);
 
       if (retriable && requeueSupport != null && requeueSupport.tryRequeue(writeRequest)) {
         incrementMetric(METRIC_ITEM_REQUEUE);

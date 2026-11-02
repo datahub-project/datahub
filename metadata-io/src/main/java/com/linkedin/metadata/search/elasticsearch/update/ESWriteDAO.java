@@ -337,7 +337,8 @@ public class ESWriteDAO {
    * @param docId the document ID
    * @param scriptSource the script source code
    * @param scriptParams the script parameters
-   * @param upsert the document to upsert if it doesn't exist
+   * @param upsert the document to upsert if it doesn't exist, or null to update only an existing
+   *     document
    */
   public void applyScriptUpdateByIndexName(
       @Nonnull OperationContext opContext,
@@ -345,7 +346,7 @@ public class ESWriteDAO {
       @Nonnull String docId,
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
-      Map<String, Object> upsert) {
+      @Nullable Map<String, Object> upsert) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
@@ -361,10 +362,11 @@ public class ESWriteDAO {
     UpdateRequest updateRequest =
         new UpdateRequest(indexName, docId)
             .detectNoop(false)
-            .scriptedUpsert(true)
             .retryOnConflict(config.getBulkProcessor().getNumRetries())
-            .script(script)
-            .upsert(upsert);
+            .script(script);
+    if (upsert != null) {
+      updateRequest.scriptedUpsert(true).upsert(upsert);
+    }
     // Stable-id routing via docId — see upsertDocumentBySearchGroup above.
     bulkProcessorForIndex(opContext, indexName).add(opContext, docId, updateRequest);
   }
@@ -377,7 +379,8 @@ public class ESWriteDAO {
    * @param docId the document ID
    * @param scriptSource the script source code
    * @param scriptParams the script parameters
-   * @param upsert the document to upsert if it doesn't exist
+   * @param upsert the document to upsert if it doesn't exist, or null to update only an existing
+   *     document
    */
   public void applyScriptUpdateBySearchGroup(
       @Nonnull OperationContext opContext,
@@ -385,7 +388,7 @@ public class ESWriteDAO {
       @Nonnull String docId,
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
-      Map<String, Object> upsert) {
+      @Nullable Map<String, Object> upsert) {
     if (!isV3Enabled()) {
       log.debug("V3 entity index disabled, skipping script update for searchGroup {}", searchGroup);
       return;
