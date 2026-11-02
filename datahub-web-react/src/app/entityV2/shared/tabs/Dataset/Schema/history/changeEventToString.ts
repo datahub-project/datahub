@@ -3,20 +3,31 @@ import i18next from 'i18next';
 import {
     CATEGORY_APPLICATION,
     CATEGORY_ASSET_MEMBERSHIP,
+    CATEGORY_DEPRECATION,
     CATEGORY_DOMAIN,
+    CATEGORY_LIFECYCLE,
+    CATEGORY_PARENT,
     CATEGORY_STRUCTURED_PROPERTY,
     ChangeCategoryType,
     ChangeOperationType,
+    DEPRECATION_STATUS_ACTIVE,
     GLOSSARY_RELATIONSHIP_TYPE_LABELS,
     PARAM_DESCRIPTION,
+    PARAM_DOCUMENTATION,
     PARAM_DOMAIN_URN,
     PARAM_FIELD_PATH,
+    PARAM_NEW_PARENT,
+    PARAM_NEW_STATE,
+    PARAM_NOTE,
+    PARAM_OLD_PARENT,
+    PARAM_OLD_STATE,
     PARAM_OWNER_TYPE,
     PARAM_OWNER_TYPE_URN,
     PARAM_OWNER_URN,
     PARAM_PROPERTY_URN,
     PARAM_PROPERTY_VALUES,
     PARAM_RELATIONSHIP_TYPE,
+    PARAM_STATUS,
     PARAM_TAG_URN,
     PARAM_TERM_URN,
     UNINFORMATIVE_OWNER_TYPES,
@@ -58,6 +69,13 @@ function getParameter(
 ): string | undefined {
     const parameter = (parameters || []).find((param) => param.key === key);
     return parameter?.value || defaultValue;
+}
+
+// ponytail: the backend sends the lowercased stage id ("in_review"), so this shows a humanized id, not a custom
+// stage's display name; resolve via listLifecycleStages if custom stage names need to show here.
+function formatLifecycleStage(stage: string): string {
+    const words = stage.replace(/_/g, ' ');
+    return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function extractNameFromUrn(urn: string, nameMap?: Map<string, string>): string {
@@ -149,6 +167,9 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
                 const fieldPath = changeEvent.modifier;
                 displayString = description === '' ? emptyFieldDoc(fieldPath) : setFieldDoc(fieldPath, description);
             }
+        } else if ((changeEvent.parameters || []).some((p) => p.key === PARAM_DOCUMENTATION)) {
+            // Documentation-aspect events: the modifier is the attribution source, not a field path, so keep
+            // the backend description.
         } else if (changeEvent.modifier) {
             // SchemaMetadata-sourced field description changes: modifier holds the field path
             // but no description parameter. Prefix the column name to the backend description
@@ -278,6 +299,48 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
             displayString = i18next.t('entity.profile.schema:changeEventString.addedToApplication', { appName });
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = i18next.t('entity.profile.schema:changeEventString.removedFromApplication', { appName });
+        }
+    } else if (category === CATEGORY_DEPRECATION) {
+        const status = getParameter(changeEvent.parameters, PARAM_STATUS);
+        const note = getParameter(changeEvent.parameters, PARAM_NOTE);
+        if (status === DEPRECATION_STATUS_ACTIVE) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.undeprecated');
+        } else if (note) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.deprecatedWithNote', { note });
+        } else {
+            displayString = i18next.t('entity.profile.schema:changeEventString.deprecated');
+        }
+    } else if (category === CATEGORY_PARENT) {
+        const oldParent = getParameter(changeEvent.parameters, PARAM_OLD_PARENT);
+        const newParent = getParameter(changeEvent.parameters, PARAM_NEW_PARENT);
+        if (oldParent && newParent) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.movedFromTo', {
+                fromName: extractNameFromUrn(oldParent, nameMap),
+                toName: extractNameFromUrn(newParent, nameMap),
+            });
+        } else if (newParent) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.movedTo', {
+                parentName: extractNameFromUrn(newParent, nameMap),
+            });
+        } else if (oldParent) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.movedToTopLevel');
+        }
+    } else if (category === CATEGORY_LIFECYCLE) {
+        const oldStage = getParameter(changeEvent.parameters, PARAM_OLD_STATE);
+        const newStage = getParameter(changeEvent.parameters, PARAM_NEW_STATE);
+        if (oldStage && newStage) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.lifecycleChanged', {
+                fromStage: formatLifecycleStage(oldStage),
+                toStage: formatLifecycleStage(newStage),
+            });
+        } else if (newStage) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.lifecycleSet', {
+                stage: formatLifecycleStage(newStage),
+            });
+        } else if (oldStage) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.lifecycleCleared', {
+                stage: formatLifecycleStage(oldStage),
+            });
         }
     } else if (category === CATEGORY_ASSET_MEMBERSHIP) {
         const assetUrn = changeEvent.modifier || '';

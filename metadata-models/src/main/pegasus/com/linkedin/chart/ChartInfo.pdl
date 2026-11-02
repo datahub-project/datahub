@@ -86,7 +86,11 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart
    */
   @Searchable = {
-    "fieldType": "KEYWORD"
+    "fieldType": "KEYWORD",
+    "v3": {
+      "searchLabel": "externalUrl",
+      "queryByDefault": false
+    }
   }
   chartUrl: optional Url
 
