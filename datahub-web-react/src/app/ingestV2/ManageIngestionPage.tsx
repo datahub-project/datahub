@@ -89,6 +89,21 @@ export const ManageIngestionPage = () => {
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
     const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
+    // Only the tabs this user can see take part in URL <-> tab resolution, so a hidden tab's URL
+    // falls back to the default tab instead of selecting a tab that is not rendered.
+    const visibleTabUrlMap = useMemo(
+        () =>
+            Object.fromEntries(
+                Object.entries(tabUrlMap).filter(
+                    ([tab]) =>
+                        (tab === TabType.Sources && showIngestionTab) ||
+                        (tab === TabType.RunHistory && showRunHistoryTab) ||
+                        (tab === TabType.Secrets && showSecretsTab),
+                ),
+            ) as Partial<typeof tabUrlMap>,
+        [showIngestionTab, showRunHistoryTab, showSecretsTab],
+    );
+
     // undefined == not loaded, null == no permissions
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
 
@@ -147,10 +162,12 @@ export const ManageIngestionPage = () => {
         if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
             const currentPath = location.pathname;
 
-            // Check if current URL matches any tab URL
-            const currentTab = Object.entries(tabUrlMap).find(([, url]) => url === currentPath)?.[0] as TabType;
+            // Check if current URL matches the URL of a tab this user can see
+            const currentTab = Object.entries(visibleTabUrlMap).find(([, url]) => url === currentPath)?.[0] as
+                | TabType
+                | undefined;
 
-            if (currentTab && !(currentTab === TabType.RunHistory && !showRunHistoryTab)) {
+            if (currentTab) {
                 // We're on a valid tab URL, set that tab
                 setSelectedTab(currentTab);
             } else if (showIngestionTab) {
@@ -164,8 +181,10 @@ export const ManageIngestionPage = () => {
                 return;
             }
 
-            // If we're on the base /ingestion path, redirect to the appropriate default tab
-            if (currentPath === '/ingestion') {
+            // On the base /ingestion path, or on the URL of a tab hidden from this user (e.g. run
+            // history without Manage Metadata Ingestion), redirect to the default tab
+            const isHiddenTabUrl = Object.values(tabUrlMap).includes(currentPath) && !currentTab;
+            if (currentPath === '/ingestion' || isHiddenTabUrl) {
                 const defaultTabType = showIngestionTab ? TabType.Sources : TabType.Secrets;
                 history.replace(tabUrlMap[defaultTabType]);
             }
@@ -174,8 +193,8 @@ export const ManageIngestionPage = () => {
         loadedAppConfig,
         loadedPlatformPrivileges,
         showIngestionTab,
-        showRunHistoryTab,
         showSecretsTab,
+        visibleTabUrlMap,
         selectedTab,
         history,
         location.pathname,
@@ -192,6 +211,7 @@ export const ManageIngestionPage = () => {
                     setHideSystemSources={handleSetHideSystemSources}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
+                    canManageIngestion={!!canManageIngestion}
                     sourceFilter={sourceFilter ? Number(sourceFilter) : undefined}
                     setSourceFilter={handleSetSourceFilter}
                     searchQuery={searchQuery}
@@ -301,7 +321,7 @@ export const ManageIngestionPage = () => {
                     tabs={tabs}
                     selectedTab={selectedTab}
                     onChange={(tab) => setSelectedTab(tab as TabType)}
-                    urlMap={tabUrlMap}
+                    urlMap={visibleTabUrlMap}
                     onUrlChange={onUrlChange}
                     defaultTab={TabType.Sources}
                     getCurrentUrl={getCurrentUrl}

@@ -50,9 +50,9 @@ These privileges can be granted in two ways:
 
 For more granular control, administrators can create [Custom Policies](authorization/policies.md) that apply specifically to **Ingestion Sources**, allowing different users to have different levels of access:
 
-- **View Entity Page** - View ingestion source configurations and run history
+- **View Entity Page** - View ingestion source configurations; the **Run History** tab remains limited to users with `Manage Metadata Ingestion`
 - **Edit Entity** - Modify ingestion source configurations (the recipe the executor will run)
-- **Delete Entity** - Remove ingestion sources
+- **Delete** - Remove ingestion sources
 - **Execute Entity** - Run ingestion sources on-demand. Combined with **Edit Entity**, this is the same code-execution capability as `Manage Metadata Ingestion`, scoped to those sources.
 
 **Prerequisites:**

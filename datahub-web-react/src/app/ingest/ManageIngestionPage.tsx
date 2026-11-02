@@ -158,6 +158,7 @@ export const ManageIngestionPage = () => {
                             onClick={handleCreateSource}
                             data-testid="create-ingestion-source-button"
                             icon={{ icon: Plus }}
+                            disabled={!platformPrivileges?.manageIngestion}
                         >
                             Create new source
                         </Button>
