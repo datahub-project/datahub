@@ -1022,8 +1022,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         except ProgrammingError as pe:
             # Snowflake needs schema names quoted when fetching table comments.
             logger.debug(
-                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {table}",
+                "Encountered ProgrammingError (%s). Retrying with quoted schema name for schema %s and table %s",
                 pe,
+                schema,
+                table,
             )
             table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
 
@@ -1060,7 +1062,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
-                self.warn(logger, "missing column information", dataset_name)
+                self.warn(logger, dataset_name, "missing column information")
         except Exception as e:
             logger.error(traceback.format_exc())
             self.warn(
@@ -1527,8 +1529,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             ):
                 self.warn(
                     logger,
-                    "profile skipped as partitioned table is empty or partition id was invalid",
                     dataset_name,
+                    "profile skipped as partitioned table is empty or partition id was invalid",
                 )
                 continue
 

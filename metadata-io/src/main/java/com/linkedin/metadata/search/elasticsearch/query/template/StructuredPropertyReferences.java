@@ -11,6 +11,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -20,8 +21,9 @@ import javax.annotation.Nullable;
 /**
  * A structured-property definition URN is a field reference. Inline text writes it as a Mustache
  * constant, {@code {{urn:li:structuredProperty:...}}}, which resolves to the field with no
- * subfield. A {@code .keyword} or {@code .text} suffix after that constant, or a {@code subfield}
- * member, is applied outside the URN. Both forms are legal on string and rich text.
+ * subfield. A {@code .text} suffix after that constant, or a {@code subfield} member, is applied
+ * outside the URN. Both forms are legal on string and rich text. Search V3 has no {@code .keyword}
+ * multi-field, so a {@code .keyword} form is accepted and names the property field itself.
  */
 public final class StructuredPropertyReferences {
   public static final String KEYWORD = StructuredPropertySubfields.KEYWORD;
@@ -73,13 +75,13 @@ public final class StructuredPropertyReferences {
           throw new SearchTemplateException(
               "Search template subfield is only valid on a structured property");
         }
-        return field;
+        return V3SearchFields.rootPath(field);
       }
 
       @Override
       @Nonnull
       public String resolveRemove(@Nonnull String field) {
-        return field.startsWith(PREFIX) ? "" : field;
+        return field.startsWith(PREFIX) ? "" : V3SearchFields.rootPath(field);
       }
     };
   }
@@ -116,13 +118,14 @@ public final class StructuredPropertyReferences {
         throw new SearchTemplateException(
             "Search template subfield is only valid on a structured property");
       }
-      return field;
+      return V3SearchFields.rootPath(field);
     };
   }
 
   /**
-   * Replaces each structured-property constant and leaves a following {@code .keyword} or {@code
-   * .text} in place. Either suffix is rejected on a date, a number, or a URN.
+   * Replaces each structured-property constant. A following {@code .text} stays in place, and a
+   * following {@code .keyword} is dropped because the property field is the keyword. Either suffix
+   * is rejected on a date, a number, or a URN.
    */
   @Nullable
   public static String rewrite(
@@ -137,9 +140,12 @@ public final class StructuredPropertyReferences {
     int cursor = 0;
     while (matcher.find()) {
       out.append(text, cursor, matcher.start());
-      out.append(
-          resolveUrn(matcher.group(1).trim(), formAfter(text, matcher.end()), context, retriever));
+      String form = formAfter(text, matcher.end());
+      out.append(resolveUrn(matcher.group(1).trim(), form, context, retriever));
       cursor = matcher.end();
+      if (KEYWORD.equals(form)) {
+        cursor += KEYWORD.length() + 1;
+      }
     }
     if (cursor == 0) {
       throw new SearchTemplateException(
@@ -161,8 +167,7 @@ public final class StructuredPropertyReferences {
     }
     String form = form(subfield);
     if (field.startsWith(PREFIX)) {
-      String path = resolveUrn(field, form, context, retriever);
-      return form == null ? path : path + "." + form;
+      return withForm(resolveUrn(field, form, context, retriever), form);
     }
     if (field.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
       return resolveIndexedOrLogical(field, form, context, retriever);
@@ -171,7 +176,13 @@ public final class StructuredPropertyReferences {
       throw new SearchTemplateException(
           "Search template subfield is only valid on a structured property");
     }
-    return field;
+    return V3SearchFields.rootPath(field);
+  }
+
+  /** The property path with its subfield. The keyword form is the property field itself. */
+  @Nonnull
+  private static String withForm(@Nonnull String path, @Nullable String form) {
+    return form == null || KEYWORD.equals(form) ? path : path + "." + form;
   }
 
   @Nullable
@@ -249,7 +260,7 @@ public final class StructuredPropertyReferences {
         throw new SearchTemplateException(
             "Search template structured property could not be resolved: " + field);
       }
-      return field;
+      return V3SearchFields.rootPath(field);
     }
     return resolveLogical(field, form, context, retriever);
   }
@@ -276,7 +287,7 @@ public final class StructuredPropertyReferences {
         STRUCTURED_PROPERTY_MAPPING_FIELD
             + "."
             + StructuredPropertyUtils.toElasticsearchFieldName(found.get().getFirst(), definition);
-    return form == null ? path : path + "." + form;
+    return withForm(path, form);
   }
 
   @Nonnull

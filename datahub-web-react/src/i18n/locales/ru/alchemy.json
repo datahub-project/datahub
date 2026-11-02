@@ -90,6 +90,7 @@
     "whiskerChart.metric.thirdQuartile": "Третий квартиль",
     "codeBlock.editorLabel": "Редактор кода",
     "codeBlock.format": "Форматировать",
+    "codeBlock.formatFailed": "Не удалось загрузить форматировщик SQL. Повторите попытку.",
     "codeBlock.formatInvalid": "Не удалось отформатировать код. Проверьте, что он корректен.",
     "codeBlock.formatSuccess": "Отформатировано",
     "codeBlock.sqlSyntaxWarning": "В этом SQL может быть синтаксическая ошибка.",

@@ -179,10 +179,17 @@ public class MultiEntitySettingsBuilderTest {
                   .get("analyzer");
       for (String analyzer :
           List.of("v3_text", "v3_text_search", "v3_stemmed", "v3_stemmed_search")) {
-        assertEquals(
-            ((Map<String, Object>) analyzers.get(analyzer)).get("tokenizer"),
-            expected.getValue(),
-            analyzer);
+        Map<String, Object> definition = (Map<String, Object>) analyzers.get(analyzer);
+        assertEquals(definition.get("tokenizer"), expected.getValue(), analyzer);
+        assertEquals(((List<?>) definition.get("filter")).get(0), "v3_max_token_length", analyzer);
+      }
+      if (expected.getKey().isEmpty()) {
+        Map<String, Object> filters =
+            (Map<String, Object>)
+                ((Map<String, Object>)
+                        builder.getSettings(indexConfiguration, "test_index").get("analysis"))
+                    .get("filter");
+        assertEquals(filters.get("v3_max_token_length"), Map.of("type", "length", "max", 10922));
       }
     }
   }
@@ -276,6 +283,8 @@ public class MultiEntitySettingsBuilderTest {
     // the shared search field analyzers reuse
     assertNull(analyzers.get("full"), "tier analyzer full should be gone");
     assertNotNull(analyzers.get("word_delimited"), "word_delimited analyzer should be present");
+    assertNotNull(
+        analyzers.get("rich_text_delimited"), "rich text analyzers belong on the V3 index");
     assertNotNull(
         analyzers.get("browse_path_v2_hierarchy"),
         "browse_path_v2_hierarchy analyzer should be present");

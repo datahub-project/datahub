@@ -25,7 +25,6 @@ from typing import (
     List,
     Optional,
     Tuple,
-    Union,
     cast,
 )
 
@@ -35,15 +34,21 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.presto_view_decoder import decode_presto_view
+from datahub.ingestion.source.common.presto_view_decoder import (
+    PrestoViewColumn,
+    decode_presto_view,
+    get_presto_view_column_schema,
+    get_presto_view_columns,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
 from datahub.ingestion.source.sql.hive.exceptions import InvalidDatasetIdentifierError
 from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineage
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, get_schema_metadata
+from datahub.ingestion.source.sql.sql_common import get_schema_metadata
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -54,14 +59,13 @@ from datahub.ingestion.source.sql.sql_utils import (
     get_domain_wu,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     SubTypesClass,
     ViewPropertiesClass,
+    _Aspect,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
@@ -257,9 +261,29 @@ class HiveMetadataProcessor:
             List of all SchemaField objects
         """
         schema_fields: List[SchemaField] = []
+        unconverted_columns: List[str] = []
         for column in columns:
-            fields = self.get_schema_fields_for_column(column)
-            schema_fields.extend(fields)
+            if column.get("is_presto_view_column"):
+                column_schema = get_presto_view_column_schema(
+                    PrestoViewColumn(name=column["col_name"], type=column["col_type"])
+                )
+                if column_schema.type_unresolved:
+                    unconverted_columns.append(
+                        f"{column['col_name']} ({column['col_type']})"
+                    )
+                schema_fields.extend(column_schema.fields)
+            else:
+                schema_fields.extend(self.get_schema_fields_for_column(column))
+
+        if unconverted_columns:
+            self.report.warning(
+                title="Presto view column types could not be converted",
+                message="Some Presto view columns have a type DataHub could not "
+                "convert, so they are ingested without a type (or with part of "
+                "their type missing) or typed as string.",
+                context=f"{dataset_name}: {', '.join(unconverted_columns)}",
+                log=False,
+            )
         return schema_fields
 
     @staticmethod
@@ -282,15 +306,36 @@ class HiveMetadataProcessor:
     def _get_presto_view_column_metadata(
         self, view_original_text: str
     ) -> Tuple[List[Dict[str, Any]], str]:
-        """Extract column metadata from base64-encoded Presto view definition."""
+        """Extract column metadata from base64-encoded Presto view definition.
+
+        Raises ``ValueError`` when the definition cannot be decoded, has no SQL,
+        or has a malformed ``columns`` list.
+        """
         decoded_view_info = decode_presto_view(view_original_text)
-        view_definition = decoded_view_info["originalSql"]
+        view_definition = decoded_view_info.get("originalSql")
+        if not isinstance(view_definition, str) or not view_definition.strip():
+            raise ValueError("Presto view definition has no 'originalSql'")
 
-        columns = decoded_view_info["columns"]
-        for col in columns:
-            col["col_name"], col["col_type"] = col["name"], col["type"]
+        # An empty list is a view without column information, which the caller
+        # reports separately; anything else invalid is a malformed definition.
+        if decoded_view_info.get("columns") == []:
+            return [], view_definition
+        view_columns = get_presto_view_columns(decoded_view_info)
+        if view_columns is None:
+            raise ValueError("Presto view definition has no valid 'columns' list")
 
-        return list(columns), view_definition
+        # Types are converted when the schema fields are built, so that columns
+        # the Hive parser cannot read are reported along with conversion failures.
+        columns: List[Dict[str, Any]] = [
+            {
+                "col_name": view_column["name"],
+                "col_type": view_column["type"],
+                "is_presto_view_column": True,
+            }
+            for view_column in view_columns
+        ]
+
+        return columns, view_definition
 
     # =========================================================================
     # WorkUnit Generation Methods
@@ -406,9 +451,7 @@ class HiveMetadataProcessor:
                 ]
         return table_properties
 
-    def process_tables(
-        self, db_name: str
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    def process_tables(self, db_name: str) -> Iterable[MetadataWorkUnit]:
         """
         Process all tables and generate WorkUnits.
 
@@ -462,11 +505,6 @@ class HiveMetadataProcessor:
                 self.config.platform_instance,
                 self.config.env,
             )
-            dataset_snapshot = DatasetSnapshot(
-                urn=dataset_urn,
-                aspects=[StatusClass(removed=False)],
-            )
-
             # Generate schema fields
             schema_fields = self.get_schema_fields(dataset_name, columns)
             self._set_partition_key(columns, schema_fields)
@@ -481,7 +519,9 @@ class HiveMetadataProcessor:
                 schema_fields,
                 self.config.simplify_nested_field_paths,
             )
-            dataset_snapshot.aspects.append(schema_metadata)
+            # schema_metadata is emitted as is, not copied: the schema field path
+            # validators edit it in place, and storage lineage below reads the result.
+            aspects: List[_Aspect] = [StatusClass(removed=False), schema_metadata]
 
             # Register schema with aggregator so view lineage SQL parsing
             # can resolve column types without network calls to DataHub
@@ -512,7 +552,7 @@ class HiveMetadataProcessor:
                 from datahub.specific.dataset import DatasetPatchBuilder
 
                 patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
-                    urn=dataset_snapshot.urn
+                    urn=dataset_urn
                 )
                 patch_builder.set_display_name(key.table)
 
@@ -529,15 +569,19 @@ class HiveMetadataProcessor:
                     for mcp_raw in patch_builder.build()
                 ]
             else:
-                dataset_properties = DatasetPropertiesClass(
-                    name=key.table,
-                    description=table_description,
-                    customProperties=properties,
+                aspects.append(
+                    DatasetPropertiesClass(
+                        name=key.table,
+                        description=table_description,
+                        customProperties=properties,
+                    )
                 )
-                dataset_snapshot.aspects.append(dataset_properties)
 
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            yield SqlWorkUnit(id=dataset_name, mce=mce)
+            yield from auto_workunit(
+                MetadataChangeProposalWrapper.construct_many(
+                    entityUrn=dataset_urn, aspects=aspects
+                )
+            )
 
             # Emit subtype
             yield MetadataChangeProposalWrapper(
@@ -638,7 +682,9 @@ class HiveMetadataProcessor:
             except Exception as e:
                 # A single malformed Presto view must not abort the whole database.
                 self.report.warning(
-                    message="Failed to decode Presto view definition",
+                    title="Malformed Presto view definition",
+                    message="The Presto view definition could not be decoded or "
+                    "has no SQL or valid column list, so the view is skipped.",
                     context=dataset_name,
                     exc=e,
                     log=False,
@@ -659,9 +705,7 @@ class HiveMetadataProcessor:
                 view_definition=view_definition,
             )
 
-    def process_views(
-        self, db_name: str
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    def process_views(self, db_name: str) -> Iterable[MetadataWorkUnit]:
         """
         Process all views and generate WorkUnits.
 
@@ -692,11 +736,6 @@ class HiveMetadataProcessor:
                 self.config.platform_instance,
                 self.config.env,
             )
-            dataset_snapshot = DatasetSnapshot(
-                urn=dataset_urn,
-                aspects=[StatusClass(removed=False)],
-            )
-
             # Generate schema fields
             schema_fields = self.get_schema_fields(
                 dataset.dataset_name, dataset.columns
@@ -710,7 +749,6 @@ class HiveMetadataProcessor:
                 canonical_schema=schema_fields,
                 simplify_nested_field_paths=self.config.simplify_nested_field_paths,
             )
-            dataset_snapshot.aspects.append(schema_metadata)
 
             if self.aggregator is not None:
                 self.aggregator.register_schema(dataset_urn, schema_metadata)
@@ -722,7 +760,6 @@ class HiveMetadataProcessor:
                 description=None,
                 customProperties=properties,
             )
-            dataset_snapshot.aspects.append(dataset_properties)
 
             # Add view properties
             view_properties = ViewPropertiesClass(
@@ -730,15 +767,23 @@ class HiveMetadataProcessor:
                 viewLogic=dataset.view_definition if dataset.view_definition else "",
                 viewLanguage="SQL",
             )
-            dataset_snapshot.aspects.append(view_properties)
 
             # Add to container
             yield from self._add_dataset_to_container(
                 dataset_urn=dataset_urn, db_name=db_name, schema=dataset.schema_name
             )
 
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            yield SqlWorkUnit(id=dataset.dataset_name, mce=mce)
+            view_aspects: List[_Aspect] = [
+                StatusClass(removed=False),
+                schema_metadata,
+                dataset_properties,
+                view_properties,
+            ]
+            yield from auto_workunit(
+                MetadataChangeProposalWrapper.construct_many(
+                    entityUrn=dataset_urn, aspects=view_aspects
+                )
+            )
 
             # Emit subtype
             yield MetadataChangeProposalWrapper(
@@ -750,17 +795,6 @@ class HiveMetadataProcessor:
             dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn)
             if dpi_aspect:
                 yield dpi_aspect
-
-            # Emit view properties again via MCP
-            view_properties_aspect = ViewPropertiesClass(
-                materialized=False,
-                viewLanguage="SQL",
-                viewLogic=dataset.view_definition if dataset.view_definition else "",
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=view_properties_aspect,
-            ).as_workunit()
 
             # Emit domain
             if self.config.domain and self.domain_registry:

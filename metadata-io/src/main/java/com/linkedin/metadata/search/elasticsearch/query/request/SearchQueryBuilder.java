@@ -268,12 +268,14 @@ public class SearchQueryBuilder {
     fields.add(
         SearchFieldConfig.detectSubFieldType(
             "urn", urnBoost, SearchableAnnotation.FieldType.URN, true));
-    fields.add(
-        SearchFieldConfig.detectSubFieldType(
-            "urn.delimited",
-            urnBoost * partialConfiguration.getUrnFactor(),
-            SearchableAnnotation.FieldType.URN,
-            true));
+    if (includeDelimitedSubfields()) {
+      fields.add(
+          SearchFieldConfig.detectSubFieldType(
+              "urn.delimited",
+              urnBoost * partialConfiguration.getUrnFactor(),
+              SearchableAnnotation.FieldType.URN,
+              true));
+    }
 
     entitySpecs.stream()
         .map(spec -> getFieldsFromEntitySpec(opContext.getEntityRegistry(), spec))
@@ -300,6 +302,14 @@ public class SearchQueryBuilder {
                         value.stream().anyMatch(SearchFieldConfig::isWordGramSubfield))));
 
     return fields;
+  }
+
+  /**
+   * Search V2 indexes a {@code .delimited} subfield beside a text field. Search V3 does not map
+   * that subfield; word splitting is inside the {@code .text} analyzer.
+   */
+  protected boolean includeDelimitedSubfields() {
+    return true;
   }
 
   /**
@@ -337,12 +347,14 @@ public class SearchQueryBuilder {
       fields.add(searchFieldConfig);
 
       if (searchFieldConfig.hasDelimitedSubfield()) {
-        fields.add(
-            SearchFieldConfig.detectSubFieldType(
-                searchFieldConfig.fieldName() + ".delimited",
-                searchFieldConfig.boost() * partialConfiguration.getFactor(),
-                annotation.getFieldType(),
-                true));
+        if (includeDelimitedSubfields()) {
+          fields.add(
+              SearchFieldConfig.detectSubFieldType(
+                  searchFieldConfig.fieldName() + ".delimited",
+                  searchFieldConfig.boost() * partialConfiguration.getFactor(),
+                  annotation.getFieldType(),
+                  true));
+        }
 
         if (searchFieldConfig.hasWordGramSubfields()) {
           addWordGramSearchConfig(fields, searchFieldConfig);
@@ -366,7 +378,7 @@ public class SearchQueryBuilder {
       Map<String, SearchableAnnotation.FieldType> fieldTypeMap =
           getAllFieldTypeFromSearchableRef(refFieldSpec, depth, entityRegistry, "");
       for (SearchFieldConfig fieldConfig : searchFieldConfigs) {
-        if (fieldConfig.hasDelimitedSubfield()) {
+        if (includeDelimitedSubfields() && fieldConfig.hasDelimitedSubfield()) {
           fields.add(
               SearchFieldConfig.detectSubFieldType(
                   fieldConfig.fieldName() + ".delimited",
@@ -429,12 +441,14 @@ public class SearchQueryBuilder {
     fields.add(
         SearchFieldConfig.detectSubFieldType(
             "urn", urnBoost, SearchableAnnotation.FieldType.URN, true));
-    fields.add(
-        SearchFieldConfig.detectSubFieldType(
-            "urn.delimited",
-            urnBoost * partialConfiguration.getUrnFactor(),
-            SearchableAnnotation.FieldType.URN,
-            true));
+    if (includeDelimitedSubfields()) {
+      fields.add(
+          SearchFieldConfig.detectSubFieldType(
+              "urn.delimited",
+              urnBoost * partialConfiguration.getUrnFactor(),
+              SearchableAnnotation.FieldType.URN,
+              true));
+    }
 
     fields.addAll(getFieldsFromEntitySpec(opContext.getEntityRegistry(), entitySpec));
 

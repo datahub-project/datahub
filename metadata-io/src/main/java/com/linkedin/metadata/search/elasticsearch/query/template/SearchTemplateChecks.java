@@ -143,6 +143,9 @@ public final class SearchTemplateChecks {
     if (merged.getBoostMode() != null) {
       composed.setBoostMode(merged.getBoostMode());
     }
+    if (merged.getSearchType() != null) {
+      composed.setSearchType(merged.getSearchType());
+    }
     if (merged.getFieldFactors() != null) {
       composed.setFieldFactors(merged.getFieldFactors());
     }
@@ -167,6 +170,7 @@ public final class SearchTemplateChecks {
         && !SearchTemplateLoader.emptyHighlights(merged.getHighlightFields())) {
       composed.setHighlightFields(merged.getHighlightFields());
     }
+    composed.setMatchedFields(merged.isMatchedFields());
     if (!merged.getParameters().isEmpty()) {
       composed.setParameters(new StringMap(merged.getParameters()));
     }

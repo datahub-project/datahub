@@ -10,7 +10,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 :::info Context add-on
-This step uses features from the DataHub Cloud **Context** add-on, currently in Public Beta.
+This step uses features from the DataHub Cloud **Context** add-on.
 :::
 
 Your context is now centralized in DataHub, and your evals show it works. Now put it to work: give agents access to all of it, or only the part a team needs, so people can get answers to your business's most important questions. This step involves two decisions: how people reach DataHub, and what your agent can see.
