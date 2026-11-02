@@ -24,23 +24,43 @@ public class SearchV3RealNameAboveCopiedValueElasticSearchTest
   @Getter @Autowired private ESBulkProcessor bulkProcessor;
 
   @Test
-  public void testShippedSpacedQueryFindsUnderscoreRealNameFirst() throws Exception {
-    assertSpacedQueryFindsUnderscoreRealNameFirst(SHIPPED);
+  public void testShippedUnquotedQueryExactOnlyForWholeName() throws Exception {
+    assertUnquotedQueryExactOnlyForWholeName(SHIPPED);
   }
 
   @Test
-  public void testClassOrderSpacedQueryFindsUnderscoreRealNameFirst() throws Exception {
-    assertSpacedQueryFindsUnderscoreRealNameFirst(CLASS_ORDER);
+  public void testClassOrderUnquotedQueryExactOnlyForWholeName() throws Exception {
+    assertUnquotedQueryExactOnlyForWholeName(CLASS_ORDER);
   }
 
   @Test
-  public void testShippedThreeWordRealNameAboveOneEqualCopy() throws Exception {
-    assertThreeWordRealNameAboveOneEqualCopy(SHIPPED);
+  public void testShippedQuotedQueryExactOnlyForWholeName() throws Exception {
+    assertQuotedQueryExactOnlyForWholeName(SHIPPED);
   }
 
   @Test
-  public void testClassOrderThreeWordRealNameAboveOneEqualCopy() throws Exception {
-    assertThreeWordRealNameAboveOneEqualCopy(CLASS_ORDER);
+  public void testClassOrderQuotedQueryExactOnlyForWholeName() throws Exception {
+    assertQuotedQueryExactOnlyForWholeName(CLASS_ORDER);
+  }
+
+  @Test
+  public void testShippedExactCopiedOnlyForWholeTitle() throws Exception {
+    assertExactCopiedOnlyForWholeTitle(SHIPPED);
+  }
+
+  @Test
+  public void testClassOrderExactCopiedOnlyForWholeTitle() throws Exception {
+    assertExactCopiedOnlyForWholeTitle(CLASS_ORDER);
+  }
+
+  @Test
+  public void testShippedStemOnlyNameBelowExactCopiedTitle() throws Exception {
+    assertStemOnlyNameBelowExactCopiedTitle(SHIPPED);
+  }
+
+  @Test
+  public void testClassOrderStemOnlyNameBelowExactCopiedTitle() throws Exception {
+    assertStemOnlyNameBelowExactCopiedTitle(CLASS_ORDER);
   }
 
   @Test

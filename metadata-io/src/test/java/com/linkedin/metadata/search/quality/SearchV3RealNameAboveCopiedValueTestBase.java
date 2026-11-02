@@ -114,11 +114,16 @@ import org.testng.annotations.BeforeClass;
  * whose copied title merely equals it, and a partial real-name match must rank above a partial
  * title match.
  *
- * <p>Each scenario asserts the exact expected order, by match class, against the shipped templates
- * and against a strict class-order template stored as test data. The class order is: exact real
- * name, exact copied title, partial real name, partial copied title, then anything else. The real
- * name decides first, so a dataset whose own title equals or holds the query is graded on its real
- * name.
+ * <p>Each scenario asserts the exact expected order, by tranche, against the shipped templates and
+ * against a strict class-order template stored as test data. The tranches are: EXACT_NAME,
+ * EXACT_COPIED, PARTIAL_NAME, PARTIAL_COPIED, then OTHER. Exact means the query as typed equals the
+ * whole value, ignoring case: kennel_booking is exact for kennel_booking, never for
+ * kennel_booking_archive or booking. A value that differs from the query only in separators may
+ * rank either way and is left out of the comparison. Partial means every query word starts a word
+ * of the value, or the value starts with the query, with no stemming. Queries are typed without
+ * quotes, as a user types them; one scenario checks that quoting gives the same order. A dataset
+ * takes its best tranche, graded on its real name first, so a dataset whose own title equals or
+ * holds the query is graded on its real name.
  */
 public abstract class SearchV3RealNameAboveCopiedValueTestBase
     extends AbstractTestNGSpringContextTests {
@@ -160,6 +165,13 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     for (int i = 0; i < 30; i++) {
       add(String.format("kennel_booking_snapshot_%02d", i), null);
     }
+    // Near misses for kennel_booking: they hold the words but are not the whole value.
+    add("kennel_booking_archive", null);
+    add("kennel_booking_2024", null);
+    add("booking_kennel", null);
+    add("kennel", null);
+    add("booking", null);
+    add("kba_ref", "Kennel Booking Archive");
     add("groomed_coat_notes", null);
     add("gcn_ref", "Groomed Coat Notes");
     add("groom_coat_notes_stage", null);
@@ -177,54 +189,80 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
 
   // ── Scenarios ───────────────────────────────────────────────────────────────
 
-  /** A spaced query for an underscore real name, with more equal copies than one window. */
-  protected void assertSpacedQueryFindsUnderscoreRealNameFirst(@Nullable String template)
+  /**
+   * Typed as a user types it, without quotes: only the dataset named exactly kennel_booking is an
+   * exact real-name match. Names and titles that merely hold the words (kennel_booking_archive,
+   * booking_kennel, "Kennel Booking Archive", the 30 snapshots) rank below it, and the tranche
+   * order holds past the old 100-row window.
+   */
+  protected void assertUnquotedQueryExactOnlyForWholeName(@Nullable String template)
       throws Exception {
-    assertExactOrder(template, "kennel booking", EQUAL_TITLE_COPIES + 31);
+    assertTrancheOrder(template, "kennel_booking");
   }
 
-  /** A three-word spaced query: the underscore real name first, the one equal copy second. */
-  protected void assertThreeWordRealNameAboveOneEqualCopy(@Nullable String template)
+  /** The same query in quotes must give the same tranche order as the unquoted one. */
+  protected void assertQuotedQueryExactOnlyForWholeName(@Nullable String template)
       throws Exception {
-    assertExactOrder(template, "groomed coat notes", 2);
+    assertTrancheOrder(template, "\"kennel_booking\"");
+  }
+
+  /**
+   * Only the title equal to the query is an exact copied match: groomed_journal, titled "Groomed
+   * Journal Entries", ranks above the 20 titles "Groomed Journal Entries N".
+   */
+  protected void assertExactCopiedOnlyForWholeTitle(@Nullable String template) throws Exception {
+    assertTrancheOrder(template, "groomed journal entries");
+  }
+
+  /**
+   * The one copied title equal to the query ranks above groom_coat_notes_stage, which shares the
+   * other words and only the stem of "groomed".
+   */
+  protected void assertStemOnlyNameBelowExactCopiedTitle(@Nullable String template)
+      throws Exception {
+    assertTrancheOrder(template, "groomed coat notes");
   }
 
   /** A real name equal to its own copied title is an exact real-name match. */
   protected void assertRealNameEqualToOwnTitleIsExactRealName(@Nullable String template)
       throws Exception {
-    assertExactOrder(template, "cattery roster", 21);
+    assertTrancheOrder(template, "cattery roster");
   }
 
   /** A real name holding the word ranks with the partial real names, even when its title does. */
   protected void assertPartialRealNameWithOwnTitleRanksAsRealName(@Nullable String template)
       throws Exception {
-    assertExactOrder(template, "groomed", 24);
+    assertTrancheOrder(template, "groomed");
   }
 
   /**
-   * Compares the first {@code depth} results, by match class, with the expected class sequence. A
-   * class holds ties in any order; a position in the wrong class fails, and the message lists the
-   * actual order beside the expected one.
+   * Compares the served results, by tranche, with the expected tranche sequence. A tranche holds
+   * ties in any order; a position in the wrong tranche fails, and the message lists the actual
+   * order beside the expected one.
    */
-  private void assertExactOrder(@Nullable String template, String query, int depth)
-      throws Exception {
-    List<Dataset> actual = search(template, query, depth);
+  private void assertTrancheOrder(@Nullable String template, String query) throws Exception {
+    List<Dataset> graded = corpus.values().stream().filter(d -> rank(query, d) != OTHER).toList();
+    List<Dataset> actual = search(template, query, graded.size());
     List<Dataset> expected =
-        corpus.values().stream()
-            .filter(d -> rank(query, d) < OTHER)
+        graded.stream()
+            .filter(d -> rank(query, d) != SEPARATOR_ONLY)
             .sorted((a, b) -> Integer.compare(rank(query, a), rank(query, b)))
-            .limit(depth)
             .toList();
-    List<String> actualClasses = actual.stream().map(d -> className(query, d)).toList();
-    List<String> expectedClasses = expected.stream().map(d -> className(query, d)).toList();
+    // A name or title that differs from the query only in separators may rank either way.
+    List<String> actualTranches =
+        actual.stream()
+            .filter(d -> rank(query, d) != SEPARATOR_ONLY)
+            .limit(expected.size())
+            .map(d -> className(query, d))
+            .toList();
+    List<String> expectedTranches = expected.stream().map(d -> className(query, d)).toList();
     assertEquals(
-        actualClasses,
-        expectedClasses,
+        actualTranches,
+        expectedTranches,
         String.format(
-            "%s, query \"%s\": first %d results out of class order%n  expected: %s%n  actual:   %s",
+            "%s, query %s: results out of tranche order%n  expected: %s%n  actual:   %s",
             template == null ? "shipped templates" : template,
             query,
-            depth,
             describe(query, expected),
             describe(query, actual)));
   }
@@ -260,10 +298,12 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   // ── Grading from the corpus definition ─────────────────────────────────────
 
   private static final String[] CLASSES = {
-    "EXACT_NAME", "EXACT_TITLE", "PARTIAL_NAME", "PARTIAL_TITLE", "OTHER"
+    "EXACT_NAME", "EXACT_COPIED", "PARTIAL_NAME", "PARTIAL_COPIED", "OTHER", "SEPARATOR_ONLY"
   };
   private static final int OTHER = 4;
+  private static final int SEPARATOR_ONLY = 5;
 
+  /** Words for a partial match: lowercased, accents folded, split on any separator. */
   static List<String> words(String text) {
     String folded =
         java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
@@ -272,20 +312,55 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     return java.util.Arrays.stream(folded.split("[^a-z0-9]+")).filter(w -> !w.isEmpty()).toList();
   }
 
+  /** The query as typed, without surrounding quotes. */
+  static String typed(String query) {
+    String q = query.trim();
+    return q.length() > 1 && q.startsWith("\"") && q.endsWith("\"")
+        ? q.substring(1, q.length() - 1)
+        : q;
+  }
+
+  /** Exact: the whole value equals the query, ignoring case. */
+  static boolean exact(String query, @Nullable String value) {
+    return value != null && typed(query).equalsIgnoreCase(value.trim());
+  }
+
+  /** The same words as the query, differing only in separators: not part of the rule. */
+  static boolean separatorOnly(String query, @Nullable String value) {
+    return value != null && !exact(query, value) && words(typed(query)).equals(words(value));
+  }
+
+  /** Partial: every query word starts a word of the value, or the value starts with the query. */
+  static boolean starts(String query, @Nullable String value) {
+    if (value == null) {
+      return false;
+    }
+    List<String> q = words(typed(query));
+    List<String> v = words(value);
+    return !q.isEmpty()
+        && !v.isEmpty()
+        && (q.stream().allMatch(w -> v.stream().anyMatch(x -> x.startsWith(w)))
+            || String.join(" ", v).startsWith(String.join(" ", q)));
+  }
+
+  /** The best tranche the dataset reaches; its real name is graded before its copied title. */
   static int rank(String query, Dataset d) {
-    List<String> q = words(query);
-    List<String> name = words(d.name());
-    List<String> title = d.title() == null ? List.of() : words(d.title());
-    if (name.equals(q)) {
+    if (exact(query, d.name())) {
       return 0;
     }
-    if (!title.isEmpty() && title.equals(q)) {
+    if (separatorOnly(query, d.name())) {
+      return SEPARATOR_ONLY;
+    }
+    if (exact(query, d.title())) {
       return 1;
     }
-    if (q.stream().anyMatch(name::contains)) {
+    if (separatorOnly(query, d.title())) {
+      return SEPARATOR_ONLY;
+    }
+    if (starts(query, d.name())) {
       return 2;
     }
-    if (q.stream().anyMatch(title::contains)) {
+    if (starts(query, d.title())) {
       return 3;
     }
     return OTHER;
