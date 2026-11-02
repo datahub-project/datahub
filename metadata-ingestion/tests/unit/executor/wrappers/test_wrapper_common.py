@@ -236,3 +236,26 @@ class TestWrapperStdinContent:
         _written, cmd = self._run_ingestion_wrapper(tmp_path, envelope_support=True)
 
         assert cmd[0] == str(tmp_path / "venv" / "bin" / "datahub")
+
+
+class TestRunOptionFlags:
+    def test_no_options_add_no_flags(self, tmp_path: Path) -> None:
+        assert run_ingest.run_option_flags({}, tmp_path / "datahub") == []
+
+    def test_dry_run_and_preview_become_cli_flags(self, tmp_path: Path) -> None:
+        with patch.object(run_ingest, "check_cli_flag_support", return_value=True):
+            flags = run_ingest.run_option_flags(
+                {"dry_run": True, "preview": True, "preview_workunits": 5},
+                tmp_path / "datahub",
+            )
+        assert flags == ["--dry-run", "--preview", "--preview-workunits", "5"]
+
+    def test_a_cli_without_the_flag_fails_instead_of_running_for_real(
+        self, tmp_path: Path
+    ) -> None:
+        with (
+            patch.object(run_ingest, "check_cli_flag_support", return_value=False),
+            pytest.raises(SystemExit) as exit_info,
+        ):
+            run_ingest.run_option_flags({"dry_run": True}, tmp_path / "datahub")
+        assert exit_info.value.code == 1

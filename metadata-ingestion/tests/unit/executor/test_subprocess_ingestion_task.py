@@ -23,9 +23,11 @@ from datahub.executor.execution.runner import (
     referenced_env_values,
 )
 from datahub.executor.execution.sub_process_ingestion_task import (
+    RUN_OPTIONS_RECIPE_KEY,
     SubProcessIngestionTask,
     SubProcessIngestionTaskArgs,
     SubProcessIngestionTaskConfig,
+    split_run_options,
 )
 from datahub.executor.execution.sub_process_task_common import SubProcessTaskUtil
 from datahub.executor.execution.task import TaskError
@@ -1714,3 +1716,71 @@ async def test_execute_refuses_credential_redirect_before_setup(
             await ingestion_task.execute(args, mock_execution_context)
     mock_setup_dirs.assert_not_called()
     mock_setup_venv.assert_not_called()
+
+
+def test_split_run_options_strips_the_key_from_the_recipe() -> None:
+    recipe = {
+        "source": {"type": "demo-data"},
+        RUN_OPTIONS_RECIPE_KEY: {"dry_run": True, "preview": True},
+    }
+    stripped, options = split_run_options(recipe)
+
+    assert stripped == {"source": {"type": "demo-data"}}
+    assert options.dry_run
+    assert options.preview
+    assert options.preview_workunits == 10
+
+
+def test_split_run_options_defaults_to_a_normal_run() -> None:
+    recipe = {"source": {"type": "demo-data"}}
+    stripped, options = split_run_options(recipe)
+
+    assert stripped is recipe
+    assert not options.dry_run
+    assert not options.preview
+
+
+@pytest.mark.parametrize(
+    "raw", [{"dry_run": True, "unknown": 1}, {"preview_workunits": 0}, "yes"]
+)
+def test_split_run_options_rejects_invalid_options(raw: Any) -> None:
+    # A typo must fail the run, not fall back to a run that writes.
+    with pytest.raises(TaskError, match=RUN_OPTIONS_RECIPE_KEY):
+        split_run_options(
+            {"source": {"type": "demo-data"}, RUN_OPTIONS_RECIPE_KEY: raw}
+        )
+
+
+async def test_create_subprocess_moves_run_options_into_the_envelope(
+    ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
+) -> None:
+    validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
+    recipe_dict = {
+        "source": {"type": "demo-data"},
+        RUN_OPTIONS_RECIPE_KEY: {"dry_run": True},
+    }
+    mock_process = AsyncMock()
+    mock_process.stdin = Mock()
+    mock_venv_ref = Mock()
+    mock_venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+
+    with (
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch.object(ingestion_task, "_setup_venv", return_value=mock_venv_ref),
+    ):
+        await ingestion_task._create_subprocess(
+            validated_args,
+            "demo-data",
+            recipe_dict,
+            "/tmp/report.json",
+            {"PATH": "/usr/bin"},
+            "/tmp/exec",
+            LogHolder(),
+            {},
+        )
+
+    envelope = json.loads(mock_process.stdin.write.call_args[0][0].decode("utf-8"))
+    assert yaml.safe_load(envelope["__recipe_yaml__"]) == {
+        "source": {"type": "demo-data"}
+    }
+    assert envelope["__run_options__"]["dry_run"] is True

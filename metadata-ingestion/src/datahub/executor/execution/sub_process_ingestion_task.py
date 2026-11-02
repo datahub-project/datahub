@@ -113,6 +113,40 @@ class SubProcessIngestionTaskArgs(SubProcessRecipeTaskArgs):
         return str(v).lower()
 
 
+# A run that asks for `datahub ingest run` flags carries them under this top-level
+# recipe key, not as a task argument. The task arguments model ignores keys it
+# does not know, so an older executor would drop the flags and run for real. A
+# key left in the recipe fails the CLI's recipe validation instead, so an older
+# executor refuses the run before anything is written.
+RUN_OPTIONS_RECIPE_KEY = "__run_options__"
+
+
+class IngestionRunOptions(ConfigModel):
+    """The `datahub ingest run` flags a run asks for."""
+
+    dry_run: bool = Field(
+        default=False, description="Run without writing anything to the sink."
+    )
+    preview: bool = Field(
+        default=False, description="Stop after the first `preview_workunits`."
+    )
+    preview_workunits: int = Field(
+        default=10, ge=1, description="How many work units a preview processes."
+    )
+
+
+def split_run_options(recipe: dict) -> tuple[dict, IngestionRunOptions]:
+    """The recipe without its run options, and the options it carried."""
+    raw = recipe.get(RUN_OPTIONS_RECIPE_KEY)
+    if raw is None:
+        return recipe, IngestionRunOptions()
+    try:
+        options = IngestionRunOptions.model_validate(raw)
+    except pydantic.ValidationError as e:
+        raise TaskError(f"Invalid {RUN_OPTIONS_RECIPE_KEY} in the recipe: {e}") from e
+    return {k: v for k, v in recipe.items() if k != RUN_OPTIONS_RECIPE_KEY}, options
+
+
 class SubProcessIngestionTask(Task):
     # How long to wait for the monitoring tasks to wind down after a cancellation
     # or a monitoring failure, before falling back to killing the subprocess.
@@ -266,6 +300,7 @@ class SubProcessIngestionTask(Task):
         writing secrets to env vars or recipe to disk.
         """
         user_env_secrets = SubProcessTaskUtil.subprocess_env_secrets(validated_args)
+        recipe, run_options = split_run_options(recipe)
 
         # First, set up the venv using Python utilities with shared logging
         venv_ref = await self._setup_venv(
@@ -305,6 +340,7 @@ class SubProcessIngestionTask(Task):
                 "__secrets__": {**user_env_secrets, **secret_values},
                 "__report_out_file__": report_out_file,
                 "__debug_mode__": debug_mode,
+                "__run_options__": run_options.model_dump(),
             }
         )
 
