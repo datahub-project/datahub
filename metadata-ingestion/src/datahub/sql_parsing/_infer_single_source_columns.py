@@ -38,27 +38,26 @@ def infer_single_source_columns(expression: exp.Expr, schema: Schema) -> exp.Exp
 
     for scope in traverse_scope(expression):
         candidates = _candidate_columns(scope)
-        unqualified = [column for column in candidates if not column.table]
-        struct_paths = [
-            column for column in candidates if _is_unresolved_struct_path(scope, column)
+        unqualified = [
+            column
+            for column in candidates
+            if not column.table or _names_enclosing_source(scope, column)
         ]
-        if not unqualified and not struct_paths:
+        struct_paths = [
+            column
+            for column in candidates
+            if column not in unqualified and _is_unresolved_struct_path(scope, column)
+        ]
+        table_columns = scope.table_columns
+        if not unqualified and not struct_paths and not table_columns:
             continue
 
         source_name = sole_source_without_schema(scope, schema)
         if source_name is None:
             continue
 
-        # ORDER BY and QUALIFY may name a projection alias rather than a source column.
-        projection_aliases = (
-            set(scope.expression.named_selects)
-            if isinstance(scope.expression, exp.Select)
-            else set()
-        )
         for column in unqualified:
-            if column.name in projection_aliases and column.find_ancestor(
-                exp.Order, exp.Qualify
-            ):
+            if may_name_projection_alias(scope, column):
                 continue
             column.set("table", source_identifier(scope, source_name))
 
@@ -73,8 +72,22 @@ def infer_single_source_columns(expression: exp.Expr, schema: Schema) -> exp.Exp
                     ]
                 )
             )
-        if struct_paths:
-            scope.clear_cache()
+
+        # Since 30.22, Postgres-like dialects read an unqualified column named like a
+        # selected table as that table's whole row. 30.21 attributed it to the sole
+        # source first, as a column.
+        for table_column in table_columns:
+            table_column.replace(
+                exp.column(
+                    table_column.this, table=source_identifier(scope, source_name)
+                )
+            )
+
+        # A cached column list would still show what we just qualified as unqualified,
+        # in this scope and in the parent that lists it as an outer reference.
+        scope.clear_cache()
+        if scope.parent:
+            scope.parent.clear_cache()
 
     return expression
 
@@ -93,14 +106,44 @@ def _candidate_columns(scope: Scope) -> List[exp.Column]:
     return columns
 
 
+def may_name_projection_alias(scope: Scope, column: exp.Column) -> bool:
+    # The scope's own ORDER BY and QUALIFY may name a projection alias rather than a
+    # source column. An ORDER BY inside a window, WITHIN GROUP or aggregate can't.
+    if not isinstance(scope.expression, exp.Select):
+        return False
+    clause = column.find_ancestor(exp.Order, exp.Qualify)
+    return (
+        clause is not None
+        and clause.parent is scope.expression
+        and column.name in scope.expression.named_selects
+    )
+
+
+def _names_enclosing_source(scope: Scope, column: exp.Column) -> bool:
+    # qualify gives a LATERAL subquery's unqualified columns the lateral's own alias,
+    # e.g. `y` in `LATERAL (SELECT y FROM u) AS l` becomes `l.y`. The alias names the
+    # subquery's output, so inside it the column is as good as unqualified.
+    table = column.table
+    if not table or table in scope.sources or len(column.parts) != 2:
+        return False
+    node = scope.expression.parent
+    while isinstance(node, (exp.Subquery, exp.Lateral)):
+        if node.alias:
+            return node.alias == table
+        node = node.parent
+    return False
+
+
 def _is_unresolved_struct_path(scope: Scope, column: exp.Column) -> bool:
     # Same guard as _convert_columns_to_dots: a correlated subquery's reference to an
-    # outer source is a column of that source, not a struct path.
+    # outer source is a column of that source, not a struct path. Columns read from a
+    # PIVOT carry the pivot's alias, which lineage() resolves through the pivot.
     table = column.table
     return bool(
         table
         and not isinstance(column.this, exp.Star)
         and table not in scope.selected_sources
+        and table not in {pivot.alias for pivot in scope.pivots}
         and (
             not scope.parent
             or table not in scope.parent.sources

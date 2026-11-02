@@ -65,6 +65,27 @@ def _qualify(sql: str, schema: Optional[dict] = None) -> str:
             'WHERE EXISTS(SELECT 1 AS "1" FROM t2 AS t2 WHERE t2.k = t1.k)',
             id="correlated_outer_column",
         ),
+        pytest.param(
+            # Once inferred, the parent scope must not still see `c` as an outer
+            # column and turn `t2.c` into a struct path of t1.
+            "SELECT t1.a FROM t1 WHERE EXISTS (SELECT 1 FROM t2 WHERE t2.b = t1.k AND c > 0)",
+            "SELECT t1.a AS a FROM t1 AS t1 "
+            'WHERE EXISTS(SELECT 1 AS "1" FROM t2 AS t2 WHERE t2.b = t1.k AND t2.c > 0)',
+            id="correlated_subquery_inferred_column",
+        ),
+        pytest.param(
+            # qualify gives the lateral's `y` the lateral's own alias.
+            "SELECT a, l.y FROM t, LATERAL (SELECT y FROM u WHERE u.k = t.k) AS l",
+            "SELECT t.a AS a, l.y AS y FROM t AS t, "
+            "LATERAL (SELECT u.y AS y FROM u AS u WHERE u.k = t.k) AS l",
+            id="lateral_subquery",
+        ),
+        pytest.param(
+            # `a` is also a projection, but a window's ORDER BY can't name one.
+            "SELECT a, ROW_NUMBER() OVER (ORDER BY a) AS rn FROM t",
+            "SELECT t.a AS a, ROW_NUMBER() OVER (ORDER BY t.a) AS rn FROM t AS t",
+            id="window_order_by_is_not_projection_alias",
+        ),
     ],
 )
 def test_infers_sole_schemaless_source(sql: str, expected: str) -> None:

@@ -1,5 +1,6 @@
 from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 
+import contextlib
 import dataclasses
 import functools
 import logging
@@ -13,6 +14,7 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    Iterator,
     List,
     Optional,
     Set,
@@ -60,6 +62,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing._infer_single_source_columns import (
     infer_single_source_columns,
+    may_name_projection_alias,
     source_identifier,
 )
 from datahub.sql_parsing._legacy_pushdown_projections import (
@@ -1026,7 +1029,9 @@ def _table_level_lineage(
                 (
                     table
                     for table in statement.find_all(sqlglot.exp.Table)
-                    if not isinstance(table.parent, sqlglot.exp.Drop)
+                    # A DROP reads nothing, including the table that `DROP INDEX ix
+                    # ON t` names, which 30.22 nests under an OnProperty.
+                    if not isinstance(statement, sqlglot.exp.Drop)
                     and not _is_clickhouse_non_input(
                         table, dialect, bool(clickhouse_to_tables)
                     )
@@ -1293,26 +1298,20 @@ def _select_statement_cll(
     dialect: sqlglot.Dialect,
     root_scope: sqlglot.optimizer.Scope,
     column_resolver: _ColumnResolver,
+    inference_guard: "_LineageInferenceGuard",
     output_table: Optional[_TableName],
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
     explicit_synthetic_aliases: AbstractSet[str] = frozenset(),
 ) -> List[_ColumnLineageInfo]:
-    column_lineage: List[_ColumnLineageInfo] = []
+    empty_schema = _empty_lineage_schema(dialect)
+    # The column logic is rendered once the guard's placeholders are gone.
+    pending: List[
+        Tuple[_DownstreamColumnRef, List[_ColumnRef], sqlglot.lineage.Node]
+    ] = []
 
-    # The columns are already qualified, so lineage() needs no schema. sqlglot 30.22
-    # made the argument required; an empty one matches the old default.
-    empty_schema = MappingSchema(dialect=dialect)
-    # Must be computed before lineage(), which qualifies these columns in place.
-    lineage_inferred_columns = _find_lineage_inferred_columns(root_scope, dialect)
-    checked_inferred_upstreams = {
-        inferred.upstream: _match_known_schema_column(
-            inferred.upstream, column_resolver
-        )
-        for inferred in lineage_inferred_columns
-    }
-
+    inference_guard.hide_rejected()
     try:
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
@@ -1359,16 +1358,6 @@ def _select_statement_cll(
                     f"Failed to compute lineage for column '{output_col}': {e}"
                 )
                 continue
-            finally:
-                # Replace lineage()'s unquoted guess, or undo it where the upstream is
-                # dropped below, so the column logic reads like the rest of the query.
-                for inferred in lineage_inferred_columns:
-                    inferred.column.set(
-                        "table",
-                        inferred.qualifier.copy()
-                        if checked_inferred_upstreams[inferred.upstream]
-                        else None,
-                    )
 
             # Generate SELECT lineage.
             try:
@@ -1385,12 +1374,8 @@ def _select_statement_cll(
                 continue
 
             direct_raw_col_upstreams = OrderedSet(
-                edge
-                for edge in (
-                    checked_inferred_upstreams.get(edge, edge)
-                    for edge in direct_raw_col_upstreams
-                )
-                if edge is not None
+                inference_guard.corrected_upstreams.get(edge, edge)
+                for edge in direct_raw_col_upstreams
             )
 
             # Fuzzy resolve the output column.
@@ -1449,15 +1434,15 @@ def _select_statement_cll(
 
             if not direct_resolved_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
-            column_lineage.append(
-                _ColumnLineageInfo(
-                    downstream=_DownstreamColumnRef(
+            pending.append(
+                (
+                    _DownstreamColumnRef(
                         table=output_table,
                         column=output_col,
                         column_type=output_col_type,
                     ),
-                    upstreams=sorted(direct_resolved_col_upstreams),
-                    logic=_get_column_transformation(lineage_node, dialect),
+                    sorted(direct_resolved_col_upstreams),
+                    lineage_node,
                 )
             )
 
@@ -1466,50 +1451,128 @@ def _select_statement_cll(
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
         ) from e
+    finally:
+        inference_guard.restore_rejected()
 
-    return column_lineage
+    return [
+        _ColumnLineageInfo(
+            downstream=downstream,
+            upstreams=upstreams,
+            logic=_get_column_transformation(lineage_node, dialect),
+        )
+        for downstream, upstreams, lineage_node in pending
+    ]
 
 
-@dataclasses.dataclass
-class _LineageInferredColumn:
-    """A column that sqlglot.lineage attributes to a source by its own inference.
+def _empty_lineage_schema(dialect: sqlglot.Dialect) -> MappingSchema:
+    # The columns are already qualified, so lineage() and to_node() need no schema.
+    # sqlglot 30.22 made the argument required; an empty one matches the old default.
+    return MappingSchema(dialect=dialect)
 
-    Since 30.22, lineage() attributes a column that qualification left unqualified to
-    the sole named source of its scope, whether or not that source's schema has the
-    column, and writes the guessed qualifier into the tree. Up to 30.21 such a column
-    had no upstream at all.
+
+# Stands in for the qualifier of a column whose lineage() guess we reject, so that
+# lineage() and to_node() leave it an unresolved leaf. Only set while they run.
+_UNRESOLVED_QUALIFIER = "__datahub_unresolved__"
+
+
+class _LineageInferenceGuard:
+    """Checks the table guesses that sqlglot.lineage makes for unqualified columns.
+
+    Since 30.22, lineage() and to_node() attribute a column that qualification left
+    unqualified to the sole named source of its scope, whether or not that source has
+    the column, and write the guess into the tree. Up to 30.21 such a column had no
+    upstream at all. A guess is kept only when it can be checked:
+
+    - into a table, when the table's known schema has the column (ignoring case) or
+      the table has no known schema;
+    - into a CTE or subquery, when it projects a column of that name. Otherwise
+      lineage() falls back to its whole SELECT, and every column it reads, e.g. in
+      WHERE or QUALIFY, would become an upstream.
+
+    Kept guesses are qualified once, up front, quoted like the rest of the statement.
+    The rejected ones get a placeholder qualifier only while lineage() or to_node()
+    runs, so the tree never renders with it.
     """
 
-    column: sqlglot.exp.Column
-    upstream: _ColumnRef
-    # The qualifier lineage() guesses, but quoted like the rest of the statement.
-    qualifier: sqlglot.exp.Identifier
+    def __init__(
+        self,
+        root_scope: sqlglot.optimizer.Scope,
+        dialect: sqlglot.Dialect,
+        column_resolver: _ColumnResolver,
+    ) -> None:
+        self._rejected: List[sqlglot.exp.Column] = []
+        # The inferred upstreams whose column casing the known schema corrects.
+        self.corrected_upstreams: Dict[_ColumnRef, _ColumnRef] = {}
 
+        for scope in root_scope.traverse():
+            named_sources = [
+                (name, source) for name, source in scope.sources.items() if name
+            ]
+            if len(named_sources) != 1:
+                continue
+            ((source_name, source),) = named_sources
+            # find_all_in_scope, unlike scope.columns, includes pseudocolumns and
+            # leaves out a subquery's columns, which lineage() guesses in their own
+            # scope.
+            columns = [
+                column
+                for column in find_all_in_scope(scope.expression, sqlglot.exp.Column)
+                if not column.table and not may_name_projection_alias(scope, column)
+            ]
+            if not columns:
+                continue
 
-def _find_lineage_inferred_columns(
-    root_scope: sqlglot.optimizer.Scope, dialect: sqlglot.Dialect
-) -> List[_LineageInferredColumn]:
-    inferred: List[_LineageInferredColumn] = []
-    for scope in root_scope.traverse():
-        named_sources = [
-            (name, source) for name, source in scope.sources.items() if name
-        ]
-        if len(named_sources) != 1:
-            continue
-        ((source_name, source),) = named_sources
-        if not isinstance(source, sqlglot.exp.Table):
-            continue
-        table = _table_name_from_sqlglot_table(source, dialect)
-        inferred.extend(
-            _LineageInferredColumn(
-                column=column,
-                upstream=_ColumnRef(table=table, column=column.name),
-                qualifier=source_identifier(scope, source_name),
-            )
-            for column in scope.columns
-            if not column.table
-        )
-    return inferred
+            table: Optional[_TableName] = None
+            if isinstance(source, sqlglot.exp.Table):
+                try:
+                    table = _table_name_from_sqlglot_table(source, dialect)
+                except SqlUnderstandingError as e:
+                    # e.g. IDENTIFIER($var): the per-column error belongs to the
+                    # columns that read it, not to the whole statement.
+                    logger.debug("Not inferring columns of %s: %s", source, e)
+
+            for column in columns:
+                upstream: Optional[_ColumnRef] = None
+                checked: Optional[_ColumnRef] = None
+                if isinstance(column, sqlglot.exp.Pseudocolumn):
+                    # Supplied by the warehouse, e.g. BigQuery's _TABLE_SUFFIX, so
+                    # never a column of the table.
+                    keep = False
+                elif isinstance(source, sqlglot.optimizer.Scope):
+                    keep = (
+                        isinstance(source.expression, sqlglot.exp.Query)
+                        and column.name in source.expression.named_selects
+                    )
+                elif table is not None:
+                    upstream = _ColumnRef(table=table, column=column.name)
+                    checked = _match_known_schema_column(upstream, column_resolver)
+                    keep = checked is not None
+                else:
+                    keep = False
+
+                if not keep:
+                    self._rejected.append(column)
+                    continue
+                column.set("table", source_identifier(scope, source_name))
+                if upstream is not None and checked is not None and checked != upstream:
+                    self.corrected_upstreams[upstream] = checked
+
+    def hide_rejected(self) -> None:
+        """Keep lineage() and to_node() from guessing the rejected columns."""
+        for column in self._rejected:
+            column.set("table", sqlglot.exp.to_identifier(_UNRESOLVED_QUALIFIER))
+
+    def restore_rejected(self) -> None:
+        for column in self._rejected:
+            column.set("table", None)
+
+    @contextlib.contextmanager
+    def rejected_hidden(self) -> Iterator[None]:
+        self.hide_rejected()
+        try:
+            yield
+        finally:
+            self.restore_rejected()
 
 
 def _match_known_schema_column(
@@ -1619,12 +1682,16 @@ def _column_level_lineage(
             f"sqlglot failed to preprocess statement: {e}"
         ) from e
 
+    # Must run before lineage() or to_node(), which guess in place.
+    inference_guard = _LineageInferenceGuard(root_scope, dialect, column_resolver)
+
     # Generate column-level lineage.
     column_lineage = _select_statement_cll(
         select_statement,
         dialect=dialect,
         root_scope=root_scope,
         column_resolver=column_resolver,
+        inference_guard=inference_guard,
         output_table=downstream_table,
         table_name_schema_mapping=table_name_schema_mapping,
         default_db=default_db,
@@ -1636,7 +1703,10 @@ def _column_level_lineage(
     if not get_sql_agg_skip_joins():
         try:
             joins = _list_joins(
-                dialect=dialect, root_scope=root_scope, column_resolver=column_resolver
+                dialect=dialect,
+                root_scope=root_scope,
+                column_resolver=column_resolver,
+                inference_guard=inference_guard,
             )
             if logger.getEffectiveLevel() <= logging.DEBUG:
                 logger.debug("Joins: %s", joins)
@@ -1745,7 +1815,12 @@ def _get_direct_raw_col_upstreams(
             # Without this handling, lateral join column lineage would be incomplete/missing.
             try:
                 parsed = sqlglot.parse_one(node.name, dialect=dialect)
-                if isinstance(parsed, sqlglot.exp.Column) and parsed.table:
+                if (
+                    isinstance(parsed, sqlglot.exp.Column)
+                    and parsed.table
+                    # A column _LineageInferenceGuard keeps unresolved.
+                    and parsed.table.lower() != _UNRESOLVED_QUALIFIER
+                ):
                     table_ref = _table_name_from_sqlglot_table(
                         sqlglot.parse_one(
                             parsed.table, into=sqlglot.exp.Table, dialect=dialect
@@ -1927,8 +2002,7 @@ def _get_raw_col_upstreams_for_expression(
             column=0,
             scope=scope,
             dialect=dialect,
-            # Already qualified, so empty, as for lineage() in _select_statement_cll.
-            schema=MappingSchema(dialect=dialect),
+            schema=_empty_lineage_schema(dialect),
             trim_selects=False,
         )
 
@@ -1941,6 +2015,7 @@ def _list_joins(
     dialect: sqlglot.Dialect,
     root_scope: sqlglot.optimizer.Scope,
     column_resolver: _ColumnResolver,
+    inference_guard: _LineageInferenceGuard,
 ) -> List[_JoinInfo]:
     # TODO: Add a confidence tracker here.
 
@@ -1984,9 +2059,10 @@ def _list_joins(
             # by the sqlglot optimizer.
             on_clause: Optional[sqlglot.exp.Expression] = join.args.get("on")
             if on_clause:
-                joined_columns = _get_raw_col_upstreams_for_expression(
-                    select=on_clause, dialect=dialect, scope=scope
-                )
+                with inference_guard.rejected_hidden():
+                    joined_columns = _get_raw_col_upstreams_for_expression(
+                        select=on_clause, dialect=dialect, scope=scope
+                    )
                 unique_tables = OrderedSet(col.table for col in joined_columns)
 
                 if not unique_tables:

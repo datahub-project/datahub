@@ -1,7 +1,9 @@
 import pathlib
+from typing import Dict, List, Optional
 
 import pytest
 
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     _CLICKHOUSE_DICTIONARY_FUNCTIONS,
@@ -2030,6 +2032,257 @@ SELECT s.f, col_a FROM my_project.my_dataset.table_a
         dialect="bigquery",
         expected_file=RESOURCE_DIR / "test_bigquery_struct_field_without_schema.json",
     )
+
+
+def _schema_resolver(
+    platform: str, schemas: Dict[str, Dict[str, str]]
+) -> SchemaResolver:
+    resolver = SchemaResolver(platform=platform)
+    for table, columns in schemas.items():
+        resolver.add_raw_schema_info(
+            f"urn:li:dataset:(urn:li:dataPlatform:{platform},{table},PROD)", columns
+        )
+    return resolver
+
+
+def _column_upstreams(
+    sql: str,
+    platform: str,
+    schemas: Optional[Dict[str, Dict[str, str]]] = None,
+) -> Dict[str, List[str]]:
+    result = sqlglot_lineage(
+        sql,
+        _schema_resolver(platform, schemas or {}),
+        default_db="my_db",
+        default_schema="my_schema",
+    )
+    assert result.debug_info.column_error is None
+    return {
+        info.downstream.column: sorted(
+            f"{DatasetUrn.from_string(upstream.table).name}.{upstream.column}"
+            for upstream in info.upstreams
+        )
+        for info in result.column_lineage or []
+    }
+
+
+_TARGET_SCHEMA = {"my_db.my_schema.my_target": {"col_a": "NUMBER", "col_b": "NUMBER"}}
+
+
+@pytest.mark.parametrize(
+    "platform, sql, schemas, expected",
+    [
+        pytest.param(
+            # Only the target's schema is known, so `source` keeps its star and the
+            # unqualified columns of `renamed` can't be checked against it. Taking
+            # lineage()'s guess would make the columns `source` filters on, here
+            # col_deleted, the upstream of every column.
+            "snowflake",
+            """\
+INSERT INTO my_db.my_schema.my_target
+WITH source AS (
+    SELECT * FROM my_db.my_schema.table_a WHERE col_deleted = FALSE
+), renamed AS (SELECT id AS col_a, col_x AS col_b FROM source)
+SELECT * FROM renamed
+""",
+            _TARGET_SCHEMA,
+            {"col_a": [], "col_b": []},
+            id="cte_star_without_schema",
+        ),
+        pytest.param(
+            "snowflake",
+            """\
+INSERT INTO my_db.my_schema.my_target
+SELECT col_a, col_b FROM (
+    SELECT * FROM my_db.my_schema.table_a
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY id ORDER BY updated_at DESC) = 1
+)
+""",
+            _TARGET_SCHEMA,
+            {"col_a": [], "col_b": []},
+            id="subquery_star_without_schema",
+        ),
+        pytest.param(
+            # Pseudocolumns are supplied by the warehouse, never by the table.
+            "bigquery",
+            """\
+SELECT PARSE_DATE('%Y%m%d', _TABLE_SUFFIX) AS event_date, col_a
+FROM my_project.my_dataset.events_*
+WHERE _TABLE_SUFFIX BETWEEN '20240101' AND '20240131'
+""",
+            {"my_project.my_dataset.events_*": {"col_a": "STRING"}},
+            {
+                "event_date": [],
+                "col_a": ["my_project.my_dataset.events_yyyymmdd.col_a"],
+            },
+            id="pseudocolumn",
+        ),
+        pytest.param(
+            # col_v belongs to the scalar subquery's table_b, wherever it's listed.
+            "snowflake",
+            """\
+INSERT INTO my_db.my_schema.my_target
+SELECT col_a, (SELECT MAX(col_v) FROM table_b) AS col_b FROM table_a
+""",
+            _TARGET_SCHEMA,
+            {
+                "col_a": ["my_db.my_schema.table_a.col_a"],
+                "col_b": ["my_db.my_schema.table_b.col_v"],
+            },
+            id="scalar_subquery_column",
+        ),
+        pytest.param(
+            # The dynamic table name only costs the column read from it.
+            "snowflake",
+            """\
+INSERT INTO my_db.my_schema.my_target
+SELECT x.col_a, y.col_b
+FROM table_a x JOIN (SELECT col_b, k FROM IDENTIFIER($tbl)) y ON x.k = y.k
+""",
+            None,
+            {"col_a": ["my_db.my_schema.table_a.col_a"]},
+            id="dynamic_identifier",
+        ),
+        pytest.param(
+            # A guess the schema rejects must not drop an explicit reference to the
+            # same column elsewhere in the statement.
+            "postgres",
+            """\
+INSERT INTO my_db.my_schema.my_target
+SELECT t.col_x AS col_a FROM my_db.my_schema.table_a AS t
+WHERE EXISTS (SELECT 1 FROM my_db.my_schema.table_a WHERE col_x > 0)
+""",
+            {"my_db.my_schema.table_a": {"col_y": "INT"}},
+            {"col_a": ["my_db.my_schema.table_a.col_x"]},
+            id="rejected_guess_keeps_explicit_reference",
+        ),
+        pytest.param(
+            "bigquery",
+            """\
+SELECT product, q1 FROM my_project.my_dataset.table_a
+PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2'))
+""",
+            None,
+            {
+                "product": ["my_project.my_dataset.table_a.product"],
+                "q1": ["my_project.my_dataset.table_a.sales"],
+            },
+            id="pivot",
+        ),
+        pytest.param(
+            "mssql",
+            """\
+SELECT col_id, col_month, col_value
+FROM table_a UNPIVOT (col_value FOR col_month IN (jan, feb)) AS u
+""",
+            None,
+            {
+                "col_id": ["my_db.my_schema.table_a.col_id"],
+                "col_month": [
+                    "my_db.my_schema.table_a.feb",
+                    "my_db.my_schema.table_a.jan",
+                ],
+                "col_value": [
+                    "my_db.my_schema.table_a.feb",
+                    "my_db.my_schema.table_a.jan",
+                ],
+            },
+            id="unpivot",
+        ),
+        pytest.param(
+            # sqlglot qualifies the lateral's `col_y` with the lateral's own alias.
+            "postgres",
+            """\
+SELECT col_a, l.col_y
+FROM table_a, LATERAL (SELECT col_y FROM table_b WHERE table_b.k = table_a.k) AS l
+""",
+            None,
+            {
+                "col_a": ["my_db.my_schema.table_a.col_a"],
+                "col_y": [
+                    "my_db.my_schema.table_a.k",
+                    "my_db.my_schema.table_b.col_y",
+                    "my_db.my_schema.table_b.k",
+                ],
+            },
+            id="lateral_subquery",
+        ),
+        pytest.param(
+            # Postgres could read `status` as the whole row of table `status`.
+            "postgres",
+            "SELECT status, col_a FROM my_db.my_schema.status",
+            None,
+            {
+                "status": ["my_db.my_schema.status.status"],
+                "col_a": ["my_db.my_schema.status.col_a"],
+            },
+            id="column_named_like_its_table",
+        ),
+        pytest.param(
+            # The window's ORDER BY col_b names the source column, not the projection.
+            "snowflake",
+            """\
+WITH a AS (SELECT * FROM table_a), b AS (SELECT * FROM table_b),
+ranked AS (
+    SELECT col_a, col_b, ROW_NUMBER() OVER (PARTITION BY col_a ORDER BY col_b) AS rn
+    FROM a
+)
+SELECT * FROM ranked
+""",
+            None,
+            {
+                "col_a": ["my_db.my_schema.table_a.col_a"],
+                "col_b": ["my_db.my_schema.table_a.col_b"],
+                "rn": [
+                    "my_db.my_schema.table_a.col_a",
+                    "my_db.my_schema.table_a.col_b",
+                ],
+            },
+            id="window_order_by",
+        ),
+    ],
+)
+def test_single_source_inference(
+    platform: str,
+    sql: str,
+    schemas: Optional[Dict[str, Dict[str, str]]],
+    expected: Dict[str, List[str]],
+) -> None:
+    assert _column_upstreams(sql, platform, schemas) == expected
+
+
+def test_join_columns_skip_unknown_inferred_column() -> None:
+    # col_z is not in table_b's known schema, so the join must not name it.
+    result = sqlglot_lineage(
+        """\
+SELECT a.col_a FROM my_db.my_schema.table_a a
+JOIN (SELECT k, col_z FROM my_db.my_schema.table_b) b ON a.k = b.k AND b.col_z = 1
+""",
+        _schema_resolver(
+            "postgres",
+            {
+                "my_db.my_schema.table_a": {"col_a": "INT", "k": "INT"},
+                "my_db.my_schema.table_b": {"k": "INT"},
+            },
+        ),
+    )
+    assert result.joins is not None
+    assert [
+        sorted(
+            f"{DatasetUrn.from_string(column.table).name}.{column.column}"
+            for column in join.columns_involved
+        )
+        for join in result.joins
+    ] == [["my_db.my_schema.table_a.k", "my_db.my_schema.table_b.k"]]
+
+
+def test_drop_index_has_no_inputs() -> None:
+    result = sqlglot_lineage(
+        "DROP INDEX ix_orders ON my_schema.orders",
+        SchemaResolver(platform="mssql"),
+        default_db="my_db",
+    )
+    assert result.in_tables == []
 
 
 def test_sqlite_attach_database() -> None:
