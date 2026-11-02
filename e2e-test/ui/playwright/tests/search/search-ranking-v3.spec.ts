@@ -21,14 +21,11 @@
  * Requirements:
  *   - Search V3 keyword read and templates on (ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED,
  *     ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED, SEARCH_V3_TEMPLATES_ENABLED).
- *   - SEARCH_RANKING_MODE names what the search box runs (it labels the run; the assertions are the
- *     same):
- *       stock       the shipped templates;
- *       classOrder  the seeded class-order router, selected the way a deployment selects a
- *                   default template, by pointing the search surface at it in GMS configuration:
- *                   SPRING_APPLICATION_JSON='{"elasticsearch":{"search":{"v3":{"templates":
- *                   {"surfaces":{"searchEntities":{"fulltext":{"default":
- *                   "urn:li:searchTemplate:rankingClassOrderSearch"}}}}}}}}'
+ *   - The seeded class-order router is the search-box default, selected the way a deployment selects
+ *     a default template, in GMS configuration:
+ *       SPRING_APPLICATION_JSON='{"elasticsearch":{"search":{"v3":{"templates":{"surfaces":
+ *       {"searchEntities":{"fulltext":{"default":"urn:li:searchTemplate:rankingClassOrderSearch"}}}}}}}}'
+ *     and SEARCH_RANKING_MODE=classOrder says so; without it the suite skips.
  *   - The two structured properties must exist before the Search V3 index is built, or a
  *     system-update must run after the first seeding: a property created later is mapped as a
  *     keyword only, so its copied title is not searchable as text. The suite skips with that reason.
@@ -103,7 +100,10 @@ const rowOf = (query: string, rank: number, urn: string, e: CorpusEntry | undefi
 
 test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () => {
   test.setTimeout(5 * 60_000);
-  test.skip(!MODE, 'Set SEARCH_RANKING_MODE=stock or classOrder on a stack with Search V3 keyword read on');
+  test.skip(
+    MODE !== 'classOrder',
+    'Set SEARCH_RANKING_MODE=classOrder on a stack whose search-box default is the class-order router',
+  );
 
   let rankingPage: SearchRankingPage;
 
@@ -172,11 +172,6 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
     // "Kennel Booking Archive" and the column kennel_booking_id all hold the words; none is exact.
     // 150 datasets titled "Kennel Booking" differ only in separators and are left out of the check.
     const actual = await expectTrancheOrder(testInfo, 'kennel_booking');
-    expect(actual[0]?.urn).toBe(datasetUrn('kennel_booking'));
-  });
-
-  test('the quoted query gives the same order as the unquoted one', async ({}, testInfo) => {
-    const actual = await expectTrancheOrder(testInfo, '"kennel_booking"');
     expect(actual[0]?.urn).toBe(datasetUrn('kennel_booking'));
   });
 

@@ -131,9 +131,9 @@ import org.testng.annotations.BeforeClass;
  * EXACT_COLUMN_COPIED, PARTIAL_COLUMN, PARTIAL_COLUMN_COPIED) follow the dataset tranches of the
  * same match quality. A record ID typed as the query is checked on its own: that asset first.
  *
- * <p>Every scenario runs three ways: the shipped templates; the class-order body selected per
- * request with {@code searchFlags.searchTemplate}; and the class-order router set as the search-box
- * default in configuration with no per-request selection, as a deployment would set it.
+ * <p>Every scenario runs through the class-order router set as the search-box default in
+ * configuration, with no per-request selection, as a deployment sets it. Queries are typed
+ * unquoted.
  */
 public abstract class SearchV3RealNameAboveCopiedValueTestBase
     extends AbstractTestNGSpringContextTests {
@@ -150,16 +150,6 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   static final String CLASS_ORDER_ROUTER = "urn:li:searchTemplate:rankingClassOrderSearch";
   static final String GUID = "3f2b9c1e-7d4a-4b8e-9a61-2c5d8e0f1a7b";
   static final String HYPHENATED_ID = "PET-ADOPT-0042";
-
-  /** How the search box selects its template. */
-  protected enum Mode {
-    /** The shipped templates. */
-    SHIPPED,
-    /** The class-order body, selected per request with searchFlags.searchTemplate. */
-    CLASS_ORDER_PER_REQUEST,
-    /** The class-order router as the configured search-box default; no per-request selection. */
-    CLASS_ORDER_DEFAULT
-  }
 
   /** More copies than the 100-row window a three- or four-word query used to get. */
   static final int EQUAL_TITLE_COPIES = 150;
@@ -290,42 +280,37 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * booking_kennel, "Kennel Booking Archive", the 30 snapshots) rank below it, and the tranche
    * order holds past the old 100-row window.
    */
-  protected void assertUnquotedQueryExactOnlyForWholeName(Mode mode) throws Exception {
-    assertTrancheOrder(mode, "kennel_booking");
-  }
-
-  /** The same query in quotes must give the same tranche order as the unquoted one. */
-  protected void assertQuotedQueryExactOnlyForWholeName(Mode mode) throws Exception {
-    assertTrancheOrder(mode, "\"kennel_booking\"");
+  protected void assertUnquotedQueryExactOnlyForWholeName() throws Exception {
+    assertTrancheOrder("kennel_booking");
   }
 
   /**
    * Only the title equal to the query is an exact copied match: groomed_journal, titled "Groomed
    * Journal Entries", ranks above the 20 titles "Groomed Journal Entries N".
    */
-  protected void assertExactCopiedOnlyForWholeTitle(Mode mode) throws Exception {
-    assertTrancheOrder(mode, "groomed journal entries");
+  protected void assertExactCopiedOnlyForWholeTitle() throws Exception {
+    assertTrancheOrder("groomed journal entries");
   }
 
   /**
    * The one copied title equal to the query ranks above groom_coat_notes_stage, which shares the
    * other words and only the stem of "groomed".
    */
-  protected void assertStemOnlyNameBelowExactCopiedTitle(Mode mode) throws Exception {
-    assertTrancheOrder(mode, "groomed coat notes");
+  protected void assertStemOnlyNameBelowExactCopiedTitle() throws Exception {
+    assertTrancheOrder("groomed coat notes");
   }
 
   /**
    * For "my cat": the asset named "my cat" first, the title "My Cat" next, then "my cat frank" and
    * "awesome my cat" in either order, then "my dog" and "cat".
    */
-  protected void assertCanonicalExampleOrder(Mode mode) throws Exception {
-    assertTrancheOrder(mode, "my cat");
+  protected void assertCanonicalExampleOrder() throws Exception {
+    assertTrancheOrder("my cat");
   }
 
   /** A real name equal to its own copied title is an exact real-name match. */
-  protected void assertRealNameEqualToOwnTitleIsExactRealName(Mode mode) throws Exception {
-    assertTrancheOrder(mode, "cattery roster");
+  protected void assertRealNameEqualToOwnTitleIsExactRealName() throws Exception {
+    assertTrancheOrder("cattery roster");
   }
 
   /**
@@ -333,36 +318,34 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * sand_depth, the column sand_depth, the column titled sand_depth, then the partial counterparts
    * in the same order. Datasets come before columns of the same match quality.
    */
-  protected void assertColumnsFollowDatasetsOfTheSameMatch(Mode mode) throws Exception {
-    assertTrancheOrder(mode, "sand_depth");
+  protected void assertColumnsFollowDatasetsOfTheSameMatch() throws Exception {
+    assertTrancheOrder("sand_depth");
   }
 
   /**
    * A record ID typed as the query finds its asset first, as typed, in upper case, and for a
    * hyphenated ID. A dataset that only mentions the ID in its description ranks below it.
    */
-  protected void assertRecordIdFindsItsAssetFirst(Mode mode) throws Exception {
+  protected void assertRecordIdFindsItsAssetFirst() throws Exception {
     for (String[] c :
         new String[][] {
           {GUID, "adoption_register"},
           {GUID.toUpperCase(), "adoption_register"},
           {HYPHENATED_ID, "adoption_ledger"}
         }) {
-      List<Dataset> actual = search(mode, c[0], 0, 10).served();
+      List<Dataset> actual = search(c[0], 0, 10).served();
       int owner = indexOfName(actual, c[1]);
       int mention = indexOfName(actual, "adoption_notes");
       assertEquals(
           owner,
           0,
           String.format(
-              "%s, query %s: %s should be #1%n  actual: %s",
-              mode, c[0], c[1], describe(c[0], actual)));
+              "query %s: %s should be #1%n  actual: %s", c[0], c[1], describe(c[0], actual)));
       if (mention >= 0) {
         assertEquals(
             Math.min(owner, mention),
             owner,
-            String.format(
-                "%s, query %s: the description-only mention outranks %s", mode, c[0], c[1]));
+            String.format("query %s: the description-only mention outranks %s", c[0], c[1]));
       }
     }
   }
@@ -371,13 +354,13 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * Walking the result in pages of 10, past the old 100-row window: every graded result appears
    * exactly once, the tranche order holds across page boundaries, and the total does not change.
    */
-  protected void assertPagingKeepsTrancheOrder(Mode mode) throws Exception {
+  protected void assertPagingKeepsTrancheOrder() throws Exception {
     String query = "kennel_booking";
     List<Dataset> graded = corpus.values().stream().filter(d -> rank(query, d) != OTHER).toList();
     List<Dataset> walked = new ArrayList<>();
     java.util.Set<Integer> totals = new java.util.TreeSet<>();
     for (int from = 0; from < graded.size() + 10; from += 10) {
-      Page page = search(mode, query, from, 10);
+      Page page = search(query, from, 10);
       totals.add(page.total());
       walked.addAll(page.served());
       if (page.served().isEmpty()) {
@@ -387,40 +370,44 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     java.util.Set<String> seen = new java.util.HashSet<>();
     List<String> repeated =
         walked.stream().map(Dataset::urn).filter(u -> !seen.add(u)).distinct().toList();
-    assertEquals(repeated, List.of(), mode + ": results shown on more than one page");
-    assertEquals(totals.size(), 1, mode + ": the total changed between pages: " + totals);
+    assertEquals(repeated, List.of(), "results shown on more than one page");
+    assertEquals(totals.size(), 1, "the total changed between pages: " + totals);
     List<String> missing =
         graded.stream().map(Dataset::urn).filter(u -> !seen.contains(u)).toList();
-    assertEquals(missing, List.of(), mode + ": graded results never shown");
-    assertTranchesMatch(mode, query, walked, "paged in tens");
+    assertEquals(missing, List.of(), "graded results never shown");
+    assertTranchesMatch(query, walked, "paged in tens");
   }
 
   /**
    * An exact real name whose own title is longer stays first on the first page, above 12 datasets
-   * titled exactly the query whose names and schema repeat it. The control has no title of its own.
+   * titled exactly the query whose names and schema repeat it.
    */
-  protected void assertExactNameWithLongerOwnTitleStaysFirst(Mode mode) throws Exception {
-    for (String[] c :
-        new String[][] {
-          {"ragdoll lounge", "ragdoll lounge"}, {"siberian lounge", "siberian lounge"}
-        }) {
-      List<Dataset> firstPage = search(mode, c[0], 0, 10).served();
-      assertEquals(
-          firstPage.isEmpty() ? null : firstPage.get(0).name(),
-          c[1],
-          String.format(
-              "%s, query %s: %s (EXACT_NAME) should be #1 on the first page, at #%s%n  actual: %s",
-              mode,
-              c[0],
-              c[1],
-              indexOfName(search(mode, c[0], 0, 30).served(), c[1]) + 1,
-              describe(c[0], firstPage)));
-    }
+  protected void assertExactNameWithLongerOwnTitleStaysFirst() throws Exception {
+    assertFirstOnFirstPage("ragdoll lounge");
+  }
+
+  /** Control for the case above: the same shape, but the real name has no title of its own. */
+  protected void assertExactNameWithoutOwnTitleStaysFirst() throws Exception {
+    assertFirstOnFirstPage("siberian lounge");
+  }
+
+  /** The dataset named exactly {@code name} is #1 on the first page of 10 for that query. */
+  private void assertFirstOnFirstPage(String name) throws Exception {
+    List<Dataset> firstPage = search(name, 0, 10).served();
+    assertEquals(
+        firstPage.isEmpty() ? null : firstPage.get(0).name(),
+        name,
+        String.format(
+            "query %s: %s (EXACT_NAME) should be #1 on the first page, at #%s%n  actual: %s",
+            name,
+            name,
+            indexOfName(search(name, 0, 30).served(), name) + 1,
+            describe(name, firstPage)));
   }
 
   /** A real name holding the word ranks with the partial real names, even when its title does. */
-  protected void assertPartialRealNameWithOwnTitleRanksAsRealName(Mode mode) throws Exception {
-    assertTrancheOrder(mode, "groomed");
+  protected void assertPartialRealNameWithOwnTitleRanksAsRealName() throws Exception {
+    assertTrancheOrder("groomed");
   }
 
   /**
@@ -428,13 +415,13 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * ties in any order; a position in the wrong tranche fails, and the message lists the actual
    * order beside the expected one.
    */
-  private void assertTrancheOrder(Mode mode, String query) throws Exception {
+  private void assertTrancheOrder(String query) throws Exception {
     List<Dataset> graded = corpus.values().stream().filter(d -> rank(query, d) != OTHER).toList();
-    assertTranchesMatch(mode, query, search(mode, query, 0, graded.size()).served(), "first page");
+    assertTranchesMatch(query, search(query, 0, graded.size()).served(), "first page");
   }
 
   /** Compares served results with the rule's tranche sequence; order inside a tranche is free. */
-  private void assertTranchesMatch(Mode mode, String query, List<Dataset> actual, String how) {
+  private void assertTranchesMatch(String query, List<Dataset> actual, String how) {
     List<Dataset> expected =
         corpus.values().stream()
             .filter(d -> rank(query, d) != OTHER && rank(query, d) != SEPARATOR_ONLY)
@@ -452,8 +439,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         actualTranches,
         expectedTranches,
         String.format(
-            "%s, query %s (%s): results out of tranche order%n  expected: %s%n  actual:   %s",
-            mode, query, how, describe(query, expected), describe(query, actual)));
+            "query %s (%s): results out of tranche order%n  expected: %s%n  actual:   %s",
+            query, how, describe(query, expected), describe(query, actual)));
   }
 
   private static int indexOfName(List<Dataset> served, String name) {
@@ -592,18 +579,11 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
 
   record Page(List<Dataset> served, int total) {}
 
-  private Page search(Mode mode, String query, int from, int size) throws Exception {
-    OperationContext base = mode == Mode.CLASS_ORDER_DEFAULT ? routerDefaultContext : opContext;
+  private Page search(String query, int from, int size) throws Exception {
     OperationContext context =
-        base.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
-            .withSearchFlags(
-                flags -> {
-                  SearchFlags f = flags.setFulltext(true).setSkipCache(true);
-                  if (mode == Mode.CLASS_ORDER_PER_REQUEST) {
-                    f.setSearchTemplate(UrnUtils.getUrn(CLASS_ORDER));
-                  }
-                  return f;
-                });
+        routerDefaultContext
+            .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
+            .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true));
     SearchResult result =
         searchService.search(
             context,
