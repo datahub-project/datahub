@@ -815,6 +815,30 @@ def test_rejects_a_server_or_session_variable(sql):
 
 
 @pytest.mark.parametrize(
+    "platform, expression",
+    [
+        # T-SQL parses these as a Parameter, not a SessionParameter.
+        ("tsql", "@@SERVERNAME"),
+        ("tsql", "@@VERSION"),
+        ("tsql", "@@SPID"),
+        ("tsql", "@my_var"),
+        ("mysql", "@my_var"),
+        ("snowflake", "$my_var"),
+        ("bigquery", "@my_param"),
+    ],
+)
+def test_rejects_a_variable_beside_a_catalog_table(platform, expression):
+    with pytest.raises(SqlScopeError, match=re.escape(f"'{expression}' reads")):
+        check_query_scope(
+            f"SELECT {expression} AS x FROM information_schema.tables",
+            platform=platform,
+            scope=BigQueryMetadataProbe.catalog_scope
+            if platform == "bigquery"
+            else None,
+        )
+
+
+@pytest.mark.parametrize(
     "sql",
     [
         "SELECT 1",

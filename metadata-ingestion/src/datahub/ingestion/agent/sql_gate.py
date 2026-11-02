@@ -407,12 +407,23 @@ _CLOCK_FUNCTIONS: FrozenSet[str] = frozenset(
 
 
 def _check_server_state(statement: exp.Expr, dialect: sqlglot.Dialect) -> None:
-    """Refuse server or session state (`@@datadir`, CURRENT_USER, VERSION())
-    anywhere, a UNION branch beside a real catalog table included."""
+    """Refuse server or session state (`@@datadir`, `@@SERVERNAME`, `@v`,
+    CURRENT_USER, VERSION()) anywhere, a UNION branch beside a real catalog table included."""
     for param in statement.find_all(exp.SessionParameter):
         raise SqlScopeError(
             f"'@@{param.name}' reads a server/session variable, which is server "
             f"state rather than catalog metadata; only SELECTs over catalog "
+            f"tables are permitted"
+        )
+    # T-SQL parses `@@SERVERNAME` as a Parameter inside a Parameter, not as a
+    # SessionParameter. The same node holds user and script variables (MySQL
+    # `@v`, T-SQL `@v`, Snowflake `$v`, BigQuery `@p`), which read session state
+    # too. The gate only ever receives a SQL string with no values bound to it,
+    # so no query that runs needs one.
+    for variable in statement.find_all(exp.Parameter):
+        raise SqlScopeError(
+            f"'{variable.sql(dialect=dialect)}' reads a server, session or script "
+            f"variable rather than catalog metadata; only SELECTs over catalog "
             f"tables are permitted"
         )
     for node_type, label in _SERVER_STATE_NODES.items():
