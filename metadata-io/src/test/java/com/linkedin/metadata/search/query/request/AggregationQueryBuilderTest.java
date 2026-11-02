@@ -30,6 +30,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.r2.RemoteInvocationException;
@@ -1004,6 +1005,36 @@ public class AggregationQueryBuilderTest {
     Assert.assertEquals(aggregationMetadataList.size(), 1);
     Assert.assertEquals(
         aggregationMetadataList.get(0).getAggregations(), Map.of("PROD", 2L, "QA", 0L));
+  }
+
+  @Test
+  public void testV3KeepsEnvAndOriginFacetsSeparate() {
+    // Search V3 resolves "origin" as a search label and skips the origin/env filter expansion, so
+    // a merged facet would count containers that selecting it cannot return.
+    EntitySpec container = mock(EntitySpec.class);
+    when(container.getName()).thenReturn("container");
+    EntitySpec dataset = mock(EntitySpec.class);
+    when(dataset.getName()).thenReturn("dataset");
+    AggregationQueryBuilder builder =
+        new V3AggregationQueryBuilder(
+            TEST_OS_SEARCH_CONFIG.getSearch(),
+            ImmutableMap.of(
+                container, ImmutableList.of(environmentAnnotation("env")),
+                dataset, ImmutableList.of(environmentAnnotation("origin"))),
+            mock(SearchFieldResolver.class));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(
+        Map.entry("origin", mockTerms(Map.of("PROD", 2L))), aggregationMetadataList);
+    builder.processTermAggregations(
+        Map.entry("env", mockTerms(Map.of("PROD", 5L))), aggregationMetadataList);
+
+    Assert.assertEquals(
+        aggregationMetadataList.stream()
+            .collect(
+                Collectors.toMap(
+                    AggregationMetadata::getName, AggregationMetadata::getAggregations)),
+        Map.of("origin", Map.of("PROD", 2L), "env", Map.of("PROD", 5L)));
   }
 
   private static AggregationQueryBuilder environmentAggregationQueryBuilder(

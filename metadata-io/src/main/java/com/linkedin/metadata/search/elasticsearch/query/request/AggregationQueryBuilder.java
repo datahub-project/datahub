@@ -67,7 +67,8 @@ public class AggregationQueryBuilder {
    * Facets that store one concept under different field names depending on the entity type, mapped
    * to the single facet they are reported as. Datasets and ML models keep their environment in
    * "origin"; containers, data flows and data jobs keep it in "env". Filters on either field
-   * already match both (see ESUtils.FIELDS_TO_EXPANDED_FIELDS_LIST).
+   * already match both (see ESUtils.FIELDS_TO_EXPANDED_FIELDS_LIST), but only on V2: Search V3
+   * skips that expansion, so the facets stay separate there (see {@link #facetName}).
    */
   private static final Map<String, String> MERGED_FACETS = Map.of("env", "origin");
 
@@ -333,6 +334,10 @@ public class AggregationQueryBuilder {
     return v3FieldResolver.unlabeledHasValuesSource(facet);
   }
 
+  private String facetName(String field) {
+    return v3FieldResolver == null ? MERGED_FACETS.getOrDefault(field, field) : field;
+  }
+
   /** A merged facet takes its own display name, or the source field's when it has none here. */
   private String mergedFacetDisplayName(String facetName, String sourceField) {
     return computeDisplayName(
@@ -385,7 +390,7 @@ public class AggregationQueryBuilder {
     if (oneTermAggResult.isEmpty()) {
       return;
     }
-    final String facetName = MERGED_FACETS.getOrDefault(entry.getKey(), entry.getKey());
+    final String facetName = facetName(entry.getKey());
     final Optional<AggregationMetadata> mergeTarget =
         aggregationMetadataList.stream()
             .filter(aggregation -> aggregation.getName().equals(facetName))
@@ -585,8 +590,7 @@ public class AggregationQueryBuilder {
 
     // Map a filter criterion to a facet field (e.g. domains.keyword -> domains)
     final String parentField = toParentField(opContext, criterion.getField(), aspectRetriever);
-    final String finalFacetField =
-        parentField == null ? null : MERGED_FACETS.getOrDefault(parentField, parentField);
+    final String finalFacetField = parentField == null ? null : facetName(parentField);
 
     if (finalFacetField == null) {
       log.warn(
@@ -640,7 +644,7 @@ public class AggregationQueryBuilder {
       // bug where ES mappings for field are different from how we map the field back to UI
       // (ie. Structured Properties with dots in them)
       String sourceField = ESUtils.replaceSuffix(criterion.getField());
-      String facetField = MERGED_FACETS.getOrDefault(sourceField, sourceField);
+      String facetField = facetName(sourceField);
       aggregationMetadata.add(
           buildAggregationMetadata(
               facetField,
