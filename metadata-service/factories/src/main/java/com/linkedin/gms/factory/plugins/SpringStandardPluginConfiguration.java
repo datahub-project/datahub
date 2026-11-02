@@ -893,15 +893,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(AssertionAuthorizationValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(
-                    List.of(
-                        "UPSERT",
-                        "UPDATE",
-                        "CREATE",
-                        "CREATE_ENTITY",
-                        "RESTATE",
-                        "PATCH",
-                        "DELETE"))
+                .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()

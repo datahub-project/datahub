@@ -195,9 +195,12 @@ public final class EntityAuthorizationUtils {
       @Nonnull OperationContext opContext,
       @Nonnull final ApiOperation apiOperation,
       @Nonnull final Collection<Urn> assertionUrns) {
-    if (!ASSERTION_WRITE_OPERATIONS.contains(apiOperation)
+    final boolean authorized =
+        AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, assertionUrns);
+    if (authorized
+        || !ASSERTION_WRITE_OPERATIONS.contains(apiOperation)
         || !AuthUtil.isRestApiAuthorizationEnabled()) {
-      return AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, assertionUrns);
+      return authorized;
     }
     final Set<Urn> denied =
         assertionUrns.stream()

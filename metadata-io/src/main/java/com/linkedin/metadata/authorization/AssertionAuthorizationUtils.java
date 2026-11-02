@@ -3,6 +3,7 @@ package com.linkedin.metadata.authorization;
 import static com.linkedin.metadata.Constants.ASSERTION_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ASSERTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
@@ -15,23 +16,27 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
-import com.linkedin.metadata.aspect.utils.AssertionUtils;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
+import com.linkedin.metadata.models.RelationshipFieldSpec;
+import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -58,6 +63,8 @@ public final class AssertionAuthorizationUtils {
               new ConjunctivePrivilegeGroup(
                   ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))));
 
+  private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
+
   private AssertionAuthorizationUtils() {}
 
   public static boolean isAssertionEntity(@Nonnull final Urn urn) {
@@ -65,23 +72,84 @@ public final class AssertionAuthorizationUtils {
   }
 
   /**
-   * Entities targeted by {@code info}: the type-specific target plus {@code entityUrn} when set.
-   * Both are included because {@code entityUrn} is client-writable and drives assertion search.
+   * Assets {@code info} attaches the assertion to: every field indexed as an {@code Asserts}
+   * relationship, whichever sub-record {@code type} selects, plus {@code entityUrn}, which is
+   * client-writable and drives assertion search. These are the edges that list the assertion on an
+   * asset. Schema fields map to their parent asset, where assertion privileges are granted.
    */
   @Nonnull
-  public static Set<Urn> resolveAssertedEntityUrns(@Nullable final AssertionInfo info) {
+  public static Set<Urn> resolveAssertedEntityUrns(
+      @Nonnull final EntityRegistry entityRegistry, @Nullable final AssertionInfo info) {
     if (info == null) {
       return Set.of();
     }
+    final List<RelationshipFieldSpec> assertsFields =
+        entityRegistry
+            .getEntitySpec(ASSERTION_ENTITY_NAME)
+            .getAspectSpec(ASSERTION_INFO_ASPECT_NAME)
+            .getRelationshipFieldSpecs()
+            .stream()
+            .filter(spec -> ASSERTS_RELATIONSHIP_NAME.equals(spec.getRelationshipName()))
+            .toList();
     final Set<Urn> urns = new HashSet<>();
-    final Urn derived = AssertionUtils.getEntityFromAssertionInfo(info);
-    if (derived != null) {
-      urns.add(derived);
-    }
+    FieldExtractor.extractFields(info, assertsFields).values().stream()
+        .flatMap(List::stream)
+        .map(AssertionAuthorizationUtils::toUrn)
+        .filter(Objects::nonNull)
+        .map(AssertionAuthorizationUtils::toAsset)
+        .forEach(urns::add);
     if (info.hasEntityUrn()) {
-      urns.add(info.getEntityUrn());
+      urns.add(toAsset(info.getEntityUrn()));
     }
     return urns;
+  }
+
+  /**
+   * {@code assertionInfo} after {@code write}, given the value before it, as the write path applies
+   * it: a PATCH applies to {@code current}, a DELETE leaves none, and an upsert that cannot be read
+   * leaves {@code current} (ingestion rejects it). Throws when a PATCH cannot be read or applied.
+   */
+  @Nullable
+  public static AssertionInfo applyInfoWrite(
+      @Nonnull final AssertionWrite write,
+      @Nullable final AssertionInfo current,
+      @Nonnull final AspectRetriever aspectRetriever) {
+    if (ChangeType.DELETE.equals(write.changeType())) {
+      return null;
+    }
+    if (ChangeType.PATCH.equals(write.changeType())) {
+      if (write.infoPatch() == null) {
+        throw new IllegalArgumentException("Unreadable assertionInfo PATCH for " + write.urn());
+      }
+      return PatchItemImpl.resolveProposedAspect(
+          write.infoPatch(), current, aspectRetriever, AssertionInfo.class);
+    }
+    return write.info() != null ? write.info() : current;
+  }
+
+  /** Values in graph relationship fields are stored as strings; skip any that are not URNs. */
+  @Nullable
+  private static Urn toUrn(@Nullable final Object value) {
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof Urn urn) {
+      return urn;
+    }
+    try {
+      return Urn.createFromString(value.toString());
+    } catch (URISyntaxException e) {
+      // Not indexed as a graph edge either; URN validation rejects the write.
+      log.debug("Ignoring non-URN Asserts value {}", value);
+      return null;
+    }
+  }
+
+  @Nonnull
+  private static Urn toAsset(@Nonnull final Urn urn) {
+    return SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType())
+        ? UrnUtils.getUrn(urn.getEntityKey().get(0))
+        : urn;
   }
 
   /**
@@ -128,8 +196,8 @@ public final class AssertionAuthorizationUtils {
   /**
    * Returns the subset of {@code assertionUrns} the actor may write through the asserted entity:
    * {@code EDIT_ENTITY_ASSERTIONS} / {@code EDIT_ENTITY} on every entity targeted by the persisted
-   * {@code assertionInfo} and by any {@code assertionInfo} proposed in the same request, PATCHes
-   * included (so re-targeting needs both sides).
+   * {@code assertionInfo}, by each value the request's {@code assertionInfo} writes produce when
+   * applied in request order (so re-targeting needs both sides), and by the request's run events.
    *
    * <p>An assertion with no target yet is included only when the request writes nothing but run
    * events and the actor may edit assertions on every entity they name: clients such as dbt and
@@ -144,32 +212,30 @@ public final class AssertionAuthorizationUtils {
       @Nonnull final Set<Urn> assertionUrns,
       @Nonnull final AssertionWrites writes) {
     final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
+    final EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
     final Map<Urn, AssertionInfo> persisted =
         fetchAssertionInfos(opContext, aspectRetriever, assertionUrns);
     return assertionUrns.stream()
         .filter(
             urn -> {
-              if (writes.unresolvedPatches().contains(urn)) {
-                return false;
-              }
-              final Set<Urn> targets = new HashSet<>(resolveAssertedEntityUrns(persisted.get(urn)));
-              targets.addAll(writes.proposedTargets().getOrDefault(urn, Set.of()));
-              for (BatchItem patch : writes.infoPatches().getOrDefault(urn, List.of())) {
+              AssertionInfo current = persisted.get(urn);
+              final Set<Urn> targets =
+                  new HashSet<>(resolveAssertedEntityUrns(entityRegistry, current));
+              for (AssertionWrite write : writes.infoWrites().getOrDefault(urn, List.of())) {
                 try {
-                  targets.addAll(
-                      resolveAssertedEntityUrns(
-                          PatchItemImpl.resolveProposedAspect(
-                              patch, persisted.get(urn), aspectRetriever, AssertionInfo.class)));
+                  current = applyInfoWrite(write, current, aspectRetriever);
                 } catch (RuntimeException e) {
                   log.debug("Unable to apply assertionInfo PATCH for {}", urn, e);
                   return false;
                 }
+                targets.addAll(resolveAssertedEntityUrns(entityRegistry, current));
               }
+              final Set<Urn> assertees = writes.runEventAssertees().getOrDefault(urn, Set.of());
               if (targets.isEmpty()) {
                 return writes.runEventOnly().contains(urn)
-                    && isAuthorizedToEditAssertionsOnEntities(
-                        opContext, writes.runEventAssertees().getOrDefault(urn, Set.of()));
+                    && isAuthorizedToEditAssertionsOnEntities(opContext, assertees);
               }
+              targets.addAll(assertees);
               return isAuthorizedToEditAssertionsOnEntities(opContext, targets);
             })
         .collect(Collectors.toSet());
@@ -179,9 +245,7 @@ public final class AssertionAuthorizationUtils {
   @Nonnull
   static AssertionWrites collectAssertionWrites(
       @Nonnull final Collection<AssertionWrite> requestWrites) {
-    final Map<Urn, Set<Urn>> targets = new HashMap<>();
-    final Map<Urn, List<BatchItem>> patches = new HashMap<>();
-    final Set<Urn> unresolvedPatches = new HashSet<>();
+    final Map<Urn, List<AssertionWrite>> infoWrites = new HashMap<>();
     final Map<Urn, Set<Urn>> assertees = new HashMap<>();
     // Starts as every assertion written; those with any non-run-event write are removed below.
     final Set<Urn> runEventOnly = new HashSet<>();
@@ -192,33 +256,23 @@ public final class AssertionAuthorizationUtils {
       if (!isRunEvent
           || ChangeType.DELETE.equals(write.changeType())
           || write.runEvent() == null
-          || write.runEvent().getAsserteeUrn() == null) {
+          || !write.runEvent().hasAsserteeUrn()) {
         notRunEventOnly.add(write.urn());
       } else {
         assertees
             .computeIfAbsent(write.urn(), k -> new HashSet<>())
             .add(write.runEvent().getAsserteeUrn());
       }
-      if (write.info() != null) {
-        targets
-            .computeIfAbsent(write.urn(), k -> new HashSet<>())
-            .addAll(resolveAssertedEntityUrns(write.info()));
-      }
-      if (ASSERTION_INFO_ASPECT_NAME.equals(write.aspectName())
-          && ChangeType.PATCH.equals(write.changeType())) {
-        if (write.infoPatch() == null) {
-          unresolvedPatches.add(write.urn());
-        } else {
-          patches.computeIfAbsent(write.urn(), k -> new ArrayList<>()).add(write.infoPatch());
-        }
+      if (ASSERTION_INFO_ASPECT_NAME.equals(write.aspectName())) {
+        infoWrites.computeIfAbsent(write.urn(), k -> new ArrayList<>()).add(write);
       }
     }
     runEventOnly.removeAll(notRunEventOnly);
-    return new AssertionWrites(targets, patches, unresolvedPatches, runEventOnly, assertees);
+    return new AssertionWrites(infoWrites, runEventOnly, assertees);
   }
 
   /** One aspect write to an assertion in a request. */
-  record AssertionWrite(
+  public record AssertionWrite(
       @Nonnull Urn urn,
       @Nullable String aspectName,
       @Nullable ChangeType changeType,
@@ -242,7 +296,7 @@ public final class AssertionAuthorizationUtils {
     }
 
     @Nonnull
-    static AssertionWrite fromItem(@Nonnull final BatchItem item) {
+    public static AssertionWrite fromItem(@Nonnull final BatchItem item) {
       return new AssertionWrite(
           item.getUrn(),
           item.getAspectName(),
@@ -254,18 +308,14 @@ public final class AssertionAuthorizationUtils {
   }
 
   /**
-   * Per-assertion view of a request: targets from proposed {@code assertionInfo} upserts, {@code
-   * assertionInfo} PATCHes to apply to the persisted value (and assertions whose PATCH could not be
-   * read), assertions that only receive run events, and entities named by those run events.
+   * Per-assertion view of a request: its {@code assertionInfo} writes in request order, assertions
+   * that only receive run events, and entities named by the request's run events.
    */
   record AssertionWrites(
-      @Nonnull Map<Urn, Set<Urn>> proposedTargets,
-      @Nonnull Map<Urn, List<BatchItem>> infoPatches,
-      @Nonnull Set<Urn> unresolvedPatches,
+      @Nonnull Map<Urn, List<AssertionWrite>> infoWrites,
       @Nonnull Set<Urn> runEventOnly,
       @Nonnull Map<Urn, Set<Urn>> runEventAssertees) {
-    static final AssertionWrites NONE =
-        new AssertionWrites(Map.of(), Map.of(), Set.of(), Set.of(), Map.of());
+    static final AssertionWrites NONE = new AssertionWrites(Map.of(), Set.of(), Map.of());
   }
 
   /** The PATCH as a batch item, so it can be applied to the persisted assertionInfo. */
