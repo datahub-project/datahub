@@ -524,7 +524,7 @@ uvx --from 'fastmcp-slim[server]' fastmcp call \
   --json
 ```
 
-The response should contain a `structured_content` object with a `downstreams` result. An empty `searchResults` array means the server connected successfully but found no downstream lineage for that URN. Authentication and connection failures surface as an error or timeout instead.
+The response should contain a `structured_content` object with a `downstreams` result. Any `downstreams` result, even `"total": 0`, means the server connected successfully. Authentication and connection failures surface as an error or timeout instead.
 
 ### Configure
 
