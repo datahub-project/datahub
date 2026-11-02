@@ -29,8 +29,8 @@ from tests.unit.tableau.conftest import (
     STAGING_URN,
     WORKBOOK,
     SiteSourceFactory,
+    mcp_aspect,
     mcp_aspects,
-    snapshot_aspect,
     tableau_urn,
 )
 
@@ -275,18 +275,16 @@ def test_published_datasource_emits_properties_owner_tags_and_project_container(
 
     work_units = list(source.emit_datasource(_published_datasource()))
 
-    props = snapshot_aspect(work_units, DatasetPropertiesClass)
+    props = mcp_aspect(work_units, DatasetPropertiesClass)
     assert props.name == "Orders DS"
     assert props.customProperties == {c.LUID: "ds-luid-1", c.HAS_EXTRACTS: "True"}
-    assert [t.tag for t in snapshot_aspect(work_units, GlobalTagsClass).tags] == [
+    assert [t.tag for t in mcp_aspect(work_units, GlobalTagsClass).tags] == [
         "urn:li:tag:ds-tag"
     ]
-    assert [o.owner for o in snapshot_aspect(work_units, OwnershipClass).owners] == [
+    assert [o.owner for o in mcp_aspect(work_units, OwnershipClass).owners] == [
         "urn:li:corpuser:bob@example.com"
     ]
-    assert snapshot_aspect(work_units, BrowsePathsClass).paths == [
-        "/prod/tableau/default"
-    ]
+    assert mcp_aspect(work_units, BrowsePathsClass).paths == ["/prod/tableau/default"]
     assert mcp_aspects(work_units, SubTypesClass)[0].typeNames == [
         "Published Data Source"
     ]
@@ -307,13 +305,13 @@ def test_embedded_datasource_lives_under_its_workbook(
         )
     )
 
-    assert [t.tag for t in snapshot_aspect(work_units, GlobalTagsClass).tags] == [
+    assert [t.tag for t in mcp_aspect(work_units, GlobalTagsClass).tags] == [
         "urn:li:tag:workbook-tag"
     ]
-    assert [o.owner for o in snapshot_aspect(work_units, OwnershipClass).owners] == [
+    assert [o.owner for o in mcp_aspect(work_units, OwnershipClass).owners] == [
         "urn:li:corpuser:alice"
     ]
-    assert snapshot_aspect(work_units, BrowsePathsClass).paths == [
+    assert mcp_aspect(work_units, BrowsePathsClass).paths == [
         "/prod/tableau/default/Sales WB"
     ]
     assert mcp_aspects(work_units, SubTypesClass)[0].typeNames == [
@@ -354,7 +352,7 @@ def test_initial_sql_adds_a_custom_property_and_deduplicated_upstreams(
             source.emit_datasource(_published_datasource(upstreamTables=[ORDERS_TABLE]))
         )
 
-    props = snapshot_aspect(work_units, DatasetPropertiesClass)
+    props = mcp_aspect(work_units, DatasetPropertiesClass)
     assert props.customProperties is not None
     assert props.customProperties[c.INITIAL_SQL] == initial_sql.raw_sql
     lineage = mcp_aspects(work_units, UpstreamLineageClass)[0]

@@ -1762,7 +1762,9 @@ def test_verify_partition_has_data_bounds_probe_with_fetch_config():
     guardrails.
     """
     discovery = PartitionDiscovery(
-        make_profiling_config(partition_fetch_timeout=30, partition_fetch_max_bytes_billed=2048)
+        make_profiling_config(
+            partition_fetch_timeout=30, partition_fetch_max_bytes_billed=2048
+        )
     )
     captured: Dict[str, Any] = {}
 
@@ -1790,7 +1792,9 @@ def test_sampling_probe_bounds_job_config():
     unbounded.
     """
     discovery = PartitionDiscovery(
-        make_profiling_config(partition_fetch_timeout=25, partition_fetch_max_bytes_billed=4096)
+        make_profiling_config(
+            partition_fetch_timeout=25, partition_fetch_max_bytes_billed=4096
+        )
     )
     captured: Dict[str, Any] = {}
 

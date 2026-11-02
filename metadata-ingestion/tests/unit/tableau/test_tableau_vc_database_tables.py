@@ -24,7 +24,6 @@ from tests.unit.tableau.conftest import (
     ORDERS_URN,
     SiteSourceFactory,
     mcp_aspects,
-    snapshot_aspects,
     tableau_urn,
 )
 
@@ -192,8 +191,7 @@ def test_vc_table_lineage_maps_columns_case_insensitively(
 
     orders_urn = tableau_urn("vc-1.orders")
     schemas = {
-        s.fields[0].fieldPath: s
-        for s in snapshot_aspects(work_units, SchemaMetadataClass)
+        s.fields[0].fieldPath: s for s in mcp_aspects(work_units, SchemaMetadataClass)
     }
     assert [f.fieldPath for f in schemas["id"].fields] == ["id", "amount"]
     assert source.report.num_datasource_field_skipped_no_name == 1

@@ -30,9 +30,9 @@ from tests.unit.tableau.conftest import (
     WORKBOOK,
     SiteSourceFactory,
     TableauSourceFactory,
+    entity_urns,
     mcp_aspects,
     mock_tableau_server,
-    snapshot_aspects,
     tsc_group,
     tsc_site,
 )
@@ -95,15 +95,14 @@ def test_custom_sql_of_an_embedded_datasource_is_placed_under_its_workbook(
     assert [cn.container for cn in mcp_aspects(work_units, ContainerClass)] == [
         source.gen_workbook_key("wb-1").as_urn()
     ]
-    assert snapshot_aspects(work_units, BrowsePathsClass)[0].paths == [
+    assert mcp_aspects(work_units, BrowsePathsClass)[0].paths == [
         "/prod/tableau/default/Sales WB/Embedded DS"
     ]
-    assert snapshot_aspects(work_units, DatasetPropertiesClass)[0].name == "Embedded DS"
-    view = snapshot_aspects(work_units, ViewPropertiesClass)[0]
+    assert mcp_aspects(work_units, DatasetPropertiesClass)[0].name == "Embedded DS"
+    view = mcp_aspects(work_units, ViewPropertiesClass)[0]
     assert view.viewLogic == "SELECT id, amount FROM public.orders WHERE amount > 10"
     assert (
-        snapshot_aspects(work_units, SchemaMetadataClass)[0].fields[0].fieldPath
-        == "amount"
+        mcp_aspects(work_units, SchemaMetadataClass)[0].fields[0].fieldPath == "amount"
     )
     assert mcp_aspects(work_units, SubTypesClass)[0].typeNames == [
         "View",
@@ -125,7 +124,7 @@ def test_custom_sql_without_a_referencing_datasource_is_skipped(
     ):
         work_units = list(source.emit_custom_sql_datasources())
 
-    assert snapshot_aspects(work_units, DatasetPropertiesClass) == []
+    assert mcp_aspects(work_units, DatasetPropertiesClass) == []
 
 
 def test_unresolved_custom_sql_lineage_is_parsed_from_the_query(
@@ -222,11 +221,11 @@ def test_external_upstream_tables_are_emitted_only_when_enabled(
         return_value=[returned_by_tableau],
     ):
         work_units = list(enabled.emit_upstream_tables())
-    assert [wu.id for wu in work_units] == [ORDERS_URN]
+    assert entity_urns(work_units) == [ORDERS_URN]
     assert [
-        f.fieldPath for f in snapshot_aspects(work_units, SchemaMetadataClass)[0].fields
+        f.fieldPath for f in mcp_aspects(work_units, SchemaMetadataClass)[0].fields
     ] == ["id"]
-    assert snapshot_aspects(work_units, BrowsePathsClass)[0].paths == [
+    assert mcp_aspects(work_units, BrowsePathsClass)[0].paths == [
         "/prod/tableau/default/DS"
     ]
 
@@ -257,8 +256,8 @@ def test_tables_known_only_from_sql_parsing_are_emitted_with_their_columns(
     ):
         work_units = list(source.emit_upstream_tables())
 
-    assert [wu.id for wu in work_units] == [ORDERS_URN, STAGING_URN]
-    orders_schema, staging_schema = snapshot_aspects(work_units, SchemaMetadataClass)
+    assert entity_urns(work_units) == [ORDERS_URN, STAGING_URN]
+    orders_schema, staging_schema = mcp_aspects(work_units, SchemaMetadataClass)
     assert sorted(f.fieldPath for f in orders_schema.fields) == ["amount", "id"]
     assert [f.fieldPath for f in staging_schema.fields] == ["order_id"]
 
@@ -274,7 +273,7 @@ def test_table_without_any_metadata_still_materializes_with_a_key_aspect(
     ):
         work_units = list(source.emit_upstream_tables())
 
-    assert len(snapshot_aspects(work_units, DatasetKeyClass)) == 1
+    assert len(mcp_aspects(work_units, DatasetKeyClass)) == 1
 
 
 def _rule(grantee: ResourceReference, capabilities: Dict[str, str]) -> PermissionsRule:

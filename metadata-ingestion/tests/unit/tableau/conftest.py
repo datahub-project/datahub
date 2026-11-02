@@ -27,7 +27,6 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauSource,
     TableauSourceReport,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 T = TypeVar("T")
 
@@ -242,25 +241,6 @@ def graphql_error(message: str) -> dict:
     return {"message": message, c.EXTENSIONS: {c.SEVERITY: "ERROR"}}
 
 
-def snapshot_aspects(
-    work_units: Iterable[MetadataWorkUnit], aspect_type: Type[T]
-) -> List[T]:
-    """Aspects of ``aspect_type`` inside MCE snapshots, in emission order."""
-    return [
-        aspect
-        for wu in work_units
-        if isinstance(wu.metadata, MetadataChangeEvent)
-        for aspect in wu.metadata.proposedSnapshot.aspects
-        if isinstance(aspect, aspect_type)
-    ]
-
-
-def snapshot_aspect(work_units: Iterable[MetadataWorkUnit], aspect_type: Type[T]) -> T:
-    aspects = snapshot_aspects(work_units, aspect_type)
-    assert aspects, f"no {aspect_type.__name__} aspect in snapshot"
-    return aspects[0]
-
-
 def mcp_aspects(
     work_units: Iterable[MetadataWorkUnit], aspect_type: Type[T]
 ) -> List[T]:
@@ -271,3 +251,14 @@ def mcp_aspects(
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         and isinstance(wu.metadata.aspect, aspect_type)
     ]
+
+
+def mcp_aspect(work_units: Iterable[MetadataWorkUnit], aspect_type: Type[T]) -> T:
+    aspects = mcp_aspects(work_units, aspect_type)
+    assert aspects, f"no {aspect_type.__name__} aspect emitted"
+    return aspects[0]
+
+
+def entity_urns(work_units: Iterable[MetadataWorkUnit]) -> List[str]:
+    """Distinct entity URNs, in the order their first aspect was emitted."""
+    return list(dict.fromkeys(wu.get_urn() for wu in work_units))

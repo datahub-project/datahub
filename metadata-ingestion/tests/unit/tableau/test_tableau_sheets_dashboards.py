@@ -25,10 +25,10 @@ from tests.unit.tableau.conftest import (
     WORKBOOK,
     SiteSourceFactory,
     default_config,
+    mcp_aspect,
     mcp_aspects,
     mock_server_of,
     registry_project,
-    snapshot_aspect,
     tableau_urn,
 )
 
@@ -90,9 +90,9 @@ def test_hidden_sheet_is_skipped_unless_hidden_worksheets_are_opted_in(
         source, "get_connection_objects", autospec=True, return_value=[hidden_sheet]
     ):
         work_units = list(source.emit_sheets())
-    tags = snapshot_aspect(work_units, GlobalTagsClass)
+    tags = mcp_aspect(work_units, GlobalTagsClass)
     assert [tag.tag for tag in tags.tags] == ["urn:li:tag:finance", "urn:li:tag:hidden"]
-    assert snapshot_aspect(work_units, ChartInfoClass).externalUrl is None
+    assert mcp_aspect(work_units, ChartInfoClass).externalUrl is None
     assert mcp_aspects(work_units, EmbedClass) == []
 
 
@@ -104,7 +104,7 @@ def test_sheet_external_url_and_embed_follow_the_view_path(
     work_units = list(source.emit_sheets_as_charts(_sheet(), WORKBOOK))
 
     expected_url = f"{CONNECT_URI}/#/site/{SITE_CONTENT_URL}/views/SalesWB/MySheet"
-    assert snapshot_aspect(work_units, ChartInfoClass).externalUrl == expected_url
+    assert mcp_aspect(work_units, ChartInfoClass).externalUrl == expected_url
     assert [e.renderUrl for e in mcp_aspects(work_units, EmbedClass)] == [expected_url]
 
 
@@ -119,7 +119,7 @@ def test_sheet_inside_a_dashboard_links_to_the_authoring_url(
     work_units = list(source.emit_sheets_as_charts(sheet, WORKBOOK))
 
     assert (
-        snapshot_aspect(work_units, ChartInfoClass).externalUrl
+        mcp_aspect(work_units, ChartInfoClass).externalUrl
         == f"{CONNECT_URI}/t/{SITE_CONTENT_URL}/authoring/SalesWB/Overview/My%20Sheet"
     )
 
@@ -142,7 +142,7 @@ def test_sheet_inputs_and_input_fields_come_from_datasource_fields(
 
     work_units = list(source.emit_sheets_as_charts(sheet, WORKBOOK))
 
-    assert snapshot_aspect(work_units, ChartInfoClass).inputs == [
+    assert mcp_aspect(work_units, ChartInfoClass).inputs == [
         tableau_urn("ds-1"),
         tableau_urn("ds-2"),
     ]
@@ -177,13 +177,13 @@ def test_sheet_owner_container_and_browse_path_come_from_the_workbook(
 
     work_units = list(source.emit_sheets_as_charts(_sheet(), WORKBOOK))
 
-    assert [o.owner for o in snapshot_aspect(work_units, OwnershipClass).owners] == [
+    assert [o.owner for o in mcp_aspect(work_units, OwnershipClass).owners] == [
         "urn:li:corpuser:alice@example.com"
     ]
     assert [cn.container for cn in mcp_aspects(work_units, ContainerClass)] == [
         source.gen_workbook_key("wb-1").as_urn()
     ]
-    assert snapshot_aspect(work_units, BrowsePathsClass).paths == [
+    assert mcp_aspect(work_units, BrowsePathsClass).paths == [
         "/tableau/Parent/Child/Sales WB"
     ]
 
@@ -212,7 +212,7 @@ def test_dashboard_links_its_sheets_and_emits_embed_url(
 
     work_units = list(source.emit_dashboard(_dashboard(), WORKBOOK))
 
-    info = snapshot_aspect(work_units, DashboardInfoClass)
+    info = mcp_aspect(work_units, DashboardInfoClass)
     assert info.title == "Q1|Overview"
     assert info.charts == [
         make_chart_urn("tableau", "sheet-1"),
@@ -224,7 +224,7 @@ def test_dashboard_links_its_sheets_and_emits_embed_url(
     assert [cn.container for cn in mcp_aspects(work_units, ContainerClass)] == [
         source.gen_workbook_key("wb-1").as_urn()
     ]
-    assert [o.owner for o in snapshot_aspect(work_units, OwnershipClass).owners] == [
+    assert [o.owner for o in mcp_aspect(work_units, OwnershipClass).owners] == [
         "urn:li:corpuser:alice"
     ]
 
