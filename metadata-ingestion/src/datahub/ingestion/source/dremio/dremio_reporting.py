@@ -35,6 +35,10 @@ class DremioSourceReport(
     # "is the filter biting?" signal, not an exact edge count.
     lineage_dropped_filtered: int = 0
 
+    # Set when the job-history fetch stopped early; the stateful time window
+    # is then left in place so the next run re-reads it.
+    query_fetch_incomplete: bool = False
+
     api_calls_total: int = 0
     api_calls_by_method_and_path: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
