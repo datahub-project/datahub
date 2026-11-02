@@ -313,7 +313,7 @@ class HiveMetadataProcessor:
         """
         decoded_view_info = decode_presto_view(view_original_text)
         view_definition = decoded_view_info.get("originalSql")
-        if not isinstance(view_definition, str) or not view_definition:
+        if not isinstance(view_definition, str) or not view_definition.strip():
             raise ValueError("Presto view definition has no 'originalSql'")
 
         # An empty list is a view without column information, which the caller

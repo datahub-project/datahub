@@ -123,6 +123,10 @@ def test_presto_view_columns_typed_with_original_native_type() -> None:
             {"originalSql": "", "columns": [{"name": "id", "type": "bigint"}]},
             id="empty_sql",
         ),
+        pytest.param(
+            {"originalSql": "  \n ", "columns": [{"name": "id", "type": "bigint"}]},
+            id="whitespace_sql",
+        ),
     ],
 )
 def test_malformed_presto_view_is_skipped_with_warning(
