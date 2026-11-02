@@ -54,10 +54,10 @@ def run_option_flags(run_options: dict[str, Any], venv_datahub: Path) -> list[st
                 str(run_options.get("preview_workunits", 10)),
             ]
         )
-    for flag in ("dry-run", "preview-workunits"):
-        if f"--{flag}" in flags and not check_cli_flag_support(venv_datahub, flag):
+    for flag in (f for f in flags if f.startswith("--")):
+        if not check_cli_flag_support(venv_datahub, flag[2:]):
             print(
-                f"Error: this version of datahub does not support --{flag}; "
+                f"Error: this version of datahub does not support {flag}; "
                 "refusing to run without it.",
                 file=sys.stderr,
             )
