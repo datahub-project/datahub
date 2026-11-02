@@ -161,8 +161,11 @@ XML_ATTR_OBJECT_NAME = "objectName"
 XML_ATTR_OBJECT_ACTION = "objectAction"
 GET_ACTION_SUFFIX = "GetAction"
 SEND_ACTION_SUFFIX = "SendAction"
-# The attribute that names the database profile on a legacy Database operation
-# is not documented; these are tried in order.
+# Legacy Database operations name their profile on a child element, for
+# example <DatabaseGetAction><ReadProfile profileId=".."/>.
+XML_DB_PROFILE_ELEMENTS: Tuple[str, ...] = ("ReadProfile", "WriteProfile")
+XML_ATTR_PROFILE_ID = "profileId"
+# Attribute forms on the action element itself are kept as a fallback.
 DB_ACTION_PROFILE_ATTRIBUTES: Tuple[str, ...] = (
     "profileId",
     "profile",

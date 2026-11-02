@@ -73,9 +73,9 @@ connection_to_platform:
 
 ##### Not supported
 
-SAP (`sapjco`), HTTP (`http`), FTP (`ftp`), SFTP (`officialboomi-X3979C-sftpv2-prod`, `officialboomi-X3979C-sftpvx-prod`), Disk (`disk-sdk`) and mail connectors address function modules, URLs, files and mailboxes rather than tables, so they get no lineage. They are counted per subType in `lineage_skipped_subtypes`. Any other connector that is not mapped is counted under `unsupported_connector` in `lineage_edges_unresolved`, with one warning per subType.
+SAP (`sapjco`), HTTP (`http`), FTP (`ftp`), SFTP (`officialboomi-X3979C-sftpv2-prod`, `officialboomi-X3979C-sftpvx-prod`), Disk (`disk-sdk`) and mail connectors address function modules, URLs, files and mailboxes rather than tables, so by default they get no lineage and are counted per subType in `lineage_skipped_subtypes`. An entry in `connection_type_platform_map` for the subType, or in `connection_to_platform` for the connection, overrides this and uses the operation's object type ID as the table name. Any other connector that is not mapped is counted under `unsupported_connector` in `lineage_edges_unresolved`, with one warning per subType.
 
-When a connection, operation or profile cannot be read, an operation has no table, or SQL cannot be parsed, the edge is skipped rather than guessed, and counted by reason in `lineage_edges_unresolved`.
+When an operation has no table or SQL cannot be parsed, the edge is skipped rather than guessed, and counted by reason in `lineage_edges_unresolved`. When a connection, operation or profile cannot be read, the process's inputs and outputs are left out of this run altogether, so the lineage stored by an earlier run is kept instead of being replaced by a partial set. These processes are listed in `lineage_processes_incomplete`.
 
 ##### Process calls
 

@@ -565,7 +565,7 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         if self.lineage is None or info is None:
             return None
         try:
-            return self.lineage.resolve_process(info)
+            lineage = self.lineage.resolve_process(info)
         except Exception as e:
             self.report.warning(
                 title="Failed to resolve Boomi process lineage",
@@ -574,6 +574,10 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
             return None
+        if lineage.incomplete:
+            self.report.lineage_processes_incomplete.append(process.component_id)
+            return None
+        return lineage
 
     def _make_process(
         self,

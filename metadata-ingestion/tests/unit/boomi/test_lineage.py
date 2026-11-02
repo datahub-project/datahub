@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.source.boomi.client import BoomiApiError
 from datahub.ingestion.source.boomi.component_parser import (
@@ -79,12 +80,15 @@ def _generic_operation(
     )
 
 
-def _db_operation(action: str, profile_attribute: str, profile_id: str) -> str:
+def _db_operation(action: str, profile_id: str) -> str:
+    # Documented legacy shape: the profile sits on a ReadProfile/WriteProfile child.
+    profile_element = "ReadProfile" if action.endswith("GetAction") else "WriteProfile"
     return _component(
         "connector-action",
         "database",
-        f'<Operation xmlns=""><Configuration><{action} batchCount="0" '
-        f'{profile_attribute}="{profile_id}"/></Configuration></Operation>',
+        f'<Operation xmlns=""><Configuration><{action} batchCount="0">'
+        f'<{profile_element} profileId="{profile_id}"/></{action}>'
+        "</Configuration></Operation>",
     )
 
 
@@ -217,17 +221,23 @@ def test_parse_legacy_and_v2_connections() -> None:
 
 
 def test_parse_operations() -> None:
-    db_get = parse_operation_component(
-        _db_operation("DatabaseGetAction", "profileId", "prof-1")
-    )
+    db_get = parse_operation_component(_db_operation("DatabaseGetAction", "prof-1"))
     assert db_get.direction == OperationDirection.READ
     assert db_get.profile_ids == ["prof-1"]
 
-    db_send = parse_operation_component(
-        _db_operation("DatabaseSendAction", "requestProfile", "prof-2")
-    )
+    db_send = parse_operation_component(_db_operation("DatabaseSendAction", "prof-2"))
     assert db_send.direction == OperationDirection.WRITE
     assert db_send.profile_ids == ["prof-2"]
+
+    attribute_form = parse_operation_component(
+        _component(
+            "connector-action",
+            "database",
+            '<Operation xmlns=""><Configuration><DatabaseGetAction '
+            'responseProfile="prof-3"/></Configuration></Operation>',
+        )
+    )
+    assert attribute_form.profile_ids == ["prof-3"]
 
     generic = parse_operation_component(
         _generic_operation(
@@ -362,7 +372,7 @@ def test_legacy_database_sql_path() -> None:
     resolver, _, report = _resolver(
         {
             "conn-1": _legacy_connection(),
-            "op-1": _db_operation("DatabaseGetAction", "responseProfile", "prof-1"),
+            "op-1": _db_operation("DatabaseGetAction", "prof-1"),
             "prof-1": _db_profile(
                 "dbo.ignored",
                 "SELECT o.id FROM dbo.Orders o JOIN sales.customers c ON c.id = o.cid",
@@ -384,7 +394,7 @@ def test_legacy_database_write_uses_sql_target_only() -> None:
     resolver, _, _ = _resolver(
         {
             "conn-1": _legacy_connection(),
-            "op-1": _db_operation("DatabaseSendAction", "requestProfile", "prof-1"),
+            "op-1": _db_operation("DatabaseSendAction", "prof-1"),
             "prof-1": _db_profile(
                 "dbo.orders",
                 "INSERT INTO dbo.orders (id) SELECT id FROM dbo.staging_orders",
@@ -404,7 +414,7 @@ def test_legacy_database_table_name_fallback() -> None:
     resolver, _, _ = _resolver(
         {
             "conn-1": _legacy_connection(),
-            "op-1": _db_operation("DatabaseGetAction", "profileId", "prof-1"),
+            "op-1": _db_operation("DatabaseGetAction", "prof-1"),
             "prof-1": _db_profile("dbo.Orders"),
         }
     )
@@ -463,7 +473,7 @@ def test_override_wins_over_parsed_connection() -> None:
     resolver, _, _ = _resolver(
         {
             "conn-1": _legacy_connection(),
-            "op-1": _db_operation("DatabaseGetAction", "profileId", "prof-1"),
+            "op-1": _db_operation("DatabaseGetAction", "prof-1"),
             "prof-1": _db_profile("Orders"),
         },
         connection_to_platform={
@@ -597,8 +607,8 @@ def test_sql_parse_failure_is_counted_and_warned_once() -> None:
     resolver, _, report = _resolver(
         {
             "conn-1": _legacy_connection(),
-            "op-1": _db_operation("DatabaseGetAction", "profileId", "prof-1"),
-            "op-2": _db_operation("DatabaseGetAction", "profileId", "prof-2"),
+            "op-1": _db_operation("DatabaseGetAction", "prof-1"),
+            "op-2": _db_operation("DatabaseGetAction", "prof-2"),
             "prof-1": _db_profile("orders", "SELECT FROM WHERE ((("),
             "prof-2": _db_profile("orders", "SELEC * FRM ((("),
         }
@@ -635,3 +645,62 @@ def test_components_are_fetched_once_including_failures() -> None:
     assert sorted(fetched) == ["conn-missing", "conn-sf", "op-sf"]
     assert list(report.lineage_component_failures) == ["conn-missing"]
     assert dict(report.lineage_edges_unresolved) == {"component_unreadable": 4}
+
+
+def test_unreadable_profile_marks_lineage_incomplete() -> None:
+    resolver, _, report = _resolver(
+        {
+            "conn-1": _legacy_connection(),
+            "op-1": _db_operation("DatabaseGetAction", "prof-missing"),
+            "op-2": _db_operation("DatabaseGetAction", "prof-1"),
+            "prof-1": _db_profile("dbo.orders"),
+        }
+    )
+
+    lineage = resolver.resolve_process(
+        _info(_shape("conn-1", "op-1"), _shape("conn-1", "op-2"))
+    )
+
+    assert lineage.incomplete
+    assert dict(report.lineage_edges_unresolved) == {"component_unreadable": 1}
+
+
+def test_unreadable_connection_marks_lineage_incomplete() -> None:
+    resolver, _, _ = _resolver(
+        {
+            "conn-sf": SALESFORCE_CONNECTION,
+            "op-sf": _salesforce_operation("SalesforceGetAction", "Account"),
+        }
+    )
+
+    complete = resolver.resolve_process(_info(_shape("conn-sf", "op-sf")))
+    partial = resolver.resolve_process(
+        _info(_shape("conn-sf", "op-sf"), _shape("conn-missing", "op-sf"))
+    )
+
+    assert not complete.incomplete
+    assert partial.incomplete
+
+
+def test_connection_mapping_env_is_normalised() -> None:
+    resolver, _, _ = _resolver(
+        {
+            "conn-1": _legacy_connection(),
+            "op-1": _db_operation("DatabaseGetAction", "prof-1"),
+            "prof-1": _db_profile("dbo.orders"),
+        },
+        connection_to_platform={"conn-1": {"platform": "mssql", "env": "dev"}},
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-1", "op-1")))
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.orders,DEV)"
+    ]
+
+
+def test_connection_mapping_rejects_unknown_env() -> None:
+    with pytest.raises(ValidationError):
+        _resolver(
+            {}, connection_to_platform={"conn-1": {"platform": "mssql", "env": "nope"}}
+        )

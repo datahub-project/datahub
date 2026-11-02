@@ -170,3 +170,6 @@ class ProcessLineage(BaseModel):
     input_datasets: List[str] = Field(default_factory=list)
     output_datasets: List[str] = Field(default_factory=list)
     child_process_ids: List[str] = Field(default_factory=list)
+    # A connection, operation or profile could not be read, so the edges are
+    # partial and must not replace lineage stored by an earlier run.
+    incomplete: bool = False

@@ -28,12 +28,14 @@ from datahub.ingestion.source.boomi.constants import (
     XML_ATTR_OPERATION_ID,
     XML_ATTR_OPERATION_TYPE,
     XML_ATTR_PROCESS_ID,
+    XML_ATTR_PROFILE_ID,
     XML_ATTR_SHAPE_TYPE,
     XML_ATTR_STATEMENT_TYPE,
     XML_ATTR_SUB_TYPE,
     XML_ATTR_TABLE_NAME,
     XML_ATTR_URL_FORMAT,
     XML_ATTR_VALUE,
+    XML_DB_PROFILE_ELEMENTS,
     XML_ELEMENT_CONNECTOR_ACTION,
     XML_ELEMENT_DB_CONNECTION_SETTINGS,
     XML_ELEMENT_DB_STATEMENT,
@@ -179,8 +181,17 @@ def parse_operation_component(xml_text: str) -> OperationComponent:
     operation_type = _attr(generic, XML_ATTR_OPERATION_TYPE)
     custom_operation_type = _attr(generic, XML_ATTR_CUSTOM_OPERATION_TYPE)
     profile_ids: List[str] = []
-    for attribute in DB_ACTION_PROFILE_ATTRIBUTES:
-        profile_id = _attr(action, attribute)
+    candidates: List[Optional[str]] = []
+    if action is not None:
+        candidates.extend(
+            _attr(child, XML_ATTR_PROFILE_ID)
+            for child in action
+            if local_name(child.tag) in XML_DB_PROFILE_ELEMENTS
+        )
+    candidates.extend(
+        _attr(action, attribute) for attribute in DB_ACTION_PROFILE_ATTRIBUTES
+    )
+    for profile_id in candidates:
         if profile_id and profile_id not in profile_ids:
             profile_ids.append(profile_id)
     return OperationComponent(

@@ -8,6 +8,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.ingestion.source.boomi.constants import (
     DEFAULT_API_URL,
     DEFAULT_EXECUTION_HISTORY_DAYS,
@@ -59,6 +60,17 @@ class BoomiConnectionMapping(ConfigModel):
             "`false` when the system was ingested with case-preserving URNs."
         ),
     )
+
+    @field_validator("env")
+    @classmethod
+    def _validate_env(cls, value: Optional[str]) -> Optional[str]:
+        # Same rule as EnvConfigMixin, so `dev` and the source's `DEV` give
+        # the same dataset URNs.
+        if value is None:
+            return None
+        if value.upper() not in ALL_ENV_TYPES:
+            raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {value}")
+        return value.upper()
 
 
 class BoomiSourceConfig(

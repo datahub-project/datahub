@@ -35,6 +35,7 @@ class BoomiSourceReport(StaleEntityRemovalSourceReport):
     lineage_sql_parse_failures: int = 0
     lineage_components_fetched: int = 0
     lineage_component_failures: LossyList[str] = field(default_factory=LossyList)
+    lineage_processes_incomplete: LossyList[str] = field(default_factory=LossyList)
     process_calls_resolved: int = 0
     process_calls_child_not_emitted: int = 0
 

@@ -465,19 +465,19 @@ OPERATION_XML: Dict[str, str] = {
         "op-erp-insert-orders",
         "connector-action",
         "database",
-        '    <Operation xmlns=""><Configuration><DatabaseSendAction batchCount="0" commitOption="commitByProfile" requestProfile="prof-insert-orders"/></Configuration></Operation>',
+        '    <Operation xmlns=""><Configuration><DatabaseSendAction batchCount="0" commitOption="commitprofile"><WriteProfile profileId="prof-insert-orders"/></DatabaseSendAction></Configuration></Operation>',
     ),
     "op-erp-get-invoices": _component(
         "op-erp-get-invoices",
         "connector-action",
         "database",
-        '    <Operation xmlns=""><Configuration><DatabaseGetAction batchCount="0" maxRows="0" responseProfile="prof-invoices"/></Configuration></Operation>',
+        '    <Operation xmlns=""><Configuration><DatabaseGetAction batchCount="0" maxRows="0"><ReadProfile profileId="prof-invoices"/></DatabaseGetAction></Configuration></Operation>',
     ),
     "op-erp-get-customers": _component(
         "op-erp-get-customers",
         "connector-action",
         "database",
-        '    <Operation xmlns=""><Configuration><DatabaseGetAction batchCount="0" maxRows="0" responseProfile="prof-customers"/></Configuration></Operation>',
+        '    <Operation xmlns=""><Configuration><DatabaseGetAction batchCount="0" maxRows="0"><ReadProfile profileId="prof-customers"/></DatabaseGetAction></Configuration></Operation>',
     ),
     "op-v2-payments": _component(
         "op-v2-payments",

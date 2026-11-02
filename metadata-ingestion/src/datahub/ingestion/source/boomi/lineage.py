@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Set, TypeVar
 from urllib.parse import parse_qsl, urlparse
 
@@ -130,6 +131,13 @@ def connection_location(connection: ConnectionComponent) -> JdbcLocation:
     return location
 
 
+@dataclass
+class _ProcessEdges:
+    inputs: Set[str] = field(default_factory=set)
+    outputs: Set[str] = field(default_factory=set)
+    incomplete: bool = False
+
+
 class BoomiLineageResolver:
     def __init__(
         self,
@@ -147,19 +155,17 @@ class BoomiLineageResolver:
         self._warned: Set[str] = set()
 
     def resolve_process(self, info: ProcessComponentInfo) -> ProcessLineage:
-        inputs: Set[str] = set()
-        outputs: Set[str] = set()
+        edges = _ProcessEdges()
         for shape in info.connector_actions:
-            self._resolve_shape(shape, inputs, outputs)
+            self._resolve_shape(shape, edges)
         return ProcessLineage(
-            input_datasets=sorted(inputs),
-            output_datasets=sorted(outputs),
+            input_datasets=sorted(edges.inputs),
+            output_datasets=sorted(edges.outputs),
             child_process_ids=sorted(set(info.process_call_ids)),
+            incomplete=edges.incomplete,
         )
 
-    def _resolve_shape(
-        self, shape: ConnectorActionShape, inputs: Set[str], outputs: Set[str]
-    ) -> None:
+    def _resolve_shape(self, shape: ConnectorActionShape, edges: _ProcessEdges) -> None:
         # Listen shapes receive documents pushed to the runtime, so there is no
         # operation that names a dataset.
         if (shape.action_type or "").lower() == ACTION_TYPE_LISTEN:
@@ -170,7 +176,7 @@ class BoomiLineageResolver:
             return
         connection = self._get_connection(shape.connection_id)
         if connection is None:
-            self._unresolved(UnresolvedReason.COMPONENT_UNREADABLE)
+            self._component_unreadable(edges)
             return
         sub_type = connection.sub_type or shape.connector_type or ""
         mapping = self.config.connection_to_platform.get(shape.connection_id)
@@ -193,7 +199,7 @@ class BoomiLineageResolver:
             return
         operation = self._get_operation(shape.operation_id)
         if operation is None:
-            self._unresolved(UnresolvedReason.COMPONENT_UNREADABLE)
+            self._component_unreadable(edges)
             return
         if operation.direction == OperationDirection.UNKNOWN:
             self._unresolved(UnresolvedReason.UNKNOWN_DIRECTION)
@@ -208,14 +214,18 @@ class BoomiLineageResolver:
                 ),
             )
             return
-        urns = self._resolve_datasets(sub_type, target, operation, shape.operation_id)
+        urns = self._resolve_datasets(
+            sub_type, target, operation, shape.operation_id, edges
+        )
         if urns is None:
             return
         if not urns:
             self._unresolved(UnresolvedReason.NO_TABLE)
             return
         destination = (
-            inputs if operation.direction == OperationDirection.READ else outputs
+            edges.inputs
+            if operation.direction == OperationDirection.READ
+            else edges.outputs
         )
         destination.update(urns)
         self.report.lineage_edges_resolved += len(urns)
@@ -252,11 +262,19 @@ class BoomiLineageResolver:
         target: ConnectionTarget,
         operation: OperationComponent,
         operation_id: str,
+        edges: _ProcessEdges,
     ) -> Optional[List[str]]:
         # None means the edge was already reported as unresolved.
         if sub_type == SUBTYPE_DATABASE:
             profile = self._first_database_profile(operation)
             if profile is None:
+                # Profiles are cached, so this re-check makes no new requests.
+                if any(
+                    self._get_profile(profile_id) is None
+                    for profile_id in operation.profile_ids
+                ):
+                    self._component_unreadable(edges)
+                    return None
                 return []
             if profile.sql:
                 return self._datasets_from_sql(
@@ -400,6 +418,10 @@ class BoomiLineageResolver:
             )
         cache[component_id] = parsed
         return parsed
+
+    def _component_unreadable(self, edges: _ProcessEdges) -> None:
+        edges.incomplete = True
+        self._unresolved(UnresolvedReason.COMPONENT_UNREADABLE)
 
     def _unresolved(self, reason: UnresolvedReason) -> None:
         self.report.lineage_edges_unresolved[reason.value] += 1

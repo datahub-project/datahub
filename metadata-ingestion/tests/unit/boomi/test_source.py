@@ -836,3 +836,21 @@ def test_lineage_aspect_omitted_when_disabled_or_unreadable() -> None:
         _register(mock, [_process_record("p1", "Orders Sync")])
         mock.get(f"{BASE_URL}/Component/p1", status_code=500)
         assert list(_job_io(source).values()) == [None]
+
+
+def test_lineage_aspect_omitted_when_a_component_is_unreadable() -> None:
+    process_xml = (
+        '<bns:Component xmlns:bns="http://api.platform.boomi.com/">'
+        '<bns:object><process xmlns=""><shapes><shape shapetype="connectoraction">'
+        '<configuration><connectoraction connectorType="database" actionType="Get" '
+        'connectionId="conn-1" operationId="op-1"/></configuration></shape>'
+        "</shapes></process></bns:object></bns:Component>"
+    )
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        mock.get(f"{BASE_URL}/Component/p1", text=process_xml)
+        mock.get(f"{BASE_URL}/Component/conn-1", status_code=500)
+        assert list(_job_io(source).values()) == [None]
+
+    assert list(source.get_report().lineage_processes_incomplete) == ["p1"]
