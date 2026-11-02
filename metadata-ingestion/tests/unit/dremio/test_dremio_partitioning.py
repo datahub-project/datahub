@@ -53,18 +53,24 @@ class TestDremioPartitioning:
         dremio_api._get_all_tables_partitioned_by_container.assert_not_called()
 
     def test_first_chunk_failure_falls_back_to_partitioned(self, dremio_api):
+        dremio_api.report = DremioSourceReport()
         dremio_api._get_view_definitions = Mock(return_value=FileBackedDict())
+        dremio_api._get_root_container_names = Mock(return_value=["src_a"])
+        # Catalog-wide query fails, the per-container retry succeeds.
         dremio_api._get_all_tables_global_chunked = Mock(
-            side_effect=_CatalogWideQueryFailed("timeout")
-        )
-        dremio_api._get_all_tables_partitioned_by_container = Mock(
-            return_value=iter([{"TABLE_NAME": "fallback"}])
+            side_effect=[
+                _CatalogWideQueryFailed("timeout"),
+                iter([{"TABLE_NAME": "fallback"}]),
+            ]
         )
 
         tables = list(dremio_api.get_all_tables_and_columns())
 
         assert [t["TABLE_NAME"] for t in tables] == ["fallback"]
-        dremio_api._get_all_tables_partitioned_by_container.assert_called_once()
+        # A successful fallback is a complete fetch.
+        assert not dremio_api.dataset_fetch_incomplete
+        assert not dremio_api.report.dataset_fetch_incomplete
+        assert not dremio_api.report.failures
 
     def test_one_scoped_query_per_container(self, dremio_api):
         dremio_api._get_root_container_names = Mock(return_value=["src_a", "src_b"])
@@ -121,7 +127,7 @@ class TestDremioPartitioning:
         assert tables == []
         dremio_api._get_all_tables_global_chunked.assert_not_called()
         dremio_api.report.failure.assert_called_once()
-        assert dremio_api.report.dataset_fetch_incomplete is True
+        assert dremio_api.dataset_fetch_incomplete
 
     def test_outer_condition_matches_root_and_nested_paths(self):
         condition = DremioSQLQueries.container_schema_condition(

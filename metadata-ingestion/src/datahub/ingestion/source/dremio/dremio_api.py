@@ -13,6 +13,7 @@ from urllib.parse import quote
 
 import requests
 from requests.adapters import HTTPAdapter
+from typing_extensions import LiteralString
 from urllib3 import Retry
 from urllib3.exceptions import InsecureRequestWarning
 
@@ -215,6 +216,10 @@ class DremioAPIOperations:
             )
         # Emitted at most once per run when a page fills the ceiling exactly.
         self._warned_page_at_job_cap = False
+        # True once the dataset fetch is known to have been cut short: the
+        # catalog walk's names are then not the whole catalog. Set only through
+        # _report_dataset_fetch_failure.
+        self.dataset_fetch_incomplete = False
         # /catalog/{id} responses are id-keyed and immutable for a run, so
         # we reuse them across container walk + dataset fetch.
         self._catalog_cache: Dict[str, Any] = {}
@@ -775,6 +780,13 @@ class DremioAPIOperations:
             return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CLOUD
         return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE
 
+    def _report_dataset_fetch_failure(
+        self, message: LiteralString, context: str, exc: Optional[Exception] = None
+    ) -> None:
+        self.report.failure(message=message, context=context, exc=exc)
+        self.dataset_fetch_incomplete = True
+        self.report.dataset_fetch_incomplete = True
+
     def _warn_if_page_at_job_cap(self, page_len: int) -> None:
         """Nudge (once) when a fetch page reaches the configured ceiling.
 
@@ -939,12 +951,11 @@ class DremioAPIOperations:
         """
         container_names = self._get_root_container_names()
         if not container_names:
-            self.report.failure(
+            self._report_dataset_fetch_failure(
                 message="Catalog-wide dataset query failed and no root containers "
                 "resolved to retry per container; tables/views may be missing.",
                 context="dataset_fetch_fallback",
             )
-            self.report.dataset_fetch_incomplete = True
             return
 
         logger.info(
@@ -1111,12 +1122,11 @@ class DremioAPIOperations:
                     if "'rows'" in str(e)
                     else ""
                 )
-                self.report.failure(
+                self._report_dataset_fetch_failure(
                     message="Dremio dataset fetch failed; some tables/views may be missing.",
                     context=f"offset={offset}, chunk_size={chunk_size}.{oom_hint}",
                     exc=e,
                 )
-                self.report.dataset_fetch_incomplete = True
                 break
 
         # Final flush for the EE/Cloud path (Community already emitted).

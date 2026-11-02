@@ -7,6 +7,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import (
     TopKDict,
     float_top_k_dict,
@@ -35,14 +36,14 @@ class DremioSourceReport(
     # "is the filter biting?" signal, not an exact edge count.
     lineage_dropped_filtered: int = 0
 
-    # Query-derived names that pass the filters but that the catalog walk did
+    # Query-derived tables that pass the filters but that the catalog walk did
     # not find (dropped or temporary tables still in job history).
-    lineage_dropped_not_in_catalog: int = 0
-    # Observed CREATE VIEW statements skipped: the catalog's current view
-    # definition is authoritative, older DDL would add stale upstreams.
+    lineage_dropped_not_in_catalog: LossyList[str] = field(default_factory=LossyList)
+    # Observed CREATE VIEW statements skipped for views whose current
+    # definition the catalog registered; older DDL would add stale upstreams.
     num_view_ddl_queries_skipped: int = 0
-    # Set when the dataset fetch was cut short, so the catalog walk's names are
-    # not the whole catalog and can't be used to reject query-derived names.
+    # The dataset fetch was cut short, so the catalog walk's names are not the
+    # whole catalog. Mirrors DremioAPIOperations.dataset_fetch_incomplete.
     dataset_fetch_incomplete: bool = False
 
     api_calls_total: int = 0

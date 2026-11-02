@@ -3,13 +3,13 @@ the catalog's current view definition is authoritative for a view, and a
 table that is in scope but no longer in the catalog (dropped, temporary)
 must not come back as a live entity."""
 
-from typing import List
+from typing import List, Optional
 from unittest.mock import Mock
 
 import pytest
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_entities import (
@@ -20,18 +20,14 @@ from datahub.ingestion.source.dremio.dremio_source import DremioSource
 from datahub.metadata.schema_classes import UpstreamLineageClass
 
 
-def _urn(name: str) -> str:
-    return make_dataset_urn("dremio", f"dremio.{name}")
+def _urn(name: str, platform_instance: Optional[str] = None) -> str:
+    return make_dataset_urn_with_platform_instance(
+        "dremio", f"dremio.{name}", platform_instance
+    )
 
 
-ORDERS_VIEW = _urn("mysys.vdata.orders")
-ORDERS_BLUE = _urn("my_s3.materialize.orders_blue")
-ORDERS_GREEN = _urn("my_s3.materialize.orders_green")
-SRC_ORDERS = _urn("src_db.sales.orders")
-
-
-@pytest.fixture
-def source(monkeypatch):
+@pytest.fixture(params=[None, "my_instance"])
+def source(monkeypatch, request):
     mock_session = Mock()
     monkeypatch.setattr("requests.Session", Mock(return_value=mock_session))
     mock_session.post.return_value.json.return_value = {"token": "dummy-token"}
@@ -42,6 +38,7 @@ def source(monkeypatch):
         port=9047,
         tls=False,
         include_query_lineage=True,
+        platform_instance=request.param,
         schema_pattern=AllowDenyPattern(
             allow=["^mysys($|\\..*)", "^my_s3($|\\..*)", "^src_db($|\\..*)"]
         ),
@@ -58,8 +55,14 @@ def source(monkeypatch):
         "mysys.vdata.orders",
         "my_s3.materialize.orders_green",
         "src_db.sales.orders",
+        "mysys.vdata.no_definition",
     }
+    src._views_with_definition = {"mysys.vdata.orders"}
     return src
+
+
+def _instance(source: DremioSource) -> Optional[str]:
+    return source.config.platform_instance
 
 
 def _run_query(source: DremioSource, sql: str, ts: str) -> None:
@@ -101,18 +104,40 @@ def _upstreams(mcps: List[MetadataChangeProposalWrapper], urn: str) -> List[str]
         '/* {"app": "dbt", "node_id": "model.orders"} */\n'
         "-- deploy\n  create or replace view MySys.vdata.Orders as "
         "select * from my_s3.materialize.orders_blue",
+        # A column list wraps the view's name in a Schema.
+        "CREATE OR REPLACE VIEW MySys.vdata.Orders (id) AS "
+        "SELECT id FROM my_s3.materialize.orders_blue",
     ],
 )
 def test_catalog_view_definition_wins_over_observed_view_ddl(source, view_ddl):
+    view = _urn("mysys.vdata.orders", _instance(source))
     source.sql_parsing_aggregator.add_view_definition(
-        view_urn=ORDERS_VIEW,
+        view_urn=view,
         view_definition="SELECT * FROM my_s3.materialize.orders_green",
         default_db="dremio",
     )
     _run_query(source, view_ddl, "2024-01-01 12:00:00.000")
 
-    assert _upstreams(_mcps(source), ORDERS_VIEW) == [ORDERS_GREEN]
+    assert _upstreams(_mcps(source), view) == [
+        _urn("my_s3.materialize.orders_green", _instance(source))
+    ]
     assert source.report.num_view_ddl_queries_skipped == 1
+
+
+def test_view_without_catalog_definition_keeps_observed_ddl(source):
+    # No registered definition (e.g. its fetch failed): job history is the
+    # only lineage this view has.
+    _run_query(
+        source,
+        "CREATE VIEW mysys.vdata.no_definition AS "
+        "SELECT * FROM my_s3.materialize.orders_green",
+        "2024-01-01 12:00:00.000",
+    )
+
+    assert _upstreams(
+        _mcps(source), _urn("mysys.vdata.no_definition", _instance(source))
+    ) == [_urn("my_s3.materialize.orders_green", _instance(source))]
+    assert source.report.num_view_ddl_queries_skipped == 0
 
 
 @pytest.mark.parametrize(
@@ -127,8 +152,28 @@ def test_dropped_in_scope_table_is_not_resurrected(source, sql):
 
     mcps = _mcps(source)
 
-    assert [m.aspectName for m in mcps if m.entityUrn == ORDERS_BLUE] == []
-    assert source.report.lineage_dropped_not_in_catalog > 0
+    blue = _urn("my_s3.materialize.orders_blue", _instance(source))
+    assert [m.aspectName for m in mcps if m.entityUrn == blue] == []
+    # Names, once each, however often the aggregator asks.
+    assert list(source.report.lineage_dropped_not_in_catalog) == [
+        "my_s3.materialize.orders_blue"
+    ]
+
+
+def test_dropped_table_stays_an_upstream_of_a_live_table(source):
+    _run_query(
+        source,
+        "INSERT INTO my_s3.materialize.orders_green "
+        "SELECT * FROM my_s3.materialize.orders_blue",
+        "2024-01-01 12:00:00.000",
+    )
+
+    mcps = _mcps(source)
+    blue = _urn("my_s3.materialize.orders_blue", _instance(source))
+    green = _urn("my_s3.materialize.orders_green", _instance(source))
+    assert _upstreams(mcps, green) == [blue]
+    # But it gets no usage or operations of its own.
+    assert [m.aspectName for m in mcps if m.entityUrn == blue] == []
 
 
 @pytest.mark.parametrize(
@@ -141,8 +186,10 @@ def test_dropped_in_scope_table_is_not_resurrected(source, sql):
 def test_catalog_table_keeps_query_lineage(source, sql):
     _run_query(source, sql, "2024-01-01 12:00:00.000")
 
-    assert _upstreams(_mcps(source), ORDERS_GREEN) == [SRC_ORDERS]
-    assert source.report.lineage_dropped_not_in_catalog == 0
+    assert _upstreams(
+        _mcps(source), _urn("my_s3.materialize.orders_green", _instance(source))
+    ) == [_urn("src_db.sales.orders", _instance(source))]
+    assert list(source.report.lineage_dropped_not_in_catalog) == []
 
 
 def test_is_allowed_table_normalises_case_and_prefix(source):
@@ -153,13 +200,13 @@ def test_is_allowed_table_normalises_case_and_prefix(source):
 def test_out_of_scope_name_still_counted_as_filtered(source):
     assert not source._is_allowed_table("dremio.other_source.sales.orders")
     assert source.report.lineage_dropped_filtered == 1
-    assert source.report.lineage_dropped_not_in_catalog == 0
+    assert list(source.report.lineage_dropped_not_in_catalog) == []
 
 
 def test_incomplete_dataset_fetch_falls_back_to_filters(source):
     # A missing name may just be one the failed fetch never returned; dropping
     # its lineage would lose it for good once the query time window advances.
-    source.report.dataset_fetch_incomplete = True
+    source.dremio_api.dataset_fetch_incomplete = True
 
     _run_query(
         source,
@@ -167,8 +214,24 @@ def test_incomplete_dataset_fetch_falls_back_to_filters(source):
         "2024-01-01 12:00:00.000",
     )
 
-    assert _upstreams(_mcps(source), ORDERS_BLUE) == [SRC_ORDERS]
+    assert _upstreams(
+        _mcps(source), _urn("my_s3.materialize.orders_blue", _instance(source))
+    ) == [_urn("src_db.sales.orders", _instance(source))]
     assert not source._is_allowed_table("dremio.other_source.sales.orders")
+
+
+def test_lineage_warnings(source):
+    source._warn_if_dataset_fetch_incomplete()
+    source._warn_names_not_in_catalog()
+    assert not source.report.warnings
+
+    source.dremio_api.dataset_fetch_incomplete = True
+    source._is_allowed_table("my_s3.materialize.orders_blue")
+    source._warn_if_dataset_fetch_incomplete()
+    source.dremio_api.dataset_fetch_incomplete = False
+    source._is_allowed_table("my_s3.materialize.orders_blue")
+    source._warn_names_not_in_catalog()
+    assert len(source.report.warnings) == 2
 
 
 @pytest.mark.parametrize(
