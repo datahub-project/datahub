@@ -15,7 +15,8 @@
  * named "my cat" ranks first; "my cat frank", "awesome my cat" and "cat" are all partial matches in
  * any order. A value that differs from the query only in separators is
  * left out of the comparison. A tranche holds ties in any order; a result in the wrong tranche
- * fails the test, and the failure message shows the expected and the actual order. Each search attaches its served rows, their
+ * fails the test, and the failure message shows the expected and the actual order. Rows outside the
+ * test catalog (other data on a shared stack) are recorded but not graded. Each search attaches its served rows, their
  * tranches and the first results page to the test (attachments `ranking-<n>.json` and
  * `ranking-<n>.png`), so a report can show exactly what the assertion saw.
  *
@@ -52,6 +53,8 @@ import {
 const MODE = process.env.SEARCH_RANKING_MODE;
 
 const corpus = buildRankingCorpus();
+/** Extra rows read past the requested depth, so other data on a shared stack cannot crowd out the catalog. */
+const FOREIGN_ROWS = 60;
 const byUrn = new Map(corpus.map((e) => [e.urn, e]));
 
 /** Entries the rule places: every match except values that differ from the query only in separators. */
@@ -132,10 +135,13 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
     testInfo: TestInfo,
     query: string,
     depth: number,
-  ): Promise<{ actual: (CorpusEntry | undefined)[]; expected: CorpusEntry[]; urns: string[]; totals: number[] }> {
+  ): Promise<{ actual: CorpusEntry[]; expected: CorpusEntry[]; urns: string[]; served: string[]; totals: number[] }> {
     const expected = expectedOrder(query);
-    const { urns, totals, firstPage } = await rankingPage.readResults(query, depth);
-    const actual = urns.map((urn) => byUrn.get(urn));
+    // A shared stack may hold other data matching the search: read past it, record every served row,
+    // and grade only this catalog's rows.
+    const { urns: served, totals, firstPage } = await rankingPage.readResults(query, depth + FOREIGN_ROWS);
+    const urns = served.filter((urn) => byUrn.has(urn)).slice(0, depth);
+    const actual = urns.map((urn) => byUrn.get(urn)!);
     const n = testInfo.attachments.filter((a) => a.name.endsWith('.json')).length + 1;
     await testInfo.attach(`ranking-${n}.json`, {
       contentType: 'application/json',
@@ -143,12 +149,12 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
         mode: MODE,
         query,
         totals,
-        served: urns.map((urn, i) => rowOf(query, i + 1, urn, byUrn.get(urn))),
+        served: served.map((urn, i) => rowOf(query, i + 1, urn, byUrn.get(urn))),
         expected: expected.map((e, i) => rowOf(query, i + 1, e.urn, e)),
       }),
     });
     await testInfo.attach(`ranking-${n}.png`, { contentType: 'image/png', body: firstPage });
-    return { actual, expected, urns, totals };
+    return { actual, expected, urns, served, totals };
   }
 
   /** Reads every match the rule places and checks the served order against it, tranche by tranche. */
@@ -243,8 +249,8 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
   test('paging shows every match once with a stable total', async ({}, testInfo) => {
     const query = 'kennel_booking';
     const matches = graded(query);
-    const { urns, totals } = await searchAndRecord(testInfo, query, matches.length + 10);
-    expect(new Set(urns).size, 'a result appeared on two pages').toBe(urns.length);
+    const { urns, served, totals } = await searchAndRecord(testInfo, query, matches.length + 10);
+    expect(new Set(served).size, 'a result appeared on two pages').toBe(served.length);
     expect(new Set(totals).size, `totals changed between pages: ${totals.join(', ')}`).toBe(1);
     expect(new Set(urns.filter((urn) => matches.some((e) => e.urn === urn)))).toEqual(
       new Set(matches.map((e) => e.urn)),
