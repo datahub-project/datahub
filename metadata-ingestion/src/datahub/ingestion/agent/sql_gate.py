@@ -118,9 +118,11 @@ _DEFAULT_SCOPE = CatalogScope()
 _ALLOWED_VENDOR_FUNCTIONS: FrozenSet[str] = frozenset()
 
 # The other side of the rule above: once sqlglot models a vendor function, it stops
-# being exp.Anonymous and the rule no longer sees it. These are the ones that read
-# something other than catalog metadata. tests/unit/agent/test_sql_gate.py fails when
-# a sqlglot upgrade models new functions, so each one gets checked here.
+# being exp.Anonymous and the rule no longer sees it. This lists the functions that
+# sqlglot started modeling in 30.22 and that read something other than catalog
+# metadata; it does not cover functions modeled before 30.22. tests/unit/agent/
+# test_sql_gate.py fails when a sqlglot upgrade models new functions, so each one
+# gets checked here.
 _REFUSED_FUNCTION_NODES: Dict[type, str] = {
     node: label
     for node, label in (
