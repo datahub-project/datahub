@@ -18,6 +18,7 @@ from datahub.metadata.schema_classes import (
     OtherSchemaClass,
     SchemaMetadataClass,
 )
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from tests.unit.kafka_connect.conftest import (
     StubSchemaResolver,
     attach_resolver,
@@ -29,6 +30,8 @@ from tests.unit.kafka_connect.conftest import (
 TOPIC = "cdc-orders"
 TOPIC_URN = dataset_urn("kafka", TOPIC)
 SOURCE_TABLE = "inventory.orders"
+SOURCE_URN = dataset_urn("mysql", SOURCE_TABLE)
+COLUMNS = ("id", "customer_name", "amount")
 
 # Every shard's orders table is merged into one logical topic.
 CONNECTOR_CONFIG = {
@@ -88,13 +91,12 @@ def _topic_schema(value_schema: Dict) -> SchemaMetadataClass:
     )
 
 
-def _stored_path(schema: SchemaMetadataClass, column: str) -> str:
+def _stored_value_path(schema: SchemaMetadataClass, simple_path: str) -> str:
     return next(
         f.fieldPath
         for f in schema.fields
         if "[key=True]" not in f.fieldPath
-        and ".after." in f.fieldPath
-        and f.fieldPath.endswith(f".{column}")
+        and get_simple_field_path_from_v2_field_path(f.fieldPath) == simple_path
     )
 
 
@@ -114,12 +116,25 @@ def _extract(topic_schema: Optional[SchemaMetadataClass]) -> List[KafkaConnectLi
     return connector.extract_lineages()
 
 
-def _downstreams(lineage: KafkaConnectLineage) -> Dict[str, str]:
+def _column_links(lineage: KafkaConnectLineage) -> Dict[str, str]:
+    """Upstream source field URN -> downstream topic field URN."""
     assert lineage.fine_grained_lineages
+    links: Dict[str, str] = {}
+    for fgl in lineage.fine_grained_lineages:
+        assert fgl.upstreams and fgl.downstreams
+        assert len(fgl.upstreams) == 1 and len(fgl.downstreams) == 1
+        links[fgl.upstreams[0]] = fgl.downstreams[0]
+    return links
+
+
+def _expected_links(
+    schema: SchemaMetadataClass, topic_path_prefix: str
+) -> Dict[str, str]:
     return {
-        fgl.upstreams[0].rsplit(",", 1)[-1].rstrip(")"): fgl.downstreams[0]
-        for fgl in lineage.fine_grained_lineages
-        if fgl.upstreams and fgl.downstreams
+        make_schema_field_urn(SOURCE_URN, column): make_schema_field_urn(
+            TOPIC_URN, _stored_value_path(schema, f"{topic_path_prefix}{column}")
+        )
+        for column in COLUMNS
     }
 
 
@@ -127,19 +142,28 @@ def test_by_logical_table_router_links_table_to_routed_topic() -> None:
     lineages = _extract(_topic_schema(ENVELOPE_SCHEMA))
 
     assert len(lineages) == 1
+    assert lineages[0].source_platform == "mysql"
     assert lineages[0].source_dataset == SOURCE_TABLE
+    assert lineages[0].target_platform == "kafka"
     assert lineages[0].target_dataset == TOPIC
 
 
 def test_columns_link_to_stored_after_field_paths() -> None:
     schema = _topic_schema(ENVELOPE_SCHEMA)
 
-    downstreams = _downstreams(_extract(schema)[0])
+    links = _column_links(_extract(schema)[0])
 
-    assert downstreams == {
-        column: make_schema_field_urn(TOPIC_URN, _stored_path(schema, column))
-        for column in ("id", "customer_name", "amount")
-    }
+    assert links == _expected_links(schema, topic_path_prefix="after.")
+
+
+def test_unwrapped_topic_links_to_value_fields_not_key() -> None:
+    # Without the envelope (e.g. after ExtractNewRecordState) the columns are
+    # top-level, and "id" exists in both the key and the value schema.
+    schema = _topic_schema(VALUE_RECORD)
+
+    links = _column_links(_extract(schema)[0])
+
+    assert links == _expected_links(schema, topic_path_prefix="")
 
 
 def test_topic_with_mismatched_schema_gets_no_column_lineage() -> None:
@@ -165,6 +189,11 @@ def test_topic_with_mismatched_schema_gets_no_column_lineage() -> None:
 
 
 def test_topic_without_schema_in_datahub_keeps_column_name_paths() -> None:
-    downstreams = _downstreams(_extract(None)[0])
+    links = _column_links(_extract(None)[0])
 
-    assert downstreams["id"] == make_schema_field_urn(TOPIC_URN, "id")
+    assert links == {
+        make_schema_field_urn(SOURCE_URN, column): make_schema_field_urn(
+            TOPIC_URN, column
+        )
+        for column in COLUMNS
+    }
