@@ -439,12 +439,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
         self.catalog_dataset_names.add(dataset_name)
 
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=make_data_platform_urn(self.get_platform()),
-            name=dremio_dataset_name([dataset_name]),
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
-        )
+        dataset_urn = self._make_dataset_urn(dataset_info)
 
         for dremio_mcp in self.dremio_aspects.populate_dataset_mcp(
             dataset_urn, dataset_info
@@ -517,11 +512,9 @@ class DremioSource(StatefulIngestionSourceBase):
         yield from self.dremio_aspects.populate_glossary_term_mcp(glossary_term_info)
 
     def _make_dataset_urn(self, dataset_info: DremioDataset) -> str:
-        schema_str = ".".join(dataset_info.path)
-        dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
         return make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(self.get_platform()),
-            name=dremio_dataset_name([dataset_name]),
+            name=dremio_dataset_name([*dataset_info.path, dataset_info.resource_name]),
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )

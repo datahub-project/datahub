@@ -94,10 +94,10 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     select_test_results_to_emit,
 )
 from datahub.ingestion.source.dremio.dremio_naming import (
-    DREMIO_PLATFORM,
-    DremioSchemaResolver,
+    DBT_DREMIO_NO_SCHEMA,
+    DbtDremioSchemaResolver,
     dremio_dataset_name,
-    dremio_dataset_name_from_sql,
+    is_dremio_platform,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -223,9 +223,6 @@ class _TwoTierSchemaResolver(SchemaResolver):
 
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_SQL_LENGTH = 1 * 1024 * 1024  # 1MB
-# dbt-dremio stores a model with no folder under this schema and leaves it out of
-# the SQL it renders, so the dataset sits directly in its space or source.
-_DBT_DREMIO_NO_SCHEMA = "no_schema"
 _TARGET_PLATFORM_PREFETCH_ASPECT_NAMES = [
     BrowsePathsV2Class.ASPECT_NAME,
     ContainerClass.ASPECT_NAME,
@@ -2180,14 +2177,8 @@ class DBTNode:
         fqn = self._join_parts([self.database, self.schema, self.name])
         return fqn.replace('"', "")
 
-    def _is_dremio_target(self, target_platform: str) -> bool:
-        return target_platform.lower() == DREMIO_PLATFORM
-
     def _target_platform_schema(self, target_platform: str) -> Optional[str]:
-        if (
-            self._is_dremio_target(target_platform)
-            and self.schema == _DBT_DREMIO_NO_SCHEMA
-        ):
+        if is_dremio_platform(target_platform) and self.schema == DBT_DREMIO_NO_SCHEMA:
             return None
         return self.schema
 
@@ -2197,7 +2188,7 @@ class DBTNode:
         The Dremio source names every dataset ``dremio.<path>``, lowercased, and
         dbt-dremio's ``no_schema`` placeholder is not part of that path.
         """
-        if self.is_semantic_model() or not self._is_dremio_target(target_platform):
+        if self.is_semantic_model() or not is_dremio_platform(target_platform):
             return self.get_db_fqn()
         return dremio_dataset_name(
             [
@@ -2231,32 +2222,30 @@ class DBTNode:
     def is_semantic_model(self) -> bool:
         return self.node_type == DBT_NODE_TYPE_SEMANTIC_MODEL
 
-    def get_fake_ephemeral_table_name(self, target_platform: str) -> str:
-        """The table name an ephemeral model's CTE is swapped for in compiled SQL."""
+    def _fake_ephemeral_parts(self, target_platform: str) -> List[Optional[str]]:
         assert self.is_ephemeral_model()
 
         schema = self._target_platform_schema(target_platform)
-        if schema and self._is_dremio_target(target_platform):
+        if schema and is_dremio_platform(target_platform):
             # A nested Dremio folder is a dotted schema, but detach_ctes keeps only
             # 3 parts of the swapped-in name. Fold the folders into one part: the
             # name is a placeholder that only has to match its own URN.
             schema = schema.replace(".", "_")
-        db_fqn = self._join_parts(
-            [self.database, schema, f"__datahub__dbt__ephemeral__{self.name}"]
-        )
-        db_fqn = db_fqn.lower()
-        return db_fqn.replace('"', "")
+        return [self.database, schema, f"__datahub__dbt__ephemeral__{self.name}"]
+
+    def get_fake_ephemeral_table_name(self, target_platform: str) -> str:
+        """The table name an ephemeral model's CTE is swapped for in compiled SQL."""
+        db_fqn = self._join_parts(self._fake_ephemeral_parts(target_platform))
+        return db_fqn.lower().replace('"', "")
 
     def get_fake_ephemeral_dataset_name(self, target_platform: str) -> str:
         """The placeholder dataset name the schema resolver gives
-        get_fake_ephemeral_table_name, by the same rule."""
-        name = self.get_fake_ephemeral_table_name(target_platform)
-        if self._is_dremio_target(target_platform):
-            parts: List[Optional[str]] = list(name.split("."))
-            # Padded to sqlglot's database/schema/table positions, as the resolver
-            # sees them: a 2-part name has no database.
-            return dremio_dataset_name_from_sql([None] * (3 - len(parts)) + parts)
-        return name
+        get_fake_ephemeral_table_name."""
+        if is_dremio_platform(target_platform):
+            return dremio_dataset_name(
+                self._fake_ephemeral_parts(target_platform)
+            ).replace('"', "")
+        return self.get_fake_ephemeral_table_name(target_platform)
 
     def get_urn_for_upstream_lineage(
         self,
@@ -3462,24 +3451,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         )
 
-    def _warn_unmatchable_target_urns(self) -> None:
-        if (
-            self.config.target_platform.lower() == DREMIO_PLATFORM
-            and not self.config.include_database_name
-        ):
-            self.report.warning(
-                title="Dremio datasets can't be matched without the database name",
-                message="With `include_database_name: false`, dbt names Dremio datasets "
-                "without their space or source, so they don't match the datasets the "
-                "Dremio source ingests and their lineage is incomplete. Remove the "
-                "setting.",
-                context=f"target_platform={self.config.target_platform}",
-            )
-
     def get_workunits_internal(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
-        self._warn_unmatchable_target_urns()
         if self.config.write_semantics == "PATCH":
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
         if self.config.skip_missing_upstreams_in_lineage:
@@ -3947,8 +3921,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         graph: Optional[DataHubGraph] = self.ctx.graph
 
         resolver_class: Type[SchemaResolver]
-        if self.config.target_platform.lower() == DREMIO_PLATFORM:
-            resolver_class = DremioSchemaResolver
+        if is_dremio_platform(self.config.target_platform):
+            resolver_class = DbtDremioSchemaResolver
         elif self.config.include_database_name:
             resolver_class = SchemaResolver
         else:

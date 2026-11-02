@@ -1,3 +1,5 @@
+from typing import List
+
 import pytest
 import sqlglot
 
@@ -349,26 +351,6 @@ class TestDremioSchemaResolverWithSQLGlot:
             f"Expected '{expected_3part}' in '{urn_3part}'"
         )
 
-    @pytest.mark.parametrize(
-        "table_ref, expected_name",
-        [
-            ("my_source.orders", "dremio.my_source.orders"),
-            ('"dremio"."my_space"."orders"', "dremio.my_space.orders"),
-            ('"dremio"."my_space"."folder"."orders"', "dremio.my_space.folder.orders"),
-        ],
-    )
-    def test_parsed_name_gets_one_dremio_prefix(
-        self, resolver, table_ref, expected_name
-    ):
-        parsed = sqlglot.parse_one(f"SELECT * FROM {table_ref}", dialect="dremio")
-        table_name = _table_name_from_sqlglot_table(
-            next(parsed.find_all(sqlglot.exp.Table)), None
-        )
-        assert (
-            resolver.get_urn_for_table(table_name)
-            == f"urn:li:dataset:(urn:li:dataPlatform:dremio,{expected_name},PROD)"
-        )
-
     def test_unquoted_multi_part_table_names(self, resolver):
         """Test that unquoted 5-part table names are handled correctly by SQLGlot."""
         sql = "SELECT * FROM MySpace.folder1.folder2.folder3.table"
@@ -434,7 +416,7 @@ def test_paths_over_3_parts_get_table_lineage_only() -> None:
     for name in ("dremio.my_space.orders", "dremio.my_space.folder.sub.orders"):
         resolver.add_raw_schema_info(_urn(name), {"id": "INT"})
 
-    def upstreams(sql: str) -> list:
+    def upstreams(sql: str) -> List[str]:
         result = sqlglot_lineage(sql, resolver)
         assert result.column_lineage
         return [u.table for u in result.column_lineage[0].upstreams]
