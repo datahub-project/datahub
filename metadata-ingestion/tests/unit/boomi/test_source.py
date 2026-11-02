@@ -12,8 +12,10 @@ from datahub.ingestion.source.boomi.config import BoomiSourceConfig
 from datahub.ingestion.source.boomi.models import ComponentMetadata, ExecutionRecord
 from datahub.ingestion.source.boomi.source import (
     BoomiSource,
+    calling_execution,
     dedupe_branch_copies,
     execution_end_millis,
+    execution_run_type,
     map_execution_status,
     select_recent_executions,
     to_millis,
@@ -544,6 +546,33 @@ def test_select_recent_executions_caps_per_process_most_recent_first() -> None:
     assert selection.scanned == 5
     assert selection.over_cap == 1
     assert selection.process_not_emitted == 1
+
+
+def test_sub_process_run_links_to_caller_and_inherits_its_trigger() -> None:
+    caller = ExecutionRecord.model_validate(
+        {**_execution("execution-caller"), "executionType": "exec_manual"}
+    )
+    sub_process = ExecutionRecord.model_validate(
+        {
+            **_execution("execution-sub", process_id="p2"),
+            "executionType": "sub_process",
+            "topLevelExecutionId": "execution-caller",
+        }
+    )
+    orphan = ExecutionRecord.model_validate(
+        {
+            **_execution("execution-orphan", process_id="p2"),
+            "executionType": "sub_process",
+            "topLevelExecutionId": "execution-outside-window",
+        }
+    )
+    emitted = {e.execution_id: e for e in (caller, sub_process, orphan)}
+
+    assert calling_execution(sub_process, emitted) == caller
+    assert execution_run_type(sub_process, emitted) == "BATCH_AD_HOC"
+    assert calling_execution(orphan, emitted) is None
+    assert execution_run_type(orphan, emitted) == "BATCH_SCHEDULED"
+    assert calling_execution(caller, emitted) is None
 
 
 def test_executions_emit_end_event_only_for_terminal_status() -> None:

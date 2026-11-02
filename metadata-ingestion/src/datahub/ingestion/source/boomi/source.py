@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
+    DataProcessInstanceKey,
     InstanceRunResult,
 )
 from datahub.emitter.mcp_builder import ContainerKey
@@ -39,6 +40,7 @@ from datahub.ingestion.source.boomi.constants import (
     EXECUTION_STATUS_RESULTS,
     EXECUTION_STATUSES_IN_PROGRESS,
     EXECUTION_TYPE_MANUAL,
+    EXECUTION_TYPE_SUB_PROCESS,
     HTTP_BAD_REQUEST,
     HTTP_FORBIDDEN,
     NO_RUNTIMES_ERROR_MESSAGE,
@@ -79,7 +81,7 @@ from datahub.metadata.schema_classes import (
     DataProcessTypeClass,
     OwnershipTypeClass,
 )
-from datahub.metadata.urns import CorpUserUrn, DataJobUrn
+from datahub.metadata.urns import CorpUserUrn, DataJobUrn, DataProcessInstanceUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -166,6 +168,36 @@ def select_recent_executions(
             entry[3] for entry in sorted(heap, reverse=True)
         ]
     return selection
+
+
+def is_sub_process(execution: ExecutionRecord) -> bool:
+    return (execution.execution_type or "").lower() == EXECUTION_TYPE_SUB_PROCESS
+
+
+def calling_execution(
+    execution: ExecutionRecord, emitted: Dict[str, ExecutionRecord]
+) -> Optional[ExecutionRecord]:
+    if not is_sub_process(execution):
+        return None
+    # Live sub-process records carry topLevelExecutionId but no
+    # parentExecutionId, so the top-level run stands in for the caller.
+    caller_id = execution.parent_execution_id or execution.top_level_execution_id
+    if not caller_id or caller_id == execution.execution_id:
+        return None
+    return emitted.get(caller_id)
+
+
+def execution_run_type(
+    execution: ExecutionRecord, emitted: Dict[str, ExecutionRecord]
+) -> str:
+    # A sub-process run is started by its caller, so it is ad hoc or scheduled
+    # as the top-level run was.
+    trigger = execution
+    if is_sub_process(execution) and execution.top_level_execution_id:
+        trigger = emitted.get(execution.top_level_execution_id, execution)
+    if (trigger.execution_type or "").lower() == EXECUTION_TYPE_MANUAL:
+        return DataProcessTypeClass.BATCH_AD_HOC
+    return DataProcessTypeClass.BATCH_SCHEDULED
 
 
 def is_no_runtimes_error(error: Exception) -> bool:
@@ -609,10 +641,15 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         self.report.executions_process_not_emitted += selection.process_not_emitted
         self.report.executions_over_cap += selection.over_cap
         unknown_statuses: Set[str] = set()
+        emitted = {
+            execution.execution_id: execution
+            for executions in selection.by_process.values()
+            for execution in executions
+        }
         for process_id in sorted(selection.by_process):
             for execution in selection.by_process[process_id]:
                 yield from self._make_execution_workunits(
-                    execution, process_jobs[process_id], unknown_statuses
+                    execution, process_jobs[process_id], unknown_statuses, emitted
                 )
                 self.report.executions_emitted += 1
 
@@ -621,6 +658,7 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         execution: ExecutionRecord,
         job_urn: DataJobUrn,
         unknown_statuses: Set[str],
+        emitted: Dict[str, ExecutionRecord],
     ) -> Iterable[MetadataWorkUnit]:
         result = map_execution_status(execution.status)
         if (
@@ -636,17 +674,16 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                     message="Executions with this status are emitted with a start event only.",
                     context=f"status={execution.status}",
                 )
-        is_manual = (execution.execution_type or "").lower() == EXECUTION_TYPE_MANUAL
+        caller = calling_execution(execution, emitted)
         dpi = DataProcessInstance(
             id=execution.execution_id,
             orchestrator=PLATFORM,
             cluster=self.config.env,
-            type=(
-                DataProcessTypeClass.BATCH_AD_HOC
-                if is_manual
-                else DataProcessTypeClass.BATCH_SCHEDULED
-            ),
+            type=execution_run_type(execution, emitted),
             template_urn=job_urn,
+            parent_instance=(
+                self._execution_urn(caller.execution_id) if caller else None
+            ),
             properties=self._execution_properties(execution),
             data_platform_instance=self.config.platform_instance,
         )
@@ -669,6 +706,15 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             start_timestamp_millis=start_millis if end_millis is not None else None,
         ):
             yield mcp.as_workunit()
+
+    def _execution_urn(self, execution_id: str) -> DataProcessInstanceUrn:
+        # Same key DataProcessInstance hashes, so the URN matches the caller's
+        # own instance.
+        return DataProcessInstanceUrn(
+            DataProcessInstanceKey(
+                cluster=self.config.env, orchestrator=PLATFORM, id=execution_id
+            ).guid()
+        )
 
     @staticmethod
     def _execution_properties(execution: ExecutionRecord) -> Dict[str, str]:

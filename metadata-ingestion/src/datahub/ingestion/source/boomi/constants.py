@@ -100,6 +100,7 @@ PROP_OUTBOUND_DOCUMENT_COUNT = "outboundDocumentCount"
 PROP_INBOUND_ERROR_DOCUMENT_COUNT = "inboundErrorDocumentCount"
 
 EXECUTION_TYPE_MANUAL = "exec_manual"
+EXECUTION_TYPE_SUB_PROCESS = "sub_process"
 
 # Boomi purges run history after the runtime's purgeHistoryDays, 30 by default.
 MAX_EXECUTION_HISTORY_DAYS = 30
