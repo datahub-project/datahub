@@ -1682,10 +1682,18 @@ def test_visual_chart_input_fields_and_counters() -> None:
         f"urn:li:schemaField:({_urn(mapper, policies)},State)",
         f"urn:li:schemaField:({_urn(mapper, claims)},Status)",
     ]
+    # Table-level inputs are exactly the tables the resolved fields belong to,
+    # not the page's whole model.
+    assert bar["ChartInfoClass"].inputs == [
+        _urn(mapper, policies),
+        _urn(mapper, claims),
+    ]
     # An unresolved field leaves the chart without inputFields but still
-    # emitted; a text box reads nothing at all.
+    # emitted; a text box reads nothing at all. Neither claims table inputs.
     assert "InputFieldsClass" not in _aspects_of(chart_mcps, CARD_URN)
     assert "InputFieldsClass" not in _aspects_of(chart_mcps, TEXT_URN)
+    assert _aspects_of(chart_mcps, CARD_URN)["ChartInfoClass"].inputs == []
+    assert _aspects_of(chart_mcps, TEXT_URN)["ChartInfoClass"].inputs == []
 
     reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
     assert reporter.report_visuals_emitted == 4

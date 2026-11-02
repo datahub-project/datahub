@@ -6,7 +6,7 @@
 import functools
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
@@ -428,6 +428,9 @@ class ResolvedInputFields:
     mcp: Optional[MetadataChangeProposalWrapper] = None
     resolved: int = 0
     unresolved: int = 0
+    # Datasets the resolved fields belong to, in first-seen order; a visual's
+    # table-level inputs are exactly these, never the whole model.
+    dataset_urns: List[str] = dataclass_field(default_factory=list)
 
 
 class Mapper:
@@ -2353,9 +2356,10 @@ class Mapper:
                     context,
                 )
                 continue
-            field_urn = builder.make_schema_field_urn(
-                self.make_dataset_urn_for_table(table), reference.field
-            )
+            table_urn = self.make_dataset_urn_for_table(table)
+            if table_urn not in result.dataset_urns:
+                result.dataset_urns.append(table_urn)
+            field_urn = builder.make_schema_field_urn(table_urn, reference.field)
             fields.append(
                 InputFieldClass(
                     schemaFieldUrn=field_urn,
@@ -2454,10 +2458,12 @@ class Mapper:
         page: powerbi_data_classes.Page,
         report: powerbi_data_classes.Report,
         workspace: powerbi_data_classes.Workspace,
-        ds_input: List[str],
     ) -> List[MetadataChangeProposalWrapper]:
         """One visual of a report page as a Chart entity carrying exactly the
-        fields that visual reads and its visual-level filters."""
+        fields that visual reads and its visual-level filters. Its table-level
+        inputs are the tables those fields belong to; a visual that reads no
+        resolvable field gets no table inputs rather than the page's whole
+        model, so a text box never claims lineage from every table."""
         chart_urn = builder.make_chart_urn(
             platform=self.__config.platform_name,
             platform_instance=self.__config.platform_instance,
@@ -2467,6 +2473,12 @@ class Mapper:
             visual_type=visual.visual_type or Constant.VISUAL,
             page=page.displayName or page.name,
         )
+        resolved = self._resolve_input_fields(
+            visual.field_references,
+            report,
+            chart_urn,
+            f"visual {visual.name} of page {page.name}",
+        )
         info_mcp = MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
             aspect=ChartInfoClass(
@@ -2475,15 +2487,9 @@ class Mapper:
                 lastModified=ChangeAuditStamps(),
                 chartUrl=self._page_url(report, page),
                 type=VISUAL_TYPE_TO_CHART_TYPE.get(visual.visual_type or ""),
-                inputs=ds_input,
+                inputs=resolved.dataset_urns,
                 customProperties=self._visual_properties(visual, page),
             ),
-        )
-        resolved = self._resolve_input_fields(
-            visual.field_references,
-            report,
-            chart_urn,
-            f"visual {visual.name} of page {page.name}",
         )
         reporter = self.__reporter
         reporter.report_visual_field_references_resolved += resolved.resolved
@@ -2571,9 +2577,7 @@ class Mapper:
             if self.__config.extract_report_visuals:
                 for visual in page.visuals:
                     list_of_mcps.extend(
-                        self.visual_to_chart_mcps(
-                            visual, page, report, workspace, ds_input
-                        )
+                        self.visual_to_chart_mcps(visual, page, report, workspace)
                     )
 
             return list_of_mcps
