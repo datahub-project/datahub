@@ -255,6 +255,36 @@ def test_decoded_null_value_keeps_its_key_fields(
     assert source.report.profiling_samples_skipped == 0
 
 
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        pytest.param(None, [], id="null-value-is-dropped"),
+        pytest.param(b'{"a": 1}', [{"a": "1"}], id="value-kept-without-key"),
+    ],
+)
+def test_undecodable_key_never_leaves_a_metadata_only_sample(
+    source: KafkaSource, value: Optional[bytes], expected: List[Dict[str, Any]]
+) -> None:
+    """An undecodable key contributes no fields: with a null value the message
+    is dropped rather than sampled as offset/timestamp only, and with a
+    decodable value only the value's fields are sampled."""
+    samples: List[Dict[str, Any]] = []
+    msg = FakeMessage(value, key=b"\x8a\x8b\xff", offset=3)
+
+    source._process_message_to_sample(
+        msg,  # type: ignore[arg-type]
+        samples,
+        TOPIC,
+        SCHEMALESS_METADATA,
+    )
+
+    assert [
+        {k: v for k, v in s.items() if k not in ("offset", "timestamp")}
+        for s in samples
+    ] == expected
+    assert source.report.profiling_samples_skipped == 1
+
+
 def test_malformed_message_metadata_is_skipped(source: KafkaSource) -> None:
     samples: List[Dict[str, Any]] = []
     msg = FakeMessage(b'{"a": 1}', timestamp_ms=None)  # timestamp() -> None

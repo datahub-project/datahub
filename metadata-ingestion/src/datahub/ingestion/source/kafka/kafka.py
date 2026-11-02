@@ -832,17 +832,21 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             value = msg.value() if callable(msg.value) else msg.value
 
             # Use pre-cached schema metadata to avoid repeated lookups
-            processed_key = self._process_message_part(
-                key, "key", topic, schema_metadata, is_key=True
+            processed_key = self._decode_message_part(
+                key, topic, schema_metadata, is_key=True
             )
             processed_value = self._decode_message_part(
                 value, topic, schema_metadata, is_key=False
             )
-            if processed_value is _UNDECODABLE:
+            if processed_value is _UNDECODABLE or (
+                processed_key is _UNDECODABLE and processed_value is None
+            ):
                 # Already counted as skipped. A sample holding only
                 # offset/timestamp would inflate the row count without
                 # contributing any field data.
                 return
+            if processed_key is _UNDECODABLE:
+                processed_key = None
 
             # Start with metadata
             sample = {
