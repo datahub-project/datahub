@@ -22,6 +22,7 @@ describe('operators', () => {
                 OperatorId.IS_TRUE,
                 OperatorId.IS_FALSE,
                 OperatorId.SCHEMA_FIELDS_HAVE_DESCRIPTIONS,
+                OperatorId.WITHIN,
             ];
 
             expectedIds.forEach((id) => {
@@ -44,6 +45,7 @@ describe('operators', () => {
             expect(OPERATOR_ID_TO_DETAILS.get(OperatorId.SCHEMA_FIELDS_HAVE_DESCRIPTIONS).displayName).toBe(
                 'Have Descriptions',
             );
+            expect(OPERATOR_ID_TO_DETAILS.get(OperatorId.WITHIN).displayName).toBe('Within');
         });
 
         it('should have correct English descriptions', () => {
@@ -54,6 +56,9 @@ describe('operators', () => {
             expect(OPERATOR_ID_TO_DETAILS.get(OperatorId.SCHEMA_FIELDS_HAVE_DESCRIPTIONS).description).toBe(
                 'All columns / fields have a description',
             );
+            expect(OPERATOR_ID_TO_DETAILS.get(OperatorId.WITHIN).description).toBe(
+                'Matches this value or any nested children',
+            );
         });
 
         it('should mark unary operators with operandCount of 1', () => {
@@ -63,10 +68,11 @@ describe('operators', () => {
             expect(OPERATOR_ID_TO_DETAILS.get(OperatorId.SCHEMA_FIELDS_HAVE_DESCRIPTIONS).operandCount).toBe(1);
         });
 
-        it('should not set operandCount for binary operators', () => {
+        it('should not set operandCount for binary operators including Within', () => {
             expect(OPERATOR_ID_TO_DETAILS.get(OperatorId.EQUAL_TO).operandCount).toBeUndefined();
             expect(OPERATOR_ID_TO_DETAILS.get(OperatorId.CONTAINS_STR).operandCount).toBeUndefined();
             expect(OPERATOR_ID_TO_DETAILS.get(OperatorId.GREATER_THAN).operandCount).toBeUndefined();
+            expect(OPERATOR_ID_TO_DETAILS.get(OperatorId.WITHIN).operandCount).toBeUndefined();
         });
     });
 
@@ -87,6 +93,7 @@ describe('operators', () => {
             expect(isUnaryOperator(OperatorId.NOT)).toBeFalsy();
             expect(isUnaryOperator(OperatorId.GREATER_THAN)).toBeFalsy();
             expect(isUnaryOperator(OperatorId.LESS_THAN)).toBeFalsy();
+            expect(isUnaryOperator(OperatorId.WITHIN)).toBeFalsy();
         });
 
         it('should return false for unknown operator IDs', () => {

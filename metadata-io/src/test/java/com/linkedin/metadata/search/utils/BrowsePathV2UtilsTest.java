@@ -1,8 +1,8 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -17,19 +17,15 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.container.Container;
 import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.key.DataJobKey;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -51,12 +47,11 @@ public class BrowsePathV2UtilsTest {
     Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
     final Urn containerUrn1 = UrnUtils.getUrn(CONTAINER_URN1);
     final Urn containerUrn2 = UrnUtils.getUrn(CONTAINER_URN2);
-    EntityService mockService =
-        initMockServiceWithContainerParents(datasetUrn, containerUrn1, containerUrn2);
+    OperationContext opContext =
+        mockOpContextWithContainerParents(datasetUrn, containerUrn1, containerUrn2);
 
     BrowsePathsV2 browsePathsV2 =
-        BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), datasetUrn, this.registry, '.', mockService, true);
+        BrowsePathV2Utils.getDefaultBrowsePathV2(opContext, datasetUrn, this.registry, '.', true);
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     BrowsePathEntry entry1 =
         new BrowsePathEntry().setId(containerUrn1.toString()).setUrn(containerUrn1);
@@ -70,14 +65,10 @@ public class BrowsePathV2UtilsTest {
   @Test
   public void testGetDefaultDatasetBrowsePathV2WithContainersFlagOff() throws URISyntaxException {
     Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
-    final Urn containerUrn1 = UrnUtils.getUrn(CONTAINER_URN1);
-    final Urn containerUrn2 = UrnUtils.getUrn(CONTAINER_URN2);
-    EntityService mockService =
-        initMockServiceWithContainerParents(datasetUrn, containerUrn1, containerUrn2);
 
     BrowsePathsV2 browsePathsV2 =
         BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), datasetUrn, this.registry, '.', mockService, false);
+            mockOpContext(), datasetUrn, this.registry, '.', false);
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     BrowsePathEntry entry1 = new BrowsePathEntry().setId("test");
     BrowsePathEntry entry2 = new BrowsePathEntry().setId("a");
@@ -91,12 +82,11 @@ public class BrowsePathV2UtilsTest {
     Urn chartUrn = UrnUtils.getUrn(CHART_URN);
     final Urn containerUrn1 = UrnUtils.getUrn(CONTAINER_URN1);
     final Urn containerUrn2 = UrnUtils.getUrn(CONTAINER_URN2);
-    EntityService mockService =
-        initMockServiceWithContainerParents(chartUrn, containerUrn1, containerUrn2);
+    OperationContext opContext =
+        mockOpContextWithContainerParents(chartUrn, containerUrn1, containerUrn2);
 
     BrowsePathsV2 browsePathsV2 =
-        BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), chartUrn, this.registry, '.', mockService, true);
+        BrowsePathV2Utils.getDefaultBrowsePathV2(opContext, chartUrn, this.registry, '.', true);
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     BrowsePathEntry entry1 =
         new BrowsePathEntry().setId(containerUrn1.toString()).setUrn(containerUrn1);
@@ -112,12 +102,11 @@ public class BrowsePathV2UtilsTest {
     Urn dashboardUrn = UrnUtils.getUrn(DASHBOARD_URN);
     final Urn containerUrn1 = UrnUtils.getUrn(CONTAINER_URN1);
     final Urn containerUrn2 = UrnUtils.getUrn(CONTAINER_URN2);
-    EntityService mockService =
-        initMockServiceWithContainerParents(dashboardUrn, containerUrn1, containerUrn2);
+    OperationContext opContext =
+        mockOpContextWithContainerParents(dashboardUrn, containerUrn1, containerUrn2);
 
     BrowsePathsV2 browsePathsV2 =
-        BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), dashboardUrn, this.registry, '.', mockService, true);
+        BrowsePathV2Utils.getDefaultBrowsePathV2(opContext, dashboardUrn, this.registry, '.', true);
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     BrowsePathEntry entry1 =
         new BrowsePathEntry().setId(containerUrn1.toString()).setUrn(containerUrn1);
@@ -130,7 +119,7 @@ public class BrowsePathV2UtilsTest {
 
   @Test
   public void testGetDefaultBrowsePathV2WithoutContainers() throws URISyntaxException {
-    EntityService mockService = mock(EntityService.class);
+    OperationContext opContext = mockOpContext();
 
     // Datasets
     DatasetKey datasetKey =
@@ -139,15 +128,8 @@ public class BrowsePathV2UtilsTest {
             .setOrigin(FabricType.PROD)
             .setPlatform(Urn.createFromString("urn:li:dataPlatform:kafka"));
     Urn datasetUrn = EntityKeyUtils.convertEntityKeyToUrn(datasetKey, "dataset");
-    when(mockService.getEntityV2(
-            any(OperationContext.class),
-            eq(datasetUrn.getEntityType()),
-            eq(datasetUrn),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap()));
     BrowsePathsV2 browsePathsV2 =
-        BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), datasetUrn, this.registry, '.', mockService, true);
+        BrowsePathV2Utils.getDefaultBrowsePathV2(opContext, datasetUrn, this.registry, '.', true);
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     BrowsePathEntry entry1 = new BrowsePathEntry().setId("Test");
     BrowsePathEntry entry2 = new BrowsePathEntry().setId("A");
@@ -157,15 +139,8 @@ public class BrowsePathV2UtilsTest {
 
     // Charts
     Urn chartUrn = UrnUtils.getUrn(CHART_URN);
-    when(mockService.getEntityV2(
-            any(OperationContext.class),
-            eq(chartUrn.getEntityType()),
-            eq(chartUrn),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap()));
     browsePathsV2 =
-        BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), chartUrn, this.registry, '/', mockService, true);
+        BrowsePathV2Utils.getDefaultBrowsePathV2(opContext, chartUrn, this.registry, '/', true);
     expectedPath = new BrowsePathEntryArray();
     entry1 = new BrowsePathEntry().setId("Default");
     expectedPath.add(entry1);
@@ -173,15 +148,8 @@ public class BrowsePathV2UtilsTest {
 
     // Dashboards
     Urn dashboardUrn = UrnUtils.getUrn(DASHBOARD_URN);
-    when(mockService.getEntityV2(
-            any(OperationContext.class),
-            eq(dashboardUrn.getEntityType()),
-            eq(dashboardUrn),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap()));
     browsePathsV2 =
-        BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), dashboardUrn, this.registry, '/', mockService, true);
+        BrowsePathV2Utils.getDefaultBrowsePathV2(opContext, dashboardUrn, this.registry, '/', true);
     expectedPath = new BrowsePathEntryArray();
     entry1 = new BrowsePathEntry().setId("Default");
     expectedPath.add(entry1);
@@ -189,15 +157,8 @@ public class BrowsePathV2UtilsTest {
 
     // Data Flows
     Urn dataFlowUrn = UrnUtils.getUrn(DATA_FLOW_URN);
-    when(mockService.getEntityV2(
-            any(OperationContext.class),
-            eq(dataFlowUrn.getEntityType()),
-            eq(dataFlowUrn),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap()));
     browsePathsV2 =
-        BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), dataFlowUrn, this.registry, '/', mockService, true);
+        BrowsePathV2Utils.getDefaultBrowsePathV2(opContext, dataFlowUrn, this.registry, '/', true);
     expectedPath = new BrowsePathEntryArray();
     entry1 = new BrowsePathEntry().setId("Default");
     expectedPath.add(entry1);
@@ -207,8 +168,7 @@ public class BrowsePathV2UtilsTest {
     DataJobKey dataJobKey = new DataJobKey().setFlow(dataFlowUrn).setJobId("Job/A/B");
     Urn dataJobUrn = EntityKeyUtils.convertEntityKeyToUrn(dataJobKey, "dataJob");
     browsePathsV2 =
-        BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), dataJobUrn, this.registry, '/', mockService, true);
+        BrowsePathV2Utils.getDefaultBrowsePathV2(opContext, dataJobUrn, this.registry, '/', true);
     expectedPath = new BrowsePathEntryArray();
     entry1 = new BrowsePathEntry().setId(dataFlowUrn.toString()).setUrn(dataFlowUrn);
     expectedPath.add(entry1);
@@ -224,22 +184,21 @@ public class BrowsePathV2UtilsTest {
     String snowflakeDatasetUrn =
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,myinstance.DB.SCHEMA.TABLE,PROD)";
     Urn datasetUrn = UrnUtils.getUrn(snowflakeDatasetUrn);
-    EntityService mockService = mock(EntityService.class);
-
     DataPlatformInstanceUrn platformInstanceUrn =
         new DataPlatformInstanceUrn(new DataPlatformUrn("snowflake"), "myinstance");
-    when(mockService.exists(any(OperationContext.class), eq(platformInstanceUrn), anyBoolean()))
-        .thenReturn(true);
+
+    CachingAspectRetriever retriever = mock(CachingAspectRetriever.class);
+    when(retriever.getLatestAspectObject(
+            any(), eq(platformInstanceUrn), eq(DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME)))
+        .thenReturn(new Aspect());
 
     BrowsePathsV2 browsePathsV2 =
         BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), datasetUrn, this.registry, '.', mockService, false);
+            mockOpContext(retriever), datasetUrn, this.registry, '.', false);
 
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
-    // First entry: URN-form platform instance (corrected by tryResolvePlatformInstanceEntry)
     expectedPath.add(
         new BrowsePathEntry().setId(platformInstanceUrn.toString()).setUrn(platformInstanceUrn));
-    // Remaining entries: plain-name database and schema segments
     expectedPath.add(new BrowsePathEntry().setId("DB"));
     expectedPath.add(new BrowsePathEntry().setId("SCHEMA"));
     Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
@@ -254,12 +213,10 @@ public class BrowsePathV2UtilsTest {
     String snowflakeDatasetUrn =
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,myinstance.DB.SCHEMA.TABLE,PROD)";
     Urn datasetUrn = UrnUtils.getUrn(snowflakeDatasetUrn);
-    // No stubbing → exists() returns empty Set → tryResolvePlatformInstanceEntry is a no-op
-    EntityService mockService = mock(EntityService.class);
 
     BrowsePathsV2 browsePathsV2 =
         BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), datasetUrn, this.registry, '.', mockService, false);
+            mockOpContext(), datasetUrn, this.registry, '.', false);
 
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     expectedPath.add(new BrowsePathEntry().setId("myinstance"));
@@ -268,20 +225,15 @@ public class BrowsePathV2UtilsTest {
     Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
   }
 
-  /**
-   * BigQuery datasets without a platform instance: exists() returns false, entries are unchanged.
-   */
+  /** BigQuery datasets without a platform instance: missing key aspect, entries are unchanged. */
   @Test
   public void testGetDefaultDatasetBrowsePathV2BigQueryNoPlatformInstance()
       throws URISyntaxException {
-    // DATASET_URN = urn:li:dataset:(urn:li:dataPlatform:bigquery,test.a.b,DEV)
     Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
-    // No stubbing → exists() returns empty Set → no change
-    EntityService mockService = mock(EntityService.class);
 
     BrowsePathsV2 browsePathsV2 =
         BrowsePathV2Utils.getDefaultBrowsePathV2(
-            mock(OperationContext.class), datasetUrn, this.registry, '.', mockService, false);
+            mockOpContext(), datasetUrn, this.registry, '.', false);
 
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
     expectedPath.add(new BrowsePathEntry().setId("test"));
@@ -289,43 +241,26 @@ public class BrowsePathV2UtilsTest {
     Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
   }
 
-  private EntityService initMockServiceWithContainerParents(
-      Urn entityUrn, Urn containerUrn1, Urn containerUrn2) throws URISyntaxException {
-    EntityService mockService = mock(EntityService.class);
+  private OperationContext mockOpContext() {
+    return mockOpContext(mock(CachingAspectRetriever.class));
+  }
 
-    final Container container1 = new Container().setContainer(containerUrn1);
-    final Map<String, EnvelopedAspect> aspectMap1 = new HashMap<>();
-    aspectMap1.put(
-        CONTAINER_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(container1.data())));
-    final EntityResponse entityResponse1 =
-        new EntityResponse().setAspects(new EnvelopedAspectMap(aspectMap1));
-    when(mockService.getEntityV2(
-            any(OperationContext.class),
-            eq(entityUrn.getEntityType()),
-            eq(entityUrn),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
-        .thenReturn(entityResponse1);
+  private OperationContext mockOpContext(CachingAspectRetriever retriever) {
+    when(retriever.getLatestAspectObjects(any(), any(), any())).thenReturn(Map.of());
+    OperationContext opContext = mock(OperationContext.class);
+    RetrieverContext retrieverContext = mock(RetrieverContext.class);
+    when(opContext.getRetrieverContext()).thenReturn(retrieverContext);
+    when(retrieverContext.getCachingAspectRetriever()).thenReturn(retriever);
+    return opContext;
+  }
 
-    final Container container2 = new Container().setContainer(containerUrn2);
-    final Map<String, EnvelopedAspect> aspectMap2 = new HashMap<>();
-    aspectMap2.put(
-        CONTAINER_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(container2.data())));
-    final EntityResponse entityResponse2 =
-        new EntityResponse().setAspects(new EnvelopedAspectMap(aspectMap2));
-    when(mockService.getEntityV2(
-            any(OperationContext.class),
-            eq(containerUrn1.getEntityType()),
-            eq(containerUrn1),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
-        .thenReturn(entityResponse2);
-
-    when(mockService.getEntityV2(
-            any(OperationContext.class),
-            eq(containerUrn2.getEntityType()),
-            eq(containerUrn2),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap()));
-
-    return mockService;
+  private OperationContext mockOpContextWithContainerParents(
+      Urn entityUrn, Urn containerUrn1, Urn containerUrn2) {
+    CachingAspectRetriever retriever = mock(CachingAspectRetriever.class);
+    when(retriever.getLatestAspectObject(any(), eq(entityUrn), eq(CONTAINER_ASPECT_NAME)))
+        .thenReturn(new Aspect(new Container().setContainer(containerUrn1).data()));
+    when(retriever.getLatestAspectObject(any(), eq(containerUrn1), eq(CONTAINER_ASPECT_NAME)))
+        .thenReturn(new Aspect(new Container().setContainer(containerUrn2).data()));
+    return mockOpContext(retriever);
   }
 }

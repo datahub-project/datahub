@@ -1,8 +1,13 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Optional
 
-from lib.graphql import execute_graphql, log, meets_expectation, resolve_operation_document
+from lib.graphql import (
+    execute_graphql,
+    log,
+    meets_expectation,
+    resolve_operation_document,
+)
 from lib.graphql_adapt import GraphqlQueryRegistry
 from lib.persona_password_seed import resolve_persona_password
 from lib.personas import PersonaOracle

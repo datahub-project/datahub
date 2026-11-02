@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -45,6 +46,24 @@ public class BatchRemoveFormResolverTest {
             any(),
             Mockito.eq(ImmutableList.of(UrnUtils.getUrn(TEST_DATASET_URN))),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
+  }
+
+  @Test
+  public void testGetUnauthorized() throws Exception {
+    FormService mockFormService = initMockFormService(true);
+    BatchRemoveFormResolver resolver = new BatchRemoveFormResolver(mockFormService);
+
+    // Execute resolver
+    QueryContext mockContext = getMockDenyContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate that we did NOT call unassign on the service
+    Mockito.verify(mockFormService, Mockito.times(0))
+        .batchUnassignFormForEntities(any(), Mockito.any(), Mockito.any());
   }
 
   @Test

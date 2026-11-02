@@ -1,7 +1,6 @@
-import { Modal, PageTitle, Pill, Text, spacing } from '@components';
+import { Heading, Modal, PageTitle, Pill, Text, spacing } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Typography } from 'antd';
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -30,7 +29,7 @@ const LoadingSubheader = styled.div`
     color: ${(props) => props.theme.colors.textTertiary};
 `;
 
-const LoadingHeader = styled(Typography.Title)`
+const LoadingHeader = styled.div`
     display: flex;
     justify-content: center;
 `;
@@ -93,7 +92,7 @@ function TestConnectionModal({
                     <SourceIcon alt={t('multiStep.testConnection.sourceLogoAlt')} src={logoUrl} />
                     <HeaderText>
                         {t('multiStep.testConnection.title', { displayName: sourceConfig?.displayName })}
-                        <Text color="gray">{t('multiStep.testConnection.subtitle')}</Text>
+                        <Text color="textSecondary">{t('multiStep.testConnection.subtitle')}</Text>
                     </HeaderText>
                 </ModalHeader>
             }
@@ -102,7 +101,11 @@ function TestConnectionModal({
         >
             {isLoading && (
                 <ResultsWrapper>
-                    <LoadingHeader level={4}>{t('multiStep.testConnection.loading')}</LoadingHeader>
+                    <LoadingHeader>
+                        <Heading type="h4" size="2xl" weight="semiBold">
+                            {t('multiStep.testConnection.loading')}
+                        </Heading>
+                    </LoadingHeader>
                     <LoadingSubheader>{t('multiStep.testConnection.loadingSubheader')}</LoadingSubheader>
                     <LoadingWrapper>
                         <LoadingSvg height={100} width={100} />

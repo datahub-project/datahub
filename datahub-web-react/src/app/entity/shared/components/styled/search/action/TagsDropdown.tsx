@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
-import AddTagsModal from '@app/shared/tags/AddTagsModal';
-import { OperationType } from '@app/shared/tags/useBatchTagTermMutation';
+import AddTagsModal from '@app/sharedV2/tags/AddTagsModal';
+import { OperationType } from '@app/sharedV2/tags/useBatchTagTermMutation';
 
 type Props = {
     urns: Array<string>;

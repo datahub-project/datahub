@@ -15,6 +15,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
+from datahub._codegen.aspect import _Aspect
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -58,12 +59,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
     TimeStamp,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    ChartSnapshot,
-    DashboardSnapshot,
-    DatasetSnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BooleanTypeClass,
     DateTypeClass,
@@ -414,7 +409,7 @@ def get_filter_name(filter_obj):
 
 @platform_name("Superset")
 @config_class(SupersetConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
@@ -552,12 +547,25 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return owners_info
 
-    def build_owner_urn(self, data: Dict[str, Any]) -> List[str]:
-        return [
-            make_user_urn(self.owner_info.get(owner.get("id"), ""))
-            for owner in data.get("owners", [])
-            if owner.get("id")
-        ]
+    def build_owner_urn(self, data: Dict[str, Any], entity_type: str) -> List[str]:
+        # owner_info can be missing an entry (e.g. the related/owners API is
+        # unavailable, as on newer Superset builds, or the owner has no email);
+        # skip unresolvable owners rather than emitting an invalid
+        # urn:li:corpuser: with no username.
+        owner_urns = []
+        for owner in data.get("owners", []):
+            owner_id = owner.get("id")
+            if owner_id:
+                owner_email = self.owner_info.get(owner_id)
+                if owner_email:
+                    owner_urns.append(make_user_urn(owner_email))
+                else:
+                    self.report.warning(
+                        title="Unresolvable Superset owner",
+                        message="Skipped an owner with no resolvable email; ownership may be incomplete",
+                        context=f"Owner ID: {owner_id}, Entity Type: {entity_type}, Entity ID: {data.get('id', 'unknown')}",
+                    )
+        return owner_urns
 
     # Permissive ``something@something.something`` matcher for redacting
     # email addresses out of log previews. NOT an RFC validator.
@@ -628,9 +636,14 @@ class SupersetSource(StatefulIngestionSourceBase):
             self.report.warning(
                 message="Network error.",
                 context=self._warning_context(
-                    **{**base_context, "error": str(e), "error_type": type(e).__name__}
+                    **{
+                        **base_context,
+                        "endpoint": endpoint,
+                        "error_type": type(e).__name__,
+                    }
                 ),
-                title=f"{endpoint} network error",
+                title="Superset API network error",
+                exc=e,
             )
             return None
         if response.status_code != 200:
@@ -644,11 +657,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                 context=self._warning_context(
                     **{
                         **base_context,
+                        "endpoint": endpoint,
                         "status_code": response.status_code,
                         "body_preview": self._safe_body_preview(response),
                     }
                 ),
-                title=f"{endpoint} failed",
+                title="Superset API request failed",
             )
             return None
         try:
@@ -664,11 +678,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                 context=self._warning_context(
                     **{
                         **base_context,
-                        "error": str(e),
+                        "endpoint": endpoint,
                         "body_preview": self._safe_body_preview(response),
                     }
                 ),
-                title=f"{endpoint} decode error",
+                title="Superset API decode error",
+                exc=e,
             )
             return None
 
@@ -896,16 +911,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         self,
         dashboard_data: dict,
         position_data: Optional[Dict[str, Any]] = None,
-    ) -> DashboardSnapshot:
-        dashboard_urn = make_dashboard_urn(
-            platform=self.platform,
-            name=str(dashboard_data["id"]),
-            platform_instance=self.config.platform_instance,
-        )
-        dashboard_snapshot = DashboardSnapshot(
-            urn=dashboard_urn,
-            aspects=[Status(removed=False)],
-        )
+    ) -> List[_Aspect]:
+        dashboard_urn = self._dashboard_urn(dashboard_data)
+        aspects: List[_Aspect] = [Status(removed=False)]
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dashboard_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
         now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
@@ -977,27 +985,35 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
             lastModified=change_audit_stamps,
         )
-        dashboard_snapshot.aspects.append(dashboard_info)
+        aspects.append(dashboard_info)
 
-        dashboard_owners_list = self.build_owner_urn(dashboard_data)
-        owners_info = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=urn,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-                for urn in (dashboard_owners_list or [])
-            ],
-            lastModified=last_modified,
-        )
-        dashboard_snapshot.aspects.append(owners_info)
+        dashboard_owners_list = self.build_owner_urn(dashboard_data, "dashboard")
+        if dashboard_owners_list:
+            owners_info = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                    for urn in dashboard_owners_list
+                ],
+                lastModified=last_modified,
+            )
+            aspects.append(owners_info)
 
         superset_tags = self._extract_and_map_tags(dashboard_data.get("tags", []))
         tags = self._merge_tags_with_existing(dashboard_urn, superset_tags)
         if tags:
-            dashboard_snapshot.aspects.append(tags)
+            aspects.append(tags)
 
-        return dashboard_snapshot
+        return aspects
+
+    def _dashboard_urn(self, dashboard_data: dict) -> str:
+        return make_dashboard_urn(
+            platform=self.platform,
+            name=str(dashboard_data["id"]),
+            platform_instance=self.config.platform_instance,
+        )
 
     def _report_filtered_chart_references(
         self,
@@ -1164,14 +1180,15 @@ class SupersetSource(StatefulIngestionSourceBase):
                         title="position_json has no chart entries",
                     )
 
-            dashboard_snapshot = self.construct_dashboard_from_api_data(
+            dashboard_urn = self._dashboard_urn(dashboard_data)
+            dashboard_aspects = self.construct_dashboard_from_api_data(
                 dashboard_data, position_data=position_data
             )
 
         except Exception as e:
             self.report.num_dashboards_dropped_unexpected_error += 1
             self.report.warning(
-                message="Failed to construct dashboard snapshot.",
+                message="Failed to construct dashboard metadata.",
                 context=self._warning_context(
                     dashboard_id=dashboard_id,
                     dashboard_title=dashboard_title,
@@ -1182,13 +1199,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
             return
 
-        mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-        yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-        yield from self._get_domain_wu(
-            title=dashboard_title, entity_urn=dashboard_snapshot.urn
-        )
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=dashboard_urn, aspects=dashboard_aspects
+        ):
+            yield mcp.as_workunit()
+        yield from self._get_domain_wu(title=dashboard_title, entity_urn=dashboard_urn)
 
-    def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
+    def gen_dashboard_workunits(self) -> Iterable[MetadataWorkUnit]:
         dashboard_data_list = [
             (dashboard_data,)
             for dashboard_data in self.paginate_entity_api_results(
@@ -1507,10 +1524,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             name=str(chart_data["id"]),
             platform_instance=self.config.platform_instance,
         )
-        chart_snapshot = ChartSnapshot(
-            urn=chart_urn,
-            aspects=[Status(removed=False)],
-        )
+        aspects: List[_Aspect] = [Status(removed=False)]
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((chart_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
         now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
@@ -1648,7 +1662,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
             lastModified=change_audit_stamps,
         )
-        chart_snapshot.aspects.append(chart_info)
+        aspects.append(chart_info)
 
         input_fields = self.construct_chart_cll(
             chart_data, datasource_urn, datasource_id
@@ -1662,27 +1676,29 @@ class SupersetSource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
-        chart_owners_list = self.build_owner_urn(chart_data)
-        owners_info = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=urn,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-                for urn in (chart_owners_list or [])
-            ],
-            lastModified=last_modified,
-        )
-        chart_snapshot.aspects.append(owners_info)
+        chart_owners_list = self.build_owner_urn(chart_data, "chart")
+        if chart_owners_list:
+            owners_info = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                    for urn in chart_owners_list
+                ],
+                lastModified=last_modified,
+            )
+            aspects.append(owners_info)
 
         superset_tags = self._extract_and_map_tags(chart_data.get("tags", []))
         tags = self._merge_tags_with_existing(chart_urn, superset_tags)
         if tags:
-            chart_snapshot.aspects.append(tags)
+            aspects.append(tags)
 
-        yield MetadataWorkUnit(
-            id=chart_urn, mce=MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-        )
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=chart_urn, aspects=aspects
+        ):
+            yield mcp.as_workunit()
 
         yield from self._get_domain_wu(
             title=chart_data.get("slice_name", ""),
@@ -1806,7 +1822,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             yield from self.construct_chart_from_chart_data(chart_data)
         except Exception as e:
             self.report.warning(
-                message="Failed to construct chart snapshot. This chart will not be ingested.",
+                message="Failed to construct chart metadata. This chart will not be ingested.",
                 context=self._warning_context(
                     chart_id=chart_id,
                     chart_name=chart_name,
@@ -1817,7 +1833,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
             return
 
-    def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
+    def gen_chart_workunits(self) -> Iterable[MetadataWorkUnit]:
         chart_data_list = [
             (chart_data,)
             for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE)
@@ -2026,7 +2042,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     def construct_dataset_from_dataset_data(
         self, dataset_data: dict
-    ) -> DatasetSnapshot:
+    ) -> Tuple[str, List[_Aspect]]:
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
         result = dataset_response.get("result")
         if not isinstance(result, dict):
@@ -2109,7 +2125,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
         tags = self._merge_tags_with_existing(datasource_urn, dataset_tags)
 
-        aspects_items: List[Any] = [
+        aspects_items: List[_Aspect] = [
             self.gen_schema_metadata(dataset_response),
             dataset_info,
             upstream_lineage,
@@ -2118,25 +2134,21 @@ class SupersetSource(StatefulIngestionSourceBase):
         if tags:
             aspects_items.append(tags)
 
-        dataset_snapshot = DatasetSnapshot(
-            urn=datasource_urn,
-            aspects=aspects_items,
-        )
+        dataset_owners_list = self.build_owner_urn(dataset_data, "dataset")
+        if dataset_owners_list:
+            owners_info = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                    for urn in dataset_owners_list
+                ],
+                lastModified=last_modified,
+            )
+            aspects_items.append(owners_info)
 
-        dataset_owners_list = self.build_owner_urn(dataset_data)
-        owners_info = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=urn,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-                for urn in (dataset_owners_list or [])
-            ],
-            lastModified=last_modified,
-        )
-        aspects_items.append(owners_info)
-
-        return dataset_snapshot
+        return datasource_urn, aspects_items
 
     def _extract_and_map_tags(self, raw_tags: Any) -> Optional[GlobalTagsClass]:
         """Extract and map Superset tags to DataHub GlobalTagsClass.
@@ -2230,11 +2242,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                     )
                     return
 
-            dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+            dataset_urn, dataset_aspects = self.construct_dataset_from_dataset_data(
+                dataset_data
+            )
         except Exception as e:
             self.report.warning(
-                message="Failed to construct dataset snapshot.",
+                message="Failed to construct dataset metadata.",
                 context=self._warning_context(
                     dataset_id=dataset_data.get("id"),
                     dataset_name=dataset_data.get("table_name"),
@@ -2244,13 +2257,16 @@ class SupersetSource(StatefulIngestionSourceBase):
                 exc=e,
             )
             return
-        yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=dataset_urn, aspects=dataset_aspects
+        ):
+            yield mcp.as_workunit()
         yield from self._get_domain_wu(
             title=dataset_data.get("table_name", ""),
-            entity_urn=dataset_snapshot.urn,
+            entity_urn=dataset_urn,
         )
 
-    def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
+    def gen_dataset_workunits(self) -> Iterable[MetadataWorkUnit]:
         dataset_data_list = [
             (dataset_data,)
             for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE)
@@ -2264,11 +2280,11 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # TODO: Possibly change ingestion order to minimize API calls
         if self.config.ingest_datasets:
-            yield from self.emit_dataset_mces()
+            yield from self.gen_dataset_workunits()
         if self.config.ingest_charts:
-            yield from self.emit_chart_mces()
+            yield from self.gen_chart_workunits()
         if self.config.ingest_dashboards:
-            yield from self.emit_dashboard_mces()
+            yield from self.gen_dashboard_workunits()
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report

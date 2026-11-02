@@ -12,8 +12,8 @@ import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/si
 import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
 import { defaultTabDisplayConfig } from '@app/entityV2/shared/containers/profile/utils';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
-import TagStyleEntity from '@app/shared/TagStyleEntity';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import TagStyleEntity from '@app/sharedV2/TagStyleEntity';
 import { PageRoutes } from '@conf/Global';
 
 const CompactEntityWrapper = styled.div<{ $isClosed: boolean }>`

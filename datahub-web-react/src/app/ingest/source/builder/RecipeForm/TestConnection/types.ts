@@ -1,6 +1,6 @@
 export enum SourceCapability {}
 
-export interface ConnectionCapability {
+interface ConnectionCapability {
     capable: boolean;
     failure_reason: string | null;
     mitigation_message: string | null;

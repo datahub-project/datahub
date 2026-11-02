@@ -135,7 +135,7 @@ class MLflowRegisteredModelStageInfo:
 
 @platform_name("MLflow")
 @config_class(MLflowConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for MLflow Registered Models and Model Versions",
@@ -382,9 +382,9 @@ class MLflowSource(StatefulIngestionSourceBase):
                 if not formatted_platform:
                     self.report.failure(
                         title="Unable to materialize dataset inputs",
-                        message=f"No mapping dataPlatform found for dataset input source type '{source_type}'",
-                        context=f"please add `materialize_dataset_inputs.source_mapping_to_platform` in config "
-                        f"(e.g. '{source_type}': 'snowflake')",
+                        message="No mapping dataPlatform found for dataset input source type. "
+                        "Please add `materialize_dataset_inputs.source_mapping_to_platform` in config.",
+                        context=f"source_type={source_type}",
                     )
                     continue
                 # Create hosted dataset

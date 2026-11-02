@@ -2,6 +2,8 @@ package io.datahubproject.openapi.v1.entities;
 
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountEntry;
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountResult;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCountEntry;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCountResult;
 import io.datahubproject.openapi.v1.models.entities.EntityCountsResponseDto;
 import io.datahubproject.openapi.v1.models.entities.EntityTypeCountDto;
 import io.datahubproject.openapi.v1.models.entities.EntityTypeCountResponseDto;
@@ -25,7 +27,7 @@ final class EntityCountsResponseMapper {
         EntityCountsResponseDto.builder()
             .counts(counts)
             .requestedTypes(result.getRequestedTypes())
-            .computedAt(result.getComputedAt())
+            .computedAtMillis(result.getComputedAt().toEpochMilli())
             .cacheHit(result.isCacheHit());
 
     if (includeTotal) {
@@ -33,6 +35,34 @@ final class EntityCountsResponseMapper {
           .activeTotal(result.activeTotal())
           .softDeletedTotal(result.softDeletedTotal())
           .totalCount(result.totalCount());
+    }
+
+    return builder.build();
+  }
+
+  @Nonnull
+  static EntityCountsResponseDto toPlatformBatchResponse(
+      @Nonnull PlatformEntityCountResult result, boolean includeTotal) {
+    List<EntityTypeCountDto> counts =
+        result.getCounts().stream()
+            .map(entry -> toPlatformCountDto(entry, includeTotal))
+            .collect(Collectors.toList());
+
+    EntityCountsResponseDto.EntityCountsResponseDtoBuilder builder =
+        EntityCountsResponseDto.builder()
+            .counts(counts)
+            .requestedTypes(result.getRequestedTypes())
+            .computedAtMillis(result.getComputedAt().toEpochMilli())
+            .cacheHit(false);
+
+    if (includeTotal) {
+      long active =
+          result.getCounts().stream().mapToLong(PlatformEntityCountEntry::getActiveCount).sum();
+      long soft =
+          result.getCounts().stream()
+              .mapToLong(PlatformEntityCountEntry::getSoftDeletedCount)
+              .sum();
+      builder.activeTotal(active).softDeletedTotal(soft).totalCount(active + soft);
     }
 
     return builder.build();
@@ -48,7 +78,7 @@ final class EntityCountsResponseMapper {
             .keyAspect(entry.getKeyAspect())
             .activeCount(entry.getActiveCount())
             .softDeletedCount(entry.getSoftDeletedCount())
-            .computedAt(result.getComputedAt())
+            .computedAtMillis(result.getComputedAt().toEpochMilli())
             .cacheHit(result.isCacheHit());
 
     if (includeTotal) {
@@ -65,6 +95,23 @@ final class EntityCountsResponseMapper {
         EntityTypeCountDto.builder()
             .entityType(entry.getEntityType())
             .keyAspect(entry.getKeyAspect())
+            .activeCount(entry.getActiveCount())
+            .softDeletedCount(entry.getSoftDeletedCount());
+
+    if (includeTotal) {
+      builder.totalCount(entry.totalCount());
+    }
+
+    return builder.build();
+  }
+
+  @Nonnull
+  private static EntityTypeCountDto toPlatformCountDto(
+      @Nonnull PlatformEntityCountEntry entry, boolean includeTotal) {
+    EntityTypeCountDto.EntityTypeCountDtoBuilder builder =
+        EntityTypeCountDto.builder()
+            .entityType(entry.getEntityType())
+            .platform(entry.getPlatform())
             .activeCount(entry.getActiveCount())
             .softDeletedCount(entry.getSoftDeletedCount());
 

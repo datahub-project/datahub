@@ -1,5 +1,6 @@
 """Tests for the data pack loader."""
 
+import base64
 import hashlib
 import json
 import os
@@ -9,18 +10,24 @@ from unittest.mock import MagicMock, patch
 
 import click
 import pytest
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.cli.datapack.loader import (
     EMIT_MODE_ENV,
     IndexFileEntry,
     _apply_schema_filter,
     _build_datapack_sink_config,
+    _build_fetch_session,
     _cache_key,
     _cached_path,
     _datapack_emit_mode,
     _DatapackSinkConfig,
     _run_pipeline_for_file,
     _sha256_file,
+    actor_urn_from_client,
+    actor_urn_from_token,
+    attribute_certifications,
     check_trust,
     download_pack,
     get_load_record,
@@ -33,6 +40,20 @@ from datahub.cli.datapack.loader import (
 from datahub.cli.datapack.models import DataPackInfo, TrustTier
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
+
+
+class TestFetchSession:
+    def test_retries_transient_statuses_with_backoff(self) -> None:
+        # Guards the fix for CDN rate-limiting: a transient 429 must be retried
+        # instead of silently dropping a datapack file into a broken load.
+        session = _build_fetch_session()
+        adapter = session.get_adapter("https://raw.githubusercontent.com/x")
+        assert isinstance(adapter, HTTPAdapter)
+        retry = adapter.max_retries
+        assert isinstance(retry, Retry)
+        assert {429, 500, 502, 503, 504}.issubset(set(retry.status_forcelist or []))
+        assert retry.total is not None and retry.total >= 1
+        assert retry.backoff_factor > 0
 
 
 class TestDatapackSinkConfig:
@@ -326,6 +347,163 @@ class TestIngestDatapackFileEntries:
         mock_run.assert_called_once()
         assert mock_run.call_args.args[2]["server"] == "http://gms:8080"
 
+    @patch("datahub.cli.datapack.loader.build_auth_config_from_env", return_value=None)
+    @patch("datahub.cli.datapack.loader.get_skip_config", return_value=False)
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_defaults_localhost_when_client_config_missing(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        mock_load_config: MagicMock,
+        mock_skip: MagicMock,
+        mock_auth: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        mock_filter.side_effect = lambda path, **_: path
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_load_config.side_effect = MissingConfigError("No ~/.datahubenv file found")
+
+        ingest_datapack_file_entries(
+            DataPackInfo(
+                name="bootstrap",
+                description="test",
+                url="https://example.com/bootstrap.json",
+                trust=TrustTier.VERIFIED,
+            ),
+            [IndexFileEntry(data_file)],
+            "run-xyz",
+            log_progress=False,
+        )
+
+        mock_load_config.assert_called_once()
+        mock_run.assert_called_once()
+        sink_config = mock_run.call_args.args[2]
+        assert sink_config["server"] == "http://localhost:8080"
+        assert "token" not in sink_config
+
+    @patch(
+        "datahub.cli.datapack.loader.build_auth_config_from_env", return_value=object()
+    )
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_does_not_fallback_when_oauth_env_is_set(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        mock_load_config: MagicMock,
+        mock_auth: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        mock_filter.side_effect = lambda path, **_: path
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_load_config.side_effect = MissingConfigError(
+            "DATAHUB_AUTH_TYPE is set but no GMS server was provided."
+        )
+
+        with pytest.raises(MissingConfigError, match="DATAHUB_AUTH_TYPE"):
+            ingest_datapack_file_entries(
+                DataPackInfo(
+                    name="bootstrap",
+                    description="test",
+                    url="https://example.com/bootstrap.json",
+                    trust=TrustTier.VERIFIED,
+                ),
+                [IndexFileEntry(data_file)],
+                "run-xyz",
+                log_progress=False,
+            )
+        mock_run.assert_not_called()
+
+    @patch("datahub.cli.datapack.loader.get_skip_config", return_value=True)
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_does_not_fallback_when_skip_config_is_set(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        mock_load_config: MagicMock,
+        mock_skip: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        mock_filter.side_effect = lambda path, **_: path
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_load_config.side_effect = MissingConfigError(
+            "You have set the skip config flag"
+        )
+
+        with pytest.raises(MissingConfigError, match="skip config"):
+            ingest_datapack_file_entries(
+                DataPackInfo(
+                    name="bootstrap",
+                    description="test",
+                    url="https://example.com/bootstrap.json",
+                    trust=TrustTier.VERIFIED,
+                ),
+                [IndexFileEntry(data_file)],
+                "run-xyz",
+                log_progress=False,
+            )
+        mock_run.assert_not_called()
+
+    @patch("datahub.cli.datapack.loader.build_auth_config_from_env", return_value=None)
+    @patch("datahub.cli.datapack.loader.get_skip_config", return_value=False)
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_applies_token_without_server_on_localhost_fallback(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        mock_load_config: MagicMock,
+        mock_skip: MagicMock,
+        mock_auth: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        mock_filter.side_effect = lambda path, **_: path
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_load_config.side_effect = MissingConfigError("No ~/.datahubenv file found")
+
+        ingest_datapack_file_entries(
+            DataPackInfo(
+                name="bootstrap",
+                description="test",
+                url="https://example.com/bootstrap.json",
+                trust=TrustTier.VERIFIED,
+            ),
+            [IndexFileEntry(data_file)],
+            "run-xyz",
+            token="sample-token",
+            log_progress=False,
+        )
+
+        sink_config = mock_run.call_args.args[2]
+        assert sink_config["server"] == "http://localhost:8080"
+        assert sink_config["token"] == "sample-token"
+
 
 class TestLoadPackIntoDatahub:
     @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
@@ -358,6 +536,41 @@ class TestLoadPackIntoDatahub:
         output = capsys.readouterr().out
         assert "Dry run" in output
         assert "data.json" in output
+        assert "Would ingest to http://localhost:8080." in output
+
+    @patch("datahub.cli.datapack.loader.build_auth_config_from_env", return_value=None)
+    @patch("datahub.cli.datapack.loader.get_skip_config", return_value=False)
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+    @patch("datahub.cli.datapack.loader._generate_run_id", return_value="generated-run")
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    def test_dry_run_defaults_localhost_when_client_config_missing(
+        self,
+        mock_load_config: MagicMock,
+        mock_run_id: MagicMock,
+        mock_ingest: MagicMock,
+        mock_skip: MagicMock,
+        mock_auth: MagicMock,
+        tmp_path: pathlib.Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        pack = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+        mock_load_config.side_effect = MissingConfigError("No ~/.datahubenv file found")
+
+        run_id = load_pack_into_datahub(pack, [IndexFileEntry(data_file)], dry_run=True)
+
+        assert run_id == "generated-run"
+        mock_ingest.assert_not_called()
+        output = capsys.readouterr().out
+        assert "Would ingest to http://localhost:8080." in output
 
     @patch("datahub.cli.datapack.loader.save_load_record")
     @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
@@ -397,6 +610,42 @@ class TestLoadPackIntoDatahub:
         )
         mock_save.assert_called_once_with(pack, "generated-run")
         assert "loaded successfully" in capsys.readouterr().out
+
+    @patch("datahub.cli.datapack.loader.build_auth_config_from_env", return_value=None)
+    @patch("datahub.cli.datapack.loader.get_skip_config", return_value=False)
+    @patch("datahub.cli.datapack.loader.save_load_record")
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+    @patch("datahub.cli.datapack.loader._generate_run_id", return_value="generated-run")
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    def test_load_pack_defaults_localhost_when_client_config_missing(
+        self,
+        mock_load_config: MagicMock,
+        mock_run_id: MagicMock,
+        mock_ingest: MagicMock,
+        mock_save: MagicMock,
+        mock_skip: MagicMock,
+        mock_auth: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        pack = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+        mock_load_config.side_effect = MissingConfigError("No ~/.datahubenv file found")
+        entries = [IndexFileEntry(data_file)]
+
+        run_id = load_pack_into_datahub(pack, entries)
+
+        assert run_id == "generated-run"
+        client_config = mock_ingest.call_args.kwargs["client_config"]
+        assert client_config.server == "http://localhost:8080"
+        assert client_config.token is None
 
 
 class TestIsCached:
@@ -943,6 +1192,37 @@ class TestCheckVersionCompatibility:
         ):
             check_version_compatibility(pack, force=True)  # Should not raise
 
+    def test_missing_config_uses_quickstart_fallback(self) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+        from datahub.cli.datapack.loader import check_version_compatibility
+
+        pack = DataPackInfo(
+            name="t", description="t", url="https://x.com", min_server_version="0.14.0"
+        )
+        mock_graph = MagicMock()
+        mock_graph.server_config.is_datahub_cloud = False
+        mock_graph.server_config.is_version_at_least.return_value = True
+
+        with (
+            patch(
+                "datahub.cli.datapack.loader.build_auth_config_from_env",
+                return_value=None,
+            ),
+            patch("datahub.cli.datapack.loader.get_skip_config", return_value=False),
+            patch(
+                "datahub.cli.datapack.loader.load_client_config",
+                side_effect=MissingConfigError("No ~/.datahubenv file found"),
+            ),
+            patch(
+                "datahub.ingestion.graph.client.DataHubGraph", return_value=mock_graph
+            ) as mock_graph_cls,
+        ):
+            check_version_compatibility(pack)
+
+        client_config = mock_graph_cls.call_args.args[0]
+        assert client_config.server == "http://localhost:8080"
+        assert client_config.token is None
+
 
 class TestReferentialIntegrity:
     def test_detects_dangling_references(
@@ -1027,3 +1307,118 @@ class TestReferentialIntegrity:
         _check_referential_integrity(pack_path)
         captured = capsys.readouterr()
         assert "dangling" not in captured.out
+
+
+def _unsigned_jwt(claims: dict[str, object]) -> str:
+    header = base64.urlsafe_b64encode(b'{"alg":"none"}').decode().rstrip("=")
+    payload = (
+        base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode())
+        .decode()
+        .rstrip("=")
+    )
+    return f"{header}.{payload}.sig"
+
+
+class TestCertificationAttribution:
+    def test_actor_urn_from_token(self) -> None:
+        assert actor_urn_from_token(None) is None
+        assert actor_urn_from_token("tok") is None
+        assert actor_urn_from_token(_unsigned_jwt({})) is None
+        assert actor_urn_from_token(_unsigned_jwt({"actorId": "bad urn"})) is None
+        assert (
+            actor_urn_from_token(_unsigned_jwt({"actorId": "admin"}))
+            == "urn:li:corpuser:admin"
+        )
+        assert (
+            actor_urn_from_token(
+                _unsigned_jwt({"iss": "https://login.example.com", "sub": "app-1"})
+            )
+            == "urn:li:corpuser:__oauth_login_example_com_app-1"
+        )
+        assert (
+            actor_urn_from_token(
+                _unsigned_jwt(
+                    {
+                        "actorId": "admin",
+                        "iss": "https://login.example.com",
+                        "sub": "app-1",
+                    }
+                )
+            )
+            == "urn:li:corpuser:admin"
+        )
+
+    def test_oauth_subject_keeps_characters_gms_allows(self) -> None:
+        k8s_actor = actor_urn_from_token(
+            _unsigned_jwt(
+                {
+                    "iss": "https://kubernetes.default.svc",
+                    "sub": "system:serviceaccount:ns:sa",
+                }
+            )
+        )
+        assert k8s_actor == (
+            "urn:li:corpuser:__oauth_kubernetes_default_svc_system:serviceaccount:ns:sa"
+        )
+        auth0_actor = actor_urn_from_token(
+            _unsigned_jwt({"iss": "https://login.example.com", "sub": "auth0|abc"})
+        )
+        assert auth0_actor == "urn:li:corpuser:__oauth_login_example_com_auth0|abc"
+
+    def test_actor_urn_from_client_reads_auth_provider(self) -> None:
+        from datahub.ingestion.auth.registry import AuthConfig
+        from datahub.ingestion.graph.config import DatahubClientConfig
+
+        token = _unsigned_jwt({"actorId": "admin"})
+        config = DatahubClientConfig(
+            server="http://localhost:8080",
+            auth=AuthConfig(type="static", config={"token": token}),
+        )
+        assert actor_urn_from_client(config) == "urn:li:corpuser:admin"
+
+    def test_attribute_certifications_rewrites_only_certification_stamps(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        source = tmp_path / "pack.json"
+        source.write_text(
+            json.dumps(
+                [
+                    {
+                        "aspectName": "certification",
+                        "aspect": {
+                            "json": {
+                                "current": {
+                                    "certified": {
+                                        "time": 0,
+                                        "actor": "urn:li:corpuser:datahub",
+                                    }
+                                },
+                                "lastModified": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub",
+                                },
+                            }
+                        },
+                    },
+                    {
+                        "aspectName": "datasetProperties",
+                        "aspect": {
+                            "json": {
+                                "name": "kept",
+                                "actor": "urn:li:corpuser:datahub",
+                            }
+                        },
+                    },
+                ]
+            )
+        )
+
+        rewritten = attribute_certifications(source, "urn:li:corpuser:admin")
+
+        assert rewritten != source
+        data = json.loads(rewritten.read_text())
+        certification = data[0]["aspect"]["json"]
+        assert certification["lastModified"]["actor"] == "urn:li:corpuser:admin"
+        assert certification["current"]["certified"]["actor"] == "urn:li:corpuser:admin"
+        assert data[1]["aspect"]["json"]["actor"] == "urn:li:corpuser:datahub"
+        assert attribute_certifications(rewritten, "urn:li:corpuser:admin") == rewritten

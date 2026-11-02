@@ -68,6 +68,10 @@ def test_environment_id_requires_key_and_deployment_id() -> None:
     assert cfg.environment_id == "2"
 
 
+def test_emit_semantic_model_entities_defaults_off() -> None:
+    assert _config().emit_semantic_model_entities is False
+
+
 def test_cloud_credentials_rejected_for_core_deployment() -> None:
     # The Cloud-only credentials are meaningless against a Core deployment and
     # must be rejected rather than silently ignored.

@@ -1,7 +1,8 @@
 package com.linkedin.metadata.search.query.request;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_AUTOCOMPLETE_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.URN_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
@@ -34,7 +35,6 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
@@ -355,12 +355,22 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   /** Tests to make sure that the fields are correctly combined across search-able entities */
   @Test
   public void testGetStandardFieldsEntitySpec() {
+    List<String> entityTypeNames =
+        Stream.concat(
+                parseCsv(DEFAULT_SEARCH_ENTITY_TYPES).stream(),
+                parseCsv(DEFAULT_AUTOCOMPLETE_ENTITY_TYPES).stream())
+            .distinct()
+            .collect(Collectors.toList());
+    // Distinct configured defaults (search ∪ autocomplete) — not an arbitrary registry-wide count.
+    assertTrue(
+        entityTypeNames.size() >= 20,
+        "Expected at least 20 distinct default search/autocomplete entity types");
+
     List<EntitySpec> entitySpecs =
-        Stream.concat(SEARCHABLE_ENTITY_TYPES.stream(), AUTO_COMPLETE_ENTITY_TYPES.stream())
-            .map(entityType -> entityType.toString().toLowerCase().replaceAll("_", ""))
+        entityTypeNames.stream()
             .map(entityType -> operationContext.getEntityRegistry().getEntitySpec(entityType))
             .collect(Collectors.toList());
-    assertTrue(entitySpecs.size() > 30, "Expected at least 30 searchable entities in the registry");
+    assertEquals(entitySpecs.size(), entityTypeNames.size());
 
     // Count of the distinct field names
     Set<String> expectedFieldNames =
@@ -377,9 +387,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             .collect(Collectors.toSet());
 
     Set<String> actualFieldNames =
-        TEST_CUSTOM_BUILDER
-            .getStandardFields(operationContext.getEntityRegistry(), entitySpecs)
-            .stream()
+        TEST_CUSTOM_BUILDER.getStandardFields(operationContext, entitySpecs).stream()
             .map(SearchFieldConfig::fieldName)
             .collect(Collectors.toSet());
 
@@ -400,7 +408,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   public void testGetStandardFields() {
     Set<SearchFieldConfig> fieldConfigs =
         TEST_CUSTOM_BUILDER.getStandardFields(
-            mock(EntityRegistry.class), ImmutableList.of(TestEntitySpecBuilder.getSpec()));
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()));
     assertEquals(fieldConfigs.size(), 27);
     assertEquals(
         fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()),
@@ -475,7 +483,6 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         false,
                         false,
                         Optional.<String>empty(),
-                        Optional.<Integer>empty(),
                         Optional.<String>empty(),
                         Optional.<Boolean>empty(),
                         Optional.<String>empty(),
@@ -501,7 +508,6 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         false,
                         false,
                         Optional.<String>empty(),
-                        Optional.<Integer>empty(),
                         Optional.<String>empty(),
                         Optional.<Boolean>empty(),
                         Optional.<String>empty(),
@@ -527,7 +533,6 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         false,
                         false,
                         Optional.<String>empty(),
-                        Optional.<Integer>empty(),
                         Optional.<String>empty(),
                         Optional.<Boolean>empty(),
                         Optional.<String>empty(),
@@ -537,8 +542,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
 
     fieldConfigs =
         TEST_CUSTOM_BUILDER.getStandardFields(
-            mock(EntityRegistry.class),
-            ImmutableList.of(TestEntitySpecBuilder.getSpec(), mockEntitySpec));
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec(), mockEntitySpec));
     // Same 22 from the original entity + newFieldNotInOriginal + 3 word gram fields from the
     // textFieldOverride
     assertEquals(fieldConfigs.size(), 32);
@@ -605,9 +609,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   public void testStandardFieldsQueryByDefault() {
     assertTrue(
         TEST_BUILDER
-            .getStandardFields(
-                opContext.getEntityRegistry(),
-                opContext.getEntityRegistry().getEntitySpecs().values())
+            .getStandardFields(opContext, opContext.getEntityRegistry().getEntitySpecs().values())
             .stream()
             .allMatch(SearchFieldConfig::isQueryByDefault),
         "Expect all search fields to be queryByDefault.");
@@ -763,8 +765,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     // Get the fields that would be configured
     Set<SearchFieldConfig> baseFields =
         builderWithFieldConfig.getStandardFields(
-            operationContext.getEntityRegistry(),
-            ImmutableList.of(TestEntitySpecBuilder.getSpec()));
+            operationContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()));
 
     // The pattern should match fields starting with "nestedArray."
     assertTrue(baseFields.stream().anyMatch(f -> f.fieldName().equals("nestedArrayStringField")));
@@ -1311,5 +1312,16 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     for (String query : wildcardQueries) {
       TEST_BUILDER.validateSearchQuery(query);
     }
+  }
+
+  @Test
+  public void testV2IgnoresLightQueryFlag() {
+    QueryBuilder full =
+        TEST_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true, false);
+    QueryBuilder light =
+        TEST_BUILDER.buildQuery(
+            opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true, true);
+    assertEquals(light, full);
   }
 }

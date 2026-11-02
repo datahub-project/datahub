@@ -5,6 +5,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.metadata.config.usage.loader.UsageMetricRegistryLoader;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricRegistry;
 import io.datahubproject.metadata.context.usage.UsageActorClass;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
@@ -24,8 +25,8 @@ public class UsageFlushSinkComposerTest {
   @Test
   public void testDelegatesToAllSinks() {
     AtomicInteger calls = new AtomicInteger();
-    UsageFlushSink sinkA = batch -> calls.incrementAndGet();
-    UsageFlushSink sinkB = batch -> calls.addAndGet(10);
+    UsageFlushSink sinkA = (opContext, batch) -> calls.incrementAndGet();
+    UsageFlushSink sinkB = (opContext, batch) -> calls.addAndGet(10);
     UsageFlushSinkComposer composer = new UsageFlushSinkComposer(List.of(sinkA, sinkB));
 
     UsageFlushBatch batch =
@@ -35,7 +36,7 @@ public class UsageFlushSinkComposerTest {
             FlushTrigger.SCHEDULED,
             List.of(),
             List.of());
-    composer.publish(batch);
+    composer.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
 
     Assert.assertEquals(calls.get(), 11);
   }
@@ -43,7 +44,7 @@ public class UsageFlushSinkComposerTest {
   @Test
   public void testPropagatesDelegateFailure() {
     UsageFlushSink failingSink =
-        batch -> {
+        (opContext, batch) -> {
           throw new IllegalStateException("sink down");
         };
     UsageFlushSinkComposer composer = new UsageFlushSinkComposer(List.of(failingSink));
@@ -55,7 +56,9 @@ public class UsageFlushSinkComposerTest {
             List.of(),
             List.of());
 
-    Assert.assertThrows(IllegalStateException.class, () -> composer.publish(batch));
+    Assert.assertThrows(
+        IllegalStateException.class,
+        () -> composer.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch));
   }
 
   @Test
@@ -64,9 +67,9 @@ public class UsageFlushSinkComposerTest {
     AtomicInteger secondSinkCalls = new AtomicInteger();
     AtomicInteger secondSinkAttempts = new AtomicInteger();
 
-    UsageFlushSink firstSink = batch -> firstSinkCalls.incrementAndGet();
+    UsageFlushSink firstSink = (opContext, batch) -> firstSinkCalls.incrementAndGet();
     UsageFlushSink secondSink =
-        batch -> {
+        (opContext, batch) -> {
           secondSinkCalls.incrementAndGet();
           if (secondSinkAttempts.incrementAndGet() == 1) {
             throw new IllegalStateException("second sink down");
@@ -81,11 +84,13 @@ public class UsageFlushSinkComposerTest {
             List.of(),
             List.of());
 
-    Assert.assertThrows(IllegalStateException.class, () -> composer.publish(batch));
+    Assert.assertThrows(
+        IllegalStateException.class,
+        () -> composer.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch));
     Assert.assertEquals(firstSinkCalls.get(), 1);
     Assert.assertEquals(secondSinkCalls.get(), 1);
 
-    composer.publish(batch);
+    composer.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
 
     Assert.assertEquals(firstSinkCalls.get(), 1);
     Assert.assertEquals(secondSinkCalls.get(), 2);
@@ -98,7 +103,7 @@ public class UsageFlushSinkComposerTest {
         new MicrometerUsageFlushSink(metricRegistry(), registry);
     AtomicInteger secondaryAttempts = new AtomicInteger();
     UsageFlushSink secondarySink =
-        batch -> {
+        (opContext, batch) -> {
           if (secondaryAttempts.incrementAndGet() == 1) {
             throw new IllegalStateException("secondary sink down");
           }
@@ -117,10 +122,12 @@ public class UsageFlushSinkComposerTest {
             List.of(new AdditiveUsageRow("input_bytes", UsageActorClass.REGULAR, dimensions, 100)),
             List.of());
 
-    Assert.assertThrows(IllegalStateException.class, () -> composer.publish(batch));
+    Assert.assertThrows(
+        IllegalStateException.class,
+        () -> composer.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch));
     Assert.assertEquals(registry.get("datahub.usage.input_bytes").counter().count(), 100.0);
 
-    composer.publish(batch);
+    composer.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
 
     Assert.assertEquals(registry.get("datahub.usage.input_bytes").counter().count(), 100.0);
   }

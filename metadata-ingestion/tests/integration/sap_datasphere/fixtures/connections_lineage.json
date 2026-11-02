@@ -1,0 +1,5 @@
+[
+  {"name": "HANA_CLOUD", "typeId": "HANA", "businessName": "HANA_CLOUD", "realtimeReplicationStatus": "INACTIVE"},
+  {"name": "SNOWFLAKE_PROD", "typeId": "SNOWFLAKE", "businessName": "SNOWFLAKE_PROD", "realtimeReplicationStatus": "INACTIVE"},
+  {"name": "UNSUPPORTED_CONN", "typeId": "SALESFORCE", "businessName": "UNSUPPORTED_CONN", "realtimeReplicationStatus": "INACTIVE"}
+]

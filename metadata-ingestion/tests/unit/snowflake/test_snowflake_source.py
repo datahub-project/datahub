@@ -1,13 +1,14 @@
 import datetime
 import re
-from typing import Any, Dict
+import warnings
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
 
 import datahub.ingestion.source.snowflake.snowflake_utils
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationWarning
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
@@ -22,6 +23,9 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeIdentifierConfig,
     SnowflakeV2Config,
 )
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
+)
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import UpstreamLineageEdge
 from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractor,
@@ -32,6 +36,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
     create_deny_regex_sql_filter,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDictionary
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
@@ -43,6 +48,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowsightUrlBuilder,
 )
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.sql_parsing.sql_parsing_aggregator import TableRename, TableSwap
 from datahub.testing.doctest import assert_doctest
 from tests.integration.snowflake.common import inject_rowcount
@@ -230,12 +236,45 @@ def test_config_fetch_views_from_information_schema():
     assert config.fetch_views_from_information_schema is False
 
 
+def test_probe_judges_tables_on_the_database_qualified_name():
+    # SnowflakeV2Source is not a SQLAlchemySource, so the probe's
+    # get_identifier shim cannot build `database.schema.table`; the config's
+    # own probe_filter_target declares it.
+    config = SnowflakeV2Config.model_validate(
+        {"account_id": "a", "username": "u", "password": "p"}
+    )
+    warned: List[str] = []
+
+    assert (
+        config.probe_filter_target(
+            schema="SCH", entity="T1", warn=warned.append, database="DB"
+        )
+        == "DB.SCH.T1"
+    )
+    assert warned == []
+
+    # A recipe spans several databases, so only the caller can name one.
+    assert (
+        config.probe_filter_target(schema="SCH", entity="T1", warn=warned.append)
+        is None
+    )
+    assert len(warned) == 1
+
+
 default_config_dict: Dict[str, Any] = {
     "username": "user",
     "password": "password",
     "account_id": "https://acctname.snowflakecomputing.com",
     "warehouse": "COMPUTE_WH",
     "role": "sysadmin",
+}
+
+default_wif_config_dict: Dict[str, Any] = {
+    "account_id": "https://acctname.snowflakecomputing.com",
+    "warehouse": "COMPUTE_WH",
+    "role": "sysadmin",
+    "authentication_type": "WORKLOAD_IDENTITY_AUTHENTICATOR",
+    "workload_identity_provider": "AWS",
 }
 
 
@@ -294,6 +333,44 @@ def test_snowflake_uri_key_pair_authentication():
     )
 
 
+def test_snowflake_uri_workload_identity_authentication():
+    config_dict = {**default_wif_config_dict, "username": "user"}
+    config = SnowflakeV2Config.model_validate(config_dict)
+
+    assert config.get_sql_alchemy_url() == (
+        "snowflake://user@acctname"
+        "?application=acryl_datahub"
+        "&authenticator=WORKLOAD_IDENTITY"
+        "&role=sysadmin"
+        "&warehouse=COMPUTE_WH"
+    )
+
+
+def test_snowflake_uri_workload_identity_without_username():
+    # Workload identity does not need a username, the attestation identifies the user.
+    config = SnowflakeV2Config.model_validate(default_wif_config_dict)
+
+    assert config.get_sql_alchemy_url() == (
+        "snowflake://acctname"
+        "?application=acryl_datahub"
+        "&authenticator=WORKLOAD_IDENTITY"
+        "&role=sysadmin"
+        "&warehouse=COMPUTE_WH"
+    )
+
+
+def test_snowflake_uri_workload_identity_drops_leftover_password():
+    # A password left over from a password recipe must not end up in the URL,
+    # which the profiler logs at DEBUG.
+    config = SnowflakeV2Config.model_validate(
+        {**default_wif_config_dict, "username": "user", "password": "leftover"}
+    )
+
+    url = config.get_sql_alchemy_url()
+    assert "leftover" not in url
+    assert url.startswith("snowflake://user@acctname?")
+
+
 def test_options_contain_connect_args():
     config = SnowflakeV2Config.model_validate(default_config_dict)
     connect_args = config.get_options().get("connect_args")
@@ -340,6 +417,81 @@ def test_snowflake_connection_with_china_domain(mock_connect):
     assert call_kwargs["host"] == "test-account_cn.snowflakecomputing.cn"
 
 
+@patch(
+    "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect"
+)
+def test_snowflake_workload_identity_native_connection_kwargs(mock_connect):
+    """Test that workload identity connects with the provider and without any secret"""
+    config = SnowflakeV2Config.model_validate(default_wif_config_dict)
+
+    mock_connect.return_value = MagicMock()
+    try:
+        config.get_connection()
+    except Exception:
+        pass  # We expect this to fail since we're mocking, but we want to check the call args
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["authenticator"] == "WORKLOAD_IDENTITY"
+    assert call_kwargs["workload_identity_provider"] == "AWS"
+    assert call_kwargs["account"] == "acctname"
+    assert call_kwargs["host"] == "acctname.snowflakecomputing.com"
+    assert "password" not in call_kwargs
+    assert "private_key" not in call_kwargs
+    assert "token" not in call_kwargs
+
+
+@patch(
+    "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect"
+)
+def test_snowflake_workload_identity_ignores_leftover_password(mock_connect):
+    """A password left over in the recipe must not reach the connector"""
+    config = SnowflakeV2Config.model_validate(
+        {**default_wif_config_dict, "username": "user", "password": "leftover"}
+    )
+
+    mock_connect.return_value = MagicMock()
+    try:
+        config.get_connection()
+    except Exception:
+        pass  # We expect this to fail since we're mocking, but we want to check the call args
+
+    mock_connect.assert_called_once()
+    assert "password" not in mock_connect.call_args[1]
+
+
+@patch(
+    "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect"
+)
+def test_snowflake_workload_identity_azure_entra_resource_via_connect_args(
+    mock_connect,
+):
+    """A non-default Entra resource set through connect_args reaches the connector"""
+    config = SnowflakeV2Config.model_validate(
+        {
+            **default_wif_config_dict,
+            "workload_identity_provider": "AZURE",
+            "connect_args": {
+                "workload_identity_entra_resource": "api://fake-entra-resource"
+            },
+        }
+    )
+
+    mock_connect.return_value = MagicMock()
+    try:
+        config.get_connection()
+    except Exception:
+        pass  # We expect this to fail since we're mocking, but we want to check the call args
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["authenticator"] == "WORKLOAD_IDENTITY"
+    assert call_kwargs["workload_identity_provider"] == "AZURE"
+    assert (
+        call_kwargs["workload_identity_entra_resource"] == "api://fake-entra-resource"
+    )
+
+
 def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
     config_dict = default_config_dict.copy()
     config_dict["include_column_lineage"] = True
@@ -373,13 +525,135 @@ def test_private_key_set_but_auth_not_changed():
         )
 
 
+@pytest.mark.parametrize("provider", ["AWS", "AZURE", "GCP"])
+def test_snowflake_workload_identity_happy_path(provider):
+    config = SnowflakeV2Config.model_validate(
+        {**default_wif_config_dict, "workload_identity_provider": provider}
+    )
+    assert config.authentication_type == "WORKLOAD_IDENTITY_AUTHENTICATOR"
+    assert config.workload_identity_provider == provider
+
+
+def test_snowflake_workload_identity_provider_case_insensitive():
+    config = SnowflakeV2Config.model_validate(
+        {**default_wif_config_dict, "workload_identity_provider": "aws"}
+    )
+    assert config.workload_identity_provider == "AWS"
+
+
+def test_snowflake_workload_identity_requires_provider():
+    config_dict = default_wif_config_dict.copy()
+    del config_dict["workload_identity_provider"]
+    with pytest.raises(
+        ValidationError,
+        match="`workload_identity_provider` is required",
+    ):
+        SnowflakeV2Config.model_validate(config_dict)
+
+
+@pytest.mark.parametrize(
+    "authentication_type",
+    [
+        "DEFAULT_AUTHENTICATOR",
+        "KEY_PAIR_AUTHENTICATOR",
+        "EXTERNAL_BROWSER_AUTHENTICATOR",
+        "OAUTH_AUTHENTICATOR",
+        "OAUTH_AUTHENTICATOR_TOKEN",
+    ],
+)
+def test_snowflake_workload_identity_provider_rejected_for_other_auth_types(
+    authentication_type,
+):
+    config_dict = {
+        **default_wif_config_dict,
+        "authentication_type": authentication_type,
+    }
+    if authentication_type == "KEY_PAIR_AUTHENTICATOR":
+        config_dict["private_key_path"] = "/a/random/path"
+    elif authentication_type == "OAUTH_AUTHENTICATOR":
+        config_dict["oauth_config"] = {**default_oauth_dict, "provider": "okta"}
+    elif authentication_type == "OAUTH_AUTHENTICATOR_TOKEN":
+        config_dict["token"] = "valid-token"
+    with pytest.raises(
+        ValidationError,
+        match="can only be set when `authentication_type` is WORKLOAD_IDENTITY_AUTHENTICATOR",
+    ):
+        SnowflakeV2Config.model_validate(config_dict)
+
+
+def test_snowflake_workload_identity_invalid_provider_rejected():
+    with pytest.raises(ValidationError, match="workload_identity_provider"):
+        SnowflakeV2Config.model_validate(
+            {**default_wif_config_dict, "workload_identity_provider": "ALIBABA"}
+        )
+
+
+def test_snowflake_workload_identity_does_not_require_credentials():
+    config = SnowflakeV2Config.model_validate(default_wif_config_dict)
+    assert config.username is None
+    assert config.password is None
+    assert config.private_key is None
+    assert config.private_key_path is None
+    assert config.token is None
+
+
+def test_snowflake_workload_identity_does_not_warn_password_deprecation():
+    # WIF sends no password, so the password-auth deprecation warning must not fire.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ConfigurationWarning)
+        config = SnowflakeV2Config.model_validate(default_wif_config_dict)
+    assert not config.is_using_password_auth()
+
+
+def test_snowflake_workload_identity_connect_args():
+    config = SnowflakeV2Config.model_validate(default_wif_config_dict)
+    connect_args = config.get_options()["connect_args"]
+    assert connect_args["workload_identity_provider"] == "AWS"
+    assert "workload_identity_entra_resource" not in connect_args
+    assert connect_args[CLIENT_PREFETCH_THREADS] == 10
+    assert connect_args[CLIENT_SESSION_KEEP_ALIVE] is True
+
+
+def test_snowflake_workload_identity_entra_resource_kept_in_connect_args():
+    config = SnowflakeV2Config.model_validate(
+        {
+            **default_wif_config_dict,
+            "workload_identity_provider": "AZURE",
+            "connect_args": {
+                "workload_identity_entra_resource": "api://fake-entra-resource"
+            },
+        }
+    )
+    connect_args = config.get_options()["connect_args"]
+    assert connect_args["workload_identity_provider"] == "AZURE"
+    assert (
+        connect_args["workload_identity_entra_resource"] == "api://fake-entra-resource"
+    )
+
+
+def test_snowflake_workload_identity_user_connect_args_override():
+    config = SnowflakeV2Config.model_validate(
+        {
+            **default_wif_config_dict,
+            "connect_args": {"workload_identity_provider": "GCP"},
+        }
+    )
+    connect_args = config.get_options()["connect_args"]
+    assert connect_args["workload_identity_provider"] == "GCP"
+
+
+def test_snowflake_summary_config_accepts_workload_identity():
+    from datahub.ingestion.source.snowflake.snowflake_summary import (
+        SnowflakeSummaryConfig,
+    )
+
+    config = SnowflakeSummaryConfig.model_validate(default_wif_config_dict)
+    assert config.workload_identity_provider == "AWS"
+
+
 def test_snowflake_connection_config_excludes_secrets_from_serialization():
     """Ensure secret fields are excluded from model_dump() to prevent leaking
     credentials in logs, reports, or the system info endpoint."""
-    from datahub.ingestion.source.snowflake.snowflake_connection import (
-        SnowflakeConnectionConfig,
-    )
-
     config = SnowflakeConnectionConfig.model_validate(
         {
             "account_id": "acctname",
@@ -396,6 +670,22 @@ def test_snowflake_connection_config_excludes_secrets_from_serialization():
     assert "private_key" not in dumped
     assert "private_key_password" not in dumped
     assert dumped["username"] == "user"  # non-secret field still present
+
+
+def test_is_using_password_auth_ignores_empty_password():
+    # bool(SecretStr("")) is True (the wrapper is truthy), so the predicate must
+    # read get_secret_value() to avoid flagging an empty password as set.
+    config_dict = default_config_dict.copy()
+    config_dict["password"] = ""
+    config = SnowflakeConnectionConfig.model_validate(config_dict)
+    assert not config.is_using_password_auth()
+
+
+def test_config_validation_emits_configuration_warning_for_password_auth():
+    # warnings.warn is the channel --test-source-connection prints; a regression
+    # that drops it (keeping only add_global_warning) would silence that path.
+    with pytest.warns(ConfigurationWarning, match="DEFAULT_AUTHENTICATOR"):
+        SnowflakeV2Config.model_validate(default_config_dict)
 
 
 def test_snowflake_config_with_connect_args_overrides_base_connect_args():
@@ -1235,6 +1525,18 @@ class TestSnowflakeIdentifierQuoting:
     def test_escape_identifier_multiple_quotes(self):
         assert SnowflakeIdentifierBuilder._escape_identifier('a"b"c') == 'a""b""c'
 
+    def test_get_quoted_identifier_for_table_no_db(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            None, "REPORTING", "MONTHLY_SALES"
+        )
+        assert result == '"REPORTING"."MONTHLY_SALES"'
+
+    def test_get_quoted_identifier_for_table_no_db_with_embedded_quotes(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            None, 'TEST"SCHEMA', 'MY"TABLE'
+        )
+        assert result == '"TEST""SCHEMA"."MY""TABLE"'
+
 
 def _make_pushdown_gen(push_down: bool) -> SnowflakeSchemaGenerator:
     config = SnowflakeV2Config.model_validate(
@@ -1333,3 +1635,49 @@ def test_get_tables_for_schema_pushes_down_when_filter_fits():
 
     _, kwargs = gen.data_dictionary.get_tables_for_database.call_args
     assert kwargs["table_filter"] == fitting
+
+
+def test_get_procedures_for_database_maps_rows_to_base_procedure():
+    """``get_procedures_for_database`` groups SHOW PROCEDURES rows by schema and
+    maps each into a ``BaseProcedure``.
+
+    Snowflake overloads procedures by signature, so an ``argument_signature``
+    must produce a hash-suffixed identifier to keep overloads on distinct
+    DataJob URNs.
+    """
+    created = datetime.datetime(2024, 1, 2, 3, 4, 5)
+    altered = datetime.datetime(2024, 6, 7, 8, 9, 10)
+    connection = MagicMock()
+    connection.query.return_value = [
+        {
+            "PROCEDURE_SCHEMA": "ANALYTICS",
+            "PROCEDURE_NAME": "load_facts",
+            "PROCEDURE_LANGUAGE": "SQL",
+            "ARGUMENT_SIGNATURE": "(START_DATE DATE)",
+            "PROCEDURE_RETURN_TYPE": "VARCHAR",
+            "PROCEDURE_DEFINITION": "BEGIN CALL child(); END",
+            "CREATED": created,
+            "LAST_ALTERED": altered,
+            "COMMENT": "loads the fact tables",
+        }
+    ]
+
+    data_dictionary = SnowflakeDataDictionary(
+        connection=connection, report=SnowflakeV2Report()
+    )
+
+    procedures = data_dictionary.get_procedures_for_database("MYDB")
+
+    assert list(procedures.keys()) == ["ANALYTICS"]
+    (proc,) = procedures["ANALYTICS"]
+    assert isinstance(proc, BaseProcedure)
+    assert proc.name == "load_facts"
+    assert proc.language == "SQL"
+    assert proc.argument_signature == "(START_DATE DATE)"
+    assert proc.return_type == "VARCHAR"
+    assert proc.procedure_definition == "BEGIN CALL child(); END"
+    assert proc.comment == "loads the fact tables"
+    assert proc.created == created
+    assert proc.last_altered == altered
+    assert proc.get_procedure_identifier() != "load_facts"
+    assert proc.get_procedure_identifier().startswith("load_facts_")

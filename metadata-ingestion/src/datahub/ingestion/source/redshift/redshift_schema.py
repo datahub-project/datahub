@@ -25,6 +25,28 @@ logger: logging.Logger = logging.getLogger(__name__)
 REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE = "-- partner: DataHub -v {version}\n"
 
 
+def unescape_stl_query_text(text: str) -> str:
+    """Convert Redshift STL literal escape sequences back to real characters.
+
+    Redshift's provisioned ``STL_QUERYTEXT.text`` stores query newlines/tabs/CRs
+    as literal two-character escape sequences (backslash + ``n``/``t``/``r``), not
+    real control bytes -- see
+    https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html . ``sqlglot``
+    cannot tokenize a bare ``\\n`` sitting between SQL tokens, so multi-line queries
+    fail to parse and are silently dropped by the aggregator, taking their lineage,
+    usage and Query entities with them. Every place that consumes reconstructed
+    STL_QUERYTEXT text must normalize it first; route all such call sites through
+    this single helper so they stay consistent (they previously handled only ``\\n``).
+
+    A literal ``\\n`` inside a string literal (e.g. ``WHERE x = 'a\\nb'``) is also
+    converted. This does not affect table/column lineage; the rare in-literal case
+    may alter the captured query text, which is acceptable here. On serverless
+    (``SYS_QUERY_TEXT``) and single-line queries there are no such escapes, so this
+    is a no-op there.
+    """
+    return text.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
+
+
 @dataclass
 class RedshiftColumn(BaseColumn):
     dist_key: bool = False
@@ -251,6 +273,12 @@ def _add_redshift_query_tag(query: str) -> str:
     return tag_comment + query
 
 
+def is_shared_database(db: Optional[RedshiftDatabase]) -> bool:
+    """Whether `db` (get_database_details' answer) is a datashare consumer,
+    whose objects are read from svv_redshift_* rather than pg_class."""
+    return db is not None and db.is_shared_database()
+
+
 # this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
     def __init__(self, is_serverless):
@@ -381,13 +409,16 @@ class RedshiftDataDictionary:
         skip_external_tables: bool = False,
         is_shared_database: bool = False,
         extract_ownership: bool = False,
+        enrich: bool = True,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
+        """`enrich=False` skips enrich_tables (svv_table_info joined to
+        stl_insert), leaving size, row count and last-altered unset."""
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
 
         # This query needs to run separately as we can't join with the main query because it works with
         # driver only functions.
-        enriched_tables = self.enrich_tables(conn)
+        enriched_tables = self.enrich_tables(conn) if enrich else None
 
         cur = RedshiftDataDictionary.get_query_result(
             conn,
@@ -457,7 +488,11 @@ class RedshiftDataDictionary:
                 )
 
                 materialized = False
-                if schema in enriched_tables and table_name in enriched_tables[schema]:
+                if (
+                    enriched_tables is not None
+                    and schema in enriched_tables
+                    and table_name in enriched_tables[schema]
+                ):
                     if enriched_tables[schema][table_name].is_materialized:
                         materialized = True
 
@@ -497,7 +532,11 @@ class RedshiftDataDictionary:
         last_altered: Optional[datetime] = None
         size_in_bytes: Optional[int] = None
         rows_count: Optional[int] = None
-        if schema in enriched_tables and table_name in enriched_tables[schema]:
+        if enriched_tables is None:
+            # Enrichment was skipped (enrich=False), so a missing entry says
+            # nothing about the table being empty: leave the stats unset.
+            pass
+        elif schema in enriched_tables and table_name in enriched_tables[schema]:
             if (
                 last_accessed := enriched_tables[schema][table_name].last_accessed
             ) is not None:
@@ -615,10 +654,8 @@ class RedshiftDataDictionary:
                         if "target_table" in field_names
                         else None
                     ),
-                    # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
-                    # for why we need to remove the \\n.
                     ddl=(
-                        row[field_names.index("ddl")].replace("\\n", "\n")
+                        unescape_stl_query_text(row[field_names.index("ddl")])
                         if "ddl" in field_names
                         else None
                     ),

@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.cache.service.strategy;
 import com.linkedin.metadata.graph.cache.AncestorWalkResult;
 import com.linkedin.metadata.graph.cache.GraphReadResult;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
+import com.linkedin.metadata.graph.cache.ReadMissReason;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefinition;
 import java.util.Collection;
@@ -19,6 +20,21 @@ public interface GraphScopeReadStrategy {
       @Nonnull Collection<String> roots,
       int limit,
       int maxDepth);
+
+  /**
+   * Full-path read. Does not rebuild. The default misses so a FULL graph is not treated as a
+   * trusted partial walk.
+   */
+  @Nonnull
+  default GraphReadResult expandFullPath(
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull GraphSnapshotSource source,
+      @Nonnull TraversalDirection direction,
+      @Nonnull Collection<String> roots,
+      int limit,
+      int maxDepth) {
+    return GraphReadResult.miss(ReadMissReason.INSUFFICIENT_COVERAGE);
+  }
 
   @Nonnull
   GraphReadResult expandEphemeral(

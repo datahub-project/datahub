@@ -1,16 +1,17 @@
-import { Dropdown, Tooltip } from '@components';
 import { FileArrowUp } from '@phosphor-icons/react/dist/csr/FileArrowUp';
 import { useRemirrorContext } from '@remirror/react';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { Dropdown } from '@components/components/Dropdown';
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { FileUploadContent } from '@components/components/Editor/toolbar/FileUploadContent';
+import { Tooltip } from '@components/components/Tooltip';
 
 const DropdownContainer = styled.div`
-    box-shadow: ${({ theme }) => theme.colors.shadowMd};
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     display: flex;
     flex-direction: column;
     padding: 8px;

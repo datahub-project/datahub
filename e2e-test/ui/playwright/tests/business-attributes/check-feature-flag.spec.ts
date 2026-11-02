@@ -6,10 +6,11 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
+import { DATAHUB_GRAPHQL_PATH } from '../../utils/constants';
 
 test.describe('Business Attribute Feature Flag', () => {
   test('should check if business attribute feature is enabled', async ({ page, logger }) => {
-    const response = await page.request.post('/api/v2/graphql', {
+    const response = await page.request.post(DATAHUB_GRAPHQL_PATH, {
       data: {
         query: `query { appConfig { featureFlags { businessAttributeEntityEnabled } } }`,
         variables: {},

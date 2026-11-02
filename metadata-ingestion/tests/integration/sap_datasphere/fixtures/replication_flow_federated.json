@@ -1,0 +1,55 @@
+{
+  "replicationflows": {
+    "RF_CUSTOMER_TO_BQ": {
+      "kind": "sap.dis.replicationflow",
+      "@EndUserText.label": "Replicate CDS entities to BigQuery",
+      "contents": {
+        "description": "RF_CUSTOMER_TO_BQ",
+        "sourceSystem": [
+          {
+            "connectionId": "ABAP_SRC",
+            "connectionType": "ABAP",
+            "container": "/CDS",
+            "maxConnections": 10,
+            "metadata": {}
+          }
+        ],
+        "targetSystem": [
+          {
+            "connectionId": "BQ_TGT",
+            "connectionType": "BIGQUERY",
+            "container": "/staging",
+            "maxConnections": 10,
+            "metadata": {
+              "connectionMetaschema": {
+                "categories": ["CloudApp"],
+                "sources": ["NonSAP"]
+              }
+            },
+            "properties": {
+              "com.sap.rms.write.forceDecfloatsToTargetValueRange": "true"
+            }
+          }
+        ],
+        "replicationTasks": [
+          {
+            "name": "replicationtask1",
+            "loadType": "REPLICATE",
+            "priority": 50,
+            "truncate": false,
+            "sourceObject": { "name": "CUSTOMER" },
+            "targetObject": { "name": "CUSTOMER" }
+          },
+          {
+            "name": "replicationtask2",
+            "loadType": "REPLICATE",
+            "priority": 50,
+            "truncate": false,
+            "sourceObject": { "name": "SALES_ORDER" },
+            "targetObject": { "name": "SALES_ORDER" }
+          }
+        ]
+      }
+    }
+  }
+}

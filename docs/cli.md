@@ -471,6 +471,158 @@ ls recipe_directory/*.yml | xargs -n 1 -I {} datahub ingest deploy -c {}
 ls recipe_directory/*.yml | xargs -n 1 -I {} datahub ingest deploy --executor-id "production-executor" -c {}
 ```
 
+### recipe
+
+The `recipe` commands help you author and verify an ingestion recipe before you run it. They
+answer two kinds of question: _what does this source type accept?_ (offline, no connection)
+and _what does this source actually contain, given my recipe?_ (live, needs working
+credentials).
+
+They are designed to be driven by an AI coding assistant as well as by hand — every command
+prints JSON, and every failure uses a distinct exit code so a caller can tell "your input was
+wrong" from "I could not reach the source".
+
+#### Offline commands
+
+These need only a source type or a recipe file — no connection, no credentials.
+
+```shell
+# What configuration fields does this source accept, and what does the connector
+# declare it can do? Reports each field's type, whether it is required or a secret,
+# and for AllowDenyPattern fields which hierarchy level it filters.
+datahub recipe describe snowflake
+
+# Emit a starter recipe for a source type
+datahub recipe scaffold snowflake
+
+# Validate a recipe's configuration without connecting
+datahub recipe validate my_recipe.yml
+```
+
+#### Live commands
+
+These connect using the recipe's own credentials. Secrets are resolved in-process and
+redacted from all output.
+
+```shell
+# Verify the credentials work
+datahub recipe test-connection --recipe my_recipe.yml
+```
+
+**Recipe variables** resolve exactly as `datahub ingest` resolves them: `${X}`, a `$X` that starts
+the value, `${X:-default}` and `${X:=default}`; `$$` is kept as written. A dotted name such as
+`${gms.server}` is not a path into `~/.datahubenv`: it reads as `${gms}` and becomes an empty
+string, and `recipe validate` warns about it. Use `${DATAHUB_GMS_URL}` and `${DATAHUB_GMS_TOKEN}`.
+A reference that takes part of a value (`${X:0:8}`, `${#X}`) is refused with exit code 2, since
+only whole values can be masked in the output.
+
+**Exploring what a source contains.** A source that can be probed lists `Probe` among its
+capabilities in `datahub recipe describe <source_type>`, and in its connector docs. Start with
+`probe methods`, which is connection-free and lists what this connector offers — each command's
+parameters and what it returns:
+
+```shell
+datahub recipe probe methods --recipe my_recipe.yml
+
+# Call one; a command's parameters imply the nesting
+datahub recipe probe run columns --recipe my_recipe.yml --schema public --table orders
+datahub recipe probe run topics --recipe my_recipe.yml --limit 50
+```
+
+Schema, table and view names are matched exactly as `containers`, `tables` and `views` list them;
+a table argument also matches views and materialized views. Any other name, such as a foreign
+table or one that differs only in case, is refused with exit code 2 before the database sees it.
+When a listed name differs only in case, the error names it.
+
+SQL sources expose a `sql` command for catalog queries, usually faster. It is an ordinary
+command in the `probe methods` list — there is no separate subcommand to learn:
+
+```shell
+datahub recipe probe run sql --recipe my_recipe.yml --limit 50 \
+  --query "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+```
+
+Only a single `SELECT` over catalog metadata is permitted: `information_schema`, and beyond it
+only the catalog relations the source names one by one. On Postgres that admits `pg_class` but not
+`pg_stats`, `pg_statistic` or `pg_shadow`, which hold sampled column values or password hashes;
+the refusal says what the source permits. Anything else — a user table, a second statement, a
+vendor-specific function, a comment or an optimizer hint — is refused with exit code 2 before the
+database sees it. A query the database rejects as the caller's mistake (SQLSTATE class 42, such
+as a misspelled column) also exits 2. The check narrows what a query can reach; the credential
+decides what each relation shows, so point the recipe at a read-only role.
+
+**Checking what your filters would do.** `probe filter` judges names you already have, with no
+connection:
+
+```shell
+datahub recipe probe filter --recipe my_recipe.yml \
+  --kind Table --parent public --name orders --name users --name audit_log_v2
+
+# Try a different pattern without editing the recipe
+datahub recipe probe filter --recipe my_recipe.yml --kind Table --parent public \
+  --name orders --name users --try-allow '^public\.ord.*'
+```
+
+Each result reports the `target` the pattern was matched against — which is usually the
+qualified identifier, not the bare name. That matters: `AllowDenyPattern` is start-anchored, so
+`^orders.*` matches nothing when ingestion evaluates `public.orders`. The output also names the
+`pattern_field` that actually decided, which is not always the one named after the kind (MySQL
+copies `table_pattern` into `view_pattern`).
+
+The `--parent` containers are judged too: a table under a schema or database the recipe
+excludes is reported excluded by that container's pattern, because ingestion never reaches it.
+A `--name` or `--parent` that comes back masked (`***`, because it equals a secret) is refused
+with exit code 2 rather than judged.
+
+To judge a whole listing, write it with `probe run ... --report-to run.json` and pass
+`--from-run run.json` instead of `--name`; its kind and parent are used unless you pass `--kind`
+or `--parent`. The file must be a regular file of at most 50 MB.
+
+`filtering` in the output says how the kind is filtered: `by_pattern` (`pattern_field` names the
+field, as a dotted path when it sits in a nested block), `by_rule` (rules that are not a pattern,
+such as `path_specs`, decide; `--try-allow`/`--try-deny` do not apply), `unfiltered`, or
+`unresolved` (usually a kind this source does not have).
+
+Probe output is **metadata only** — names, types, constraints, DDL, counts. No table rows,
+no column values, no message payloads.
+
+#### Exit codes
+
+| Code | Meaning                                                                                                   |
+| ---- | --------------------------------------------------------------------------------------------------------- |
+| 0    | success                                                                                                   |
+| 1    | a defect in DataHub or the connector, or a missing Python package (named in the error)                    |
+| 2    | invalid input — a bad recipe or URL, an unknown command, a name the source does not list, a refused query |
+| 3    | could not connect to the source, the source returned an error, or a read was recorded as failed           |
+
+Errors are a JSON line on stderr, `{"error": "..."}`. An error raised by a driver, an SDK or the
+connector is shown by label only, its class and at most one code, because its text is where
+connection strings and query literals leak from: `'tables' failed (ProgrammingError; SQLSTATE
+42P01)`. To see the full text while debugging locally, rerun with `DATAHUB_PROBE_VERBOSE_LOGS=1`;
+this also turns log scrubbing off, so do not use it where the output is shared or read by an agent.
+stderr also carries the connector's log lines at INFO and above, scrubbed of the recipe's secrets
+and of credential shapes, with tracebacks dropped.
+
+When a source cannot be opened and the driver's exception chain holds a standard network error,
+the label is followed by a reason and a fixed hint, for example `opening source 'mysql' failed
+(OperationalError; errno 2003): ConnectionRefused - nothing is listening at the recipe's host and
+port; ...`. The reason is read from the exception's type, never its text, and the exit code is
+still 3:
+
+| Reason              | Meaning and fix                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `HostNotResolved`   | The host name did not resolve. Check its spelling, and the DNS or VPN in use.                 |
+| `ConnectionRefused` | Nothing listens at the host and port. Check the port, and that the server is running.         |
+| `Timeout`           | The host did not answer. A firewall, allowlist or private network is likely dropping traffic. |
+| `HostUnreachable`   | There is no network route to the host from this machine.                                      |
+| `TlsVerifyFailed`   | The server's TLS certificate failed verification. Check the recipe's CA or TLS settings.      |
+
+Drivers built on libpq (Postgres and its relatives) report no reason, since libpq is C and leaves no
+Python network error to read.
+
+A non-empty `warnings` list alongside an empty or partial result means _part of the source
+could not be read_ — not that the source is empty. Treat the two differently.
+
 ### init
 
 The init command is used to tell `datahub` about where your DataHub instance is located. The CLI will point to localhost DataHub by default.
@@ -505,7 +657,7 @@ datahub init --username alice --password secret --token-duration ONE_WEEK
 
 #### DataHub Cloud Example
 
-For DataHub Cloud (Acryl-hosted) instances, you can use an existing token:
+For DataHub Cloud instances, you can use an existing token:
 
 ```shell
 # Interactive
@@ -535,6 +687,7 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
 - `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI. This exposes sensitive information in logs, enabling on production instances should be avoided especially if UI ingestion is in use as logs can be made available for runs through the UI.
 - `DATAHUB_VERSION` (default `quickstart`) - Set to a specific version to run quickstart with the particular version of docker images (`quickstart`, a release `v*`, or a commit pin `sha-<short_sha>`).
+- `DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH` (default unset) - Only for cases where column-level lineage aspects grow too large. Set it to N (at least `1`) to cut `transformOperation` in fine-grained lineage to its first N characters followed by `...`; values of at most N + 3 characters are kept unchanged. With `incremental_lineage`, changing the value leaves entries stored under the old value until a run with `incremental_lineage: false`.
 - `ACTIONS_VERSION` (default `quickstart`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
 - `DATAHUB_ACTIONS_IMAGE` (default `acryldata/datahub-actions`) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
 - `DATAHUB_RECORDING_PASSWORD` - Password for encrypting/decrypting recording archives. Used by `--record` and `--replay` commands.
@@ -882,7 +1035,7 @@ An example of `group.yaml` would look like as in [foo.group.dhub.yaml](https://g
 ```yaml
 id: foogroup@acryl.io
 display_name: Foo Group
-admins:
+owners:
   - datahub
 members:
   - bar@acryl.io # refer to a user either by id or by urn
@@ -1063,11 +1216,22 @@ Telemetry is enabled by default, and the `telemetry` command lets you toggle the
 
 The `migrate` group of commands allows you to perform certain kinds of migrations.
 
+All migration commands share the same engine, so they behave consistently:
+
+- **All aspects are migrated.** The set of aspects carried to the new URN is sourced from the
+  entity registry, so every user-authored aspect (ownership, tags, glossary terms, documentation,
+  structured properties, and so on) is transferred — not a fixed subset. Timeseries aspects (usage
+  statistics, profiles) and system-managed aspects (browse paths, incidents summary) are not
+  migrated.
+- **All incoming references are repointed.** Every entity that references a migrated URN via a
+  modeled relationship — lineage, dashboard/chart references, **assertions**, etc. — is updated to
+  point at the new URN, table- and column-level.
+
 #### dataplatform2instance
 
 The `dataplatform2instance` migration command allows you to migrate your entities from an instance-agnostic platform identifier to an instance-specific platform identifier. If you have ingested metadata in the past for this platform and would like to transfer any important metadata over to the new instance-specific entities, then you should use this command. For example, if your users have added documentation or added tags or terms to your datasets, then you should run this command to transfer this metadata over to the new entities. For further context, read the Platform Instance Guide [here](./platform-instances.md).
 
-This command migrates the following entity types: datasets, charts, dashboards, dataflows, datajobs, and containers.
+This command migrates the following entity types: datasets, charts, dashboards, dataflows, datajobs, and containers — together with all of their (registry-defined) aspects.
 
 Options:
 
@@ -1078,9 +1242,10 @@ Options:
 - `--keep`: Preserve old entities instead of soft-deleting them.
 - `--hard`: Hard-delete old entities instead of soft-delete.
 - `--env`: The environment/fabric to filter on (default: `PROD`).
-- `--on-conflict`: How to handle entities that already exist at the target. One of `overwrite` (default), `patch`, or `prompt`.
+- `--on-conflict`: How to handle entities that already exist at the target. One of `overwrite` (default), `patch`, `prompt`, or `preserve` (see [Conflict strategies](#conflict-strategies)).
 - `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
 - `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
+- `--checkpoint-file`: Path to a checkpoint file for resumable migrations. Already-migrated source URNs are read from this file and skipped; newly migrated URNs are appended on success. The file is created automatically on first write. Not written during `--dry-run`; errored pairs (under `--skip-on-error`) are not checkpointed, so they retry on resume.
 
 **_Note_**: Timeseries aspects such as Usage Statistics and Dataset Profiles are not migrated over to the new entity instances, you will get new data points created when you re-run ingestion using the `usage` or sources with profiling turned on.
 
@@ -1128,13 +1293,31 @@ The `instance2instance` migration command allows you to migrate entities from on
 
 Like `dataplatform2instance`, this command migrates datasets, charts, dashboards, dataflows, datajobs, and containers. It rewrites URNs by replacing the old instance prefix with the new one and updates all incoming relationships (lineage, dashboard references, etc.) to point to the new entities.
 
-When the target entity already exists, the command uses a merge strategy controlled by `--on-conflict`:
-
-- `patch` (default): Additively merge ownership, tags, terms, and lineage. Skip scalar fields (description, custom properties) that conflict.
-- `overwrite`: Replace all target aspects with source values.
-- `prompt`: Ask interactively for each conflict.
+When the target entity already exists, the command uses a strategy controlled by `--on-conflict`
+(see [Conflict strategies](#conflict-strategies) below).
 
 **Merge limitation**: Full aspect-level merge (via the Patch API) is only supported for **dataset** entities. For charts, dashboards, dataflows, and datajobs, the merge path falls back to overwrite when the target entity already exists.
+
+**Container limitation**: Containers are migrated via a separate legacy code path that always overwrites the target. `--on-conflict`, `--skip-on-error`, and `--checkpoint-file` apply only to the entity migration (datasets, charts, dashboards, dataflows, datajobs) — not to containers. In practice this is rarely an issue: containers are a small bounded set per migration and are typically re-created by ingestion.
+
+##### Conflict strategies
+
+`--on-conflict` controls what happens when the target URN already exists. It is available on all
+`migrate` commands.
+
+- `patch`: Additively merge ownership, tags, terms, and lineage. Skip scalar fields (description, custom properties) that conflict.
+- `overwrite`: Replace conflicting target aspects with source values.
+- `prompt`: Ask interactively for each conflict.
+- `preserve`: Leave the existing target **completely untouched** (no additive merge, no overwrite). Incoming references are still repointed to the existing target and the source is still deleted (unless `--keep`) — i.e. the existing target is _adopted_ in place of the source. Use this when the target is authoritative and you only want to redirect references and retire the source.
+
+Defaults differ by command: `overwrite` for `dataplatform2instance`, `patch` for `instance2instance`, `overwrite` for `urns-mapping`.
+
+Regardless of the chosen strategy, the following aspects are **never overwritten** during a merge (i.e. when the target already exists):
+
+- **`status`**: The target's soft-delete state is authoritative. A soft-deleted source must not remove a live target.
+- **`container`**: The target's parent container is preserved. For `urns-mapping`, containers are not migrated, so the source's container reference may point at an entity that is about to be deleted. For `dataplatform2instance` / `instance2instance`, the separate container migration step repoints container references via incoming-relationship rewriting.
+
+These aspects are still cloned normally when the target does not exist (the clone path).
 
 Options:
 
@@ -1146,9 +1329,10 @@ Options:
 - `--keep`: Preserve old entities instead of soft-deleting them.
 - `--hard`: Hard-delete old entities instead of soft-delete.
 - `--env`: The environment/fabric to filter on (default: `PROD`).
-- `--on-conflict`: Conflict resolution strategy: `patch` (default), `overwrite`, or `prompt`.
+- `--on-conflict`: Conflict resolution strategy: `patch` (default), `overwrite`, `prompt`, or `preserve` (see [Conflict strategies](#conflict-strategies)).
 - `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
 - `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
+- `--checkpoint-file`: Path to a checkpoint file for resumable migrations (see `dataplatform2instance` above).
 
 **⚠️ Note**: `dataFlow` and `dataJob` should always be migrated together. DataJob URNs embed their parent DataFlow URN — migrating one without the other creates orphaned references. The CLI will prompt for confirmation if you attempt to separate them.
 
@@ -1214,6 +1398,195 @@ When migrating between instances, a safe approach is:
    ```
 3. **Verify** the new entities look correct in the DataHub UI.
 4. **Clean up** old entities manually with `datahub delete` if everything looks good.
+
+#### urns-mapping
+
+The `urns-mapping` command migrates entities using an **explicit source → target URN mapping** that
+you supply, rather than deriving targets from a platform-instance strategy. Use it for arbitrary URN
+moves that `dataplatform2instance` / `instance2instance` can't express — for example a bulk rename
+computed by an external process. It runs the same engine (clone all aspects, rewrite self- and
+incoming references, delete the source), so behavior matches the other commands.
+
+Options:
+
+- `--mapping-file` (required): Path to a JSON file of source → target pairs. Either a list of
+  objects, `[{"source": "urn:...", "target": "urn:..."}, ...]`, or a flat object,
+  `{"urn:src": "urn:tgt", ...}`.
+- `--dry-run` / `-n`, `--force` / `-F`, `--keep`, `--hard`, `--skip-on-error`, `--checkpoint-file`: as for the other commands.
+- `--on-conflict`: `overwrite` (default), `patch`, `prompt`, or `preserve` (see [Conflict strategies](#conflict-strategies)).
+
+Each pair's source and target must be the **same entity type**. Unlike the instance-migration
+commands, `urns-mapping` does **not** stamp a `dataPlatformInstance` (a platform instance cannot be
+recovered from a target URN), does not migrate containers (see note below), and does not enforce
+dataFlow/dataJob parent-URN consistency — you own the exact mapping.
+
+**Containers are not migrated.** Container URNs are GUID-based (derived from a container key), so
+they cannot be included in a simple source → target mapping. The next ingestion run against the new
+names will re-create the containers automatically, but any user-authored governance metadata on the
+old containers (tags, terms, documentation, ownership) will be lost. `dataplatform2instance` and
+`instance2instance` handle container migration via a dedicated code path; adding container support
+to `urns-mapping` is a potential future enhancement.
+
+**Ordering across cross-referenced entities**: when a single mapping migrates entities that
+reference one another (e.g. a dashboard that consumes a dataset you are also migrating), list the
+**referenced** entity before the **referrer**. Incoming references are repointed using the
+relationship index, which only reflects references that existed before the run — so migrating the
+referenced entity first ensures the referrer is repointed and then carries the updated reference
+into its own migrated copy.
+
+**Large or complex migrations**: for big migrations, or reference graphs where clean
+referenced-before-referrer ordering isn't possible (bidirectional references, cycles), migrate in
+stages — e.g. one entity type at a time — with `--keep`, verifying (in the UI or via the graph API)
+that references have settled before running the next stage. Because a later stage's
+incoming-reference rewrite reads the relationship index, letting it catch up between stages lets that
+stage see the entities migrated earlier. Note this only helps references _across_ stages; references
+between two entities migrated in the **same** stage still rely on the ordering above, so keep
+mutually-referencing entities dependency-ordered within a stage.
+
+**Nested URNs — user responsibility**: some entity URNs embed another entity's URN as part of their
+identity. The migration engine does **not** automatically derive child mappings from parent mappings:
+
+- **dataFlow / dataJob**: a `dataJob` URN embeds its parent `dataFlow` URN
+  (`urn:li:dataJob:(urn:li:dataFlow:(...), jobId)`). When migrating a dataFlow, you **must** also
+  include mappings for its child dataJob URNs; otherwise the dataJob key aspects become inconsistent
+  with the entity URN. Automatic derivation of child URN mappings may be added in a future release.
+- **schemaField**: column-level metadata stored on the dataset's `editableSchemaMetadata` aspect
+  (tags, terms, descriptions applied via the UI) **is** migrated along with the dataset. `schemaField`
+  entities — which carry their own `globalTags`, `glossaryTerms`, `documentation`, and structured
+  property aspects — are **not** repointed by `urns-mapping`; they are typically re-created by the next
+  ingestion run against the new dataset name. When only the **column casing** changes (the dataset URN
+  stays the same), use [`schema-field-case`](#schema-field-case) instead, which re-anchors those
+  `schemaField` aspects and `editableSchemaMetadata` entries onto the new field paths.
+
+Example `mapping.json` (list form):
+
+```json
+[
+  {
+    "source": "urn:li:dataset:(urn:li:dataPlatform:snowflake,old_db.schema.events,PROD)",
+    "target": "urn:li:dataset:(urn:li:dataPlatform:snowflake,new_db.schema.events,PROD)"
+  },
+  {
+    "source": "urn:li:dashboard:(looker,old.sales)",
+    "target": "urn:li:dashboard:(looker,new.sales)"
+  }
+]
+```
+
+The equivalent flat-object form maps each source URN directly to its target:
+
+```json
+{
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,old_db.schema.events,PROD)": "urn:li:dataset:(urn:li:dataPlatform:snowflake,new_db.schema.events,PROD)"
+}
+```
+
+```console
+datahub migrate urns-mapping --mapping-file ./mapping.json --dry-run
+```
+
+#### schema-field-case
+
+The `schema-field-case` command re-anchors column-level metadata after a connector changes the
+**casing** of column names — for example after enabling Snowflake's
+[`preserve_column_case`](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake), or on
+any connector that historically lowercased identifiers (e.g. Oracle). The dataset URN is unchanged;
+only the field paths move (`product2id` → `Product2Id`), which strands the UI/API-authored metadata
+that was keyed on the old paths. Matching is purely case-insensitive, so it works in **either
+direction** — enabling case preservation (`product2id` → `Product2Id`) or the reverse, turning
+lowercasing on for a source whose fields were mixed-case (`Product2Id` → `product2id`).
+
+> **Not for dataset-URN casing changes.** Toggling `convert_urns_to_lowercase` re-cases the **dataset
+> URN itself** (and the dataset portion of every `schemaField` URN), not the field paths — the whole
+> dataset moves to a new URN. That is a dataset-level remap; use
+> [`urns-mapping`](#urns-mapping) for it, not this command.
+
+Unlike the other `migrate` commands, this does **not** rewrite entity URNs or use the migration
+engine. It reconciles, per dataset, against the freshly re-ingested `schemaMetadata` (the source of
+truth for the new casing):
+
+- **`editableSchemaMetadata`** entries (descriptions, tags, terms edited in the UI) are rewritten in
+  place onto the matching current field path.
+- **`schemaField` entity** aspects (`globalTags`, `glossaryTerms`, `documentation`,
+  `structuredProperties`, `businessAttributes`, and the other user-authored column aspects) are
+  copied onto the correctly-cased `schemaField` URN. The old entity is soft-deleted by default (use
+  `--keep-source-fields` to keep it).
+
+> **Not re-anchored:** entities that _reference_ a column rather than living on it — native column
+> assertions and incidents — are not repointed and will dangle on the soft-deleted source. Use
+> `--keep-source-fields` if a dataset has those. Connector-emitted references (lineage,
+> `fineGrainedLineage`, foreign keys) don't need repointing: the prerequisite re-ingestion re-emits
+> them onto the new field path.
+
+**Run order:** re-ingest the source with the new casing **first**, then run this command.
+
+Matching is case-insensitive and handles both v1 and v2 field paths. It is conservative by default:
+
+- **Ambiguous case-only collisions are never guessed.** If a single stranded field maps to two
+  current fields that differ only by case (e.g. a historically lowercased `col` now split into `Col`
+  and `COL`), it is reported for manual review and left untouched.
+- **Existing destination metadata is preserved.** Tags, glossary terms, and structured properties are
+  merged with whatever already sits on the correctly-cased field: tags/terms are unioned by URN
+  (preserving source/immutable attribution), and structured properties are unioned by property URN.
+  The same structured property carrying different values on each side, or any other aspect
+  (`documentation`, `deprecation`, `businessAttributes`, …) that already differs on the destination,
+  is reported rather than overwritten, and the source is kept so nothing is lost.
+- **Re-running is safe** (idempotent): matched entries converge and merged aspects do not duplicate.
+
+Use `--interactive` to resolve those clashes at the prompt instead of skipping them — you choose the
+target for an ambiguous collision, and decide per-aspect whether to overwrite the destination on a
+conflict. Without it, clashes are reported under "needing manual review" and left for you to handle.
+
+Options:
+
+- `--platform`: Platform to discover datasets for (e.g. `snowflake`, `oracle`). Ignored when
+  `--urn` / `--urn-file` is given.
+- `--platform-instance`: Platform instance to filter discovery on, if any. Works with or without a
+  platform instance — everything is derived from the actual dataset URN.
+- `--env`: Env (e.g. `PROD`) to filter discovery on, if any.
+- `--urn` / `--urn-file`: Explicit dataset URN(s) to reconcile instead of discovery (repeatable /
+  one URN per line).
+- `--keep-source-fields` / `--delete-source-fields`: Keep or soft-delete the old `schemaField` entity
+  after copying its aspects (default: delete). `editableSchemaMetadata` entries are always rewritten
+  in place.
+- `--include-soft-deleted` / `--exclude-soft-deleted`: Include soft-deleted `schemaField` entities
+  when discovering stranded fields (default: exclude).
+- `--interactive` / `--no-interactive`: Prompt to resolve each clash (ambiguous collision target,
+  aspect-conflict overwrite) instead of skipping it (default: no). Ignored under `--dry-run`.
+- `--dry-run` / `-n`: Report what would change without writing.
+- `--force` / `-F`: Skip the confirmation prompt.
+
+```console
+# Preview against a single dataset
+datahub migrate schema-field-case \
+  --urn 'urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)' \
+  --dry-run
+
+# Reconcile every Snowflake dataset after enabling preserve_column_case
+datahub migrate schema-field-case --platform snowflake --force
+```
+
+#### Known limitations
+
+These apply to all `migrate` commands.
+
+- **Non-relationship references are not repointed.** URN values stored in non-relationship fields
+  (e.g. a URN _value_ of a structured property on another entity) are not graph-indexed and
+  therefore not discovered or rewritten by the migration engine.
+
+- **Optimistic cross-pair rewriting under `--skip-on-error`.** The batch URN rewriter is built from
+  _all_ pairs before the migration loop starts. If pair A fails and a later pair B's aspects
+  reference A's source URN, that reference is still rewritten to A's (never-created) target URN.
+  This is intentional: when the user retries failed pairs via `--checkpoint-file`, A's target is
+  created and B's reference becomes correct. Removing failed pairs from the map would leave B
+  pointing at A's source (which may be deleted), making retry harder.
+
+- **`--on-conflict patch` and multi-downstream fine-grained lineage.** The Patch API keys
+  fine-grained lineage entries on `(transformOperation, downstream, query)` and requires exactly one
+  downstream per entry. FGL entries with 0 or 2+ downstreams will raise an error during merge. This
+  is a pre-existing constraint of the Patch API, not specific to migration. In practice, field-level
+  lineage is almost always N upstreams → 1 downstream, so this is unlikely to trigger. Use
+  `--on-conflict overwrite` instead of `patch` if your data contains multi-downstream FGL entries.
 
 ## Alternate Installation Options
 

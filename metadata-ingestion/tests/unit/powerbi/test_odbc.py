@@ -19,6 +19,7 @@ test_connection_strings = [
     "Driver={Simba Spark ODBC Driver};Host=dbc-xxxxxxxx-xxxx.cloud.databricks.com;Port=443;HTTPPath=/sql/protocolv1/o/xxxxxxxxxx/xxxxxxxxxx;AuthMech=3;UID=token;PWD=dapi_xxxxxxxxxxxxxxxxxxxxxx;SSL=1;ThriftTransport=2;",
     "Driver={Simba Google BigQuery ODBC Driver};OAuthMechanism=0;Catalog=project;ProjectId=project;RefreshToken=refreshtoken;",
     "Driver={Cloudera ODBC Driver for Apache Hive};Host=hive.example.com;Port=10000;Schema=default;",
+    "Driver={Elasticsearch Driver};Host=es.example.com;Port=9200;",
 ]
 
 dsn_connection_strings = [
@@ -51,6 +52,7 @@ server_list = [
     "dbc-xxxxxxxx-xxxx.cloud.databricks.com",
     None,
     "hive.example.com",
+    "es.example.com",
 ]
 
 platform_list = [
@@ -65,6 +67,7 @@ platform_list = [
     ("databricks", "Databricks"),
     ("bigquery", "Google BigQuery"),
     ("hive", "Hive"),
+    ("elasticsearch", "Elasticsearch"),
 ]
 
 driver_list = [
@@ -79,6 +82,7 @@ driver_list = [
     "Simba Spark ODBC Driver",
     "Simba Google BigQuery ODBC Driver",
     "Cloudera ODBC Driver for Apache Hive",
+    "Elasticsearch Driver",
 ]
 
 

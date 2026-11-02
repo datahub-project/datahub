@@ -8,7 +8,7 @@ import { UnauthorizedPage } from '@app/authorization/UnauthorizedPage';
 import { useUserContext } from '@app/context/useUserContext';
 import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
 import { decodeUrn } from '@app/entity/shared/utils';
-import CompactContext from '@app/shared/CompactContext';
+import CompactContext from '@app/sharedV2/CompactContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetGrantedPrivilegesQuery } from '@graphql/policy.generated';
@@ -17,7 +17,6 @@ import { EntityType } from '@types';
 const EmbeddedPageWrapper = styled.div`
     max-height: 100%;
     overflow: auto;
-    padding: 16px;
 `;
 
 interface RouteParams {

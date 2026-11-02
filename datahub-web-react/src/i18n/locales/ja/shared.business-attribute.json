@@ -1,0 +1,13 @@
+{
+    "addAttribute": "Business Attributeを追加",
+    "addError": "追加に失敗しました: \n {{error}}",
+    "addSuccess": "Business Attributeを追加しました!",
+    "modal.addTitle": "{{entityName}}を追加",
+    "modal.removeTitle": "{{entityName}}を外す",
+    "removeAttributeError": "Business Attributeを外せませんでした: \n {{error}}",
+    "removeConfirm.content": "Business Attribute「{{attributeName}}」を外してもよろしいですか?",
+    "removeConfirm.title": "Business Attribute「{{attributeName}}」を外しますか?",
+    "removeError": "外せませんでした: \n {{error}}",
+    "removeSuccess": "Business Attributeを外しました!",
+    "searchPlaceholder": "{{entityName}}を検索..."
+}

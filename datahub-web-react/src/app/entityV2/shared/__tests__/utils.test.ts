@@ -128,6 +128,30 @@ describe('entity V2 utils test ->', () => {
                 const result = handleBatchError(urns, e, defaultMessage);
                 expect(result).toEqual(defaultMessage);
             });
+            test('should surface the server message for 400s marked errorSource=VALIDATION', () => {
+                const e = {
+                    graphQLErrors: [
+                        {
+                            message: 'Urn ID cannot have spaces',
+                            extensions: { code: 400, errorSource: 'VALIDATION' },
+                        },
+                    ],
+                };
+                const result = handleBatchError(urns, e, defaultMessage);
+                expect(result).toEqual({ content: 'Urn ID cannot have spaces', duration: 3 });
+            });
+            test('should NOT surface the server message for 400s without the VALIDATION marker', () => {
+                const e = {
+                    graphQLErrors: [
+                        {
+                            message: 'internal detail that must not reach the toast',
+                            extensions: { code: 400 },
+                        },
+                    ],
+                };
+                const result = handleBatchError(urns, e, defaultMessage);
+                expect(result).toEqual(defaultMessage);
+            });
         });
     });
     describe('getDataProduct ->', () => {
@@ -169,96 +193,6 @@ describe('entity V2 utils test ->', () => {
         it('should return entities from EntityRelationshipsResult', () => {
             expect(isOutputPort(mockSearchResult)).toBe(true);
         });
-    });
-});
-
-describe('extractDatasetNameFromUrn', () => {
-    it('should extract dataset name from a valid PostgreSQL URN', () => {
-        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)';
-        const result = extractDatasetNameFromUrn(urn);
-        expect(result).toBe('database.schema.table');
-    });
-
-    it('should extract dataset name from a BigQuery URN', () => {
-        const urn = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)';
-        const result = extractDatasetNameFromUrn(urn);
-        expect(result).toBe('project.dataset.table');
-    });
-
-    it('should extract dataset name from a Snowflake URN', () => {
-        const urn = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,DATABASE.SCHEMA.TABLE,PROD)';
-        const result = extractDatasetNameFromUrn(urn);
-        expect(result).toBe('DATABASE.SCHEMA.TABLE');
-    });
-
-    it('should handle URN with special characters in dataset name', () => {
-        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres,my-database.my_schema.table-name,PROD)';
-        const result = extractDatasetNameFromUrn(urn);
-        expect(result).toBe('my-database.my_schema.table-name');
-    });
-
-    it('should handle URN with multiple commas', () => {
-        const urn = 'urn:li:dataset:(urn:li:dataPlatform:custom,dataset.name.with.dots,ENV,extra,data)';
-        const result = extractDatasetNameFromUrn(urn);
-        expect(result).toBe('dataset.name.with.dots');
-    });
-
-    it('should return original URN when only one part exists', () => {
-        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres)';
-        const result = extractDatasetNameFromUrn(urn);
-        expect(result).toBe(urn);
-    });
-
-    it('should return original URN when no commas exist', () => {
-        const urn = 'simple-dataset-name';
-        const result = extractDatasetNameFromUrn(urn);
-        expect(result).toBe(urn);
-    });
-
-    it('should handle empty string', () => {
-        const urn = '';
-        const result = extractDatasetNameFromUrn(urn);
-        expect(result).toBe('');
-    });
-
-    it('should handle URN with empty dataset name', () => {
-        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres,,PROD)';
-        const result = extractDatasetNameFromUrn(urn);
-        expect(result).toBe(urn);
-    });
-
-    it('should handle malformed URN with just commas', () => {
-        const urn = ',,,,';
-        const result = extractDatasetNameFromUrn(urn);
-        expect(result).toBe(urn);
-    });
-});
-
-describe('extractPlatformNameFromPlatformUrn', () => {
-    it('should extract platform name from valid platform URN', () => {
-        const urn = 'urn:li:dataPlatform:mysql';
-        expect(extractPlatformNameFromPlatformUrn(urn)).toBe('mysql');
-    });
-
-    it('should handle platform names with hyphens and underscores', () => {
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:my-platform')).toBe('my-platform');
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:my_platform')).toBe('my_platform');
-    });
-
-    it('should handle platform names with numbers', () => {
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:platform123')).toBe('platform123');
-    });
-
-    it('should return null for invalid platform URNs', () => {
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:')).toBeNull();
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:name)')).toBeNull();
-        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:name,extra')).toBeNull();
-        expect(extractPlatformNameFromPlatformUrn('urn:li:wrongType:name')).toBeNull();
-    });
-
-    it('should return null for malformed URNs', () => {
-        expect(extractPlatformNameFromPlatformUrn('not:a:valid:urn')).toBeNull();
-        expect(extractPlatformNameFromPlatformUrn('')).toBeNull();
     });
 });
 
@@ -323,5 +257,95 @@ describe('extractPlatformNameFromAssetUrn', () => {
     it('should return null for malformed URNs', () => {
         const urn = 'not:a:valid:urn';
         expect(extractPlatformNameFromAssetUrn(urn)).toBeNull();
+    });
+});
+
+describe('extractPlatformNameFromPlatformUrn', () => {
+    it('should extract platform name from valid platform URN', () => {
+        const urn = 'urn:li:dataPlatform:mysql';
+        expect(extractPlatformNameFromPlatformUrn(urn)).toBe('mysql');
+    });
+
+    it('should handle platform names with hyphens and underscores', () => {
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:my-platform')).toBe('my-platform');
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:my_platform')).toBe('my_platform');
+    });
+
+    it('should handle platform names with numbers', () => {
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:platform123')).toBe('platform123');
+    });
+
+    it('should return null for invalid platform URNs', () => {
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:name)')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:name,extra')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('urn:li:wrongType:name')).toBeNull();
+    });
+
+    it('should return null for malformed URNs', () => {
+        expect(extractPlatformNameFromPlatformUrn('not:a:valid:urn')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('')).toBeNull();
+    });
+});
+
+describe('extractDatasetNameFromUrn', () => {
+    it('should extract dataset name from a valid PostgreSQL URN', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('database.schema.table');
+    });
+
+    it('should extract dataset name from a BigQuery URN', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('project.dataset.table');
+    });
+
+    it('should extract dataset name from a Snowflake URN', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,DATABASE.SCHEMA.TABLE,PROD)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('DATABASE.SCHEMA.TABLE');
+    });
+
+    it('should handle URN with special characters in dataset name', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres,my-database.my_schema.table-name,PROD)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('my-database.my_schema.table-name');
+    });
+
+    it('should handle URN with multiple commas', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:custom,dataset.name.with.dots,ENV,extra,data)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('dataset.name.with.dots');
+    });
+
+    it('should return original URN when only one part exists', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe(urn);
+    });
+
+    it('should return original URN when no commas exist', () => {
+        const urn = 'simple-dataset-name';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe(urn);
+    });
+
+    it('should handle empty string', () => {
+        const urn = '';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('');
+    });
+
+    it('should handle URN with empty dataset name', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres,,PROD)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe(urn);
+    });
+
+    it('should handle malformed URN with just commas', () => {
+        const urn = ',,,,';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe(urn);
     });
 });

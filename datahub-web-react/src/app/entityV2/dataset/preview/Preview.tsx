@@ -8,6 +8,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { DatasetLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
@@ -19,7 +20,6 @@ import {
     Domain,
     EntityPath,
     EntityType,
-    FabricType,
     GlobalTags,
     GlossaryTerms,
     Health,
@@ -33,7 +33,6 @@ export const Preview = ({
     urn,
     data,
     name,
-    origin,
     description,
     platformName,
     platformLogo,
@@ -68,7 +67,6 @@ export const Preview = ({
     urn: string;
     data: GenericEntityProperties | null;
     name: string;
-    origin: FabricType;
     description?: string | null;
     platformName?: string;
     platformLogo?: string | null;
@@ -118,8 +116,10 @@ export const Preview = ({
             platform={platformName}
             platforms={platformNames}
             logoUrls={platformLogos}
+            entityIcon={
+                !platformLogo && data?.platform?.properties?.logical ? <LogicalPlatformDefaultIcon /> : undefined
+            }
             platformInstanceId={platformInstanceId}
-            qualifier={origin}
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}

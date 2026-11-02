@@ -1,9 +1,13 @@
 /**
  * Derive the GMS REST URL from a DataHub frontend URL.
  * DataHub runs the frontend on :9002 and GMS on :8080 by convention.
+ * Override with GMS_URL env var for non-standard port assignments (e.g. multi-worktree setups).
  */
 export function gmsUrl(baseUrl?: string): string {
-  return (baseUrl ?? process.env.BASE_URL ?? 'http://localhost:9002').replace(':9002', ':8080');
+  if (process.env.GMS_URL) return process.env.GMS_URL;
+  return (baseUrl ?? process.env.BASE_URL ?? 'http://localhost:9002')
+    .replace(':10002', ':9080')
+    .replace(':9002', ':8080');
 }
 
 export const DEFAULT_TIMEOUT = 30000;
@@ -26,6 +30,7 @@ export const TIMEOUTS = {
   OPERATION: 1500, // Async operations (document updates, searches, input debounce delays)
   BETWEEN_OPS: 500, // Wait between sequential operations
   QUICK: 300, // Brief pause for rendering
+  INGESTION_EXECUTION: 100000, // Ingestion source execution completion
 } as const;
 
 // Interaction delays
@@ -60,6 +65,9 @@ export const ROUTES = {
   businessAttributes: '/business-attributes',
 };
 
+/** Frontend GraphQL endpoint path (Play proxy → GMS /api/graphql). */
+export const DATAHUB_GRAPHQL_PATH = '/api/v2/graphql';
+
 export const ENTITY_TYPES = {
   DATASET: 'dataset',
   DASHBOARD: 'dashboard',
@@ -75,3 +83,10 @@ export const DATA_SOURCES = {
   MYSQL: 'mysql',
   SNOWFLAKE: 'snowflake',
 };
+
+// Pinned datahub CLI version for ingestion run/execute tests. Pinning a fixed
+// version keeps the executor's package resolution deterministic and fast enough
+// to finish within the test's status timeout. Must stay in sync with the
+// `config.version` pinned on the seeded execute sources in the
+// ingestion-v2/v3 fixtures.
+export const INGESTION_CLI_VERSION = '1.6.0.10';

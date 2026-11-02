@@ -2,7 +2,9 @@
 
 MLflow is a machine learning platform. Learn more in the [official MLflow documentation](https://mlflow.org/).
 
-The DataHub integration for MLflow covers ML entities such as models, features, and related lineage metadata. It also captures tags and stateful deletion detection.
+The DataHub integration for MLflow covers registered models, model versions, experiments, and runs, together with run-to-model lineage. It also captures tags and stateful deletion detection.
+
+Note that MLflow features are not ingested as DataHub `MlFeature` entities: MLflow's tracking API does not record feature-to-column provenance, so the connector has nothing to read for that aspect. Models are also not linked to their training datasets at the model level (`mlModelTrainingData` is not populated), though run-level dataset lineage is captured — see `Dataset Input` in the Concept Mapping below.
 
 ## Concept Mapping
 
@@ -13,3 +15,4 @@ The DataHub integration for MLflow covers ML entities such as models, features, 
 |             [`Experiment`](https://mlflow.org/docs/latest/tracking/#experiments)              |           [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container/)           | Each Experiment in MLflow is mapped to a Container in DataHub. Experiments organize related runs and serve as logical groupings for model development iterations, allowing tracking of parameters, metrics, and artifacts.                                                                           |
 |                    [`Run`](https://mlflow.org/docs/latest/tracking/#runs)                     | [`DataProcessInstance`](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance/) | Captures the run's execution details, parameters, metrics, and lineage to a model.                                                                                                                                                                                                                   |
 | [`Model Stage`](https://mlflow.org/docs/latest/model-registry/#deprecated-using-model-stages) |                 [`Tag`](https://docs.datahub.com/docs/generated/metamodel/entities/tag/)                 | The mapping between Model Stages and generated Tags is the following:<br/>- Production: mlflow_production<br/>- Staging: mlflow_staging<br/>- Archived: mlflow_archived<br/>- None: mlflow_none. Model Stages indicate the deployment status of each version.                                        |
+|                                         Dataset Input                                         |                                         DataProcessInstanceInput                                         | Logged via mlflow.log_input(); links runs to their training datasets. Requires materialize_dataset_inputs to also create the referenced dataset entities.                                                                                                                                            |

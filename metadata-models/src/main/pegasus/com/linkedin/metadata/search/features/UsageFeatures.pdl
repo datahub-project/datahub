@@ -1,0 +1,82 @@
+namespace com.linkedin.metadata.search.features
+
+import com.linkedin.common.Urn
+
+/**
+ * Pre-computed usage-based features for a Dataset, written by the daily usage-reporting job.
+ * When populated, resolvers use these values instead of issuing live timeseries queries,
+ * eliminating per-result OpenSearch fan-out on search pages.
+ */
+@Aspect = {
+  "name": "usageFeatures",
+  "schemaVersion": 3
+}
+record UsageFeatures {
+  /**
+   * Total SQL query count over the last 30 days.
+   */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "usageCount30d",
+      "queryByDefault": false
+    }
+  }
+  queryCountLast30Days: optional long
+
+  /**
+   * Unique user count over the last 30 days.
+   */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "uniqueUserCount30d",
+      "queryByDefault": false
+    }
+  }
+  uniqueUserCountLast30Days: optional long
+
+  /**
+   * URNs of the top users by query count over the last 30 days.
+   */
+  topUsersLast30Days: optional array[Urn]
+
+  /**
+   * Percentile rank of query count relative to all datasets, over the last 30 days.
+   */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "usagePercentile30d"
+    }
+  }
+  queryCountPercentileLast30Days: optional int
+
+  /**
+   * Percentile rank of unique user count relative to all datasets, over the last 30 days.
+   */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "uniqueUserPercentile30d",
+      "queryByDefault": false
+    }
+  }
+  uniqueUserPercentileLast30Days: optional int
+
+  /**
+   * Blended search ranking multiplier derived from usage signals.
+   */
+  combinedSearchRankingMultiplier: optional float
+
+  /**
+   * Timestamp (epoch ms) of the most recent DML operation on this dataset, pre-computed
+   * from the operations timeseries. Used by search result cards to show last-updated time
+   * without issuing a live timeseries query per result.
+   */
+  lastOperationTimestampMs: optional long
+}

@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { useRefetch } from '@app/entity/shared/EntityContext';
-import BusinessAttributeGroup from '@app/shared/businessAttribute/BusinessAttributeGroup';
+import BusinessAttributeGroup from '@app/sharedV2/businessAttribute/BusinessAttributeGroup';
 import { useBusinessAttributesFlag } from '@app/useAppConfig';
 
 import { EntityType, SchemaField } from '@types';

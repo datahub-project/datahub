@@ -47,6 +47,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
         <PromptWrapper>
             {prompt.type === FormPromptType.StructuredProperty && (
                 <StructuredPropertyPrompt
+                    key={prompt.id}
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={submitResponse}
@@ -55,6 +56,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
             )}
             {prompt.type === FormPromptType.FieldsStructuredProperty && (
                 <StructuredPropertyPrompt
+                    key={prompt.id}
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={submitResponse}

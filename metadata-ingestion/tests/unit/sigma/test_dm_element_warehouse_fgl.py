@@ -558,3 +558,41 @@ class TestBuildFglWarehouseIntegration:
         assert fgls[0].upstreams is not None
         expected_upstream = builder.make_schema_field_urn(_SF_DATASET_URN, "email")
         assert fgls[0].upstreams[0] == expected_upstream
+
+
+class TestExplicitCaseFlagScope:
+    """The DM passthrough route must ignore an explicitly-set
+    convert_urns_to_lowercase on non-Snowflake platforms -- table and column
+    alike -- because only the Sigma Dataset route opts in.
+
+    Deliberately exercises _try_emit_warehouse_passthrough_fgl rather than
+    _normalize_warehouse_identifier: a helper-level assertion passes whatever
+    the route passes for `explicit`, which is how a column-side leak survived a
+    review round.
+    """
+
+    def test_explicit_flag_moves_neither_table_nor_column(self) -> None:
+        # Mixed-case table, unlike _RS_REF, so a regression shows both halves of
+        # the schemaField URN side by side rather than only the column.
+        mixed_ref = _WarehouseTableRef(
+            connection_id=_RS_CONN_ID,
+            db="Analytics",
+            schema="Demo",
+            table="BaseTable",
+        )
+        source = _make_source(
+            conn_overrides={
+                _RS_CONN_ID: WarehouseConnectionConfig.model_validate(
+                    {"convert_urns_to_lowercase": True}
+                )
+            }
+        )
+        col = _column(f"inode-{_RS_URL_ID}/CustomerId", "Customer Id", None)
+        elem = _element("el-1", "BaseTable", [col], [_RS_INODE_SOURCE])
+        result = _try_emit(source, col, elem, {_RS_URL_ID: mixed_ref})
+
+        assert result is not None and result.upstreams is not None
+        assert result.upstreams[0] == builder.make_schema_field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,Analytics.Demo.BaseTable,PROD)",
+            "CustomerId",
+        )

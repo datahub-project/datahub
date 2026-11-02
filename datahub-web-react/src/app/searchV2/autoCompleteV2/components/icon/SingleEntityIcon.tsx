@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { IconStyleType } from '@src/app/entityV2/Entity';
 import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@src/types.generated';
 
 const ImageIcon = styled(Image)<{ $size: number }>`
@@ -27,7 +28,7 @@ interface Props {
 
 export function SingleEntityIcon({ entity, size }: Props) {
     const [isBrokenPlatformLogoUrl, setIsBrokenPlatformLogoUrl] = useState<boolean>(false);
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const platformLogoUrl = properties?.platform?.properties?.logoUrl;
@@ -35,6 +36,10 @@ export function SingleEntityIcon({ entity, size }: Props) {
 
     if (entity.type === EntityType.GlossaryTerm || entity.type === EntityType.GlossaryNode) {
         return <GlossaryEntityIcon entity={entity as GlossaryTerm | GlossaryNode} size={size} />;
+    }
+
+    if (properties?.platform?.properties?.logical) {
+        return <LogicalPlatformDefaultIcon size={size} />;
     }
 
     return (

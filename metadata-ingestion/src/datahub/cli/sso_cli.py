@@ -1,7 +1,7 @@
 import logging
 import urllib.parse
 from datetime import datetime
-from typing import Tuple
+from typing import Optional, Tuple
 
 import click
 import requests
@@ -88,6 +88,7 @@ def browser_sso_login(
     token_duration: str,
     timeout_ms: int = 120_000,
     support: bool = False,
+    ticket_id: Optional[str] = None,
 ) -> Tuple[str, str]:
     """Open browser for SSO login, extract session, generate access token.
 
@@ -121,7 +122,10 @@ def browser_sso_login(
             context = browser.new_context()
             page = context.new_page()
 
-            page.goto(f"{frontend_url}{auth_path}")
+            auth_url = f"{frontend_url}{auth_path}"
+            if support and ticket_id:
+                auth_url += "?" + urllib.parse.urlencode({"ticket_id": ticket_id})
+            page.goto(auth_url)
 
             # Wait for the actor cookie, which signals successful SSO login.
             actor_urn = None

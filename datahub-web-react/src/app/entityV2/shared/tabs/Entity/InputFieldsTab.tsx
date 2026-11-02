@@ -7,7 +7,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
 import getExpandedDrawerFieldPath from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getExpandedDrawerFieldPath';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 
 import { SchemaField } from '@types';
 

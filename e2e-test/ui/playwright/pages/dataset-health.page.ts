@@ -7,6 +7,7 @@
 
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from './base.page';
+import { DATAHUB_GRAPHQL_PATH } from '../utils/constants';
 import type { DataHubLogger } from '../utils/logger';
 
 export class DatasetHealthPage extends BasePage {
@@ -28,7 +29,7 @@ export class DatasetHealthPage extends BasePage {
     // the entity fetch completes (prevents a "Not Found" race condition).
     await Promise.all([
       this.page.waitForResponse(
-        (resp) => resp.url().includes('/api/v2/graphql') && resp.request().method() === 'POST',
+        (resp) => resp.url().includes(DATAHUB_GRAPHQL_PATH) && resp.request().method() === 'POST',
         { timeout: 30000 },
       ),
       this.page.goto(`/dataset/${encodeURIComponent(urn)}/`),

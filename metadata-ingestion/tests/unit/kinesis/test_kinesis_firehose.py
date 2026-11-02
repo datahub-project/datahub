@@ -10,10 +10,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.kinesis.kinesis_config import KinesisSourceConfig
 from datahub.ingestion.source.kinesis.kinesis_firehose import KinesisFirehoseExtractor
 from datahub.ingestion.source.kinesis.kinesis_report import KinesisSourceReport
+from datahub.ingestion.source.kinesis.kinesis_stream import KinesisStreamExtractor
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
 
 if TYPE_CHECKING:
     from mypy_boto3_firehose.type_defs import DeliveryStreamDescriptionTypeDef
+    from mypy_boto3_kinesis.type_defs import StreamDescriptionTypeDef
 
 
 def _make_extractor() -> KinesisFirehoseExtractor:
@@ -701,3 +703,50 @@ class TestFirehoseSchemaConfigLineage:
         assert not any("dataPlatform:glue" in u for u in edges.inputDatasets)
         assert report.firehose_glue_schema_lineage_emitted == 0
         assert list(report.firehose_glue_schema_skipped) == []
+
+
+def test_source_stream_urn_matches_stream_extractor_urn():
+    """The Firehose upstream-lineage URN must equal the URN the stream extractor
+    emits for the same Kinesis stream.
+
+    Recovers the coverage the Floci integration golden lost: Floci's
+    describe_delivery_stream returns a null Source, so the resolved
+    Kinesis->Firehose edge is absent there, and the hand-fed unit fixtures can't
+    catch drift between the two independent URN builders (kinesis_stream's
+    ``_emit_dataset`` and kinesis_firehose's ``_source_stream_urn``). This asserts
+    they agree for the same account/region/stream, exercising both real code paths.
+    """
+    account, region, stream = "000000000000", "us-east-1", "events"
+    config = KinesisSourceConfig.model_validate({"aws_config": {"aws_region": region}})
+
+    firehose = KinesisFirehoseExtractor(
+        config=config, report=KinesisSourceReport(), session=MagicMock()
+    )
+    delivery_desc: Dict[str, Any] = {
+        "DeliveryStreamName": "events-to-s3",
+        "DeliveryStreamType": "KinesisStreamAsSource",
+        "Source": {
+            "KinesisStreamSourceDescription": {
+                "KinesisStreamARN": f"arn:aws:kinesis:{region}:{account}:stream/{stream}"
+            }
+        },
+    }
+    firehose_urn = firehose._source_stream_urn(
+        cast("DeliveryStreamDescriptionTypeDef", delivery_desc)
+    )
+
+    stream_extractor = KinesisStreamExtractor(
+        config=config,
+        report=KinesisSourceReport(),
+        session=MagicMock(),
+        region_key=MagicMock(),
+    )
+    stream_urns = {
+        wu.get_urn()
+        for wu in stream_extractor._emit_dataset(
+            stream, cast("StreamDescriptionTypeDef", {})
+        )
+    }
+
+    assert firehose_urn is not None
+    assert stream_urns == {firehose_urn}

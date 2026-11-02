@@ -1,0 +1,29 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an AgentSkill entity — a high-level, reusable capability bundle
+ * (prompts + tools + domain expertise) that agents can adopt.
+ */
+@Aspect = {
+  "name": "agentSkillKey"
+}
+record AgentSkillKey {
+  /**
+   * Unique identifier for the skill, e.g. "customer-service-skill" or a
+   * generated UUID.
+   */
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
+  id: string
+}

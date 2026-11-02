@@ -1,0 +1,22 @@
+{
+    "addImage.altText": "Vaihtoehtoinen teksti",
+    "addImage.imageUrl": "Kuvan URL-osoite",
+    "addImage.title": "Lisää kuva",
+    "heading.heading1": "Otsikko 1",
+    "heading.heading2": "Otsikko 2",
+    "heading.heading3": "Otsikko 3",
+    "heading.heading4": "Otsikko 4",
+    "heading.heading5": "Otsikko 5",
+    "heading.normal": "Normaali",
+    "link.linkUrl": "Linkin URL-osoite",
+    "link.text": "Teksti",
+    "link.title": "Lisää linkki",
+    "mentions.failedToFindEntity": "Entiteettiä ei löytynyt",
+    "table.deleteColumn": "Poista sarake",
+    "table.deleteRow": "Poista rivi",
+    "table.deleteTable": "Poista taulukko",
+    "table.insertColumnLeft": "Lisää sarake vasemmalle",
+    "table.insertColumnRight": "Lisää sarake oikealle",
+    "table.insertRowAbove": "Lisää rivi yläpuolelle",
+    "table.insertRowBelow": "Lisää rivi alapuolelle"
+}

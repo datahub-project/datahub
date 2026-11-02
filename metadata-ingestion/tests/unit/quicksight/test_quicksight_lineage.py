@@ -15,6 +15,11 @@ from datahub.ingestion.source.quicksight.quicksight_lineage import (
 from datahub.ingestion.source.quicksight.quicksight_report import (
     QuickSightSourceReport,
 )
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 
 _QS_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:quicksight,064369473231.ds,PROD)"
 _ATHENA_ARN = "arn:aws:quicksight:us-east-1:064369473231:datasource/athena"
@@ -171,10 +176,10 @@ def test_custom_sql_emits_table_and_column_lineage():
             "urn:li:dataset:(urn:li:dataPlatform:athena,datahub_test.sales_orders,PROD)"
         ],
         column_lineage=[
-            SimpleNamespace(
-                downstream=SimpleNamespace(column="total_revenue"),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column="total_revenue"),
                 upstreams=[
-                    SimpleNamespace(
+                    ColumnRef(
                         table="urn:li:dataset:(urn:li:dataPlatform:athena,datahub_test.sales_orders,PROD)",
                         column="revenue",
                     )

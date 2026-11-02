@@ -1,19 +1,19 @@
-import { Tooltip, zIndices } from '@components';
+import { Tooltip } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { PreviewType } from '@app/entityV2/Entity';
 import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getNumberWithOrdinal } from '@app/entityV2/shared/utils';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 
 import { DataPlatform, Deprecation, Health, Maybe } from '@types';
 
@@ -32,7 +32,7 @@ const StyledLink = styled(Link)`
 const EntityTitle = styled.div<{ $titleSizePx?: number }>`
     &&& {
         font-size: ${(props) => props.$titleSizePx || 16}px;
-        font-weight: 700;
+        font-weight: 500;
         vertical-align: middle;
 
         :hover {
@@ -48,13 +48,6 @@ const EntityTitle = styled.div<{ $titleSizePx?: number }>`
     height: 100%;
 `;
 
-const CardEntityTitle = styled(EntityTitle)<{ $previewType?: Maybe<PreviewType> }>`
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: ${(props) => (props.$previewType === PreviewType.HOVER_CARD ? `100px` : '250px')};
-`;
-
 const DegreeText = styled.div`
     border-radius: 18px;
     background: ${(props) => props.theme.colors.bgSurface};
@@ -68,7 +61,6 @@ const DegreeText = styled.div`
 interface EntityHeaderProps {
     name: string;
     onClick?: () => void;
-    previewType?: Maybe<PreviewType>;
     titleSizePx?: number;
     url: string;
     urn: string;
@@ -83,7 +75,6 @@ interface EntityHeaderProps {
 const EntityHeader: React.FC<EntityHeaderProps> = ({
     name,
     onClick,
-    previewType,
     titleSizePx,
     url,
     urn,
@@ -100,17 +91,9 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     return (
         <EntityTitleContainer>
             <StyledLink to={`${url}/`} {...linkProps} onClick={() => onClick?.()}>
-                {previewType === PreviewType.HOVER_CARD ? (
-                    <Tooltip title={name} zIndex={zIndices.tooltip}>
-                        <CardEntityTitle $titleSizePx={titleSizePx} data-testid="entity-title">
-                            {name || urn}
-                        </CardEntityTitle>
-                    </Tooltip>
-                ) : (
-                    <EntityTitle title={name} $titleSizePx={titleSizePx} data-testid="entity-title">
-                        <SearchTextHighlighter field="name" text={name || urn} />
-                    </EntityTitle>
-                )}
+                <EntityTitle title={name} $titleSizePx={titleSizePx} data-testid="entity-title">
+                    <SearchTextHighlighter field="name" text={name || urn} />
+                </EntityTitle>
             </StyledLink>
             {degree !== undefined && (
                 <Tooltip
@@ -132,10 +115,14 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                 />
             )}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
-            <StructuredPropertyBadge
-                structuredProperties={previewData?.structuredProperties}
-                platformUrn={(previewData?.platform as DataPlatform | undefined)?.urn}
-            />
+            {previewData?.status?.lifecycleStage ? (
+                <LifecycleStageBadge lifecycleStage={previewData.status.lifecycleStage} />
+            ) : (
+                <StructuredPropertyBadge
+                    structuredProperties={previewData?.structuredProperties}
+                    platformUrn={(previewData?.platform as DataPlatform | undefined)?.urn}
+                />
+            )}
             <VersioningBadge versionProperties={previewData?.versionProperties ?? undefined} showPopover={false} />
         </EntityTitleContainer>
     );

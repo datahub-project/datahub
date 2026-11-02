@@ -1,40 +1,28 @@
-import { Button, Menu, Text } from '@components';
+import { Button, Menu, Text, toast } from '@components';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
+import { DeprecatedMenuIcon } from '@app/entityV2/shared/EntityDropdown/DeprecatedMenuIcon';
+import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
 import { getTagColor } from '@app/tags/utils';
 import { UnionType } from '@src/app/search/utils/constants';
 import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
-import { useEntityRegistry, useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { Entity, EntityType } from '@src/types.generated';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
-
-import DeprecatedIcon from '@images/deprecated-status.svg?react';
-
-// The raw deprecated-status SVG has a 16x16 viewBox with artwork filling 100%, while phosphor
-// icons used elsewhere in the menu reserve ~20% padding inside their viewBox. Without scaling,
-// this icon appears visibly larger than its peers in the row action menu.
-interface DeprecatedMenuIconProps extends React.SVGProps<SVGSVGElement> {
-    style?: React.CSSProperties;
-}
-
-const DeprecatedMenuIcon = ({ style, ...rest }: DeprecatedMenuIconProps) => (
-    <DeprecatedIcon {...rest} style={{ ...style, width: '80%', height: '80%' }} />
-);
 
 const TagName = styled.div`
     font-size: 14px;
@@ -131,7 +119,7 @@ export const TagDescriptionColumn = React.memo(({ tagUrn }: { tagUrn: string }) 
 });
 
 export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { data, loading: ownerLoading } = useGetTagQuery({
         variables: { urn: tagUrn },
         fetchPolicy: 'cache-first',
@@ -162,7 +150,8 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
             input: {
                 query: '*',
                 start: 0,
-                count: 1,
+                // Facets only — result body is unused.
+                count: 0,
                 orFilters: generateOrFilters(UnionType.OR, entityFilters),
             },
         },
@@ -283,9 +272,10 @@ export const TagActionsColumn = React.memo(
         const isDeprecated = tagData?.tag?.deprecation?.deprecated ?? false;
 
         const [batchUpdateDeprecation] = useBatchUpdateDeprecationMutation();
+        const [isEditDeprecationModalVisible, setIsEditDeprecationModalVisible] = React.useState(false);
 
         const handleUndeprecate = async () => {
-            message.loading({ content: tf('updating') });
+            toast.loading(tf('updating'));
             try {
                 await batchUpdateDeprecation({
                     variables: {
@@ -295,16 +285,13 @@ export const TagActionsColumn = React.memo(
                         },
                     },
                 });
-                message.destroy();
-                message.success({ content: te('deprecation.markedUnDeprecatedSuccess'), duration: 2 });
+                toast.destroy();
+                toast.success(te('deprecation.markedUnDeprecatedSuccess'), { duration: 2 });
                 refetch();
             } catch (e: unknown) {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: te('deprecation.updateError', { errorMessage: e.message || '' }),
-                        duration: 2,
-                    });
+                    toast.error(te('deprecation.updateError', { errorMessage: e.message || '' }), { duration: 2 });
                 }
             }
         };
@@ -329,6 +316,18 @@ export const TagActionsColumn = React.memo(
             },
             ...(canManageTags
                 ? [
+                      ...(isDeprecated
+                          ? [
+                                {
+                                    type: 'item' as const,
+                                    key: 'edit-deprecation',
+                                    title: te('deprecation.editDeprecated'),
+                                    icon: DeprecatedMenuIcon,
+                                    onClick: () => setIsEditDeprecationModalVisible(true),
+                                    'data-testid': 'action-edit-deprecation',
+                                },
+                            ]
+                          : []),
                       {
                           type: 'item' as const,
                           key: 'deprecate',
@@ -351,16 +350,26 @@ export const TagActionsColumn = React.memo(
         ];
 
         return (
-            <ActionsContainer>
-                <Menu items={menuItems} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
-                    <Button
-                        variant="text"
-                        icon={{ icon: DotsThreeVertical, weight: 'bold', size: '2xl', color: 'gray' }}
-                        isCircle
-                        data-testid={`${tagUrn}-actions`}
+            <>
+                <ActionsContainer>
+                    <Menu items={menuItems} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
+                        <Button
+                            variant="text"
+                            icon={{ icon: DotsThreeVertical, weight: 'bold', size: '2xl', color: 'gray' }}
+                            isCircle
+                            data-testid={`${tagUrn}-actions`}
+                        />
+                    </Menu>
+                </ActionsContainer>
+                {isEditDeprecationModalVisible && (
+                    <UpdateDeprecationModal
+                        urns={[tagUrn]}
+                        initialDeprecation={tagData?.tag?.deprecation ?? null}
+                        onClose={() => setIsEditDeprecationModalVisible(false)}
+                        refetch={() => refetch()}
                     />
-                </Menu>
-            </ActionsContainer>
+                )}
+            </>
         );
     },
 );

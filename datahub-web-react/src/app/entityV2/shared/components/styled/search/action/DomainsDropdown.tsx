@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -33,19 +33,18 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: t('searchActions.domain.removedSuccess'), duration: 2 });
+                    toast.success(t('searchActions.domain.removedSuccess'), { duration: 2 });
                     refetch?.();
                 }
                 setIsUnsetModalVisible(false);
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, {
-                        content: t('searchActions.domain.removeError', { message: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy();
+                const { content, duration } = handleBatchError(urns, e, {
+                    content: t('searchActions.domain.removeError', { message: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(content, { duration });
             });
     };
 

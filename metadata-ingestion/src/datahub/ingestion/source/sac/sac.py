@@ -3,11 +3,23 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+)
+from urllib.parse import urljoin
 
 from authlib.integrations.requests_client import OAuth2Session
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator
 from requests.adapters import HTTPAdapter
+from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
@@ -19,6 +31,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -41,11 +54,13 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes, DatasetSubTypes
+from datahub.ingestion.source.sac.data_export_metadata import parse_data_export_metadata
 from datahub.ingestion.source.sac.sac_common import (
     ImportDataModelColumn,
     Resource,
     ResourceModel,
 )
+from datahub.ingestion.source.sap_common.models import EdmxParseResult
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -65,6 +80,9 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DateTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     NullTypeClass,
     NumberTypeClass,
     SchemaFieldClass,
@@ -84,6 +102,20 @@ logger = logging.getLogger(__name__)
 # SAP Analytics Cloud serializes dates in OData verbose-JSON as "/Date(<ms-since-epoch>[±<offset>])/".
 _SAC_JSON_DATE_PATTERN = re.compile(r"^/Date\((?P<ms>-?\d+)(?P<offset>[+-]\d+)?\)/$")
 
+# SAP Datasphere is surfaced to SAC as a live "Data Warehouse Cloud" (DWC) connection.
+# DWC models carry an empty externalId, so their upstream urn is built from the model
+# name plus the per-connection datasphere_space rather than a parsed external id.
+_DWC_SYSTEM_TYPE = "DWC"
+_DATASPHERE_PLATFORM = "sap-datasphere"
+
+# SAC models are discovered through the stories that consume them, so SAC exposes no
+# folder for a model on that path (and most are private/embedded models created by a
+# data import, which have no standalone folder at all). Without an explicit browse path,
+# GMS derives one by splitting the dotted dataset name (`t.4.<hash>:<hash>`) into a
+# meaningless `t` > `4` tree. Group all models under a single synthetic "Models" root
+# instead. SAC has no such folder — the connector invents this root.
+_MODEL_BROWSE_ROOT = "Models"
+
 
 class ConnectionMappingConfig(EnvConfigMixin):
     platform: Optional[str] = Field(
@@ -98,6 +130,29 @@ class ConnectionMappingConfig(EnvConfigMixin):
     env: str = Field(
         default=DEFAULT_ENV,
         description="The environment that this connection mapping belongs to",
+    )
+
+    datasphere_space: Optional[str] = Field(
+        default=None,
+        description=(
+            "For SAP Datasphere ('DWC') connections only: the Datasphere space id that "
+            "backs this connection (e.g. `bdap_sac`). SAC does not expose the space for "
+            "Datasphere-backed live models, so it must be supplied here to build the "
+            "upstream sap-datasphere dataset urn (`<space>.<model_name>`). Leave unset "
+            "for non-Datasphere connections."
+        ),
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description=(
+            "Whether to lower-case identifiers when constructing the upstream dataset "
+            "urn for this connection. Must match the `convert_urns_to_lowercase` setting "
+            "used by the corresponding upstream connector recipe so the urns stitch. "
+            "Currently applied to SAP Datasphere ('DWC') upstreams only; BW/HANA "
+            "upstreams preserve case as before. Defaults to True (matching the SAP "
+            "Datasphere connector default)."
+        ),
     )
 
 
@@ -133,6 +188,17 @@ class SACSourceConfig(
         description="Controls whether schema metadata of Import Data Models should be ingested (ingesting schema metadata of Import Data Models significantly increases overall ingestion time)",
     )
 
+    ingest_acquired_data_model_schema_metadata: bool = Field(
+        default=False,
+        description=(
+            "Controls whether schema metadata of acquired (non-import) Data Models is ingested "
+            "via the Data Export Service. Live Data Models keep their schema in the source system "
+            "and are skipped. Ingesting this schema adds one metadata request per acquired model. "
+            "Requires the 'Data Export Service' access grant on the SAC OAuth client (see "
+            "Prerequisites)."
+        ),
+    )
+
     resource_id_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
         description="Patterns for selecting resource ids that are to be included",
@@ -145,7 +211,84 @@ class SACSourceConfig(
 
     folder_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
-        description="Patterns for selecting folders that are to be included",
+        description=(
+            "Patterns for selecting folders that are to be included. Matched against the "
+            "browse path whose built-in root folder has already been canonicalized (e.g. "
+            "`Public/...`), not SAC's raw localized `ancestorPath`; write rules against "
+            "the canonical `public_root_folder_name` value rather than a language-specific "
+            "root such as `Öffentlich`. Only story and application browse paths are "
+            "matched; model browse paths (the synthetic `Models` root) are not filtered."
+        ),
+    )
+
+    public_root_folder_name: Optional[str] = Field(
+        default="Public",
+        description=(
+            "Canonical display name for SAC's built-in public root folder. SAC returns "
+            "this root in each resource's `ancestorPath` localized to the resource's "
+            "language (e.g. 'Public' in English, 'Öffentlich' in German), which would "
+            "otherwise split the same physical root into one browse-path tree per "
+            "language. Only a first `ancestorPath` segment matching "
+            "`public_root_folder_aliases` is rewritten to this value; other roots are "
+            "left untouched. User-created sub-folders keep their given name. Set to null "
+            "to disable rewriting and keep the raw localized name."
+        ),
+    )
+
+    public_root_folder_aliases: List[str] = Field(
+        default=["Public", "Öffentlich"],
+        description=(
+            "Root folder display names that identify SAC's built-in public root across "
+            "tenant languages. `isPublic eq 1` can also return other shared roots (e.g. a "
+            "team/workspace root such as 'Default'), so only a first `ancestorPath` "
+            "segment matching one of these labels (case-insensitive) is rewritten to "
+            "`public_root_folder_name` — any other root is preserved rather than merged "
+            "into the public tree. Add your tenant language's label if it is not listed. "
+            "When `ingest_private_content` is enabled and a resource's `folderType` is "
+            "known from the File Repository, that type is authoritative and the public "
+            "root is canonicalized regardless of this list; the aliases only gate the "
+            "fallback where `folderType` is unavailable."
+        ),
+    )
+
+    private_root_folder_name: Optional[str] = Field(
+        default="My Files",
+        description=(
+            "Canonical display name for SAC's built-in private (`My Files`) root folder. "
+            "Only relevant when `ingest_private_content` is enabled; the first "
+            "`ancestorPath` segment of a resource whose `folderType` is `PRIVATE` is "
+            "rewritten to this value (the same localization dedup as "
+            "`public_root_folder_name`, applied to the private root). Set to null to keep "
+            "the raw localized name."
+        ),
+    )
+
+    ingest_private_content: bool = Field(
+        default=False,
+        description=(
+            "By default the connector ingests only public content (`isPublic eq 1`). "
+            "When enabled, the `isPublic` filter is dropped so private and team content "
+            "the OAuth client can see is ingested as well. With a client-credentials "
+            "OAuth client (a technical user that owns no content), this alone typically "
+            "surfaces little beyond public content unless `apply_manage_privilege` is "
+            "also enabled and the client holds the Manage privilege on Private/Public "
+            "Files. When enabled, the connector additionally reads each resource's "
+            "`folderType` from the File Repository API to canonicalize root folders "
+            "correctly (public vs. private) rather than assuming everything is public."
+        ),
+    )
+
+    apply_manage_privilege: bool = Field(
+        default=False,
+        description=(
+            "Append `applyManagePrivilege=true` to resource requests, which asks SAC to "
+            "return all content on the tenant (the administrative `System` view) instead "
+            "of only what the OAuth client can see directly. This requires the OAuth "
+            "client to be assigned a role with the Manage privilege on Private Files "
+            "and/or Public Files; without that privilege the parameter has no effect. "
+            "Intended to be combined with `ingest_private_content` to ingest non-public "
+            "content tenant-wide."
+        ),
     )
 
     connection_mapping: Dict[str, ConnectionMappingConfig] = Field(
@@ -157,20 +300,79 @@ class SACSourceConfig(
         description="Template for generating dataset urns of consumed queries, the placeholder {query} can be used within the template for inserting the name of the query",
     )
 
+    resolve_datasphere_lineage: bool = Field(
+        default=True,
+        description=(
+            "For SAC Live Data Models backed by SAP Datasphere (Data Warehouse Cloud / "
+            "'DWC' connections), emit upstream lineage to the backing SAP Datasphere "
+            "dataset. The Datasphere object's technical name is derived from the SAC "
+            "model name; the Datasphere space is not exposed by SAC and must be supplied "
+            "via `connection_mapping.<connection_id>.datasphere_space`. The upstream urn "
+            "is built as `<space>.<model_name>`. SAC disambiguates repeated links to the "
+            "same Datasphere object with a trailing numeric suffix that the real object "
+            "does not carry; when a `datahub_api`/graph connection is available this is "
+            "corrected by matching the suffix-trimmed name against an ingested Datasphere "
+            "dataset. Models on connections without a configured `datasphere_space` are "
+            "skipped with a warning."
+        ),
+    )
+
+    resolve_datasphere_column_lineage: bool = Field(
+        default=True,
+        description=(
+            "In addition to table-level DWC lineage, emit column-level lineage to the "
+            "backing SAP Datasphere dataset. SAC does not expose columns for Live Data "
+            "Models, so the field list is resolved from the upstream Datasphere dataset's "
+            "schema in DataHub (requires a `datahub_api`/graph connection) and mirrored "
+            "onto the SAC dataset, since the live model is a passthrough. Falls back to "
+            "table-level lineage when the graph or upstream schema is unavailable. "
+            "No effect unless `resolve_datasphere_lineage` is also enabled."
+        ),
+    )
+
     @field_validator("tenant_url", "token_url", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
+    @field_validator(
+        "public_root_folder_name", "private_root_folder_name", mode="after"
+    )
+    @classmethod
+    def _reject_blank_root_folder_name(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        # null disables canonicalization; a blank label would instead rewrite the root to
+        # an empty segment (e.g. "/sac//Folder 1"), so treat it as a config typo.
+        if v is not None and not v.strip():
+            raise ValueError(
+                f"{info.field_name} must be a non-empty string, or null to disable canonicalization"
+            )
+        return v
+
 
 @dataclass
 class SACSourceReport(StaleEntityRemovalSourceReport):
-    pass
+    acquired_model_schema_resolved: int = 0
+    # Known live (BW/HANA): skipped without a DES request.
+    acquired_model_schema_skipped_known_live: int = 0
+    # DES answered 412 (the model is live in the source system, so it rejected us).
+    acquired_model_schema_skipped_live_412: int = 0
+    acquired_model_schema_failed: int = 0
+    # SAC Live Data Models backed by SAP Datasphere (DWC connections).
+    dwc_models_scanned: int = 0
+    dwc_lineage_resolved: int = 0
+    dwc_lineage_unresolved: int = 0
+    dwc_lineage_skipped_no_space: int = 0
+    dwc_lineage_suffix_corrected: int = 0
+    dwc_lineage_graph_errors: int = 0
+    dwc_column_lineage_resolved: int = 0
+    dwc_column_lineage_unresolved: int = 0
 
 
 @platform_name("SAP Analytics Cloud", id="sac")
 @config_class(SACSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
@@ -182,7 +384,8 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
 )
 @capability(
     SourceCapability.SCHEMA_METADATA,
-    "Enabled by default (only for Import Data Models)",
+    "Enabled by default for Import Data Models; acquired Data Models are opt-in via "
+    "ingest_acquired_data_model_schema_metadata",
 )
 class SACSource(StatefulIngestionSourceBase, TestableSource):
     config: SACSourceConfig
@@ -201,6 +404,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         self.ingested_dataset_entities = set()
         self.ingested_upstream_dataset_keys = set()
+        # One graph fetch per upstream urn, shared by suffix-correction and column lineage.
+        self._datasphere_schema_cache: Dict[str, Optional[SchemaMetadataClass]] = {}
+        # Urns whose schema lookup errored (as opposed to a clean "no aspect"). A cached
+        # None is ambiguous between the two, so suffix correction must not peel off one.
+        self._datasphere_schema_errors: Set[str] = set()
 
         self.session = SACSource.get_sac_connection(self.config)
 
@@ -233,9 +441,30 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             response = session.get(url=f"{config.tenant_url}/api/v1/dataimport/models")
             response.raise_for_status()
 
-            session.close()
-
             test_report.basic_connectivity = CapabilityReport(capable=True)
+
+            # DES needs a separate optional OAuth grant; report it as a SCHEMA_METADATA
+            # capability (not basic_connectivity) so a missing grant stays actionable.
+            if config.ingest_acquired_data_model_schema_metadata:
+                des_response = session.get(
+                    url=f"{config.tenant_url}/api/v1/dataexport/administration/Namespaces(NamespaceID='sac')/Providers",
+                    params={"$top": "1"},
+                )
+                test_report.capability_report = {
+                    SourceCapability.SCHEMA_METADATA: CapabilityReport(capable=True)
+                    if des_response.ok
+                    else CapabilityReport(
+                        capable=False,
+                        failure_reason=(
+                            f"Data Export Service returned HTTP {des_response.status_code}. "
+                            "Acquired Data Model schema needs the 'Data Export Service' access "
+                            "grant on the OAuth client; grant it, or set "
+                            "ingest_acquired_data_model_schema_metadata: false."
+                        ),
+                    )
+                }
+
+            session.close()
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=f"{e}"
@@ -392,6 +621,18 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         yield mcp.as_workunit()
 
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=BrowsePathsClass(paths=[f"/{self.platform}/{_MODEL_BROWSE_ROOT}"]),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=BrowsePathsV2Class(
+                path=[BrowsePathEntryClass(id=_MODEL_BROWSE_ROOT)]
+            ),
+        ).as_workunit()
+
         if model.is_import and self.config.ingest_import_data_model_schema_metadata:
             primary_fields: List[str] = []
             schema_fields: List[SchemaFieldClass] = []
@@ -425,6 +666,19 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             yield mcp.as_workunit()
+
+        if (
+            not model.is_import
+            and self.config.ingest_acquired_data_model_schema_metadata
+        ):
+            if model.system_type is None:
+                # system_type is only set for BW/HANA. DWC and undetectable/builtin models
+                # arrive as None and still hit DES (DWC 412s there; acquired models resolve).
+                yield from self._emit_acquired_model_schema(dataset_urn, model)
+            else:
+                # BW/HANA are live: skip the DES request up front. Counted separately from
+                # the 412 rejections so the report can answer "how many did DES reject?".
+                self.report.acquired_model_schema_skipped_known_live += 1
 
         if model.system_type in ("BW", "HANA") and model.external_id is not None:
             upstream_dataset_name: Optional[str] = None
@@ -471,15 +725,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     env=env,
                 )
 
-                if upstream_dataset_urn not in self.ingested_upstream_dataset_keys:
-                    mcp = MetadataChangeProposalWrapper(
-                        entityUrn=upstream_dataset_urn,
-                        aspect=dataset_urn_to_key(upstream_dataset_urn),
-                    )
-
-                    yield mcp.as_workunit(is_primary_source=False)
-
-                    self.ingested_upstream_dataset_keys.add(upstream_dataset_urn)
+                yield from self._emit_upstream_dataset_key(upstream_dataset_urn)
 
                 mcp = MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
@@ -495,14 +741,21 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
                 yield mcp.as_workunit()
             else:
-                self.report.report_warning(
-                    "unknown-upstream-dataset",
-                    f"Unknown upstream dataset for model with id {model.namespace}:{model.model_id} and external id {model.external_id}",
+                self.report.warning(
+                    message="Unknown upstream dataset for model",
+                    context=f"{model.namespace}:{model.model_id} (external_id={model.external_id})",
+                    log=False,
                 )
+        elif model.system_type == _DWC_SYSTEM_TYPE:
+            # DWC is a known type; when resolution is disabled we skip it quietly rather
+            # than falling through to the "Unknown system type" warning below.
+            if self.config.resolve_datasphere_lineage:
+                yield from self._emit_datasphere_lineage(dataset_urn, model)
         elif model.system_type is not None:
-            self.report.report_warning(
-                "unknown-system-type",
-                f"Unknown system type {model.system_type} for model with id {model.namespace}:{model.model_id} and external id {model.external_id}",
+            self.report.warning(
+                message="Unknown system type for model",
+                context=f"{model.namespace}:{model.model_id} (external_id={model.external_id}, system_type={model.system_type})",
+                log=False,
             )
 
         mcp = MetadataChangeProposalWrapper(
@@ -514,7 +767,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         yield mcp.as_workunit()
 
-        if model.external_id and model.connection_id and model.system_type:
+        if (
+            model.connection_id
+            and model.system_type
+            and (model.external_id or model.system_type == _DWC_SYSTEM_TYPE)
+        ):
             type_name = DatasetSubTypes.SAC_LIVE_DATA_MODEL
         elif model.is_import:
             type_name = DatasetSubTypes.SAC_IMPORT_DATA_MODEL
@@ -534,7 +791,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn,
             aspect=DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
-                instance=self.config.platform_instance,
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.config.platform_instance
+                )
+                if self.config.platform_instance is not None
+                else None,
             ),
         )
 
@@ -583,7 +844,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         return session
 
     def _query_odata_entities(
-        self, path: str, select: str, filter: Optional[str] = None
+        self,
+        path: str,
+        select: str,
+        filter: Optional[str] = None,
+        extra_params: Optional[Dict[str, str]] = None,
     ) -> Iterator[Dict[str, Any]]:
         # We query the OData endpoints directly instead of going through a metadata-driven OData
         # client. The "Resources" data endpoints are stable across SAC tenant generations, whereas
@@ -593,6 +858,8 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         query: Dict[str, str] = {"$format": "json", "$select": select}
         if filter is not None:
             query["$filter"] = filter
+        if extra_params is not None:
+            query.update(extra_params)
 
         url: Optional[str] = f"{self.config.tenant_url}/api/v1/{path}"
         params: Optional[Dict[str, str]] = query
@@ -601,23 +868,98 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             response = self.session.get(url=url, params=params)
             response.raise_for_status()
 
-            # OData verbose JSON always wraps the payload in a top-level "d"; a missing key means an
-            # unexpected response, which we want to surface rather than silently ingest nothing.
-            payload = response.json()["d"]
-            if isinstance(payload, dict):
-                yield from payload.get("results", [])
-                # follow server-driven paging; "__next" is an absolute URL with the query baked in
-                url = payload.get("__next")
+            # SAC exposes two OData services with different envelopes: the classic
+            # `/api/v1/Resources` service is OData v2 (verbose JSON under a top-level "d",
+            # with server-driven paging via "results"/"__next"), while the File Repository
+            # service (`/api/v1/filerepository`) is OData v4 ("value" with "@odata.nextLink").
+            # Support both; a response carrying neither is unexpected and surfaced rather
+            # than silently ingesting nothing.
+            payload = response.json()
+            if "d" in payload:
+                body = payload["d"]
+                if isinstance(body, dict):
+                    yield from body.get("results", [])
+                    next_link = body.get("__next")
+                else:
+                    yield from body
+                    next_link = None
+            elif "value" in payload:
+                yield from payload["value"]
+                next_link = payload.get("@odata.nextLink")
             else:
-                yield from payload
-                url = None
+                raise KeyError(
+                    "unexpected OData response: neither 'd' (v2) nor 'value' (v4) present"
+                )
 
+            # Both the v2 `__next` and v4 `@odata.nextLink` cursors carry the query baked
+            # in, but v4/CAP tenants may hand back a relative link that `session.get`
+            # cannot fetch on its own; resolve it against the current request URL so
+            # folder-type enrichment keeps paging past the first page.
+            url = urljoin(response.url, next_link) if next_link else None
             params = None
+
+    def _get_folder_types_by_resource_id(
+        self, extra_params: Optional[Dict[str, str]]
+    ) -> Dict[str, str]:
+        # `folderType` is not exposed by the `Resources` endpoint the connector reads for
+        # stories and models; it lives on the separate File Repository OData service. We
+        # fetch it once and join on `resourceId` so root folders can be canonicalized by
+        # type (public vs. private) rather than by localized display name. Any failure
+        # (endpoint unavailable, missing `File Repository Read` access, unexpected schema)
+        # degrades to an empty map: root folders then keep their raw localized names
+        # instead of aborting the whole ingestion.
+        folder_types: Dict[str, str] = {}
+        try:
+            for entity in self._query_odata_entities(
+                "filerepository/Resources",
+                select="resourceId,folderType",
+                extra_params=extra_params,
+            ):
+                resource_id = entity.get("resourceId")
+                folder_type = entity.get("folderType")
+                if resource_id and folder_type:
+                    folder_types[resource_id] = folder_type
+        except Exception as e:
+            self.report.warning(
+                title="Could not read folder types from the File Repository API",
+                message=(
+                    "Root folders of non-public content may keep their raw localized "
+                    "names. Ensure the OAuth client has 'File Repository Read' access."
+                ),
+                context=str(e),
+            )
+        return folder_types
+
+    def _canonical_root_folder_name(
+        self, folder_type: Optional[str], is_public: bool
+    ) -> Optional[str]:
+        # When only public content is ingested the `isPublic` filter guarantees the root
+        # is public, so no per-resource `folderType` is needed.
+        if not self.config.ingest_private_content:
+            return self.config.public_root_folder_name
+        if folder_type == "PUBLIC":
+            return self.config.public_root_folder_name
+        if folder_type == "PRIVATE":
+            return self.config.private_root_folder_name
+        # A missing `folderType` (permission skew between Story Listing and the File
+        # Repository join, paging truncation, or a null value) must not silently drop
+        # public content back to a localized root. The primary `Resources` row carries
+        # `isPublic` — the same signal public-only mode already trusts — so fall back to
+        # it before giving up on canonicalization.
+        if folder_type is None and is_public:
+            return self.config.public_root_folder_name
+        # Team folders, samples, or a non-public root we cannot type: leave the localized
+        # first segment untouched rather than risk mislabeling it.
+        return None
 
     def get_resources(self) -> Iterable[Resource]:
         import_data_model_ids = self.get_import_data_model_ids()
 
-        filter = "isTemplate eq 0 and isSample eq 0 and isPublic eq 1"
+        filter = "isTemplate eq 0 and isSample eq 0"
+        # By default restrict to public content; dropping this gate lets the OAuth client
+        # ingest any private/team content it can see (see `ingest_private_content`).
+        if not self.config.ingest_private_content:
+            filter += " and isPublic eq 1"
         if self.config.ingest_stories and self.config.ingest_applications:
             filter += " and ((resourceType eq 'STORY' and resourceSubtype eq '') or (resourceType eq 'STORY' and resourceSubtype eq 'APPLICATION'))"
         elif self.config.ingest_stories and not self.config.ingest_applications:
@@ -627,10 +969,28 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 " and resourceType eq 'STORY' and resourceSubtype eq 'APPLICATION'"
             )
 
-        select = "resourceId,resourceType,resourceSubtype,storyId,name,description,createdTime,createdBy,modifiedBy,modifiedTime,openURL,ancestorPath,isMobile"
+        extra_params = (
+            {"applyManagePrivilege": "true"}
+            if self.config.apply_manage_privilege
+            else None
+        )
+
+        # `ancestorPath` roots are localized (e.g. Public vs. Öffentlich). When ingesting
+        # only public content the first segment is always the public root, so it can be
+        # rewritten unconditionally. Once private/team content is in play we need each
+        # resource's `folderType` (only exposed by the File Repository API) to know which
+        # canonical root name applies; if that join misses we still canonicalize public
+        # roots from the row's own `isPublic` flag and otherwise leave the localized name.
+        folder_types_by_resource_id: Dict[str, str] = (
+            self._get_folder_types_by_resource_id(extra_params)
+            if self.config.ingest_private_content
+            else {}
+        )
+
+        select = "resourceId,resourceType,resourceSubtype,storyId,name,description,createdTime,createdBy,modifiedBy,modifiedTime,openURL,ancestorPath,isMobile,isPublic"
 
         for entity in self._query_odata_entities(
-            "Resources", select=select, filter=filter
+            "Resources", select=select, filter=filter, extra_params=extra_params
         ):
             resource_id: str = entity["resourceId"]
             entity_name = entity.get("name")
@@ -645,13 +1005,49 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             ancestor_path_raw = entity.get("ancestorPath")
             if ancestor_path_raw:
+                # Without a browse path the resource skips the folder_pattern check below,
+                # so warn instead of swallowing a malformed ancestorPath silently.
+                ancestors: Optional[List[str]] = None
                 try:
-                    ancestors = json.loads(ancestor_path_raw)
+                    parsed = json.loads(ancestor_path_raw)
+                except json.JSONDecodeError as e:
+                    self.report.warning(
+                        title="Unparseable SAC ancestor path",
+                        message="Resource has no browse path and is not matched against folder_pattern",
+                        context=f"resource_id={resource_id}",
+                        exc=e,
+                    )
+                else:
+                    if isinstance(parsed, list):
+                        ancestors = parsed
+                    else:
+                        self.report.warning(
+                            title="Unexpected SAC ancestor path shape",
+                            message="Resource has no browse path and is not matched against folder_pattern",
+                            context=f"resource_id={resource_id}, ancestorPath={ancestor_path_raw!r}",
+                        )
+
+                if ancestors is not None:
+                    folder_type = folder_types_by_resource_id.get(resource_id)
+                    ancestors = _canonicalize_ancestor_folders(
+                        ancestors,
+                        self._canonical_root_folder_name(
+                            folder_type,
+                            _is_truthy_flag(entity.get("isPublic")),
+                        ),
+                        # An authoritative `folderType` (PUBLIC or PRIVATE from the File
+                        # Repository join) identifies the root on its own, so it is
+                        # rewritten unconditionally. Only the fallback where `folderType`
+                        # is unknown and we are trusting `isPublic` is alias-gated, so a
+                        # shared/team root returned under `isPublic` is not merged into
+                        # the public tree.
+                        self.config.public_root_folder_aliases
+                        if folder_type is None
+                        else None,
+                    )
                     ancestor_path = "/".join(
                         ancestor.replace("/", "%2F") for ancestor in ancestors
                     )
-                except json.JSONDecodeError:
-                    pass
 
             if ancestor_path and not self.config.folder_pattern.allowed(ancestor_path):
                 continue
@@ -664,10 +1060,28 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             # OData string keys escape a single quote by doubling it
             escaped_resource_id = resource_id.replace("'", "''")
-            for nav_entity in self._query_odata_entities(
-                f"Resources('{escaped_resource_id}')/resourceModels",
-                select=models_select,
-            ):
+            # Forward applyManagePrivilege so model expansion is scoped the same way as the
+            # listing above; without it a private story surfaced only via the manage
+            # privilege could not expand its models. A per-resource failure (e.g. a story
+            # the client can list but not expand) must not abort the whole run, so degrade
+            # to no models for that resource rather than letting the error propagate.
+            try:
+                nav_entities = list(
+                    self._query_odata_entities(
+                        f"Resources('{escaped_resource_id}')/resourceModels",
+                        select=models_select,
+                        extra_params=extra_params,
+                    )
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Could not read models for a resource",
+                    message="Lineage for this story or application may be incomplete.",
+                    context=f"{resource_id}: {e}",
+                )
+                nav_entities = []
+
+            for nav_entity in nav_entities:
                 # the model id can have a different structure, commonly all model ids have a namespace (the part before the colon) and the model id itself
                 # t.4.sap.fpa.services.userFriendlyPerfLog:ACTIVITY_LOG is a builtin model without a possiblity to get more metadata about the model
                 # t.4.YV67EM4QBRU035A7TVKERZ786N:YV67EM4QBRU035A7TVKERZ786N is a model id where the model id itself also appears as part of the namespace
@@ -766,6 +1180,91 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         return columns
 
+    def _emit_acquired_model_schema(
+        self, dataset_urn: str, model: ResourceModel
+    ) -> Iterable[MetadataWorkUnit]:
+        parse_result = self._get_data_export_schema(model)
+        if parse_result is None:
+            return
+
+        self.report.acquired_model_schema_resolved += 1
+        primary_fields = [f.fieldPath for f in parse_result.fields if f.isPartOfKey]
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SchemaMetadataClass(
+                schemaName=model.model_id,
+                platform=make_data_platform_urn(self.platform),
+                version=0,
+                hash="",
+                platformSchema=SchemalessClass(),
+                fields=parse_result.fields,
+                primaryKeys=primary_fields,
+            ),
+        ).as_workunit()
+
+    def _get_data_export_schema(
+        self, model: ResourceModel
+    ) -> Optional[EdmxParseResult]:
+        # The Data Export Service returns EDMX for acquired models but 412
+        # ("Requested ProviderID is not supported") for Live Data Models, whose
+        # schema lives in the source system. Treat 412 as an expected skip.
+        try:
+            response = self.session.get(
+                url=f"{self.config.tenant_url}/api/v1/dataexport/providers/sac/{model.model_id}/$metadata",
+                headers={"Accept": "application/xml"},
+            )
+        except RequestException as e:
+            # A per-model transport failure (e.g. the retry adapter exhausting on
+            # repeated 5xx) must not abort the whole run: the model is still emitted,
+            # just without a DES-derived schema.
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Failed to fetch acquired model schema",
+                message="The Data Export Service metadata request failed; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id}: {e}",
+            )
+            return None
+        if response.status_code == 412:
+            self.report.acquired_model_schema_skipped_live_412 += 1
+            return None
+        if not response.ok:
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Failed to fetch acquired model schema",
+                message="The Data Export Service metadata request failed; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id} (status={response.status_code})",
+            )
+            return None
+
+        parse_result = parse_data_export_metadata(response.text)
+        if parse_result.error is not None:
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Failed to parse acquired model schema",
+                message="The Data Export Service metadata could not be parsed; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id}: {parse_result.error}",
+            )
+            return None
+        if not parse_result.fields:
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Acquired model schema was empty",
+                message="The Data Export Service FactData entity had no properties; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id}",
+            )
+            return None
+        if parse_result.unknown_edm_types:
+            self.report.warning(
+                title="Unknown EDMX field type(s)",
+                message="Field(s) have an EDMX type that is not mapped; those columns use NullType.",
+                context=f"{model.namespace}:{model.model_id}: "
+                + ", ".join(
+                    f"{u.column}:{u.type}" for u in parse_result.unknown_edm_types
+                ),
+            )
+        return parse_result
+
     def get_query_name(self, query: str) -> str:
         if not self.config.query_name_template:
             return query
@@ -781,6 +1280,250 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         return f"{schema}.{view}"
 
+    def _emit_upstream_dataset_key(
+        self, upstream_dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Emit the upstream key once so the node exists even if that source was never
+        # ingested; deduped across models so a shared upstream yields a single key.
+        if upstream_dataset_urn in self.ingested_upstream_dataset_keys:
+            return
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=upstream_dataset_urn,
+            aspect=dataset_urn_to_key(upstream_dataset_urn),
+        ).as_workunit(is_primary_source=False)
+
+        self.ingested_upstream_dataset_keys.add(upstream_dataset_urn)
+
+    def _emit_datasphere_lineage(
+        self, dataset_urn: str, model: ResourceModel
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.dwc_models_scanned += 1
+        datasphere_upstream_urn = self._resolve_datasphere_upstream(model)
+        if datasphere_upstream_urn is None:
+            return
+        self.report.dwc_lineage_resolved += 1
+
+        # Materialize the upstream key so the Datasphere node exists even when that
+        # connector hasn't run yet, matching the BW/HANA path and keeping this lineage
+        # order-independent.
+        yield from self._emit_upstream_dataset_key(datasphere_upstream_urn)
+
+        fine_grained, schema_workunit = self._resolve_datasphere_column_lineage(
+            dataset_urn, datasphere_upstream_urn
+        )
+        if schema_workunit is not None:
+            yield schema_workunit
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=datasphere_upstream_urn,
+                        type=DatasetLineageTypeClass.COPY,
+                    ),
+                ],
+                fineGrainedLineages=fine_grained or None,
+            ),
+        ).as_workunit()
+
+    def _resolve_datasphere_upstream(self, model: ResourceModel) -> Optional[str]:
+        # SAC exposes the Datasphere object's technical name (the model name) but not its
+        # space, so the space comes from connection_mapping and the urn is built directly.
+        object_name = (model.name or "").strip()
+        # SAC synthesizes `<namespace>:<model_id>` as the name when OData exposes no real
+        # technical name; that value can't identify the Datasphere object, so treat it as
+        # unresolved rather than stitching to a fabricated urn. ponytail: this string compare
+        # is coupled to the fallback built when resource models are fetched — if that format
+        # changes, promote it to an explicit "name missing" flag on ResourceModel.
+        if not object_name or object_name == f"{model.namespace}:{model.model_id}":
+            self.report.dwc_lineage_unresolved += 1
+            self.report.warning(
+                title="SAP Datasphere model has no name",
+                message=(
+                    "Cannot link a DWC-backed SAC model to its SAP Datasphere source "
+                    "because the model has no name to derive the object from."
+                ),
+                context=f"{model.connection_id}: {model.namespace}:{model.model_id}",
+                log=False,
+            )
+            return None
+
+        connection = self.config.connection_mapping.get(model.connection_id or "")
+        if connection is None or not connection.datasphere_space:
+            self.report.dwc_lineage_skipped_no_space += 1
+            self.report.warning(
+                title="SAP Datasphere space not configured",
+                message=(
+                    "Cannot link a DWC-backed SAC model to its SAP Datasphere source "
+                    "because no datasphere_space is set for the connection. Add "
+                    "connection_mapping.<connection_id>.datasphere_space (the Datasphere "
+                    "space id), or set resolve_datasphere_lineage=false to silence this."
+                ),
+                context=f"{model.connection_id}: {model.name}",
+                log=False,
+            )
+            return None
+
+        # SAC appends a numeric suffix (e.g. ...STATEMENT2) to disambiguate repeated links
+        # to the same Datasphere object; the real object has no such suffix and DWC live
+        # models expose no externalId to recover it, so correct it against the graph.
+        upstream_urn = self._datasphere_upstream_urn(connection, object_name)
+        corrected_urn = self._correct_datasphere_suffix(
+            connection, object_name, upstream_urn
+        )
+        return corrected_urn or upstream_urn
+
+    def _datasphere_upstream_urn(
+        self, connection: ConnectionMappingConfig, object_name: str
+    ) -> str:
+        # Match the Datasphere connector's urn casing so the upstream stitches.
+        dataset_name = f"{connection.datasphere_space}.{object_name}"
+        if connection.convert_urns_to_lowercase:
+            dataset_name = dataset_name.lower()
+        return make_dataset_urn_with_platform_instance(
+            platform=_DATASPHERE_PLATFORM,
+            name=dataset_name,
+            platform_instance=connection.platform_instance,
+            env=connection.env,
+        )
+
+    def _correct_datasphere_suffix(
+        self, connection: ConnectionMappingConfig, object_name: str, as_is_urn: str
+    ) -> Optional[str]:
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+        # Schema presence, not graph.exists: a real dataset has a schema, a bare datasetKey
+        # stub does not, so a wrong suffixed stub doesn't block correction.
+        if self._datasphere_dataset_ingested(as_is_urn):
+            return None
+        # Only correct on a confirmed miss. If the as-is lookup itself errored we cannot
+        # tell whether the dataset exists, so keep the as-is urn rather than risk peeling
+        # the suffix and rewriting lineage onto a sibling off a transient failure.
+        if as_is_urn in self._datasphere_schema_errors:
+            return None
+        candidate = object_name
+        while candidate and candidate[-1].isdigit():
+            candidate = candidate[:-1]
+            if not candidate:
+                break
+            candidate_urn = self._datasphere_upstream_urn(connection, candidate)
+            if candidate_urn != as_is_urn and self._datasphere_dataset_ingested(
+                candidate_urn
+            ):
+                self.report.dwc_lineage_suffix_corrected += 1
+                self.report.info(
+                    title="Corrected SAP Datasphere upstream name suffix",
+                    message=(
+                        "The SAC model name carried a numeric disambiguation suffix that "
+                        "matched no ingested SAP Datasphere dataset; linked the suffix-"
+                        "trimmed name instead."
+                    ),
+                    context=f"{object_name} -> {candidate}",
+                    log=False,
+                )
+                return candidate_urn
+        return None
+
+    def _datasphere_dataset_ingested(self, urn: str) -> bool:
+        return self._datasphere_upstream_schema(urn) is not None
+
+    def _datasphere_upstream_schema(self, urn: str) -> Optional[SchemaMetadataClass]:
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+        if urn not in self._datasphere_schema_cache:
+            try:
+                self._datasphere_schema_cache[urn] = graph.get_aspect(
+                    urn, SchemaMetadataClass
+                )
+            except Exception as e:
+                # get_aspect raises on any non-200/404; degrade to "not ingested" so a
+                # transient GMS error falls back to the as-is urn / table-level lineage
+                # instead of aborting the run.
+                self._datasphere_schema_cache[urn] = None
+                self._datasphere_schema_errors.add(urn)
+                self.report.dwc_lineage_graph_errors += 1
+                self.report.warning(
+                    title="SAP Datasphere upstream lookup failed",
+                    message=(
+                        "Could not fetch the upstream SAP Datasphere dataset's schema "
+                        "from DataHub; treating it as not ingested and keeping the "
+                        "as-is upstream urn (table-level lineage only)."
+                    ),
+                    context=urn,
+                    exc=e,
+                )
+        return self._datasphere_schema_cache[urn]
+
+    def _resolve_datasphere_column_lineage(
+        self, dataset_urn: str, upstream_urn: str
+    ) -> Tuple[List[FineGrainedLineageClass], Optional[MetadataWorkUnit]]:
+        # SAC exposes no columns for Live Data Models, so the field list is taken from
+        # the upstream SAP Datasphere dataset's schema in the DataHub graph. The live
+        # model is a passthrough, so that schema is mirrored onto the SAC dataset and
+        # each field is mapped to itself. Best-effort: an unavailable graph or upstream
+        # schema degrades to table-level lineage only.
+        if not self.config.resolve_datasphere_column_lineage:
+            return [], None
+
+        graph = self.ctx.graph
+        if graph is None:
+            self.report.dwc_column_lineage_unresolved += 1
+            self.report.warning(
+                title="SAP Datasphere column lineage needs a DataHub graph",
+                message=(
+                    "Column-level lineage for DWC-backed models resolves the upstream "
+                    "schema from DataHub, which requires a datahub_api/graph connection. "
+                    "Emitting table-level lineage only; set "
+                    "resolve_datasphere_column_lineage=false to silence this."
+                ),
+                context=upstream_urn,
+            )
+            return [], None
+
+        upstream_schema = self._datasphere_upstream_schema(upstream_urn)
+        if upstream_schema is None or not upstream_schema.fields:
+            self.report.dwc_column_lineage_unresolved += 1
+            self.report.warning(
+                title="SAP Datasphere upstream schema not found",
+                message=(
+                    "The upstream SAP Datasphere dataset has no schema in DataHub "
+                    "(ingest SAP Datasphere first). Emitting table-level lineage only."
+                ),
+                context=upstream_urn,
+            )
+            return [], None
+
+        # Mirror the upstream schema onto the SAC dataset so downstream field urns
+        # resolve, and map each field to its identical upstream counterpart.
+        schema_workunit = MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SchemaMetadataClass(
+                schemaName=upstream_schema.schemaName,
+                platform=make_data_platform_urn(self.platform),
+                version=0,
+                hash="",
+                platformSchema=SchemalessClass(),
+                fields=upstream_schema.fields,
+                primaryKeys=upstream_schema.primaryKeys,
+            ),
+        ).as_workunit()
+
+        fine_grained = [
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=[make_schema_field_urn(upstream_urn, field.fieldPath)],
+                downstreams=[make_schema_field_urn(dataset_urn, field.fieldPath)],
+            )
+            for field in upstream_schema.fields
+        ]
+        self.report.dwc_column_lineage_resolved += 1
+        return fine_grained, schema_workunit
+
     def get_schema_field_data_type(
         self, column: ImportDataModelColumn
     ) -> SchemaFieldDataTypeClass:
@@ -792,9 +1535,10 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             elif column.data_type in ("decimal", "int32"):
                 return SchemaFieldDataTypeClass(type=NumberTypeClass())
             else:
-                self.report.report_warning(
-                    "unknown-data-type",
-                    f"Unknown data type {column.data_type} found",
+                self.report.warning(
+                    message="Unknown data type found",
+                    context=f"data_type={column.data_type}",
+                    log=False,
                 )
 
                 return SchemaFieldDataTypeClass(type=NullTypeClass())
@@ -816,6 +1560,39 @@ def _add_sap_sac_custom_auth_header(
 ) -> Tuple[str, Dict[str, str], Any]:
     headers["x-sap-sac-custom-auth"] = "true"
     return url, headers, body
+
+
+def _is_truthy_flag(value: Any) -> bool:
+    # SAC OData returns boolean-ish flags (e.g. `isPublic`) inconsistently across tenant
+    # generations: an integer 1, a boolean true, or the strings "1"/"true". A plain
+    # `bool(value)` would wrongly read the string "0" as True, so normalize explicitly.
+    return str(value).strip().lower() in ("1", "true")
+
+
+def _canonicalize_ancestor_folders(
+    ancestors: List[str],
+    canonical_root: Optional[str],
+    recognized_aliases: Optional[Collection[str]] = None,
+) -> List[str]:
+    # SAC returns the first `ancestorPath` segment (the built-in root folder: Public,
+    # My Files, ...) under a display name localized to the resource's language, which
+    # would otherwise fan the same physical root out into one browse-path tree per tenant
+    # language. The caller resolves a canonical name for that root and the first segment
+    # is rewritten to it; user-created sub-folders are not localized, so only the first
+    # segment is touched. When `recognized_aliases` is given, only a first segment
+    # matching one of them (case-insensitive) is rewritten — this guards the public root,
+    # since `isPublic eq 1` can also return other shared roots (e.g. a team/workspace root
+    # like "Default") that must not be merged into the public tree. A None `canonical_root`
+    # (rewrite disabled, or an unresolved/unrecognized root) leaves the localized name.
+    if not ancestors or canonical_root is None:
+        return ancestors
+
+    if recognized_aliases is not None:
+        aliases = {alias.casefold() for alias in recognized_aliases}
+        if ancestors[0].casefold() not in aliases:
+            return ancestors
+
+    return [canonical_root, *ancestors[1:]]
 
 
 def _parse_sac_datetime(value: str) -> datetime:

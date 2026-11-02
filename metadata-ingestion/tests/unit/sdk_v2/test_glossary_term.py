@@ -207,6 +207,41 @@ def test_glossary_term_setters() -> None:
     assert term.custom_properties == {"key": "value"}
 
 
+def test_glossary_term_tags() -> None:
+    from datahub.metadata.urns import TagUrn
+
+    def _tag_names(tags):
+        return [str(TagUrn.from_string(tag.tag)) for tag in tags]
+
+    term = GlossaryTerm(
+        id="a1b2c3d4",
+        definition="Tagged term.",
+        tags=[TagUrn("pii"), TagUrn("finance")],
+    )
+    assert term.tags is not None
+    assert _tag_names(term.tags) == [
+        "urn:li:tag:pii",
+        "urn:li:tag:finance",
+    ]
+
+    term.add_tag(TagUrn("sensitive"))
+    term.add_tag(TagUrn("pii"))  # idempotent
+    assert _tag_names(term.tags) == [
+        "urn:li:tag:pii",
+        "urn:li:tag:finance",
+        "urn:li:tag:sensitive",
+    ]
+
+    term.remove_tag(TagUrn("finance"))
+    assert _tag_names(term.tags) == [
+        "urn:li:tag:pii",
+        "urn:li:tag:sensitive",
+    ]
+
+    term.set_tags([TagUrn("classified")])
+    assert _tag_names(term.tags) == ["urn:li:tag:classified"]
+
+
 def test_glossary_term_has_a_and_related() -> None:
     term = GlossaryTerm(id="5e6f7a8b")
 

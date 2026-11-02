@@ -9,6 +9,7 @@ import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
 import { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
 import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
 import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
 import { TextColumns } from '@phosphor-icons/react/dist/csr/TextColumns';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
@@ -42,8 +43,8 @@ import {
     NAV_SIDEBAR_ID,
     NAV_SIDEBAR_WIDTH_COLLAPSED,
     NAV_SIDEBAR_WIDTH_EXPANDED,
-} from '@app/shared/constants';
-import { useIsHomePage } from '@app/shared/useIsHomePage';
+} from '@app/sharedV2/constants';
+import { useIsHomePage } from '@app/sharedV2/useIsHomePage';
 import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
@@ -286,7 +287,22 @@ export const NavSidebar = () => {
                         icon: <Sigma />,
                         selectedIcon: <Sigma weight="fill" />,
                         link: PageRoutes.METRICS,
+                        dataTestId: 'nav-menu-item-metrics',
                         isHidden: !config?.featureFlags?.metricsEnabled,
+                        badge: {
+                            label: 'BETA',
+                            show: true,
+                            showDot: false,
+                        },
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: t('navLinks.marketplace'),
+                        key: 'marketplace',
+                        icon: <Storefront />,
+                        selectedIcon: <Storefront weight="fill" />,
+                        link: PageRoutes.MARKETPLACE,
+                        additionalLinksForPathMatching: [`${PageRoutes.DATA_PRODUCT_ENTITY}/:urn`],
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

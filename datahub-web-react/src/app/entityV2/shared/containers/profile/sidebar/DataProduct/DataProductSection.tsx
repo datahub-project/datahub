@@ -1,6 +1,7 @@
 import { toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -11,8 +12,8 @@ import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/Em
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
-import { useIsMultipleDataProductsEnabled } from '@app/shared/hooks/useIsMultipleDataProductsEnabled';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
+import { useIsMultipleDataProductsEnabled } from '@app/sharedV2/hooks/useIsMultipleDataProductsEnabled';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
@@ -56,6 +57,11 @@ export default function DataProductSection({ readOnly }: Props) {
         .map((r) => r.entity?.urn)
         .sort()
         .join(',');
+
+    const shouldShowEditButton = useMemo(
+        () => !isMultipleDataProductsEnabled && dataProducts.length > 0,
+        [isMultipleDataProductsEnabled, dataProducts.length],
+    );
 
     useEffect(() => {
         if (dataProductRelationships && dataProductRelationships.length > 0) {
@@ -187,7 +193,7 @@ export default function DataProductSection({ readOnly }: Props) {
                 }
                 extra={
                     <SectionActionButton
-                        icon={Plus}
+                        icon={shouldShowEditButton ? PencilSimple : Plus}
                         onClick={(event) => {
                             setIsModalVisible(true);
                             event.stopPropagation();

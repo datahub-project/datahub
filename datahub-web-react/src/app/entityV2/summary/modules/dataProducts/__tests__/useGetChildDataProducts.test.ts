@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useGetChildDataProducts } from '@app/entityV2/summary/modules/dataProducts/useGetChildDataProducts';
 import { DOMAINS_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
@@ -16,7 +16,7 @@ vi.mock('@graphql/search.generated', () => ({
     useGetSearchResultsForMultipleQuery: vi.fn(),
 }));
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: vi.fn(),
+    useEntityRegistry: vi.fn(),
 }));
 
 describe('useGetChildDataProducts', () => {
@@ -32,7 +32,7 @@ describe('useGetChildDataProducts', () => {
 
     beforeEach(() => {
         (useEntityData as unknown as any).mockReturnValue({ urn });
-        (useEntityRegistryV2 as unknown as any).mockReturnValue(mockRegistry);
+        (useEntityRegistry as unknown as any).mockReturnValue(mockRegistry);
         (useGetSearchResultsForMultipleQuery as unknown as any).mockReturnValue({
             loading: false,
             data: {

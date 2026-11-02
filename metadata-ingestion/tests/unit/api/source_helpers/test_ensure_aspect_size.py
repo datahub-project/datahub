@@ -1,21 +1,28 @@
 import json
 import time
 import unittest
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
 
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
+from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_upstream_lineage_to_patch,
+)
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+    QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES,
     EnsureAspectSizeProcessor,
     EnsureAspectSizeProcessorReport,
+    _largest_fitting_prefix,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
@@ -54,6 +61,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     StringTypeClass,
     SubTypesClass,
+    SystemMetadataClass,
     UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
@@ -1077,6 +1085,39 @@ def test_ensure_size_of_proper_query_properties(processor):
     assert len(processor.ctx.source_report.warnings) == 0
 
 
+def test_largest_fitting_prefix_returns_maximal_boundary():
+    # Predicate "prefix length <= budget" is monotonic; the helper must return
+    # exactly the budget, not budget-1 (stops short) or budget+1 (overshoots).
+    def at_most(bound: int) -> Callable[[int], bool]:
+        return lambda n: n <= bound
+
+    text = "x" * 100
+    for budget in (0, 1, 37, 99, 100):
+        assert _largest_fitting_prefix(text, at_most(budget)) == budget
+
+
+def test_largest_fitting_prefix_caps_at_text_length():
+    # If everything fits, the answer is the full length (never longer).
+    text = "abc"
+    assert _largest_fitting_prefix(text, lambda n: True) == len(text)
+
+
+def test_largest_fitting_prefix_returns_zero_when_nothing_fits():
+    assert _largest_fitting_prefix("abc", lambda n: False) == 0
+
+
+def test_largest_fitting_prefix_accounts_for_variable_byte_cost():
+    # Astral characters cost far more JSON bytes than raw chars (e.g. an emoji
+    # encodes to a \uXXXX\uXXXX surrogate pair). A byte-budget predicate must
+    # yield fewer retained chars than a naive char-count would suggest.
+    text = "\U0001f600" * 50  # each is 12 JSON bytes ("\ud83d\ude00")
+    byte_budget = 120  # room for exactly 10 chars
+    retained = _largest_fitting_prefix(
+        text, lambda n: len(json.dumps(text[:n])) - len(json.dumps("")) <= byte_budget
+    )
+    assert retained == 10
+
+
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_query_properties(processor):
     query_properties = too_big_query_properties()
@@ -1112,6 +1153,107 @@ def test_ensure_size_of_too_big_query_properties(processor):
 
     # Should have logged a warning
     assert len(processor.ctx.source_report.warnings) == 1
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_query_properties_truncates_heavily_escaped_statement(processor):
+    # Regression for the unit-mismatch bug: chars that inflate under JSON encoding
+    # (\n -> 2 bytes) used to defeat the guard, which compared raw chars against
+    # a byte target; the guard then emitted an oversized aspect and GMS 400'd.
+    statement = "\n" * (6 * 1024 * 1024)
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(value=statement, language=QueryLanguageClass.SQL),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+    )
+    # The aspect really is oversized before the guard runs.
+    assert (
+        len(json.dumps(query_properties.to_obj()))
+        > QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES
+    )
+
+    processor.ensure_query_properties_size(
+        "urn:li:query:heavy_escape", query_properties
+    )
+
+    final_size = len(json.dumps(query_properties.to_obj()))
+    assert final_size < QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES, (
+        "Guard must trim heavily-escaped statements so the aspect fits under the limit"
+    )
+    assert "... [original value was" in query_properties.statement.value
+    assert len(processor.ctx.source_report.warnings) == 1
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+    # Tightness: the retained prefix must be maximal. The final aspect is under
+    # the limit, but appending one more encoded char (a newline is 2 JSON bytes)
+    # must tip it over — otherwise the search stopped short.
+    assert (
+        final_size + len(json.dumps("\n")) - len(json.dumps(""))
+        >= QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES
+    )
+
+
+def test_ensure_query_properties_drops_fields_when_overhead_exceeds_limit(
+    processor_ctx,
+):
+    # When non-statement fields (name/description) alone push the aspect over the
+    # limit, trimming the statement can't make it fit, so those fields are shed
+    # as a last resort rather than emitting an oversized aspect.
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    # Force a tiny budget so a modest description overflows it.
+    processor.payload_constraint = 2000
+
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(
+            value="SELECT 1", language=QueryLanguageClass.SQL
+        ),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        name="my query",
+        description="d" * 5000,
+    )
+
+    processor.ensure_query_properties_size("urn:li:query:overhead", query_properties)
+
+    assert query_properties.description is None
+    assert len(json.dumps(query_properties.to_obj())) < processor.payload_constraint
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+
+
+def test_ensure_query_properties_reports_when_untruncatable(processor_ctx):
+    # A field other than statement/name/description (here customProperties) can
+    # dominate the budget. Dropping name/description then doesn't make the aspect
+    # fit, so we must NOT claim a successful truncation — instead surface a
+    # distinct warning so the (likely GMS 400) failure is visible, not silent.
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    processor.payload_constraint = 2000
+
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(
+            value="SELECT 1", language=QueryLanguageClass.SQL
+        ),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        name="my query",
+        description="short",
+        customProperties={"blob": "x" * 5000},
+    )
+
+    processor.ensure_query_properties_size("urn:li:query:stuck", query_properties)
+
+    # Not recorded as a successful truncation.
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 0
+    assert len(processor.ctx.source_report.warnings) == 1
+    warning = next(iter(processor.ctx.source_report.warnings))
+    assert warning.title is not None
+    assert "could not be truncated" in warning.title.lower()
+    # context carries structured key=value pairs (not prose sentences).
+    context = next(iter(warning.context))
+    assert "entity_urn=urn:li:query:stuck" in context
+    assert "serialized_size=" in context
+    assert "budget=2000" in context
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
@@ -1291,6 +1433,33 @@ def test_ensure_size_of_view_properties_viewlogic_only(processor):
     assert final_size < INGEST_MAX_PAYLOAD_BYTES
 
 
+def test_ensure_view_properties_truncates_heavily_escaped_logic(processor):
+    # Same regression class as the queryProperties escape test: raw-vs-byte
+    # size math used to leave viewLogic aspects oversized.
+    view_properties = ViewPropertiesClass(
+        materialized=False,
+        viewLogic="\n" * (INGEST_MAX_PAYLOAD_BYTES),
+        viewLanguage="SQL",
+    )
+    assert len(json.dumps(view_properties.to_obj())) > INGEST_MAX_PAYLOAD_BYTES
+
+    processor.ensure_view_properties_size(
+        "urn:li:dataset:(urn:li:dataPlatform:dbt, escaped_model, PROD)",
+        view_properties,
+    )
+
+    final_size = len(json.dumps(view_properties.to_obj()))
+    assert final_size < INGEST_MAX_PAYLOAD_BYTES, (
+        "Guard must trim heavily-escaped viewLogic so the aspect fits under the limit"
+    )
+    assert view_properties.viewLogic is not None
+    assert (
+        "truncated from" in view_properties.viewLogic
+        or "removed due to size" in view_properties.viewLogic
+    )
+    assert processor.report.num_truncations_by_aspect.get("viewProperties", 0) == 1
+
+
 @patch(
     "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
@@ -1432,3 +1601,178 @@ class TestEnsureAspectSizeProcessorReport:
         assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 1
         assert proc.report.num_truncations_by_aspect.get("querySubjects", 0) == 1
         assert proc.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 0
+
+
+def upstream_lineage_patch_workunit(
+    num_columns: int, num_upstreams: int = 1
+) -> MetadataWorkUnit:
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.downstream,PROD)"
+    upstreams = [
+        f"urn:li:dataset:(urn:li:dataPlatform:hive,db.upstream_{j},PROD)"
+        for j in range(num_upstreams)
+    ]
+    # Reverse path order, so the kept subset shows the trimmer sorts by path.
+    lineage = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+            for upstream in reversed(upstreams)
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[make_schema_field_urn(upstreams[0], f"col_{i}")],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, f"col_{i}")],
+            )
+            for i in reversed(range(num_columns))
+        ],
+    )
+    return convert_upstream_lineage_to_patch(
+        downstream,
+        lineage,
+        SystemMetadataClass(lastObserved=1700000000000, runId="test-run"),
+    )
+
+
+def patch_operations(wu: MetadataWorkUnit) -> list:
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    return json.loads(wu.metadata.aspect.value)
+
+
+def by_path(operations: list) -> list:
+    return sorted(operations, key=lambda op: op["path"])
+
+
+def test_oversized_upstream_lineage_patch_is_truncated(processor):
+    processor.payload_constraint = 1_000_000
+    processor.schema_size_constraint = int(processor.payload_constraint * 0.985)
+    wu = upstream_lineage_patch_workunit(num_columns=5000)
+    operations = patch_operations(wu)
+    assert len(json.dumps(operations)) > processor.payload_constraint
+
+    (result,) = processor.process([wu])
+
+    kept = patch_operations(result)
+    assert 1 < len(kept) < len(operations)
+    assert kept[0] == operations[0]
+    assert kept[1:] == by_path(operations[1:])[: len(kept) - 1]
+    assert (
+        len(json.dumps(pre_json_transform(result.metadata.to_obj())))
+        <= processor.payload_constraint
+    )
+    assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+    assert processor.ctx.source_report.warnings
+
+
+def test_upstream_lineage_patch_keeps_upstreams_first_in_path_order(processor):
+    wu = upstream_lineage_patch_workunit(num_columns=10, num_upstreams=5)
+    operations = patch_operations(wu)
+    upstream_ops = by_path(operations[:5])
+    processor.schema_size_constraint = (
+        sum(len(json.dumps(json.dumps(op))) for op in upstream_ops[:3]) + 1
+    )
+
+    (result,) = processor.process([wu])
+
+    assert patch_operations(result) == upstream_ops[:3]
+    warnings = " ".join(str(w) for w in processor.ctx.source_report.warnings)
+    assert "Skipped 2 upstream datasets" in warnings
+    assert "Skipped 10 field-set-level fine-grained lineages" in warnings
+
+
+def test_upstream_lineage_patch_truncated_when_only_escaped_size_exceeds(processor):
+    wu = upstream_lineage_patch_workunit(num_columns=100)
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert isinstance(wu.metadata.aspect, GenericAspectClass)
+    raw_value = wu.metadata.aspect.value
+    processor.schema_size_constraint = len(raw_value) + 1
+    assert len(json.dumps(raw_value.decode())) >= processor.schema_size_constraint
+
+    (result,) = processor.process([wu])
+
+    assert len(patch_operations(result)) < len(json.loads(raw_value))
+    assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+
+
+def test_upstream_lineage_patch_keeps_dataset_level_before_field_set_level(processor):
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.downstream,PROD)"
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.upstream,PROD)"
+    # The field-set edge sorts first by path, so only the type priority keeps the
+    # dataset-level edge.
+    lineage = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[make_schema_field_urn(upstream, "col_a")],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, "col_a")],
+            ),
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
+                upstreams=[upstream],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, "col_b")],
+            ),
+        ],
+    )
+    wu = convert_upstream_lineage_to_patch(
+        downstream,
+        lineage,
+        SystemMetadataClass(lastObserved=1700000000000, runId="test-run"),
+    )
+    upstream_op, field_set_op, dataset_op = sorted(
+        patch_operations(wu), key=lambda op: op["path"].startswith("/fine")
+    )
+    assert field_set_op["path"] < dataset_op["path"]
+    processor.schema_size_constraint = (
+        sum(len(json.dumps(json.dumps(op))) for op in (upstream_op, dataset_op)) + 1
+    )
+
+    (result,) = processor.process([wu])
+
+    assert patch_operations(result) == [upstream_op, dataset_op]
+    warnings = " ".join(str(w) for w in processor.ctx.source_report.warnings)
+    assert "Skipped 1 field-set-level fine-grained lineages" in warnings
+
+
+def with_first_operation(
+    wu: MetadataWorkUnit, op: str, path: Optional[str] = None
+) -> MetadataWorkUnit:
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    operations = patch_operations(wu)
+    operations[0]["op"] = op
+    if path is not None:
+        operations[0]["path"] = path
+    wu.metadata.aspect.value = json.dumps(operations).encode()
+    return wu
+
+
+def test_upstream_lineage_patch_left_unchanged_when_fits_or_not_trimmable(processor):
+    fitting = upstream_lineage_patch_workunit(num_columns=3)
+    with_remove = with_first_operation(
+        upstream_lineage_patch_workunit(num_columns=100), "remove"
+    )
+    with_replace = with_first_operation(
+        upstream_lineage_patch_workunit(num_columns=100), "add", "/fineGrainedLineages"
+    )
+    with_non_dict = upstream_lineage_patch_workunit(num_columns=100)
+    assert isinstance(with_non_dict.metadata, MetadataChangeProposalClass)
+    assert with_non_dict.metadata.aspect is not None
+    with_non_dict.metadata.aspect.value = json.dumps(
+        ["not-an-operation", *patch_operations(with_non_dict)]
+    ).encode()
+    processor.schema_size_constraint = (
+        len(json.dumps(patch_operations(with_remove))) // 2
+    )
+    workunits = [fitting, with_remove, with_replace, with_non_dict]
+    original = [patch_operations(wu) for wu in workunits]
+
+    results = list(processor.process(workunits))
+
+    assert [patch_operations(wu) for wu in results] == original
+    assert not processor.report.num_truncations_by_aspect

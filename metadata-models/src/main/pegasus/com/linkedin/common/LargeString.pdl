@@ -1,0 +1,17 @@
+namespace com.linkedin.common
+
+/**
+ * A string whose stored form may be compressed, so large text (API specs,
+ * schemas, docs) can live in an aspect without breaching the aspect-size limit.
+ * The logical value is always the decompressed UTF-8 text; `compression` tells
+ * consumers how to decode `blob`. NOTE: never mark a LargeString field
+ * @Searchable — a compressed blob cannot be indexed (enforced at model load).
+ */
+record LargeString {
+  /** When compression = NONE, the raw UTF-8 text. Otherwise base64(codec(utf8(text))) — base64 keeps it JSON-safe. */
+  blob: string
+  /** Codec applied to `blob`. */
+  compression: enum CompressionType { NONE GZIP } = "NONE"
+  /** Byte length of the original (decompressed) UTF-8 text — for display/budgeting without decoding. */
+  uncompressedSize: optional long
+}

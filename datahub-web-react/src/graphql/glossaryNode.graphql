@@ -1,4 +1,11 @@
 fragment childGlossaryTerm on GlossaryTerm {
+    versionProperties {
+        version {
+            versionTag
+        }
+        isLatest
+    }
+    ...glossaryTermLifecycleFields
     urn
     type
     name
@@ -38,6 +45,9 @@ fragment glossaryNodeFields on GlossaryNode {
     domain {
         ...entityDomain
     }
+    applications {
+        ...entityApplication
+    }
     parentNodes {
         ...parentNodesFields
     }
@@ -49,6 +59,9 @@ fragment glossaryNodeFields on GlossaryNode {
     }
     institutionalMemory {
         ...institutionalMemoryFields
+    }
+    tags {
+        ...globalTagsFields
     }
     structuredProperties {
         properties {

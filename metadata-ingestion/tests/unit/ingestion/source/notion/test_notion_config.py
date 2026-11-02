@@ -176,7 +176,7 @@ def test_filtering_config_defaults():
     )
 
     assert config.filtering.skip_empty_documents is True
-    assert config.filtering.min_text_length == 50
+    assert config.filtering.min_text_length == 0
 
 
 def test_multiple_page_ids():

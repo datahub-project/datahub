@@ -141,10 +141,21 @@ public class KeyAspectEntityCountCacheTest {
   }
 
   @Test
-  public void staleBuildingClaimCanBeTakenOver() {
+  public void staleBuildingClaimCanBeTakenOver() throws Exception {
     KeyAspectEntityCountCacheKey key = KeyAspectEntityCountCacheKey.of("ctx", List.of("dataset"));
     assertTrue(cache.tryClaimQuery(key, "first", 1L));
-    assertTrue(cache.tryClaimQuery(key, "second", 1L));
+    // Staleness uses wall-clock ">" against staleBuildingMillis; poll until takeover succeeds
+    // so same-ms / sub-ms CI timing cannot flake the assertion.
+    boolean takenOver = false;
+    long deadline = System.currentTimeMillis() + 1_000L;
+    while (System.currentTimeMillis() < deadline) {
+      if (cache.tryClaimQuery(key, "second", 1L)) {
+        takenOver = true;
+        break;
+      }
+      Thread.sleep(2L);
+    }
+    assertTrue(takenOver);
     cache.releaseInFlight(key);
   }
 
@@ -189,6 +200,10 @@ public class KeyAspectEntityCountCacheTest {
     claimant.start();
     assertTrue(loaderStarted.await(5, java.util.concurrent.TimeUnit.SECONDS));
     waiter.start();
+    // Hold the claim across a poll interval so the waiter has to observe it.
+    // Releasing immediately lets the waiter miss the cache and claim after publish.
+    Thread.sleep(200L);
+    assertEquals(loads.get(), 1);
     releaseLoader.countDown();
     claimant.join(5_000);
     waiter.join(5_000);

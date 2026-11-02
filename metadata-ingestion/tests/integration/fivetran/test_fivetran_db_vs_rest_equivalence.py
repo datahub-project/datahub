@@ -35,6 +35,7 @@ from datahub.ingestion.source.fivetran.response_models import (
     FivetranSchema,
     FivetranTable,
 )
+from tests.integration.fivetran._mock_engine import wire_sa2_engine_mock
 
 # Frozen time so DB and REST runs produce the same timestamps in MCEs.
 FROZEN_TIME = "2024-06-01 12:00:00"
@@ -236,7 +237,7 @@ def _run_db_pipeline(output_path: str) -> None:
         ),
     ):
         connection_magic_mock = MagicMock()
-        connection_magic_mock.execute.side_effect = _db_query_handler
+        wire_sa2_engine_mock(connection_magic_mock, _db_query_handler)
         mock_create_engine.return_value = connection_magic_mock
 
         pipeline = Pipeline.create(

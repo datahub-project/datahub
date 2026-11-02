@@ -80,7 +80,7 @@ _DLT_LOAD_STATUS_MAP: Dict[DltLoadStatus, InstanceRunResult] = {
 
 @platform_name("dlt")
 @config_class(DltSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -429,10 +429,7 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 self.report.warning(
                     title="Failed to emit run history record",
-                    message=(
-                        f"Could not emit DataProcessInstance for a run "
-                        f"({type(e).__name__}: {e}). Skipping this load and continuing."
-                    ),
+                    message="Could not emit DataProcessInstance for a run. Skipping this load and continuing.",
                     context=f"pipeline={pipeline_info.pipeline_name}, load_id={load.load_id}",
                     exc=e,
                 )

@@ -18,9 +18,11 @@ shadowJar {
   zip64 true
   archiveClassifier = ""
   exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
-  // metadata-utils pulls Hazelcast; GMS WAR already ships hazelcast-*.jar — bundling duplicates SPI (NodeExtension).
   dependencies {
+    // metadata-utils pulls Hazelcast; GMS WAR already ships hazelcast-*.jar — bundling duplicates SPI (NodeExtension).
     exclude(dependency('com.hazelcast:hazelcast:.*'))
+    // metadata-utils pulls Caffeine 2; GMS requires and ships with Caffeine 3.
+    exclude(dependency('com.github.ben-manes.caffeine:.*')) 
   }
 }
 
@@ -60,7 +62,7 @@ assemble {
 publishing {
   publications {
     shadow(MavenPublication) {
-      publication -> project.shadow.component(publication)
+      from components.shadow
         pom {
           name = 'DataHub Auth API'
           group = 'io.acryl'

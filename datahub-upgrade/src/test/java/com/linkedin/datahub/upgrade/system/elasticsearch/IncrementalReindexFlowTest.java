@@ -30,6 +30,7 @@ import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -98,10 +99,15 @@ public class IncrementalReindexFlowTest {
         .ingestProposal(eq(opContext), any(MetadataChangeProposal.class), any(), eq(false));
 
     // Return empty stream for any aspect batch queries (overridden in specific tests)
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
         .thenAnswer(
             invocation ->
-                PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        invocation.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     when(upgradeContext.opContext()).thenReturn(opContext);
     when(upgradeContext.upgrade()).thenReturn(upgrade);
@@ -170,7 +176,7 @@ public class IncrementalReindexFlowTest {
 
     org.mockito.ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         org.mockito.ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertEquals(capturedArgs.gePitEpochMs, 1000L);
     assertEquals(capturedArgs.lePitEpochMs, 1500L);
@@ -226,11 +232,10 @@ public class IncrementalReindexFlowTest {
               }
             });
 
-    when(entityService.alwaysProduceMCLAsync(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(entityService.alwaysProduceMCLAsync(any(), any(), any(), any(MetadataChangeLog.class)))
         .thenReturn(Pair.of(CompletableFuture.completedFuture(null), true));
 
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any()))
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
         .thenAnswer(
             invocation -> {
               RestoreIndicesArgs args = invocation.getArgument(1);
@@ -243,7 +248,9 @@ public class IncrementalReindexFlowTest {
               when(mockAspect.getMetadata()).thenReturn("{}");
               PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
               when(mockStream.partition(anyInt())).thenReturn(Stream.of(Stream.of(mockAspect)));
-              return mockStream;
+              return ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                      invocation.getArgument(2))
+                  .apply(mockStream);
             });
 
     IncrementalReindexCatchUpStep catchUpStep =
@@ -273,7 +280,7 @@ public class IncrementalReindexFlowTest {
       assertEquals(checkpointMap.get(index2 + ".lastUrn"), "urn:li:chart:ch1");
     } else {
       verify(aspectDao, org.mockito.Mockito.times(2))
-          .streamAspectBatches(any(OperationContext.class), any());
+          .streamAspectBatches(any(OperationContext.class), any(), any());
     }
   }
 

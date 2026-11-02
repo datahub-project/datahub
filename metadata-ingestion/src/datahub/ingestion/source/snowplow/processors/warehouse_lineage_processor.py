@@ -95,10 +95,13 @@ class WarehouseLineageProcessor(EntityProcessor):
                         f"Failed to fetch data models for tracking plan '{plan.name}': {e}",
                         exc_info=True,
                     )
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Failed to fetch data models for tracking plan",
-                        message=f"Skipping tracking plan '{plan.name}': {e}. "
+                        message="Skipping tracking plan. "
                         "Lineage from remaining tracking plans will still be processed.",
+                        context=plan.name,
+                        exc=e,
+                        log=False,
                     )
                     continue
 
@@ -184,12 +187,13 @@ class WarehouseLineageProcessor(EntityProcessor):
             )
 
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to extract warehouse lineage via data models",
                 message="Unable to retrieve data models from BDP API for lineage extraction. "
                 "This is optional and won't affect other metadata.",
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
                 exc=e,
+                log=False,
             )
             logger.warning(
                 "Failed to extract warehouse lineage via data models",

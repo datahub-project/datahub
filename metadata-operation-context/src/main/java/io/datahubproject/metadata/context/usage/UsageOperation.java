@@ -35,7 +35,8 @@ public enum UsageOperation {
           ENTITY_DELETE,
           ASPECT_DELETE,
           OTHER_WRITE,
-          OTHER_OPERATIONS -> GraphQLOperationKind.MUTATION;
+          OTHER_OPERATIONS ->
+          GraphQLOperationKind.MUTATION;
       default -> GraphQLOperationKind.QUERY;
     };
   }

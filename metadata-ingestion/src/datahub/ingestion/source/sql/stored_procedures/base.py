@@ -1,13 +1,9 @@
 import logging
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
-    datahub_guid,
     make_data_flow_urn,
-    make_data_job_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
@@ -15,10 +11,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import (
-    JobContainerSubTypes,
-)
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
+from datahub.ingestion.source.sql.stored_procedures.models import (
+    BaseProcedure,
+    get_procedure_flow_name,
+)
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataFlowInfoClass,
@@ -33,57 +30,6 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
-
-# Container name for stored procedures and functions
-STORED_PROCEDURES_CONTAINER = "stored_procedures"
-
-
-@dataclass
-class BaseProcedure:
-    """
-    Base class for stored procedure/function metadata.
-
-    Important: default_db and default_schema use a three-value logic:
-    - None: Use fallback from database_key/schema_key
-    - Empty string (""): Explicitly no database/schema in lineage URNs
-    - Non-empty string: Use this specific value in lineage URNs
-
-    This distinction is critical for two-tier vs three-tier SQL sources
-    to ensure procedure lineage URNs match table/view URN formats.
-    """
-
-    name: str
-    procedure_definition: Optional[str]
-    created: Optional[datetime]
-    last_altered: Optional[datetime]
-    comment: Optional[str]
-    argument_signature: Optional[str]
-    return_type: Optional[str]
-    language: str
-    extra_properties: Optional[Dict[str, str]]
-    default_db: Optional[str] = None
-    default_schema: Optional[str] = None
-    subtype: str = JobContainerSubTypes.STORED_PROCEDURE
-
-    def get_procedure_identifier(
-        self,
-    ) -> str:
-        if self.argument_signature:
-            argument_signature_hash = datahub_guid(
-                dict(argument_signature=self.argument_signature)
-            )
-            return f"{self.name}_{argument_signature_hash}"
-
-        return self.name
-
-    def to_urn(self, database_key: DatabaseKey, schema_key: Optional[SchemaKey]) -> str:
-        return make_data_job_urn(
-            orchestrator=database_key.platform,
-            flow_id=get_procedure_flow_name(database_key, schema_key),
-            job_id=self.get_procedure_identifier(),
-            cluster=database_key.env or DEFAULT_ENV,
-            platform_instance=database_key.instance,
-        )
 
 
 def _generate_flow_workunits(
@@ -138,23 +84,6 @@ def _generate_flow_workunits(
             entityUrn=flow_urn,
             aspect=ContainerClass(container=database_key.as_urn()),
         ).as_workunit()
-
-
-def get_procedure_flow_name(
-    database_key: DatabaseKey, schema_key: Optional[SchemaKey]
-) -> str:
-    """Build flow name from database, schema, and container suffix, omitting empty parts."""
-    parts = []
-
-    if schema_key:
-        if schema_key.database:
-            parts.append(schema_key.database)
-        parts.append(schema_key.db_schema)
-    elif database_key.database:
-        parts.append(database_key.database)
-
-    parts.append(STORED_PROCEDURES_CONTAINER)
-    return ".".join(parts)
 
 
 def _generate_job_workunits(
@@ -252,10 +181,19 @@ def generate_procedure_lineage(
         )
 
         if datajob_input_output and additional_input_jobs:
-            if datajob_input_output.inputDatajobs:
-                datajob_input_output.inputDatajobs.extend(additional_input_jobs)
-            else:
-                datajob_input_output.inputDatajobs = additional_input_jobs
+            # ``additional_input_jobs`` comes from sources that read procedure
+            # dependencies from a system catalogue (e.g. Oracle's
+            # ALL_DEPENDENCIES). ``parse_procedure_code`` may have already
+            # populated ``inputDatajobs`` by parsing CALL/EXEC out of the
+            # procedure body. Both paths are authoritative, so we merge them
+            # but deduplicate to keep ``inputDatajobs`` a true set.
+            existing = list(datajob_input_output.inputDatajobs or [])
+            seen: Set[str] = set(existing)
+            for urn in additional_input_jobs:
+                if urn not in seen:
+                    existing.append(urn)
+                    seen.add(urn)
+            datajob_input_output.inputDatajobs = existing
 
         if datajob_input_output:
             yield MetadataChangeProposalWrapper(

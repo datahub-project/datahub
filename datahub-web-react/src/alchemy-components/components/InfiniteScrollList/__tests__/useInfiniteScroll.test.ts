@@ -222,8 +222,7 @@ describe('useInfiniteScroll hook', () => {
     });
 
     it('resets items and startIndex on resetTrigger', async () => {
-        const dataBatches = [[1, 2, 3]];
-        const fetchData = createFetchDataMock(dataBatches);
+        const fetchData = vi.fn(() => Promise.resolve([1, 2, 3]));
 
         let trigger = 1;
         const { result, waitForNextUpdate, rerender } = renderHook(
@@ -234,11 +233,55 @@ describe('useInfiniteScroll hook', () => {
         await waitForNextUpdate();
         expect(result.current.items).toEqual([1, 2, 3]);
 
-        // Trigger reset
+        // Trigger reset — clears list then kicks off a fresh fetch
         trigger = 2;
         rerender({ resetTrigger: trigger });
         expect(result.current.items).toEqual([]);
         expect(result.current.hasMore).toBe(true);
+
+        await waitForNextUpdate();
+        expect(result.current.items).toEqual([1, 2, 3]);
+        expect(result.current.loading).toBe(false);
+        expect(fetchData).toHaveBeenCalledTimes(2);
+    });
+
+    // Regression: under rapid filter/search changes, an in-flight fetch isn't
+    // cancelled. Without a generation guard, its results land AFTER reset and
+    // append stale rows to the just-cleared list. The hook must drop late
+    // resolutions whose generation no longer matches.
+    it('discards stale fetch results that resolve after a resetTrigger bump', async () => {
+        let resolveFirst: ((items: number[]) => void) | undefined;
+        const slowFirstFetch = vi.fn().mockImplementationOnce(
+            () =>
+                new Promise<number[]>((resolve) => {
+                    resolveFirst = resolve;
+                }),
+        );
+
+        let trigger = 1;
+        const { result, rerender } = renderHook(
+            ({ resetTrigger }) => useInfiniteScroll({ fetchData: slowFirstFetch, pageSize, resetTrigger }),
+            { initialProps: { resetTrigger: trigger } },
+        );
+
+        // Fetch is in flight, no items yet.
+        expect(result.current.items).toEqual([]);
+        expect(result.current.loading).toBe(true);
+
+        // Reset before the in-flight fetch resolves.
+        trigger = 2;
+        rerender({ resetTrigger: trigger });
+        expect(result.current.items).toEqual([]);
+        expect(result.current.loading).toBe(false);
+
+        // Stale fetch finally resolves with rows from the OLD filter set.
+        await act(async () => {
+            resolveFirst?.([99, 100, 101]);
+            await flushPromises();
+        });
+
+        // Stale rows must be dropped — list stays cleared and not re-toggled.
+        expect(result.current.items).toEqual([]);
         expect(result.current.loading).toBe(false);
     });
 });

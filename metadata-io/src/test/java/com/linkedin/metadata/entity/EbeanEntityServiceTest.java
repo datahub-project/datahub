@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,17 +30,22 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.retention.RetentionTestUtils;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -47,6 +53,7 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.retention.DataHubRetentionConfig;
@@ -71,6 +78,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -97,6 +105,8 @@ public class EbeanEntityServiceTest
 
   /** Real retention service used to test policy resolution without spy stubbing. */
   private EbeanRetentionService<ChangeItemImpl> _realRetentionService;
+
+  private final MetricUtils metricUtils = mock(MetricUtils.class);
 
   public EbeanEntityServiceTest() throws EntityRegistryException {}
 
@@ -137,14 +147,31 @@ public class EbeanEntityServiceTest
             EbeanConfiguration.testDefault,
             null,
             List.of(),
-            null);
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, _mockProducer, false, cdcMode, preProcessHooks, true);
+        new EntityServiceImpl(
+            _aspectDao,
+            _mockProducer,
+            preProcessHooks,
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setCdcModeChangeLog(cdcMode)
+                .setEnableBrowseV2(true),
+            metricUtils);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _realRetentionService = new EbeanRetentionService<>(_entityServiceImpl, server, 1000);
+    _realRetentionService =
+        new EbeanRetentionService<>(
+            _entityServiceImpl,
+            server,
+            1000,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server),
+            RetentionTestUtils.systemEntityClient(_entityServiceImpl, _mockProducer, metricUtils));
     _retentionService = (EbeanRetentionService<ChangeItemImpl>) spy(_realRetentionService);
     doReturn(20)
         .when(_retentionService)
@@ -295,7 +322,12 @@ public class EbeanEntityServiceTest
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(false);
     EntityServiceImpl entityService =
-        new EntityServiceImpl(aspectDao, _mockProducer, false, preProcessHooks, true);
+        new EntityServiceImpl(
+            aspectDao,
+            _mockProducer,
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            metricUtils);
 
     // Create the test batch
     List<ChangeItemImpl> items =
@@ -820,6 +852,83 @@ public class EbeanEntityServiceTest
             throw new RuntimeException(e);
           }
         });
+  }
+
+  /**
+   * An aspect written for the first time while a bounded entity delete runs, committed after the
+   * delete's locked check (which had no row of it to lock) and before its delete, survives and
+   * keeps the entity. The write is committed from a separate transaction right after the check.
+   */
+  @Test
+  public void testBoundedDeleteUrnKeepsAnAspectFirstWrittenDuringTheDelete() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteFirstWriteDuring");
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    CorpUserEditableInfo writtenDuring = new CorpUserEditableInfo().setAboutMe("written during");
+    String editableName = AspectGenerationUtils.getAspectName(writtenDuring);
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn,
+        List.of(
+            Pair.<String, RecordTemplate>of(
+                infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"))),
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+
+    EbeanAspectDao aspectDao = spy(_aspectDao);
+    AtomicBoolean written = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              Object locked = invocation.callRealMethod();
+              // The first locked read is the delete's check of every latest row.
+              if (written.compareAndSet(false, true)) {
+                try (Transaction transaction =
+                    _aspectDao.getServer().beginTransaction(TxScope.requiresNew())) {
+                  _aspectDao.insertAspect(
+                      opContext,
+                      TransactionContext.empty(transaction, 3),
+                      EntityAspect.EntitySystemAspect.builder()
+                          .forInsert(
+                              EntityAspect.builder()
+                                  .urn(entityUrn.toString())
+                                  .aspect(editableName)
+                                  .metadata(RecordUtils.toJsonString(writtenDuring))
+                                  .createdBy(TEST_AUDIT_STAMP.getActor().toString())
+                                  .createdOn(new Timestamp(TEST_AUDIT_STAMP.getTime()))
+                                  .systemMetadata(
+                                      RecordUtils.toJsonString(
+                                          AspectGenerationUtils.createSystemMetadata()))
+                                  .build(),
+                              opContext.getEntityRegistry()),
+                      ASPECT_LATEST_VERSION);
+                  transaction.commit();
+                }
+              }
+              return locked;
+            })
+        .when(aspectDao)
+        .getLatestAspectsLocked(any(), any());
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            aspectDao,
+            _mockProducer,
+            new PreProcessHooks(),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            metricUtils);
+    entityService.setUpdateIndicesService(_mockUpdateIndicesService);
+
+    RollbackRunResult result = entityService.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertTrue(written.get());
+    assertTrue(
+        result.getRollbackResults().stream()
+            .noneMatch(r -> Boolean.TRUE.equals(r.getKeyAffected())));
+    assertNotNull(
+        _entityServiceImpl.getLatestAspect(
+            opContext, entityUrn, opContext.getKeyAspectName(entityUrn)));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            writtenDuring, _entityServiceImpl.getLatestAspect(opContext, entityUrn, editableName)));
   }
 
   private static class MultiThreadTestWorker implements Runnable {
