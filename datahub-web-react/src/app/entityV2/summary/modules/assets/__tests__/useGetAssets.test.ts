@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { DATA_SOURCES_MODULE_URN } from '@app/entityV2/summary/modules/assets/constants';
 import { useGetApplicationAssets } from '@app/entityV2/summary/modules/assets/useGetApplicationAssets';
 import { useGetAssets } from '@app/entityV2/summary/modules/assets/useGetAssets';
@@ -17,7 +17,7 @@ import { useGetTermAssets } from '@app/entityV2/summary/modules/assets/useGetTer
 
 import { EntityType } from '@types';
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
 }));
 vi.mock('@app/entityV2/summary/modules/assets/useGetDomainAssets', () => ({

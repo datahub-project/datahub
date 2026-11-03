@@ -66,6 +66,7 @@ import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
+import io.datahubproject.metadata.context.SearchContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -238,7 +239,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
             configs,
             customSearchConfiguration,
             queryFilterRewriteChain,
-            searchServiceConfiguration),
+            searchServiceConfiguration,
+            new SearchFieldMetadataIdentity(systemOperationContext.getSearchContext())),
         k ->
             new SearchRequestHandler(
                 systemOperationContext,
@@ -530,7 +532,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
       boolean scroll) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new SearchRequest();
-    applySearchType(searchRequest, opContext);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
@@ -543,6 +544,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
             Boolean.TRUE.equals(searchFlags.isFulltext()),
             renderUrn,
             scroll);
+    applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
     templateRequests.apply(
@@ -577,7 +579,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
       boolean scroll) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new PITAwareSearchRequest();
-    applySearchType(searchRequest, opContext);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
     ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
@@ -591,6 +592,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
             Boolean.TRUE.equals(searchFlags.isFulltext()),
             renderUrn,
             scroll);
+    applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
     templateRequests.apply(
@@ -624,15 +626,27 @@ public class SearchRequestHandler extends BaseRequestHandler {
     return true;
   }
 
-  /**
-   * Applies search type from SearchFlags to the SearchRequest.
-   *
-   * @param searchRequest the search request to configure
-   * @param opContext operation context holding the search flags
-   */
+  /** The Java query builder uses {@code SearchFlags.searchType}. */
   private void applySearchType(SearchRequest searchRequest, OperationContext opContext) {
-    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-    String searchType = searchFlags.getSearchType();
+    applyResolvedSearchType(
+        searchRequest, opContext.getSearchContext().getSearchFlags().getSearchType());
+  }
+
+  /**
+   * A template request uses the resolved template search type. Unset is query-then-fetch, so DFS
+   * stays off unless the template sets it. The request flag is not consulted.
+   */
+  private void applyTemplateSearchType(
+      SearchRequest searchRequest, @Nullable RenderedSearchTemplate template) {
+    String searchType =
+        template != null && template.searchType() != null
+            ? template.searchType().name()
+            : SearchType.QUERY_THEN_FETCH.name();
+    applyResolvedSearchType(searchRequest, searchType);
+  }
+
+  private static void applyResolvedSearchType(
+      SearchRequest searchRequest, @Nullable String searchType) {
     if (SearchType.DFS_QUERY_THEN_FETCH.name().equalsIgnoreCase(searchType)) {
       searchRequest.searchType(SearchType.DFS_QUERY_THEN_FETCH);
     } else {
@@ -972,7 +986,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // Build per-hit results and attach a per-element scrollId
     final SearchHit[] searchHits = searchResponse.getHits().getHits();
     long expirationTimeMs = 0L;
-    if (keepAlive != null && supportsPointInTime) {
+    // Sliced scrolls open a PIT even when PIT creation is disabled, so key off the response's PIT
+    // too. Without an expiration the next page cannot reuse the PIT and opens a new one.
+    if (keepAlive != null && (supportsPointInTime || searchResponse.pointInTimeId() != null)) {
       expirationTimeMs =
           TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
               + System.currentTimeMillis();
@@ -1457,6 +1473,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
    * account for all configuration variants. Identical entitySpecs with different search
    * configurations would incorrectly share handlers, leading to test instability.
    *
+   * <p>A handler also copies searchable field metadata out of the {@link SearchContext} it is first
+   * built with, so {@link SearchFieldMetadataIdentity} is part of the key as well. Without it, two
+   * callers sharing a configuration but not a context get whichever metadata happened to be
+   * installed first, and a field the loser's context knows about silently loses its type.
+   *
    * <p>This key ensures each unique configuration combination gets its own handler instance.
    */
   @Value
@@ -1466,5 +1487,43 @@ public class SearchRequestHandler extends BaseRequestHandler {
     @Nullable private final CustomSearchConfiguration customSearchConfiguration;
     @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
     @Nonnull private final SearchServiceConfiguration searchServiceConfiguration;
+    @Nonnull private final SearchFieldMetadataIdentity searchFieldMetadata;
+  }
+
+  /**
+   * The searchable field metadata a handler copies out of the {@link SearchContext} it was first
+   * built with, as a cache key component.
+   *
+   * <p>Compared by reference, not by value. {@code SystemOperationContextFactory} builds both maps
+   * once per process and every derived context carries the same instances, so identity gives one
+   * cache entry per deployment while costing nothing on the search path — a value comparison would
+   * hash every searchable field of every entity on each request. Reference comparison also keeps
+   * contexts that computed their own maps on separate handlers, which is what test contexts do.
+   */
+  private static final class SearchFieldMetadataIdentity {
+    private final Map<String, Set<SearchableAnnotation.FieldType>> fieldTypes;
+    private final Map<PathSpec, String> fieldPaths;
+
+    private SearchFieldMetadataIdentity(@Nonnull SearchContext searchContext) {
+      this.fieldTypes = searchContext.getSearchableFieldTypes();
+      this.fieldPaths = searchContext.getSearchableFieldPaths();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof SearchFieldMetadataIdentity)) {
+        return false;
+      }
+      SearchFieldMetadataIdentity that = (SearchFieldMetadataIdentity) other;
+      return this.fieldTypes == that.fieldTypes && this.fieldPaths == that.fieldPaths;
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * System.identityHashCode(fieldTypes) + System.identityHashCode(fieldPaths);
+    }
   }
 }

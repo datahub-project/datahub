@@ -5,8 +5,8 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
-import { isPropagated } from '@app/entity/shared/propagation/utils';
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import { isPropagated } from '@app/entityV2/shared/propagation/utils';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import Tag from '@app/sharedV2/tags/tag/Tag';

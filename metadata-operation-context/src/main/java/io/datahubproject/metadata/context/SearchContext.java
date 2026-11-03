@@ -97,6 +97,12 @@ public class SearchContext implements ContextInterface {
   @Nullable private final List<String> prioritizedDatahubEntityTypes;
 
   /**
+   * Fields on caller-supplied optional filter branches. System filters deliberately do not appear
+   * here, even when their Elasticsearch representation is an OR.
+   */
+  @Nullable private final Set<String> callerOptionalFilterFields;
+
+  /**
    * Search V3 template surface ({@code searchEntities}, {@code scrollEntities}, ...). Selection
    * reads this. It is not an API operation name and not itself a cache component; the resolved
    * template URN is.
@@ -144,7 +150,13 @@ public class SearchContext implements ContextInterface {
     String templateKey =
         resolvedSearchTemplate == null ? "" : resolvedSearchTemplate.cacheKeyComponent();
     return Optional.of(
-        Stream.of(keySearchFlags().toString(), keyLineageFlags(), templateKey)
+        Stream.of(
+                keySearchFlags().toString(),
+                keyLineageFlags(),
+                templateKey,
+                Optional.ofNullable(callerOptionalFilterFields).orElse(Set.of()).stream()
+                    .sorted()
+                    .collect(Collectors.joining(",")))
             .mapToInt(String::hashCode)
             .sum());
   }
@@ -239,6 +251,7 @@ public class SearchContext implements ContextInterface {
           this.defaultBrowseEntityNames,
           this.prioritizedSourceEntityTypes,
           this.prioritizedDatahubEntityTypes,
+          this.callerOptionalFilterFields,
           this.searchSurface,
           this.resolvedSearchTemplate,
           this.skipTemplateExecution);

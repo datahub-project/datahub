@@ -16,7 +16,6 @@ from looker_sdk.error import SDKError
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.git import GitInfo
 from datahub.emitter.mce_builder import make_schema_field_urn
-from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -1324,11 +1323,8 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.source_config.tag_measures_and_dimensions
             and self.reporter.events_produced != 0
         ):
-            # Emit tag MCEs for measures and dimensions if we produced any explores:
-            for tag_mce in LookerUtil.get_tag_mces():
-                # Convert MCE to MCPs
-                for mcp in mcps_from_mce(tag_mce):
-                    yield mcp.as_workunit()
+            # Emit tag definitions for measures and dimensions if we produced any metadata:
+            yield from LookerUtil.gen_tag_workunits()
 
     def gen_project_containers(self, project_name: str) -> Iterable[Container]:
         project_key = gen_project_key(
