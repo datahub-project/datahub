@@ -264,11 +264,13 @@ export const IngestionSourceList = ({
                 negated: sourceFilter !== IngestionSourceType.CLI,
             });
         }
-        if (sourceTypes.length) {
+        // Viewers get no type facets and no filter control, so a `sourceTypes` URL value
+        // would silently narrow their list with no way to clear it.
+        if (canManageIngestion && sourceTypes.length) {
             draftFilters.push({ field: 'type', values: sourceTypes });
         }
         return draftFilters;
-    }, [sourceFilter, hideSystemSources, sourceTypes]);
+    }, [sourceFilter, hideSystemSources, sourceTypes, canManageIngestion]);
 
     const queryInputs = useMemo(
         () => ({
