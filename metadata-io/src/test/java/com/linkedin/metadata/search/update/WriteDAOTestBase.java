@@ -1,24 +1,32 @@
 package com.linkedin.metadata.search.update;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.search.elasticsearch.update.OrderedSearchFields;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
@@ -96,6 +104,131 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
     Thread.sleep(2000);
     long finalCount = countTestEdges(indexName, testRunId);
     assertEquals(finalCount, 0, "All test edges should be deleted asynchronously");
+  }
+
+  @Test
+  public void testOrderedSearchFieldsOnlyMoveForward() throws Exception {
+    String indexName = ingestionSourceIndexName();
+    String docId = "ordered-search-fields-" + UUID.randomUUID();
+    try {
+      // As in the index strategies, the rest of the document is written before the script runs.
+      getEsWriteDAO()
+          .upsertDocument(
+              getOperationContext(),
+              INGESTION_SOURCE_ENTITY_NAME,
+              "{\"urn\":\"urn:li:dataHubIngestionSource:" + docId + "\"}",
+              docId);
+
+      applyRunEvent(indexName, docId, 200L, "RUNNING", 150L, 160L);
+      // An older run finishing later keeps the newer run's status, and its older success and
+      // failure times do not replace the newer ones.
+      applyRunEvent(indexName, docId, 100L, "SUCCESS", 100L, 120L);
+      Map<String, Object> afterOlder = document(indexName, docId);
+      assertEquals(((Number) afterOlder.get("lastRunRequestedAtMillis")).longValue(), 200L);
+      assertEquals(afterOlder.get("lastRunStatus"), "RUNNING");
+      assertEquals(
+          ((Number) afterOlder.get("lastSuccessfulRunRequestedAtMillis")).longValue(), 150L);
+      assertEquals(((Number) afterOlder.get("lastFailedRunRequestedAtMillis")).longValue(), 160L);
+      assertEquals(aspect(afterOlder).get("status"), "RUNNING");
+
+      // A later status of the same run replaces it, and a newer failure time moves forward.
+      applyRunEvent(indexName, docId, 200L, "FAILURE", 150L, 200L);
+      Map<String, Object> afterSameRun = document(indexName, docId);
+      assertEquals(afterSameRun.get("lastRunStatus"), "FAILURE");
+      assertEquals(
+          ((Number) afterSameRun.get("lastSuccessfulRunRequestedAtMillis")).longValue(), 150L);
+      assertEquals(((Number) afterSameRun.get("lastFailedRunRequestedAtMillis")).longValue(), 200L);
+      assertEquals(aspect(afterSameRun).get("status"), "FAILURE");
+    } finally {
+      deleteDocument(docId);
+    }
+  }
+
+  @Test
+  public void testOrderedSearchFieldsScriptCreatesADocumentWithItsUrn() throws Exception {
+    String indexName = ingestionSourceIndexName();
+    String docId = "ordered-search-fields-" + UUID.randomUUID();
+    try {
+      // No base upsert: the script's upsert alone creates the document.
+      applyRunEvent(indexName, docId, 200L, "SUCCESS", 200L, null);
+      Map<String, Object> created = document(indexName, docId);
+      assertEquals(created.get("urn"), "urn:li:dataHubIngestionSource:" + docId);
+      assertEquals(created.get("lastRunStatus"), "SUCCESS");
+    } finally {
+      deleteDocument(docId);
+    }
+  }
+
+  private String ingestionSourceIndexName() {
+    // Writes are only allowed to entity indices, so use the ingestion source index.
+    return getOperationContext()
+        .getSearchContext()
+        .getIndexConvention()
+        .getIndexName(
+            getOperationContext(),
+            getOperationContext().getEntityRegistry().getEntitySpec(INGESTION_SOURCE_ENTITY_NAME));
+  }
+
+  private void deleteDocument(String docId) throws Exception {
+    getEsWriteDAO().deleteDocument(getOperationContext(), INGESTION_SOURCE_ENTITY_NAME, docId);
+    bulkProcessor.flushAndWait(Duration.ofSeconds(30));
+  }
+
+  private void applyRunEvent(
+      String indexName,
+      String docId,
+      long requestedAt,
+      String status,
+      Long successfulRequestedAt,
+      Long failedRequestedAt)
+      throws Exception {
+    ObjectNode document = new ObjectMapper().createObjectNode();
+    document.put("urn", "urn:li:dataHubIngestionSource:" + docId);
+    document.put("lastRunRequestedAtMillis", requestedAt);
+    document.put("lastRunStatus", status);
+    if (successfulRequestedAt != null) {
+      document.put("lastSuccessfulRunRequestedAtMillis", successfulRequestedAt);
+    }
+    if (failedRequestedAt != null) {
+      document.put("lastFailedRunRequestedAtMillis", failedRequestedAt);
+    }
+    document
+        .putObject("_aspects")
+        .set(
+            INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
+            new ObjectMapper().valueToTree(Map.of("status", status)));
+    OrderedSearchFields.Update update =
+        OrderedSearchFields.split(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, document).orElseThrow();
+    getEsWriteDAO()
+        .applyScriptUpdateByIndexName(
+            getOperationContext(),
+            indexName,
+            docId,
+            update.script(),
+            update.params(),
+            update.upsert());
+    bulkProcessor.flushAndWait(Duration.ofSeconds(30));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> aspect(Map<String, Object> document) {
+    return (Map<String, Object>)
+        ((Map<String, Object>) document.get("_aspects"))
+            .get(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+  }
+
+  private Map<String, Object> document(String indexName, String docId) throws Exception {
+    for (int attempt = 0; attempt < 20; attempt++) {
+      GetResponse response =
+          getSearchClient()
+              .getDocument(
+                  getOperationContext(), new GetRequest(indexName, docId), RequestOptions.DEFAULT);
+      if (response.isExists()) {
+        return response.getSourceAsMap();
+      }
+      Thread.sleep(250);
+    }
+    throw new AssertionError("Document " + docId + " was not written to " + indexName);
   }
 
   private void createTestEdges(String testRunId, int count) throws InterruptedException {

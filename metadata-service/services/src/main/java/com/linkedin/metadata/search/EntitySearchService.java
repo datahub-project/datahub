@@ -223,6 +223,19 @@ public interface EntitySearchService {
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns);
 
   /**
+   * For each of {@code ingestionSourceUrns}, returns its newest execution request, and its newest
+   * SUCCESS and FAILURE requests, by request time, computed in a single aggregation over the
+   * execution request index. Sources with no execution requests are absent from the returned map.
+   *
+   * @param opContext the operation context
+   * @param ingestionSourceUrns the ingestion sources to look up
+   * @return map of ingestion source urn -> {@link LatestIngestionRuns}
+   */
+  @Nonnull
+  Map<Urn, LatestIngestionRuns> getLatestIngestionRuns(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns);
+
+  /**
    * Gets a list of groups/entities that match given browse request.
    *
    * @param entityName type of entity to query

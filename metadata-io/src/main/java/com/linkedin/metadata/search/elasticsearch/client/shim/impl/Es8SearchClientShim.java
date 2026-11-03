@@ -1856,8 +1856,14 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
           new UpdateAction.Builder()
               .detectNoop(update.detectNoop())
               .docAsUpsert(update.docAsUpsert())
-              .script(script)
-              .upsert(update.upsert());
+              .scriptedUpsert(update.scriptedUpsert())
+              .script(script);
+      // upsertRequest() is the getter; upsert() with no arguments sets an empty upsert.
+      if (update.upsertRequest() != null) {
+        actionBuilder.upsert(
+            XContentHelper.convertToMap(update.upsertRequest().source(), true, XContentType.JSON)
+                .v2());
+      }
 
       // Only set doc if it exists (not present for script-only updates)
       if (update.doc() != null) {

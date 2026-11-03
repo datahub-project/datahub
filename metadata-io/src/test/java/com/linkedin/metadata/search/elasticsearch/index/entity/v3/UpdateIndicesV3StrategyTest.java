@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SEMANTIC_TEXT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
@@ -28,6 +29,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
@@ -2452,6 +2454,151 @@ public class UpdateIndicesV3StrategyTest {
         .upsertDocumentByIndexName(
             eq(operationContext), eq(next), mirrored.capture(), eq(expectedDocId));
     assertEquals(mirrored.getValue(), live.getValue());
+  }
+
+  @Test
+  public void testOrderedRunFieldsAreScriptedOnTheLiveIndexAndTheMirror() throws Exception {
+    // The run fields are written by a script, so the mirror into a rebuild must repeat it.
+    mockSearchDocument.put("lastRunRequestedAtMillis", 200L);
+    mockSearchDocument.put("lastRunStatus", "SUCCESS");
+    stubTransformedDocument();
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    String alias =
+        operationContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(operationContext, "dataset");
+    String next = alias + "_0_14_0-0_1679000000000";
+    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    AspectSpec runEventSpec = mock(AspectSpec.class);
+    when(runEventSpec.getName()).thenReturn(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+    when(runEventSpec.isTimeseries()).thenReturn(true);
+    MCLItem runEvent = mock(MCLItem.class);
+    when(runEvent.getUrn()).thenReturn(testUrn);
+    when(runEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(runEvent.getAspectSpec()).thenReturn(runEventSpec);
+    when(runEvent.getAspectName()).thenReturn(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+    when(runEvent.getRecordTemplate()).thenReturn(mockAspect);
+    when(runEvent.getSystemMetadata()).thenReturn(mockSystemMetadata);
+    when(runEvent.getAuditStamp()).thenReturn(mockAuditStamp);
+    when(runEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    UpdateIndicesV3Strategy mirroring =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .incrementalReindexWriteTargets(targets)
+            .build();
+
+    mirroring.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent, runEvent)), true);
+
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    ArgumentCaptor<String> live = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("dataset"), live.capture(), eq(expectedDocId));
+    JsonNode liveDocument = new ObjectMapper().readTree(live.getValue());
+    assertFalse(liveDocument.has("lastRunStatus"));
+    assertFalse(liveDocument.path("_aspects").has(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME));
+    verify(elasticSearchService)
+        .applyScriptUpdateBySearchGroup(
+            eq(operationContext), eq("dataset"), eq(expectedDocId), any(), any(), any());
+    verify(elasticSearchService)
+        .applyScriptUpdateByIndexName(
+            eq(operationContext), eq(next), eq(expectedDocId), any(), any(), any());
+  }
+
+  private MCLItem runEvent(RecordTemplate aspect) {
+    AspectSpec runEventSpec = mock(AspectSpec.class);
+    when(runEventSpec.getName()).thenReturn(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+    when(runEventSpec.isTimeseries()).thenReturn(true);
+    MCLItem runEvent = mock(MCLItem.class);
+    when(runEvent.getUrn()).thenReturn(testUrn);
+    when(runEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(runEvent.getAspectSpec()).thenReturn(runEventSpec);
+    when(runEvent.getAspectName()).thenReturn(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+    when(runEvent.getRecordTemplate()).thenReturn(aspect);
+    when(runEvent.getSystemMetadata()).thenReturn(mockSystemMetadata);
+    when(runEvent.getAuditStamp()).thenReturn(mockAuditStamp);
+    when(runEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    return runEvent;
+  }
+
+  @Test
+  public void testEachRunEventInABatchGetsItsOwnScriptInOrder() throws Exception {
+    // The combined document keeps only the batch's last event, which may be the older run.
+    RecordTemplate newer = mock(RecordTemplate.class);
+    RecordTemplate older = mock(RecordTemplate.class);
+    Map<RecordTemplate, Long> requestedAt = Map.of(newer, 200L, older, 100L);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenAnswer(
+            invocation -> {
+              ObjectNode document = JsonNodeFactory.instance.objectNode();
+              document.put("lastRunRequestedAtMillis", requestedAt.get(invocation.getArgument(2)));
+              return Optional.of(document);
+            });
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(runEvent(newer), runEvent(older))),
+        true);
+
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    ArgumentCaptor<Map<String, Object>> params = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<Map<String, Object>> upserts = ArgumentCaptor.forClass(Map.class);
+    verify(elasticSearchService, times(2))
+        .applyScriptUpdateBySearchGroup(
+            eq(operationContext),
+            eq("dataset"),
+            eq(expectedDocId),
+            any(),
+            params.capture(),
+            upserts.capture());
+    assertEquals(
+        params.getAllValues().stream()
+            .map(p -> ((Number) p.get("orderValue")).longValue())
+            .toList(),
+        List.of(200L, 100L));
+    // A script that runs before the document exists creates it with its identity.
+    assertEquals(upserts.getValue().get("urn"), testUrn.toString());
+  }
+
+  @Test
+  public void testThrottledRunEventGetsNoScript() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, false);
+    UpdateIndicesV3Strategy throttledStrategy =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .timeseriesThrottleCache(cache)
+            .build();
+    mockSearchDocument.put("lastRunRequestedAtMillis", 200L);
+    stubTransformedDocument();
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    cache.recordWrite(testUrn.toString(), INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, 1_000_000_000L);
+
+    // Another aspect in the batch still writes the document.
+    throttledStrategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(mockEvent, runEvent(mockAspect))),
+        true);
+
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    verify(elasticSearchService, never())
+        .applyScriptUpdateBySearchGroup(any(), anyString(), anyString(), any(), any(), any());
   }
 
   @Test
