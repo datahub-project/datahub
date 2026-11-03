@@ -30,6 +30,25 @@ The target platform comes from the river's target type. `connection_type_platfor
 - Table names are lowercased unless `convert_lineage_urns_to_lowercase` is `false`, or `convert_urns_to_lowercase` is `false` on the connection in `connection_to_platform`.
 - Logic SQL query steps that write to a table get the same treatment, with the platform taken from the step type, for example `snowflake_sql_query`. Table-target steps of other types, or without a table name, are listed in `targets_unsupported` or `targets_missing_location`.
 
+#### Run history
+
+With `include_run_history` (on by default), the source plugin reads the runs of the last `run_history_days` days (7 by default, at most 14, because Data Integration keeps run logs for two weeks) and emits each as a DataProcessInstance. It first reads the environment's activity summary for the window, so runs are only listed for rivers that ran.
+
+- A source-to-target river's runs belong to its `load` job, and an action or connector executor river's runs to its `run` job. A logic river run covers every step, so it belongs to the river's DataFlow.
+- A multi-table river returns one row per table, all with the same `run_group_id`. These rows become one run that starts with the first table and ends with the last. The run fails if any table failed.
+- Each river keeps its `max_runs_per_river` most recent runs (50 by default).
+- A run started by a logic river is linked to that logic run as its parent when both are in the window.
+- Runs triggered by `scheduled` or `rescheduled` are scheduled runs, and other triggers are ad hoc. A run started by a logic river takes the trigger of the run that started the chain.
+- Each run has the properties `status`, `trigger_name`, `units`, `rpu`, `error_description` (first 500 characters), `target_name` (or `table_count` for a multi-table run), `run_group_id` and `sub_river_id` where the API returns them.
+
+| Data Integration status | DataHub result                                                                |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| `succeeded`             | Success                                                                       |
+| `failed`                | Failure                                                                       |
+| `canceled`, `skipped`   | Skipped                                                                       |
+| `pending`, `running`    | Start event only, until a later ingestion sees it finish                      |
+| Anything else           | Start event only, with an "Unknown Boomi Data Integration run status" warning |
+
 ### Limitations
 
 - Source-side lineage is not extracted yet, so `load` jobs only have outputs.
@@ -37,7 +56,8 @@ The target platform comes from the river's target type. `connection_type_platfor
 - When a multi-table river sets a target prefix, its targets are skipped and listed in `targets_prefix_skipped`, because how the prefix combines with each table name is not documented.
 - S3, GCS, Blob Storage and OneLake targets get no lineage.
 - BigQuery targets get no lineage unless the target connection is in `connection_to_platform` with the project as `database`.
-- Run history and owners are not ingested yet.
+- Owners are not ingested yet.
+- Runs older than two weeks are not available from the API.
 - A job's lineage is only written when the source plugin finds at least one target, so lineage added in the UI or by other sources is not overwritten with an empty list. If a river's target later stops resolving, for example because it moved to object storage or `include_lineage` was turned off, the lineage from earlier runs stays until it is removed in DataHub.
 
 ### Troubleshooting
@@ -53,6 +73,10 @@ An environment in `environment_tokens` could not be read, so it was skipped and 
 #### Warning "River definitions unavailable"
 
 The rivers listed in `rivers_without_definition_ids` could not be read. They are ingested without lineage. This is expected for rivers created in the UI.
+
+#### Warning "Cannot read Boomi Data Integration run history"
+
+The token for the environment named in the warning does not have the `activity:list` scope, so run history was skipped for that environment. Add the scope to the token, or set `include_run_history: false`.
 
 #### Missing target lineage
 

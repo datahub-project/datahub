@@ -11,11 +11,14 @@ from datahub.configuration.source_common import (
 from datahub.ingestion.source.boomi_data_integration.constants import (
     API_CONSOLE_URLS,
     DEFAULT_MAX_REQUESTS_PER_SECOND,
+    DEFAULT_MAX_RUNS_PER_RIVER,
     DEFAULT_REQUEST_TIMEOUT_SECONDS,
+    DEFAULT_RUN_HISTORY_DAYS,
     HTTP_SCHEME,
     HTTPS_SCHEME,
     LOOPBACK_HOSTS,
     MAX_REQUESTS_PER_SECOND_LIMIT,
+    MAX_RUN_HISTORY_DAYS,
     REGION_API_URLS,
     DIRegion,
 )
@@ -163,6 +166,27 @@ class BoomiDataIntegrationSourceConfig(
     convert_lineage_urns_to_lowercase: bool = Field(
         default=True,
         description="Lowercase the table names in dataset URNs built for lineage.",
+    )
+    include_run_history: bool = Field(
+        default=True,
+        description=(
+            "Emit recent river runs as run history (DataProcessInstance). Needs "
+            "the `activity:list` scope (Activities: View in the console)."
+        ),
+    )
+    run_history_days: int = Field(
+        default=DEFAULT_RUN_HISTORY_DAYS,
+        ge=1,
+        le=MAX_RUN_HISTORY_DAYS,
+        description=(
+            "How many days of run history to read. Data Integration keeps run "
+            "logs for two weeks."
+        ),
+    )
+    max_runs_per_river: int = Field(
+        default=DEFAULT_MAX_RUNS_PER_RIVER,
+        gt=0,
+        description="Most recent runs to emit for each river.",
     )
     max_requests_per_second: int = Field(
         default=DEFAULT_MAX_REQUESTS_PER_SECOND,

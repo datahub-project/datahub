@@ -1,0 +1,124 @@
+{
+  "next_page": "",
+  "previous_page": null,
+  "page": 1,
+  "current_page_size": 4,
+  "total_items": 4,
+  "account_id": "acct000000000000000000001",
+  "environment_id": "e00000000000000000000001",
+  "items": [
+    {
+      "run_id": "f0000000000000000000000000000021",
+      "river_cross_id": "6ae8ef3fa9fd03374b44b3bd",
+      "datasource_id": "postgres",
+      "error_description": null,
+      "units": 0.25,
+      "rpu": 0.25,
+      "run_group_id": "f0000000000000000000000000000020",
+      "status": "succeeded",
+      "source_name": "postgres",
+      "target_name": "CUSTOMERS",
+      "start_date_utc": "2026-11-02T06:00:05",
+      "start_date_in_milliseconds": 1793599205000,
+      "end_date_utc": "2026-11-02T06:01:40",
+      "end_date_in_milliseconds": 1793599300000,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "postgres",
+      "trigger_name": "scheduled",
+      "triggered_by_run_id": null,
+      "trigger_chain": [
+        {
+          "trigger_name": "scheduled",
+          "run_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "f0000000000000000000000000000022",
+      "river_cross_id": "6ae8ef3fa9fd03374b44b3bd",
+      "datasource_id": "postgres",
+      "error_description": "Table ORDERS failed: column type mismatch",
+      "units": 0.25,
+      "rpu": 0.25,
+      "run_group_id": "f0000000000000000000000000000020",
+      "status": "failed",
+      "source_name": "postgres",
+      "target_name": "ORDERS",
+      "start_date_utc": "2026-11-02T06:00:00",
+      "start_date_in_milliseconds": 1793599200000,
+      "end_date_utc": "2026-11-02T06:02:15",
+      "end_date_in_milliseconds": 1793599335000,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "postgres",
+      "trigger_name": "scheduled",
+      "triggered_by_run_id": null,
+      "trigger_chain": [
+        {
+          "trigger_name": "scheduled",
+          "run_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "f0000000000000000000000000000023",
+      "river_cross_id": "6ae8ef3fa9fd03374b44b3bd",
+      "datasource_id": "postgres",
+      "error_description": null,
+      "units": 0.25,
+      "rpu": 0.25,
+      "run_group_id": "f0000000000000000000000000000020",
+      "status": "succeeded",
+      "source_name": "postgres",
+      "target_name": "PRODUCTS",
+      "start_date_utc": "2026-11-02T06:00:10",
+      "start_date_in_milliseconds": 1793599210000,
+      "end_date_utc": "2026-11-02T06:01:05",
+      "end_date_in_milliseconds": 1793599265000,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "postgres",
+      "trigger_name": "scheduled",
+      "triggered_by_run_id": null,
+      "trigger_chain": [
+        {
+          "trigger_name": "scheduled",
+          "run_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "f0000000000000000000000000000030",
+      "river_cross_id": "6ae8ef3fa9fd03374b44b3bd",
+      "datasource_id": "postgres",
+      "error_description": null,
+      "units": 0.0,
+      "rpu": 0.0,
+      "run_group_id": "f0000000000000000000000000000030",
+      "status": "canceled",
+      "source_name": "postgres",
+      "target_name": "CUSTOMERS",
+      "start_date_utc": "2026-10-31T09:30:00",
+      "start_date_in_milliseconds": 1793439000000,
+      "end_date_utc": "2026-10-31T09:30:20",
+      "end_date_in_milliseconds": 1793439020000,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "postgres",
+      "trigger_name": "ui",
+      "triggered_by_run_id": null,
+      "trigger_chain": [
+        {
+          "trigger_name": "ui",
+          "run_id": null
+        }
+      ]
+    }
+  ],
+  "river_cross_id": "6ae8ef3fa9fd03374b44b3bd"
+}

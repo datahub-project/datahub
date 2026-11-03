@@ -1,0 +1,152 @@
+{
+  "next_page": "",
+  "previous_page": null,
+  "page": 1,
+  "current_page_size": 5,
+  "total_items": 5,
+  "account_id": "acct000000000000000000001",
+  "environment_id": "e00000000000000000000001",
+  "items": [
+    {
+      "run_id": "f0000000000000000000000000000002",
+      "river_cross_id": "6ae8ef6f61a8be2df8f864ca",
+      "datasource_id": "logic",
+      "error_description": null,
+      "units": 0.0,
+      "rpu": 0.0,
+      "run_group_id": "f0000000000000000000000000000002",
+      "status": "running",
+      "source_name": "Logic",
+      "target_name": "Logic",
+      "start_date_utc": "2026-11-03T11:55:00",
+      "start_date_in_milliseconds": 1793706900000,
+      "end_date_utc": null,
+      "end_date_in_milliseconds": null,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "logic",
+      "trigger_name": "scheduled",
+      "triggered_by_run_id": null,
+      "trigger_chain": [
+        {
+          "trigger_name": "scheduled",
+          "run_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "a549ebf30f6d4c4da68d99c4440a5619",
+      "river_cross_id": "6ae8ef6f61a8be2df8f864ca",
+      "datasource_id": "logic",
+      "error_description": "Container DH Test - Main container failed: Step DH Test - Insert RNA summary failed: 'Dropping Table DH_TEST_DB.ANALYTICS.tmp_2aef4d6067_RNA_SUMMARY Failed: Connection error to Snowflake. Please check your username, password and account name. Extra details: (\\'HY000\\', \"[HY000] [Snowflake][Snowflake] (4) \\\\n      REST request for URL *** failed: HTTP error (http error) - code=404 Verify that the hostnames and portnumbers in SYSTEM$ALLOWLIST are added to your firewall\\'s allowed list. To further troubleshoot reference the following article : https://docs.snowflake.com/en/user-guide/client-connectivity-troubleshooting/error-messages#odbc-errors.\\\\n     (4) (SQLDriverConnect)\")'",
+      "units": 0.0,
+      "rpu": 0.0,
+      "run_group_id": "a549ebf30f6d4c4da68d99c4440a5619",
+      "status": "failed",
+      "source_name": "Logic",
+      "target_name": "Logic",
+      "start_date_utc": "2026-11-02T23:40:48",
+      "start_date_in_milliseconds": 1793662848000,
+      "end_date_utc": "2026-11-02T23:41:00",
+      "end_date_in_milliseconds": 1793662860000,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "logic",
+      "trigger_name": "api",
+      "triggered_by_run_id": null,
+      "trigger_chain": [
+        {
+          "trigger_name": "api",
+          "run_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "0cc6cb3e43364dada7a0fab1cf6183a4",
+      "river_cross_id": "6ae8ef6f61a8be2df8f864ca",
+      "datasource_id": "logic",
+      "error_description": "Container DH Test - Main container failed: Step DH Test - Insert RNA summary failed: 'Dropping Table DH_TEST_DB.ANALYTICS.tmp_fc7d9db4a7_RNA_SUMMARY Failed: Connection error to Snowflake. Please check your username, password and account name. Extra details: (\\'HY000\\', \"[HY000] [Snowflake][Snowflake] (4) \\\\n      REST request for URL *** failed: HTTP error (http error) - code=404 Verify that the hostnames and portnumbers in SYSTEM$ALLOWLIST are added to your firewall\\'s allowed list. To further troubleshoot reference the following article : https://docs.snowflake.com/en/user-guide/client-connectivity-troubleshooting/error-messages#odbc-errors.\\\\n     (4) (SQLDriverConnect)\")'",
+      "units": 0.0,
+      "rpu": 0.0,
+      "run_group_id": "0cc6cb3e43364dada7a0fab1cf6183a4",
+      "status": "failed",
+      "source_name": "Logic",
+      "target_name": "Logic",
+      "start_date_utc": "2026-11-02T20:16:55",
+      "start_date_in_milliseconds": 1793650615000,
+      "end_date_utc": "2026-11-02T20:17:07",
+      "end_date_in_milliseconds": 1793650627000,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "logic",
+      "trigger_name": "api",
+      "triggered_by_run_id": null,
+      "trigger_chain": [
+        {
+          "trigger_name": "api",
+          "run_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "568e702e15434af49db292336c7bac30",
+      "river_cross_id": "6ae8ef6f61a8be2df8f864ca",
+      "datasource_id": "logic",
+      "error_description": "Container DH Test - Main container failed: Step DH Test - Insert RNA summary failed: 'Dropping Table DH_TEST_DB.ANALYTICS.tmp_7d55b493c1_RNA_SUMMARY Failed: Connection error to Snowflake. Please check your username, password and account name. Extra details: (\\'HY000\\', \"[HY000] [Snowflake][Snowflake] (4) \\\\n      REST request for URL *** failed: HTTP error (http error) - code=404 Verify that the hostnames and portnumbers in SYSTEM$ALLOWLIST are added to your firewall\\'s allowed list. To further troubleshoot reference the following article : https://docs.snowflake.com/en/user-guide/client-connectivity-troubleshooting/error-messages#odbc-errors.\\\\n     (4) (SQLDriverConnect)\")'",
+      "units": 0.0,
+      "rpu": 0.0,
+      "run_group_id": "568e702e15434af49db292336c7bac30",
+      "status": "failed",
+      "source_name": "Logic",
+      "target_name": "Logic",
+      "start_date_utc": "2026-11-02T20:16:02",
+      "start_date_in_milliseconds": 1793650562000,
+      "end_date_utc": "2026-11-02T20:16:18",
+      "end_date_in_milliseconds": 1793650578000,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "logic",
+      "trigger_name": "api",
+      "triggered_by_run_id": null,
+      "trigger_chain": [
+        {
+          "trigger_name": "api",
+          "run_id": null
+        }
+      ]
+    },
+    {
+      "run_id": "f0000000000000000000000000000001",
+      "river_cross_id": "6ae8ef6f61a8be2df8f864ca",
+      "datasource_id": "logic",
+      "error_description": null,
+      "units": 0.0,
+      "rpu": 0.0,
+      "run_group_id": "f0000000000000000000000000000001",
+      "status": "succeeded",
+      "source_name": "Logic",
+      "target_name": "Logic",
+      "start_date_utc": "2026-11-01T06:00:00",
+      "start_date_in_milliseconds": 1793512800000,
+      "end_date_utc": "2026-11-01T06:04:30",
+      "end_date_in_milliseconds": 1793513070000,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "logic",
+      "trigger_name": "scheduled",
+      "triggered_by_run_id": null,
+      "trigger_chain": [
+        {
+          "trigger_name": "scheduled",
+          "run_id": null
+        }
+      ]
+    }
+  ],
+  "river_cross_id": "6ae8ef6f61a8be2df8f864ca"
+}

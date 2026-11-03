@@ -3980,5 +3980,959 @@
         "runId": "boomi-di-test",
         "lastRunId": "no-run-id-provided"
     }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4141fe7ee031e81c3a15359c542a8699",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "failed, succeeded",
+                "trigger_name": "scheduled",
+                "units": "0.75",
+                "rpu": "0.75",
+                "error_description": "Table ORDERS failed: column type mismatch",
+                "table_count": "3",
+                "run_group_id": "f0000000000000000000000000000020"
+            },
+            "name": "f0000000000000000000000000000020",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1793599200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4141fe7ee031e81c3a15359c542a8699",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4141fe7ee031e81c3a15359c542a8699",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793599200000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4141fe7ee031e81c3a15359c542a8699",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793599335000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResultType": "failed, succeeded"
+            },
+            "durationMillis": 135000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4201827b793d81ed850f86342bdc9817",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "canceled",
+                "trigger_name": "ui",
+                "units": "0",
+                "rpu": "0",
+                "target_name": "CUSTOMERS",
+                "run_group_id": "f0000000000000000000000000000030"
+            },
+            "name": "f0000000000000000000000000000030",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1793439000000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4201827b793d81ed850f86342bdc9817",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4201827b793d81ed850f86342bdc9817",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793439000000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4201827b793d81ed850f86342bdc9817",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793439020000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SKIPPED",
+                "nativeResultType": "canceled"
+            },
+            "durationMillis": 20000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:6efce081316b3d9dca02eb12b46820e9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "succeeded",
+                "trigger_name": "logic",
+                "units": "1.25",
+                "rpu": "1.25",
+                "target_name": "ORDERS_SUMMARY",
+                "run_group_id": "f0000000000000000000000000000011"
+            },
+            "name": "f0000000000000000000000000000011",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1793512860000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:6efce081316b3d9dca02eb12b46820e9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4b1de83529098c6db5,PROD),load)",
+            "parentInstance": "urn:li:dataProcessInstance:aa75ef8bb679c945c65081cc4ceee6bf",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:6efce081316b3d9dca02eb12b46820e9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793512860000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:6efce081316b3d9dca02eb12b46820e9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793512990000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "succeeded"
+            },
+            "durationMillis": 130000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:10bad83bb06ffbb61a14adaffcc0bf13",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "running",
+                "trigger_name": "scheduled",
+                "units": "0",
+                "rpu": "0",
+                "run_group_id": "f0000000000000000000000000000002"
+            },
+            "name": "f0000000000000000000000000000002",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1793706900000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:10bad83bb06ffbb61a14adaffcc0bf13",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:10bad83bb06ffbb61a14adaffcc0bf13",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793706900000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a013e517d47942cdcc4e0b8041244359",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "failed",
+                "trigger_name": "api",
+                "units": "0",
+                "rpu": "0",
+                "error_description": "Container DH Test - Main container failed: Step DH Test - Insert RNA summary failed: 'Dropping Table DH_TEST_DB.ANALYTICS.tmp_2aef4d6067_RNA_SUMMARY Failed: Connection error to Snowflake. Please check your username, password and account name. Extra details: (\\'HY000\\', \"[HY000] [Snowflake][Snowflake] (4) \\\\n      REST request for URL *** failed: HTTP error (http error) - code=404 Verify that the hostnames and portnumbers in SYSTEM$ALLOWLIST are added to your firewall\\'s allowed list. To further ",
+                "run_group_id": "a549ebf30f6d4c4da68d99c4440a5619"
+            },
+            "name": "a549ebf30f6d4c4da68d99c4440a5619",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1793662848000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a013e517d47942cdcc4e0b8041244359",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a013e517d47942cdcc4e0b8041244359",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793662848000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a013e517d47942cdcc4e0b8041244359",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793662860000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResultType": "failed"
+            },
+            "durationMillis": 12000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ce738a315c69050ad411da93f8ef31d4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "failed",
+                "trigger_name": "api",
+                "units": "0",
+                "rpu": "0",
+                "error_description": "Container DH Test - Main container failed: Step DH Test - Insert RNA summary failed: 'Dropping Table DH_TEST_DB.ANALYTICS.tmp_fc7d9db4a7_RNA_SUMMARY Failed: Connection error to Snowflake. Please check your username, password and account name. Extra details: (\\'HY000\\', \"[HY000] [Snowflake][Snowflake] (4) \\\\n      REST request for URL *** failed: HTTP error (http error) - code=404 Verify that the hostnames and portnumbers in SYSTEM$ALLOWLIST are added to your firewall\\'s allowed list. To further ",
+                "run_group_id": "0cc6cb3e43364dada7a0fab1cf6183a4"
+            },
+            "name": "0cc6cb3e43364dada7a0fab1cf6183a4",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1793650615000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ce738a315c69050ad411da93f8ef31d4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ce738a315c69050ad411da93f8ef31d4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793650615000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ce738a315c69050ad411da93f8ef31d4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793650627000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResultType": "failed"
+            },
+            "durationMillis": 12000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0353cd5272fd15ff17de420206e0712b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "failed",
+                "trigger_name": "api",
+                "units": "0",
+                "rpu": "0",
+                "error_description": "Container DH Test - Main container failed: Step DH Test - Insert RNA summary failed: 'Dropping Table DH_TEST_DB.ANALYTICS.tmp_7d55b493c1_RNA_SUMMARY Failed: Connection error to Snowflake. Please check your username, password and account name. Extra details: (\\'HY000\\', \"[HY000] [Snowflake][Snowflake] (4) \\\\n      REST request for URL *** failed: HTTP error (http error) - code=404 Verify that the hostnames and portnumbers in SYSTEM$ALLOWLIST are added to your firewall\\'s allowed list. To further ",
+                "run_group_id": "568e702e15434af49db292336c7bac30"
+            },
+            "name": "568e702e15434af49db292336c7bac30",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1793650562000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0353cd5272fd15ff17de420206e0712b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0353cd5272fd15ff17de420206e0712b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793650562000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0353cd5272fd15ff17de420206e0712b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793650578000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResultType": "failed"
+            },
+            "durationMillis": 16000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:aa75ef8bb679c945c65081cc4ceee6bf",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "succeeded",
+                "trigger_name": "scheduled",
+                "units": "0",
+                "rpu": "0",
+                "run_group_id": "f0000000000000000000000000000001"
+            },
+            "name": "f0000000000000000000000000000001",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1793512800000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:aa75ef8bb679c945c65081cc4ceee6bf",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:aa75ef8bb679c945c65081cc4ceee6bf",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793512800000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:aa75ef8bb679c945c65081cc4ceee6bf",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793513070000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "succeeded"
+            },
+            "durationMillis": 270000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:5cbdf2b2ef1be2af22ee0527ee780a00",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "succeeded",
+                "trigger_name": "scheduled",
+                "units": "0.1",
+                "rpu": "0.1",
+                "run_group_id": "f0000000000000000000000000000041"
+            },
+            "name": "f0000000000000000000000000000041",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1793671200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:5cbdf2b2ef1be2af22ee0527ee780a00",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD),run)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:5cbdf2b2ef1be2af22ee0527ee780a00",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793671200000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:5cbdf2b2ef1be2af22ee0527ee780a00",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1793671209000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "succeeded"
+            },
+            "durationMillis": 9000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0353cd5272fd15ff17de420206e0712b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:10bad83bb06ffbb61a14adaffcc0bf13",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4141fe7ee031e81c3a15359c542a8699",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4201827b793d81ed850f86342bdc9817",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:5cbdf2b2ef1be2af22ee0527ee780a00",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:6efce081316b3d9dca02eb12b46820e9",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a013e517d47942cdcc4e0b8041244359",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:aa75ef8bb679c945c65081cc4ceee6bf",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ce738a315c69050ad411da93f8ef31d4",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
 }
 ]

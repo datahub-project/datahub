@@ -37,5 +37,12 @@ class BoomiDataIntegrationSourceReport(StaleEntityRemovalSourceReport):
     targets_missing_bigquery_project: LossyList[str] = field(default_factory=LossyList)
     targets_prefix_skipped: LossyList[str] = field(default_factory=LossyList)
 
+    runs_scanned: int = 0
+    runs_emitted: int = 0
+    runs_over_cap: int = 0
+    runs_river_not_emitted: int = 0
+    runs_unknown_status: int = 0
+    runs_unavailable_environments: LossyList[str] = field(default_factory=LossyList)
+
     def report_api_call(self) -> None:
         self.api_calls += 1

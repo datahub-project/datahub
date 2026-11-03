@@ -136,3 +136,56 @@ class ConditionBranch(DIModel):
     condition_name: Optional[str] = None
     is_else: bool = False
     step: Optional[object] = None
+
+
+class Activity(DIModel):
+    cross_id: str
+    river_id: Optional[str] = None
+    master_river_id: Optional[str] = None
+    is_sub_river: bool = False
+    pending: int = 0
+    failed: int = 0
+    running: int = 0
+    succeeded: int = 0
+    canceled: int = 0
+
+    @property
+    def emitted_river_id(self) -> str:
+        # A sub river is ingested as part of its master river.
+        if self.is_sub_river and self.master_river_id:
+            return self.master_river_id
+        return self.river_id or self.cross_id
+
+    @property
+    def run_count(self) -> int:
+        return (
+            self.pending + self.failed + self.running + self.succeeded + self.canceled
+        )
+
+
+class TriggerEvent(DIModel):
+    trigger_name: Optional[str] = None
+    run_id: Optional[str] = None
+
+
+class RiverRun(DIModel):
+    run_id: str
+    river_cross_id: str
+    status: str
+    datasource_id: Optional[str] = None
+    start_date_in_milliseconds: int
+    end_date_in_milliseconds: Optional[int] = None
+    run_group_id: Optional[str] = None
+    error_description: Optional[str] = None
+    units: Optional[float] = None
+    rpu: Optional[float] = None
+    target_name: Optional[str] = None
+    sub_river_id: Optional[str] = None
+    is_sub_river_run: bool = False
+    trigger_name: Optional[str] = None
+    triggered_by_run_id: Optional[str] = None
+    trigger_chain: Optional[List[TriggerEvent]] = None
+
+    @property
+    def group_id(self) -> str:
+        return self.run_group_id or self.run_id

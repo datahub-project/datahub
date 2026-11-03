@@ -1,5 +1,6 @@
 from typing import Dict, FrozenSet, Tuple
 
+from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.utilities.str_enum import StrEnum
 
 PLATFORM = "boomi-data-integration"
@@ -34,13 +35,22 @@ ENVIRONMENTS_PATH = "environments"
 ENVIRONMENT_PATH_TEMPLATE = "environments/{environment_id}"
 RIVERS_PATH_TEMPLATE = "environments/{environment_id}/rivers"
 RIVER_PATH_TEMPLATE = "environments/{environment_id}/rivers/{river_id}"
+ACTIVITIES_PATH_TEMPLATE = "environments/{environment_id}/activities"
+RIVER_RUNS_PATH_TEMPLATE = "environments/{environment_id}/rivers/{river_id}/runs"
 
 PARAM_PAGE = "page"
 PARAM_ITEMS_PER_PAGE = "items_per_page"
+PARAM_START_TIME = "start_time"
+PARAM_END_TIME = "end_time"
+# UTC without a zone suffix; the API rejects a bare date with HTTP 422.
+RUN_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 # The API caps items_per_page at 500 on every list endpoint.
 ENVIRONMENTS_PAGE_SIZE = 100
 RIVERS_PAGE_SIZE = 500
 RIVERS_PROBE_PAGE_SIZE = 1
+# The activities and runs endpoints cap items_per_page at 200.
+ACTIVITIES_PAGE_SIZE = 200
+RUNS_PAGE_SIZE = 200
 # Guards against an API that keeps returning a next_page link; 500 pages of
 # 500 rivers is far beyond any real environment.
 MAX_PAGES = 500
@@ -167,9 +177,49 @@ PROP_CALLED_RIVER_ID = "river_id"
 PROP_ENVIRONMENT_ID = "environment_id"
 PROP_IS_DEFAULT = "is_default"
 PROP_GROUP_ID = "group_id"
+PROP_RUN_STATUS = "status"
+PROP_TRIGGER_NAME = "trigger_name"
+PROP_UNITS = "units"
+PROP_RPU = "rpu"
+PROP_ERROR_DESCRIPTION = "error_description"
+PROP_RUN_TARGET_NAME = "target_name"
+PROP_TABLE_COUNT = "table_count"
+PROP_RUN_GROUP_ID = "run_group_id"
+PROP_SUB_RIVER_ID = "sub_river_id"
 SCHEDULE_SEPARATOR = ", "
 
 UNREACHABLE_ENVIRONMENTS_TEMPLATE = (
     "Environments that could not be read: {environments}"
 )
 UNREACHABLE_SEPARATOR = "; "
+
+# Run logs are kept for two weeks.
+MAX_RUN_HISTORY_DAYS = 14
+DEFAULT_RUN_HISTORY_DAYS = 7
+DEFAULT_MAX_RUNS_PER_RIVER = 50
+MAX_ERROR_DESCRIPTION_LENGTH = 500
+VALUE_SEPARATOR = ", "
+
+
+class RunStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELED = "canceled"
+    SKIPPED = "skipped"
+
+
+RUN_STATUSES_IN_PROGRESS: FrozenSet[str] = frozenset(
+    {RunStatus.PENDING, RunStatus.RUNNING}
+)
+RUN_STATUSES_SKIPPED: FrozenSet[str] = frozenset(
+    {RunStatus.CANCELED, RunStatus.SKIPPED}
+)
+RUN_STATUS_RESULTS: Dict[str, InstanceRunResult] = {
+    RunStatus.SUCCEEDED: InstanceRunResult.SUCCESS,
+    RunStatus.FAILED: InstanceRunResult.FAILURE,
+    RunStatus.CANCELED: InstanceRunResult.SKIPPED,
+    RunStatus.SKIPPED: InstanceRunResult.SKIPPED,
+}
+SCHEDULED_TRIGGERS: FrozenSet[str] = frozenset({"scheduled", "rescheduled"})

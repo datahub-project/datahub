@@ -1,11 +1,15 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Set, Union
 
 import requests
 from pydantic import SecretStr, ValidationError
 
+from datahub.api.entities.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    DataProcessInstanceKey,
+)
 from datahub.emitter.mce_builder import make_data_job_urn_with_flow
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
@@ -74,6 +78,11 @@ from datahub.ingestion.source.boomi_data_integration.river_parser import (
     flatten_logic_steps,
     parse_source_to_target,
 )
+from datahub.ingestion.source.boomi_data_integration.run_history import (
+    RunGroup,
+    RunSelection,
+    select_recent_runs,
+)
 from datahub.ingestion.source.common.subtypes import (
     DataFlowSubTypes,
     DataJobSubTypes,
@@ -83,6 +92,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import DataJobInputOutputClass
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn, DataProcessInstanceUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -92,6 +102,7 @@ logger = logging.getLogger(__name__)
 
 STAGE_ENVIRONMENTS = "Environments"
 STAGE_RIVERS = "Rivers"
+STAGE_RUNS = "Runs"
 
 _API_ERRORS = (BoomiDataIntegrationApiError, requests.RequestException, ValueError)
 
@@ -108,6 +119,10 @@ class BoomiDIGroupKey(BoomiDIEnvironmentKey):
 class EnvironmentAccess:
     environment: Environment
     token: SecretStr
+
+
+# river_cross_id -> the flow or job each run of that river instantiates.
+RunTemplates = Dict[str, Union[DataFlowUrn, DataJobUrn]]
 
 
 @dataclass
@@ -197,6 +212,7 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
         self.report = BoomiDataIntegrationSourceReport()
         self.client = BoomiDataIntegrationClient(config, self.report)
         self.lineage = TargetLineageResolver(config, self.report)
+        self._unknown_run_statuses: Set[str] = set()
 
     @classmethod
     def create(
@@ -246,9 +262,17 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         with self.report.new_stage(STAGE_ENVIRONMENTS):
             environments = self._discover_environments()
+        run_templates: Dict[str, RunTemplates] = {}
         with self.report.new_stage(STAGE_RIVERS):
             for access in environments:
-                yield from self._process_environment(access)
+                templates = run_templates.setdefault(access.environment.cross_id, {})
+                yield from self._process_environment(access, templates)
+        if self.config.include_run_history:
+            with self.report.new_stage(STAGE_RUNS):
+                for access in environments:
+                    yield from self._emit_runs(
+                        access, run_templates[access.environment.cross_id]
+                    )
         if self.report.rivers_without_definition:
             self.report.warning(
                 title="River definitions unavailable",
@@ -358,7 +382,9 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             group_id=group_id,
         )
 
-    def _process_environment(self, access: EnvironmentAccess) -> Iterable[Entity]:
+    def _process_environment(
+        self, access: EnvironmentAccess, templates: RunTemplates
+    ) -> Iterable[Entity]:
         environment = access.environment
         try:
             summaries = sorted(
@@ -410,7 +436,7 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                     yield group
                 parent = groups[summary.group_id]
             try:
-                yield from self._river_entities(access, summary, parent)
+                yield from self._river_entities(access, summary, parent, templates)
                 self.report.rivers_emitted += 1
             except Exception as e:
                 self.report.warning(
@@ -464,6 +490,7 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
         access: EnvironmentAccess,
         summary: RiverSummary,
         parent: Container,
+        templates: RunTemplates,
     ) -> Iterable[Entity]:
         river = self._fetch_river(access, summary)
         river_type = river.type if river is not None else summary.river_type
@@ -507,6 +534,9 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             ),
         )
         yield flow
+        # A logic river run spans every step, so it instantiates the river's
+        # flow; other rivers run as their single load or run job.
+        template: Union[DataFlowUrn, DataJobUrn] = flow.urn
         for spec in jobs:
             # An empty input/output aspect would overwrite lineage added in the
             # UI or by other sources, so it is only written when there is some.
@@ -522,7 +552,7 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                         ],
                     )
                 )
-            yield DataJob(
+            job = DataJob(
                 name=spec.name,
                 flow=flow,
                 display_name=spec.display_name,
@@ -530,6 +560,10 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                 custom_properties=spec.custom_properties,
                 extra_aspects=io_aspects,
             )
+            if river_type != RiverType.LOGIC and spec.name in (LOAD_JOB_ID, RUN_JOB_ID):
+                template = job.urn
+            yield job
+        templates[summary.river_cross_id] = template
 
     def _job_specs(
         self,
@@ -631,4 +665,150 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             outputs=outputs,
             upstream_jobs=job.upstream_step_ids,
             custom_properties=properties,
+        )
+
+    def _emit_runs(
+        self, access: EnvironmentAccess, templates: RunTemplates
+    ) -> Iterable[MetadataWorkUnit]:
+        if not templates:
+            return
+        environment_id = access.environment.cross_id
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(days=self.config.run_history_days)
+        # Activities summarise the window per river, so runs are only listed
+        # for rivers that actually ran.
+        ran: Set[str] = set()
+        try:
+            for activity in self.client.list_activity_summaries(
+                environment_id, access.token, start, end
+            ):
+                river_id = activity.emitted_river_id
+                if river_id in templates:
+                    ran.add(river_id)
+                else:
+                    self.report.runs_river_not_emitted += activity.run_count
+        except _API_ERRORS as e:
+            self._report_runs_unavailable(environment_id, e)
+            return
+
+        selections: Dict[str, RunSelection] = {}
+        for river_id in sorted(ran):
+            try:
+                selection = select_recent_runs(
+                    self.client.list_river_runs(
+                        environment_id, river_id, access.token, start, end
+                    ),
+                    self.config.max_runs_per_river,
+                )
+            except _API_ERRORS as e:
+                if _is_access_denied(e):
+                    self._report_runs_unavailable(environment_id, e)
+                    return
+                self.report.failure(
+                    title="Failed to list river runs",
+                    message="Run history for this river is skipped.",
+                    context=f"environment_id={environment_id}, river_cross_id={river_id}",
+                    exc=e,
+                )
+                continue
+            self.report.runs_scanned += selection.scanned
+            self.report.runs_over_cap += selection.over_cap
+            selections[river_id] = selection
+
+        # A logic river triggers other rivers, whose runs name the logic run
+        # that started them.
+        run_groups: Dict[str, str] = {
+            run_id: group.group_id
+            for selection in selections.values()
+            for group in selection.groups
+            for run_id in group.run_ids
+        }
+        for river_id in sorted(selections):
+            for group in selections[river_id].groups:
+                yield from self._run_workunits(group, templates[river_id], run_groups)
+                self.report.runs_emitted += 1
+
+    def _report_runs_unavailable(self, environment_id: str, error: Exception) -> None:
+        self.report.runs_unavailable_environments.append(environment_id)
+        context = f"environment_id={environment_id}"
+        if _is_access_denied(error):
+            self.report.warning(
+                title="Cannot read Boomi Data Integration run history",
+                message=(
+                    "The API token lacks the activity:list scope, so run history "
+                    "is skipped for this environment."
+                ),
+                context=context,
+                exc=error,
+            )
+        else:
+            self.report.failure(
+                title="Failed to list Boomi Data Integration activities",
+                message="Run history is skipped for this environment.",
+                context=context,
+                exc=error,
+            )
+
+    def _run_workunits(
+        self,
+        group: RunGroup,
+        template: Union[DataFlowUrn, DataJobUrn],
+        run_groups: Dict[str, str],
+    ) -> Iterable[MetadataWorkUnit]:
+        unknown = group.unknown_statuses
+        if unknown:
+            self.report.runs_unknown_status += 1
+            for status in sorted(unknown - self._unknown_run_statuses):
+                self._unknown_run_statuses.add(status)
+                self.report.warning(
+                    title="Unknown Boomi Data Integration run status",
+                    message="Runs with this status are emitted with a start event only.",
+                    context=f"status={status}",
+                )
+        parent_group = (
+            run_groups.get(group.triggered_by_run_id)
+            if group.triggered_by_run_id
+            else None
+        )
+        dpi = DataProcessInstance(
+            id=group.group_id,
+            orchestrator=PLATFORM,
+            cluster=self.config.env,
+            type=group.run_type,
+            template_urn=template,
+            parent_instance=(
+                self._run_urn(parent_group)
+                if parent_group and parent_group != group.group_id
+                else None
+            ),
+            properties=group.properties(),
+            data_platform_instance=self.config.platform_instance,
+        )
+        start_millis = group.start_millis
+        for mcp in dpi.generate_mcp(
+            created_ts_millis=start_millis, materialize_iolets=False
+        ):
+            yield mcp.as_workunit()
+        for mcp in dpi.start_event_mcp(start_millis):
+            yield mcp.as_workunit()
+        result = group.result
+        if result is None:
+            return
+        end_millis = group.end_millis
+        # Without an end time the result is recorded at the start time with no
+        # duration rather than a made-up one.
+        for mcp in dpi.end_event_mcp(
+            end_timestamp_millis=end_millis if end_millis is not None else start_millis,
+            result=result,
+            result_type=group.status,
+            start_timestamp_millis=start_millis if end_millis is not None else None,
+        ):
+            yield mcp.as_workunit()
+
+    def _run_urn(self, group_id: str) -> DataProcessInstanceUrn:
+        # The key DataProcessInstance hashes, so the URN matches that run's own.
+        return DataProcessInstanceUrn(
+            DataProcessInstanceKey(
+                cluster=self.config.env, orchestrator=PLATFORM, id=group_id
+            ).guid()
         )

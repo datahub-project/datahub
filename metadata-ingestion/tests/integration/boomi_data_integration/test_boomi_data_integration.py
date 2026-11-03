@@ -25,7 +25,9 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 # Production responses are anonymised captures from a live trial account.
 # Development responses are synthetic, built from the same shapes, for cases
 # the API cannot create: actions rivers, rivers made in the console (whose GET
-# returns 400), loop containers, and other target types.
+# returns 400), loop containers, and other target types. The three failed logic
+# runs are live; the other runs are synthetic: a multi-table run, a canceled
+# run, a run still in progress, and a river run triggered by a logic run.
 RESPONSES_DIR = Path(__file__).parent / "api_responses"
 
 ENV_PROD = "e00000000000000000000001"
@@ -74,6 +76,16 @@ def _register_mocks(
                 mock.get(url, json=_load(definition.name))
             else:
                 mock.get(url, status_code=400, json=_load("river_get_400.json"))
+            runs = RESPONSES_DIR / f"runs_{river_id}.json"
+            if runs.exists():
+                mock.get(f"{url}/runs", json=_load(runs.name))
+    for environment_id, name in [
+        (ENV_PROD, "activities_production.json"),
+        (ENV_DEV, "activities_development.json"),
+    ]:
+        mock.get(
+            f"{BASE_URL}/environments/{environment_id}/activities", json=_load(name)
+        )
 
 
 def _recipe(output_path: Path) -> Dict[str, object]:
@@ -136,6 +148,10 @@ def test_boomi_data_integration_ingestion(
     assert report.targets_object_storage_skipped == 1
     assert len(report.targets_prefix_skipped) == 1
     assert [w.title for w in report.warnings] == ["River definitions unavailable"]
+    assert report.runs_scanned == 11
+    assert report.runs_emitted == 9
+    assert report.runs_river_not_emitted == 2
+    assert report.runs_unknown_status == 0
 
     mce_helpers.check_golden_file(
         pytestconfig,
