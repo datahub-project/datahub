@@ -3,19 +3,19 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
-import {
-    getFilteredCustomProperties,
-    mapCustomPropertiesToPropertyRows,
-} from '@app/entity/shared/tabs/Properties/utils';
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
 import TabHeader from '@app/entityV2/shared/tabs/Properties/TabHeader';
 import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import useUpdateExpandedRowsFromFilter from '@app/entityV2/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
-import { filterHiddenProperties } from '@app/entityV2/shared/tabs/Properties/utils';
+import {
+    filterHiddenProperties,
+    getFilteredCustomProperties,
+    mapCustomPropertiesToPropertyRows,
+} from '@app/entityV2/shared/tabs/Properties/utils';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import Loading from '@app/sharedV2/Loading';
 import { useEntityRegistry } from '@app/useEntityRegistry';

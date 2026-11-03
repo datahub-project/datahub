@@ -18,8 +18,8 @@ import {
     STRUCTURED_PROPERTIES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/search/utils/constants';
+import { stripMarkdown } from '@app/sharedV2/stripMarkdown';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
-import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
 import { DATE_TYPE_URN } from '@src/app/sharedV2/constants';
 import dayjs from '@utils/dayjs';
 
@@ -249,5 +249,5 @@ function getStructuredPropFilterDisplayName(field: string, value: string, entity
         return parseFloat(value).toString();
     }
 
-    return removeMarkdown(value);
+    return stripMarkdown(value);
 }

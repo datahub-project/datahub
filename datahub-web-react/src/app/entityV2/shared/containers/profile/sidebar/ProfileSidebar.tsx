@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { EntitySidebar } from '@app/entity/shared/containers/profile/sidebar/EntitySidebar';
-import { ProfileSidebarResizer } from '@app/entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import { ProfileSidebarResizer } from '@app/entityV2/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import { ProfileSidebarSections } from '@app/entityV2/shared/containers/profile/sidebar/ProfileSidebarSections';
 import { EntitySidebarSection } from '@app/entityV2/shared/types';
 
 const MAX_SIDEBAR_WIDTH = 800;
@@ -47,7 +47,7 @@ export default function ProfileSidebar({ sidebarSections, backgroundColor, topSe
             <>
                 <Sidebar $width={sidebarWidth} backgroundColor={backgroundColor} id="entity-profile-sidebar">
                     <ScrollWrapper>
-                        <EntitySidebar
+                        <ProfileSidebarSections
                             sidebarSections={sideBarSectionsWithDefaults}
                             topSection={topSection}
                             loading={loading}
@@ -75,7 +75,7 @@ export default function ProfileSidebar({ sidebarSections, backgroundColor, topSe
             />
             <Sidebar $width={sidebarWidth} backgroundColor={backgroundColor} id="entity-profile-sidebar">
                 <ScrollWrapper>
-                    <EntitySidebar
+                    <ProfileSidebarSections
                         sidebarSections={sideBarSectionsWithDefaults}
                         topSection={topSection}
                         loading={loading}
