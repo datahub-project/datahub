@@ -495,6 +495,22 @@ class CloudTrailLakeClient:
         self._client = client
         self.report = report
 
+    def _cancel(
+        self, query_id: str, event_data_store: str, owner: Dict[str, str]
+    ) -> None:
+        # A query the run gave up on keeps scanning, and Lake bills per GB scanned.
+        try:
+            self._client.cancel_query(
+                EventDataStore=event_data_store, QueryId=query_id, **owner
+            )
+        except (ClientError, BotoCoreError) as e:
+            self.report.warning(
+                title="CloudTrail Lake query not cancelled",
+                message="The timed-out query may keep scanning until it finishes.",
+                context=f"query={query_id}: {aws_error_code(e)}",
+                exc=e,
+            )
+
     def run_query(
         self,
         statement: str,
@@ -532,6 +548,7 @@ class CloudTrailLakeClient:
                             message="No producer lineage this run; raise query_timeout_seconds.",
                             context=f"query={query_id}",
                         )
+                        self._cancel(query_id, event_data_store, owner)
                         return None
                     time.sleep(QUERY_POLL_SECONDS)
                     continue

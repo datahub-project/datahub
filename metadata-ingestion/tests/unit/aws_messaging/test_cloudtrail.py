@@ -97,6 +97,35 @@ def test_failed_query_is_a_warning() -> None:
     assert report.warnings
 
 
+def test_timed_out_query_is_cancelled() -> None:
+    # A query left running keeps scanning, and Lake bills per GB scanned.
+    client = boto3.client(
+        "cloudtrail",
+        region_name=REGION,
+        aws_access_key_id="testing",
+        aws_secret_access_key="testing",
+    )
+    report = SqsSourceReport()
+    with Stubber(client) as stubber:
+        stubber.add_response("start_query", {"QueryId": QUERY_ID})
+        stubber.add_response(
+            "get_query_results",
+            {"QueryStatus": "RUNNING"},
+            {"EventDataStore": STORE, "QueryId": QUERY_ID},
+        )
+        stubber.add_response(
+            "cancel_query",
+            {"QueryId": QUERY_ID, "QueryStatus": "CANCELLED"},
+            {"EventDataStore": STORE, "QueryId": QUERY_ID},
+        )
+        assert (
+            CloudTrailLakeClient(client, report).run_query("SELECT 1", STORE, -1)
+            is None
+        )
+        stubber.assert_no_pending_responses()
+    assert [w.title for w in report.warnings] == ["CloudTrail Lake query timed out"]
+
+
 def upserted_properties(workunits: List[Any]) -> List[Dict[str, str]]:
     return [
         wu.metadata.aspect.customProperties
