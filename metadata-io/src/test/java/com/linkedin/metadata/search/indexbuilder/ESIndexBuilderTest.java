@@ -24,6 +24,7 @@ import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexTaskReport;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -117,6 +118,14 @@ public class ESIndexBuilderTest {
   void setUp() {
     MockitoAnnotations.openMocks(this);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    try {
+      // The default implementation fetches through performLowLevelRequest, which tests stub.
+      when(searchClient.getRawTask(
+              any(OperationFingerprint.class), any(String.class), any(RequestOptions.class)))
+          .thenCallRealMethod();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
 
     // Mock the JVM info response
     try {
@@ -3599,6 +3608,233 @@ public class ESIndexBuilderTest {
         requests.getAllValues().get(1).getParameters().get("_source_includes").endsWith(field));
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // Ported from #18570 (TaskFailureParserTest and its ESIndexBuilderTest poll cases): same
+  // fixtures, asserted against logReindexFailureDiagnostics and pollReindexCompletion.
+  // ---------------------------------------------------------------------------------------------
+
+  private static final String PORTED_SAMPLE_TASK_JSON =
+      "{"
+          + "\"completed\":true,"
+          + "\"task\":{\"node\":\"node1\",\"id\":123,\"type\":\"transport\","
+          + "\"action\":\"indices:data/write/reindex\"},"
+          + "\"response\":{"
+          + "\"took\":100,"
+          + "\"total\":5,"
+          + "\"created\":3,"
+          + "\"failures\":["
+          + "{\"index\":\"my_index\",\"id\":\"doc1\",\"cause\":{\"type\":\"mapper_parsing_exception\","
+          + "\"reason\":\"failed to parse field [foo]\"},\"status\":400,\"shard\":2}"
+          + "]"
+          + "}"
+          + "}";
+
+  private String diagnosticsLogs(List<String> taskIds) {
+    ch.qos.logback.classic.Logger builderLogger =
+        (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ESIndexBuilder.class);
+    ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> logAppender =
+        new ch.qos.logback.core.read.ListAppender<>();
+    logAppender.start();
+    builderLogger.addAppender(logAppender);
+    try {
+      indexBuilder.logReindexFailureDiagnostics(opContext, "source", "dest", taskIds);
+    } finally {
+      builderLogger.detachAppender(logAppender);
+    }
+    return logAppender.list.stream()
+        .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+        .collect(java.util.stream.Collectors.joining("\n"));
+  }
+
+  @Test
+  void testPortedDiagnosticsLogsSampleTaskFailure() throws IOException {
+    RawResponse stubbed1 = rawResponse(PORTED_SAMPLE_TASK_JSON);
+    RawResponse stubbed2 = rawResponse("{\"_source\": {}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(stubbed1)
+        .thenReturn(stubbed2);
+
+    String logs = diagnosticsLogs(List.of("node1:123"));
+
+    assertTrue(logs.contains("document=doc1"), logs);
+    assertTrue(logs.contains("status=400"), logs);
+    assertTrue(logs.contains("field=foo"), logs);
+    assertTrue(logs.contains("mapper_parsing_exception: failed to parse field [foo]"), logs);
+    assertFalse(logs.toLowerCase().contains("raw task response"), logs);
+  }
+
+  @Test
+  void testPortedDiagnosticsEmptyTaskBodyMovesOn() throws IOException {
+    RawResponse stubbed1 = rawResponse("");
+    RawResponse stubbed2 = rawResponse(PORTED_SAMPLE_TASK_JSON);
+    RawResponse stubbed3 = rawResponse("{\"_source\": {}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(stubbed1)
+        .thenReturn(stubbed2)
+        .thenReturn(stubbed3);
+
+    String logs = diagnosticsLogs(List.of("node1:1", "node1:2"));
+
+    assertTrue(logs.contains("Could not parse reindex task node1:1"), logs);
+    assertTrue(logs.contains("document=doc1"), logs);
+  }
+
+  @Test
+  void testPortedDiagnosticsMissingFailuresNode() throws IOException {
+    RawResponse stubbed1 =
+        rawResponse("{\"completed\":true,\"response\":{\"took\":100,\"total\":5}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(stubbed1);
+
+    String logs = diagnosticsLogs(List.of("node1:123"));
+
+    assertTrue(logs.contains("Reindex task node1:123 reported no failures"), logs);
+  }
+
+  @Test
+  void testPortedDiagnosticsMalformedTaskJsonLogsRawSnippet() throws IOException {
+    RawResponse stubbed1 = rawResponse("{not valid json");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(stubbed1);
+
+    String logs = diagnosticsLogs(List.of("node1:123"));
+
+    assertTrue(logs.contains("{not valid json"), logs);
+  }
+
+  @Test
+  void testPortedDiagnosticsRawSnippetIsTruncated() throws IOException {
+    RawResponse stubbed1 = rawResponse("y".repeat(5000));
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(stubbed1);
+
+    String logs = diagnosticsLogs(List.of("node1:123"));
+
+    assertTrue(logs.contains("y".repeat(100)), "raw snippet is logged");
+    assertFalse(logs.contains("y".repeat(1001)), "raw snippet is capped");
+  }
+
+  @Test
+  void testPortedDiagnosticsTruncatesLongReason() throws IOException {
+    String json =
+        "{\"response\":{\"failures\":[{\"index\":\"i\",\"shard\":0,\"cause\":{\"type\":\"t\","
+            + "\"reason\":\""
+            + "x".repeat(600)
+            + "\"}}]}}";
+    RawResponse stubbed1 = rawResponse(json);
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(stubbed1);
+
+    String logs = diagnosticsLogs(List.of("node1:123"));
+
+    assertTrue(logs.contains("x".repeat(100)), logs.length() > 300 ? "reason logged" : logs);
+    assertFalse(logs.contains("x".repeat(501)), "reason is capped");
+  }
+
+  @Test
+  void testPortedDiagnosticsCapKeepsTotalCount() throws IOException {
+    StringBuilder failures = new StringBuilder();
+    for (int i = 0; i < 25; i++) {
+      failures
+          .append(i == 0 ? "" : ",")
+          .append("{\"index\":\"i\",\"shard\":")
+          .append(i)
+          .append(",\"cause\":{\"type\":\"t\",\"reason\":\"r\"}}");
+    }
+    RawResponse stubbed1 = rawResponse("{\"response\":{\"failures\":[" + failures + "]}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(stubbed1);
+
+    String logs = diagnosticsLogs(List.of("node1:123"));
+
+    assertTrue(logs.contains("shard 0"), logs);
+    assertTrue(logs.contains("shard 19"), logs);
+    assertFalse(logs.contains("shard 20,"), logs);
+    assertTrue(logs.contains("20 of 25"), "the total count is reported when capped:\n" + logs);
+  }
+
+  private void stubPortedPollCounts(long destCount) throws IOException {
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(destCount);
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+  }
+
+  @Test
+  void testPortedPollHappyPathDoesNotFetchTaskFailures() throws Throwable {
+    stubPortedPollCounts(100L);
+    ESIndexBuilder spyBuilder = org.mockito.Mockito.spy(indexBuilder);
+
+    ESIndexBuilder.PollReindexResult pollResult =
+        spyBuilder.pollReindexCompletion(
+            opContext, "source_index", "dest_index", () -> 100L, 1, new HashMap<>(), "node1:999");
+
+    assertTrue(pollResult.completed());
+    verify(spyBuilder, org.mockito.Mockito.never())
+        .logReindexFailureDiagnostics(any(OperationContext.class), any(), any(), any());
+    verify(searchClient, org.mockito.Mockito.never())
+        .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
+  }
+
+  @Test
+  void testPortedPollTimeoutFetchesFailuresOnce() throws Throwable {
+    stubPortedPollCounts(50L);
+    ESIndexBuilder spyBuilder = org.mockito.Mockito.spy(indexBuilder);
+    org.mockito.Mockito.doReturn(System.currentTimeMillis() - 1000L)
+        .when(spyBuilder)
+        .computeTimeoutAt();
+    RawResponse stubbed1 = rawResponse(PORTED_SAMPLE_TASK_JSON);
+    RawResponse stubbed2 = rawResponse("{\"_source\": {}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(stubbed1)
+        .thenReturn(stubbed2);
+
+    ESIndexBuilder.PollReindexResult pollResult =
+        spyBuilder.pollReindexCompletion(
+            opContext, "source_index", "dest_index", () -> 100L, 1, new HashMap<>(), "node1:999");
+
+    assertFalse(pollResult.completed());
+    verify(spyBuilder, times(1))
+        .logReindexFailureDiagnostics(
+            any(OperationContext.class),
+            org.mockito.ArgumentMatchers.eq("source_index"),
+            org.mockito.ArgumentMatchers.eq("dest_index"),
+            org.mockito.ArgumentMatchers.argThat(ids -> ids.contains("node1:999")));
+    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
+    verify(searchClient, org.mockito.Mockito.atLeastOnce())
+        .performLowLevelRequest(any(OperationFingerprint.class), requests.capture());
+    assertEquals(
+        requests.getAllValues().stream()
+            .filter(r -> r.getEndpoint().equals("/_tasks/node1:999"))
+            .count(),
+        1L);
+  }
+
+  @Test
+  void testPortedPollTimeoutLookupThrowStillReturnsIncomplete() throws Throwable {
+    stubPortedPollCounts(50L);
+    ESIndexBuilder spyBuilder = org.mockito.Mockito.spy(indexBuilder);
+    org.mockito.Mockito.doReturn(System.currentTimeMillis() - 1000L)
+        .when(spyBuilder)
+        .computeTimeoutAt();
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenThrow(new RuntimeException("task status unavailable"));
+
+    ESIndexBuilder.PollReindexResult pollResult =
+        spyBuilder.pollReindexCompletion(
+            opContext, "source_index", "dest_index", () -> 100L, 1, new HashMap<>(), "node1:888");
+
+    assertFalse(
+        pollResult.completed(),
+        "timed-out poll stays incomplete; a throwing failure lookup must not abort it");
+  }
+
   private static RawResponse rawResponse(String json) throws IOException {
     RawResponse response = mock(RawResponse.class);
     HttpEntity entity = mock(HttpEntity.class);
@@ -3612,18 +3848,18 @@ public class ESIndexBuilderTest {
     String reason =
         "failed to parse field [f]. Preview of field's value: '" + "x".repeat(150) + "'";
     assertEquals(
-        ESIndexBuilder.shortenValuePreview(reason),
+        ReindexTaskReport.shortenValuePreview(reason),
         "failed to parse field [f]. Preview of field's value: '"
             + "x".repeat(100)
             + "...' (truncated)");
     assertEquals(
-        ESIndexBuilder.shortenValuePreview("Preview of field's value: 'short'"),
+        ReindexTaskReport.shortenValuePreview("Preview of field's value: 'short'"),
         "Preview of field's value: 'short'");
     assertEquals(
-        ESIndexBuilder.shortenValuePreview(
+        ReindexTaskReport.shortenValuePreview(
             "immense term in field=\"f\". The prefix of the first immense term is: '[1, 2]'"),
         "immense term in field=\"f\".");
-    assertEquals(ESIndexBuilder.shortenValuePreview("x".repeat(600)).length(), 503);
+    assertEquals(ReindexTaskReport.shortenValuePreview("x".repeat(600)).length(), 503);
   }
 
   @Test

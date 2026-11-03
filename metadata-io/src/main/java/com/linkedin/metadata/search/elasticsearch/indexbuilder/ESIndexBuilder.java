@@ -1466,8 +1466,6 @@ public class ESIndexBuilder {
   }
 
   private static final int MAX_LOGGED_REINDEX_FAILURES = 20;
-  private static final java.util.regex.Pattern FAILED_FIELD_PATTERN =
-      java.util.regex.Pattern.compile("field(?: \\[([^\\]]+)\\]|=\"([^\"]+)\")");
 
   /** Diagnostics run after a failure is already decided; they must not hold up the job's exit. */
   private static final Duration DIAGNOSTICS_BUDGET = Duration.ofSeconds(60);
@@ -1528,53 +1526,63 @@ public class ESIndexBuilder {
         log.warn("Reindex diagnostics stopped after {}s", DIAGNOSTICS_BUDGET.toSeconds());
         return;
       }
+      if (logged >= MAX_LOGGED_REINDEX_FAILURES) {
+        log.warn(
+            "Reindex failure log limit ({}) reached; remaining tasks not read",
+            MAX_LOGGED_REINDEX_FAILURES);
+        return;
+      }
       try {
-        RawResponse response =
-            searchClient.performLowLevelRequest(opContext, diagnosticsRequest("/_tasks/" + taskId));
-        Map<String, Object> task =
-            ObjectMapperContext.defaultMapper.readValue(
-                response.getEntity().getContent(), Map.class);
-        Map<String, Object> result =
-            (Map<String, Object>) task.getOrDefault("response", Collections.emptyMap());
-        Map<String, Object> status =
-            (Map<String, Object>)
-                ((Map<String, Object>) task.getOrDefault("task", Collections.emptyMap()))
-                    .getOrDefault("status", Collections.emptyMap());
-        Map<String, Object> counts = result.isEmpty() ? status : result;
+        Optional<String> raw =
+            searchClient.getRawTask(opContext, taskId, DIAGNOSTICS_REQUEST_OPTIONS);
+        if (raw.isEmpty()) {
+          log.warn("Reindex task {} is no longer known to the search engine", taskId);
+          continue;
+        }
+        ReindexTaskReport report = ReindexTaskReport.parse(taskId, raw.get());
+        if (report.rawFallback() != null) {
+          log.warn(
+              "Could not parse reindex task {} for diagnostics; raw response: {}",
+              taskId,
+              report.rawFallback());
+          continue;
+        }
+        Map<String, Object> counts = report.counts();
         log.warn(
             "Reindex {} -> {} task {}: completed={}, total={}, created={}, updated={}, "
-                + "version_conflicts={}, retries={}, canceled={}",
+                + "version_conflicts={}, retries={}, canceled={}, failures={}",
             sourceIndex,
             destIndex,
             taskId,
-            task.get("completed"),
+            report.completed(),
             counts.get("total"),
             counts.get("created"),
             counts.get("updated"),
             counts.get("version_conflicts"),
             counts.get("retries"),
-            counts.get("canceled"));
-        if (task.get("error") != null) {
-          log.error("Reindex task {} error: {}", taskId, task.get("error"));
+            counts.get("canceled"),
+            report.totalFailures());
+        if (report.error() != null) {
+          log.error("Reindex task {} error: {}", taskId, report.error());
         }
-        List<Map<String, Object>> failures =
-            new ArrayList<>((List<Map<String, Object>>) result.getOrDefault("failures", List.of()));
-        for (Map<String, Object> slice :
-            (List<Map<String, Object>>) result.getOrDefault("slices", List.of())) {
-          if (slice != null) {
-            failures.addAll((List<Map<String, Object>>) slice.getOrDefault("failures", List.of()));
-          }
-        }
-        if (failures.isEmpty()) {
+        if (report.totalFailures() == 0) {
           log.warn("Reindex task {} reported no failures", taskId);
         }
-        for (Map<String, Object> failure : failures) {
-          if (logged++ >= MAX_LOGGED_REINDEX_FAILURES) {
-            log.warn("More reindex failures not logged (limit {})", MAX_LOGGED_REINDEX_FAILURES);
-            return;
+        int loggedForTask = 0;
+        for (ReindexTaskReport.Failure failure : report.failures()) {
+          if (logged >= MAX_LOGGED_REINDEX_FAILURES) {
+            break;
           }
-          logReindexFailure(
-              opContext, sourceIndex, ReindexFailure.parse(taskId, failure), clock, deadline);
+          logged++;
+          loggedForTask++;
+          logReindexFailure(opContext, sourceIndex, failure, clock, deadline);
+        }
+        if (loggedForTask < report.totalFailures()) {
+          log.warn(
+              "Logged {} of {} reindex failures in task {}",
+              loggedForTask,
+              report.totalFailures(),
+              taskId);
         }
       } catch (ConnectException
           | NoRouteToHostException
@@ -1586,58 +1594,18 @@ public class ESIndexBuilder {
             e.toString());
         return;
       } catch (Exception e) {
-        // The engine answered with an error (e.g. 404 for a purged task) or the task JSON had an
-        // unexpected shape; the other tasks may still be readable. Matched broadly on purpose: the
-        // OpenSearch and Elasticsearch 8 clients throw unrelated ResponseException types.
+        // The engine answered with an error other than 404; the other tasks may still be readable.
+        // Matched broadly on purpose: the OpenSearch and Elasticsearch 8 clients throw unrelated
+        // ResponseException types.
         log.warn("Could not read reindex task {} for diagnostics: {}", taskId, e.toString());
       }
-    }
-  }
-
-  /** One failure from a reindex task's stored result, with its cause chain flattened. */
-  private record ReindexFailure(
-      String taskId,
-      @Nullable Object status,
-      @Nullable String docId,
-      @Nullable Object shard,
-      @Nullable String field,
-      String causes) {
-
-    static ReindexFailure parse(String taskId, Map<String, Object> failure) {
-      // Bulk (write) failures carry the document id and cause; search failures carry the shard
-      // and reason.
-      StringBuilder causes = new StringBuilder();
-      Object cause = failure.containsKey("cause") ? failure.get("cause") : failure.get("reason");
-      while (cause instanceof Map) {
-        Map<String, Object> c = (Map<String, Object>) cause;
-        if (causes.length() > 0) {
-          causes.append(" <- ");
-        }
-        causes.append(c.get("type")).append(": ").append(shortenValuePreview(c.get("reason")));
-        cause = c.get("caused_by");
-      }
-      if (cause != null) {
-        causes.append(shortenValuePreview(cause));
-      }
-      String field = null;
-      java.util.regex.Matcher m = FAILED_FIELD_PATTERN.matcher(causes);
-      if (m.find()) {
-        field = m.group(1) != null ? m.group(1) : m.group(2);
-      }
-      return new ReindexFailure(
-          taskId,
-          failure.get("status"),
-          (String) failure.get("id"),
-          failure.get("shard"),
-          field,
-          causes.toString());
     }
   }
 
   private void logReindexFailure(
       OperationContext opContext,
       String sourceIndex,
-      ReindexFailure failure,
+      ReindexTaskReport.Failure failure,
       LongSupplier clock,
       long deadline) {
     log.error(
@@ -1673,36 +1641,11 @@ public class ESIndexBuilder {
         "qualifiedName %s (any '_' may be '.')", field.substring("structuredProperties.".length()));
   }
 
-  private static final int VALUE_PREFIX_CHARS = 100;
   private static final int LUCENE_MAX_TERM_BYTES = 32766;
-  private static final String VALUE_PREVIEW_MARKER = "Preview of field's value: '";
-  private static final String IMMENSE_TERM_PREFIX_MARKER = "The prefix of the first immense term";
 
   /** Fields that identify a document whose id is not a URN (graph edges, timeseries events). */
   private static final List<String> IDENTIFYING_FIELDS =
       List.of("urn", "source.urn", "destination.urn", "relationshipType", "messageId");
-
-  /**
-   * OpenSearch quotes the rejected value in its reasons, sometimes in full, so the quote is cut to
-   * its first {@value #VALUE_PREFIX_CHARS} characters, the immense-term byte dump is dropped, and
-   * the reason is capped.
-   */
-  @VisibleForTesting
-  public static String shortenValuePreview(@Nullable Object reason) {
-    String text = String.valueOf(reason);
-    int immense = text.indexOf(IMMENSE_TERM_PREFIX_MARKER);
-    if (immense >= 0) {
-      text = text.substring(0, immense).trim();
-    }
-    int preview = text.indexOf(VALUE_PREVIEW_MARKER);
-    if (preview >= 0) {
-      int valueStart = preview + VALUE_PREVIEW_MARKER.length();
-      if (text.length() - valueStart > VALUE_PREFIX_CHARS) {
-        text = text.substring(0, valueStart + VALUE_PREFIX_CHARS) + "...' (truncated)";
-      }
-    }
-    return text.length() > 500 ? text.substring(0, 500) + "..." : text;
-  }
 
   /**
    * Logs what identifies the source document and the size of the rejected value, read from the
