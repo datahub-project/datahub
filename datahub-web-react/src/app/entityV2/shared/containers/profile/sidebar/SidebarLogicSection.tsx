@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { CodeBlock } from '@components/components/CodeBlock';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { DBT_URN } from '@app/ingest/source/builder/constants';

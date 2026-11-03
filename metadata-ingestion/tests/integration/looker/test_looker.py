@@ -120,6 +120,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -188,6 +189,7 @@ def test_looker_ingest_external_project_view(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -229,6 +231,7 @@ def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "looker_mces_joins.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -290,6 +293,7 @@ def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "looker_mces_unaliased_joins.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -745,6 +749,7 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -813,6 +818,7 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=temp_output_file,
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -944,6 +950,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
             pytestconfig,
             output_path=tmp_path / output_file_name,
             golden_path=f"{test_resources_dir}/{golden_file_name}",
+            fail_on_output_mces=True,
         )
 
     checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
@@ -973,6 +980,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
             pytestconfig,
             output_path=tmp_path / output_file_deleted_name,
             golden_path=f"{test_resources_dir}/{golden_file_deleted_name}",
+            fail_on_output_mces=True,
         )
 
     checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
@@ -1079,6 +1087,7 @@ def ingest_independent_looks(
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{golden_file_name}",
+            fail_on_output_mces=True,
         )
 
 
@@ -1161,6 +1170,7 @@ def test_file_path_in_view_naming_pattern(
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -1336,6 +1346,7 @@ def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=output_file,
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
         # Simply check that both model_1 and model_2 explores appear in the output file
@@ -1619,6 +1630,7 @@ def test_folder_path_pattern(pytestconfig, tmp_path, mock_time, mock_datahub_gra
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+            fail_on_output_mces=True,
         )
 
 
@@ -1738,4 +1750,5 @@ def test_group_label_tags(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=output_file,
             golden_path=test_resources_dir / mce_out_file,
+            fail_on_output_mces=True,
         )

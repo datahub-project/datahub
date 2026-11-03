@@ -2,7 +2,7 @@ import { Button, Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const Container = styled(Button)`
     padding: 32px;

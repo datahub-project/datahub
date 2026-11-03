@@ -51,6 +51,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -2451,6 +2452,181 @@ public class UpdateIndicesV3StrategyTest {
         .upsertDocumentByIndexName(
             eq(operationContext), eq(next), mirrored.capture(), eq(expectedDocId));
     assertEquals(mirrored.getValue(), live.getValue());
+  }
+
+  @Test
+  public void testRestateWithoutPreviousNullsMappedStructuredPropertiesTheAspectOmits()
+      throws Exception {
+    StructuredPropertyMappingCache cache = catalogReturning(liveAlias());
+    mockSearchDocument.put("name", "table");
+    mockSearchDocument.put("structuredProperties.kept", "yes");
+    stubRestate();
+
+    strategyWithCatalog(cache)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(operationContext, "dataset", false);
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertTrue(written.get("structuredProperties.removed").isNull());
+    assertTrue(written.get("structuredProperties.removed__urn_name").isNull());
+    assertEquals(written.get("name").asText(), "table");
+    assertFalse(written.has("structuredProperties"));
+    verify(cache).fields(any(), eq(liveAlias()));
+  }
+
+  @Test
+  public void testBaselineFillNullsFromTheFillTargetMapping() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    when(cache.fields(any(), eq(FILL_TARGET)))
+        .thenReturn(
+            Optional.of(
+                Set.of("structuredProperties.kept", "structuredProperties.removed__urn_name")));
+    mockSearchDocument.put("structuredProperties.kept", "yes");
+    stubRestate();
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_BASELINE, FILL_TARGET));
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+
+    strategyWithCatalog(cache)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(operationContext, FILL_TARGET, true);
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertTrue(written.get("structuredProperties.removed__urn_name").isNull());
+    verify(cache).fields(any(), eq(FILL_TARGET));
+    verify(cache, never()).fields(any(), eq(liveAlias()));
+  }
+
+  @Test
+  public void testUpsertWithPreviousDoesNotNullFromTheMappingCatalog() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    mockSearchDocument.put("structuredProperties.kept", "yes");
+    stubTransformedDocument();
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(mock(RecordTemplate.class));
+
+    strategyWithCatalog(cache)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(operationContext, "dataset", false);
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertFalse(written.has("structuredProperties.removed"));
+    verify(cache, never()).fields(any(), anyString());
+  }
+
+  @Test
+  public void testCatchUpReplayDoesNotNullFromTheMappingCatalog() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    stubTransformByAspect(Map.of(DATASET_PROPERTIES_ASPECT_NAME, Map.of("name", "stored")));
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_CATCH_UP, null));
+    OperationContext replayContext = contextWithStoredAspects(storedDataset("stored"));
+    bindDatasetAspects(replayContext);
+    when(elasticSearchService.aspectFieldNamesBySearchGroup(any(), eq("dataset"), any()))
+        .thenReturn(Map.of());
+
+    strategyWithCatalog(cache)
+        .processBatch(replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(replayContext, "dataset", false);
+    assertFalse(written.has("structuredProperties.removed"));
+    verify(cache, never()).fields(any(), anyString());
+  }
+
+  @Test
+  public void testRestateWithTheFlagOffDoesNotNullFromTheMappingCatalog() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(false);
+    mockSearchDocument.put("structuredProperties.kept", "yes");
+    stubRestate();
+
+    strategyWithCatalog(cache)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(operationContext, "dataset", false);
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertFalse(written.has("structuredProperties.removed"));
+    verify(cache, never()).fields(any(), anyString());
+  }
+
+  @Test
+  public void testMappingReadFailureLeavesTheRestateWriteUnchanged() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    when(cache.fields(any(), anyString())).thenReturn(Optional.empty());
+    mockSearchDocument.put("structuredProperties.kept", "yes");
+    stubRestate();
+
+    strategyWithCatalog(cache)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(operationContext, "dataset", false);
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertFalse(written.has("structuredProperties.removed"));
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString(), anyString());
+  }
+
+  private StructuredPropertyMappingCache catalogReturning(String indexName) {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    when(cache.fields(any(), eq(indexName)))
+        .thenReturn(
+            Optional.of(
+                Set.of(
+                    "structuredProperties.kept",
+                    "structuredProperties.removed",
+                    "structuredProperties.removed__urn_name")));
+    return cache;
+  }
+
+  private void stubRestate() throws Exception {
+    stubTransformedDocument();
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.RESTATE);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(null);
+  }
+
+  private UpdateIndicesV3Strategy strategyWithCatalog(StructuredPropertyMappingCache cache) {
+    return UpdateIndicesV3Strategy.builder()
+        .v3Config(v3Config)
+        .elasticSearchService(elasticSearchService)
+        .searchDocumentTransformer(searchDocumentTransformer)
+        .timeseriesAspectService(timeseriesAspectService)
+        .structuredPropertyMappingCache(cache)
+        .build();
+  }
+
+  private String liveAlias() {
+    return operationContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getEntityIndexNameV3(operationContext, "dataset");
+  }
+
+  private JsonNode writtenDocument(OperationContext context, String index, boolean byIndexName)
+      throws Exception {
+    ArgumentCaptor<String> document = ArgumentCaptor.forClass(String.class);
+    if (byIndexName) {
+      verify(elasticSearchService)
+          .upsertDocumentByIndexName(eq(context), eq(index), document.capture(), anyString());
+    } else {
+      verify(elasticSearchService)
+          .upsertDocumentBySearchGroup(eq(context), eq(index), document.capture(), anyString());
+    }
+    return context.getObjectMapper().readTree(document.getValue());
   }
 
   /** A context whose primary storage holds {@code storedAspects} for the test entity. */

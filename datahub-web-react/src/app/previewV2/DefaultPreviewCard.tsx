@@ -1,12 +1,10 @@
-import { Button } from '@components';
 import React, { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, PreviewType } from '@app/entityV2/Entity';
+import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
@@ -16,13 +14,14 @@ import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import ShortMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/ShortMarkdownViewer';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import ColoredBackgroundPlatformIconGroup from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
 import { CompactView } from '@app/previewV2/CompactView';
 import ContextPath from '@app/previewV2/ContextPath';
 import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
 import EntityHeader from '@app/previewV2/EntityHeader';
-import { ActionsAndStatusSection } from '@app/previewV2/shared';
+import { ActionsAndStatusSection, TransparentButton } from '@app/previewV2/shared';
 import {
     RemoveConfirmState,
     useRemoveApplicationAssets,
@@ -53,14 +52,6 @@ import {
     Owner,
     SearchInsight,
 } from '@types';
-
-const TransparentButton = styled(Button)`
-    display: none;
-
-    &:hover {
-        display: inline-flex;
-    }
-`;
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -371,6 +362,8 @@ export default function DefaultPreviewCard({
                     finalType={finalType}
                     parentEntities={parentEntities}
                     browsePaths={browsePaths}
+                    removeButtonText={removeButtonText}
+                    onRemove={removeRelationship}
                 />
             )}
             <DefaultPreviewCardFooter
@@ -392,7 +385,7 @@ export default function DefaultPreviewCard({
     );
 }
 
-function useRemoveRelationship(entityType: EntityType) {
+export function useRemoveRelationship(entityType: EntityType) {
     const { t } = useTranslation('entity.preview');
     const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
     const { showRemovalFromList, onRemove, removeText } = useSearchCardContext();
@@ -459,7 +452,12 @@ function useRemoveRelationship(entityType: EntityType) {
     if (pageEntityType === EntityType.Application) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn)),
-            removeButtonText: showRemovalFromList ? removeText || t('removeFromApplication') : null,
+            // A child Application is listed through its own parentApplication, not the applications
+            // aspect that removeApplication unsets, so it can't be removed from here.
+            removeButtonText:
+                showRemovalFromList && entityType !== EntityType.Application
+                    ? removeText || t('removeFromApplication')
+                    : null,
             confirmationModals,
         };
     }

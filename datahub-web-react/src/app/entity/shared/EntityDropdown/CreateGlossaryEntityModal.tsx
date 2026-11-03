@@ -10,9 +10,9 @@ import styled, { useTheme } from 'styled-components/macro';
 import { Editor } from '@components/components/Editor';
 
 import analytics, { EventType } from '@app/analytics';
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import {
     EditorContainer,
     Field,

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import DomainNode from '@app/domain/nestedDomains/domainNavigator/DomainNode';
-import useListDomains from '@app/domain/useListDomains';
+import useListDomains from '@app/domainV2/useListDomains';
 
 import { Domain } from '@types';
 

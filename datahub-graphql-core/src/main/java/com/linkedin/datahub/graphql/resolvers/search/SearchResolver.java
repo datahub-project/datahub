@@ -80,13 +80,19 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                 count,
                 searchFlags);
 
+            com.linkedin.metadata.query.filter.Filter filter =
+                ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
             return UrnSearchResultsMapper.map(
                 context,
                 _entityClient.search(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withCallerOptionalFilterFields(
+                            DefaultEntityFiltersUtil.callerOptionalFilterFields(filter)),
                     entityName,
                     sanitizedQuery,
-                    ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),
+                    filter,
                     Collections.emptyList(),
                     start,
                     count));

@@ -5,9 +5,11 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.gms.factory.search.EntityDocumentIdHasherFactory;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
@@ -102,7 +104,8 @@ public class UpdateIndicesStrategyFactory {
         indexConvention,
         coalesceBatchUpdates,
         mappingsBuilder,
-        timeseriesWriteThrottleCache);
+        timeseriesWriteThrottleCache,
+        structuredPropertyMappingCache(configProvider, elasticSearchService));
   }
 
   @Bean("updateIndicesV3Strategy")
@@ -137,6 +140,26 @@ public class UpdateIndicesStrategyFactory {
         .semanticSearchConfiguration(
             configProvider.getElasticSearch().getEntityIndex().getSemanticSearch())
         .incrementalReindexWriteTargets(incrementalReindexWriteTargets)
+        .structuredPropertyMappingCache(
+            structuredPropertyMappingCache(configProvider, elasticSearchService))
         .build();
+  }
+
+  /**
+   * One mapping read per index per TTL. The flag defaults on; a missing index configuration keeps
+   * that default.
+   */
+  @Nonnull
+  private static StructuredPropertyMappingCache structuredPropertyMappingCache(
+      @Nonnull ConfigurationProvider configProvider,
+      @Nonnull ElasticSearchService elasticSearchService) {
+    IndexConfiguration index =
+        configProvider.getElasticSearch() == null
+            ? null
+            : configProvider.getElasticSearch().getIndex();
+    boolean enabled = index == null || index.isStructuredPropertyRestateEnabled();
+    int ttlSeconds = index == null ? 300 : index.getStructuredPropertyMappingCacheTtlSeconds();
+    return new StructuredPropertyMappingCache(
+        enabled, ttlSeconds, elasticSearchService::indexMappingSource);
   }
 }

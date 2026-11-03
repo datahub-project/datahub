@@ -7,7 +7,8 @@ import com.linkedin.common.CustomProperties
  * Information about a document
  */
 @Aspect = {
-  "name": "documentInfo"
+  "name": "documentInfo",
+  "schemaVersion": 2
 }
 record DocumentInfo includes CustomProperties {
 
@@ -22,6 +23,7 @@ record DocumentInfo includes CustomProperties {
       "v3": {
         "queryByDefault": true,
         "searchLabel": "name",
+        "lowercase": true,
         "mappings": [
           { "type": "KEYWORD" },
           { "subfield": "text", "type": "TEXT" },
