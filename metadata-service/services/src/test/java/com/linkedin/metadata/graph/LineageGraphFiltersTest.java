@@ -41,6 +41,9 @@ public class LineageGraphFiltersTest {
             "mlModelGroup",
             "dataProcess",
             "dataJob",
+            // dataFlow joins this set now that repositoryLineage is registered on it -- it is the
+            // entity's first lineage aspect, so it previously had no lineage edges at all.
+            "dataFlow",
             "mlModel",
             "mlFeature",
             "dataProcessInstance",

@@ -35,7 +35,7 @@ services:
       - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
       - CATALOG_S3_ENDPOINT=http://minio:9000
   minio:
-    image: quay.io/minio/minio
+    image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     container_name: minio
     environment:
       - MINIO_ROOT_USER=admin
@@ -52,7 +52,7 @@ services:
   mc:
     depends_on:
       - minio
-    image: quay.io/minio/mc
+    image: docker.io/pgsty/mc:RELEASE.2026-09-16T00-00-00Z
     container_name: mc
     networks:
       iceberg_net:
@@ -62,10 +62,10 @@ services:
       - AWS_REGION=us-east-1
     entrypoint: >
       /bin/sh -c "
-      until (/usr/bin/mc alias set minio http://minio:9000 admin password) do echo '...waiting...' && sleep 1; done;
-      /usr/bin/mc rm -r --force minio/warehouse;
-      /usr/bin/mc mb minio/warehouse;
-      /usr/bin/mc anonymous set public minio/warehouse;
+      until (mc alias set minio http://minio:9000 admin password) do echo '...waiting...' && sleep 1; done;
+      mc rm -r --force minio/warehouse;
+      mc mb minio/warehouse;
+      mc anonymous set public minio/warehouse;
       touch /tmp/mc_done;
       tail -f /dev/null;
       "

@@ -1,14 +1,15 @@
-import { FormOutlined, SearchOutlined } from '@ant-design/icons';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Input } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { DataPlatformCard } from '@app/ingest/source/builder/DataPlatformCard';
 import { CUSTOM } from '@app/ingest/source/builder/constants';
-import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
 import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingest/source/builder/types';
 import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
+import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { Button } from '@src/alchemy-components';
 
 const Container = styled.div`
@@ -41,7 +42,7 @@ const StyledSearchBar = styled(Input)`
     font-size: 16px;
 `;
 
-const StyledSearchOutlined = styled(SearchOutlined)`
+const StyledSearchOutlined = styled(MagnifyingGlass)`
     color: #a9adbd;
 `;
 
@@ -65,7 +66,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
     const logoUrl = useGetSourceLogoUrl(name);
     let logoComponent;
     if (name === CUSTOM) {
-        logoComponent = <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />;
+        logoComponent = <PencilLine style={{ color: ANTD_GRAY[8], fontSize: 28 }} />;
     }
 
     return (

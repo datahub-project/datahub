@@ -32,6 +32,25 @@ const TitleContent = styled.div`
     overflow: hidden;
 `;
 
+/** Title + optional meta stacked under it (document search / domain-group breadcrumbs). */
+const LabelStack = styled.div`
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+`;
+
+const BelowLabel = styled.div`
+    font-size: 12px;
+    line-height: 16px;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
 export type HierarchicalBrowseTreeRowProps = {
     level: number;
     isSelected: boolean;
@@ -43,6 +62,11 @@ export type HierarchicalBrowseTreeRowProps = {
     label: React.ReactNode;
     labelTitle?: string;
     afterLabel?: React.ReactNode;
+    /**
+     * Secondary line under the title (e.g. parent-document breadcrumb).
+     * Implies multiline row chrome so the icon aligns to the top of the stack.
+     */
+    belowLabel?: React.ReactNode;
     trailing?: React.ReactNode;
     /** Documents use `hover`; Glossary / Domains keep `always`. */
     countReveal?: 'always' | 'hover';
@@ -68,6 +92,7 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
             label,
             labelTitle,
             afterLabel,
+            belowLabel,
             trailing,
             countReveal = 'always',
             onSelect,
@@ -81,6 +106,7 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
     ) => {
         const { t: tc } = useTranslation('common.actions');
         const theme = useTheme();
+        const isMultiline = multilineLabel || belowLabel != null;
 
         const { canExpand, showCount } = getTreeRowChromeFlags({
             isCollapsed,
@@ -124,7 +150,7 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
 
         // Native `title` on truncated text is unreliable (esp. nested flex); use Tooltip.
         const titleEl = (
-            <TreeRowTitle $isSelected={isSelected} $multiline={multilineLabel}>
+            <TreeRowTitle $isSelected={isSelected} $multiline={isMultiline && belowLabel == null}>
                 {label}
             </TreeRowTitle>
         );
@@ -143,15 +169,31 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
                 titleEl
             );
 
-        const titleBlock =
-            afterLabel != null ? (
+        let titleBlock: React.ReactNode = titledLabel;
+        if (belowLabel != null) {
+            titleBlock = (
+                <LabelStack>
+                    {afterLabel != null ? (
+                        <TitleContent>
+                            {titledLabel}
+                            {afterLabel}
+                        </TitleContent>
+                    ) : (
+                        titledLabel
+                    )}
+                    <BelowLabel title={typeof belowLabel === 'string' ? belowLabel : undefined}>
+                        {belowLabel}
+                    </BelowLabel>
+                </LabelStack>
+            );
+        } else if (afterLabel != null) {
+            titleBlock = (
                 <TitleContent>
                     {titledLabel}
                     {afterLabel}
                 </TitleContent>
-            ) : (
-                titledLabel
             );
+        }
 
         return (
             <TreeRowContainer
@@ -160,17 +202,17 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
                 data-testid={dataTestId}
                 $isSelected={isSelected}
                 $isCollapsed={isCollapsed}
-                $multilineLabel={multilineLabel}
+                $multilineLabel={isMultiline}
                 onClick={onSelect}
             >
-                <TreeRowLeftContent $isCollapsed={isCollapsed} $multilineLabel={multilineLabel}>
+                <TreeRowLeftContent $isCollapsed={isCollapsed} $multilineLabel={isMultiline}>
                     {isCollapsed ? (
                         <TreeRowIconSlot $isCollapsed>{leading}</TreeRowIconSlot>
                     ) : (
                         <TreeRowExpandZone
                             $level={level}
                             $expandable={canExpand}
-                            $multilineLabel={multilineLabel}
+                            $multilineLabel={isMultiline}
                             onClick={handleExpand}
                         >
                             <TreeRowIconSlot>{leading}</TreeRowIconSlot>

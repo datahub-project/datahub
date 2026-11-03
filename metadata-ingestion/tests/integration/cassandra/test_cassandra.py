@@ -77,6 +77,15 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path, monkeyp
 @pytest.mark.integration
 def test_cassandra_ssl_configuration():
     """Test SSL configuration and context creation with different SSL versions using mocking."""
+    # 99 is the OpenSSL 4 shim sentinel and is not a protocol SSLContext accepts.
+    fallback = ssl.PROTOCOL_TLS_CLIENT
+
+    def _protocol(name: str) -> int:
+        protocol = getattr(ssl, name, fallback)
+        if protocol == 99:
+            return fallback
+        return protocol
+
     # Mock the Cassandra classes to avoid importing them and triggering segfaults
     with patch(
         "datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig"
@@ -101,10 +110,12 @@ def test_cassandra_ssl_configuration():
                 # Test SSL context creation directly
                 expected_protocol = {
                     "TLS_CLIENT": ssl.PROTOCOL_TLS_CLIENT,
-                    "TLSv1": ssl.PROTOCOL_TLSv1,
-                    "TLSv1_1": ssl.PROTOCOL_TLSv1_1,
-                    "TLSv1_2": ssl.PROTOCOL_TLSv1_2,
-                    "TLSv1_3": ssl.PROTOCOL_TLSv1_2,  # Python's ssl module uses TLSv1_2 for TLS 1.3
+                    "TLSv1": _protocol("PROTOCOL_TLSv1"),
+                    "TLSv1_1": _protocol("PROTOCOL_TLSv1_1"),
+                    "TLSv1_2": _protocol("PROTOCOL_TLSv1_2"),
+                    "TLSv1_3": _protocol(
+                        "PROTOCOL_TLSv1_2"
+                    ),  # Python's ssl module uses TLSv1_2 for TLS 1.3
                 }[ssl_version]
 
                 ssl_context = ssl.SSLContext(expected_protocol)

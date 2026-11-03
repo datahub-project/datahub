@@ -105,6 +105,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     when(datahubConfig.getObjectStorage()).thenReturn(objectStorageConfig);
     when(objectStorageConfig.getPresignedDownloadUrlExpirationSeconds())
         .thenReturn(DEFAULT_EXPIRATION);
+    when(objectStorageConfig.getAssetPathPrefix()).thenReturn(TEST_FOLDER);
 
     when(mockObjectStorageClient.isConfigured()).thenReturn(true);
     when(mockObjectStorageClient.supportsPresignedUrls()).thenReturn(true);
@@ -304,9 +305,13 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testGetFileWithDifferentFolder() throws Exception {
-    String differentFolder = "images";
-    String expectedKey = String.format("%s/%s", differentFolder, TEST_FILE_ID);
+  public void testGetFileUsesConfiguredAssetPathPrefixNotUrlFolder() throws Exception {
+    // The UI always links to the default folder, but uploads go under the configured prefix
+    // (DATAHUB_S3_ASSET_PATH_PREFIX), which may contain slashes.
+    String configuredPrefix = "custom/documentation";
+    when(mockConfigProvider.getDatahub().getObjectStorage().getAssetPathPrefix())
+        .thenReturn(configuredPrefix);
+    String expectedKey = String.format("%s/%s", configuredPrefix, TEST_FILE_ID);
 
     when(mockObjectStorageClient.presignedDownloadUrl(
             eq(new ObjectStorageReference(TEST_BUCKET, expectedKey)), eq(DEFAULT_EXPIRATION)))
@@ -315,7 +320,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     mockMvc
         .perform(
             MockMvcRequestBuilders.get(
-                "/openapi/v1/files/{folder}/{fileId}", differentFolder, TEST_FILE_ID))
+                "/openapi/v1/files/{folder}/{fileId}", "product_assets", TEST_FILE_ID))
         .andExpect(status().isFound())
         .andExpect(header().string(HttpHeaders.LOCATION, TEST_PRESIGNED_URL));
   }

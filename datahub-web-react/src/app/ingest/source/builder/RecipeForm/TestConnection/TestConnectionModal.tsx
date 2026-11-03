@@ -1,20 +1,21 @@
 import { green, red } from '@ant-design/colors';
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Button } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ConnectionCapabilityView from '@app/ingest/source/builder/RecipeForm/TestConnection/ConnectionCapabilityView';
+import { SourceConfig } from '@app/ingest/source/builder/types';
+import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
 import {
     CapabilityReport,
     SourceCapability,
     TestConnectionResult,
-} from '@app/ingest/source/builder/RecipeForm/TestConnection/types';
-import { SourceConfig } from '@app/ingest/source/builder/types';
-import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
+} from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
+import { ModalButtonContainer } from '@app/sharedV2/button/styledComponents';
 
 import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
@@ -80,12 +81,12 @@ const CapabilitiesTitle = styled.div`
     margin-bottom: 5px;
 `;
 
-const StyledCheck = styled(CheckOutlined)`
+const StyledCheck = styled(Check)`
     color: ${green[6]};
     margin-right: 5px;
 `;
 
-const StyledClose = styled(CloseOutlined)`
+const StyledClose = styled(X)`
     color: ${red[5]};
     margin-right: 5px;
 `;

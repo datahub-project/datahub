@@ -50,6 +50,8 @@ For ingesting jobs (extract_transforms: True), the following additional permissi
 
 The `glue:GetConnection` permission is required when Glue jobs reference named connections (e.g. JDBC connections configured in the Glue console). If your jobs only use inline connection parameters, this permission is not needed.
 
+When a Glue job reads or writes DynamoDB (`connection_type: dynamodb`) and the DAG node has no `dynamodb.tableArn` and no `dynamodb.sts.roleArn`, the connector calls `sts:GetCallerIdentity` to resolve the AWS account id used as the DynamoDB `platform_instance`. `sts:GetCallerIdentity` needs no IAM permission, but it does need network access to STS. Set `target_platform_configs.dynamodb.platform_instance` to resolve these nodes without an STS call. Nodes whose account cannot be resolved are skipped rather than emitting a URN with a guessed account.
+
 For profiling datasets, the following additional permissions are required:
 
 ```
@@ -169,6 +171,16 @@ source:
         platform_instance: domain_b
 ```
 
-A table whose catalog is not listed falls back to the source's own `platform_instance`/`env`. For Lake Formation resource links, the connector also emits a table-level upstream lineage edge to the owning table's URN (resolved through this same map), so the shared table stitches back to its source instead of looking like a duplicate.
+A table whose catalog is not listed falls back to the source's own `platform_instance`/`env`. For Lake Formation resource links, the connector also emits a table-level upstream lineage edge to the owning table's URN (resolved through this same map), so the shared table stitches back to its source instead of looking like a duplicate. With `include_column_lineage` enabled (the default), it also emits column-level lineage from each of the link's columns to the same-named column of the owning table; a link that has no schema gets only the table-level edge.
+
+This covers both kinds of resource link:
+
+- A **table-level** link is a single table that points at the shared table.
+- A **database-level** link is a database that points at the shared database. Every table you see through it, including tables the owner adds later, is treated as a link to the matching table in the owning database.
+
+Either way, the link dataset is named with your own catalog's platform instance and your local link name. Only its upstream edge uses the owning account's mapped instance.
+
+- Add the owning account to `catalog_to_platform_instance` when its Glue ingestion uses a different `platform_instance` or `env` than this source. Otherwise the edge falls back to your own values and does not reach the owner's dataset.
+- If the owner uses the same values, no mapping is needed, unless your link's database and table names match the owner's. The link and the owner then resolve to the same URN, so no edge is emitted.
 
 A resource link is only a pointer, so it carries no schema of its own in the catalog. By default (`resolve_resource_link_schema: true`) the connector populates the link's schema from the owning table so its columns are visible on the ingested dataset — read from **DataHub first** (when the owning account has already been ingested, so no extra AWS call is made) and otherwise from a **cross-account `glue:GetTable`** on the target (requires `glue:GetTable` permission on the shared table). When neither source is available the link is left schemaless and its columns remain reachable through the upstream lineage edge. Set `resolve_resource_link_schema: false` to always keep resource links schemaless.

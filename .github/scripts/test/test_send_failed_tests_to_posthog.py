@@ -17,7 +17,7 @@ import send_failed_tests_to_posthog as sender  # noqa: E402
 PYTEST_FAILURE_WITH_DOMAINS_XML = """<?xml version="1.0" encoding="utf-8"?>
 <testsuites>
   <testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.2">
-    <testcase classname="tests.foo.test_bar" name="test_it" time="0.1">
+    <testcase classname="tests.e2e.foo.test_bar" name="test_it" time="0.1">
       <properties>
         <property name="domains" value='["catalog", "ingestion"]'/>
       </properties>
@@ -30,7 +30,7 @@ PYTEST_FAILURE_WITH_DOMAINS_XML = """<?xml version="1.0" encoding="utf-8"?>
 PYTEST_FAILURE_WITHOUT_PROPERTIES_XML = """<?xml version="1.0" encoding="utf-8"?>
 <testsuites>
   <testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.2">
-    <testcase classname="tests.foo.test_bar" name="test_it" time="0.1">
+    <testcase classname="tests.e2e.foo.test_bar" name="test_it" time="0.1">
       <failure message="assert False">assert False</failure>
     </testcase>
   </testsuite>
@@ -40,7 +40,7 @@ PYTEST_FAILURE_WITHOUT_PROPERTIES_XML = """<?xml version="1.0" encoding="utf-8"?
 PYTEST_PASS_WITH_DOMAINS_XML = """<?xml version="1.0" encoding="utf-8"?>
 <testsuites>
   <testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.2">
-    <testcase classname="tests.foo.test_bar" name="test_ok" time="0.1">
+    <testcase classname="tests.e2e.foo.test_bar" name="test_ok" time="0.1">
       <properties>
         <property name="domains" value='["catalog"]'/>
       </properties>
@@ -52,7 +52,7 @@ PYTEST_PASS_WITH_DOMAINS_XML = """<?xml version="1.0" encoding="utf-8"?>
 PYTEST_FAILURE_STRING_PROPERTY_XML = """<?xml version="1.0" encoding="utf-8"?>
 <testsuites>
   <testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.2">
-    <testcase classname="tests.foo.test_bar" name="test_it" time="0.1">
+    <testcase classname="tests.e2e.foo.test_bar" name="test_it" time="0.1">
       <properties>
         <property name="owner" value="catalog-team"/>
       </properties>
@@ -90,7 +90,7 @@ class ParsePytestFailuresTests(unittest.TestCase):
 
         self.assertEqual(len(failures), 1)
         self.assertEqual(
-            failures[0].name, "tests/foo/test_bar.py::test_it"
+            failures[0].name, "tests/e2e/foo/test_bar.py::test_it"
         )
         self.assertEqual(
             failures[0].custom_properties,
@@ -124,7 +124,7 @@ class SendPostHogEventTests(unittest.TestCase):
     def test_payload_nests_custom_properties_and_keeps_metadata(self) -> None:
         captured: dict = {}
         test = sender.FailedTest(
-            name="tests/foo/test_bar.py::test_it",
+            name="tests/e2e/foo/test_bar.py::test_it",
             test_type="pytest",
             error_message="assert False",
             custom_properties={"domains": ["catalog", "ingestion"]},
@@ -156,7 +156,7 @@ class SendPostHogEventTests(unittest.TestCase):
     def test_payload_omits_custom_properties_when_absent(self) -> None:
         captured: dict = {}
         test = sender.FailedTest(
-            name="tests/foo/test_bar.py::test_it",
+            name="tests/e2e/foo/test_bar.py::test_it",
             test_type="pytest",
         )
         config = sender.PostHogConfig(api_key="phc_test", host="https://app.posthog.com")

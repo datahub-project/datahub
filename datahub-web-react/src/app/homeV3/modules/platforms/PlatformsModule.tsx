@@ -10,7 +10,7 @@ import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import usePlatformModuleUtils from '@app/homeV3/modules/platforms/usePlatformsModuleUtils';
-import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { DataHubPageModuleType, Entity } from '@types';
@@ -36,15 +36,7 @@ const PlatformsModule = (props: ModuleProps) => {
         const platformEntity = platforms.find((platform) => platform.platform.urn === entity.urn);
         const assetCount = platformEntity?.count || 0;
 
-        return (
-            <>
-                {assetCount > 0 && (
-                    <Text size="sm" color="gray">
-                        {formatNumber(assetCount)}
-                    </Text>
-                )}
-            </>
-        );
+        return <>{assetCount > 0 && <Text size="sm">{formatNumber(assetCount)}</Text>}</>;
     };
 
     const renderCustomTooltip = (entity: Entity, children: React.ReactNode) => {

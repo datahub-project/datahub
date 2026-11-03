@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   deploy-pages:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME != '' }}
 
     name: Python Wheels

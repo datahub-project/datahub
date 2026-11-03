@@ -189,6 +189,7 @@ public class GraphQLController {
   CompletableFuture<ResponseEntity<Object>> postGraphQL(
       HttpServletRequest request, HttpEntity<String> httpEntity) {
 
+    final long requestStartNanos = System.nanoTime();
     String jsonStr = httpEntity.getBody();
     ObjectMapper mapper = systemOperationContext.getObjectMapper();
     JsonNode bodyJson = null;
@@ -368,7 +369,7 @@ public class GraphQLController {
                  * Format & Return Response
                  */
                 try {
-                  final long totalDuration = submitMetrics(executionResult);
+                  final long totalDuration = submitMetrics(executionResult, requestStartNanos);
                   // Remove tracing from response to reduce bulk, not used by the frontend
                   executionResult.getExtensions().remove("tracing");
                   final Map<String, Object> responseSpec = executionResult.toSpecification();
@@ -515,7 +516,7 @@ public class GraphQLController {
   }
 
   @SuppressWarnings("unchecked")
-  private long submitMetrics(ExecutionResult executionResult) {
+  private long submitMetrics(ExecutionResult executionResult, long requestStartNanos) {
     try {
       observeErrors(executionResult);
       if (metricUtils != null)
@@ -523,7 +524,7 @@ public class GraphQLController {
       Object tracingInstrumentation = executionResult.getExtensions().get("tracing");
       if (tracingInstrumentation instanceof Map) {
         Map<String, Object> tracingMap = (Map<String, Object>) tracingInstrumentation;
-        long totalDuration = TimeUnit.NANOSECONDS.toMillis((long) tracingMap.get("duration"));
+        long wallDuration = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - requestStartNanos);
         Map<String, Object> executionData = (Map<String, Object>) tracingMap.get("execution");
         // Extract top level resolver, parent is top level query. Assumes single query per call.
         List<Map<String, Object>> resolvers =
@@ -536,8 +537,10 @@ public class GraphQLController {
                 .map(parentResolver -> parentResolver.get("fieldName"))
                 .map(Object::toString)
                 .orElse("UNKNOWN");
-        if (metricUtils != null) metricUtils.histogram(this.getClass(), fieldName, totalDuration);
-        return totalDuration;
+        if (metricUtils != null) {
+          metricUtils.histogram(this.getClass(), fieldName, wallDuration);
+        }
+        return wallDuration;
       }
     } catch (Exception e) {
       if (metricUtils != null)

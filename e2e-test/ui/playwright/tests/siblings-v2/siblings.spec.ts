@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures/base-test';
 import { SiblingsPage } from '../../pages/siblings.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'siblings-v2' });
 
@@ -28,7 +29,7 @@ test.describe('siblings', () => {
     siblingsPage = new SiblingsPage(page, logger, logDir);
   });
 
-  test('will merge metadata to non-primary sibling', async () => {
+  test('will merge metadata to non-primary sibling', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await siblingsPage.navigateToDataset(BIGQUERY_CUSTOMERS_URN);
     await siblingsPage.verifyPlatformLogosVisible(PLATFORMS);
     await expect(siblingsPage.entityHeader).toBeVisible();
@@ -47,7 +48,7 @@ test.describe('siblings', () => {
     await siblingsPage.verifyPlatformLogoNotVisible(DBT_PLATFORM);
   });
 
-  test('can mutate at individual node or combined node level', async () => {
+  test('can mutate at individual node or combined node level', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await siblingsPage.navigateToDataset(DBT_CUSTOMERS_URN);
     await siblingsPage.navigateToSiblingByUrn(BIGQUERY_CUSTOMERS_URN);
     await siblingsPage.addGlossaryTerm(PLAYWRIGHT_TERM);

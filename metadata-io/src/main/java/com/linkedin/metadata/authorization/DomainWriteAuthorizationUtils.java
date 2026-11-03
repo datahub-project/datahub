@@ -10,7 +10,6 @@ import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
-import com.datahub.authorization.ResolvedEntitySpec;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
@@ -34,7 +33,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -400,8 +398,8 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Seed proposed domains from an MCP batch into the session resource-spec cache so domain-scoped
-   * CREATE_ENTITY / EDIT policies can match at the API auth layer before ingest.
+   * Seed proposed domains from an MCP batch by recording them as a request-scoped DOMAIN override
+   * so domain-scoped CREATE_ENTITY / EDIT policies can match at the API auth layer before ingest.
    *
    * <p>Accumulates in-batch proposed domains chronologically so a later PATCH for the same URN is
    * applied against an earlier UPSERT in the same request (matching ingest order). {@code
@@ -516,8 +514,9 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Authorize a {@code domains} write against the entity resource, optionally seeding the session
-   * resource-spec cache with proposed domains (plus ancestors) so domain-scoped policies can match.
+   * Authorize a {@code domains} write against the entity resource, optionally recording proposed
+   * domains (plus ancestors) as a request-scoped DOMAIN override so domain-scoped policies can
+   * match.
    *
    * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient; Create still
    * requires Create/Edit Entity.
@@ -543,8 +542,8 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Expand proposed domain URNs (including ancestors) and seed the request-scoped resource-spec
-   * cache so DOMAIN field matching uses those values.
+   * Expand proposed domain URNs (including ancestors) and record them as a request-scoped DOMAIN
+   * override so DOMAIN field matching uses those values.
    */
   public static void seedProposedDomainsForResourceSpec(
       @Nonnull OperationContext opContext,
@@ -568,41 +567,21 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Pre-populate the request-scoped resolved-spec cache so DOMAIN field matching uses proposed
-   * values instead of a persisted (empty) domains aspect. Merges into any existing
-   * ResolvedEntitySpec so OWNER/TAG/CONTAINER resolvers are preserved, while DOMAIN is always
-   * overwritten with the latest proposed values (later items in the same request win).
+   * Record the proposed domains as a request-scoped {@code DOMAIN} override so DOMAIN field
+   * matching uses them instead of the persisted (possibly empty) domains aspect. The authorizer
+   * lays the override over the normally resolved spec, so the entity's other stored fields
+   * (platform instance, container, tags, ...) still apply. Later calls for the same resource in the
+   * same request replace earlier ones.
    */
   public static void seedProposedDomainResourceSpec(
       @Nonnull OperationContext opContext,
       @Nonnull EntitySpec resourceSpec,
       @Nonnull Set<String> domainFieldValues) {
-    Map<EntityFieldType, FieldResolver> baseResolvers = new EnumMap<>(EntityFieldType.class);
-    baseResolvers.put(
-        EntityFieldType.TYPE, FieldResolver.getResolverFromValues(Set.of(resourceSpec.getType())));
-    baseResolvers.put(
-        EntityFieldType.RESOURCE_TYPE,
-        FieldResolver.getResolverFromValues(Set.of(resourceSpec.getType())));
-    baseResolvers.put(
-        EntityFieldType.URN, FieldResolver.getResolverFromValues(Set.of(resourceSpec.getEntity())));
-    baseResolvers.put(
-        EntityFieldType.RESOURCE_URN,
-        FieldResolver.getResolverFromValues(Set.of(resourceSpec.getEntity())));
-    FieldResolver domainResolver = FieldResolver.getResolverFromValues(domainFieldValues);
-
     opContext
         .getAuthorizationContext()
-        .getSessionResourceSpecCache()
-        .compute(
+        .getSessionResourceFieldOverrides()
+        .put(
             resourceSpec,
-            (key, existing) -> {
-              Map<EntityFieldType, FieldResolver> merged = new EnumMap<>(EntityFieldType.class);
-              if (existing != null) {
-                merged.putAll(existing.getFieldResolvers());
-              }
-              baseResolvers.forEach(merged::putIfAbsent);
-              merged.put(EntityFieldType.DOMAIN, domainResolver);
-              return new ResolvedEntitySpec(resourceSpec, merged);
-            });
+            Map.of(EntityFieldType.DOMAIN, FieldResolver.getResolverFromValues(domainFieldValues)));
   }
 }

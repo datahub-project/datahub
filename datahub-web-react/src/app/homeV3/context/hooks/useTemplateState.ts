@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { mapSummaryElement } from '@app/entityV2/summary/properties/utils';
 import { filterOutNonExistentModulesFromTemplate } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import {
@@ -10,14 +10,14 @@ import {
     getDefaultSummaryPageTemplate,
 } from '@app/homeV3/context/hooks/utils/utils';
 import { DEFAULT_TEMPLATE } from '@app/homeV3/modules/constants';
-import usePrevious from '@app/shared/usePrevious';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import usePrevious from '@app/sharedV2/usePrevious';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { PageTemplateSurfaceType } from '@types';
 
 export function useTemplateState(templateType: PageTemplateSurfaceType) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [areTemplatesInitialized, setAreTemplatesInitialized] = useState(false);
     const [isAssetSummaryTemplateInitialized, setIsAssetSummaryTemplateInitialized] = useState(false);
     const [personalTemplate, setPersonalTemplate] = useState<PageTemplateFragment | null>(null);

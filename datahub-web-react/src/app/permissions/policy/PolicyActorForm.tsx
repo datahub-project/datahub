@@ -10,10 +10,10 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 import GroupsSelect from '@app/permissions/policy/PolicyActorForm/GroupsSelect';
 import OwnershipTypesSelect from '@app/permissions/policy/PolicyActorForm/OwnershipTypesSelect';
 import UsersSelect from '@app/permissions/policy/PolicyActorForm/UsersSelect';
-import useDebouncedCallback from '@app/shared/hooks/useDebouncedCallback';
-import { useGetRecommendations } from '@app/shared/recommendation';
-import { addUserFiltersToMultiEntitySearchInput } from '@app/shared/userSearchUtils';
+import useDebouncedCallback from '@app/sharedV2/hooks/useDebouncedCallback';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
+import { useGetRecommendations } from '@app/sharedV2/recommendation';
+import { addUserFiltersToMultiEntitySearchInput } from '@app/sharedV2/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';

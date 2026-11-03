@@ -156,6 +156,7 @@ export default function EntityProfileSidebar({
             $width={width}
             backgroundColor={backgroundColor}
             id="entity-profile-sidebar"
+            data-testid="entity-profile-sidebar"
             isFocused={focused}
             className={className}
             $isShowNavBarRedesign={isShowNavBarRedesign}

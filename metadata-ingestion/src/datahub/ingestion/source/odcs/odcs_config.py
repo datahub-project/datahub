@@ -43,11 +43,15 @@ SERVER_TYPE_TO_PLATFORM: Dict[str, str] = {
     "sqlserver": "mssql",
     "trino": "trino",
     "oracle": "oracle",
+    "glue": "glue",
+    # Remapped to `glue` when the REST catalog is AWS Glue (see
+    # odcs_mapper._platform_for_server).
+    "iceberg": "iceberg",
 }
 
 # Platforms whose DataHub connectors lowercase dataset names by default; the
 # composed physical name follows suit when `lowercase_physical_urns` is on.
-LOWERCASE_BY_DEFAULT_PLATFORMS = frozenset(("snowflake",))
+LOWERCASE_BY_DEFAULT_PLATFORMS = frozenset(("snowflake", "glue"))
 
 
 class ServerMapping(ConfigModel):
@@ -163,8 +167,10 @@ class ODCSSourceConfig(
     lowercase_physical_urns: bool = Field(
         default=True,
         description="Lowercase composed physical dataset names for platforms whose DataHub "
-        "connectors lowercase URNs by default (currently snowflake). Set False if your "
-        "snowflake ingestion runs with convert_urns_to_lowercase disabled. Logical `odcs` "
+        "connectors lowercase URNs by default (currently snowflake and glue, including iceberg "
+        "servers bound to glue). Set False only if your snowflake ingestion runs with "
+        "convert_urns_to_lowercase disabled and your contracts already use Glue's lowercase "
+        "names, since it applies to both. Logical `odcs` "
         "dataset URNs always preserve the contract's casing.",
     )
     verify_physical_urns_exist: bool = Field(
@@ -212,7 +218,7 @@ class ODCSSourceConfig(
         ),
     )
     odcs_versions: List[str] = Field(
-        default_factory=lambda: ["3.0.0", "3.0.1", "3.0.2", "3.1.0"],
+        default_factory=lambda: ["3.0.0", "3.0.1", "3.0.2", "3.1.0", "3.2.0"],
         description="List of supported ODCS `apiVersion` values. Contracts with `apiVersion` "
         "outside this list are skipped with a warning.",
     )
@@ -338,7 +344,8 @@ class ODCSSourceConfig(
         "physical DataHub Dataset URN, bypassing server-based derivation for those entries. An "
         "empty-string URN deliberately leaves the named entry unbound; schema entries absent "
         "from the map fall back to server-based derivation. Keys that match no schema entry "
-        "produce a warning (typo guard).",
+        "produce a warning (typo guard), and so does a value that is not a dataset URN "
+        "with a known env or that contains `${VAR}`, which leaves the entry unbound.",
     )
     logical_dataset_name_template: str = Field(
         default="{contract_id}.{schema_name}",

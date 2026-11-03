@@ -149,6 +149,25 @@ source:
           timeout: 120
 ```
 
+To send custom HTTP headers with every request to the REST catalog, add them to the catalog configuration as
+`header.<name>` properties. These are handled natively by pyiceberg, and are applied before the catalog is created,
+so with the legacy `credential` flow they are also sent on the initial OAuth token request. With `auth.type: oauth2`
+they are not sent on the token request. This is useful for catalogs requiring a header on all traffic, for example
+Apache Polaris deployments requiring a `Polaris-Realm` header:
+
+```yaml
+source:
+  type: "iceberg"
+  config:
+    env: dev
+    catalog:
+      my_catalog:
+        type: rest
+        uri: http://localhost:8181/api/catalog
+        credential: client_id:client_secret
+        header.Polaris-Realm: my-realm
+```
+
 #### Google BigLake REST Catalog + GCS warehouse
 
 DataHub supports ingesting metadata from [Google BigLake](https://cloud.google.com/bigquery/docs/biglake-intro) via the Iceberg REST Catalog API.
@@ -451,6 +470,26 @@ For advanced Iceberg behavior and tuning, refer to:
 - [Iceberg table properties](https://iceberg.apache.org/docs/latest/configuration/#table-properties)
 - [Iceberg specification](https://iceberg.apache.org/spec/)
 - [PyIceberg configuration](https://py.iceberg.apache.org/)
+
+#### Checking a recipe before ingesting
+
+`datahub recipe probe` lists what the catalog holds and says what your patterns would keep, using
+the same catalog configuration and credentials as ingestion. It reads catalog listings and table
+metadata files only, never data files.
+
+```shell
+datahub recipe probe run namespaces --recipe recipe.yml
+datahub recipe probe run tables --recipe recipe.yml --namespace sales
+datahub recipe probe run columns --recipe recipe.yml --namespace sales --table orders
+datahub recipe probe filter --recipe recipe.yml --kind Table --parent sales --name orders
+```
+
+Two matching rules are worth knowing when writing patterns:
+
+- `namespace_pattern` is matched against the namespace name. Only top-level namespaces are
+  ingested; tables in nested namespaces are not.
+- `table_pattern` is matched against `<namespace>.<table>`, not the bare table name, so write
+  `^sales\.orders$` rather than `^orders$`.
 
 ### Limitations
 

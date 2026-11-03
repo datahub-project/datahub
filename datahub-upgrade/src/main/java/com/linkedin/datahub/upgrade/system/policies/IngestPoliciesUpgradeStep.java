@@ -154,7 +154,8 @@ public class IngestPoliciesUpgradeStep implements UpgradeStep {
     // (UnsupportedOperationException) — skip gracefully so the step doesn't crash on
     // Postgres-only profiles.
     try {
-      if (_entitySearchService.docCount(systemOperationContext, Constants.POLICY_ENTITY_NAME)
+      if (_entitySearchService.docCount(
+              systemOperationContext.withSkipTemplateExecution(true), Constants.POLICY_ENTITY_NAME)
           == 0) {
         updatePolicyIndex(systemOperationContext);
       }

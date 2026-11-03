@@ -1,0 +1,17 @@
+namespace com.linkedin.search.template
+
+/**
+ * Second retrieval leg that fills the page from a pivot field. Stored as data. A deployment
+ * that does not advertise bridge retrieval fails the search when this section is set.
+ */
+record SearchTemplateRetrievalBridge {
+  /**
+   * Field used to find the related candidates.
+   */
+  pivotField: optional string
+
+  /**
+   * What to do when the bridge leg fails. The keyword page is the fallback.
+   */
+  onFailure: optional string
+}

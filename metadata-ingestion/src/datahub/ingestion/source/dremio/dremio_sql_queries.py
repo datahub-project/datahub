@@ -27,7 +27,9 @@ class DremioSQLQueries:
         C.COLUMN_SIZE
     FROM
         INFORMATION_SCHEMA."TABLES" T
-        INNER JOIN (
+        -- LEFT JOIN: a dataset whose columns can't be read (e.g. its source
+        -- is offline) still comes back, as one row without COLUMN_NAME.
+        LEFT JOIN (
             SELECT
                 TABLE_CATALOG,
                 TABLE_SCHEMA,

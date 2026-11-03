@@ -1,43 +1,31 @@
-import { CaretDownOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button, Dropdown, Menu } from 'antd';
-import MenuItem from 'antd/lib/menu/MenuItem';
-import React from 'react';
+import { Menu, Tooltip } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-const DownArrow = styled(CaretDownOutlined)`
-    && {
-        padding-top: 4px;
-        font-size: 8px;
-        margin-left: 2px;
-        margin-top: 2px;
-        color: ${(props) => props.theme.colors.textTertiary};
-    }
-`;
+import { ItemType } from '@components/components/Menu/types';
 
-const StyledMenuItem = styled(MenuItem)`
-    && {
-        padding: 0px;
-    }
-`;
-
-const ActionButton = styled(Button)`
-    font-weight: normal;
+const DownArrow = styled(CaretDown).attrs({ size: 10, weight: 'fill' })`
+    margin-left: 2px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const DropdownWrapper = styled.div<{
     disabled: boolean;
 }>`
     cursor: ${(props) => (props.disabled ? 'normal' : 'pointer')};
-    color: ${(props) => (props.disabled ? props.theme.colors.textDisabled : 'none')};
+    color: ${(props) => (props.disabled ? props.theme.colors.textDisabled : 'inherit')};
     display: flex;
+    align-items: center;
     margin-left: 12px;
     margin-right: 12px;
 `;
 
 type Action = {
-    title: React.ReactNode;
+    title: string;
     onClick: () => void;
 };
 
@@ -49,28 +37,26 @@ type Props = {
 
 export default function ActionDropdown({ name, actions, disabled }: Props) {
     const { t } = useTranslation('entity.shared.components');
+
+    const items: ItemType[] = useMemo(
+        () =>
+            actions.map((action) => ({
+                type: 'item',
+                key: action.title,
+                title: action.title,
+                onClick: action.onClick,
+            })),
+        [actions],
+    );
+
     return (
         <Tooltip title={disabled ? t('searchActions.notSupported') : ''}>
-            <Dropdown
-                disabled={disabled}
-                trigger={['click']}
-                overlay={
-                    <Menu>
-                        {actions.map((action) => (
-                            <StyledMenuItem>
-                                <ActionButton type="text" onClick={action.onClick}>
-                                    {action.title}
-                                </ActionButton>
-                            </StyledMenuItem>
-                        ))}
-                    </Menu>
-                }
-            >
+            <Menu items={items} disabled={disabled} trigger={['click']}>
                 <DropdownWrapper disabled={!!disabled}>
                     {name}
                     <DownArrow />
                 </DropdownWrapper>
-            </Dropdown>
+            </Menu>
         </Tooltip>
     );
 }

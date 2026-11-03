@@ -4911,6 +4911,20 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(self.source.schema_extraction_stats.from_openapi_spec, 1)
         self.assertTrue(len(result.fields) > 0)
 
+    def test_resolve_schema_references_non_dict_properties_does_not_crash(self):
+        # A malformed spec may set `properties` to a non-dict; resolution must
+        # leave it untouched rather than raising while iterating its keys.
+        schema = {"type": "object", "properties": ["not", "a", "dict"]}
+        resolved = resolve_schema_references(schema, {"components": {"schemas": {}}})
+        self.assertEqual(resolved["properties"], ["not", "a", "dict"])
+
+    def test_resolve_schema_references_non_list_oneof_does_not_crash(self):
+        # oneOf/anyOf as a single inline object (not a list) must be left
+        # untouched rather than iterated as if it were a list of members.
+        schema = {"oneOf": {"type": "string"}}
+        resolved = resolve_schema_references(schema, {"components": {"schemas": {}}})
+        self.assertEqual(resolved["oneOf"], {"type": "string"})
+
 
 def _with_bool_subschema(slot: str, value: Any) -> Dict[str, Any]:
     if slot == "patternProperties":

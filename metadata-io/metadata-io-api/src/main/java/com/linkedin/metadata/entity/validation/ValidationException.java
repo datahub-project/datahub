@@ -16,7 +16,15 @@ public class ValidationException extends RuntimeException {
 
   public ValidationException(@Nonnull ValidationExceptionCollection validationExceptionCollection) {
     // Keep the collection attached so API layers can map subtypes (e.g. AUTHORIZATION → 403).
-    this("Failed to validate MCP due to: " + validationExceptionCollection);
+    this(messageFor(validationExceptionCollection));
     this.validationExceptionCollection = validationExceptionCollection;
+  }
+
+  // Never blank: GlobalControllerExceptionHandler puts this straight into REST responses.
+  private static String messageFor(@Nonnull ValidationExceptionCollection collection) {
+    String collectiveMessage = collection.getCollectiveMessageIncludingFiltered();
+    return !collectiveMessage.isEmpty()
+        ? collectiveMessage
+        : "Failed to validate MCP due to: " + collection;
   }
 }

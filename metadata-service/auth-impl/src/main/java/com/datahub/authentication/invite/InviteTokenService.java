@@ -22,6 +22,8 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,19 +45,42 @@ public class InviteTokenService {
     return Urn.createFromString(inviteTokenUrnStr);
   }
 
-  public boolean isInviteTokenValid(
-      @Nonnull OperationContext opContext, @Nonnull final Urn inviteTokenUrn)
-      throws RemoteInvocationException {
-    return _entityClient.exists(opContext, inviteTokenUrn);
-  }
-
+  /**
+   * Returns the stored invite token for {@code inviteTokenStr} if one exists and its stored value
+   * matches {@code inviteTokenStr}, otherwise null.
+   */
   @Nullable
-  public Urn getInviteTokenRole(
-      @Nonnull OperationContext opContext, @Nonnull final Urn inviteTokenUrn)
+  public com.linkedin.identity.InviteToken getVerifiedInviteToken(
+      @Nonnull OperationContext opContext, @Nonnull final String inviteTokenStr)
       throws URISyntaxException, RemoteInvocationException {
+    final Urn inviteTokenUrn = getInviteTokenUrn(inviteTokenStr);
+    final EntityResponse inviteTokenEntity =
+        _entityClient.getV2(
+            opContext,
+            INVITE_TOKEN_ENTITY_NAME,
+            inviteTokenUrn,
+            Collections.singleton(INVITE_TOKEN_ASPECT_NAME));
+    if (inviteTokenEntity == null
+        || !inviteTokenEntity.getAspects().containsKey(INVITE_TOKEN_ASPECT_NAME)) {
+      return null;
+    }
     final com.linkedin.identity.InviteToken inviteToken =
-        getInviteTokenEntity(opContext, inviteTokenUrn);
-    return inviteToken.hasRole() ? inviteToken.getRole() : null;
+        new com.linkedin.identity.InviteToken(
+            inviteTokenEntity.getAspects().get(INVITE_TOKEN_ASPECT_NAME).getValue().data());
+
+    final String storedInviteTokenStr;
+    try {
+      storedInviteTokenStr =
+          _secretService.decrypt(_systemOperationContext, inviteToken.getToken());
+    } catch (RuntimeException e) {
+      log.warn("Failed to decrypt invite token {}", inviteTokenUrn);
+      return null;
+    }
+    return MessageDigest.isEqual(
+            storedInviteTokenStr.getBytes(StandardCharsets.UTF_8),
+            inviteTokenStr.getBytes(StandardCharsets.UTF_8))
+        ? inviteToken
+        : null;
   }
 
   @Nonnull

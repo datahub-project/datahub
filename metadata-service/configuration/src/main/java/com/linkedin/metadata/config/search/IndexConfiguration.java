@@ -32,6 +32,13 @@ public class IndexConfiguration {
   private int numReplicas;
   private int numRetries;
   private int refreshIntervalSeconds;
+
+  /**
+   * Per-service refresh intervals. Not a Java default: {@code application.yaml} binds the seconds.
+   * {@link #refreshIntervalSeconds} is no longer read when writing {@code index.refresh_interval}.
+   */
+  private RefreshIntervals refreshIntervals;
+
   private int maxReindexHours;
   private String mainTokenizer;
 
@@ -39,6 +46,18 @@ public class IndexConfiguration {
   private int maxArrayLength;
   private int maxObjectKeys;
   private int maxValueLength;
+
+  /**
+   * On a structuredProperties RESTATE with no previous value, null mapped fields the aspect does
+   * not set. Off leaves those fields in the index until a write that has the previous aspect.
+   */
+  @Builder.Default private boolean structuredPropertyRestateEnabled = true;
+
+  /**
+   * How long a search index's structured-property field names stay cached. Used only while {@link
+   * #structuredPropertyRestateEnabled} is on.
+   */
+  @Builder.Default private int structuredPropertyMappingCacheTtlSeconds = 300;
 
   public String getFinalPrefix() {
     if (prefix == null || prefix.isEmpty()) {
