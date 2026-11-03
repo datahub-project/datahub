@@ -75,7 +75,9 @@ class SourceSettings(DIModel):
     name: str
     connection_id: Optional[str] = None
     run_type: Optional[str] = None
-    custom_query_source_settings: Optional[CustomQuerySettings] = None
+    # Kept raw and validated where used, so a malformed value only drops
+    # source lineage, not the river's target lineage.
+    custom_query_source_settings: Optional[object] = None
 
 
 class TargetSettings(DIModel):
@@ -105,7 +107,8 @@ class TableDetails(DIModel):
     target_table: Optional[str] = None
     # Only columns renamed, retyped, unselected or added are listed; other
     # columns load under their source name.
-    modified_columns: Optional[List[Optional[ModifiedColumn]]] = None
+    # Kept raw so that a malformed column only drops that column.
+    modified_columns: Optional[List[object]] = None
 
     @property
     def source_table(self) -> Optional[str]:
@@ -153,7 +156,14 @@ class LogicNode(DIModel):
     river_id: Optional[str] = None
     connection_id: Optional[str] = None
     sql_query: Optional[str] = None
+    # The spec puts script SQL in sql_query too; sql_script is read as a
+    # fallback in case a response uses that name.
+    sql_script: Optional[str] = None
     target_settings: Optional[StepTargetSettings] = None
+
+    @property
+    def sql(self) -> Optional[str]:
+        return self.sql_query or self.sql_script
 
 
 class ConditionBranch(DIModel):

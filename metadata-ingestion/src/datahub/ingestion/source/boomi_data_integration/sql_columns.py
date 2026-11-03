@@ -33,6 +33,14 @@ def statement_count(sql: str, platform: str) -> int:
     )
 
 
+def update_statements(sql: str, platform: str) -> List[str]:
+    return [
+        statement
+        for statement in split_statements(sql, dialect=get_dialect_str(platform))
+        if isinstance(_parse(statement, platform), sqlglot.exp.Update)
+    ]
+
+
 def _unique(pairs: List[Tuple[str, str]]) -> Dict[str, str]:
     by_output: Dict[str, str] = {}
     duplicates: Set[str] = set()

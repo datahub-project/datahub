@@ -499,7 +499,21 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             river_exits[summary.river_cross_id] = pending.exit_job_urns()
             templates[summary.river_cross_id] = self._run_template(pending)
         for pending in pending_rivers:
-            yield from self._river_jobs(pending, river_exits)
+            # Jobs are built here rather than in the per-river try above, so
+            # they need their own guard to keep one bad river from ending the
+            # run.
+            try:
+                jobs = list(self._river_jobs(pending, river_exits))
+            except Exception as e:
+                templates.pop(pending.flow.urn.flow_id, None)
+                self.report.warning(
+                    title="Failed to process river jobs",
+                    message="The river's jobs were skipped.",
+                    context=f"river_cross_id={pending.flow.urn.flow_id}, name={pending.flow.display_name}",
+                    exc=e,
+                )
+                continue
+            yield from jobs
 
     def _river_url(
         self, environment_id: str, river_id: str, river_type: str

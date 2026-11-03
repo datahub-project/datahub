@@ -8,7 +8,8 @@ from datahub.ingestion.source.boomi_data_integration.client import (
     BoomiDataIntegrationClient,
 )
 from datahub.ingestion.source.boomi_data_integration.constants import (
-    ACCESS_DENIED_STATUS_CODES,
+    HTTP_FORBIDDEN,
+    HTTP_UNAUTHORIZED,
 )
 from datahub.ingestion.source.boomi_data_integration.models import RiverMetadata
 from datahub.ingestion.source.boomi_data_integration.report import (
@@ -18,6 +19,8 @@ from datahub.metadata.schema_classes import OwnershipTypeClass
 from datahub.metadata.urns import CorpUserUrn
 
 Owners = List[Tuple[CorpUserUrn, str]]
+
+NO_EMAIL = ""
 
 
 def _name_key(name: str) -> str:
@@ -34,7 +37,8 @@ class OwnerResolver:
     ) -> None:
         self.client = client
         self.report = report
-        # Display name -> email, or None when several users share the name.
+        # Display name -> email, NO_EMAIL for a user without one, or None when
+        # several users share the name.
         self._emails: Optional[Dict[str, Optional[str]]] = None
         self._tried_environments: Set[str] = set()
         self._warned = False
@@ -61,12 +65,13 @@ class OwnerResolver:
         if not name or not name.strip():
             return None
         key = _name_key(name)
-        if key not in emails:
-            self.report.owners_unknown_names += 1
-            return None
-        email = emails[key]
+        email = emails.get(key, NO_EMAIL)
         if email is None:
             self.report.owners_ambiguous_names += 1
+            return None
+        if email == NO_EMAIL:
+            self.report.owners_unknown_names += 1
+            return None
         return email
 
     def _load(
@@ -88,28 +93,16 @@ class OwnerResolver:
             self.report.users_unavailable = True
             if not self._warned:
                 self._warned = True
-                denied = (
-                    isinstance(e, BoomiDataIntegrationApiError)
-                    and e.status_code in ACCESS_DENIED_STATUS_CODES
-                )
-                self.report.warning(
-                    title="Users list not readable",
-                    message=(
-                        "The API token lacks the user:list scope, so river owners "
-                        "are skipped."
-                        if denied
-                        else "The users list could not be read, so river owners are skipped."
-                    ),
-                    context=f"environment_id={environment_id}",
-                    exc=e,
-                )
+                self._warn_unavailable(environment_id, e)
             return None
         emails: Dict[str, Optional[str]] = {}
         for user in users:
-            if not user.user_name or not user.user_email:
+            if not user.user_name or not user.user_name.strip():
                 continue
             key = _name_key(user.user_name)
-            email = user.user_email.strip()
+            # A user without an email still claims the name, so a shared name
+            # stays ambiguous instead of resolving to the other user.
+            email = (user.user_email or "").strip()
             if key in emails and emails[key] != email:
                 emails[key] = None
             else:
@@ -118,3 +111,32 @@ class OwnerResolver:
         self.report.users_unavailable = False
         self._emails = emails
         return emails
+
+    def _warn_unavailable(self, environment_id: str, error: Exception) -> None:
+        context = f"environment_id={environment_id}"
+        status = (
+            error.status_code
+            if isinstance(error, BoomiDataIntegrationApiError)
+            else None
+        )
+        if status == HTTP_UNAUTHORIZED:
+            self.report.warning(
+                title="Users list not readable",
+                message="The API token was rejected (HTTP 401), so river owners are skipped.",
+                context=context,
+                exc=error,
+            )
+        elif status == HTTP_FORBIDDEN:
+            self.report.warning(
+                title="Users list not readable",
+                message="The API token lacks the user:list scope, so river owners are skipped.",
+                context=context,
+                exc=error,
+            )
+        else:
+            self.report.warning(
+                title="Users list not readable",
+                message="The users list could not be read, so river owners are skipped.",
+                context=context,
+                exc=error,
+            )

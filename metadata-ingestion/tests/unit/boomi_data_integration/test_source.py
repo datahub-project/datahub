@@ -16,8 +16,10 @@ from datahub.ingestion.source.boomi_data_integration.report import (
 )
 from datahub.ingestion.source.boomi_data_integration.source import (
     BoomiDataIntegrationSource,
+    PendingRiver,
 )
 from datahub.metadata.schema_classes import DataJobInputOutputClass
+from datahub.metadata.urns import DataJobUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -209,6 +211,44 @@ def test_river_get_400_falls_back_to_list_fields() -> None:
     report = source.get_report()
     assert report.rivers_without_definition == 2
     assert [w.title for w in report.warnings] == ["River definitions unavailable"]
+
+
+def test_failure_building_one_rivers_jobs_keeps_the_others(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source()
+    build_jobs = source._river_jobs
+
+    def failing_for_r1(
+        pending: PendingRiver, river_exits: Dict[str, List[DataJobUrn]]
+    ) -> Iterable[DataJob]:
+        if pending.flow.urn.flow_id == "r-1":
+            raise ValueError("boom")
+        return build_jobs(pending, river_exits)
+
+    monkeypatch.setattr(source, "_river_jobs", failing_for_r1)
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            f"{BASE_URL}/environments", json=_page([_environment("env-a", "Prod")])
+        )
+        mock.get(
+            f"{BASE_URL}/environments/env-a/rivers",
+            json=_page([_summary("r-1"), _summary("r-2")]),
+        )
+        mock.get(f"{BASE_URL}/environments/env-a/rivers/r-1", status_code=400)
+        mock.get(f"{BASE_URL}/environments/env-a/rivers/r-2", status_code=400)
+        entities = _entities(source)
+
+    assert [e.urn.flow_id for e in entities if isinstance(e, DataFlow)] == [
+        "r-1",
+        "r-2",
+    ]
+    assert [
+        e.urn.get_data_flow_urn().flow_id for e in entities if isinstance(e, DataJob)
+    ] == ["r-2"]
+    assert "Failed to process river jobs" in [
+        w.title for w in source.get_report().warnings
+    ]
 
 
 def _ingested_flow_ids(source: BoomiDataIntegrationSource) -> List[str]:

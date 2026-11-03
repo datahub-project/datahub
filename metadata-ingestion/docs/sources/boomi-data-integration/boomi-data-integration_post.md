@@ -35,16 +35,17 @@ The target platform comes from the river's target type. `connection_type_platfor
 
 The source platform comes from the river's source type. `connection_type_platform_map` and an entry in `connection_to_platform` for the source connection override it, as for targets.
 
-| Source                                    | DataHub platform               | Table name                                                                 |
-| ----------------------------------------- | ------------------------------ | -------------------------------------------------------------------------- |
-| Postgres, SQL Server, Snowflake, Redshift | `postgres`, `mssql`, and so on | `database.schema.table`, database from `connection_to_platform` (required) |
-| BigQuery                                  | `bigquery`                     | `project.dataset.table`, project from `connection_to_platform` (required)  |
-| MySQL, MariaDB                            | `mysql`, `mariadb`             | `database.table`, database from the river's schema name                    |
-| Oracle                                    | `oracle`                       | `schema.table`, or `database.schema.table` when `database` is mapped       |
+| Source                                    | DataHub platform               | Table name                                                           |
+| ----------------------------------------- | ------------------------------ | -------------------------------------------------------------------- |
+| Postgres, SQL Server, Snowflake, Redshift | `postgres`, `mssql`, and so on | `database.schema.table`, database from `connection_to_platform`      |
+| BigQuery                                  | `bigquery`                     | `project.dataset.table`, project from `connection_to_platform`       |
+| MySQL, MariaDB                            | `mysql`, `mariadb`             | `database.table`, database from the river's schema name              |
+| Oracle                                    | `oracle`                       | `schema.table`, or `database.schema.table` when `database` is mapped |
 
+- The `connection_to_platform` database or project is required for multi-table rivers and for SQL that leaves it out of table names. Fully qualified table names in custom queries and logic SQL steps resolve without it.
 - Multi-table rivers read each selected table of each schema in the river.
 - Custom query rivers read the tables in their SQL. The query is parsed with the source platform's dialect, using `database` and `default_schema` from the source connection in `connection_to_platform` for unqualified names.
-- Logic SQL query and script steps read the tables in their SQL, parsed with the step's warehouse dialect and the step connection's `database` and `default_schema`. Tables an `INSERT`, `MERGE` or `CREATE TABLE` in the SQL writes become outputs too; for script steps they are the only outputs.
+- Logic SQL query and script steps read the tables in their SQL, parsed with the step's warehouse dialect and the step connection's `database` and `default_schema`. Tables an `INSERT`, `UPDATE`, `MERGE` or `CREATE TABLE` in the SQL writes become outputs too; for script steps they are the only outputs. An `UPDATE`'s own target is not listed as an input, but in a script a table written by one statement and read by a later one is.
 - A SQL table is only used when its name has as many parts as the platform's URNs, so a table missing its database or schema is skipped rather than given a name that would not join.
 - Source tables of a multi-table river with a target prefix still get lineage, even though the targets are skipped.
 
@@ -56,11 +57,11 @@ Column lineage is on by default and can be turned off with `include_column_linea
 - **Custom query rivers and logic SQL query steps loading a table:** each named output column of the `SELECT` maps to the column of the same name in the target table. A river or step with its own field mapping gets no column lineage.
 - **`INSERT ... SELECT`:** target columns are matched to the `SELECT` by position in the `INSERT` column list. An `INSERT` without a column list gets no column lineage. Script steps with more than one statement get table lineage only.
 
-When the source plugin can reach DataHub, it matches columns to the dataset schemas already ingested, ignoring case, and keeps their stored field paths. Columns a known dataset does not have are dropped. Skips are counted by reason in `column_lineage_skipped`.
+When the source plugin can reach DataHub, it matches columns to the dataset schemas already ingested, ignoring case, and keeps their stored field paths. Columns a known dataset does not have are dropped. Skips are counted by reason in `column_lineage_skipped`, for example `missing_target` when a multi-table river's target table is not resolved and `invalid_column` for a column entry with an unexpected shape.
 
 #### Owners
 
-With `extract_owners: true`, the river creator becomes a data owner and the last editor, when different, a technical owner, on the river's DataFlow and DataJobs. Rivers only carry display names, so the source plugin reads the account's users once (this needs the `user:list` scope) and matches names to emails, ignoring case. Names that match no user or more than one user are skipped and counted in `owners_unknown_names` and `owners_ambiguous_names`. Owners are `urn:li:corpuser:<email>`.
+With `extract_owners: true`, the river creator becomes a data owner and the last editor, when different, a technical owner, on the river's DataFlow and DataJobs. Rivers only carry display names, so the source plugin reads the account's users (this needs the `user:list` scope) and caches the first successful response; after a failed request it tries the next environment's token and matches names to emails, ignoring case. Names that match no user, or only a user without an email, are skipped and counted in `owners_unknown_names`. Names shared by more than one user, including a user without an email, are skipped and counted in `owners_ambiguous_names`. Owners are `urn:li:corpuser:<email>`.
 
 #### Run history
 
@@ -84,14 +85,14 @@ With `include_run_history` (on by default), the source plugin reads the runs of 
 
 ### Limitations
 
-- Source lineage covers database sources only. SaaS sources such as Salesforce or HubSpot, single-table and predefined-report rivers get target lineage only; they are counted in `sources_unsupported` and `source_lineage_skipped`.
+- Source lineage covers database sources only. Rivers from SaaS sources such as Salesforce or HubSpot get target lineage only and are counted in `sources_unsupported`. Single-table and predefined-report rivers from database sources also get target lineage only and are counted under `unsupported_run_type` in `source_lineage_skipped`.
 - Observed targets from run activity are not used.
 - The API documents that it returns HTTP 400 when asked for the definition of a river created in the UI. The source plugin still tries every river. Rivers without a definition are ingested from the list fields only, with no lineage or logic steps, and counted in `rivers_without_definition`.
 - When a multi-table river sets a target prefix, its targets are skipped and listed in `targets_prefix_skipped`, because how the prefix combines with each table name is not documented.
 - S3, GCS, Blob Storage and OneLake targets get no lineage.
 - BigQuery targets get no lineage unless the target connection is in `connection_to_platform` with the project as `database`.
 - Runs older than two weeks are not available from the API.
-- A job's lineage is only written when the source plugin finds at least one target, so lineage added in the UI or by other sources is not overwritten with an empty list. If a river's target later stops resolving, for example because it moved to object storage or `include_lineage` was turned off, the lineage from earlier runs stays until it is removed in DataHub.
+- A job's lineage is only written when the source plugin finds at least one source or target table, so lineage added in the UI or by other sources is not overwritten with an empty list. If a river's target later stops resolving, for example because it moved to object storage or `include_lineage` was turned off, the lineage from earlier runs stays until it is removed in DataHub.
 
 ### Troubleshooting
 
@@ -125,11 +126,11 @@ Check `targets_missing_bigquery_project`, `targets_missing_location`, `targets_p
 
 #### Warning "Source database unknown"
 
-A multi-table river reads from a platform whose URNs need a database, and its source connection is not in `connection_to_platform`. Add the connection ID with `platform` and `database`. Affected rivers are listed in `sources_missing_database`.
+A multi-table river reads from a platform whose URNs need a database, and its source connection is not in `connection_to_platform` or has no `database`. Add the connection ID with `platform` and `database`. Affected rivers are listed in `sources_missing_database`.
 
 #### Warning "SQL table not fully qualified" or "Failed to parse SQL"
 
-A custom query or logic SQL step names a table without its database or schema, or its SQL could not be parsed. Set `database` and `default_schema` on the connection in `connection_to_platform`. Affected rivers and steps are listed in `sql_parse_failures`, and skips are counted in `source_lineage_skipped`.
+A custom query or logic SQL step names a table without its database or schema, or its SQL could not be parsed. For unqualified tables, set `database` and `default_schema` on the connection in `connection_to_platform`; they are counted under `unqualified_sql_table` in `source_lineage_skipped`. Rivers and steps whose SQL could not be parsed are listed in `sql_parse_failures` and counted under `sql_parse_failed`.
 
 #### River step not linked to the river it runs
 
@@ -137,4 +138,4 @@ The called river was not ingested in the same run and environment, for example b
 
 #### Warning "Users list not readable"
 
-`extract_owners` is on but the token lacks the `user:list` scope. Add the scope to the token, or turn `extract_owners` off.
+`extract_owners` is on but the users list could not be read. The warning says whether the token was rejected (HTTP 401) or lacks the `user:list` scope (HTTP 403); add the scope or replace the token. For other errors, check the error in the warning. You can also turn `extract_owners` off.

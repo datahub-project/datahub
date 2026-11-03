@@ -245,6 +245,7 @@ def test_modified_columns_become_column_lineage() -> None:
         {"name": "loaded_at", "is_selected": True, "expression": "now()"},
         {"name": "__rivery_run", "is_selected": True, "is_rivery_metadata": True},
         {"alias": "nameless", "is_selected": True},
+        {"name": "broken", "is_selected": None},
         None,
     ]
     lineage = resolver.river_lineage(
@@ -256,6 +257,7 @@ def test_modified_columns_become_column_lineage() -> None:
         "expression": 1,
         "metadata_column": 1,
         "missing_name": 1,
+        "invalid_column": 1,
     }
 
 
@@ -269,6 +271,7 @@ def test_modified_columns_skip_when_target_is_unresolved() -> None:
     )
 
     assert lineage.columns == {}
+    assert resolver.report.column_lineage_skipped["missing_target"] == 1
 
 
 def test_column_lineage_can_be_turned_off() -> None:
@@ -368,18 +371,53 @@ def test_custom_query_missing_and_unparsable() -> None:
     resolver = _resolver(connection_to_platform=PG_SOURCE)
     target = {**SF_TARGET, "table_name": "orders"}
 
-    assert resolver.river_lineage(_custom_query("postgresql", None, target), "r1")
+    missing = resolver.river_lineage(_custom_query("postgresql", None, target), "r1")
     lineage = resolver.river_lineage(
         _custom_query("postgresql", "SELEC nothing useful", target), "r2"
     )
     resolver.river_lineage(_custom_query("postgresql", "SELECT 1", target), "r3")
 
+    assert (missing.inputs, missing.outputs) == (set(), {_sf("dw.raw.orders")})
     assert lineage.inputs == set()
     assert lineage.outputs == {_sf("dw.raw.orders")}
     assert resolver.report.source_lineage_skipped["missing_query"] == 1
     assert resolver.report.source_lineage_skipped["sql_parse_failed"] == 2
     assert list(resolver.report.sql_parse_failures) == ["r2", "r3"]
     assert [w.title for w in resolver.report.warnings] == ["Failed to parse SQL"]
+
+
+def test_malformed_custom_query_settings_keep_target_lineage() -> None:
+    resolver = _resolver(connection_to_platform=PG_SOURCE)
+    props = SourceToTargetProperties.model_validate(
+        {
+            "source": {
+                "name": "postgresql",
+                "connection_id": "conn-pg",
+                "run_type": "custom_query",
+                "custom_query_source_settings": {"query": ["not", "a", "string"]},
+            },
+            "target": {**SF_TARGET, "table_name": "orders"},
+        }
+    )
+
+    lineage = resolver.river_lineage(props, "r")
+
+    assert (lineage.inputs, lineage.outputs) == (set(), {_sf("dw.raw.orders")})
+    assert resolver.report.source_lineage_skipped["invalid_query_settings"] == 1
+
+
+def test_custom_query_outputs_are_not_counted() -> None:
+    resolver = _resolver(connection_to_platform=PG_SOURCE)
+    props = _custom_query(
+        "postgresql",
+        "INSERT INTO appdb.public.audit SELECT id FROM appdb.public.orders",
+        {**SF_TARGET, "table_name": "orders"},
+    )
+
+    lineage = resolver.river_lineage(props, "r")
+
+    assert lineage.outputs == {_sf("dw.raw.orders")}
+    assert resolver.report.sql_tables_emitted == 1
 
 
 def test_logic_select_step_reads_tables_and_maps_columns_to_target() -> None:
@@ -467,9 +505,80 @@ def test_insert_without_column_list_has_no_column_lineage() -> None:
 
     lineage = resolver.step_lineage(node, "s")
 
+    assert lineage.inputs == {_sf("dw.raw.orders")}
     assert lineage.outputs == {_sf("dw.mart.summary")}
     assert lineage.columns == {}
     assert resolver.report.column_lineage_skipped["insert_without_column_list"] == 1
+
+
+MERGE_SQL = (
+    "MERGE INTO DW.MART.SUMMARY t USING DW.RAW.ORDERS o ON t.ID = o.ID "
+    "WHEN MATCHED THEN UPDATE SET TOTAL = o.AMOUNT"
+)
+INSERT_SQL = (
+    "INSERT INTO DW.MART.SUMMARY (LABEL, TOTAL) SELECT DESCR, AMOUNT FROM DW.RAW.ORDERS"
+)
+
+
+@pytest.mark.parametrize("include_column_lineage", [True, False])
+@pytest.mark.parametrize("sql", [MERGE_SQL, INSERT_SQL])
+def test_write_statements_read_their_source_tables(
+    sql: str, include_column_lineage: bool
+) -> None:
+    resolver = _resolver(include_column_lineage=include_column_lineage)
+
+    lineage = resolver.step_lineage(_step("snowflake_sql_query", sql), "s")
+
+    assert lineage.inputs == {_sf("dw.raw.orders")}
+    assert lineage.outputs == {_sf("dw.mart.summary")}
+    if not include_column_lineage:
+        assert lineage.columns == {}
+
+
+def test_update_target_is_not_an_input() -> None:
+    resolver = _resolver()
+    node = _step(
+        "snowflake_sql_query",
+        "UPDATE DW.MART.SUMMARY s SET TOTAL = o.AMOUNT FROM DW.RAW.ORDERS o "
+        "WHERE s.ID = o.ID",
+    )
+
+    lineage = resolver.step_lineage(node, "s")
+
+    assert lineage.inputs == {_sf("dw.raw.orders")}
+    assert lineage.outputs == {_sf("dw.mart.summary")}
+
+
+def test_script_keeps_tables_written_then_read_as_inputs() -> None:
+    resolver = _resolver()
+    node = _step(
+        "snowflake_sql_script",
+        "INSERT INTO DW.MART.A SELECT ID FROM DW.RAW.ORDERS; "
+        "INSERT INTO DW.MART.B SELECT ID FROM DW.MART.A; "
+        "UPDATE DW.MART.C SET X = 1",
+    )
+
+    lineage = resolver.step_lineage(node, "s")
+
+    assert lineage.inputs == {_sf("dw.raw.orders"), _sf("dw.mart.a")}
+    assert lineage.outputs == {_sf("dw.mart.a"), _sf("dw.mart.b"), _sf("dw.mart.c")}
+
+
+def test_script_sql_is_read_from_sql_script_too() -> None:
+    resolver = _resolver()
+    node = LogicNode.model_validate(
+        {
+            "type": "snowflake_sql_script",
+            "step_id": "s",
+            "connection_id": "conn-sf",
+            "sql_script": "INSERT INTO DW.MART.A SELECT ID FROM DW.RAW.ORDERS",
+        }
+    )
+
+    lineage = resolver.step_lineage(node, "s")
+
+    assert lineage.inputs == {_sf("dw.raw.orders")}
+    assert lineage.outputs == {_sf("dw.mart.a")}
 
 
 def test_script_steps_take_outputs_from_the_sql() -> None:

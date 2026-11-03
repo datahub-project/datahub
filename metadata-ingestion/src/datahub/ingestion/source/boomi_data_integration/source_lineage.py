@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
+from pydantic import ValidationError
 from typing_extensions import LiteralString
 
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -27,7 +28,9 @@ from datahub.ingestion.source.boomi_data_integration.lineage import (
     sql_step_target_name,
 )
 from datahub.ingestion.source.boomi_data_integration.models import (
+    CustomQuerySettings,
     LogicNode,
+    ModifiedColumn,
     SourceSettings,
     SourceToTargetProperties,
     TableDetails,
@@ -38,6 +41,7 @@ from datahub.ingestion.source.boomi_data_integration.report import (
 from datahub.ingestion.source.boomi_data_integration.sql_columns import (
     output_columns,
     statement_count,
+    update_statements,
 )
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
@@ -101,6 +105,8 @@ class SqlStatement:
     select_target_scope: Optional[DatasetScope] = None
     # The step or river maps the query's output columns itself.
     has_field_mapping: bool = False
+    # A custom query's own output tables are not where the river loads.
+    keep_outputs: bool = True
 
 
 def _join(*parts: Optional[str]) -> Optional[str]:
@@ -158,7 +164,8 @@ class SourceLineageResolver:
         target = self.targets.step_target(node, context)
         if target:
             lineage.outputs.add(target)
-        if not node.sql_query:
+        sql = node.sql
+        if not sql:
             return lineage
         target_name, is_script = sql_step_target_name(node.type)
         scope = (
@@ -172,7 +179,7 @@ class SourceLineageResolver:
         settings = node.target_settings
         self._sql(
             SqlStatement(
-                sql=node.sql_query,
+                sql=sql,
                 scope=scope,
                 context=context,
                 is_script=is_script,
@@ -243,10 +250,14 @@ class SourceLineageResolver:
             source_urn = scope.urn(name)
             lineage.inputs.add(source_urn)
             self.report.source_tables_emitted += 1
-            if self.config.include_column_lineage and table.urn and target_scope:
+            if not self.config.include_column_lineage:
+                continue
+            if table.urn and target_scope:
                 self._mapped_columns(
                     source_urn, scope, table.urn, target_scope, table.details, lineage
                 )
+            elif table.details.modified_columns:
+                self._skip_column(ColumnSkipReason.MISSING_TARGET)
 
     @staticmethod
     def _source_table_name(
@@ -268,8 +279,15 @@ class SourceLineageResolver:
         details: TableDetails,
         lineage: JobLineage,
     ) -> None:
-        for column in details.modified_columns or []:
-            if column is None or not column.is_selected:
+        for raw in details.modified_columns or []:
+            if raw is None:
+                continue
+            try:
+                column = ModifiedColumn.model_validate(raw)
+            except ValidationError:
+                self._skip_column(ColumnSkipReason.INVALID_COLUMN)
+                continue
+            if not column.is_selected:
                 continue
             if column.is_rivery_metadata:
                 self._skip_column(ColumnSkipReason.METADATA_COLUMN)
@@ -297,13 +315,18 @@ class SourceLineageResolver:
         lineage: JobLineage,
         context: str,
     ) -> None:
-        settings = props.source.custom_query_source_settings
+        raw = props.source.custom_query_source_settings
+        try:
+            settings = (
+                CustomQuerySettings.model_validate(raw) if raw is not None else None
+            )
+        except ValidationError:
+            self._skip(LineageSkipReason.INVALID_QUERY_SETTINGS)
+            return
         if settings is None or not settings.query:
             self._skip(LineageSkipReason.MISSING_QUERY)
             return
         target = tables[0].urn if len(tables) == 1 else None
-        # The query's own output tables are ignored: the river loads its
-        # result into the river target.
         query_lineage = JobLineage()
         self._sql(
             SqlStatement(
@@ -315,6 +338,7 @@ class SourceLineageResolver:
                     props.target.name, props.target.connection_id
                 ),
                 has_field_mapping=bool(settings.fields),
+                keep_outputs=False,
             ),
             query_lineage,
         )
@@ -366,15 +390,37 @@ class SourceLineageResolver:
                 exc=error,
             )
             return
-        out_urns = self._rebuild_all(result.out_tables, scope, statement.context)
         in_urns = self._rebuild_all(result.in_tables, scope, statement.context)
-        # The parser lists an UPDATE's own target as read too.
-        in_urns -= out_urns
-        lineage.outputs.update(out_urns)
+        in_urns -= self._update_targets(statement)
         lineage.inputs.update(in_urns)
-        self.report.sql_tables_emitted += len(out_urns) + len(in_urns)
+        self.report.sql_tables_emitted += len(in_urns)
+        if statement.keep_outputs:
+            out_urns = self._rebuild_all(result.out_tables, scope, statement.context)
+            lineage.outputs.update(out_urns)
+            self.report.sql_tables_emitted += len(out_urns)
         if self.config.include_column_lineage:
             self._sql_columns(statement, result, lineage)
+
+    def _update_targets(self, statement: SqlStatement) -> Set[str]:
+        # The parser lists an UPDATE's own target as read too. Only that table
+        # is dropped from the inputs: in a script, a table written by one
+        # statement and read by a later one is still an input.
+        scope = statement.scope
+        targets: Set[str] = set()
+        for sql in update_statements(statement.sql, scope.platform):
+            result = create_lineage_sql_parsed_result(
+                query=sql,
+                default_db=scope.database,
+                default_schema=scope.default_schema,
+                platform=scope.platform,
+                platform_instance=None,
+                env=scope.env,
+            )
+            for parsed in result.out_tables:
+                urn = self._rebuild(parsed, scope)
+                if urn is not None:
+                    targets.add(urn)
+        return targets
 
     def _rebuild_all(
         self, parsed_urns: List[str], scope: DatasetScope, context: str

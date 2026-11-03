@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Tuple
 
+import pytest
 import requests_mock
 from pydantic import SecretStr
 
@@ -27,7 +28,7 @@ def _resolver() -> OwnerResolver:
     return OwnerResolver(BoomiDataIntegrationClient(config, report), report)
 
 
-def _users(*pairs: Tuple[str, str]) -> Dict[str, object]:
+def _users(*pairs: Tuple[str, Optional[str]]) -> Dict[str, object]:
     return {
         "items": [
             {"user_id": f"u{i}", "user_name": name, "user_email": email}
@@ -92,6 +93,36 @@ def test_ambiguous_and_unknown_names_are_skipped_and_counted() -> None:
 
     assert resolver.report.owners_ambiguous_names == 1
     assert resolver.report.owners_unknown_names == 1
+
+
+def test_name_shared_with_an_emailless_user_stays_ambiguous() -> None:
+    resolver = _resolver()
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            USERS_URL,
+            json=_users(
+                ("Shared Name", "a@example.com"),
+                ("Shared Name", None),
+                ("No Email", None),
+            ),
+        )
+        assert _owners(resolver, "Shared Name", "No Email") is None
+
+    assert resolver.report.owners_ambiguous_names == 1
+    assert resolver.report.owners_unknown_names == 1
+
+
+@pytest.mark.parametrize("status, names_scope", [(401, False), (403, True)])
+def test_rejected_token_and_missing_scope_warn_differently(
+    status: int, names_scope: bool
+) -> None:
+    resolver = _resolver()
+    with requests_mock.Mocker() as mock:
+        mock.get(USERS_URL, status_code=status, json={"detail": "denied"})
+        assert _owners(resolver, "Example User", None) is None
+
+    (warning,) = resolver.report.warnings
+    assert ("user:list" in (warning.message or "")) is names_scope
 
 
 def test_forbidden_users_list_warns_once_and_retries_per_environment() -> None:

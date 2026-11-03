@@ -221,6 +221,7 @@ class LineageSkipReason(StrEnum):
     SQL_PARSE_FAILED = "sql_parse_failed"
     UNQUALIFIED_SQL_TABLE = "unqualified_sql_table"
     UNSUPPORTED_STEP_PLATFORM = "unsupported_step_platform"
+    INVALID_QUERY_SETTINGS = "invalid_query_settings"
 
 
 class ColumnSkipReason(StrEnum):
@@ -234,6 +235,8 @@ class ColumnSkipReason(StrEnum):
     NO_TARGET_TABLE = "no_target_table"
     NO_SOURCE_COLUMN = "no_source_column"
     NOT_IN_SCHEMA = "not_in_schema"
+    MISSING_TARGET = "missing_target"
+    INVALID_COLUMN = "invalid_column"
 
 
 TRANSFORM_IDENTITY = "IDENTITY"
