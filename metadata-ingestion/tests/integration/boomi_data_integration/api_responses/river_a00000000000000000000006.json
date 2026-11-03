@@ -41,7 +41,7 @@
             "disable_errors": false,
             "connection_id": "a00000000000000000000094",
             "type": "databricks_sql_query",
-            "sql_query": "INSERT INTO DH_TEST_DB.ANALYTICS.RNA_SUMMARY SELECT DESCR, COUNT(*) FROM DH_TEST_DB.RNACENTRAL.RNC_DATABASE_COPY GROUP BY DESCR",
+            "sql_query": "INSERT INTO main.gold.region_totals (region, ticket_count) SELECT r.name, COUNT(t.id) FROM main.ops.tickets t JOIN main.ops.regions r ON t.region_id = r.id GROUP BY r.name",
             "target_settings": {
               "target_type": "table",
               "catalog": "main",
@@ -56,7 +56,7 @@
             "disable_errors": false,
             "connection_id": "a00000000000000000000092",
             "type": "postgres_sql_query",
-            "sql_query": "INSERT INTO DH_TEST_DB.ANALYTICS.RNA_SUMMARY SELECT DESCR, COUNT(*) FROM DH_TEST_DB.RNACENTRAL.RNC_DATABASE_COPY GROUP BY DESCR",
+            "sql_query": "SELECT COUNT(*) FROM public.Leads",
             "target_settings": {
               "target_type": "variable",
               "variable_name": "row_count"
@@ -91,7 +91,7 @@
         "disable_errors": false,
         "connection_id": "6ae8eee7c23a3443ebd7abe4",
         "type": "bigquery_sql_query",
-        "sql_query": "INSERT INTO DH_TEST_DB.ANALYTICS.RNA_SUMMARY SELECT DESCR, COUNT(*) FROM DH_TEST_DB.RNACENTRAL.RNC_DATABASE_COPY GROUP BY DESCR",
+        "sql_query": "SELECT region, SUM(ticket_count) AS tickets FROM `example-project-123456.gold.region_totals` GROUP BY region",
         "target_settings": {
           "target_type": "table",
           "dataset_id": "reporting",
@@ -99,13 +99,13 @@
         }
       },
       {
-        "name": "Vacuum",
+        "name": "Daily totals",
         "is_enabled": true,
         "step_id": "b0000000000000000000000000000006",
         "disable_errors": false,
         "type": "redshift_sql_script",
         "connection_id": "a00000000000000000000097",
-        "sql_script": "VACUUM"
+        "sql_query": "CREATE TEMP TABLE daily AS SELECT id, amount FROM raw.payments; INSERT INTO reporting.daily_totals SELECT id, SUM(amount) FROM daily GROUP BY id"
       }
     ],
     "properties_type": "logic"

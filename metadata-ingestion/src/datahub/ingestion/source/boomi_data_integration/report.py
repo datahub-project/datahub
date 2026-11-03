@@ -4,6 +4,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 
 @dataclass
@@ -29,6 +30,8 @@ class BoomiDataIntegrationSourceReport(StaleEntityRemovalSourceReport):
     logic_steps_emitted: int = 0
     logic_steps_disabled: int = 0
     logic_steps_invalid: int = 0
+    river_step_links_resolved: int = 0
+    river_step_links_unresolved: int = 0
 
     target_tables_emitted: int = 0
     targets_object_storage_skipped: int = 0
@@ -43,6 +46,21 @@ class BoomiDataIntegrationSourceReport(StaleEntityRemovalSourceReport):
     runs_river_not_emitted: int = 0
     runs_unknown_status: int = 0
     runs_unavailable_environments: LossyList[str] = field(default_factory=LossyList)
+    source_tables_emitted: int = 0
+    sql_tables_emitted: int = 0
+    source_lineage_skipped: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    sources_unsupported: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    sources_missing_database: LossyList[str] = field(default_factory=LossyList)
+    sql_parse_failures: LossyList[str] = field(default_factory=LossyList)
+
+    column_lineage_edges_emitted: int = 0
+    column_lineage_skipped: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+
+    owners_emitted: int = 0
+    owners_unknown_names: int = 0
+    owners_ambiguous_names: int = 0
+    users_listed: int = 0
+    users_unavailable: bool = False
 
     def report_api_call(self) -> None:
         self.api_calls += 1

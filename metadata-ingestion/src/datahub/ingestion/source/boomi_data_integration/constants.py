@@ -41,6 +41,7 @@ RIVERS_PATH_TEMPLATE = "environments/{environment_id}/rivers"
 RIVER_PATH_TEMPLATE = "environments/{environment_id}/rivers/{river_id}"
 ACTIVITIES_PATH_TEMPLATE = "environments/{environment_id}/activities"
 RIVER_RUNS_PATH_TEMPLATE = "environments/{environment_id}/rivers/{river_id}/runs"
+USERS_PATH = "users"
 
 PARAM_PAGE = "page"
 PARAM_ITEMS_PER_PAGE = "items_per_page"
@@ -55,6 +56,7 @@ RIVERS_PROBE_PAGE_SIZE = 1
 # The activities and runs endpoints cap items_per_page at 200.
 ACTIVITIES_PAGE_SIZE = 200
 RUNS_PAGE_SIZE = 200
+USERS_PAGE_SIZE = 200
 # Guards against an API that keeps returning a next_page link; 500 pages of
 # 500 rivers is far beyond any real environment.
 MAX_PAGES = 500
@@ -112,6 +114,7 @@ class LogicNodeType(StrEnum):
 
 
 SQL_QUERY_STEP_SUFFIX = "_sql_query"
+SQL_SCRIPT_STEP_SUFFIX = "_sql_script"
 STEP_TARGET_TYPE_TABLE = "table"
 
 
@@ -167,7 +170,81 @@ LOGIC_STEP_TARGET_NAMES: Dict[str, str] = {
     "athena": "athena",
 }
 
+
+class SourceRunType(StrEnum):
+    MULTI_TABLES = "multi_tables"
+    CUSTOM_QUERY = "custom_query"
+
+
+class SourceLayout(StrEnum):
+    # The database comes from connection_to_platform and is required.
+    DATABASE_SCHEMA_TABLE = "database_schema_table"
+    # Two-tier platforms: the river's schema name is the database.
+    DATABASE_TABLE = "database_table"
+    # The database is prefixed when connection_to_platform has one.
+    SCHEMA_TABLE = "schema_table"
+
+
+# Keyed by the Data Integration source name (`properties.source.name`), which
+# spells some platforms differently from target names, such as `postgresql`.
+SOURCE_PLATFORM_MAP: Dict[str, str] = {
+    "postgresql": "postgres",
+    "mysql": "mysql",
+    "mariadb": "mariadb",
+    "mssql": "mssql",
+    "oracle": "oracle",
+    "snowflake": "snowflake",
+    "redshift": "redshift",
+    "bigquery": "bigquery",
+}
+
+# Oracle URNs leave the database out unless the oracle source is told to add
+# it, so the database is only used when connection_to_platform names one.
+SOURCE_LAYOUTS: Dict[str, SourceLayout] = {
+    "postgresql": SourceLayout.DATABASE_SCHEMA_TABLE,
+    "mssql": SourceLayout.DATABASE_SCHEMA_TABLE,
+    "snowflake": SourceLayout.DATABASE_SCHEMA_TABLE,
+    "redshift": SourceLayout.DATABASE_SCHEMA_TABLE,
+    "bigquery": SourceLayout.DATABASE_SCHEMA_TABLE,
+    "mysql": SourceLayout.DATABASE_TABLE,
+    "mariadb": SourceLayout.DATABASE_TABLE,
+    "oracle": SourceLayout.SCHEMA_TABLE,
+}
+
+
+class LineageSkipReason(StrEnum):
+    UNSUPPORTED_SOURCE = "unsupported_source"
+    UNSUPPORTED_RUN_TYPE = "unsupported_run_type"
+    MISSING_SOURCE_DATABASE = "missing_source_database"
+    MISSING_SOURCE_TABLE = "missing_source_table"
+    MISSING_QUERY = "missing_query"
+    SQL_PARSE_FAILED = "sql_parse_failed"
+    UNQUALIFIED_SQL_TABLE = "unqualified_sql_table"
+    UNSUPPORTED_STEP_PLATFORM = "unsupported_step_platform"
+    INVALID_QUERY_SETTINGS = "invalid_query_settings"
+
+
+class ColumnSkipReason(StrEnum):
+    EXPRESSION = "expression"
+    METADATA_COLUMN = "metadata_column"
+    MISSING_NAME = "missing_name"
+    CUSTOM_FIELD_MAPPING = "custom_field_mapping"
+    MULTI_STATEMENT_SCRIPT = "multi_statement_script"
+    INSERT_WITHOUT_COLUMN_LIST = "insert_without_column_list"
+    UNMAPPED_SQL_COLUMN = "unmapped_sql_column"
+    NO_TARGET_TABLE = "no_target_table"
+    NO_SOURCE_COLUMN = "no_source_column"
+    NOT_IN_SCHEMA = "not_in_schema"
+    MISSING_TARGET = "missing_target"
+    INVALID_COLUMN = "invalid_column"
+    CUSTOM_QUERY_NOT_SELECT = "custom_query_not_select"
+
+
+TRANSFORM_IDENTITY = "IDENTITY"
+TRANSFORM_SQL = "SQL"
+
 TABLE_NAME_SEPARATOR = "."
+QUOTE_CHARS = '"`[]'
 
 PROP_RIVER_TYPE = "river_type"
 PROP_RIVER_STATUS = "river_status"

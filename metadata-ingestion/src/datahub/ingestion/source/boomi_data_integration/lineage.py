@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.boomi_data_integration.config import (
@@ -10,6 +10,7 @@ from datahub.ingestion.source.boomi_data_integration.constants import (
     DI_PLATFORM_MAP,
     LOGIC_STEP_TARGET_NAMES,
     SQL_QUERY_STEP_SUFFIX,
+    SQL_SCRIPT_STEP_SUFFIX,
     STEP_TARGET_TYPE_TABLE,
     TABLE_NAME_SEPARATOR,
     TARGET_LAYOUTS,
@@ -18,6 +19,7 @@ from datahub.ingestion.source.boomi_data_integration.constants import (
 from datahub.ingestion.source.boomi_data_integration.models import (
     LogicNode,
     SourceToTargetProperties,
+    TableDetails,
 )
 from datahub.ingestion.source.boomi_data_integration.report import (
     BoomiDataIntegrationSourceReport,
@@ -32,6 +34,37 @@ class TargetLocation:
     schema_name: Optional[str] = None
     dataset_id: Optional[str] = None
     catalog_name: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class DatasetScope:
+    # How table names read or written through one connection become URNs.
+    platform: str
+    env: str
+    lowercase: bool
+    # Segments in a fully qualified name; SQL-parsed tables with any other
+    # count would not join the platform's own URNs.
+    name_parts: int
+    platform_instance: Optional[str] = None
+    database: Optional[str] = None
+    default_schema: Optional[str] = None
+
+    def urn(self, name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=name.lower() if self.lowercase else name,
+            platform_instance=self.platform_instance,
+            env=self.env,
+        )
+
+
+@dataclass
+class TableTarget:
+    # One selected table of a multi-table river, or the single target of any
+    # other river (with no details). `urn` is None when it did not resolve.
+    urn: Optional[str]
+    schema_name: Optional[str] = None
+    details: Optional[TableDetails] = None
 
 
 def _join(*parts: Optional[str]) -> Optional[str]:
@@ -58,10 +91,28 @@ def build_table_name(
     return None
 
 
+def target_name_parts(layout: TargetLayout, database: Optional[str]) -> int:
+    if layout == TargetLayout.SCHEMA_TABLE and not database:
+        return 2
+    return 3
+
+
 def step_target_name(step_type: str) -> Optional[str]:
     if not step_type.endswith(SQL_QUERY_STEP_SUFFIX):
         return None
     return LOGIC_STEP_TARGET_NAMES.get(step_type[: -len(SQL_QUERY_STEP_SUFFIX)])
+
+
+def sql_step_target_name(step_type: str) -> Tuple[Optional[str], bool]:
+    # The warehouse a SQL query or script step runs on, and whether it is a
+    # script (several statements, no target table).
+    for suffix, is_script in (
+        (SQL_QUERY_STEP_SUFFIX, False),
+        (SQL_SCRIPT_STEP_SUFFIX, True),
+    ):
+        if step_type.endswith(suffix):
+            return LOGIC_STEP_TARGET_NAMES.get(step_type[: -len(suffix)]), is_script
+    return None, False
 
 
 class TargetLineageResolver:
@@ -73,12 +124,42 @@ class TargetLineageResolver:
         self.config = config
         self.report = report
 
-    def _connection(
+    def connection(
         self, connection_id: Optional[str]
     ) -> Optional[ConnectionPlatformDetail]:
         if connection_id is None:
             return None
         return self.config.connection_to_platform.get(connection_id)
+
+    def scope(
+        self,
+        platform: str,
+        connection: Optional[ConnectionPlatformDetail],
+        name_parts: int,
+    ) -> DatasetScope:
+        lowercase = self.config.convert_lineage_urns_to_lowercase
+        if connection is not None and connection.convert_urns_to_lowercase is not None:
+            lowercase = connection.convert_urns_to_lowercase
+        return DatasetScope(
+            platform=platform,
+            env=(connection.env if connection else None) or self.config.env,
+            lowercase=lowercase,
+            name_parts=name_parts,
+            platform_instance=connection.platform_instance if connection else None,
+            database=connection.database if connection else None,
+            default_schema=connection.default_schema if connection else None,
+        )
+
+    def target_scope(
+        self, target_name: str, connection_id: Optional[str]
+    ) -> Optional[DatasetScope]:
+        layout = TARGET_LAYOUTS.get(target_name)
+        connection = self.connection(connection_id)
+        platform = self._platform(target_name, connection)
+        if layout is None or layout == TargetLayout.OBJECT_STORAGE or platform is None:
+            return None
+        database = connection.database if connection else None
+        return self.scope(platform, connection, target_name_parts(layout, database))
 
     def _platform(
         self, target_name: str, connection: Optional[ConnectionPlatformDetail]
@@ -93,13 +174,11 @@ class TargetLineageResolver:
         self, location: TargetLocation, table: str, context: str
     ) -> Optional[str]:
         layout = TARGET_LAYOUTS.get(location.target_name)
-        connection = self._connection(location.connection_id)
-        platform = self._platform(location.target_name, connection)
-        if layout is None or layout == TargetLayout.OBJECT_STORAGE or platform is None:
+        scope = self.target_scope(location.target_name, location.connection_id)
+        if layout is None or scope is None:
             self.report.targets_unsupported.append(f"{context}: {location.target_name}")
             return None
-        database = connection.database if connection else None
-        if layout == TargetLayout.PROJECT_DATASET_TABLE and not database:
+        if layout == TargetLayout.PROJECT_DATASET_TABLE and not scope.database:
             self.report.targets_missing_bigquery_project.append(
                 f"{context}: connection {location.connection_id}"
             )
@@ -113,26 +192,47 @@ class TargetLineageResolver:
                 context=f"{context}, connection_id={location.connection_id}",
             )
             return None
-        name = build_table_name(layout, location, table, database)
+        name = build_table_name(layout, location, table, scope.database)
         if name is None:
             self.report.targets_missing_location.append(context)
             return None
-        lowercase = self.config.convert_lineage_urns_to_lowercase
-        if connection is not None and connection.convert_urns_to_lowercase is not None:
-            lowercase = connection.convert_urns_to_lowercase
         self.report.target_tables_emitted += 1
-        return make_dataset_urn_with_platform_instance(
-            platform=platform,
-            name=name.lower() if lowercase else name,
-            platform_instance=connection.platform_instance if connection else None,
-            env=(connection.env if connection else None) or self.config.env,
-        )
+        return scope.urn(name)
 
     def river_targets(self, props: SourceToTargetProperties, context: str) -> List[str]:
+        return sorted(
+            {
+                target.urn
+                for target in self.river_target_tables(props, context)
+                if target.urn
+            }
+        )
+
+    def river_target_tables(
+        self, props: SourceToTargetProperties, context: str
+    ) -> List[TableTarget]:
         target = props.target
+        entries = [
+            (schema.name, entry.details)
+            for schema in props.schemas
+            for entry in schema.tables
+        ]
+        # A multi-table river never falls back to target.table_name, even when
+        # no table is selected.
+        selected = [
+            (schema_name, details)
+            for schema_name, details in entries
+            if details.is_selected
+        ]
+        resolve_tables = True
         if TARGET_LAYOUTS.get(target.name) == TargetLayout.OBJECT_STORAGE:
             self.report.targets_object_storage_skipped += 1
-            return []
+            resolve_tables = False
+        elif selected and target.target_prefix:
+            # How the prefix combines with each table name is unconfirmed, so
+            # emit nothing rather than guess a name that may not exist.
+            self.report.targets_prefix_skipped.append(context)
+            resolve_tables = False
         location = TargetLocation(
             target_name=target.name,
             connection_id=target.connection_id,
@@ -141,32 +241,22 @@ class TargetLineageResolver:
             dataset_id=target.dataset_id,
             catalog_name=target.catalog_name,
         )
-        entries = [entry for schema in props.schemas for entry in schema.tables]
         if not entries:
-            if not target.table_name:
+            if not resolve_tables or not target.table_name:
                 return []
-            urn = self.resolve(location, target.table_name, context)
-            return [urn] if urn else []
-        # A multi-table river never falls back to target.table_name, even when
-        # no table is selected.
-        tables = [entry.details for entry in entries if entry.details.is_selected]
-        if not tables:
-            return []
-        if target.target_prefix:
-            # How the prefix combines with each table name is unconfirmed, so
-            # emit nothing rather than guess a name that may not exist.
-            self.report.targets_prefix_skipped.append(context)
-            return []
-        urns: List[str] = []
-        for details in tables:
-            table = details.target_table or details.source_table
-            if not table:
+            return [TableTarget(urn=self.resolve(location, target.table_name, context))]
+        tables: List[TableTarget] = []
+        for schema_name, details in selected:
+            urn: Optional[str] = None
+            name = details.target_table or details.source_table
+            if resolve_tables and not name:
                 self.report.targets_missing_location.append(context)
-                continue
-            urn = self.resolve(location, table, context)
-            if urn:
-                urns.append(urn)
-        return sorted(set(urns))
+            elif resolve_tables and name:
+                urn = self.resolve(location, name, context)
+            tables.append(
+                TableTarget(urn=urn, schema_name=schema_name, details=details)
+            )
+        return tables
 
     def step_target(self, node: LogicNode, context: str) -> Optional[str]:
         settings = node.target_settings

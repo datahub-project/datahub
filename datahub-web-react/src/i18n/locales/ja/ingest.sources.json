@@ -16,7 +16,7 @@
     "sources.athena.description": "AthenaからSchema、テーブル、ビュー、S3へのLineageをインポートします。",
     "sources.azureAd.description": "Azure Active Directoryからユーザーとグループをインポートします。",
     "sources.bigquery.description": "BigQueryからプロジェクト、Dataset、テーブル、ビュー、Lineage、クエリ、統計情報をインポートします。",
-    "sources.boomiDataIntegration.description": "Boomi Data Integrationから環境、グループ、River、ロジックステップ、ターゲットへのLineage、実行履歴をインポートします。",
+    "sources.boomiDataIntegration.description": "Boomi Data Integrationから環境、グループ、River、ロジックステップ、ソースからターゲットへのLineage、Column Lineage、実行履歴をインポートします。",
     "sources.cassandra.description": "Cassandraからテーブル、キースペース、Column Schemaをインポートします。",
     "sources.clickhouse.description": "ClickHouseからテーブル、ビュー、マテリアライズドビュー、ディクショナリ、統計情報、クエリ、Lineageをインポートします。",
     "sources.cockroachdb.description": "CockroachDBからデータベース、Schema、テーブル、ビュー、統計情報、Lineageをインポートします。",

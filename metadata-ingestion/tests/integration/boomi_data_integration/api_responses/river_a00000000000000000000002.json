@@ -13,7 +13,7 @@
     "river_status": "active",
     "current_version_id": "6ae8ef3f616e536a6130b419",
     "created_by": "Example User",
-    "last_updated_by": "Example User",
+    "last_updated_by": "Shared Name",
     "created_at": "2026-11-02T20:14:55.701000Z",
     "last_updated_at": "2026-11-02T20:14:55.701000Z",
     "is_deleted": false,
@@ -65,7 +65,43 @@
             "details": {
               "is_selected": true,
               "target_table": "TICKETS",
-              "modified_columns": [],
+              "modified_columns": [
+                {
+                  "is_selected": true,
+                  "name": "TICKET_ID",
+                  "type": "NUMBER",
+                  "alias": "ID",
+                  "expression": null,
+                  "is_key": true,
+                  "target_type": "databricks"
+                },
+                {
+                  "is_selected": true,
+                  "name": "SUBJECT",
+                  "type": "VARCHAR",
+                  "alias": null,
+                  "expression": null,
+                  "target_type": "databricks"
+                },
+                {
+                  "is_selected": false,
+                  "name": "BODY",
+                  "type": "CLOB",
+                  "alias": null,
+                  "expression": null,
+                  "target_type": "databricks"
+                },
+                {
+                  "is_selected": true,
+                  "name": "LOADED_AT",
+                  "type": "TIMESTAMP",
+                  "alias": null,
+                  "expression": "current_timestamp()",
+                  "calculated_column_mode": "target",
+                  "order": 1,
+                  "target_type": "databricks"
+                }
+              ],
               "additional_target_settings": {
                 "is_ordered_merge_key": false,
                 "order_expression": null,

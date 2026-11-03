@@ -424,8 +424,20 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Multi-table column mappings and SQL in custom queries and logic SQL steps",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Optionally enabled via `extract_owners`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -437,7 +449,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Rivers and logic SQL steps to the target tables they load",
+          "description": "From the tables rivers and logic SQL steps read to the tables they load",
           "subtype_modifier": null,
           "supported": true
         },

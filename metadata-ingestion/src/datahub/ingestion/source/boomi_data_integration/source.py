@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Set, Union
 
@@ -71,6 +71,10 @@ from datahub.ingestion.source.boomi_data_integration.models import (
     RiverSummary,
     SourceToTargetProperties,
 )
+from datahub.ingestion.source.boomi_data_integration.owners import (
+    OwnerResolver,
+    Owners,
+)
 from datahub.ingestion.source.boomi_data_integration.report import (
     BoomiDataIntegrationSourceReport,
 )
@@ -84,6 +88,10 @@ from datahub.ingestion.source.boomi_data_integration.run_history import (
     RunSelection,
     select_recent_runs,
 )
+from datahub.ingestion.source.boomi_data_integration.source_lineage import (
+    JobLineage,
+    SourceLineageResolver,
+)
 from datahub.ingestion.source.common.subtypes import (
     DataFlowSubTypes,
     DataJobSubTypes,
@@ -92,7 +100,10 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.schema_classes import DataJobInputOutputClass
+from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
+    FineGrainedLineageClass,
+)
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn, DataProcessInstanceUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
@@ -131,9 +142,36 @@ class RiverJobSpec:
     name: str
     display_name: str
     subtype: str
-    outputs: List[str]
     upstream_jobs: List[str]
     custom_properties: Dict[str, str]
+    # Whether a logic river step that calls this river waits for this job.
+    is_exit: bool = True
+    called_river_id: Optional[str] = None
+    inputs: List[str] = field(default_factory=list)
+    outputs: List[str] = field(default_factory=list)
+    fine_grained: List[FineGrainedLineageClass] = field(default_factory=list)
+
+    def set_lineage(self, lineage: JobLineage) -> None:
+        self.inputs = sorted(lineage.inputs)
+        self.outputs = sorted(lineage.outputs)
+        self.fine_grained = lineage.fine_grained()
+
+
+@dataclass
+class PendingRiver:
+    # Jobs are emitted after every river of the environment, so a logic step
+    # that calls another river can link to it only when that river is emitted.
+    # The river's cross ID. The flow ID carries the platform instance, if set.
+    river_id: str
+    flow: DataFlow
+    river_type: str
+    owners: Optional[Owners]
+    jobs: List[RiverJobSpec]
+
+    def exit_job_urns(self) -> List[DataJobUrn]:
+        return [
+            DataJobUrn(self.flow.urn, spec.name) for spec in self.jobs if spec.is_exit
+        ]
 
 
 def _is_access_denied(error: Exception) -> bool:
@@ -198,8 +236,13 @@ def _schedule(summary: RiverSummary, river: Optional[River]) -> Optional[str]:
 @capability(SourceCapability.CONTAINERS, "Environments and groups as containers")
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Rivers and logic SQL steps to the target tables they load",
+    "From the tables rivers and logic SQL steps read to the tables they load",
 )
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Multi-table column mappings and SQL in custom queries and logic SQL steps",
+)
+@capability(SourceCapability.OWNERSHIP, "Optionally enabled via `extract_owners`")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
@@ -214,6 +257,10 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
         self.client = BoomiDataIntegrationClient(config, self.report)
         self.lineage = TargetLineageResolver(config, self.report)
         self._unknown_run_statuses: Set[str] = set()
+        self.source_lineage = SourceLineageResolver(
+            config, self.report, self.lineage, ctx.graph
+        )
+        self.owner_resolver = OwnerResolver(self.client, self.report)
 
     @classmethod
     def create(
@@ -410,6 +457,8 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
 
         groups: Dict[str, Container] = {}
         denied_groups: Set[str] = set()
+        pending_rivers: List[PendingRiver] = []
+        river_exits: Dict[str, List[DataJobUrn]] = {}
         for summary in summaries:
             self.report.rivers_scanned += 1
             if not self.config.river_pattern.allowed(summary.name):
@@ -437,8 +486,7 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                     yield group
                 parent = groups[summary.group_id]
             try:
-                yield from self._river_entities(access, summary, parent, templates)
-                self.report.rivers_emitted += 1
+                pending = self._make_river(access, summary, parent)
             except Exception as e:
                 self.report.warning(
                     title="Failed to process river",
@@ -446,6 +494,61 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"river_cross_id={summary.river_cross_id}, name={summary.name}",
                     exc=e,
                 )
+                continue
+            yield pending.flow
+            self.report.rivers_emitted += 1
+            pending_rivers.append(pending)
+            river_exits[summary.river_cross_id] = pending.exit_job_urns()
+            templates[summary.river_cross_id] = self._run_template(pending)
+        built = self._build_river_jobs(pending_rivers, river_exits, templates)
+        for pending in pending_rivers:
+            jobs = built.get(pending.river_id)
+            if jobs is None:
+                continue
+            for spec in pending.jobs:
+                if spec.called_river_id is None:
+                    continue
+                if self._called_river_jobs(pending, spec, river_exits):
+                    self.report.river_step_links_resolved += 1
+                else:
+                    self.report.river_step_links_unresolved += 1
+            yield from jobs
+
+    def _build_river_jobs(
+        self,
+        pending_rivers: List[PendingRiver],
+        river_exits: Dict[str, List[DataJobUrn]],
+        templates: RunTemplates,
+    ) -> Dict[str, List[DataJob]]:
+        # Jobs are built here rather than in the per-river try in
+        # _process_environment, so they need their own guard to keep one bad
+        # river from ending the run. A river whose jobs fail is dropped from
+        # river_exits, and every river is built again so that no step links
+        # to jobs that are never emitted.
+        failed: Set[str] = set()
+        while True:
+            built: Dict[str, List[DataJob]] = {}
+            newly_failed = False
+            for pending in pending_rivers:
+                if pending.river_id in failed:
+                    continue
+                try:
+                    built[pending.river_id] = list(
+                        self._river_jobs(pending, river_exits)
+                    )
+                except Exception as e:
+                    failed.add(pending.river_id)
+                    newly_failed = True
+                    river_exits.pop(pending.river_id, None)
+                    templates.pop(pending.river_id, None)
+                    self.report.warning(
+                        title="Failed to process river jobs",
+                        message="The river's jobs were skipped.",
+                        context=f"river_cross_id={pending.river_id}, name={pending.flow.display_name}",
+                        exc=e,
+                    )
+            if not newly_failed:
+                return built
 
     def _river_url(
         self, environment_id: str, river_id: str, river_type: str
@@ -486,13 +589,12 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
-    def _river_entities(
+    def _make_river(
         self,
         access: EnvironmentAccess,
         summary: RiverSummary,
         parent: Container,
-        templates: RunTemplates,
-    ) -> Iterable[Entity]:
+    ) -> PendingRiver:
         river = self._fetch_river(access, summary)
         river_type = river.type if river is not None else summary.river_type
         custom_properties: Dict[str, str] = {PROP_RIVER_TYPE: river_type}
@@ -508,6 +610,11 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             custom_properties[PROP_DATASOURCE_ID] = summary.datasource_id
 
         jobs = self._job_specs(summary, river, river_type, custom_properties)
+        owners: Optional[Owners] = None
+        if self.config.extract_owners and river is not None:
+            owners = self.owner_resolver.owners(
+                river.metadata, access.environment.cross_id, access.token
+            )
 
         description = (
             river.metadata.description if river is not None else None
@@ -529,42 +636,78 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             created=created,
             last_modified=last_modified,
             subtype=DataFlowSubTypes.BOOMI_DI_RIVER,
+            owners=owners,
             parent_container=parent,
             external_url=self._river_url(
                 access.environment.cross_id, summary.river_cross_id, river_type
             ),
         )
-        yield flow
+        return PendingRiver(
+            river_id=summary.river_cross_id,
+            flow=flow,
+            river_type=river_type,
+            owners=owners,
+            jobs=jobs,
+        )
+
+    @staticmethod
+    def _run_template(pending: PendingRiver) -> Union[DataFlowUrn, DataJobUrn]:
         # A logic river run spans every step, so it instantiates the river's
         # flow; other rivers run as their single load or run job.
-        template: Union[DataFlowUrn, DataJobUrn] = flow.urn
-        for spec in jobs:
+        if pending.river_type != RiverType.LOGIC:
+            for spec in pending.jobs:
+                if spec.name in (LOAD_JOB_ID, RUN_JOB_ID):
+                    return DataJobUrn(pending.flow.urn, spec.name)
+        return pending.flow.urn
+
+    def _called_river_jobs(
+        self,
+        pending: PendingRiver,
+        spec: RiverJobSpec,
+        river_exits: Dict[str, List[DataJobUrn]],
+    ) -> List[str]:
+        if spec.called_river_id is None:
+            return []
+        called = river_exits.get(spec.called_river_id)
+        # A river that was filtered out, failed, or lives in another
+        # environment has no job here to link to, and a river calling itself
+        # would only add a cycle.
+        if not called or spec.called_river_id == pending.river_id:
+            return []
+        return [str(urn) for urn in called]
+
+    def _river_jobs(
+        self, pending: PendingRiver, river_exits: Dict[str, List[DataJobUrn]]
+    ) -> Iterable[DataJob]:
+        flow = pending.flow
+        for spec in pending.jobs:
+            input_jobs = [
+                make_data_job_urn_with_flow(str(flow.urn), step_id)
+                for step_id in spec.upstream_jobs
+            ]
+            input_jobs.extend(self._called_river_jobs(pending, spec, river_exits))
             # An empty input/output aspect would overwrite lineage added in the
             # UI or by other sources, so it is only written when there is some.
             io_aspects: List[DataJobInputOutputClass] = []
-            if spec.outputs or spec.upstream_jobs:
+            if spec.inputs or spec.outputs or input_jobs:
+                self.report.column_lineage_edges_emitted += len(spec.fine_grained)
                 io_aspects.append(
                     DataJobInputOutputClass(
-                        inputDatasets=[],
+                        inputDatasets=spec.inputs,
                         outputDatasets=spec.outputs,
-                        inputDatajobs=[
-                            make_data_job_urn_with_flow(str(flow.urn), step_id)
-                            for step_id in spec.upstream_jobs
-                        ],
+                        inputDatajobs=list(dict.fromkeys(input_jobs)),
+                        fineGrainedLineages=spec.fine_grained or None,
                     )
                 )
-            job = DataJob(
+            yield DataJob(
                 name=spec.name,
                 flow=flow,
                 display_name=spec.display_name,
                 subtype=spec.subtype,
                 custom_properties=spec.custom_properties,
+                owners=pending.owners,
                 extra_aspects=io_aspects,
             )
-            if river_type != RiverType.LOGIC and spec.name in (LOAD_JOB_ID, RUN_JOB_ID):
-                template = job.urn
-            yield job
-        templates[summary.river_cross_id] = template
 
     def _job_specs(
         self,
@@ -592,21 +735,16 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                 flow_properties[PROP_RUN_TYPE] = props.source.run_type
             flow_properties[PROP_SOURCE_NAME] = props.source.name
             flow_properties[PROP_TARGET_NAME] = props.target.name
-            outputs = (
-                self.lineage.river_targets(props, context)
-                if self.config.include_lineage
-                else []
+            spec = RiverJobSpec(
+                name=LOAD_JOB_ID,
+                display_name=display_name,
+                subtype=DataJobSubTypes.BOOMI_DI_LOAD,
+                upstream_jobs=[],
+                custom_properties={},
             )
-            return [
-                RiverJobSpec(
-                    name=LOAD_JOB_ID,
-                    display_name=display_name,
-                    subtype=DataJobSubTypes.BOOMI_DI_LOAD,
-                    outputs=outputs,
-                    upstream_jobs=[],
-                    custom_properties={},
-                )
-            ]
+            if self.config.include_lineage:
+                spec.set_lineage(self.source_lineage.river_lineage(props, context))
+            return [spec]
         if river is not None and river_type == RiverType.LOGIC:
             return self._logic_job_specs(river, context)
         is_load = river_type == RiverType.SOURCE_TO_TARGET
@@ -619,7 +757,6 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                     if is_load
                     else DataJobSubTypes.BOOMI_DI_RUN
                 ),
-                outputs=[],
                 upstream_jobs=[],
                 custom_properties={},
             )
@@ -645,28 +782,39 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                 message="Some logic steps did not match the expected shape and were skipped.",
                 context=f"{context}, skipped={flattened.invalid}",
             )
-        specs = [self._logic_step_spec(job, context) for job in flattened.jobs]
+        exits = set(flattened.exit_step_ids)
+        specs = [
+            self._logic_step_spec(job, context, job.step_id in exits)
+            for job in flattened.jobs
+        ]
         self.report.logic_steps_emitted += len(specs)
         return specs
 
-    def _logic_step_spec(self, job: LogicStepJob, context: str) -> RiverJobSpec:
+    def _logic_step_spec(
+        self, job: LogicStepJob, context: str, is_exit: bool
+    ) -> RiverJobSpec:
         node = job.node
         properties = {PROP_STEP_TYPE: node.type}
+        called_river_id: Optional[str] = None
         if node.type == LogicNodeType.RIVER and node.river_id:
-            properties[PROP_CALLED_RIVER_ID] = node.river_id
-        outputs: List[str] = []
-        if self.config.include_lineage:
-            urn = self.lineage.step_target(node, f"{context}, step_id={job.step_id}")
-            if urn:
-                outputs.append(urn)
-        return RiverJobSpec(
+            called_river_id = node.river_id
+            properties[PROP_CALLED_RIVER_ID] = called_river_id
+        spec = RiverJobSpec(
             name=job.step_id,
             display_name=node.name or job.step_id,
             subtype=DataJobSubTypes.BOOMI_DI_LOGIC_STEP,
-            outputs=outputs,
             upstream_jobs=job.upstream_step_ids,
             custom_properties=properties,
+            is_exit=is_exit,
+            called_river_id=called_river_id,
         )
+        if self.config.include_lineage:
+            spec.set_lineage(
+                self.source_lineage.step_lineage(
+                    node, f"{context}, step_id={job.step_id}"
+                )
+            )
+        return spec
 
     def _emit_runs(
         self, access: EnvironmentAccess, templates: RunTemplates

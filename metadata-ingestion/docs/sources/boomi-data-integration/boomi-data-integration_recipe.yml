@@ -21,8 +21,13 @@ source:
       deny:
         - "^tmp_.*"
 
-    # BigQuery targets need the project of the target connection.
+    # Source connections need their database for source lineage, and BigQuery
+    # targets need their project. Rivers carry neither.
     connection_to_platform:
+      "<postgres source connection cross_id>":
+        platform: postgres
+        database: appdb
+        default_schema: public
       "<bigquery connection cross_id>":
         platform: bigquery
         database: my-gcp-project
@@ -31,6 +36,9 @@ source:
     include_run_history: true
     run_history_days: 7
     max_runs_per_river: 50
+
+    # Owners need the user:list scope on the token.
+    extract_owners: false
 
     stateful_ingestion:
       enabled: true

@@ -39,6 +39,9 @@ class RiverSummary(DIModel):
 class RiverMetadata(DIModel):
     description: Optional[str] = None
     river_status: Optional[str] = None
+    # Display names, not emails or user ids.
+    created_by: Optional[str] = None
+    last_updated_by: Optional[str] = None
     created_at: Optional[datetime] = None
     last_updated_at: Optional[datetime] = None
 
@@ -61,10 +64,20 @@ class River(DIModel):
     schedulers: Optional[List[RiverSchedule]] = None
 
 
+class CustomQuerySettings(DIModel):
+    query: Optional[str] = None
+    # Output column mapping; when set, target columns may not match the
+    # query's output names.
+    fields: Optional[List[object]] = None
+
+
 class SourceSettings(DIModel):
     name: str
     connection_id: Optional[str] = None
     run_type: Optional[str] = None
+    # Kept raw and validated where used, so a malformed value only drops
+    # source lineage, not the river's target lineage.
+    custom_query_source_settings: Optional[object] = None
 
 
 class TargetSettings(DIModel):
@@ -78,12 +91,24 @@ class TargetSettings(DIModel):
     catalog_name: Optional[str] = None
 
 
+class ModifiedColumn(DIModel):
+    name: Optional[str] = None
+    alias: Optional[str] = None
+    is_selected: bool = True
+    expression: Optional[str] = None
+    is_rivery_metadata: Optional[bool] = None
+
+
 class TableDetails(DIModel):
     # Database sources name the table `name`; predefined reports use `table_name`.
     name: Optional[str] = None
     table_name: Optional[str] = None
     is_selected: bool = False
     target_table: Optional[str] = None
+    # Only columns renamed, retyped, unselected or added are listed; other
+    # columns load under their source name.
+    # Kept raw so that a malformed column only drops that column.
+    modified_columns: Optional[List[object]] = None
 
     @property
     def source_table(self) -> Optional[str]:
@@ -116,6 +141,7 @@ class StepTargetSettings(DIModel):
     schema_name: Optional[str] = None
     dataset_id: Optional[str] = None
     catalog: Optional[str] = None
+    fields: Optional[List[object]] = None
 
 
 class LogicNode(DIModel):
@@ -129,7 +155,15 @@ class LogicNode(DIModel):
     steps: List[object] = Field(default_factory=list)
     river_id: Optional[str] = None
     connection_id: Optional[str] = None
+    sql_query: Optional[str] = None
+    # The spec puts script SQL in sql_query too; sql_script is read as a
+    # fallback in case a response uses that name.
+    sql_script: Optional[str] = None
     target_settings: Optional[StepTargetSettings] = None
+
+    @property
+    def sql(self) -> Optional[str]:
+        return self.sql_query or self.sql_script
 
 
 class ConditionBranch(DIModel):
@@ -189,3 +223,9 @@ class RiverRun(DIModel):
     @property
     def group_id(self) -> str:
         return self.run_group_id or self.run_id
+
+
+class DIUser(DIModel):
+    user_id: Optional[str] = None
+    user_email: Optional[str] = None
+    user_name: Optional[str] = None

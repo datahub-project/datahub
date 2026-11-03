@@ -172,3 +172,13 @@ def test_live_logic_river_definition() -> None:
     }
     assert result.disabled == 1
     assert result.invalid == 0
+
+
+def test_exit_steps_are_the_last_steps_to_run() -> None:
+    result = _flatten(
+        [
+            _step("start"),
+            _run_once([_step("p1"), _step("p2")], is_parallel=True),
+        ]
+    )
+    assert result.exit_step_ids == ["p1", "p2"]
