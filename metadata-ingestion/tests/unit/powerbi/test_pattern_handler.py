@@ -1687,7 +1687,10 @@ def test_odbc_athena_nav_override_matches_case_insensitively():
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:mysql,salesdb.orders,PROD)"
     ]
-    assert instance.reporter.athena_table_platform_overrides_applied == {0}
+    assert instance.reporter._athena_table_platform_overrides_applied == {0}
+    assert "athena_table_platform_overrides_applied" not in str(
+        instance.reporter.as_obj()
+    )
 
 
 def test_remap_column_lineage_multi_table_shared_column_name():

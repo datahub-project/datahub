@@ -2164,7 +2164,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         # lineage extraction no override can ever match, so stay silent.
         if not self.source_config.extract_lineage:
             return
-        applied = self.reporter.athena_table_platform_overrides_applied
+        applied = self.reporter._athena_table_platform_overrides_applied
         for index, override in enumerate(
             self.source_config.athena_table_platform_override
         ):

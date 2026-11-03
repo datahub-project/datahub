@@ -2592,7 +2592,7 @@ class OdbcLineage(AbstractLineage):
 
             if matched_index is None:
                 return urn
-            self.reporter.athena_table_platform_overrides_applied.add(matched_index)
+            self.reporter._athena_table_platform_overrides_applied.add(matched_index)
             matched_override = self.config.athena_table_platform_override[matched_index]
             target_platform = matched_override.platform
             target_platform_instance = matched_override.platform_instance
