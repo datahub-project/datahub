@@ -54,6 +54,13 @@ class UrnBuilder:
         self.platform_instance = platform_instance
         self.account_platform_instance_map = account_platform_instance_map or {}
 
+    def adopt_account(self, account: str) -> None:
+        """Takes the account of a resource this run listed when the account probe
+        failed. Listings only return the recipe's own resources, so this tells its
+        account apart from the ones lineage refers to."""
+        if not self.account_id and account:
+            self.account_id = account
+
     def instance_for(self, account: str) -> Optional[str]:
         # This recipe's own account always uses its platform_instance, even if the
         # map lists it, so datasets and the region container share one instance.

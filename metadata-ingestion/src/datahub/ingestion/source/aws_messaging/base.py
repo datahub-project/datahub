@@ -105,7 +105,8 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
                 title="Account id not resolved",
                 message=(
                     "Could not read a resource ARN to find the AWS account id; "
-                    "the configured platform_instance is used."
+                    "the configured platform_instance is used, and the account is "
+                    "taken from the first resource listed."
                 ),
                 context=aws_error_code(e),
                 exc=e,

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar, Dict, Optional
 
 from pydantic import Field
 
@@ -42,7 +42,8 @@ class AwsMessagingConfigBase(
         default_factory=dict,
         description=(
             "Domain urn or id to regex patterns on resource names; a matching queue "
-            "or topic is assigned that domain."
+            "or topic is assigned that domain. Domain names are not resolved: use "
+            "the domain's urn or id."
         ),
     )
     account_platform_instance_map: Dict[str, str] = Field(
@@ -68,16 +69,27 @@ class AwsMessagingConfigBase(
         description="Stateful ingestion configuration for stale entity removal.",
     )
 
+    # The service aws_endpoint_url points at. Other clients this source builds
+    # (tagging, Lambda, Glue, ...) keep the default endpoint, so a VPC endpoint
+    # for one service doesn't redirect calls to the others.
+    endpoint_service: ClassVar[AwsService]
+
     def make_client(self, session: Any, service: AwsService) -> Any:
         # boto3 clients have no common static type; callers annotate the result.
         return session.client(
             service.value,
-            endpoint_url=self.aws_config.aws_endpoint_url,
+            endpoint_url=(
+                self.aws_config.aws_endpoint_url
+                if service == self.endpoint_service
+                else None
+            ),
             config=self.aws_config._aws_config(),
         )
 
 
 class SqsSourceConfig(AwsMessagingConfigBase):
+    endpoint_service: ClassVar[AwsService] = AwsService.SQS
+
     queue_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns on queue names to include.",

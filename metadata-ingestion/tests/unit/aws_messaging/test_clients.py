@@ -1,10 +1,13 @@
 from typing import Any
+from unittest.mock import MagicMock
 
 import boto3
 from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
 from datahub.ingestion.source.aws_messaging.clients import SqsClient
+from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
+from datahub.ingestion.source.aws_messaging.constants import AwsService
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 
 QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789012/q{}"
@@ -89,3 +92,23 @@ def test_optional_listing_failure_is_only_a_warning() -> None:
         pages_fetched=2, exc=error, api_label="sqs:ListQueues"
     )
     assert report.failures
+
+
+def test_endpoint_url_applies_only_to_the_sources_own_service() -> None:
+    # An SQS VPC endpoint can't serve the tagging (or Lambda, Glue, ...) API.
+    config = SqsSourceConfig.model_validate(
+        {
+            "aws_config": {
+                "aws_region": "us-east-1",
+                "aws_endpoint_url": "https://sqs.vpce.example.com",
+            }
+        }
+    )
+    session = MagicMock()
+    config.make_client(session, AwsService.SQS)
+    assert (
+        session.client.call_args.kwargs["endpoint_url"]
+        == "https://sqs.vpce.example.com"
+    )
+    config.make_client(session, AwsService.TAGGING)
+    assert session.client.call_args.kwargs["endpoint_url"] is None

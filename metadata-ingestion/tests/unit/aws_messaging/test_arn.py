@@ -6,6 +6,8 @@ from datahub.ingestion.source.aws_messaging.arn import (
     parse_arn,
     parse_redrive_policy,
 )
+from datahub.ingestion.source.aws_messaging.constants import AwsService
+from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 
 
 def test_parse_arn_variants() -> None:
@@ -99,3 +101,21 @@ def test_own_account_ignores_the_instance_map() -> None:
         account_platform_instance_map={"123456789012": "other"},
     )
     assert urns.instance_for("123456789012") == "prod"
+
+
+def test_listed_resource_supplies_an_unresolved_account() -> None:
+    # A failed account probe must not make another account's queue look local,
+    # or lineage to it would be dropped as "not ingested".
+    urns = UrnBuilder(env="PROD", account_id=None, platform_instance="prod")
+    resolver = ResourceResolver(urns=urns, region="us-east-1", service=AwsService.SQS)
+    own = parse_arn("arn:aws:sqs:us-east-1:123456789012:orders")
+    foreign = parse_arn("arn:aws:sqs:us-east-1:210987654321:orders-dlq")
+    assert own is not None and foreign is not None
+    resolver.add(own)
+    assert not resolver.is_local(foreign)
+    assert resolver.urn(foreign) == (
+        "urn:li:dataset:(urn:li:dataPlatform:sqs,210987654321.us-east-1.orders-dlq,PROD)"
+    )
+    assert resolver.urn(own) == (
+        "urn:li:dataset:(urn:li:dataPlatform:sqs,prod.us-east-1.orders,PROD)"
+    )

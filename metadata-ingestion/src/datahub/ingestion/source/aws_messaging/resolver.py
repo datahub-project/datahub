@@ -28,6 +28,7 @@ class ResourceResolver:
         return f"{account}/{region}/{name}"
 
     def add(self, arn: Arn) -> None:
+        self.urns.adopt_account(arn.account)
         self.known.add(self.key(arn.account, arn.region, arn.resource_name))
 
     def exists(self, arn: Arn) -> bool:

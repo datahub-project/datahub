@@ -41,9 +41,9 @@ def call_or_warn(
         return call()
     except (ClientError, BotoCoreError) as e:
         report.warning(
-            title=f"{api_label} failed",
+            title="AWS call failed",
             message="An AWS call for one resource failed; that part is skipped.",
-            context=f"{context}: {aws_error_code(e)}",
+            context=f"{api_label} {context}: {aws_error_code(e)}",
             exc=e,
         )
         return None
