@@ -33,7 +33,6 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.sql_common import (
     PipelineContext,
     SQLAlchemySource,
-    SqlWorkUnit,
     _pool_accepts_sizing_options,
     get_column_type,
     get_schema_metadata,
@@ -785,9 +784,11 @@ def test_duplicate_table_names_are_emitted_once(sqlite_db: str) -> None:
             workunits = list(source.loop_tables(inspector, "main", source.config))
     engine.dispose()
 
-    assert [wu.id for wu in workunits if isinstance(wu, SqlWorkUnit)] == [
-        "testdb.main.child"
-    ]
+    assert [
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+    ] == ["urn:li:dataset:(urn:li:dataPlatform:sqlite,testdb.main.child,PROD)"]
     assert source.report.tables_scanned == 1
 
 
