@@ -58,6 +58,14 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
           restore-keys: |
             ${{ runner.os }}-uv-
+      # docs-website:build runs yarnInstall for docs-website. Restore-only; the
+      # writer is ci-cache-warmup.yml warm-docs-website-yarn-cache.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: docs-website-${{ runner.os }}-yarn-${{ hashFiles('docs-website/yarn.lock') }}
+          restore-keys: |
+            docs-website-${{ runner.os }}-yarn-
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
@@ -86,9 +94,9 @@ jobs:
           ./gradlew --info docs-website:build
 
       # Success-only: a partial cache from a failed run would occupy the exact key
-      # until the manifests next change; the next master push retries instead.
-      - name: Save uv cache (master only)
-        if: github.ref == 'refs/heads/master' && steps.uv-cache.outputs.cache-hit != 'true'
+      # until the manifests next change; the next default-branch push retries instead.
+      - name: Save uv cache (default branch only)
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && steps.uv-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
