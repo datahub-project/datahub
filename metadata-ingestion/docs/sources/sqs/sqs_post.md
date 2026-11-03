@@ -16,7 +16,7 @@ SQS stores opaque messages, so there is no schema by default. If producers regis
 
 #### When column lineage is emitted
 
-Field-level lineage is only added where a message reaches the next hop unchanged, for fields present in both schemas (matched case-insensitively on the simple field path). Schemas come from Glue Schema Registry in the same run or from DataHub. Without a schema on both sides, the edge stays table-level. Most deployments have no schema on one side and see table-level lineage only. The report counts each skip reason under `column_lineage_skipped`.
+Field-level lineage is only added where a message reaches the next hop unchanged, for fields present in both schemas (matched case-insensitively on the simple field path). Schemas come from Glue Schema Registry in the same run or from DataHub. Without a schema on both sides, the edge stays table-level. Most deployments have no schema on one side and see table-level lineage only. The report counts the reason for each hop it skips under `column_lineage_skipped`; with `include_column_lineage` off, nothing is attempted or counted, and existing field edges are left alone.
 
 | Hop                                                 | Column lineage           | Why                                                                           |
 | --------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
@@ -40,7 +40,7 @@ AWS resource tags become DataHub tags named `Key:Value` (or `Key` when the value
 ### Limitations
 
 - One region per recipe. Run one recipe per region for multi-region accounts.
-- Schema metadata needs Glue Schema Registry and an explicit map; SQS itself stores opaque message bodies.
+- Schema metadata comes from Glue Schema Registry (`queue_schema_map` or `use_naming_convention`) or from schemas already in DataHub; SQS itself stores opaque message bodies.
 - Queue depth (`ApproximateNumberOfMessages` and similar) is not ingested; it changes every few seconds.
 
 ### Troubleshooting

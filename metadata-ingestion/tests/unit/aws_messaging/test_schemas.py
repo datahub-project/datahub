@@ -1,14 +1,18 @@
 import json
-from typing import Any, Dict, List
+import sys
+from typing import Any, Dict, List, Literal, Optional
 from unittest.mock import MagicMock
 
 import boto3
 import pytest
 
+from datahub.configuration.common import GraphError
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion import extractor
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging import schema_registry
+from datahub.ingestion.source.aws_messaging.clients import SnsClient
 from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
@@ -50,7 +54,14 @@ TOPIC_URN = (
 )
 
 
-def register_schema(name: str) -> None:
+PROTOBUF_ORDER = 'syntax = "proto3";\nmessage Order { string order_id = 1; }'
+
+
+def register_schema(
+    name: str,
+    data_format: Literal["AVRO", "JSON", "PROTOBUF"] = "AVRO",
+    definition: Optional[str] = None,
+) -> None:
     glue = boto3.client("glue", region_name=REGION)
     try:
         glue.create_registry(RegistryName="default-registry")
@@ -59,9 +70,9 @@ def register_schema(name: str) -> None:
     glue.create_schema(
         RegistryId={"RegistryName": "default-registry"},
         SchemaName=name,
-        DataFormat="AVRO",
+        DataFormat=data_format,
         Compatibility="NONE",
-        SchemaDefinition=json.dumps(ORDER_SCHEMA),
+        SchemaDefinition=definition or json.dumps(ORDER_SCHEMA),
     )
 
 
@@ -335,6 +346,19 @@ def test_include_column_lineage_defaults_to_the_glue_setting() -> None:
 def test_dead_letter_column_lineage_can_be_turned_off(aws: None) -> None:
     source = _dead_letter_source(include_column_lineage=False)
     assert fine_grained(list(source.get_workunits())) == []
+    # The table-level edge is still written.
+    assert source.get_report().lineage_edges_emitted == 1
+
+
+def test_unreadable_schema_in_datahub_keeps_field_edges(aws: None) -> None:
+    source = _dead_letter_source()
+    graph = source.schemas.graph
+    assert isinstance(graph, MagicMock)
+    graph.get_schema_metadata.side_effect = GraphError("timed out")
+    assert fine_grained(list(source.get_workunits())) == []
+    report = source.get_report()
+    assert report.column_lineage_skipped == {"schema missing on one side": 1}
+    assert "Schema not read from DataHub" in [w.title for w in report.warnings]
 
 
 def test_dead_letter_without_dlq_schema_is_counted(aws: None) -> None:
@@ -381,7 +405,7 @@ def test_schema_that_parses_to_no_fields_is_not_attached(
     # protobuf_util returns [] when compilation fails instead of raising.
     monkeypatch.setattr(schema_registry, "parse_glue_schema_fields", lambda *args: [])
     source = _queue_with_registry(queue_schema_map={"orders": "order-v1"})
-    register_schema("order-v1")
+    register_schema("order-v1", "PROTOBUF", PROTOBUF_ORDER)
     assert schemas(list(source.get_workunits())) == {}
     report = source.get_report()
     assert [entry.split(":")[0] for entry in report.schema_resolution_failures] == [
@@ -393,12 +417,11 @@ def test_schema_that_parses_to_no_fields_is_not_attached(
 def test_missing_protobuf_extra_names_the_extra(
     aws: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def no_protobuf(*args: Any) -> None:
-        raise ImportError("No module named 'grpc_tools'")
-
-    monkeypatch.setattr(schema_registry, "parse_glue_schema_fields", no_protobuf)
+    # Without the kafka extra, importing the protobuf converter fails.
+    monkeypatch.setitem(sys.modules, "datahub.ingestion.extractor.protobuf_util", None)
+    monkeypatch.delattr(extractor, "protobuf_util", raising=False)
     source = _queue_with_registry(queue_schema_map={"orders": "order-v1"})
-    register_schema("order-v1")
+    register_schema("order-v1", "PROTOBUF", PROTOBUF_ORDER)
     assert schemas(list(source.get_workunits())) == {}
     report = source.get_report()
     assert [w.title for w in report.warnings] == ["Glue schema parser not installed"]
@@ -421,3 +444,29 @@ def test_repeated_raw_subscriptions_add_field_lineage_once(aws: None) -> None:
     lineage = fine_grained(list(source.get_workunits()))
     assert len(lineage) == 2
     assert source.get_report().column_lineage_edges_emitted == 2
+
+
+def test_empty_schema_map_entry_does_not_fall_back_to_the_convention(
+    aws: None,
+) -> None:
+    source = _queue_with_registry(
+        queue_schema_map={"orders": ""}, use_naming_convention=True
+    )
+    register_schema("orders")
+    assert schemas(list(source.get_workunits())) == {}
+    assert "Empty Glue schema name" in [w.title for w in source.get_report().warnings]
+
+
+def test_failed_subscription_attribute_read_keeps_field_edges(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A failed read says nothing about raw delivery, so the hop is unknown rather
+    # than "not raw", which would remove its field edges.
+    monkeypatch.setattr(
+        SnsClient, "get_subscription_attributes", lambda self, arn: None
+    )
+    source = _subscribe(raw=True)
+    assert fine_grained(list(source.get_workunits())) == []
+    assert source.get_report().column_lineage_skipped == {
+        "subscription attributes not read": 1
+    }

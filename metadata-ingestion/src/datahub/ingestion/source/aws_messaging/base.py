@@ -78,7 +78,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             graph=ctx.graph if config.remove_stale_lineage else None,
             relationships=self.owned_relationships(),
         )
-        self.schemas = SchemaLookup(ctx.graph)
+        self.schemas = SchemaLookup(ctx.graph, report)
 
     def owned_relationships(self) -> FrozenSet[LineageRelationship]:
         """Lineage relationships this source writes and reads in full each run.

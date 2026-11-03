@@ -33,6 +33,15 @@ class MessagingSchemaRegistry:
 
     def get_schema_metadata(self, name: str) -> Optional[SchemaMetadataClass]:
         explicit = self.config.schema_map().get(name)
+        if explicit is not None and not explicit.strip():
+            # An empty entry is a config mistake; guessing by convention could
+            # attach another schema.
+            self.report.warning(
+                title="Empty Glue schema name",
+                message="The schema map gives an empty schema name; no schema is attached.",
+                context=name,
+            )
+            return None
         schema_name = explicit or (name if self.config.use_naming_convention else None)
         if not schema_name:
             return None
@@ -71,8 +80,8 @@ class MessagingSchemaRegistry:
             self.report.warning(
                 title="Glue schema parser not installed",
                 message=(
-                    "PROTOBUF schemas need the kafka-protobuf extra, e.g. "
-                    "pip install 'acryl-datahub[sqs,kafka-protobuf]'; emitting without a schema."
+                    "PROTOBUF schemas need the kafka extra, e.g. "
+                    "pip install 'acryl-datahub[sqs,kafka]'; emitting without a schema."
                 ),
                 context=f"{name}: format={data_format}",
                 exc=e,
@@ -96,9 +105,10 @@ class MessagingSchemaRegistry:
                 f"{name}: unsupported format ({data_format})"
             )
             return None
-        if not fields:
+        if not fields and data_format == "PROTOBUF":
             # The protobuf converter returns no fields when compilation fails or
             # the schema is cyclic; an empty schema would read as "no columns".
+            # An AVRO or JSON schema with no fields is attached as it is.
             self.report.schema_resolution_failures.append(
                 f"{name}: no fields parsed ({data_format})"
             )

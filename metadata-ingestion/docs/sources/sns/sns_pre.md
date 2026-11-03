@@ -37,7 +37,10 @@ SQS queues are ingested by the separate `sqs` source. Topic-to-queue lineage is 
       "Sid": "GlueSchemaRegistryRead",
       "Effect": "Allow",
       "Action": ["glue:GetSchemaVersion"],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:glue:<region>:<account-id>:registry/<registry-name>",
+        "arn:aws:glue:<region>:<account-id>:schema/<registry-name>/*"
+      ]
     },
     {
       "Sid": "TagsRead",

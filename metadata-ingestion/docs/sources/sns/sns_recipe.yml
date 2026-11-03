@@ -27,8 +27,10 @@ source:
     glue_schema_registry:
       enabled: false
       registry_name: "default-registry"
+      # Set enabled: true and replace {} with a mapping, for example:
+      #   topic_schema_map:
+      #     orders: "order-v1"
       topic_schema_map: {}
-      #   orders: "order-v1"
 
     stateful_ingestion:
       enabled: true

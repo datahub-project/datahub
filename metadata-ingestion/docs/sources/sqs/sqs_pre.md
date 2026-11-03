@@ -28,7 +28,10 @@ SNS topics are ingested by the separate `sns` source. Run both with the same `en
       "Sid": "GlueSchemaRegistryRead",
       "Effect": "Allow",
       "Action": ["glue:GetSchemaVersion"],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:glue:<region>:<account-id>:registry/<registry-name>",
+        "arn:aws:glue:<region>:<account-id>:schema/<registry-name>/*"
+      ]
     },
     {
       "Sid": "TagsRead",

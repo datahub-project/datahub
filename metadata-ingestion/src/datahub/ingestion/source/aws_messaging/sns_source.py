@@ -313,7 +313,9 @@ class SnsSource(AwsMessagingSourceBase):
 
     def _subscription_attributes(
         self, topic: SnsTopic, subscription: SnsSubscription
-    ) -> Dict[str, str]:
+    ) -> Optional[Dict[str, str]]:
+        """The subscription's attributes; {} when they aren't read, None when the
+        read failed."""
         if not self.config.include_subscription_attributes:
             return {}
         self.report.subscription_attribute_calls += 1
@@ -322,7 +324,6 @@ class SnsSource(AwsMessagingSourceBase):
             # The subscription's dead-letter queue is unknown this run, so the
             # topic's edges can't be checked for staleness.
             self.incomplete_topics.add(str(topic.arn))
-            return {}
         return attributes
 
     def _add_queue_edge(
@@ -342,9 +343,9 @@ class SnsSource(AwsMessagingSourceBase):
         return queue_urn
 
     def _add_column_lineage(
-        self, topic_urn: str, queue_urn: str, attributes: Dict[str, str]
+        self, topic_urn: str, queue_urn: str, attributes: Optional[Dict[str, str]]
     ) -> None:
-        if not self.config.include_subscription_attributes:
+        if not self.config.include_subscription_attributes or attributes is None:
             self.report.column_lineage_skipped["subscription attributes not read"] += 1
             self.lineage.fine_grained_unknown(upstream=topic_urn, downstream=queue_urn)
             return

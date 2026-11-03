@@ -64,8 +64,9 @@ def identity_field_lineage(
 class SchemaLookup:
     """Schemas fetched in this run, falling back to what DataHub already holds."""
 
-    def __init__(self, graph: Optional[DataHubGraph]):
+    def __init__(self, graph: Optional[DataHubGraph], report: AwsMessagingReportBase):
         self.graph = graph
+        self.report = report
         self.fetched: Dict[str, SchemaMetadataClass] = {}
         self._from_graph: Dict[str, Optional[SchemaMetadataClass]] = {}
 
@@ -75,7 +76,17 @@ class SchemaLookup:
         if self.graph is None:
             return None
         if urn not in self._from_graph:
-            self._from_graph[urn] = self.graph.get_schema_metadata(urn)
+            try:
+                self._from_graph[urn] = self.graph.get_schema_metadata(urn)
+            except (GraphError, RequestException) as e:
+                # Treated as no schema: the hop's field edges are left as they are.
+                self.report.warning(
+                    title="Schema not read from DataHub",
+                    message="Could not read a dataset's schema from DataHub; its field lineage is left unchanged.",
+                    context=urn,
+                    exc=e,
+                )
+                self._from_graph[urn] = None
         return self._from_graph[urn]
 
 
