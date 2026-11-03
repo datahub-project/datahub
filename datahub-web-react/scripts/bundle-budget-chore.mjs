@@ -9,6 +9,10 @@
  *   - hard: exit 1
  *   - ok: nothing to do
  *
+ * Works purely from the findings JSON (the nightly `bundle-budget-artifacts`
+ * snapshot): measured gzip comes from each findings file's `measured` block, so
+ * no `dist/assets` JS is needed or read.
+ *
  * Usage (from repo root, after frontend build + budget scripts):
  *   node datahub-web-react/scripts/bundle-budget-chore.mjs [--apply]
  *     [--budget-dir DIR] [--eager-budget FILE] [--page-budget FILE] [--dist DIR]
@@ -18,15 +22,27 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 
 import { resolveBudgetPaths, takeBudgetPathArgs } from './budget-paths.mjs';
-import { readReport } from './eager-budget.mjs';
 
-/** Prefer findings.measured (artifact-friendly); fall back to recomputing from dist JS. */
-function resolveEagerMeasured(eagerFindings, distDir) {
-    const fromFindings = eagerFindings?.measured?.totalGzip;
-    if (typeof fromFindings === 'number' && Number.isFinite(fromFindings)) {
-        return fromFindings;
-    }
-    return readReport(distDir).totalGzip;
+function finiteOrNull(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Measured gzip as persisted in the findings files. Never re-gzips dist JS: the
+ * reassessment only has the artifact JSON. A missing value leaves that field
+ * untouched (planRatchet skips non-finite measurements).
+ *
+ * @param {{ measured?: { totalGzip?: number } } | null} eagerFindings
+ * @param {{ measured?: { shell?: number, search?: number } } | null} pageFindings
+ */
+export function measuredFromFindings(eagerFindings, pageFindings) {
+    return {
+        eagerMeasured: finiteOrNull(eagerFindings?.measured?.totalGzip),
+        pageMeasured: {
+            shell: finiteOrNull(pageFindings?.measured?.shell),
+            search: finiteOrNull(pageFindings?.measured?.search),
+        },
+    };
 }
 
 export function readJson(filePath) {
@@ -65,17 +81,14 @@ export function classify(findings) {
  * @param {string[]} [args.eagerSoft]
  * @param {string[]} [args.pageSoft]
  */
-export function planRatchet({
-    eager,
-    page,
-    eagerMeasured,
-    pageMeasured,
-    eagerSoft = [],
-    pageSoft = [],
-}) {
+export function planRatchet({ eager, page, eagerMeasured, pageMeasured, eagerSoft = [], pageSoft = [] }) {
     const nextEager = { ...eager };
     const nextPage = { ...page };
-    if (hasUnderBaselineFieldFinding(eagerSoft, 'Eager JS') && Number.isFinite(eagerMeasured)) {
+    if (
+        hasUnderBaselineFieldFinding(eagerSoft, 'Eager JS') &&
+        eagerMeasured != null &&
+        Number.isFinite(eagerMeasured)
+    ) {
         nextEager.totalGzip = Math.min(eager.totalGzip, eagerMeasured);
     }
     if (
@@ -158,13 +171,13 @@ function main(argv = process.argv.slice(2)) {
     const order = { hard: 3, 'soft-over': 2, 'ratchet-down': 1, ok: 0 };
     const decision = [eagerClass, pageClass].sort((a, b) => order[b] - order[a])[0] || 'ok';
 
-    const eagerMeasured = resolveEagerMeasured(eagerFindings, paths.dist);
+    const { eagerMeasured, pageMeasured } = measuredFromFindings(eagerFindings, pageFindings);
     const summary = {
         decision,
         eagerClass,
         pageClass,
         eagerMeasured,
-        pageMeasured: pageFindings.measured || {},
+        pageMeasured,
         eagerSoft: eagerFindings.soft,
         eagerHard: eagerFindings.hard,
         pageSoft: pageFindings.soft,
@@ -178,7 +191,7 @@ function main(argv = process.argv.slice(2)) {
             eager,
             page,
             eagerMeasured,
-            pageMeasured: pageFindings.measured || {},
+            pageMeasured,
             eagerSoft: eagerFindings.soft || [],
             pageSoft: pageFindings.soft || [],
         });

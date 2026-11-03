@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
     applyRatchet,
@@ -7,8 +12,12 @@ import {
     classify,
     hasUnderBaselineFieldFinding,
     isUnderBaseline,
+    measuredFromFindings,
     planRatchet,
 } from './bundle-budget-chore.mjs';
+import { writeBudgetFindings } from './eager-budget.mjs';
+
+const chorePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'bundle-budget-chore.mjs');
 
 const eagerShrink = 'Eager JS fell to 280000 bytes gzip, 20000 under the 300000 baseline. Update …';
 const shellGrow = 'Logged-in shell JS is 1008000 bytes gzip, 8000 over the 1000000 baseline (allowed +10240).';
@@ -52,10 +61,7 @@ test('mixed eager shrink + page shell grew within slack leaves shell unchanged',
     assert.equal(planned.page.shell, 1_000_000);
     assert.equal(planned.page.search, 1_100_000);
     assert.equal(
-        budgetsChanged(
-            { eager: { totalGzip: 300_000 }, page: { shell: 1_000_000, search: 1_100_000 } },
-            planned,
-        ),
+        budgetsChanged({ eager: { totalGzip: 300_000 }, page: { shell: 1_000_000, search: 1_100_000 } }, planned),
         true,
     );
 });
@@ -98,4 +104,103 @@ test('field finding matcher is label-scoped', () => {
     assert.equal(hasUnderBaselineFieldFinding([shellShrink], 'shell'), true);
     assert.equal(hasUnderBaselineFieldFinding([shellShrink], 'search'), false);
     assert.equal(hasUnderBaselineFieldFinding([shellGrow], 'shell'), false);
+});
+
+test('measuredFromFindings reads persisted gzip and nulls missing fields', () => {
+    assert.deepEqual(measuredFromFindings({ measured: { totalGzip: 280_000 } }, { measured: { shell: 900_000 } }), {
+        eagerMeasured: 280_000,
+        pageMeasured: { shell: 900_000, search: null },
+    });
+    assert.deepEqual(measuredFromFindings({}, null), {
+        eagerMeasured: null,
+        pageMeasured: { shell: null, search: null },
+    });
+});
+
+test('missing measured value never changes that field', () => {
+    const planned = planRatchet({
+        eager: { totalGzip: 300_000 },
+        page: { shell: 1_000_000, search: 1_100_000 },
+        eagerMeasured: null,
+        pageMeasured: { shell: null, search: null },
+        eagerSoft: [eagerShrink],
+        pageSoft: [shellShrink, searchShrink],
+    });
+    assert.equal(planned.eager.totalGzip, 300_000);
+    assert.equal(planned.page.shell, 1_000_000);
+    assert.equal(planned.page.search, 1_100_000);
+});
+
+test('writeBudgetFindings persists measured eager gzip', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'eager-findings-'));
+    try {
+        writeBudgetFindings(dir, { soft: [eagerShrink], hard: [] }, { totalGzip: 280_000 });
+        const written = JSON.parse(fs.readFileSync(path.join(dir, 'eager-budget-findings.json'), 'utf8'));
+        assert.equal(written.measured.totalGzip, 280_000);
+        assert.equal(written.hasFindings, true);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+/**
+ * Mirrors bundle-budget-reassessment.yml: only the findings JSON from the
+ * nightly artifact is staged — no dist/assets, no index.html, no report chunks.
+ */
+function stageArtifactOnly() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'budget-artifact-'));
+    const dist = path.join(root, 'dist');
+    fs.mkdirSync(dist);
+    writeBudgetFindings(dist, { soft: [eagerShrink], hard: [] }, { totalGzip: 280_000 });
+    fs.writeFileSync(
+        path.join(dist, 'page-budget-findings.json'),
+        JSON.stringify({
+            soft: [searchShrink],
+            hard: [],
+            measured: { shell: 1_008_000, search: 1_050_000 },
+        }),
+    );
+    // Report still lists chunks whose JS is absent: the chore must not touch them.
+    fs.writeFileSync(
+        path.join(dist, 'eager-budget-report.json'),
+        JSON.stringify({ chunks: [{ file: 'assets/index-missing.js', phosphorModules: 0, muiIconModules: 0 }] }),
+    );
+    const eagerBudget = { totalGzip: 300_000, maxPhosphorModules: 100 };
+    const pageBudget = { shell: 1_000_000, search: 1_100_000 };
+    fs.writeFileSync(path.join(root, 'eager-budget.json'), `${JSON.stringify(eagerBudget, null, 4)}\n`);
+    fs.writeFileSync(path.join(root, 'page-budget.json'), `${JSON.stringify(pageBudget, null, 4)}\n`);
+    assert.equal(fs.existsSync(path.join(dist, 'assets')), false);
+    return { root, dist };
+}
+
+function runChore(root, dist, extra = []) {
+    const result = spawnSync(process.execPath, [chorePath, ...extra, '--budget-dir', root, '--dist', dist], {
+        encoding: 'utf8',
+        env: { ...process.env, BUNDLE_EAGER_BUDGET: '', BUNDLE_PAGE_BUDGET: '', BUNDLE_BUDGET_DIST: '' },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+}
+
+test('classify and --apply run from artifact JSON alone (no dist/assets)', () => {
+    const { root, dist } = stageArtifactOnly();
+    try {
+        const classified = runChore(root, dist);
+        assert.equal(classified.decision, 'ratchet-down');
+        assert.equal(classified.eagerMeasured, 280_000);
+        assert.deepEqual(classified.pageMeasured, { shell: 1_008_000, search: 1_050_000 });
+        assert.equal(classified.applied, undefined);
+
+        const applied = runChore(root, dist, ['--apply']);
+        assert.equal(applied.applied.changed, true);
+        const eager = JSON.parse(fs.readFileSync(path.join(root, 'eager-budget.json'), 'utf8'));
+        const page = JSON.parse(fs.readFileSync(path.join(root, 'page-budget.json'), 'utf8'));
+        assert.equal(eager.totalGzip, 280_000);
+        assert.equal(eager.maxPhosphorModules, 100);
+        // Shell grew within slack: no under-baseline finding, so never raised.
+        assert.equal(page.shell, 1_000_000);
+        assert.equal(page.search, 1_050_000);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
 });

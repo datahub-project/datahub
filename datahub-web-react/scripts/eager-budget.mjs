@@ -190,11 +190,9 @@ export function printBudgetFindings(findings) {
 /**
  * Write findings for CI steps that run the inventory only when something moved.
  * Soft and hard both count — soft overages still need a package breakdown.
+ * `measured.totalGzip` is persisted so the reassessment chore can ratchet from
+ * this file alone (the nightly artifact carries no dist JS to re-gzip).
  *
- * @param {string} distDir
- * @param {BudgetFindings} findings
- */
-/**
  * @param {string} distDir
  * @param {BudgetFindings} findings
  * @param {{ totalGzip?: number }} [measured]
