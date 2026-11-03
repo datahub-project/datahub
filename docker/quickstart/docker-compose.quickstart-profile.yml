@@ -95,7 +95,7 @@ services:
       GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD: '1'
       GRAPHQL_SHAPE_LOGGING_FIELD_COUNT_THRESHOLD: '100'
       GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES: '1048576'
-      JAVA_OPTS: -Xms1g -Xmx1g
+      JAVA_OPTS: -Xms1g -Xmx1g -Dhazelcast.wait.seconds.before.join=0
       KAFKA_BOOTSTRAP_SERVER: broker:29092
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
       LOG_AGGREGATOR_ENDPOINT: ''

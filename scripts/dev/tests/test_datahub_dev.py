@@ -198,20 +198,67 @@ def test_plugin_loading_bad_ext_does_not_crash(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "changed_files,expected_services",
+    "changed_files,expected_services,expected_build_modules",
     [
-        ({"metadata-service/war/src/A.java"}, {"datahub-gms"}),
+        (
+            {"metadata-service/war/src/A.java"},
+            {"datahub-gms"},
+            {":metadata-service:war"},
+        ),
         (
             {"datahub-web-react/src/a.tsx", "datahub-frontend/app/B.java"},
             {"datahub-frontend-react"},
+            {":datahub-frontend"},
         ),
         # Shared or unmapped sources keep the full build graph.
-        ({"metadata-io/src/C.java"}, set()),
-        ({"metadata-service/war/src/A.java", "README.md"}, set()),
+        ({"metadata-io/src/C.java"}, set(), set()),
+        ({"metadata-service/war/src/A.java", "README.md"}, set(), set()),
     ],
 )
 def test_detect_changed_modules_narrows_only_service_owned_changes(
-    changed_files, expected_services
+    changed_files, expected_services, expected_build_modules
 ):
     modules = datahub_dev._detect_changed_modules(changed_files)
     assert {container for _, _, container in modules} == expected_services
+    assert {task.rsplit(":", 1)[0] for _, task, _ in modules} == expected_build_modules
+
+
+def test_detect_changed_modules_overlapping_prefixes_keep_full_graph(monkeypatch):
+    monkeypatch.setitem(
+        datahub_dev.CONFIG.module_to_container,
+        "metadata-service/",
+        (":metadata-service:other:bootJar", "datahub-other"),
+    )
+    assert datahub_dev._detect_changed_modules({"metadata-service/war/A.java"}) == []
+
+
+def _rebuild_gradle_cmd(monkeypatch, module=None, changed_files=None):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return argparse.Namespace(returncode=1)
+
+    monkeypatch.setattr(datahub_dev, "_run", fake_run)
+    monkeypatch.setattr(
+        datahub_dev, "_changed_worktree_files", lambda: changed_files or set()
+    )
+    datahub_dev.cmd_rebuild(argparse.Namespace(module=module, wait=False))
+    return calls[0]
+
+
+def test_rebuild_passes_build_modules_for_service_owned_changes(monkeypatch):
+    cmd = _rebuild_gradle_cmd(
+        monkeypatch, changed_files={"metadata-service/war/src/A.java"}
+    )
+    assert "-PbuildModules=:metadata-service:war" in cmd
+
+
+def test_rebuild_omits_build_modules_for_shared_changes(monkeypatch):
+    cmd = _rebuild_gradle_cmd(monkeypatch, changed_files={"metadata-io/src/C.java"})
+    assert not any(arg.startswith("-PbuildModules") for arg in cmd)
+
+
+def test_rebuild_module_alias_builds_all_service_modules(monkeypatch):
+    cmd = _rebuild_gradle_cmd(monkeypatch, module="frontend")
+    assert "-PbuildModules=:datahub-frontend" in cmd
