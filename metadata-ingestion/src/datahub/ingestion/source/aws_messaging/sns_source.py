@@ -1,7 +1,19 @@
 import functools
 import itertools
 from collections import defaultdict
-from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Set, Tuple
+from typing import (
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
+
+from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -60,7 +72,7 @@ from datahub.specific.dataset import DatasetPatchBuilder
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Topic to subscribed queue and to subscription dead-letter queue",
+    "Subscribed queues and dead-letter queues, Lambda, EventBridge rules and Pipes",
 )
 @capability(
     SourceCapability.GLOSSARY_TERMS,
@@ -150,6 +162,7 @@ class SnsSource(AwsMessagingSourceBase):
             self._add_subscription_edges(topic)
             if self.queues_listed and str(topic.arn) not in self.incomplete_topics:
                 self.lineage.complete.add(self.urns.topic_urn(topic.arn))
+        yield from self.service_lineage_workunits()
         yield from self.lineage.workunits()
 
     def _load_local_queues(self) -> None:
@@ -168,7 +181,7 @@ class SnsSource(AwsMessagingSourceBase):
                     )
                 )
 
-    def _queue_listing_failed(self) -> None:
+    def _queue_listing_failed(self, _error: Union[ClientError, BotoCoreError]) -> None:
         self.queues_listed = False
 
     def list_topics(self) -> Iterator[SnsTopic]:
@@ -192,7 +205,7 @@ class SnsSource(AwsMessagingSourceBase):
                 continue
             for subscription in self.sns.list_subscriptions(
                 topic_arn,
-                on_error=functools.partial(self.incomplete_topics.add, topic_arn),
+                on_error=functools.partial(self._subscriptions_unreadable, topic_arn),
             ):
                 self.report.subscriptions_scanned += 1
                 self.subscriptions[topic_arn].append(subscription)
@@ -290,6 +303,10 @@ class SnsSource(AwsMessagingSourceBase):
                 )
                 if queue_urn is not None and self.config.include_column_lineage:
                     self._add_column_lineage(topic_urn, queue_urn, attributes)
+            elif subscription.protocol == SubscriptionProtocol.LAMBDA and self.lambdas:
+                edges = self.lambdas.function(subscription.endpoint, topic_urn)
+                if edges is not None:
+                    edges.inputs.add(topic_urn)
             if attributes:
                 redrive = parse_redrive_policy(
                     attributes.get(SubscriptionAttribute.REDRIVE_POLICY)
@@ -304,6 +321,11 @@ class SnsSource(AwsMessagingSourceBase):
                         redrive.dead_letter_target_arn,
                         LineageRelationship.SUBSCRIPTION_DEAD_LETTER,
                     )
+
+    def _subscriptions_unreadable(
+        self, topic_arn: str, _error: Union[ClientError, BotoCoreError]
+    ) -> None:
+        self.incomplete_topics.add(topic_arn)
 
     def _subscription_attributes(
         self, topic: SnsTopic, subscription: SnsSubscription

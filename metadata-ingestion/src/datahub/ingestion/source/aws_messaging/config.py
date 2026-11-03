@@ -74,6 +74,35 @@ class TopicGlueSchemaRegistryConfig(GlueSchemaRegistryConfigBase):
         return self.topic_schema_map
 
 
+class AwsMessagingLineageConfig(ConfigModel):
+    lambda_functions: bool = Field(
+        default=True,
+        description=(
+            "Emit Lambda functions wired to this source's queues or topics (event "
+            "source mappings, SNS subscriptions, failure and async destinations) as a "
+            "DataFlow with one DataJob."
+        ),
+    )
+    lambda_async_destinations: bool = Field(
+        default=False,
+        description=(
+            "Read each function's asynchronous invocation destinations. One "
+            "lambda:ListFunctionEventInvokeConfigs call per function in the region, "
+            "made by both the sqs and sns sources; stops at the first AccessDenied. "
+            "Stale Lambda output edges are only removed when this is on, since "
+            "without it the run can't tell which outputs still exist."
+        ),
+    )
+    eventbridge_rules: bool = Field(
+        default=True,
+        description="Emit EventBridge rules that target this source's queues or topics.",
+    )
+    eventbridge_pipes: bool = Field(
+        default=True,
+        description="Emit EventBridge Pipes whose source or target is one of this source's queues or topics.",
+    )
+
+
 class AwsMessagingConfigBase(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -115,6 +144,10 @@ class AwsMessagingConfigBase(
             "account id. Accounts not listed use their account id."
         ),
     )
+    lineage: AwsMessagingLineageConfig = Field(
+        default_factory=AwsMessagingLineageConfig,
+        description="Lineage through Lambda and EventBridge.",
+    )
     remove_stale_lineage: bool = Field(
         default=True,
         description=(
@@ -131,13 +164,12 @@ class AwsMessagingConfigBase(
     include_column_lineage: Optional[bool] = Field(
         default=None,
         description=(
-            "Add field-level lineage where a message reaches the next hop unchanged, "
-            "for fields present in both schemas: a queue to its dead-letter queue "
-            "(sqs), or a topic to a queue subscribed with raw message delivery (sns, "
-            "needs include_subscription_attributes). Schemas come from Glue Schema "
-            "Registry in this run or from DataHub, one DataHub lookup per hop for a "
-            "schema not read from Glue. Defaults to glue_schema_registry.enabled; set "
-            "it to true to use schemas that are already in DataHub without Glue."
+            "Add field-level lineage on hops that deliver the message unchanged or "
+            "with a simple field mapping, for fields present in both schemas. See the "
+            "docs for which hops qualify. Schemas come from Glue Schema Registry in "
+            "this run or from DataHub, one DataHub lookup per hop for a schema not "
+            "read from Glue. Defaults to glue_schema_registry.enabled; set it to true "
+            "to use schemas that are already in DataHub without Glue."
         ),
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
