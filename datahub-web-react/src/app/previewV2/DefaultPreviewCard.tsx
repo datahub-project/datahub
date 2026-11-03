@@ -1,4 +1,3 @@
-import { Button } from '@components';
 import React, { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -22,7 +21,7 @@ import { CompactView } from '@app/previewV2/CompactView';
 import ContextPath from '@app/previewV2/ContextPath';
 import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
 import EntityHeader from '@app/previewV2/EntityHeader';
-import { ActionsAndStatusSection } from '@app/previewV2/shared';
+import { ActionsAndStatusSection, TransparentButton } from '@app/previewV2/shared';
 import {
     RemoveConfirmState,
     useRemoveApplicationAssets,
@@ -53,14 +52,6 @@ import {
     Owner,
     SearchInsight,
 } from '@types';
-
-const TransparentButton = styled(Button)`
-    display: none;
-
-    &:hover {
-        display: inline-flex;
-    }
-`;
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -371,6 +362,8 @@ export default function DefaultPreviewCard({
                     finalType={finalType}
                     parentEntities={parentEntities}
                     browsePaths={browsePaths}
+                    removeButtonText={removeButtonText}
+                    onRemove={removeRelationship}
                 />
             )}
             <DefaultPreviewCardFooter

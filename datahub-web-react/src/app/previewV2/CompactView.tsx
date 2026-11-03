@@ -12,7 +12,7 @@ import ColoredBackgroundPlatformIconGroup, {
 } from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
 import ContextPath from '@app/previewV2/ContextPath';
 import EntityHeader from '@app/previewV2/EntityHeader';
-import { ActionsAndStatusSection } from '@app/previewV2/shared';
+import { ActionsAndStatusSection, TransparentButton } from '@app/previewV2/shared';
 
 import { BrowsePathV2, Deprecation, Entity, EntityType, Health } from '@types';
 
@@ -72,6 +72,8 @@ interface Props {
     finalType?: string | undefined;
     parentEntities?: Entity[] | null;
     browsePaths?: BrowsePathV2 | undefined;
+    removeButtonText?: string | null;
+    onRemove?: () => void;
 }
 
 export const CompactView = ({
@@ -98,6 +100,8 @@ export const CompactView = ({
     finalType,
     parentEntities,
     browsePaths,
+    removeButtonText,
+    onRemove,
 }: Props) => {
     return (
         <>
@@ -114,6 +118,11 @@ export const CompactView = ({
                     connectionName={previewData?.name}
                 />
                 <CompactActionsAndStatusSection>
+                    {removeButtonText && (
+                        <TransparentButton variant="text" size="sm" onClick={onRemove}>
+                            {removeButtonText}
+                        </TransparentButton>
+                    )}
                     <ViewInPlatform data={data} urn={urn} />
                     {headerDropdownItems && (
                         <MoreOptionsMenuAction

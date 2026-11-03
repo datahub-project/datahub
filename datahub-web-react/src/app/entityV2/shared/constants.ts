@@ -233,6 +233,17 @@ export enum EntityProfileTab {
 }
 
 /**
+ * Stable keys that identify entity sidebar tabs (`EntitySidebarTab.key`). Tab display names are
+ * translated, so always target a sidebar tab (e.g. from an onboarding step) by one of these values.
+ */
+export enum EntitySidebarTabKey {
+    SUMMARY = 'Summary',
+    LINEAGE = 'Lineage',
+    COLUMNS = 'Columns',
+    PROPERTIES = 'Properties',
+}
+
+/**
  * Stable URL segments that identify entity profile tabs (`EntityTab.path`). Tab display names are
  * translated, so always link to a tab by one of these values, never by its name.
  */
