@@ -53,7 +53,7 @@ describe('getStructuredPropertyRows deduplication', () => {
 const mockUseEntityData = vi.hoisted(() => vi.fn());
 const mockUseGetEntityWithSchema = vi.hoisted(() => vi.fn());
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: mockUseEntityData,
 }));
 

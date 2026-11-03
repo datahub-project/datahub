@@ -5,9 +5,9 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import SearchExtendedMenu from '@app/entity/shared/components/styled/search/SearchExtendedMenu';
 import { SearchSelectBar } from '@app/entity/shared/components/styled/search/SearchSelectBar';
 import { EntityAndType } from '@app/entity/shared/types';
+import SearchExtendedMenu from '@app/entityV2/shared/components/styled/search/SearchExtendedMenu';
 import { SearchBar } from '@app/search/SearchBar';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';

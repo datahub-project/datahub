@@ -5,8 +5,8 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { EntityAndType } from '@app/entity/shared/types';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import EmbeddedListSearchHeader from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchHeader';
 import { EmbeddedListSearchResults } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchResults';
 import { EntityActionProps } from '@app/entityV2/shared/components/styled/search/EntitySearchResults';

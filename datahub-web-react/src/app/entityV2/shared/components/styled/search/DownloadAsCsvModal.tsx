@@ -7,7 +7,7 @@ import { useLocation } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import {
     getSearchCsvDownloadHeader,
     transformResultsToCsvRow,

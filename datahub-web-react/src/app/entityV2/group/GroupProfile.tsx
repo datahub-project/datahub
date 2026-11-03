@@ -6,12 +6,12 @@ import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { GroupAssets } from '@app/entityV2/group/GroupAssets';
 import GroupMembers from '@app/entityV2/group/GroupMembers';
 import GroupSidebar from '@app/entityV2/group/GroupSidebar';
 import { TabType } from '@app/entityV2/group/types';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,

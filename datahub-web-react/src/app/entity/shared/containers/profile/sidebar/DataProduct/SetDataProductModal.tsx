@@ -4,9 +4,9 @@ import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { tagRender } from '@app/entity/shared/containers/profile/sidebar/tagRenderer';
 import { handleBatchError } from '@app/entity/shared/utils';
 import { IconStyleType } from '@app/entityV2/Entity';
+import { tagRender } from '@app/entityV2/shared/containers/profile/sidebar/tagRenderer';
 import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getModalDomContainer } from '@utils/focus';
