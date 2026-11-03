@@ -1334,6 +1334,45 @@ def test_odbc_oracle_default_database_emits_three_part_urn():
     ]
 
 
+@pytest.mark.parametrize(
+    "platform_detail, expected_name",
+    [
+        # Without the default_database opt-in Oracle URNs are schema.table, so the
+        # mapping's database segment is unused.
+        (PlatformDetail(), "hr.employees"),
+        # Within the opt-in the per-DSN mapping wins over the per-server default.
+        (OraclePlatformDetail(default_database="DEFAULTDB"), "orcl.hr.employees"),
+    ],
+)
+def test_odbc_oracle_two_part_dsn_mapping_table_only_nav(
+    platform_detail: PlatformDetail, expected_name: str
+) -> None:
+    """A '<database>.<schema>' dsn_to_database_schema value with Table-only Oracle
+    navigation supplies the schema, and the database too when default_database
+    opts into three-part URNs."""
+    instance = _build_odbc_lineage(
+        platform_detail=platform_detail,
+        dsn_to_database_schema={"oracle_dsn": "ORCL.HR"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Table", "EMPLOYEES")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="oracle_server", dsn="oracle_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:oracle,{expected_name},PROD)"
+    ]
+
+
 def test_odbc_oracle_nav_database_wins_over_default_database():
     """When both a navigation Database and default_database are present, the
     navigation-supplied database wins (default_database is only the fallback for

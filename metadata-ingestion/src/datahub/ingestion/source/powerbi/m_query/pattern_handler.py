@@ -2612,8 +2612,9 @@ class OdbcLineage(AbstractLineage):
             database.schema.table when the user opts in via
             server_to_platform_instance `default_database` (oracle_default_database),
             mirroring standalone Oracle's add_database_name_to_urn=true; within that
-            opt-in the navigation-supplied database wins and default_database is only
-            the fallback (matching OracleLineage's effective_db precedence).
+            opt-in the database is navigation, then the dsn_to_database_schema
+            database segment, then default_database. Without the opt-in the
+            database segment is unused, since the URN is schema.table.
           - three-tier (BigQuery/Snowflake/...): database.schema.table; a missing tier
             skips rather than emitting a truncated database.table.
           - Athena: database.table, where the database sits in navigation's schema
@@ -2645,12 +2646,12 @@ class OdbcLineage(AbstractLineage):
             if schema is None:
                 return None
             if oracle_default_database is not None:
-                # Navigation wins over the configured default_database (which is a
-                # fallback for bare TNS aliases that carry no database), matching
+                # Precedence: navigation, then the per-DSN dsn_to_database_schema
+                # database, then the per-server default_database (a fallback for
+                # bare TNS aliases that carry no database), matching
                 # OracleLineage's effective_db precedence.
-                return (
-                    f"{database_name or oracle_default_database}.{schema}.{table_name}"
-                )
+                database = database_name or config_database or oracle_default_database
+                return f"{database}.{schema}.{table_name}"
             return f"{schema}.{table_name}"
 
         database = database_name or config_database
@@ -2762,9 +2763,10 @@ class OdbcLineage(AbstractLineage):
                         "Two-tier ODBC navigation exposed no schema level, and no "
                         "mapping supplied one; skipping lineage. Supply the schema "
                         "via 'dsn_to_database_schema: {<dsn>: <schema>}' (Oracle: "
-                        "'<database>.<schema>') in your PowerBI recipe — hierarchical "
-                        "navigation reads dsn_to_database_schema, not the Oracle "
-                        "default_schema knob."
+                        "'<database>.<schema>'; the database segment only appears in "
+                        "the URN when default_database is set for the server) in your "
+                        "PowerBI recipe — hierarchical navigation reads "
+                        "dsn_to_database_schema, not the Oracle default_schema knob."
                     ),
                     context=f"table-name={self.table.full_name}, data-platform={data_platform}, dsn={dsn}, database={database_name}, table={table_name}",
                 )

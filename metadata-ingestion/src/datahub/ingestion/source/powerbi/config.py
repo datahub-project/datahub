@@ -639,7 +639,10 @@ class PowerBiDashboardSourceConfig(
         "configure mappings for your DSNs to supply the missing high-order levels. "
         "For example with an ODBC connection string 'DSN=database' where the database "
         "is 'prod' you would configure the mapping as 'database: prod'. "
-        "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'.",
+        "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'. "
+        "For Oracle hierarchical navigation, use 'database.schema': a one-part value is "
+        "not used as the schema, and the database segment only appears in the URN when "
+        "default_database is set for the server in server_to_platform_instance.",
     )
     # Athena federated table platform override
     athena_table_platform_override: List[AthenaPlatformOverride] = pydantic.Field(
