@@ -8,7 +8,6 @@ from sqlalchemy.dialects.mysql.base import MySQLDialect
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
 from sqlalchemy.exc import (
     OperationalError,
-    PendingRollbackError,
     ProgrammingError,
     SQLAlchemyError,
 )
@@ -220,7 +219,9 @@ class TestDorisDialect:
 
         mock_connection = Mock()
         mock_connection.engine.url.database = "testdb"
-        mock_connection.execute.side_effect = SQLAlchemyError("Connection lost")
+        mock_connection.execute.side_effect = ProgrammingError(
+            "DESCRIBE", {}, Exception("DESCRIBE command denied")
+        )
 
         with patch.object(
             dialect.__class__.__bases__[0],
@@ -237,7 +238,8 @@ class TestDorisDialect:
 
         assert list(dialect.type_overlay_failures) == ["`testdb`.`test_table`"]
         assert (
-            "Connection lost" in dialect.type_overlay_failures["`testdb`.`test_table`"]
+            "DESCRIBE command denied"
+            in dialect.type_overlay_failures["`testdb`.`test_table`"]
         )
 
     def test_get_columns_does_not_swallow_unexpected_errors(self):
@@ -374,6 +376,37 @@ class TestDorisDialect:
                 )
 
         assert dialect.reflection_fallbacks == {}
+
+    @pytest.mark.parametrize("failing_step", ["_setup_parser", "describe"])
+    def test_lost_connection_is_raised_not_recorded(self, failing_step):
+        """A dropped connection is neither a DDL refusal nor missing DESCRIBE
+        rights, and the next statement would only hide it behind
+        PendingRollbackError."""
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        lost = OperationalError(
+            "SELECT", {}, Exception("Lost connection"), connection_invalidated=True
+        )
+
+        if failing_step == "_setup_parser":
+            reflection = patch.object(
+                dialect.__class__.__bases__[0], "_setup_parser", side_effect=lost
+            )
+        else:
+            mock_connection.execute.side_effect = lost
+            reflection = patch.object(
+                dialect.__class__.__bases__[0],
+                "get_columns",
+                return_value=[{"name": "col1", "type": sqltypes.INTEGER()}],
+            )
+        with reflection, pytest.raises(OperationalError):
+            dialect.get_columns(
+                mock_connection, "my_table", schema="my_db", info_cache={}
+            )
+
+        assert dialect.reflection_fallbacks == {}
+        assert dialect.type_overlay_failures == {}
 
     def test_registering_types_does_not_leak_into_other_mysql_dialects(self):
         """ischema_names is a class attribute shared by every MySQL-family dialect, so
@@ -609,19 +642,30 @@ class TestDorisComments:
                 ("my_table", "col_a", 'Amount in "minor" units, 金额'),
                 # Doris reports a column without a comment as an empty string.
                 ("my_table", "col_b", ""),
+                ("my_table", "col_c", None),
+                ("my_table", "col_d", "   "),
                 ("other_table", "col_c", "Belongs to another table"),
             ],
         )
 
-        columns = self._get_columns(
-            dialect, mock_connection, "my_table", schema="my_db", info_cache={}
-        )
+        with patch.object(
+            MySQLDialect,
+            "get_columns",
+            return_value=[
+                *self._mysql_columns(),
+                {"name": "col_d", "type": sqltypes.TEXT(), "comment": None},
+            ],
+        ):
+            columns = dialect.get_columns(
+                mock_connection, "my_table", schema="my_db", info_cache={}
+            )
 
         comments = {col["name"]: col["comment"] for col in columns}
         assert comments == {
             "col_a": 'Amount in "minor" units, 金额',
             "col_b": None,
             "col_c": "Parsed from DDL",
+            "col_d": None,
         }
         assert dialect.comment_lookup_failures == {}
 
@@ -749,9 +793,10 @@ class TestDorisComments:
         assert "Access denied" in failures["my_db"]
         assert dialect.comment_lookup_failures == {}
 
-    def test_dropped_connection_is_not_reported_as_missing_comments(self, mock_text):
-        """A disconnect fails every later statement too, so it must surface as
-        itself rather than as a database without comments."""
+    def test_lost_connection_during_lookup_keeps_the_table(self, mock_text):
+        """The database-wide query can outrun a read timeout on a large external
+        catalog. The columns are already read, so the table is kept and the
+        connection rolled back so the next statement can reconnect."""
         dialect = DorisDialect()
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_db"
@@ -764,32 +809,38 @@ class TestDorisComments:
                 raise OperationalError(
                     statement,
                     params,
-                    Exception("Lost connection"),
+                    Exception("Lost connection (timed out)"),
                     connection_invalidated=True,
                 )
             return describe(statement, params)
 
         mock_connection.execute.side_effect = execute
+        kw: Dict[str, Any] = {"schema": "my_db", "info_cache": {}}
 
-        with pytest.raises(OperationalError):
-            self._get_columns(
-                dialect, mock_connection, "my_table", schema="my_db", info_cache={}
-            )
+        columns = self._get_columns(dialect, mock_connection, "table_1", **kw)
+        self._get_columns(dialect, mock_connection, "table_2", **kw)
 
-        # SQLAlchemy then refuses every statement on the invalidated connection.
-        mock_connection.execute.side_effect = PendingRollbackError(
-            "Can't reconnect until invalid transaction is rolled back."
+        assert [col["name"] for col in columns] == ["col_a", "col_b", "col_c"]
+        mock_connection.rollback.assert_called_once()
+        assert _count_queries(mock_connection, "information_schema") == 1
+        assert list(dialect.comment_lookup_failures) == ["my_db"]
+
+    def test_malformed_comment_rows_keep_the_columns(self, mock_text):
+        """An error building the comment map is raised inside get_columns, where
+        the source would turn it into a table with no columns."""
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        mock_connection.execute.side_effect = _execute_by_query(
+            column_comment_rows=[("my_table", "col_a")],
         )
-        with (
-            patch.object(
-                MySQLDialect, "get_table_comment", return_value={"text": None}
-            ),
-            pytest.raises(PendingRollbackError),
-        ):
-            dialect.get_table_comment(
-                mock_connection, "my_table", schema="my_db", info_cache={}
-            )
-        assert dialect.comment_lookup_failures == {}
+
+        columns = self._get_columns(
+            dialect, mock_connection, "my_table", schema="my_db", info_cache={}
+        )
+
+        assert [col["name"] for col in columns] == ["col_a", "col_b", "col_c"]
+        assert list(dialect.comment_lookup_failures) == ["my_db"]
 
     def test_comments_are_not_read_when_disabled(self, mock_text):
         """The profiling pass reflects tables without needing their comments."""

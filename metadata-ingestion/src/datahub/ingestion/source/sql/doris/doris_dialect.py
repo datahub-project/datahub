@@ -319,6 +319,10 @@ class DorisDialect(MySQLDialect_pymysql):
                     connection, table_name, schema, **kw
                 )
         except (SQLAlchemyError, TypeError) as e:
+            if _is_connection_lost(e):
+                # DESCRIBE would only fail with PendingRollbackError, hiding the
+                # original disconnect behind it.
+                raise
             # Doris rejects SHOW CREATE TABLE for async materialized views, and the
             # MySQL DDL parser raises TypeError on Doris types it cannot model.
             # DESCRIBE answers for both, but carries no keys or constraints, so
@@ -409,10 +413,17 @@ class DorisDialect(MySQLDialect_pymysql):
     ) -> Dict[str, Dict[str, str]]:
         if scope not in self._column_comment_cache:
             comments: Dict[str, Dict[str, str]] = {}
-            for row in self._query_comments(connection, _COLUMN_COMMENTS_SQL, scope):
-                comment = _non_empty_comment(row[2])
-                if comment is not None:
-                    comments.setdefault(str(row[0]), {})[str(row[1])] = comment
+            try:
+                for row in self._query_comments(
+                    connection, _COLUMN_COMMENTS_SQL, scope
+                ):
+                    comment = _non_empty_comment(row[2])
+                    if comment is not None:
+                        comments.setdefault(str(row[0]), {})[str(row[1])] = comment
+            except (IndexError, TypeError, ValueError) as e:
+                # Raised inside get_columns, these would cost the table its columns.
+                self._record_comment_lookup_failure(scope, e)
+                comments = {}
             self._column_comment_cache[scope] = comments
         return self._column_comment_cache[scope]
 
@@ -421,43 +432,52 @@ class DorisDialect(MySQLDialect_pymysql):
     ) -> Dict[str, str]:
         if scope not in self._table_comment_cache:
             comments: Dict[str, str] = {}
-            for row in self._query_comments(connection, _TABLE_COMMENTS_SQL, scope):
-                comment = _non_empty_comment(row[1])
-                if comment is not None:
-                    comments[str(row[0])] = comment
+            try:
+                for row in self._query_comments(connection, _TABLE_COMMENTS_SQL, scope):
+                    comment = _non_empty_comment(row[1])
+                    if comment is not None:
+                        comments[str(row[0])] = comment
+            except (IndexError, TypeError, ValueError) as e:
+                self._record_comment_lookup_failure(scope, e)
+                comments = {}
             self._table_comment_cache[scope] = comments
         return self._table_comment_cache[scope]
 
     def _query_comments(
         self, connection: Connection, sql: str, scope: CommentScope
     ) -> List[Sequence[Any]]:
-        qualified_database = scope.qualified_database
         try:
             return list(
                 connection.execute(
                     text(sql),
                     {
                         "database": scope.database,
-                        "qualified_database": qualified_database,
+                        "qualified_database": scope.qualified_database,
                     },
                 )
             )
         except SQLAlchemyError as e:
             if _is_connection_lost(e):
-                # A dropped connection is not a missing grant: every later statement
-                # on it fails too, so reporting it as missing comments would hide
-                # the real cause behind the next table's error.
-                raise
+                # Typically the database-wide query outrunning a read timeout on a
+                # large external catalog. The table's columns were already read, so
+                # roll back to let the next statement reconnect rather than fail
+                # this table and every one after it.
+                connection.rollback()
             # Comments are lost but the tables are not. The empty result is what gets
             # memoised, so a database whose lookup fails costs one failed query
             # rather than one per table.
-            self.comment_lookup_failures.setdefault(qualified_database, str(e))
-            logger.info(
-                f"Reading comments from information_schema failed for "
-                f"{qualified_database}: {e}. Some or all of its tables and columns "
-                f"will have no descriptions."
-            )
+            self._record_comment_lookup_failure(scope, e)
             return []
+
+    def _record_comment_lookup_failure(
+        self, scope: CommentScope, error: Exception
+    ) -> None:
+        self.comment_lookup_failures.setdefault(scope.qualified_database, str(error))
+        logger.info(
+            f"Reading comments from information_schema failed for "
+            f"{scope.qualified_database}: {error}. Some or all of its tables and "
+            f"columns will have no descriptions."
+        )
 
     def _comment_scope(
         self, connection: Connection, schema: Optional[str]
@@ -501,6 +521,8 @@ class DorisDialect(MySQLDialect_pymysql):
                         col["type"] = parsed_type
 
         except (SQLAlchemyError, IndexError, TypeError) as e:
+            if _is_connection_lost(e):
+                raise
             # Columns survive with MySQL's types; only the Doris-specific ones are
             # lost. Recorded rather than logged so the source can report it, since a
             # silently generic HLL or BITMAP column looks like correct output.

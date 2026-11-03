@@ -17,6 +17,7 @@ from datahub.ingestion.source.sql.doris.doris_source import (
     DorisSource,
 )
 from datahub.ingestion.source.sql.mysql import MySQLSource
+from datahub.metadata.schema_classes import SchemaMetadataClass
 
 
 def test_doris_uses_native_dialect():
@@ -407,6 +408,9 @@ class TestDorisSourceMethods:
 
             list(source.get_inspectors())
 
+        # Bound to the Connection, not the Engine: the source checks
+        # inspector.bind.invalidated to tell a dropped connection from other errors.
+        assert mock_inspect.call_args_list[-1].args[0] is db_conn
         assert source.report.tables_reflected_without_keys == 1
         warnings = [str(warning) for warning in source.report.warnings]
         assert any("Table reflected without keys" in w for w in warnings)
@@ -537,12 +541,10 @@ class TestDorisSourceMethods:
             dialects.append(dialect)
 
         assert source.report.databases_without_comments == 2
-        assert [w.title for w in source.report.warnings] == [
-            "Doris table and column comments unavailable"
-        ]
+        assert len(source.report.warnings) == 1
         contexts = " ".join(str(warning) for warning in source.report.warnings)
-        assert contexts.count("db1: Access denied") == 1
-        assert contexts.count("db2: Access denied") == 1
+        assert contexts.count("db1") == 1
+        assert contexts.count("db2") == 1
         assert all(dialect.comment_lookup_failures == {} for dialect in dialects)
 
     def test_only_the_metadata_pass_reads_comments(self):
@@ -599,6 +601,11 @@ class TestDorisSourceMethods:
             inspector.bind.invalidated = True
             raise PendingRollbackError("Can't reconnect until invalid transaction")
 
+        def rollback() -> None:
+            inspector.bind.invalidated = False
+
+        inspector.bind.rollback.side_effect = rollback
+
         getattr(inspector, method).side_effect = drop_connection
         return inspector
 
@@ -628,9 +635,12 @@ class TestDorisSourceMethods:
 
         # loop_tables only warns about a table that raises, which would leave
         # stale-entity removal free to delete it; the failure stops that.
-        assert [failure.title for failure in source.report.failures] == [
-            "Lost the Doris connection while reflecting a table"
-        ]
+        assert len(source.report.failures) == 1
+        failure = str(source.report.failures)
+        assert "db1.my_table" in failure
+        assert "Can't reconnect" in failure
+        # Rolled back so the next table can reconnect.
+        assert inspector.bind.invalidated is False
 
     def test_lost_connection_fails_a_view_too(self):
         config = DorisConfig(host_port="localhost:9030")
@@ -645,6 +655,68 @@ class TestDorisSourceMethods:
             )
 
         assert len(source.report.failures) == 1
+
+    @pytest.mark.parametrize("kind", ["table", "view"])
+    def test_errors_on_a_live_connection_are_not_failures(self, kind):
+        """Only a dropped connection fails the run; any other error keeps the base
+        class's per-table warning and stale-entity removal."""
+        config = DorisConfig(host_port="localhost:9030")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+        inspector = self._inspector_losing_connection_on("get_columns")
+        inspector.get_columns.side_effect = None
+        error = ProgrammingError("SELECT", {}, Exception("Access denied"))
+        inspector.get_pk_constraint.side_effect = error
+        inspector.get_view_definition.side_effect = error
+
+        with pytest.raises(ProgrammingError):
+            if kind == "table":
+                list(
+                    source._process_table(
+                        "db1.t", inspector, "db1", "t", source.config, None
+                    )
+                )
+            else:
+                list(
+                    source._process_view("db1.t", inspector, "db1", "t", source.config)
+                )
+
+        assert len(source.report.failures) == 0
+        inspector.bind.rollback.assert_not_called()
+
+    def test_lost_connection_costs_only_the_table_it_happened_on(self):
+        config = DorisConfig(host_port="localhost:9030")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+        inspector = self._inspector_losing_connection_on("get_columns")
+        inspector.get_table_names.return_value = ["t1", "t2", "t3"]
+        inspector.get_columns.side_effect = None
+        columns = inspector.get_columns.return_value
+
+        def get_columns(table: str, schema: str) -> List[Any]:
+            if inspector.bind.invalidated:
+                raise PendingRollbackError("Can't reconnect until rolled back")
+            if table == "t2":
+                inspector.bind.invalidated = True
+                raise PendingRollbackError("Lost connection")
+            return columns
+
+        inspector.get_columns.side_effect = get_columns
+
+        with (
+            patch.object(
+                source, "get_identifier", side_effect=lambda schema, entity, **_: entity
+            ),
+            patch.object(source, "get_db_name", return_value="db1"),
+        ):
+            workunits = list(source.loop_tables(inspector, "db1", source.config))
+
+        field_counts = {}
+        for wu in workunits:
+            schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
+            if schema_metadata is not None:
+                field_counts[wu.get_urn().split(",")[1]] = len(schema_metadata.fields)
+        assert field_counts == {"t1": 1, "t3": 1}
+        assert len(source.report.failures) == 1
+        assert "t2" in str(source.report.failures)
 
     def test_column_errors_on_a_live_connection_keep_the_base_behaviour(self):
         config = DorisConfig(host_port="localhost:9030")
