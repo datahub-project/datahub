@@ -1,5 +1,6 @@
 import json
 import threading
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Dict, Iterator, List, Optional, Sequence
 
@@ -227,6 +228,46 @@ def test_pagination_stops_at_page_cap_with_failure(
     assert len(rivers) == 3
     assert client.report.api_calls == 3
     assert [f.title for f in client.report.failures] == ["Too many pages"]
+
+
+@pytest.mark.parametrize("endpoint", ["activities", "rivers/river-1/runs"])
+def test_run_pagination_cap_is_a_warning(
+    monkeypatch: pytest.MonkeyPatch, endpoint: str
+) -> None:
+    # Run history is not in stale state, so a truncated run listing must not
+    # stand down stale entity removal.
+    monkeypatch.setattr(client_module, "MAX_PAGES", 2)
+    client = _client()
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            f"{client.base_url}/environments/env-1/activities",
+            json=_page([{"cross_id": "river-1", "river_id": "river-1"}], "next"),
+        )
+        mock.get(
+            f"{client.base_url}/environments/env-1/rivers/river-1/runs",
+            json=_page(
+                [
+                    {
+                        "run_id": "run-1",
+                        "river_cross_id": "river-1",
+                        "status": "S",
+                        "start_date_in_milliseconds": 0,
+                    }
+                ],
+                "next",
+            ),
+        )
+        records = list(
+            client.list_activity_summaries("env-1", TOKEN, start, end)
+            if endpoint == "activities"
+            else client.list_river_runs("env-1", "river-1", TOKEN, start, end)
+        )
+
+    assert len(records) == 2
+    assert not client.report.failures
+    assert [w.title for w in client.report.warnings] == ["Too many pages"]
 
 
 def test_non_object_record_only_drops_that_record() -> None:

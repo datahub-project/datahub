@@ -1,6 +1,6 @@
 ### Overview
 
-The `boomi-data-integration` module ingests environments, groups and rivers from Boomi Data Integration, along with lineage from source-to-target rivers and logic SQL steps to the tables they write, where the target is supported.
+The `boomi-data-integration` module ingests environments, groups and rivers from Boomi Data Integration, along with lineage from source-to-target rivers and logic SQL steps to the tables they write, where the target is supported, and recent river runs.
 
 ### Prerequisites
 
@@ -12,6 +12,7 @@ A Data Integration API token belongs to one account and one environment. Create 
 2. Open **Settings** > **API Tokens** and create a token with these scopes:
    - `river:list`
    - `environment:list`
+   - `activity:list`, for run history. Without it the source plugin skips run history with a warning.
 3. Copy the token and note the environment ID.
 
 The source plugin only reads, so it does not need `river:execute` or any `:edit` scope.

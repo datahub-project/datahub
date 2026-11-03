@@ -27,6 +27,11 @@ source:
         platform: bigquery
         database: my-gcp-project
 
+    # Recent river runs, read from the last run_history_days days (at most 14).
+    include_run_history: true
+    run_history_days: 7
+    max_runs_per_river: 50
+
     stateful_ingestion:
       enabled: true
 

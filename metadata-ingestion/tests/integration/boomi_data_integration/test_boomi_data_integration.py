@@ -25,7 +25,9 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 # Production responses are anonymised captures from a live trial account.
 # Development responses are synthetic, built from the same shapes, for cases
 # the API cannot create: actions rivers, rivers made in the console (whose GET
-# returns 400), loop containers, and other target types.
+# returns 400), loop containers, and other target types. The three failed logic
+# runs are live; the other runs are synthetic: a multi-table run, a canceled
+# run, a run still in progress, and a river run triggered by a logic run.
 RESPONSES_DIR = Path(__file__).parent / "api_responses"
 
 ENV_PROD = "e00000000000000000000001"
@@ -45,7 +47,9 @@ def _without_river(page: Dict[str, Any], river_id: str) -> Dict[str, Any]:
 
 
 def _register_mocks(
-    mock: requests_mock.Mocker, deleted_river: Optional[str] = None
+    mock: requests_mock.Mocker,
+    deleted_river: Optional[str] = None,
+    activities_status: int = 200,
 ) -> None:
     mock.get(f"{BASE_URL}/environments", json=_load("environments.json"))
     mock.get(
@@ -74,6 +78,18 @@ def _register_mocks(
                 mock.get(url, json=_load(definition.name))
             else:
                 mock.get(url, status_code=400, json=_load("river_get_400.json"))
+            runs = RESPONSES_DIR / f"runs_{river_id}.json"
+            if runs.exists():
+                mock.get(f"{url}/runs", json=_load(runs.name))
+    for environment_id, name in [
+        (ENV_PROD, "activities_production.json"),
+        (ENV_DEV, "activities_development.json"),
+    ]:
+        mock.get(
+            f"{BASE_URL}/environments/{environment_id}/activities",
+            status_code=activities_status,
+            json=_load(name) if activities_status == 200 else {},
+        )
 
 
 def _recipe(output_path: Path) -> Dict[str, object]:
@@ -136,6 +152,10 @@ def test_boomi_data_integration_ingestion(
     assert report.targets_object_storage_skipped == 1
     assert len(report.targets_prefix_skipped) == 1
     assert [w.title for w in report.warnings] == ["River definitions unavailable"]
+    assert report.runs_scanned == 9
+    assert report.runs_emitted == 9
+    assert report.runs_river_not_emitted == 2
+    assert report.runs_unknown_status == 0
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -170,8 +190,10 @@ def _soft_deleted(output_path: Path) -> Set[str]:
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
+# A run history outage in the second run must not stop stale removal.
+@pytest.mark.parametrize("activities_status", [200, 500])
 def test_boomi_data_integration_stateful_removes_deleted_river(
-    tmp_path: Path, mock_datahub_graph: MagicMock
+    tmp_path: Path, mock_datahub_graph: MagicMock, activities_status: int
 ) -> None:
     recipe = _stateful_recipe(tmp_path / "run1.json")
 
@@ -188,7 +210,9 @@ def test_boomi_data_integration_stateful_removes_deleted_river(
         checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
 
         # The actions river is deleted between runs.
-        _register_mocks(mock, deleted_river=ACTIONS_RIVER)
+        _register_mocks(
+            mock, deleted_river=ACTIONS_RIVER, activities_status=activities_status
+        )
         recipe["sink"] = {
             "type": "file",
             "config": {"filename": str(tmp_path / "run2.json")},

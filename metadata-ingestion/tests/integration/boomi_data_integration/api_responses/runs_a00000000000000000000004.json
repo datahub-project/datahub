@@ -1,0 +1,40 @@
+{
+  "next_page": "",
+  "previous_page": null,
+  "page": 1,
+  "current_page_size": 1,
+  "total_items": 1,
+  "account_id": "acct000000000000000000001",
+  "environment_id": "e00000000000000000000002",
+  "items": [
+    {
+      "run_id": "f0000000000000000000000000000041",
+      "river_cross_id": "a00000000000000000000004",
+      "datasource_id": "actions",
+      "error_description": null,
+      "units": 0.1,
+      "rpu": 0.1,
+      "run_group_id": "f0000000000000000000000000000041",
+      "status": "succeeded",
+      "source_name": "actions",
+      "target_name": null,
+      "start_date_utc": "2026-11-03T02:00:00",
+      "start_date_in_milliseconds": 1793671200000,
+      "end_date_utc": "2026-11-03T02:00:09",
+      "end_date_in_milliseconds": 1793671209000,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "actions",
+      "trigger_name": "scheduled",
+      "triggered_by_run_id": null,
+      "trigger_chain": [
+        {
+          "trigger_name": "scheduled",
+          "run_id": null
+        }
+      ]
+    }
+  ],
+  "river_cross_id": "a00000000000000000000004"
+}

@@ -35,6 +35,8 @@ def _source(**overrides: object) -> BoomiDataIntegrationSource:
         "account_id": ACCOUNT_ID,
         "api_token": "token-a",
         "max_requests_per_second": 50,
+        # Run history has its own tests in test_run_history.py.
+        "include_run_history": False,
     }
     config.update(overrides)
     return BoomiDataIntegrationSource.create(

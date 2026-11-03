@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, Iterator, Type, TypeVar, Union
+from datetime import datetime, timezone
+from typing import Dict, Iterator, Optional, Type, TypeVar, Union
 
 import requests
 from pydantic import SecretStr, ValidationError
@@ -10,6 +11,8 @@ from datahub.ingestion.source.boomi_data_integration.config import (
     BoomiDataIntegrationSourceConfig,
 )
 from datahub.ingestion.source.boomi_data_integration.constants import (
+    ACTIVITIES_PAGE_SIZE,
+    ACTIVITIES_PATH_TEMPLATE,
     API_PATH_TEMPLATE,
     BEARER_TEMPLATE,
     CONTENT_TYPE_JSON,
@@ -20,22 +23,29 @@ from datahub.ingestion.source.boomi_data_integration.constants import (
     HEADER_AUTHORIZATION,
     HTTP_GET,
     MAX_PAGES,
+    PARAM_END_TIME,
     PARAM_ITEMS_PER_PAGE,
     PARAM_PAGE,
+    PARAM_START_TIME,
     RETRY_BACKOFF_FACTOR,
     RETRY_METHODS,
     RETRY_STATUS_CODES,
     RETRY_TOTAL,
     RIVER_PATH_TEMPLATE,
+    RIVER_RUNS_PATH_TEMPLATE,
     RIVERS_PAGE_SIZE,
     RIVERS_PATH_TEMPLATE,
     RIVERS_PROBE_PAGE_SIZE,
+    RUN_TIME_FORMAT,
+    RUNS_PAGE_SIZE,
 )
 from datahub.ingestion.source.boomi_data_integration.models import (
+    Activity,
     DIModel,
     Environment,
     PageResponse,
     River,
+    RiverRun,
     RiverSummary,
 )
 from datahub.ingestion.source.boomi_data_integration.report import (
@@ -117,14 +127,24 @@ class BoomiDataIntegrationClient:
         return body
 
     def _paginate(
-        self, path: str, token: SecretStr, page_size: int, model: Type[M]
+        self,
+        path: str,
+        token: SecretStr,
+        page_size: int,
+        model: Type[M],
+        params: Optional[QueryParams] = None,
+        truncation_is_failure: bool = True,
     ) -> Iterator[M]:
         for page_number in range(1, MAX_PAGES + 1):
             page = PageResponse.model_validate(
                 self._get(
                     path,
                     token,
-                    {PARAM_PAGE: page_number, PARAM_ITEMS_PER_PAGE: page_size},
+                    {
+                        **(params or {}),
+                        PARAM_PAGE: page_number,
+                        PARAM_ITEMS_PER_PAGE: page_size,
+                    },
                 )
             )
             for record in page.items:
@@ -140,12 +160,17 @@ class BoomiDataIntegrationClient:
                     )
             # next_page is a link, but page numbers are enough to walk it and
             # avoid depending on whether the link is absolute. An empty page
-            # with a link is followed, since the link is what marks the end.
+            # with a link is followed, since the link is what marks the end. The
+            # last page has an empty string, or null when the list is empty.
             if not page.next_page:
                 return
-        # A failure rather than a warning, so that stale entity removal does
-        # not delete what lies beyond the cap.
-        self.report.failure(
+        # A failure for entity listings, so that stale entity removal does not
+        # delete what lies beyond the cap. Run history is not in stale state,
+        # so a truncated run listing is only a warning.
+        report_truncation = (
+            self.report.failure if truncation_is_failure else self.report.warning
+        )
+        report_truncation(
             title="Too many pages",
             message=(
                 "The API kept returning a next page, so listing stopped at the "
@@ -195,3 +220,45 @@ class BoomiDataIntegrationClient:
                 {},
             )
         )
+
+    def list_activity_summaries(
+        self, environment_id: str, token: SecretStr, start: datetime, end: datetime
+    ) -> Iterator[Activity]:
+        return self._paginate(
+            ACTIVITIES_PATH_TEMPLATE.format(environment_id=environment_id),
+            token,
+            ACTIVITIES_PAGE_SIZE,
+            Activity,
+            _window_params(start, end),
+            truncation_is_failure=False,
+        )
+
+    def list_river_runs(
+        self,
+        environment_id: str,
+        river_id: str,
+        token: SecretStr,
+        start: datetime,
+        end: datetime,
+    ) -> Iterator[RiverRun]:
+        return self._paginate(
+            RIVER_RUNS_PATH_TEMPLATE.format(
+                environment_id=environment_id, river_id=river_id
+            ),
+            token,
+            RUNS_PAGE_SIZE,
+            RiverRun,
+            _window_params(start, end),
+            truncation_is_failure=False,
+        )
+
+
+def _utc_param(value: datetime) -> str:
+    # The API reads times as UTC; a naive datetime is taken to be UTC already.
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc)
+    return value.strftime(RUN_TIME_FORMAT)
+
+
+def _window_params(start: datetime, end: datetime) -> QueryParams:
+    return {PARAM_START_TIME: _utc_param(start), PARAM_END_TIME: _utc_param(end)}

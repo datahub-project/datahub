@@ -1,0 +1,44 @@
+{
+  "next_page": "",
+  "previous_page": null,
+  "page": 1,
+  "current_page_size": 1,
+  "total_items": 1,
+  "account_id": "acct000000000000000000001",
+  "environment_id": "e00000000000000000000001",
+  "items": [
+    {
+      "run_id": "f0000000000000000000000000000011",
+      "river_cross_id": "6ae8ef4b1de83529098c6db5",
+      "datasource_id": "mysql",
+      "error_description": null,
+      "units": 1.25,
+      "rpu": 1.25,
+      "run_group_id": "f0000000000000000000000000000011",
+      "status": "succeeded",
+      "source_name": "mysql",
+      "target_name": "ORDERS_SUMMARY",
+      "start_date_utc": "2026-11-01T06:01:00",
+      "start_date_in_milliseconds": 1793512860000,
+      "end_date_utc": "2026-11-01T06:03:10",
+      "end_date_in_milliseconds": 1793512990000,
+      "sub_river_id": null,
+      "is_sub_river_run": false,
+      "is_high_frequency": false,
+      "pricing_category": "mysql",
+      "trigger_name": "logic",
+      "triggered_by_run_id": "f0000000000000000000000000000001",
+      "trigger_chain": [
+        {
+          "trigger_name": "scheduled",
+          "run_id": null
+        },
+        {
+          "trigger_name": "logic",
+          "run_id": "f0000000000000000000000000000001"
+        }
+      ]
+    }
+  ],
+  "river_cross_id": "6ae8ef4b1de83529098c6db5"
+}
