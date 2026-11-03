@@ -1810,10 +1810,18 @@ public class ESSearchDAO {
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns) {
     final String[] urnStrings =
         ingestionSourceUrns.stream().map(Urn::toString).toArray(String[]::new);
+    final String sourceField =
+        executionRequestField(
+            opContext, EXECUTION_REQUEST_INGESTION_SOURCE_FIELD, SearchFieldResolver.Intent.FILTER);
+    final String statusField =
+        executionRequestField(
+            opContext, EXECUTION_REQUEST_STATUS_FIELD, SearchFieldResolver.Intent.FILTER);
+    final String timeField =
+        executionRequestField(
+            opContext, EXECUTION_REQUEST_TIME_FIELD, SearchFieldResolver.Intent.SORT);
 
     final BoolQueryBuilder query =
-        QueryBuilders.boolQuery()
-            .filter(QueryBuilders.termsQuery(EXECUTION_REQUEST_INGESTION_SOURCE_FIELD, urnStrings));
+        QueryBuilders.boolQuery().filter(QueryBuilders.termsQuery(sourceField, urnStrings));
     ESUtils.applyDefaultSearchFilters(
         opContext,
         List.of(Constants.EXECUTION_REQUEST_ENTITY_NAME),
@@ -1823,20 +1831,18 @@ public class ESSearchDAO {
 
     final TermsAggregationBuilder bySource =
         AggregationBuilders.terms(BY_INGESTION_SOURCE_AGG)
-            .field(EXECUTION_REQUEST_INGESTION_SOURCE_FIELD)
+            .field(sourceField)
             .includeExclude(new IncludeExclude(urnStrings, null))
             .size(ingestionSourceUrns.size())
-            .subAggregation(latestRunAgg())
+            .subAggregation(latestRunAgg(timeField))
             .subAggregation(
                 AggregationBuilders.filter(
-                        SUCCESSFUL_RUNS_AGG,
-                        QueryBuilders.termQuery(EXECUTION_REQUEST_STATUS_FIELD, "SUCCESS"))
-                    .subAggregation(latestRunAgg()))
+                        SUCCESSFUL_RUNS_AGG, QueryBuilders.termQuery(statusField, "SUCCESS"))
+                    .subAggregation(latestRunAgg(timeField)))
             .subAggregation(
                 AggregationBuilders.filter(
-                        FAILED_RUNS_AGG,
-                        QueryBuilders.termQuery(EXECUTION_REQUEST_STATUS_FIELD, "FAILURE"))
-                    .subAggregation(latestRunAgg()));
+                        FAILED_RUNS_AGG, QueryBuilders.termQuery(statusField, "FAILURE"))
+                    .subAggregation(latestRunAgg(timeField)));
 
     final SearchRequest request =
         new SearchRequest(entityIndexName(opContext, Constants.EXECUTION_REQUEST_ENTITY_NAME));
@@ -1844,10 +1850,28 @@ public class ESSearchDAO {
     return request;
   }
 
-  private static TopHitsAggregationBuilder latestRunAgg() {
+  /**
+   * Path of an execution request field. On V3 the keyword fields have no {@code .keyword} subfield,
+   * and {@link SearchFieldResolver} returns the sibling that holds a complete URN.
+   */
+  @Nonnull
+  private String executionRequestField(
+      @Nonnull OperationContext opContext,
+      @Nonnull String v2Field,
+      @Nonnull SearchFieldResolver.Intent intent) {
+    if (!EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())) {
+      return v2Field;
+    }
+    EntitySpec executionRequest =
+        opContext.getEntityRegistry().getEntitySpec(Constants.EXECUTION_REQUEST_ENTITY_NAME);
+    return new SearchFieldResolver(List.of(executionRequest))
+        .exactPath(V3SearchFields.rootPath(v2Field), intent);
+  }
+
+  private static TopHitsAggregationBuilder latestRunAgg(@Nonnull String timeField) {
     return AggregationBuilders.topHits(LATEST_RUN_AGG)
         .size(1)
-        .sort(SortBuilders.fieldSort(EXECUTION_REQUEST_TIME_FIELD).order(SortOrder.DESC))
+        .sort(SortBuilders.fieldSort(timeField).order(SortOrder.DESC))
         .fetchSource("urn", null);
   }
 

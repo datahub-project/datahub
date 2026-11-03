@@ -7,10 +7,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Context Generation
 
-<FeatureAvailability saasOnly />
+<FeatureAvailability saasOnly stage="public-beta"/>
 
-:::caution Public Beta
-Context Generation is part of the DataHub Cloud **Context** add-on and is in Public Beta. Details on this page may change as the feature evolves.
+:::info Context add-on
+Context Generation is part of the DataHub Cloud **Context** add-on.
 :::
 
 Your team has already answered most of its analytics questions. The answers live in warehouse query history, BI tools, and semantic models, but rarely in documentation an agent can use. Context Generation turns that analytics exhaust into **context documents**, called **Semantic Anchors**, each of which shows an agent how your team answers a recurring business question: which tables to use, how they connect, and what the business calls the result.

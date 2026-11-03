@@ -4,7 +4,8 @@ namespace com.linkedin.common
  * Information about a Query against one or more data assets (e.g. Tables or Views).
  */
 @Aspect = {
-  "name": "dataTransformLogic"
+  "name": "dataTransformLogic",
+  "schemaVersion": 2
 }
 record DataTransformLogic {
     /**
