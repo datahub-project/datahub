@@ -104,7 +104,7 @@ class BoomiDataIntegrationSourceConfig(
     console_url: Optional[str] = Field(
         default=None,
         description=(
-            "Console base URL used for links to rivers and runs, for example "
+            "Console base URL used for links to logic rivers and runs, for example "
             "`https://console.rivery.io`. Links are emitted for the `us` region "
             "without this setting; set it for other regions. Must use https."
         ),

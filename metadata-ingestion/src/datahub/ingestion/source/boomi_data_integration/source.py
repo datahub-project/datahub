@@ -33,6 +33,7 @@ from datahub.ingestion.source.boomi_data_integration.config import (
 )
 from datahub.ingestion.source.boomi_data_integration.constants import (
     ACCESS_DENIED_STATUS_CODES,
+    CONSOLE_LINKED_RIVER_TYPES,
     HTTP_BAD_REQUEST,
     LOAD_JOB_ID,
     PLATFORM,
@@ -419,9 +420,11 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
 
-    def _river_url(self, environment_id: str, river_id: str) -> Optional[str]:
+    def _river_url(
+        self, environment_id: str, river_id: str, river_type: str
+    ) -> Optional[str]:
         console_url = self.config.resolved_console_url
-        if console_url is None:
+        if console_url is None or river_type not in CONSOLE_LINKED_RIVER_TYPES:
             return None
         return RIVER_CONSOLE_URL_TEMPLATE.format(
             console_url=console_url,
@@ -500,7 +503,7 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             subtype=DataFlowSubTypes.BOOMI_DI_RIVER,
             parent_container=parent,
             external_url=self._river_url(
-                access.environment.cross_id, summary.river_cross_id
+                access.environment.cross_id, summary.river_cross_id, river_type
             ),
         )
         yield flow

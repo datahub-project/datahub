@@ -24,9 +24,6 @@ REGION_API_URLS: Dict[DIRegion, str] = {
 API_CONSOLE_URLS: Dict[str, str] = {
     REGION_API_URLS[DIRegion.US]: "https://console.rivery.io",
 }
-RIVER_CONSOLE_URL_TEMPLATE = (
-    "{console_url}/rivers/{account_id}/{environment_id}/{river_id}"
-)
 
 HTTPS_SCHEME = "https"
 HTTP_SCHEME = "http"
@@ -78,6 +75,14 @@ class RiverType(StrEnum):
     LOGIC = "logic"
     CONNECTOR_EXECUTOR = "connector_executor"
 
+
+RIVER_CONSOLE_URL_TEMPLATE = (
+    "{console_url}/rivers/{account_id}/{environment_id}/{river_id}"
+)
+# The console path above is only confirmed for logic rivers. Boomi documents a
+# different path for the other types, which has not been verified yet, so
+# they get no link.
+CONSOLE_LINKED_RIVER_TYPES: FrozenSet[str] = frozenset({RiverType.LOGIC})
 
 LOAD_JOB_ID = "load"
 RUN_JOB_ID = "run"

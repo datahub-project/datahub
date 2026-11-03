@@ -4,7 +4,7 @@
 
 For every environment, the source plugin lists the rivers and then reads each river's definition. Each river becomes a DataFlow with the custom properties `river_type`, `river_status`, `schedule` and `datasource_id` where the API returns them, and the river description when present. Source-to-target rivers whose definition can be read also get `run_type`, `source` and `target`.
 
-Each DataFlow links to the river in the Data Integration console. The console host is only known for the `us` region. For other regions, set `console_url` to the base URL of your console, or no link is emitted.
+A logic river's DataFlow links to the river in the Data Integration console. Other river types get no link yet, because their console path has not been verified. The console host is only known for the `us` region. For other regions, set `console_url` to the base URL of your console, or no link is emitted.
 
 - A source-to-target river gets one `load` DataJob whose outputs are the target tables.
 - An action or connector executor river gets one `run` DataJob with subtype `Run`.

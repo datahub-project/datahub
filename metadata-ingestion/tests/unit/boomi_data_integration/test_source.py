@@ -247,10 +247,32 @@ def test_river_console_url(
         mock.get(
             f"{base_url}/environments", json=_page([_environment("env-a", "Prod")])
         )
-        mock.get(f"{base_url}/environments/env-a/rivers", json=_page([_summary("r-1")]))
+        mock.get(
+            f"{base_url}/environments/env-a/rivers",
+            json=_page([_summary("r-1", river_type="logic")]),
+        )
         mock.get(f"{base_url}/environments/env-a/rivers/r-1", status_code=400)
         flows = [e for e in _entities(source) if isinstance(e, DataFlow)]
     assert [f.external_url for f in flows] == [expected]
+
+
+@pytest.mark.parametrize(
+    "river_type", ["source_to_target", "actions", "connector_executor"]
+)
+def test_console_url_only_for_logic_rivers(river_type: str) -> None:
+    # The console path is only confirmed for logic rivers.
+    source = _source()
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            f"{BASE_URL}/environments", json=_page([_environment("env-a", "Prod")])
+        )
+        mock.get(
+            f"{BASE_URL}/environments/env-a/rivers",
+            json=_page([_summary("r-1", river_type=river_type)]),
+        )
+        mock.get(f"{BASE_URL}/environments/env-a/rivers/r-1", status_code=400)
+        flows = [e for e in _entities(source) if isinstance(e, DataFlow)]
+    assert [f.external_url for f in flows] == [None]
 
 
 def test_console_url_must_use_https() -> None:
