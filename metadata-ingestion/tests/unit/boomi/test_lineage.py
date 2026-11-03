@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
@@ -283,6 +284,17 @@ def test_parse_process_shapes() -> None:
         ),
     ]
     assert info.process_call_ids == ["p-child"]
+
+
+def test_gui_start_shape_connectoraction_is_not_a_connector_step() -> None:
+    # The Boomi UI writes an empty connectoraction into the start shape.
+    xml = (
+        Path(__file__).parent / "fixtures" / "gui_start_only_process.xml"
+    ).read_text()
+    info = parse_process_component(xml)
+
+    assert info.connector_actions == []
+    assert info.process_call_ids == []
 
 
 def test_parse_legacy_and_v2_connections() -> None:
