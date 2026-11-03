@@ -665,7 +665,7 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_sharing_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
-    "boomi-data-integration": {"requests<3.0.0"},
+    "boomi-data-integration": {"requests<3.0.0"} | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "cockroachdb": sql_common

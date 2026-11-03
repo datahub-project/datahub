@@ -207,6 +207,7 @@ bigquery-slim = [
 
 boomi-data-integration = [
     "requests<3.0.0",
+    "sqlglot[c]==30.22.0",
 ]
 
 cassandra = [
