@@ -284,6 +284,34 @@ class OneLakeClient(BaseFabricClient):
             )
         return payload
 
+    def get_eventstream_node(
+        self,
+        workspace_id: str,
+        eventstream_id: str,
+        collection: str,
+        node_id: str,
+    ) -> Optional[Dict[str, object]]:
+        """Read one source or destination, including inputSchemas the topology omits.
+
+        A missing node (404) returns None. Operators are not fetched: their
+        schemas are already on the topology.
+        """
+        endpoint = (
+            f"workspaces/{workspace_id}/eventstreams/{eventstream_id}"
+            f"/{collection}/{node_id}"
+        )
+        try:
+            payload = self.get(endpoint).json()
+        except requests.HTTPError as error:
+            if error.response is not None and error.response.status_code == 404:
+                return None
+            raise
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Eventstream {collection} node {node_id} was not an object"
+            )
+        return payload
+
     def list_folders(self, workspace_id: str) -> Dict[str, Tuple[str, Optional[str]]]:
         """List workspace folders as id -> (display name, parent folder id).
 

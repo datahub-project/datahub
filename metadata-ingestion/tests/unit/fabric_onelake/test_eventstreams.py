@@ -15,10 +15,15 @@ from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceRe
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
+    NumberTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    UpstreamLineageClass,
 )
 from datahub.metadata.urns import DataFlowUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
+from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
 
 WS = "11111111-1111-1111-1111-111111111111"
@@ -62,6 +67,21 @@ _TOPOLOGY = {
                 "connectionString": "secret",
             },
             "inputNodes": [{"name": "Orders"}],
+            "inputSchemas": [
+                {
+                    "name": "Bicycles",
+                    "schema": {
+                        "columns": [
+                            {"name": "BikepointID", "type": "Nvarchar(max)"},
+                            {
+                                "name": "Record_Example",
+                                "type": "Record",
+                                "fields": [{"name": "column1", "type": "BigInt"}],
+                            },
+                        ]
+                    },
+                }
+            ],
             "status": "Running",
         }
     ],
@@ -91,6 +111,7 @@ def _emit(
     fail_list: bool = False,
     fail_topology: bool = False,
     eventstream: Optional[dict] = None,
+    node_detail: Optional[dict] = None,
 ) -> tuple[list[Entity], FabricOneLakeSourceReport, MagicMock]:
     client = MagicMock()
     if fail_list:
@@ -105,6 +126,7 @@ def _emit(
         client.get_eventstream_topology.return_value = (
             _TOPOLOGY if topology is None else topology
         )
+    client.get_eventstream_node.return_value = node_detail
     report = FabricOneLakeSourceReport()
     entities = list(
         process_eventstreams(
@@ -163,35 +185,89 @@ def test_topology_becomes_flow_and_jobs() -> None:
     )
 
     jobs = _jobs(entities)
-    assert set(jobs) == {"Hub", "Orders", "ToLakehouse"}
+    assert set(jobs) == {"ToLakehouse"}
 
-    hub_props = jobs["Hub"]._get_aspect(DataJobInfoClass).customProperties
+    datasets = {
+        entity.display_name: entity
+        for entity in entities
+        if isinstance(entity, Dataset)
+    }
+    assert set(datasets) == {"Hub", "Orders"}
+    hub_props = datasets["Hub"].custom_properties
     assert hub_props["node_type"] == "AzureEventHub"
     assert hub_props["node_role"] == "source"
     assert "properties" not in hub_props
     assert "dataConnectionId" not in hub_props
 
-    stream_io = jobs["Orders"]._get_aspect(DataJobInputOutputClass)
-    assert stream_io.inputDatajobs == [str(jobs["Hub"].urn)]
-    assert stream_io.outputDatasets == []
+    expected_paths = [
+        "bikepointid",
+        "record_example",
+        "record_example.column1",
+    ]
+    for node_name in ("Hub", "Orders"):
+        fields = datasets[node_name]._get_aspect(SchemaMetadataClass).fields
+        assert [field.fieldPath for field in fields] == expected_paths
+    hub_fields = datasets["Hub"]._get_aspect(SchemaMetadataClass).fields
+    assert hub_fields[0].nativeDataType == "Nvarchar(max)"
+    assert isinstance(hub_fields[0].type.type, StringTypeClass)
+    assert isinstance(hub_fields[2].type.type, NumberTypeClass)
+
+    stream_lineage = datasets["Orders"]._get_aspect(UpstreamLineageClass)
+    assert [upstream.dataset for upstream in stream_lineage.upstreams] == [
+        str(datasets["Hub"].urn)
+    ]
 
     dest_props = jobs["ToLakehouse"]._get_aspect(DataJobInfoClass).customProperties
     assert dest_props["deltaTable"] == "orders"
     assert "properties" not in dest_props
     assert "connectionString" not in dest_props
     dest_io = jobs["ToLakehouse"]._get_aspect(DataJobInputOutputClass)
-    assert dest_io.inputDatajobs == [str(jobs["Orders"].urn)]
+    assert not dest_io.inputDatajobs
+    assert dest_io.inputDatasets == [str(datasets["Orders"].urn)]
     assert len(dest_io.outputDatasets) == 1
     assert dest_io.outputDatasets[0].endswith(f"{WS}.{LH}.dbo.orders,PROD)")
+
+
+def test_source_detail_schema_populates_source_and_stream() -> None:
+    topology = {
+        **_TOPOLOGY,
+        "destinations": [{**_TOPOLOGY["destinations"][0], "inputSchemas": []}],
+    }
+    entities, _report, client = _emit(
+        topology=topology,
+        node_detail={
+            "inputSchemas": [
+                {
+                    "name": "Bicycles",
+                    "schema": {
+                        "columns": [{"name": "BikepointID", "type": "Nvarchar(max)"}]
+                    },
+                }
+            ]
+        },
+    )
+
+    datasets = {
+        entity.display_name: entity
+        for entity in entities
+        if isinstance(entity, Dataset)
+    }
+    for node_name in ("Hub", "Orders"):
+        fields = datasets[node_name]._get_aspect(SchemaMetadataClass).fields
+        assert [field.fieldPath for field in fields] == ["bikepointid"]
+    client.get_eventstream_node.assert_called()
 
 
 def test_connection_properties_are_stored_when_requested() -> None:
     entities, _report, _client = _emit(
         eventstream={"include_connection_properties": True}
     )
-    jobs = _jobs(entities)
-    hub_props = jobs["Hub"]._get_aspect(DataJobInfoClass).customProperties
-    assert "secret-conn" in hub_props["properties"]
+    datasets = {
+        entity.display_name: entity
+        for entity in entities
+        if isinstance(entity, Dataset)
+    }
+    assert "secret-conn" in datasets["Hub"].custom_properties["properties"]
 
 
 def test_type_pattern_drops_sources() -> None:
@@ -199,11 +275,15 @@ def test_type_pattern_drops_sources() -> None:
         eventstream={"source_type_pattern": {"allow": ["^SampleData$"]}}
     )
     jobs = _jobs(entities)
-    assert "Hub" not in jobs
-    assert "Orders" in jobs
+    datasets = {
+        entity.display_name: entity
+        for entity in entities
+        if isinstance(entity, Dataset)
+    }
+    assert set(jobs) == {"ToLakehouse"}
+    assert "Hub" not in datasets
+    assert "Orders" in datasets
     assert list(report.filtered_eventstream_nodes) == ["Hub (AzureEventHub)"]
-    stream_io = jobs["Orders"]._get_aspect(DataJobInputOutputClass)
-    assert stream_io is None or not stream_io.inputDatajobs
 
 
 def test_name_pattern_skips_the_item() -> None:

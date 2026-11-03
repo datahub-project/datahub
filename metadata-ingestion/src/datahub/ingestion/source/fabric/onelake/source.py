@@ -220,7 +220,8 @@ class WarehouseSchemaKey(WarehouseKey):
     "pipeline (DataFlow) with one Spark-job DataJob per table it writes, whose "
     "input tables are recovered from each run's Spark physical plans and "
     "resolved against ingested tables. When `extract_eventstream.enabled` is "
-    "set, each eventstream is a pipeline and its topology nodes are jobs. "
+    "set, each eventstream is a pipeline. Sources and streams are datasets "
+    "with the topology columns. Operators and destinations are jobs. "
     "A Lakehouse destination is an outlet of the OneLake table it writes.",
 )
 @capability(

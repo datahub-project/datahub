@@ -60,6 +60,10 @@ class DatasetSubTypes(StrEnum):
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
+    # Fabric Eventstream payload. Columns come from the topology inputSchemas.
+    # Sources and streams are datasets so the Columns tab is available.
+    FABRIC_EVENTSTREAM_SOURCE = "Fabric Eventstream Source"
+    FABRIC_EVENTSTREAM_STREAM = "Fabric Eventstream Stream"
 
 
 class GenericContainerSubTypes(StrEnum):
