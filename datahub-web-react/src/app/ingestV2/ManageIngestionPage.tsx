@@ -35,7 +35,6 @@ const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign &&
         `
  overflow: hidden;
- margin: 5px;
 box-shadow: ${props.theme.colors.shadowSm};
  height: 100%;
  `}
