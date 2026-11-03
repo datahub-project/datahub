@@ -31,6 +31,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.google_drive.constants import (
@@ -400,6 +401,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         try:
             yield from self._process_document(ref, tree, stored)
+        except ServerEmbeddingRunError:
+            raise
         except Exception as e:
             if self.report.num_documents_limit_reached:
                 self.report.failure(
@@ -630,6 +633,8 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             # The stored embedding state could not be read; retry next run.
             self._report_embedding_deferred(file, e)
             return EmbedResult(workunits=workunits, succeeded=False)
+        except ServerEmbeddingRunError:
+            raise
         except RuntimeError as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 return EmbedResult(workunits=workunits, succeeded=True, limit_error=e)
@@ -939,12 +944,26 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def _test_semantic_search_capability(
         config: GoogleDriveSourceConfig,
+        graph: Optional[DataHubGraph] = None,
     ) -> CapabilityReport:
+        from datahub.cli.config_utils import load_client_config
+
+        owned_graph = None
         try:
+            if graph is None and (
+                config.datahub is not None or config.embedding.provider == "datahub"
+            ):
+                owned_graph = DataHubGraph(
+                    config=config.datahub
+                    or load_client_config(refresh_per_request=True)
+                )
+                graph = owned_graph
             resolved = DocumentChunkingSource.resolve_embedding_config(
-                config.embedding, None
+                config.embedding, graph
             )
-            return DocumentChunkingSource.test_embedding_capability(resolved)
+            return DocumentChunkingSource.test_embedding_capability(
+                resolved, graph=graph
+            )
         except ValueError as e:
             return CapabilityReport(
                 capable=False,
@@ -958,6 +977,9 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
                 failure_reason=f"Failed to resolve embedding configuration: {e}",
                 mitigation_message="Check the embedding configuration.",
             )
+        finally:
+            if owned_graph is not None:
+                owned_graph.close()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -1016,3 +1038,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             basic_connectivity=CapabilityReport(capable=True),
             capability_report=capability_report,
         )
+
+    def close(self) -> None:
+        self.chunking_source.close()
+        super().close()

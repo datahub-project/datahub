@@ -34,6 +34,9 @@ from datahub.ingestion.source.datahub_documents.document_chunking_state_handler 
     DocumentChunkingStatefulIngestionConfig,
     DocumentChunkingStateHandler,
 )
+from datahub.ingestion.source.datahub_documents.document_embedding import (
+    resolve_embed_text,
+)
 from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.unstructured.chunking_config import (
@@ -223,7 +226,7 @@ class TestDataHubDocumentsSource:
 
     def test_resolve_embed_text_prefers_semantic_text(self):
         """semanticText overrides text as the embedding source when present."""
-        resolve = DataHubDocumentsSource._resolve_embed_text
+        resolve = resolve_embed_text
 
         assert resolve({"text": "body", "semanticText": "summary"}) == "summary"
         assert resolve({"text": "body"}) == "body"
@@ -235,7 +238,7 @@ class TestDataHubDocumentsSource:
         """A whitespace-only override is truthy, so `or` alone would let it win and the
         document would embed as whitespace -- unretrievable -- while a good body sat
         unused in `text`."""
-        resolve = DataHubDocumentsSource._resolve_embed_text
+        resolve = resolve_embed_text
 
         assert resolve({"text": "body", "semanticText": "   \n  "}) == "body"
         assert resolve({"text": "body", "semanticText": "\t"}) == "body"
@@ -247,7 +250,7 @@ class TestDataHubDocumentsSource:
         """Only the emptiness test strips. Returning a stripped value would change the
         content hash of every document with surrounding whitespace, and re-embedding is
         gated on that hash."""
-        resolve = DataHubDocumentsSource._resolve_embed_text
+        resolve = resolve_embed_text
 
         assert resolve({"semanticText": "  summary  "}) == "  summary  "
         assert resolve({"text": "  body  "}) == "  body  "
@@ -260,10 +263,8 @@ class TestDataHubDocumentsSource:
         ):
             source = DataHubDocumentsSource(ctx, config)
 
-            before = source._resolve_embed_text(
-                {"text": "body-v1", "semanticText": "summary"}
-            )
-            after_body_edit = source._resolve_embed_text(
+            before = resolve_embed_text({"text": "body-v1", "semanticText": "summary"})
+            after_body_edit = resolve_embed_text(
                 {"text": "body-v2", "semanticText": "summary"}
             )
             assert before == after_body_edit
@@ -483,7 +484,7 @@ class TestSemanticTextReembedInvariant:
         """Mirror one ingestion pass: resolve the embed source from contents (as the
         fetch call sites do), decide via `_should_process`, then commit state if
         processed. Returns whether the document was (re-)embedded this pass."""
-        resolved = source._resolve_embed_text(contents)
+        resolved = resolve_embed_text(contents)
         processed = source._should_process(self.URN, resolved)
         if processed:
             source._update_document_state(self.URN, resolved)

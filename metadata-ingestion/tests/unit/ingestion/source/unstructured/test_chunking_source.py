@@ -671,7 +671,9 @@ def test_generate_embeddings_creates_provider_from_config(pipeline_context):
         embeddings = source._generate_embeddings([{"text": "hello world"}])
 
     assert embeddings == [[0.1, 0.2, 0.3]]
-    mock_factory.assert_called_once_with(source.config.embedding)
+    mock_factory.assert_called_once_with(
+        source.config.embedding, graph=None, target=source.resolved_target
+    )
     fake_provider.embed.assert_called_once_with(
         ["hello world"], task=EmbeddingTask.DOCUMENT
     )
@@ -696,7 +698,9 @@ def test_test_embedding_capability_uses_factory_and_returns_dimension():
 
     assert report.capable
     assert "dimension: 3" in (report.mitigation_message or "")
-    mock_factory.assert_called_once_with(config)
+    assert mock_factory.call_count == 1
+    assert mock_factory.call_args.args[0] is config
+    assert mock_factory.call_args.kwargs["graph"] is None
 
 
 # ---------------------------------------------------------------------------

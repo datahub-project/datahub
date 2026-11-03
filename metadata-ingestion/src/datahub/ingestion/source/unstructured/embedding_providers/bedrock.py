@@ -35,11 +35,15 @@ class BedrockEmbeddingProvider(EmbeddingProvider):
         # substring search so unrelated models don't get mis-formatted.
         if self._model.startswith(_COHERE_PREFIX):
             body = {
-                "texts": texts,
+                "texts": [text[:2048] for text in texts]
+                if task is EmbeddingTask.QUERY
+                else texts,
                 "input_type": "search_query"
                 if task is EmbeddingTask.QUERY
                 else "search_document",
             }
+            if task is EmbeddingTask.QUERY:
+                body["truncate"] = "END"
             response = self._client.invoke_model(
                 modelId=self._model,
                 body=json.dumps(body),

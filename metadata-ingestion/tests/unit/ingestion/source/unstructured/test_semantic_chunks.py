@@ -212,3 +212,50 @@ def test_preview_matches_source_serialized_size_safeguard(monkeypatch, limit):
         assert not preview
     else:
         assert preview
+
+
+@pytest.mark.parametrize("batch_size", [0, -1])
+def test_nonpositive_batch_size_rejected(batch_size):
+    with pytest.raises(ValueError):
+        EmbeddingConfig(batch_size=batch_size)
+    with pytest.raises(ValueError):
+        embed_chunks([{"text": "text"}], Mock(), batch_size)
+
+
+def test_serialized_cap_keeps_largest_fitting_prefix():
+    import json
+
+    from datahub.ingestion.source.unstructured.semantic_chunks import (
+        CappedSemanticContent,
+        build_semantic_content,
+    )
+
+    chunks = [{"text": "chunk " * 20} for _ in range(5)]
+    vectors = [[1.0] * 16 for _ in chunks]
+
+    def build_prefix(
+        chunks: List[Dict[str, Any]], vectors: List[List[float]], *, limit: int
+    ) -> CappedSemanticContent:
+        return build_semantic_content(
+            chunks,
+            vectors,
+            model_version="openai/model",
+            model_key="model",
+            strategy="basic",
+            generated_at=123,
+            source_text_sha256=None,
+            max_serialized_bytes=limit,
+        )
+
+    limit = 1000
+    capped = build_prefix(chunks, vectors, limit=limit)
+    assert capped.content is not None
+    assert 0 < capped.kept_chunks < len(chunks)
+    assert len(json.dumps(capped.content.to_obj())) <= limit
+    next_prefix = build_prefix(
+        chunks[: capped.kept_chunks + 1],
+        vectors[: capped.kept_chunks + 1],
+        limit=1000000,
+    )
+    assert next_prefix.content is not None
+    assert len(json.dumps(next_prefix.content.to_obj())) > limit

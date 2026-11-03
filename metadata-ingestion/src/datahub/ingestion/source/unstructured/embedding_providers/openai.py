@@ -53,7 +53,8 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         )
 
     def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
-        # OpenAI embeddings are symmetric: queries and documents embed alike.
+        # api.openai.com embeddings are symmetric. provider 'local' also uses
+        # this adapter and passes task through unused, even for asymmetric models.
         payload = post_json(
             self._url,
             body={"model": self._model, "input": texts},

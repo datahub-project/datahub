@@ -40,6 +40,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.datahub_documents.datahub_documents_config import (
     DataHubDocumentsSourceConfig,
 )
@@ -68,6 +69,9 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,
     compute_source_text_sha256,
+)
+from datahub.ingestion.source.unstructured.embedding_target import (
+    resolve_embedding_target,
 )
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
 
@@ -296,12 +300,20 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                     else None,
                 )
             )
-            embedding = DocumentChunkingSource.resolve_embedding_config(
-                config.embedding, graph, fail_on_lookup_error=True
-            )
-            capability_report = DocumentChunkingSource.test_embedding_capability(
-                embedding, graph=graph
-            )
+            graph.test_connection()
+            try:
+                embedding = DocumentChunkingSource.resolve_embedding_config(
+                    config.embedding, graph, fail_on_lookup_error=True
+                )
+                capability_report = DocumentChunkingSource.test_embedding_capability(
+                    embedding, graph=graph
+                )
+            except Exception as error:
+                capability_report = CapabilityReport(
+                    capable=False,
+                    failure_reason=str(error),
+                    mitigation_message="Check the embedding configuration. Use a provider with its own credentials if server embeddings are unavailable.",
+                )
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(capable=True),
                 capability_report={"semantic_search": capability_report},
@@ -616,11 +628,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             contents = dict(raw_contents)
             contents["semanticText"] = self._fetch_semantic_text(entity_urn)
 
-        # semanticText overrides text as the embedding source; see _resolve_embed_text.
+        # semanticText overrides text as the embedding source; see resolve_embed_text.
         # Empty text is NOT an early return: _process_single_document emits a skip marker
         # for it (and for too-short text) so the document is classified rather than
         # silently invisible, and incremental state stops re-visiting it.
-        text = self._resolve_embed_text(contents)
+        text = resolve_embed_text(contents)
 
         # Filter by source type (NATIVE vs EXTERNAL)
         # Default to NATIVE if source or sourceType is not set (backward compatibility with old documents)
@@ -746,7 +758,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._process_batch_mode()
                 return
 
-        except DocumentEnumerationError:
+        except (DocumentEnumerationError, ServerEmbeddingRunError):
             # A batch fallback above aborted systemically and already reported a
             # specific failure. Falling back again would replay a full
             # enumeration + hydration storm against GMS for the same outcome.
@@ -1102,7 +1114,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 continue
 
             # Extract text content (GraphQL returns null for missing aspects).
-            # semanticText overrides text as the embedding source; see _resolve_embed_text.
+            # semanticText overrides text as the embedding source; see resolve_embed_text.
             info = entity.get("info") or {}
             contents = info.get("contents")
             if contents is None:
@@ -1110,7 +1122,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 # document with empty text: skip silently rather than stamping a skip
                 # marker onto an entity whose content we could not read.
                 continue
-            text = self._resolve_embed_text(contents)
+            text = resolve_embed_text(contents)
 
             # Default to NATIVE when sourceType is absent (older documents).
             source = info.get("source") or {}
@@ -1527,6 +1539,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         # server, so the recipe copy stays empty and server changes would never re-hash.
         embedding = self.chunking_source.config.embedding
         embedding_enabled = embedding.provider is not None
+        target = (
+            resolve_embedding_target(embedding, self.graph)
+            if embedding_enabled
+            else None
+        )
 
         fingerprint: Dict[str, Any] = {
             # Chunking affects chunk boundaries and structure
@@ -1545,8 +1562,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             else None,
             # Embedding affects vector embeddings on chunks
             "embedding_enabled": embedding_enabled,
-            "embedding_provider": embedding.provider if embedding_enabled else None,
-            "embedding_model": embedding.model if embedding_enabled else None,
+            "embedding_provider": target.model_provider if target else None,
+            "embedding_model": target.model_id if target else None,
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
@@ -1564,33 +1581,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         # cls and mean pooling give different vectors from the same onnx model. Like
         # the chunk cap, only a non-default value is fingerprinted (normalized as the
         # provider does), so onnx documents hashed before this knob are not re-embedded.
-        if embedding.provider == "onnx":
-            pooling = (embedding.onnx_pooling or "cls").lower()
+        if target is not None and target.model_provider == "onnx":
+            pooling = target.onnx_pooling or "unknown_server_pooling"
             if pooling != "cls":
                 fingerprint["onnx_pooling"] = pooling
         return fingerprint
-
-    @staticmethod
-    def _resolve_embed_text(contents: Dict[str, Any]) -> str:
-        """Resolve the text to embed from a contents dict.
-
-        `semanticText` overrides `text` as the embedding source when present, so
-        a curated representation can drive retrieval while the full body stays in
-        `text`. The override lives in the standalone `semanticText` aspect: batch
-        mode still receives it under `contents` because the GraphQL surface maps
-        the aspect there, and event mode injects it into the dict before calling
-        this. Resolving here (rather than in the hash) means the content hash
-        tracks the embedded value: editing `semanticText` re-embeds, and a change
-        to `text` while `semanticText` is set does not.
-
-        A blank override counts as missing. `or` already handles `""`, but a
-        whitespace-only value is truthy, so it would win, and the callers'
-        `if not text` check does not catch it either. The document would then be
-        embedded as whitespace and could not be found, while a good body sat
-        unused in `text`. Only the emptiness check strips; the value itself is
-        returned as-is, so existing content hashes do not change.
-        """
-        return resolve_embed_text(contents)
 
     def _calculate_text_hash(self, text: str) -> str:
         """Calculate hash of document content AND processing configuration.
@@ -1817,6 +1812,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 source_text_sha256=compute_source_text_sha256(text),
             )
 
+        except ServerEmbeddingRunError:
+            raise
         except Exception as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
@@ -1865,6 +1862,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
 
     def close(self) -> None:
         """Cleanup resources."""
+        self.chunking_source.close()
         if self.config.incremental.enabled:
             self._save_state()
         # Safety net: release the lock if the work generator was never fully consumed.

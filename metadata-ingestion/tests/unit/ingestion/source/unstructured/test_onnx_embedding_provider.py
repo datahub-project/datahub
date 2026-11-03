@@ -371,6 +371,7 @@ def test_query_instruction_prefix(tmp_path, monkeypatch, instruction, task):
     _stub_onnx_modules(monkeypatch, np.array([[1.0, 2.0]]))
     monkeypatch.setenv("ONNX_EMBEDDING_QUERY_INSTRUCTION", instruction)
     provider = OnnxEmbeddingProvider(model="m", model_dir=str(_model_dir(tmp_path)))
+    monkeypatch.setenv("ONNX_EMBEDDING_QUERY_INSTRUCTION", "changed after construction")
     with patch.object(
         provider._tokenizer, "encode_batch", wraps=provider._tokenizer.encode_batch
     ) as tokenize:

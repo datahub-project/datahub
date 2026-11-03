@@ -14,7 +14,6 @@ import hashlib
 import json
 import logging
 import os
-import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,8 +31,10 @@ from datahub.ingestion.api.source import CapabilityReport, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.unstructured.chunking_config import (
     DocumentChunkingSourceConfig,
+    ResolvedEmbeddingTarget,
     get_semantic_search_config,
 )
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
@@ -48,6 +49,9 @@ from datahub.ingestion.source.unstructured.embedding_providers.factory import (
     IN_PROCESS_PROVIDERS,
     create_embedding_provider,
     derive_model_id,
+)
+from datahub.ingestion.source.unstructured.embedding_target import (
+    resolve_embedding_target,
 )
 from datahub.ingestion.source.unstructured.semantic_chunks import (
     MAX_SERIALIZED_ASPECT_BYTES,
@@ -207,16 +211,7 @@ class DocumentChunkingSource(Source):
             )
         else:
             self._validate_provider_init_requirements(self.config.embedding)
-            self.embedding_model = derive_model_id(
-                self.config.embedding.provider, self.config.embedding.model
-            )
-            if self.config.embedding.provider == "datahub":
-                index_config = self.config.embedding._server_config
-                assert index_config is not None
-                self.embedding_model = derive_model_id(
-                    self.config.embedding._normalize_provider(index_config.provider),
-                    index_config.model_id,
-                )
+            self.embedding_model = self.resolved_target.semantic_model_version
             # The classical provider rejects inputs over its code point cap instead
             # of truncating, so a chunk size above it would fail every document.
             if (
@@ -329,32 +324,22 @@ class DocumentChunkingSource(Source):
                 "Set embedding.onnx_model_dir in your recipe or the ONNX_EMBEDDING_MODEL_DIR environment variable."
             )
 
+    @property
+    def resolved_target(self) -> ResolvedEmbeddingTarget:
+        return resolve_embedding_target(self.config.embedding, self.graph)
+
     def _get_provider(self) -> EmbeddingProvider:
         """Lazily instantiate and cache the embedding provider."""
         if self._provider is None:
-            if self.config.embedding.provider == "datahub":
-                self._provider = create_embedding_provider(
-                    self.config.embedding, graph=self.graph
-                )
-            else:
-                self._provider = create_embedding_provider(self.config.embedding)
+            self._provider = create_embedding_provider(
+                self.config.embedding, graph=self.graph, target=self.resolved_target
+            )
         return self._provider
 
     def get_model_embedding_key(self) -> Optional[str]:
-        """Return the SemanticContent embeddings map key for the active embedding model.
-
-        Mirrors the key derivation used when emitting SemanticContent. Returns None when
-        no embedding provider/model is configured (nothing will be embedded).
-        """
         if not self.embedding_model or not self.config.embedding.model:
             return None
-        if self.config.embedding.model_embedding_key:
-            return self.config.embedding.model_embedding_key
-        if "embed-english-v3" in self.config.embedding.model:
-            return "cohere_embed_v3"
-        # Map any non-alphanumeric character to '_' so the result is a legal
-        # Elasticsearch field name (matches _emit_semantic_content).
-        return re.sub(r"[^a-zA-Z0-9_]", "_", self.config.embedding.model)
+        return self.resolved_target.model_embedding_key
 
     def process_elements_inline(
         self,
@@ -425,6 +410,8 @@ class DocumentChunkingSource(Source):
                         f"({len(chunks)} chunks)"
                     )
                 self.report.report_embedding_success()
+            except ServerEmbeddingRunError:
+                raise
             except Exception as e:
                 short_error = str(e).split("\n")[0][:200]
                 self.report.report_embedding_failure(document_urn, short_error)
@@ -581,6 +568,9 @@ class DocumentChunkingSource(Source):
                         event_consumer.suppress_offset_commits = True
 
                 except Exception as e:
+                    if isinstance(e, ServerEmbeddingRunError):
+                        event_consumer.suppress_offset_commits = True
+                        raise
                     error_msg = f"Failed to process MCL event for {document_urn}: {e}"
                     logger.error(error_msg, exc_info=True)
                     self.report.report_error(error_msg)
@@ -748,6 +738,8 @@ class DocumentChunkingSource(Source):
                     embeddings = self._generate_embeddings(chunks)
                     self.report.report_embedding_success()
                 except Exception as e:
+                    if isinstance(e, ServerEmbeddingRunError):
+                        raise
                     short_error = str(e).split("\n")[0][:200]
                     self.report.report_embedding_failure(doc["urn"], short_error)
                     self.report.warning(
@@ -774,6 +766,8 @@ class DocumentChunkingSource(Source):
             return not embed_failed
 
         except Exception as e:
+            if isinstance(e, ServerEmbeddingRunError):
+                raise
             error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
             logger.error(error_msg, exc_info=True)
             self.report.report_error(error_msg)
@@ -1055,28 +1049,9 @@ class DocumentChunkingSource(Source):
         source_text_sha256: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit SemanticContent aspect for the document."""
-        # Use the provider's canonical model_id (e.g. "bedrock/cohere.embed-english-v3").
-        # Going through derive_model_id keeps the "local" → "openai/..." mapping
-        # consistent with self.embedding_model and the provider instance.
-        model_version = derive_model_id(
-            self.config.embedding.provider, self.config.embedding.model
-        )
-        if self.config.embedding.provider == "datahub":
-            model_version = self.embedding_model
-        assert model_version is not None
-
-        # Build SemanticContent aspect
-        # Prefer the server-sourced key (authoritative); fall back to local derivation.
-        assert self.config.embedding.model is not None
-        if self.config.embedding.model_embedding_key:
-            model_key = self.config.embedding.model_embedding_key
-        elif "embed-english-v3" in self.config.embedding.model:
-            model_key = "cohere_embed_v3"
-        else:
-            # Map any non-alphanumeric character (incl. ':' in Bedrock Titan
-            # IDs like "amazon.titan-embed-text-v2:0") to '_' so the result is
-            # a legal Elasticsearch field name.
-            model_key = re.sub(r"[^a-zA-Z0-9_]", "_", self.config.embedding.model)
+        target = self.resolved_target
+        model_version = target.semantic_model_version
+        model_key = target.model_embedding_key
 
         capped = build_semantic_content(
             chunks,
@@ -1084,7 +1059,7 @@ class DocumentChunkingSource(Source):
             model_version=model_version,
             model_key=model_key,
             strategy=self.config.chunking.strategy,
-            generated_at=int(datetime.utcnow().timestamp() * 1000),
+            generated_at=int(datetime.now(timezone.utc).timestamp() * 1000),
             source_text_sha256=source_text_sha256,
             max_serialized_bytes=MAX_SERIALIZED_ASPECT_BYTES,
         )
@@ -1174,33 +1149,11 @@ class DocumentChunkingSource(Source):
         )
 
         if embedding_config.provider == "datahub":
-            from datahub.ingestion.source.unstructured.embedding_providers.datahub_server import (
-                server_embedding_provider,
-            )
-
-            if graph is None:
-                raise ValueError(
-                    "The datahub embedding provider requires a DataHubGraph connection."
-                )
-            provider = server_embedding_provider(
-                graph, timeout=embedding_config.request_timeout
-            )
-            index_config = provider.index_config
-            if (
-                embedding_config.model is not None
-                and embedding_config.model != index_config.model_id
-            ) or (
-                embedding_config.model_embedding_key is not None
-                and embedding_config.model_embedding_key
-                != index_config.model_embedding_key
-            ):
-                raise ValueError(
-                    "The datahub embedding provider must use the server semantic index model and model_embedding_key. Remove the local overrides."
-                )
+            target = resolve_embedding_target(embedding_config, graph)
             resolved = embedding_config.model_copy(deep=True)
-            resolved.model = index_config.model_id
-            resolved.model_embedding_key = index_config.model_embedding_key
-            resolved._server_config = index_config
+            resolved.model = target.model_id
+            resolved.model_embedding_key = target.model_embedding_key
+            resolved._resolved_target = target
             return resolved
 
         # Check if user provided explicit embedding configuration
@@ -1279,6 +1232,9 @@ class DocumentChunkingSource(Source):
                     "This may cause semantic search to fail if configuration doesn't match the server."
                 )
 
+            embedding_config._resolved_target = resolve_embedding_target(
+                embedding_config
+            )
             return embedding_config
 
         # No explicit config - try server first, then defaults
@@ -1316,6 +1272,7 @@ class DocumentChunkingSource(Source):
                             "document embeddings on documentindex_v3 (MCP only — this "
                             "source does not write OpenSearch)."
                         )
+                    resolved._resolved_target = resolve_embedding_target(resolved)
                     return resolved
                 elif server_config and not server_config.enabled:
                     # Server is reachable and has explicitly disabled semantic search.
@@ -1536,10 +1493,10 @@ class DocumentChunkingSource(Source):
             return error_report
 
         try:
-            if embedding_config.provider == "datahub":
-                provider = create_embedding_provider(embedding_config, graph=graph)
-            else:
-                provider = create_embedding_provider(embedding_config)
+            target = resolve_embedding_target(embedding_config, graph)
+            provider = create_embedding_provider(
+                embedding_config, graph=graph, target=target
+            )
         except ImportError as e:
             return CapabilityReport(
                 capable=False,
@@ -1584,9 +1541,13 @@ class DocumentChunkingSource(Source):
                 mitigation_message=mitigation,
             )
 
+        finally:
+            provider.close()
+
     def get_report(self) -> SourceReport:
         return self.report
 
     def close(self) -> None:
         """Cleanup resources."""
-        pass
+        if self._provider is not None:
+            self._provider.close()

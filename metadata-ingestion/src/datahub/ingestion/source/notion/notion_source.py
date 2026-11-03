@@ -23,6 +23,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_hierarchy import NotionHierarchyExtractor
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
@@ -871,9 +872,9 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             DocumentChunkingSource,
         )
 
+        graph = None
         try:
             # Create graph connection to query server (if datahub config provided)
-            graph = None
             if config.datahub and config.datahub.server:
                 graph_config = DatahubClientConfig(
                     server=config.datahub.server,
@@ -887,11 +888,9 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             # Test the resolved configuration
-            if resolved_config.provider == "datahub":
-                return DocumentChunkingSource.test_embedding_capability(
-                    resolved_config, graph=graph
-                )
-            return DocumentChunkingSource.test_embedding_capability(resolved_config)
+            return DocumentChunkingSource.test_embedding_capability(
+                resolved_config, graph=graph
+            )
 
         except ValueError as e:
             # Config validation failed (e.g., semantic search not enabled on server)
@@ -907,6 +906,9 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 failure_reason=f"Failed to resolve embedding configuration: {e}",
                 mitigation_message="Check DataHub server connection and embedding configuration.",
             )
+        finally:
+            if graph is not None:
+                graph.close()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -1476,6 +1478,8 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 # Create document entity, passing ingested page IDs for parent validation
                 yield from self._create_document_entity(data, ingested_page_ids)
 
+            except ServerEmbeddingRunError:
+                raise
             except Exception as e:
                 metadata = data.get("metadata", {})
                 filename = (
@@ -1875,6 +1879,8 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             # it next run.
             logger.warning(f"Skip marker deferred for {page_id}: {e}")
             return
+        except ServerEmbeddingRunError:
+            raise
         except RuntimeError as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
@@ -1969,6 +1975,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
     def close(self) -> None:
         """Cleanup resources."""
+        self.chunking_source.close()
         # Clean up work directory if not preserving outputs
         if not self.config.advanced.preserve_outputs:
             work_dir = Path(self.config.advanced.work_dir)

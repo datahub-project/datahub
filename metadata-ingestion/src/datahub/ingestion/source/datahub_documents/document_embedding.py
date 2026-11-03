@@ -1,7 +1,6 @@
 import dataclasses
 import hashlib
-import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from datahub.ingestion.source.datahub_documents.text_partitioner import (
@@ -11,6 +10,7 @@ from datahub.ingestion.source.unstructured.chunking_config import ChunkingConfig
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
 )
+from datahub.ingestion.source.unstructured.embedding_target import model_storage_key
 from datahub.ingestion.source.unstructured.semantic_chunks import (
     MAX_SERIALIZED_ASPECT_BYTES,
     build_semantic_content,
@@ -73,18 +73,14 @@ def embed_document(
         return []
     vectors = embed_chunks(chunks, provider, batch_size)
     model = provider.model_id.split("/", 1)[-1]
-    model_key = provider.model_embedding_key or (
-        "cohere_embed_v3"
-        if "embed-english-v3" in model
-        else re.sub(r"[^a-zA-Z0-9_]", "_", model)
-    )
+    model_key = model_storage_key(model, provider.model_embedding_key)
     capped = build_semantic_content(
         chunks,
         vectors,
         model_version=provider.semantic_model_version,
         model_key=model_key,
         strategy=chunking.strategy,
-        generated_at=int(datetime.utcnow().timestamp() * 1000),
+        generated_at=int(datetime.now(timezone.utc).timestamp() * 1000),
         source_text_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
         max_serialized_bytes=MAX_SERIALIZED_ASPECT_BYTES,
     )

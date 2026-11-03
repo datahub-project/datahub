@@ -1,16 +1,19 @@
 """Factory and helpers for building :class:`EmbeddingProvider` instances."""
 
 import os
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.unstructured.chunking_config import (
+    EmbeddingConfig,
+    ResolvedEmbeddingTarget,
+)
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
 )
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
-
+from datahub.ingestion.source.unstructured.embedding_target import (
+    resolve_embedding_target,
+)
 
 SUPPORTED_PROVIDERS: tuple[str, ...] = (
     "bedrock",
@@ -60,48 +63,45 @@ def derive_model_id(provider: Optional[str], model: Optional[str]) -> Optional[s
 
 
 def create_embedding_provider(
-    config: "EmbeddingConfig", *, graph: Optional[DataHubGraph] = None
+    config: EmbeddingConfig,
+    *,
+    graph: Optional[DataHubGraph] = None,
+    target: Optional[ResolvedEmbeddingTarget] = None,
 ) -> EmbeddingProvider:
-    provider = _create_embedding_provider(config, graph=graph)
-    if config.model_embedding_key is not None:
-        provider.model_embedding_key = config.model_embedding_key
+    target = target or resolve_embedding_target(config, graph)
+    provider = _create_embedding_provider(config, graph=graph, target=target)
+    provider.model_embedding_key = target.model_embedding_key
     return provider
 
 
 def _create_embedding_provider(
-    config: "EmbeddingConfig", *, graph: Optional[DataHubGraph] = None
+    config: EmbeddingConfig,
+    *,
+    graph: Optional[DataHubGraph],
+    target: ResolvedEmbeddingTarget,
 ) -> EmbeddingProvider:
     """Build a provider instance from an :class:`EmbeddingConfig`.
 
     Validation of presence of provider/model/required fields is the caller's
     responsibility — this function assumes a fully resolved config.
     """
-    provider = config.provider
-    model = config.model
+    provider = target.model_provider
+    model = target.model_id
     api_key: Optional[str] = (
         config.api_key.get_secret_value() if config.api_key else None
     )
     timeout = config.request_timeout
 
-    if provider == "datahub":
+    if target.transport == "datahub":
         from datahub.ingestion.source.unstructured.embedding_providers.datahub_server import (
-            server_embedding_provider,
+            DataHubServerEmbeddingProvider,
         )
 
         if graph is None:
             raise ValueError(
                 "The datahub embedding provider requires a DataHubGraph connection."
             )
-        server_provider = server_embedding_provider(graph, timeout=timeout)
-        if (model is not None and model != server_provider.index_config.model_id) or (
-            config.model_embedding_key is not None
-            and config.model_embedding_key
-            != server_provider.index_config.model_embedding_key
-        ):
-            raise ValueError(
-                "Server semantic index model changed. Resolve the embedding configuration again before embedding."
-            )
-        return server_provider
+        return DataHubServerEmbeddingProvider(graph, target=target, timeout=timeout)
 
     if provider is None or model is None:
         raise ValueError("EmbeddingConfig.provider and .model must be set")

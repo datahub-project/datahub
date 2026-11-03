@@ -1,6 +1,7 @@
 """Configuration for Document Chunking and Embedding Source."""
 
 import re
+from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
@@ -13,6 +14,18 @@ _LOCAL_EMBEDDING_DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings"
 # Default per-document chunk cap. Shared with the staleness fingerprint so the cap is
 # only fingerprinted when it deviates from this value (see get_processing_config_fingerprint).
 DEFAULT_MAX_CHUNKS_PER_DOCUMENT = 100
+
+
+@dataclass(frozen=True)
+class ResolvedEmbeddingTarget:
+    transport: Literal["datahub", "direct"]
+    model_provider: str
+    model_id: str
+    model_embedding_key: str
+    semantic_model_version: str
+    endpoint_path: Optional[str] = None
+    # The server does not advertise ONNX pooling, so transport equivalence is unknown.
+    onnx_pooling: Optional[str] = None
 
 
 class ServerEmbeddingConfig(ConfigModel):
@@ -128,7 +141,7 @@ class EmbeddingConfig(ConfigModel):
 
     # Processing configuration (not from server)
     batch_size: int = Field(
-        default=25, description="Batch size for embedding API calls"
+        default=25, gt=0, description="Batch size for embedding API calls"
     )
     request_timeout: float = Field(
         default=60.0,
@@ -159,6 +172,7 @@ class EmbeddingConfig(ConfigModel):
 
     # Internal: cached server config after loading/validation
     _server_config: Optional[ServerEmbeddingConfig] = None
+    _resolved_target: Optional[ResolvedEmbeddingTarget] = None
 
     @field_validator("model_embedding_key")
     @classmethod

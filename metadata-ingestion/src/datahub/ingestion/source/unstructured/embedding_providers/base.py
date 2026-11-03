@@ -83,6 +83,10 @@ class EmbeddingProvider(ABC):
     def semantic_model_version(self) -> str:
         return self.model_id
 
+    def close(self) -> None:
+        """Release any owned transport resources."""
+        return None
+
     @abstractmethod
     def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
         """Generate embeddings for the given input texts."""

@@ -592,27 +592,18 @@ def test_semantic_search_capability_delegates_to_resolved_config() -> None:
         report = ConfluenceSource._test_semantic_search_capability(make_config())
 
     assert report is expected
-    test_capability.assert_called_once_with(resolved)
+    test_capability.assert_called_once_with(resolved, graph=None)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "Bug: _test_semantic_search_capability only builds a DataHubGraph when "
-        "`config.datahub.server` is set, but ConfluenceSourceConfig has no "
-        "`datahub` field, so the hasattr guard is always False and test_connection "
-        "resolves the embedding config without ever consulting the DataHub server."
-    ),
-)
 def test_semantic_search_capability_consults_configured_datahub_server() -> None:
-    # parse_obj_allow_extras so today's config (no `datahub` field) drops the
-    # block instead of rejecting the recipe; once the field exists it is kept.
-    config = ConfluenceSourceConfig.parse_obj_allow_extras(
+    config = ConfluenceSourceConfig.model_validate(
         cloud_config_dict(datahub={"server": "http://localhost:8080"})
     )
     with (
-        patch("datahub.ingestion.graph.client.DataHubGraph", autospec=True),
+        patch(
+            "datahub.ingestion.source.confluence.confluence_source.DataHubGraph",
+            autospec=True,
+        ),
         patch.object(
             DocumentChunkingSource, "resolve_embedding_config", autospec=True
         ) as resolve,

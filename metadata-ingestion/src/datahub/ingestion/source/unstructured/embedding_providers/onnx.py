@@ -18,7 +18,7 @@ constructor so importing this module stays cheap when the provider is unused.
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
@@ -79,6 +79,7 @@ class OnnxEmbeddingProvider(EmbeddingProvider):
         model_dir: str,
         pooling: str = "cls",
         max_length: int = _DEFAULT_MAX_LENGTH,
+        query_instruction: Optional[str] = None,
     ):
         try:
             import numpy as np  # noqa: F401
@@ -95,6 +96,11 @@ class OnnxEmbeddingProvider(EmbeddingProvider):
             raise ValueError(
                 f"Unsupported ONNX pooling strategy '{pooling}'. Use 'cls' or 'mean'."
             )
+        self._query_instruction = (
+            query_instruction
+            if query_instruction is not None
+            else os.environ.get("ONNX_EMBEDDING_QUERY_INSTRUCTION", "")
+        )
         self._pooling = pooling_normalized
         self.model_id = f"onnx/{model}"
 
@@ -122,12 +128,13 @@ class OnnxEmbeddingProvider(EmbeddingProvider):
         # provider's startup log; pooling or truncation drift silently degrades kNN recall.
         logger.info(
             "Initialized OnnxEmbeddingProvider: model=%s, file=%s, pooling=%s, "
-            "truncation_max_length=%s, inputs=%s",
+            "truncation_max_length=%s, inputs=%s, query_instruction=%r",
             model,
             model_file.name,
             self._pooling,
             max_length,
             sorted(self._input_names),
+            self._query_instruction,
         )
 
     def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
@@ -137,7 +144,7 @@ class OnnxEmbeddingProvider(EmbeddingProvider):
             return EmbeddingResult(embeddings=[])
         if task is EmbeddingTask.QUERY:
             # GMS prefixes queries with the same variable (OnnxEmbeddingProvider.java).
-            instruction = os.environ.get("ONNX_EMBEDDING_QUERY_INSTRUCTION", "")
+            instruction = self._query_instruction
             if instruction.strip():
                 texts = [instruction + text for text in texts]
 

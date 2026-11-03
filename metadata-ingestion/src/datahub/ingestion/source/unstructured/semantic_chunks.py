@@ -82,6 +82,8 @@ def embed_chunks(
     chunks: List[Dict[str, Any]], provider: EmbeddingProvider, batch_size: int
 ) -> List[List[float]]:
     """One document vector per embeddable chunk, in chunk order."""
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
     texts = [chunk["text"] for chunk in chunks if has_embeddable_text(chunk)]
     embeddings: List[List[float]] = []
     for i in range(0, len(texts), batch_size):

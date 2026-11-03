@@ -31,6 +31,8 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.confluence.confluence_config import ConfluenceSourceConfig
 from datahub.ingestion.source.confluence.confluence_hierarchy import (
@@ -1075,19 +1077,18 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             # must be retried next run rather than swallowed like an embed failure.
             logger.warning(f"Skip marker deferred for {document_urn}: {e}")
             return
-        except RuntimeError as e:
-            if self.chunking_source.report.num_documents_limit_reached:
-                self.report.num_documents_limit_reached = True
+        except Exception as e:
+            if (
+                isinstance(e, ServerEmbeddingRunError)
+                or self.chunking_source.report.num_documents_limit_reached
+            ):
+                self.report.num_documents_limit_reached = (
+                    self.chunking_source.report.num_documents_limit_reached
+                )
                 raise
             logger.warning(
                 f"Failed to generate embeddings for {document_urn}: {e}. "
-                f"Document will be ingested without embeddings.",
-                exc_info=True,
-            )
-        except Exception as e:
-            logger.warning(
-                f"Failed to generate embeddings for {document_urn}: {e}. "
-                f"Document will be ingested without embeddings.",
+                "Document will be ingested without embeddings.",
                 exc_info=True,
             )
 
@@ -1210,6 +1211,8 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                     page, ingested_page_ids, parent_page_ids
                 )
 
+            except ServerEmbeddingRunError:
+                raise
             except Exception as e:
                 page_id = str(page.get("id", "unknown"))
                 space_key = (
@@ -1227,6 +1230,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def _test_semantic_search_capability(
         config: ConfluenceSourceConfig,
+        graph: Optional[DataHubGraph] = None,
     ) -> CapabilityReport:
         """Test semantic search capability using the same logic as ingestion.
 
@@ -1242,21 +1246,21 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             CapabilityReport for semantic search capability
         """
-        from datahub.ingestion.graph.client import DataHubGraph
-        from datahub.ingestion.graph.config import DatahubClientConfig
+        from datahub.cli.config_utils import load_client_config
         from datahub.ingestion.source.unstructured.chunking_source import (
             DocumentChunkingSource,
         )
 
+        owned_graph = None
         try:
-            # Create graph connection to query server (if datahub config provided)
-            graph = None
-            if hasattr(config, "datahub") and config.datahub and config.datahub.server:
-                graph_config = DatahubClientConfig(
-                    server=config.datahub.server,
-                    token=config.datahub.token,
+            if graph is None and (
+                config.datahub is not None or config.embedding.provider == "datahub"
+            ):
+                owned_graph = DataHubGraph(
+                    config=config.datahub
+                    or load_client_config(refresh_per_request=True)
                 )
-                graph = DataHubGraph(config=graph_config)
+                graph = owned_graph
 
             # Use shared resolution logic (server → defaults)
             resolved_config = DocumentChunkingSource.resolve_embedding_config(
@@ -1264,7 +1268,9 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             # Test the resolved configuration
-            return DocumentChunkingSource.test_embedding_capability(resolved_config)
+            return DocumentChunkingSource.test_embedding_capability(
+                resolved_config, graph=graph
+            )
 
         except ValueError as e:
             # Config validation failed (e.g., semantic search not enabled on server)
@@ -1280,6 +1286,9 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 failure_reason=f"Failed to resolve embedding configuration: {e}",
                 mitigation_message="Check DataHub server connection and embedding configuration.",
             )
+        finally:
+            if owned_graph is not None:
+                owned_graph.close()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:  # noqa: C901
@@ -1517,4 +1526,5 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
     def close(self) -> None:
         """Clean up resources."""
+        self.chunking_source.close()
         super().close()

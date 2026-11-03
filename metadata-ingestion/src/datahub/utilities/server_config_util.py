@@ -9,6 +9,7 @@ from typing import (
     Tuple,
     Union,
 )
+from urllib.parse import urlsplit
 
 from datahub.telemetry.telemetry import suppress_telemetry
 
@@ -233,9 +234,19 @@ class RestServiceConfig:
         if not isinstance(service, dict) or service.get("enabled") is not True:
             return None
         path = service.get("path")
-        if isinstance(path, str) and path.startswith("/") and not path.startswith("//"):
-            return path
-        return None
+        if (
+            not isinstance(path, str)
+            or not path.startswith("/")
+            or path.startswith("//")
+        ):
+            return None
+        try:
+            parsed = urlsplit(path)
+        except ValueError:
+            return None
+        if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+            return None
+        return path
 
     def supports_feature(self, feature: ServiceFeature) -> bool:
         """

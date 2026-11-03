@@ -812,3 +812,29 @@ def test_openai_and_local_are_symmetric(task):
     ) as post:
         provider.embed(["text"], task=task)
     assert post.call_args.kwargs["json"] == {"model": "model", "input": ["text"]}
+
+
+@pytest.mark.parametrize("task", list(EmbeddingTask))
+def test_bedrock_cohere_long_query_matches_gms(task):
+    import json
+
+    from datahub.ingestion.source.unstructured.embedding_providers.bedrock import (
+        BedrockEmbeddingProvider,
+    )
+
+    text = "x" * 2200
+    with patch("boto3.client") as client:
+        client.return_value.invoke_model.return_value = {
+            "body": MagicMock(read=lambda: json.dumps({"embeddings": [[1.0]]}))
+        }
+        provider = BedrockEmbeddingProvider(
+            model="cohere.embed-english-v3", aws_region="us-east-1"
+        )
+        provider.embed([text], task=task)
+    body = json.loads(client.return_value.invoke_model.call_args.kwargs["body"])
+    if task is EmbeddingTask.QUERY:
+        assert body["texts"] == [text[:2048]]
+        assert body["truncate"] == "END"
+    else:
+        assert body["texts"] == [text]
+        assert "truncate" not in body
