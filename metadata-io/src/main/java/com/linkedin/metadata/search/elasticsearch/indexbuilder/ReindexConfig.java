@@ -789,7 +789,8 @@ public class ReindexConfig {
             super.requiresApplyMappings = true;
             super.requiresReindex = true;
           } else {
-            if (!super.enableIndexMappingsReindex) {
+            if (!super.enableIndexMappingsReindex
+                && (reindexForRemoval || reindexForTypeMismatch || reindexForCopyToMismatch)) {
               log.warn(
                   "Index: {} - There's diff between new mappings, however reindexing is DISABLED.",
                   super.name);

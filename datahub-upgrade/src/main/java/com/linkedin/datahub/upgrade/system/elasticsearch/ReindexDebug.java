@@ -2,6 +2,9 @@ package com.linkedin.datahub.upgrade.system.elasticsearch;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ForwardingSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -22,6 +25,7 @@ import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -66,8 +70,7 @@ public class ReindexDebug implements Upgrade {
       final ConfigurationProvider configurationProvider,
       final AspectDao aspectDao) {
     final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
-        ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
-            configurationProvider.getStructuredProperties(), aspectDao);
+        lazyStructuredProperties(configurationProvider, aspectDao);
     final List<UpgradeStep> steps = new ArrayList<>();
     // Disable ES write mode/change refresh rate and clone indices
     steps.add(
@@ -81,5 +84,25 @@ public class ReindexDebug implements Upgrade {
         new BuildIndicesPostStep(
             baseElasticSearchComponents, indexedServices, structuredProperties));
     return steps;
+  }
+
+  /**
+   * The structured property definitions, loaded on first use: Spring builds this upgrade for every
+   * general upgrade run, and only a ReindexDebug run reads them.
+   */
+  @VisibleForTesting
+  static Set<Pair<Urn, StructuredPropertyDefinition>> lazyStructuredProperties(
+      ConfigurationProvider configurationProvider, AspectDao aspectDao) {
+    Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> definitions =
+        Suppliers.memoize(
+            () ->
+                ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
+                    configurationProvider.getStructuredProperties(), aspectDao));
+    return new ForwardingSet<>() {
+      @Override
+      protected Set<Pair<Urn, StructuredPropertyDefinition>> delegate() {
+        return definitions.get();
+      }
+    };
   }
 }

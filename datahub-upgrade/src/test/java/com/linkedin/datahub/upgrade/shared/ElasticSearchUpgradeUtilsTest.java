@@ -5,6 +5,7 @@ import static org.testng.Assert.*;
 
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
@@ -133,8 +134,7 @@ public class ElasticSearchUpgradeUtilsTest {
     // Mock EntityAspect for active structured property
     EntityAspect activeAspect = mock(EntityAspect.class);
     Urn activeUrn = UrnUtils.getUrn("urn:li:structuredProperty:active");
-    StructuredPropertyDefinition activeDefinition = new StructuredPropertyDefinition();
-    activeDefinition.setQualifiedName("active.property");
+    StructuredPropertyDefinition activeDefinition = definition("active.property");
 
     Status activeStatus = new Status();
     activeStatus.setRemoved(false);
@@ -145,8 +145,7 @@ public class ElasticSearchUpgradeUtilsTest {
     // Mock EntityAspect for removed structured property
     EntityAspect removedAspect = mock(EntityAspect.class);
     Urn removedUrn = UrnUtils.getUrn("urn:li:structuredProperty:removed");
-    StructuredPropertyDefinition removedDefinition = new StructuredPropertyDefinition();
-    removedDefinition.setQualifiedName("removed.property");
+    StructuredPropertyDefinition removedDefinition = definition("removed.property");
 
     Status removedStatus = new Status();
     removedStatus.setRemoved(true);
@@ -196,8 +195,7 @@ public class ElasticSearchUpgradeUtilsTest {
     // Mock EntityAspect for removed structured property
     EntityAspect removedAspect = mock(EntityAspect.class);
     Urn removedUrn = UrnUtils.getUrn("urn:li:structuredProperty:removed");
-    StructuredPropertyDefinition removedDefinition = new StructuredPropertyDefinition();
-    removedDefinition.setQualifiedName("removed.property");
+    StructuredPropertyDefinition removedDefinition = definition("removed.property");
 
     Status removedStatus = new Status();
     removedStatus.setRemoved(true);
@@ -225,8 +223,7 @@ public class ElasticSearchUpgradeUtilsTest {
     // Mock EntityAspect with null status (should be treated as active)
     EntityAspect aspectWithNullStatus = mock(EntityAspect.class);
     Urn urn = UrnUtils.getUrn("urn:li:structuredProperty:nullstatus");
-    StructuredPropertyDefinition definition = new StructuredPropertyDefinition();
-    definition.setQualifiedName("nullstatus.property");
+    StructuredPropertyDefinition definition = definition("nullstatus.property");
 
     when(aspectWithNullStatus.getUrn()).thenReturn(urn.toString());
     when(aspectWithNullStatus.getMetadata()).thenReturn(RecordUtils.toJsonString(definition));
@@ -289,13 +286,11 @@ public class ElasticSearchUpgradeUtilsTest {
     // Mock multiple active structured properties
     EntityAspect aspect1 = mock(EntityAspect.class);
     Urn urn1 = UrnUtils.getUrn("urn:li:structuredProperty:prop1");
-    StructuredPropertyDefinition def1 = new StructuredPropertyDefinition();
-    def1.setQualifiedName("prop1");
+    StructuredPropertyDefinition def1 = definition("prop1");
 
     EntityAspect aspect2 = mock(EntityAspect.class);
     Urn urn2 = UrnUtils.getUrn("urn:li:structuredProperty:prop2");
-    StructuredPropertyDefinition def2 = new StructuredPropertyDefinition();
-    def2.setQualifiedName("prop2");
+    StructuredPropertyDefinition def2 = definition("prop2");
 
     Status activeStatus = new Status();
     activeStatus.setRemoved(false);
@@ -325,14 +320,18 @@ public class ElasticSearchUpgradeUtilsTest {
   public void testGetActiveStructuredPropertiesDefinitionsSkipsUnmappableDefinition() {
     AspectDao freshMockAspectDao = mock(AspectDao.class);
     Urn validUrn = UrnUtils.getUrn("urn:li:structuredProperty:valid");
-    StructuredPropertyDefinition valid = new StructuredPropertyDefinition();
-    valid.setQualifiedName("valid.property");
+    StructuredPropertyDefinition valid = definition("valid.property");
     EntityAspect validAspect = mock(EntityAspect.class);
     when(validAspect.getUrn()).thenReturn(validUrn.toString());
     when(validAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(valid));
     // A space in the qualified name has no search field name; older definitions can carry one.
-    StructuredPropertyDefinition spaced = new StructuredPropertyDefinition();
-    spaced.setQualifiedName("has space");
+    StructuredPropertyDefinition spaced = definition("has space");
+    // Required fields the mapping builders read without null checks.
+    StructuredPropertyDefinition untyped = new StructuredPropertyDefinition();
+    untyped.setQualifiedName("untyped.property");
+    EntityAspect untypedAspect = mock(EntityAspect.class);
+    when(untypedAspect.getUrn()).thenReturn("urn:li:structuredProperty:untyped");
+    when(untypedAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(untyped));
     EntityAspect spacedAspect = mock(EntityAspect.class);
     when(spacedAspect.getUrn()).thenReturn("urn:li:structuredProperty:spaced");
     when(spacedAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(spaced));
@@ -341,7 +340,7 @@ public class ElasticSearchUpgradeUtilsTest {
     when(unreadableAspect.getMetadata()).thenReturn("not json");
     when(freshMockAspectDao.streamAspects(anyString(), anyString()))
         .thenReturn(Stream.empty())
-        .thenReturn(Stream.of(spacedAspect, unreadableAspect, validAspect));
+        .thenReturn(Stream.of(spacedAspect, untypedAspect, unreadableAspect, validAspect));
 
     Set<Pair<Urn, StructuredPropertyDefinition>> result =
         ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(freshMockAspectDao);
@@ -357,8 +356,7 @@ public class ElasticSearchUpgradeUtilsTest {
     EntityAspect statusAspect = mock(EntityAspect.class);
     when(statusAspect.getUrn()).thenReturn(urn.toString());
     when(statusAspect.getMetadata()).thenReturn("not json");
-    StructuredPropertyDefinition definition = new StructuredPropertyDefinition();
-    definition.setQualifiedName("unreadablestatus.property");
+    StructuredPropertyDefinition definition = definition("unreadablestatus.property");
     EntityAspect definitionAspect = mock(EntityAspect.class);
     when(definitionAspect.getUrn()).thenReturn(urn.toString());
     when(definitionAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(definition));
@@ -389,14 +387,12 @@ public class ElasticSearchUpgradeUtilsTest {
     EntityAspect latestStatus = mock(EntityAspect.class);
     when(latestStatus.getUrn()).thenReturn(urn.toString());
     when(latestStatus.getMetadata()).thenReturn(RecordUtils.toJsonString(restored));
-    StructuredPropertyDefinition oldDefinition = new StructuredPropertyDefinition();
-    oldDefinition.setQualifiedName("restored.old");
+    StructuredPropertyDefinition oldDefinition = definition("restored.old");
     EntityAspect oldDefinitionAspect = mock(EntityAspect.class);
     when(oldDefinitionAspect.getUrn()).thenReturn(urn.toString());
     when(oldDefinitionAspect.getVersion()).thenReturn(1L);
     when(oldDefinitionAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(oldDefinition));
-    StructuredPropertyDefinition definition = new StructuredPropertyDefinition();
-    definition.setQualifiedName("restored.property");
+    StructuredPropertyDefinition definition = definition("restored.property");
     EntityAspect definitionAspect = mock(EntityAspect.class);
     when(definitionAspect.getUrn()).thenReturn(urn.toString());
     when(definitionAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(definition));
@@ -417,8 +413,7 @@ public class ElasticSearchUpgradeUtilsTest {
     AspectDao freshMockAspectDao = mock(AspectDao.class);
     EntityAspect definitionAspect = mock(EntityAspect.class);
     Urn urn = UrnUtils.getUrn("urn:li:structuredProperty:active");
-    StructuredPropertyDefinition definition = new StructuredPropertyDefinition();
-    definition.setQualifiedName("active.property");
+    StructuredPropertyDefinition definition = definition("active.property");
     when(definitionAspect.getUrn()).thenReturn(urn.toString());
     when(definitionAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(definition));
     when(freshMockAspectDao.streamAspects(anyString(), anyString()))
@@ -452,5 +447,13 @@ public class ElasticSearchUpgradeUtilsTest {
 
     assertTrue(result.isEmpty());
     verifyNoInteractions(freshMockAspectDao);
+  }
+
+  private static StructuredPropertyDefinition definition(String qualifiedName) {
+    StructuredPropertyDefinition definition = new StructuredPropertyDefinition();
+    definition.setQualifiedName(qualifiedName);
+    definition.setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"));
+    definition.setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+    return definition;
   }
 }

@@ -9,6 +9,7 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
@@ -133,10 +134,10 @@ public class ElasticSearchUpgradeUtils {
   }
 
   /**
-   * The definition in {@code entityAspect}, or empty when it cannot be read or names no valid
-   * search field (a qualified name with a space, allowed before write validation existed). Index
-   * mappings are built from every definition at once, so one such definition would otherwise fail
-   * the build of every index.
+   * The definition in {@code entityAspect}, or empty when it cannot be read, lacks a required field
+   * the mapping builders read, or names no valid search field (a qualified name with a space,
+   * allowed before write validation existed). Index mappings are built from every definition at
+   * once, so one such definition would otherwise fail the build of every index.
    */
   private static Optional<Pair<Urn, StructuredPropertyDefinition>> toMappableDefinition(
       EntityAspect entityAspect) {
@@ -145,6 +146,10 @@ public class ElasticSearchUpgradeUtils {
       StructuredPropertyDefinition definition =
           RecordUtils.toRecordTemplate(
               StructuredPropertyDefinition.class, entityAspect.getMetadata());
+      if (definition.getEntityTypes(GetMode.NULL) == null
+          || definition.getValueType(GetMode.NULL) == null) {
+        throw new IllegalArgumentException("definition has no entityTypes or valueType");
+      }
       StructuredPropertyUtils.toElasticsearchFieldName(urn, definition);
       return Optional.of(Pair.of(urn, definition));
     } catch (RuntimeException e) {
