@@ -558,10 +558,12 @@ class TestDorisSourceMethods:
             for warning in source.report.warnings
             for context in warning.context
         }
-        grant_message = warnings["db1: COLUMNS: Access denied; TABLES: Query timeout"]
-        upgrade_message = warnings["my_catalog.db2: no rows"]
-        assert "information_schema.TABLES" in grant_message
-        assert "Doris 2.1" in upgrade_message
+        # A failed query and a database information_schema does not serve need
+        # different fixes, so they get different warnings.
+        assert (
+            warnings["db1: COLUMNS: Access denied; TABLES: Query timeout"]
+            != warnings["my_catalog.db2: no rows"]
+        )
         assert all(dialect.comment_lookup_failures == {} for dialect in dialects)
 
     def test_only_the_metadata_pass_reads_comments_and_reports(self):

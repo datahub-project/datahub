@@ -259,8 +259,8 @@ class DorisSourceReport(SQLSourceReport):
     # Nonzero means DESCRIBE failed on a table that reflected fine otherwise, so its
     # Doris-specific column types were downgraded to MySQL equivalents.
     tables_with_unreflected_types: int = 0
-    # Nonzero means the information_schema comment lookup failed for a database, so
-    # some or all of its table and column descriptions are missing.
+    # Nonzero means a database's comments could not be read from information_schema,
+    # or it does not serve them, so some or all of its descriptions are missing.
     databases_without_comments: int = 0
     # Tables and views skipped because the connection dropped and could not be
     # re-established; the database's failure entry says where it happened.

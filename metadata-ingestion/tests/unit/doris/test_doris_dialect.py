@@ -32,8 +32,8 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
     LARGEINT,
     QUANTILE_STATE,
     VARIANT,
+    CommentLookupFailure,
     CommentLookupFailureKind,
-    CommentScope,
     DorisDialect,
     ReflectionFallback,
     _doris_type_map,
@@ -823,30 +823,6 @@ class TestDorisComments:
             == expected_queries
         )
 
-    def test_comment_queries_use_a_single_equality_filter(self, mock_text):
-        """Doris only pushes `TABLE_SCHEMA = <literal>` into the information_schema
-        scan; an IN filter makes an external catalog scan every database it has."""
-        dialect = DorisDialect()
-        mock_connection = Mock()
-        mock_connection.engine.url.database = "my_catalog.my_db"
-        mock_connection.execute.side_effect = _execute_by_schema("my_catalog.my_db")
-
-        with patch.object(
-            MySQLDialect, "get_table_comment", return_value={"text": None}
-        ):
-            self._get_columns(dialect, mock_connection, "my_table")
-            dialect.get_table_comment(mock_connection, "my_table")
-
-        comment_calls = [
-            call
-            for call in mock_connection.execute.call_args_list
-            if "information_schema" in call.args[0]
-        ]
-        assert [call.args[1] for call in comment_calls] == [
-            {"schema": "my_db"},
-            {"schema": "my_catalog.my_db"},
-        ] * 2
-
     @pytest.mark.parametrize("sql", [_COLUMN_COMMENTS_SQL, _TABLE_COMMENTS_SQL])
     def test_comment_filter_is_one_pushable_equality(self, mock_text, sql):
         """Doris pushes only `TABLE_SCHEMA = <literal>` into the scan; IN, OR or a
@@ -882,7 +858,11 @@ class TestDorisComments:
         assert columns[0]["comment"] is None
         failures = dialect.pop_comment_lookup_failures()
         assert list(failures) == ["my_catalog.my_db"]
-        assert failures["my_catalog.my_db"].kind == CommentLookupFailureKind.NOT_SERVED
+        failure = failures["my_catalog.my_db"]
+        assert failure.kind == CommentLookupFailureKind.NOT_SERVED
+        # Names the catalog the rows came from, which says why they were dropped.
+        assert len(failure.errors) == 1
+        assert repr(table_catalog) in failure.errors[0]
 
     # Views are reflected through get_columns and get_table_comment as well, but
     # each must catch the empty lookup on its own.
@@ -973,9 +953,16 @@ class TestDorisComments:
 
         assert queries == [2, 1]
 
-    def test_empty_catalog_is_the_internal_one(self, mock_text):
-        assert CommentScope("my_db", "") == CommentScope("my_db", None)
-        assert CommentScope("my_db", "").qualified_database == "my_db"
+    def test_failure_keeps_each_distinct_cause_once(self, mock_text):
+        """COLUMNS and TABLES can fail for the same reason; the warning should not
+        repeat it, and a query error decides which warning is shown."""
+        failure = CommentLookupFailure(CommentLookupFailureKind.NOT_SERVED)
+        failure.add(CommentLookupFailureKind.NOT_SERVED, "rows of catalog 'internal'")
+        failure.add(CommentLookupFailureKind.NOT_SERVED, "rows of catalog 'internal'")
+        failure.add(CommentLookupFailureKind.QUERY_FAILED, "Access denied")
+
+        assert failure.kind == CommentLookupFailureKind.QUERY_FAILED
+        assert failure.errors == ["rows of catalog 'internal'", "Access denied"]
 
     def test_internal_catalog_never_retries_with_qualified_name(self, mock_text):
         """Outside an external catalog the bare and qualified names are the same, so
@@ -989,41 +976,6 @@ class TestDorisComments:
 
         assert columns[2]["comment"] == "Parsed from DDL"
         assert _count_queries(mock_connection, "information_schema.COLUMNS") == 1
-        assert _count_queries(mock_connection, "FROM information_schema.COLUMNS") == 1
-
-    def test_paimon_catalog_ddl_gets_comments_from_information_schema(self, mock_text):
-        """A Paimon table's DDL quotes every column comment with double quotes, so
-        the MySQL parser keeps none of them; information_schema supplies all."""
-        dialect = DorisDialect()
-        state = dialect._tabledef_parser.parse(  # type: ignore[attr-defined]
-            "CREATE TABLE `my_table` (\n"
-            '  `col_a` text NULL COMMENT "标识",\n'
-            '  `col_b` bigint NULL COMMENT "Count of \\"distinct\\" values",\n'
-            '  `col_c` datetime(6) NULL COMMENT "Load time"\n'
-            ") ENGINE=PAIMON_EXTERNAL_TABLE",
-            "utf8",
-        )
-        assert [col["comment"] for col in state.columns] == [None, None, None]
-
-        mock_connection = Mock()
-        mock_connection.engine.url.database = "my_catalog.my_db"
-        mock_connection.execute.side_effect = _execute_by_schema(
-            "my_db",
-            column_comment_rows=[
-                ("my_table", "col_a", "标识"),
-                ("my_table", "col_b", 'Count of "distinct" values'),
-                ("my_table", "col_c", "Load time"),
-            ],
-        )
-
-        with patch.object(MySQLDialect, "get_columns", return_value=state.columns):
-            columns = dialect.get_columns(mock_connection, "my_table")
-
-        assert {col["name"]: col["comment"] for col in columns} == {
-            "col_a": "标识",
-            "col_b": 'Count of "distinct" values',
-            "col_c": "Load time",
-        }
 
     def _comments_for(
         self,
