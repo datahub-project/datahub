@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from pydantic import field_validator, model_validator
 from ruamel.yaml import YAML
@@ -524,60 +524,65 @@ class DataProduct(ConfigModel):
         original_owners: Optional[List[Union[str, Ownership]]],
         original_ownership_list: Optional[List[Any]],
     ) -> Tuple[bool, Optional[List[Any]]]:
-        new_owner_type_map = {}
+        # The same owner can hold several ownership types (e.g. business and
+        # technical owner), so owners are matched on (urn, type) pairs.
+        new_owners: Dict[Tuple[str, str], None] = {}
         for new_owner in self.owners or []:
             if isinstance(new_owner, Ownership):
-                new_owner_type_map[new_owner.id] = new_owner.type
+                new_owners[(new_owner.id, new_owner.type)] = None
             else:
-                new_owner_type_map[new_owner] = OwnershipTypeClass.TECHNICAL_OWNER
-        owners_matched = set()
+                new_owners[(new_owner, OwnershipTypeClass.TECHNICAL_OWNER)] = None
+        owners_matched: Set[Tuple[str, str]] = set()
         patches_add: list = []
         patches_drop: dict = {}
         patches_replace: dict = {}
 
         if original_owners:
-            default_ownership_type = OwnershipTypeClass.TECHNICAL_OWNER
-            original_owner_urns = set()
-            # First figure out which urns to replace or drop
+            unmatched_owners: List[Tuple[int, Union[str, Ownership], str]] = []
             for i, o in enumerate(original_owners):
                 if isinstance(o, str):
-                    owner_urn = builder.make_user_urn(o)
-                    original_owner_urns.add(owner_urn)
-                    if owner_urn in new_owner_type_map:
-                        owners_matched.add(owner_urn)
-                        if new_owner_type_map[owner_urn] != default_ownership_type:
-                            patches_replace[i] = {
-                                "id": o,
-                                "type": new_owner_type_map[owner_urn],
-                            }
-                    else:
-                        patches_drop[i] = o
+                    owner_id, owner_type = o, OwnershipTypeClass.TECHNICAL_OWNER
                 elif isinstance(o, Ownership):
-                    owner_urn = builder.make_user_urn(o.id)
-                    original_owner_urns.add(owner_urn)
-                    if owner_urn in new_owner_type_map:
-                        owners_matched.add(owner_urn)
-                        if new_owner_type_map[owner_urn] != o.type:
-                            patches_replace[i] = {
-                                "id": o.id,
-                                "type": new_owner_type_map[owner_urn],
-                            }
-                    else:
-                        patches_drop[i] = o.model_dump()
+                    owner_id, owner_type = o.id, o.type
                 else:
                     assert_never(o)
+                owner_urn = builder.make_user_urn(owner_id)
+                if (owner_urn, owner_type) in new_owners:
+                    owners_matched.add((owner_urn, owner_type))
+                else:
+                    unmatched_owners.append((i, o, owner_urn))
+
+            # An unmatched owner whose urn has an unmatched new type had its type
+            # changed, so replace it in place. Otherwise it was removed.
+            for i, o, owner_urn in unmatched_owners:
+                new_owner_type = next(
+                    (
+                        new_type
+                        for new_urn, new_type in new_owners
+                        if new_urn == owner_urn
+                        and (new_urn, new_type) not in owners_matched
+                    ),
+                    None,
+                )
+                if new_owner_type is not None:
+                    owners_matched.add((owner_urn, new_owner_type))
+                    patches_replace[i] = {
+                        "id": o if isinstance(o, str) else o.id,
+                        "type": new_owner_type,
+                    }
+                else:
+                    patches_drop[i] = o if isinstance(o, str) else o.model_dump()
 
         # Figure out what if any are new owners to add
-        new_owners_to_add = {o for o in new_owner_type_map} - set(owners_matched)
-        if new_owners_to_add:
-            for new_owner in new_owners_to_add:
-                new_owner_type = new_owner_type_map[new_owner]
-                if new_owner_type == OwnershipTypeClass.TECHNICAL_OWNER:
-                    patches_add.append(new_owner)
-                else:
-                    patches_add.append(
-                        Ownership(id=new_owner, type=new_owner_type).model_dump()
-                    )
+        for new_owner_urn, new_owner_type in new_owners:
+            if (new_owner_urn, new_owner_type) in owners_matched:
+                continue
+            if new_owner_type == OwnershipTypeClass.TECHNICAL_OWNER:
+                patches_add.append(new_owner_urn)
+            else:
+                patches_add.append(
+                    Ownership(id=new_owner_urn, type=new_owner_type).model_dump()
+                )
 
         mutation_needed = bool(patches_replace or patches_drop or patches_add)
         if not mutation_needed:

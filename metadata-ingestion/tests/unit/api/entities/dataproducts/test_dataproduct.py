@@ -1,16 +1,20 @@
 import difflib
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 import pytest
 import time_machine
+from ruamel.yaml import YAML
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     DataProductPropertiesClass,
     DomainPropertiesClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
 )
 from datahub.testing.mce_helpers import check_golden_file
 from tests.test_helpers.graph_helpers import MockDataHubGraph
@@ -225,6 +229,56 @@ def test_dataproduct_ownership_type_urn_patch_yaml(
         str(dataproduct_output_file),
         str(test_resources_dir / "dataproduct_ownership_type_urn.yaml"),
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.parametrize(
+    "remote_owner_types, expected_owners",
+    [
+        (
+            [OwnershipTypeClass.BUSINESS_OWNER, OwnershipTypeClass.TECHNICAL_OWNER],
+            None,
+        ),
+        (
+            [OwnershipTypeClass.TECHNICAL_OWNER],
+            [{"id": "urn:li:corpGroup:data_team", "type": "TECHNICAL_OWNER"}],
+        ),
+    ],
+    ids=["unchanged", "one_type_removed"],
+)
+def test_dataproduct_patch_yaml_owner_with_multiple_types(
+    tmp_path: Path,
+    test_resources_dir: Path,
+    base_mock_graph: MockDataHubGraph,
+    remote_owner_types: List[str],
+    expected_owners: Optional[List[Dict[str, str]]],
+) -> None:
+    original_data_product = DataProduct.from_yaml(
+        test_resources_dir / "dataproduct_multiple_ownership_types.yaml",
+        base_mock_graph,
+    )
+    remote_aspects: Dict[str, Any] = {
+        mcp.aspectName: mcp.aspect
+        for mcp in original_data_product.generate_mcp(upsert=False)
+        if isinstance(mcp, MetadataChangeProposalWrapper) and mcp.aspectName
+    }
+    remote_aspects["ownership"] = OwnershipClass(
+        owners=[
+            OwnerClass(owner="urn:li:corpGroup:data_team", type=owner_type)
+            for owner_type in remote_owner_types
+        ]
+    )
+    base_mock_graph.entity_graph[original_data_product.urn] = remote_aspects
+
+    data_product = DataProduct.from_datahub(
+        base_mock_graph, id=original_data_product.urn
+    )
+    output_file = tmp_path / "patch_dataproduct_multiple_ownership_types.yaml"
+    update_needed = data_product.patch_yaml(original_data_product, output_file)
+
+    assert update_needed == (expected_owners is not None)
+    if expected_owners is not None:
+        assert YAML(typ="safe").load(output_file)["owners"] == expected_owners
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
