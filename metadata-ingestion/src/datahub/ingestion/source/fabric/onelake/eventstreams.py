@@ -229,6 +229,20 @@ def _emit_eventstream(
             normalize_name=normalize_name,
             owners=owners,
         )
+        if not columns_by_name.get(name):
+            report.warning(
+                title="Eventstream Node Has No Columns",
+                message=(
+                    "Fabric did not return a column schema for this source or stream. "
+                    "A source and its default stream have columns only when the node "
+                    "detail includes inputSchemas."
+                ),
+                context=(
+                    f"workspace={workspace.name}, eventstream={item.display_name}, "
+                    f"{node['role']}={name}, keys={sorted(_raw(node))}"
+                ),
+                log=False,
+            )
         yield dataset
         yield from attach_sensitivity(dataset, item.sensitivity_label_id)
     for node in job_nodes:
@@ -502,21 +516,39 @@ def _own_columns(node: dict[str, object]) -> list[object]:
 
 
 def _schema_column_lists(node: dict[str, object]) -> list[list[object]]:
-    entries = node.get("inputSchemas")
-    if not isinstance(entries, list):
-        return []
     lists: list[list[object]] = []
-    for entry in entries:
-        if not isinstance(entry, dict):
+    for key in ("inputSchemas", "inputs"):
+        entries = node.get(key)
+        if not isinstance(entries, list):
             continue
-        columns = _entry_columns(entry)
-        if columns:
-            lists.append(columns)
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            columns = _entry_columns(entry)
+            if columns:
+                lists.append(columns)
+    if lists:
+        return lists
+    properties = node.get("properties")
+    if isinstance(properties, dict):
+        referenced = properties.get("referencedColumns")
+        if isinstance(referenced, list) and referenced:
+            return [
+                [
+                    {"name": column, "type": "Any"}
+                    for column in referenced
+                    if isinstance(column, str) and column
+                ]
+            ]
     return lists
 
 
 def _entry_columns(entry: dict[str, object]) -> list[object]:
-    schema = entry.get("schema")
+    for key in ("columns", "fields"):
+        columns = entry.get(key)
+        if isinstance(columns, list) and columns:
+            return columns
+    schema = _schema_value(entry.get("schema"))
     if isinstance(schema, list):
         return schema
     if not isinstance(schema, dict):
@@ -526,6 +558,19 @@ def _entry_columns(entry: dict[str, object]) -> list[object]:
         if isinstance(columns, list) and columns:
             return columns
     return []
+
+
+def _schema_value(schema: object) -> object:
+    """Fabric sometimes returns the schema as a JSON string instead of an object."""
+    if not isinstance(schema, str):
+        return schema
+    text = schema.strip()
+    if not text.startswith(("{", "[")):
+        return schema
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return schema
 
 
 def _schema_dataset(

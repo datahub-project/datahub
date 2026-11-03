@@ -1,5 +1,6 @@
 """Eventstream ingestion: flows, topology jobs, and Lakehouse outlets."""
 
+from copy import deepcopy
 from typing import Iterable, Optional
 from unittest.mock import MagicMock
 
@@ -123,7 +124,7 @@ def _emit(
     if fail_topology:
         client.get_eventstream_topology.side_effect = RuntimeError("topology failed")
     else:
-        client.get_eventstream_topology.return_value = (
+        client.get_eventstream_topology.return_value = deepcopy(
             _TOPOLOGY if topology is None else topology
         )
     client.get_eventstream_node.return_value = node_detail
@@ -256,6 +257,62 @@ def test_source_detail_schema_populates_source_and_stream() -> None:
         fields = datasets[node_name]._get_aspect(SchemaMetadataClass).fields
         assert [field.fieldPath for field in fields] == ["bikepointid"]
     client.get_eventstream_node.assert_called()
+
+
+def test_json_string_schema_populates_source_and_stream() -> None:
+    topology = {
+        **_TOPOLOGY,
+        "destinations": [{**_TOPOLOGY["destinations"][0], "inputSchemas": []}],
+    }
+    schema = (
+        '{"columns":[{"name":"BikepointID","type":"Nvarchar(max)"},'
+        '{"name":"No_Bikes","type":"BigInt"}]}'
+    )
+    entities, report, _client = _emit(
+        topology=topology,
+        node_detail={"inputSchemas": [{"name": "Bicycles", "schema": schema}]},
+    )
+
+    datasets = {
+        entity.display_name: entity
+        for entity in entities
+        if isinstance(entity, Dataset)
+    }
+    for node_name in ("Hub", "Orders"):
+        fields = datasets[node_name]._get_aspect(SchemaMetadataClass).fields
+        assert [field.fieldPath for field in fields] == ["bikepointid", "no_bikes"]
+    assert not report.warnings
+
+
+def test_referenced_columns_are_used_when_no_input_schema() -> None:
+    topology = {
+        **_TOPOLOGY,
+        "sources": [
+            {
+                **_TOPOLOGY["sources"][0],
+                "properties": {"referencedColumns": ["id", "name"]},
+            }
+        ],
+        "destinations": [],
+    }
+    entities, _report, _client = _emit(topology=topology)
+    datasets = {
+        entity.display_name: entity
+        for entity in entities
+        if isinstance(entity, Dataset)
+    }
+    for node_name in ("Hub", "Orders"):
+        fields = datasets[node_name]._get_aspect(SchemaMetadataClass).fields
+        assert [field.fieldPath for field in fields] == ["id", "name"]
+
+
+def test_missing_schema_is_reported() -> None:
+    topology = {**_TOPOLOGY, "destinations": []}
+    _entities, report, _client = _emit(topology=topology)
+    assert any(
+        warning.title == "Eventstream Node Has No Columns"
+        for warning in report.warnings
+    )
 
 
 def test_connection_properties_are_stored_when_requested() -> None:
