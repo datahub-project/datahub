@@ -6,6 +6,8 @@ import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionSource;
+import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
@@ -18,12 +20,14 @@ import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionInfo;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -696,5 +700,84 @@ public class AssertionInfoMutatorTest {
     assertEquals(result.stream().filter(Pair::getSecond).count(), 0);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
     assertFalse(mutatedInfo.getFieldAssertion().hasFieldPath());
+  }
+
+  private static final Urn ACTOR = UrnUtils.getUrn("urn:li:corpuser:__datahub_system");
+
+  private AssertionInfo externalAssertion(Long createdTime) {
+    AssertionSource source = new AssertionSource().setType(AssertionSourceType.EXTERNAL);
+    if (createdTime != null) {
+      source.setCreated(new AuditStamp().setTime(createdTime).setActor(ACTOR));
+    }
+    return new AssertionInfo()
+        .setType(AssertionType.FRESHNESS)
+        .setFreshnessAssertion(new FreshnessAssertionInfo().setEntity(testEntityUrn))
+        .setEntityUrn(testEntityUrn)
+        .setSource(source);
+  }
+
+  private List<Pair<ChangeMCP, Boolean>> upsert(AssertionInfo previous, AssertionInfo next) {
+    SystemAspect previousSystemAspect = null;
+    if (previous != null) {
+      previousSystemAspect = mock(SystemAspect.class);
+      when(previousSystemAspect.getRecordTemplate()).thenReturn(previous);
+    }
+    return test.writeMutation(
+            operationFingerprint,
+            Set.of(
+                TestMCP.builder()
+                    .changeType(ChangeType.UPSERT)
+                    .urn(testAssertionUrn)
+                    .entitySpec(entityRegistry.getEntitySpec(testAssertionUrn.getEntityType()))
+                    .aspectSpec(
+                        entityRegistry
+                            .getEntitySpec(testAssertionUrn.getEntityType())
+                            .getAspectSpec(ASSERTION_INFO_ASPECT_NAME))
+                    .recordTemplate(next)
+                    .previousSystemAspect(previousSystemAspect)
+                    .build()),
+            mockRetrieverContext)
+        .collect(Collectors.toList());
+  }
+
+  @Test
+  public void testStoredSourceCreatedIsPreserved() {
+    List<Pair<ChangeMCP, Boolean>> result =
+        upsert(externalAssertion(1000L), externalAssertion(2000L));
+
+    assertTrue(result.get(0).getSecond());
+    AssertionInfo mutated = result.get(0).getFirst().getAspect(AssertionInfo.class);
+    assertEquals(mutated.getSource().getCreated().getTime().longValue(), 1000L);
+    assertEquals(mutated.getSource().getType(), AssertionSourceType.EXTERNAL);
+  }
+
+  @Test
+  public void testStoredSourceCreatedFillsIncomingSourceWithoutCreated() {
+    List<Pair<ChangeMCP, Boolean>> result =
+        upsert(externalAssertion(1000L), externalAssertion(null));
+
+    assertTrue(result.get(0).getSecond());
+    AssertionInfo mutated = result.get(0).getFirst().getAspect(AssertionInfo.class);
+    assertEquals(mutated.getSource().getCreated().getTime().longValue(), 1000L);
+  }
+
+  @Test
+  public void testIncomingSourceCreatedKeptWhenNothingStored() {
+    List<Pair<ChangeMCP, Boolean>> result = upsert(null, externalAssertion(2000L));
+
+    assertFalse(result.get(0).getSecond());
+    AssertionInfo mutated = result.get(0).getFirst().getAspect(AssertionInfo.class);
+    assertEquals(mutated.getSource().getCreated().getTime().longValue(), 2000L);
+  }
+
+  @Test
+  public void testIncomingWithoutSourceIsUntouched() {
+    AssertionInfo next = externalAssertion(null);
+    next.removeSource();
+
+    List<Pair<ChangeMCP, Boolean>> result = upsert(externalAssertion(1000L), next);
+
+    assertFalse(result.get(0).getSecond());
+    assertFalse(result.get(0).getFirst().getAspect(AssertionInfo.class).hasSource());
   }
 }

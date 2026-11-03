@@ -35,6 +35,11 @@ public class AssertionInfoMutator extends MutationHook {
   /*
    * Write's the assertion's entity URN to the assertionInfo aspect. This allows
    * us to search assertions by the assertion's entity URN.
+   *
+   * Also keeps the originally stored source.created: clients stamp it with the current time on
+   * every run, which would otherwise create a new aspect version and MCL for each re-ingest.
+   * EntityServiceImpl.applyUpsert re-compares against the stored aspect after write mutations,
+   * so an otherwise identical re-ingest stays a no-op.
    */
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
@@ -67,6 +72,16 @@ public class AssertionInfoMutator extends MutationHook {
   private static boolean processAssertionInfoAspect(ChangeMCP item) {
     boolean mutated = false;
     final AssertionInfo next = item.getAspect(AssertionInfo.class);
+    final AssertionInfo previous = item.getPreviousAspect(AssertionInfo.class);
+    if (next != null
+        && next.hasSource()
+        && previous != null
+        && previous.hasSource()
+        && previous.getSource().hasCreated()
+        && !previous.getSource().getCreated().equals(next.getSource().getCreated())) {
+      next.getSource().setCreated(previous.getSource().getCreated());
+      mutated = true;
+    }
     if (next != null && !next.hasEntityUrn()) {
       final Urn entityUrn = AssertionUtils.getEntityFromAssertionInfo(next);
       if (entityUrn != null) {
