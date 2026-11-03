@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DataJobUrn, SchemaFieldUrn
 from datahub.sdk import DataFlow, DataJob
 from datahub.specific.datajob import DataJobPatchBuilder
+from datahub.utilities.urns.error import InvalidUrnError
 
 # Job platforms whose edges to queues and topics only these sources write.
 TRACKED_JOB_PLATFORMS: FrozenSet[str] = frozenset(
@@ -203,10 +204,20 @@ class JobEdgeTracker:
         stale: List[FineGrainedLineageClass] = []
         for existing in (io.fineGrainedLineages if io else None) or []:
             for downstream in existing.downstreams or []:
-                if (
-                    not downstream.startswith("urn:li:schemaField:")
-                    or SchemaFieldUrn.from_string(downstream).parent != dataset
-                ):
+                if not downstream.startswith("urn:li:schemaField:"):
+                    continue
+                try:
+                    parent = SchemaFieldUrn.from_string(downstream).parent
+                except InvalidUrnError as e:
+                    # Another writer's malformed field edge; leave it in place.
+                    self.report.warning(
+                        title="Stale field lineage not checked",
+                        message="An existing field lineage edge has an unparseable downstream urn; it is kept.",
+                        context=f"{job}: {downstream}",
+                        exc=e,
+                    )
+                    continue
+                if parent != dataset:
                     continue
                 for upstream in existing.upstreams or []:
                     if (downstream, upstream) in emitted:

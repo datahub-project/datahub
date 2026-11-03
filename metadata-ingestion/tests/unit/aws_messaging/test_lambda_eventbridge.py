@@ -775,3 +775,27 @@ def test_unreadable_pipe_template_keeps_field_edges(
     _pipe_to_topic('{"ORDER_ID": <$.body.order_id>}')
     monkeypatch.setattr(PipesClient, "input_template", lambda self, name: None)
     assert job_removals(_pipe_run()) == set()
+
+
+def test_malformed_pipe_field_urn_is_kept(aws: None) -> None:
+    # Another writer's unparseable field urn must not abort the run.
+    _pipe_to_topic('{"ORDER_ID": <$.body.order_id>}')
+    graph = _pipe_field_graph()
+    io = graph.get_aspect(PIPE_JOB, DataJobInputOutputClass)
+    io.fineGrainedLineages.append(
+        FineGrainedLineageClass(
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            upstreams=[_field(QUEUE_URN, "order_id")],
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            downstreams=["urn:li:schemaField:not-a-field-urn"],
+        )
+    )
+    source = SnsSource.create(
+        base_config(lineage={"lambda_functions": False}, include_column_lineage=True),
+        PipelineContext(run_id="lineage", graph=graph),
+    )
+    workunits = list(source.get_workunits())
+    assert _removed_field_edges(workunits) == {_field(QUEUE_URN, "amount")}
+    assert "Stale field lineage not checked" in [
+        w.title for w in source.get_report().warnings
+    ]
