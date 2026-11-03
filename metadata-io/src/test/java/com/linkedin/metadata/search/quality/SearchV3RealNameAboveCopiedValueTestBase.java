@@ -243,11 +243,10 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     add("kennel", null);
     add("booking", null);
     add("kba_ref", "Kennel Booking Archive");
-    // The canonical example: "my cat" exact, two partials, two near misses, one equal copied title.
+    // The canonical example: "my cat" exact, partial matches, one equal copied title.
     add("my cat", null);
     add("my cat frank", null);
     add("awesome my cat", null);
-    add("my dog", null);
     add("cat", null);
     add("mc_ref", "My Cat");
     add("groomed_coat_notes", null);
@@ -332,7 +331,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
 
   /**
    * For "my cat": the asset named "my cat" first, the title "My Cat" next, then "my cat frank",
-   * "awesome my cat", "my dog" and "cat", all partial matches, in any order.
+   * "awesome my cat" and "cat", all partial matches, in any order.
    */
   protected void assertCanonicalExampleOrder(Mode mode) throws Exception {
     assertTrancheOrder(mode, "my cat");

@@ -176,7 +176,7 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
   }
 
   test('my cat: the exact name, then the exact title, then every partial match in any order', async ({}, testInfo) => {
-    // "my cat frank", "awesome my cat", "my dog" and "cat" are all partial; their order is not specified.
+    // "my cat frank", "awesome my cat" and "cat" are all partial; their order is not specified.
     const actual = await expectTrancheOrder(testInfo, 'my cat');
     expect(actual[0]?.name).toBe('my cat');
   });

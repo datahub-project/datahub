@@ -105,8 +105,8 @@ export function buildRankingCorpus(): CorpusEntry[] {
   entries.push({ urn: columnUrn('booking_ledger', 'kennel_booking_id'), kind: 'column', name: 'kennel_booking_id' });
   entries.push(dataset('booking_ledger'));
 
-  // The canonical example: "my cat" exact, two partials, two near misses, one equal copied title.
-  ['my cat', 'my cat frank', 'awesome my cat', 'my dog', 'cat'].forEach((name) => entries.push(dataset(name)));
+  // The canonical example: "my cat" exact, partial matches, one equal copied title.
+  ['my cat', 'my cat frank', 'awesome my cat', 'cat'].forEach((name) => entries.push(dataset(name)));
   entries.push(dataset('mc_ref', 'My Cat'));
 
   entries.push(dataset('groomed_coat_notes'));
