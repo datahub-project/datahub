@@ -654,7 +654,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         }
         // Empty is the steady state of an entity type nobody has ingested. Filled where it
         // stands, the index would receive documents under a mapping Phase 1 still has to change,
-        // and the in-place apply pass below never reaches an index with a fill row.
+        // and the in-place apply pass below never reaches an index with a fill row. Unmapped
+        // structured property fields do not count against matchesTarget, so a fill in place leaves
+        // their values unindexed until a reindex adds the fields.
         fills.put(config.name(), matchesTarget(config) ? Fill.IN_PLACE : Fill.REBUILD_INTO_NEXT);
       } else if (IndexMigrationStamp.incomplete(config.currentMappings())) {
         // The alias holds documents written by a migration whose rows belong to an earlier deploy,

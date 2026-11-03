@@ -637,17 +637,7 @@ public class ESIndexBuilder {
     // If there are no updates to mappings and settings, return
     if (!indexState.requiresApplyMappings() && !indexState.requiresApplySettings()) {
       log.info("No updates to index {}", indexState.name());
-      if (indexState.hasNewStructuredProperty()) {
-        Set<String> unmapped =
-            new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(indexState.targetMappings()));
-        unmapped.removeAll(ReindexConfig.structuredPropertyFieldIds(indexState.currentMappings()));
-        log.warn(
-            "Index: {} - Structured property fields {} have definitions but no mapping. A definition"
-                + " upsert or a reindex adds them, and system-update adds them when it applies a"
-                + " mapping change in place.",
-            indexState.name(),
-            unmapped);
-      }
+      warnAboutUnmappedStructuredProperties(indexState);
       result = ReindexResult.NOT_REINDEXED_NOTHING_APPLIED;
       return result;
     }
@@ -921,7 +911,9 @@ public class ESIndexBuilder {
         }
         log.error(
             "Index: {} - Applied the mapping changes without the new structured property fields {};"
-                + " a definition upsert or a reindex adds them",
+                + " a definition upsert or a reindex adds them. If the put failed on the"
+                + " total-fields limit, raise index.mapping.total_fields.limit on the index for an"
+                + " upsert, or in the settings overrides for a reindex.",
             indexState.name(),
             newFields);
       }
@@ -941,6 +933,7 @@ public class ESIndexBuilder {
           indexState.name(),
           indexState.requiresReindex(),
           indexState.enableIndexMappingsReindex());
+      warnAboutUnmappedStructuredProperties(indexState);
       if (v3IndexNeedsRebuild(opContext, indexState)) {
         // Search V3 writes values for root fields an older V3 mapping declares as aliases, and the
         // engine rejects writes to an alias, so this index stops taking V3 writes; an older V3
@@ -972,6 +965,24 @@ public class ESIndexBuilder {
         }
       }
     }
+  }
+
+  /** Names the structured property fields an index leaves unmapped when nothing adds them. */
+  private static void warnAboutUnmappedStructuredProperties(@Nonnull ReindexConfig indexState) {
+    if (!indexState.hasNewStructuredProperty()) {
+      return;
+    }
+    Set<String> unmapped =
+        new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(indexState.targetMappings()));
+    unmapped.removeAll(ReindexConfig.structuredPropertyFieldIds(indexState.currentMappings()));
+    log.warn(
+        "Index: {} - Structured property fields {} have definitions but no mapping. A definition"
+            + " upsert or a reindex adds them, and system-update adds them when it applies a"
+            + " mapping change in place. An index at its total-fields limit needs a higher"
+            + " index.mapping.total_fields.limit first: on the index itself, or in the settings"
+            + " overrides for a reindex.",
+        indexState.name(),
+        unmapped);
   }
 
   /**

@@ -224,8 +224,9 @@ public class ReindexConfig {
    * mapped as text, float or long where its definition maps keyword or double, so sending the
    * definition mapping would fail the request. A left-out field keeps its live mapping until a
    * reindex rebuilds the index from the target, so only new structured-property fields are added in
-   * place. Fields match by id: a versioned field the target names with one dotted key matches the
-   * nested objects the index reports for it.
+   * place; a parameter change to a mapped field, such as {@code ignore_above} or a new subfield,
+   * waits for that reindex too. Fields match by id: a versioned field the target names with one
+   * dotted key matches the nested objects the index reports for it.
    */
   @SuppressWarnings("unchecked")
   static Map<String, Object> mappingsWithoutMappedStructuredPropertyFields(
