@@ -35,6 +35,7 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
     LARGEINT,
     QUANTILE_STATE,
     VARIANT,
+    CommentLookupFailureKind,
     DorisDialect,
 )
 from datahub.ingestion.source.sql.mysql import (
@@ -284,6 +285,7 @@ class DorisSource(MySQLSource):
         self._catalog_detection_failed = False
         # Only the metadata pass reads comments; see DorisDialect.read_comments.
         self._read_comments = True
+        self._qualified_comment_catalogs: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "DorisSource":
@@ -370,6 +372,9 @@ class DorisSource(MySQLSource):
                 db_engine = create_engine(db_url, **self.config.options)
                 if isinstance(db_engine.dialect, DorisDialect):
                     db_engine.dialect.read_comments = self._read_comments
+                    db_engine.dialect.qualified_comment_catalogs = (
+                        self._qualified_comment_catalogs
+                    )
                 db_conn = db_engine.connect()
             except Exception as e:
                 if db_engine is not None:
@@ -435,13 +440,21 @@ class DorisSource(MySQLSource):
                 context=f"{full_name}: {error}",
             )
 
-        for database, error in dialect.pop_comment_lookup_failures().items():
+        for database, failure in dialect.pop_comment_lookup_failures().items():
             self.report.databases_without_comments += 1
-            self.report.warning(
-                title="Doris table and column comments unavailable",
-                message="Reading comments from information_schema failed, so some or all of this database's table and column descriptions are missing. Check that the account can read information_schema.TABLES and information_schema.COLUMNS.",
-                context=f"{database}: {error}",
-            )
+            context = f"{database}: {'; '.join(failure.errors)}"
+            if failure.kind == CommentLookupFailureKind.NOT_SERVED:
+                self.report.warning(
+                    title="Doris table and column comments not found",
+                    message="information_schema has no comments for this database although its tables are being ingested, so their table and column descriptions are missing. For an external catalog this needs Doris 2.1 or later, where each catalog has its own information_schema.",
+                    context=context,
+                )
+            else:
+                self.report.warning(
+                    title="Doris table and column comments unavailable",
+                    message="Reading comments from information_schema failed, so some or all of this database's table and column descriptions are missing. Check that the account can read information_schema.TABLES and information_schema.COLUMNS.",
+                    context=context,
+                )
 
     def get_profiling_internal(self) -> MetadataWorkUnitIterable:
         self._read_comments = False

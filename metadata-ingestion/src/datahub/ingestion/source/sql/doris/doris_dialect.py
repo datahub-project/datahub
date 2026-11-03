@@ -10,8 +10,10 @@ from typing import (
     Generic,
     List,
     Mapping,
+    NamedTuple,
     Optional,
     Sequence,
+    Set,
     Type,
     TypeVar,
     cast,
@@ -30,6 +32,8 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
+
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +156,20 @@ _TABLE_COMMENTS_SQL = (
     "FROM information_schema.TABLES WHERE TABLE_SCHEMA = :schema"
 )
 
+
+class ColumnCommentRow(NamedTuple):
+    table_catalog: Optional[str]
+    table_name: str
+    column_name: str
+    column_comment: Optional[str]
+
+
+class TableCommentRow(NamedTuple):
+    table_catalog: Optional[str]
+    table_name: str
+    table_comment: Optional[str]
+
+
 _CommentValue = TypeVar("_CommentValue")
 
 
@@ -169,37 +187,52 @@ class CommentScope:
     # The external catalog the database belongs to, or None for the internal one.
     catalog: Optional[str]
 
+    def __post_init__(self) -> None:
+        if not self.catalog:
+            object.__setattr__(self, "catalog", None)
+
     @property
     def qualified_database(self) -> str:
         return f"{self.catalog}.{self.database}" if self.catalog else self.database
 
 
-@dataclass(frozen=True)
+class CommentLookupFailureKind(StrEnum):
+    # The query raised: a missing grant, a Doris query_timeout.
+    QUERY_FAILED = "QUERY_FAILED"
+    # The query ran but information_schema has nothing for a database whose tables
+    # are being reflected, as on an external catalog before Doris 2.1.
+    NOT_SERVED = "NOT_SERVED"
+
+
+@dataclass
+class CommentLookupFailure:
+    kind: CommentLookupFailureKind
+    errors: List[str] = field(default_factory=list)
+
+
 class CommentIndex(Generic[_CommentValue]):
     """Comments by name, for a database's tables or one table's columns.
 
-    Doris 4.0.8+ keeps Iceberg and Paimon column names in their source case where
-    earlier versions lower-cased them (apache/doris#65094), so a reflected name may
-    differ in case from the one information_schema returns. Case-sensitive catalogs
-    can also hold names that differ only in case, so the fallback must never pick
-    between them.
+    Doris 4.0.8+ keeps Iceberg and Paimon names in their source case where earlier
+    versions lower-cased them (apache/doris#65094), so a reflected table or column
+    name may differ in case from the one information_schema returns. Case-sensitive
+    catalogs can also hold names that differ only in case, so the fallback must
+    never pick between them.
     """
 
-    # Every name information_schema returned, including those without a comment, so
-    # that an uncommented name is an exact hit rather than a miss that falls through
-    # to a case-insensitive sibling.
-    entries: Mapping[str, Optional[_CommentValue]]
-    # Lower-cased name to the one name that lower-cases to it. Names that collide are
-    # left out, since picking one of them would be a guess. lower() rather than
-    # casefold(), which folds further (ß to ss) than Doris' own Java toLowerCase.
-    _lowered: Dict[str, str] = field(init=False, repr=False, compare=False)
-
-    def __post_init__(self) -> None:
-        counts = Counter(name.lower() for name in self.entries)
-        lowered = {
-            name.lower(): name for name in self.entries if counts[name.lower()] == 1
+    def __init__(self, entries: Mapping[str, Optional[_CommentValue]]) -> None:
+        # Every name information_schema returned, including those without a
+        # comment, so that an uncommented name is an exact hit rather than a miss
+        # that falls through to a case-insensitive sibling.
+        self.entries = entries
+        # Lower-cased name to the one name that lower-cases to it. Names that
+        # collide are left out, since picking one of them would be a guess. lower()
+        # rather than casefold(), which folds further (ß to ss) than Doris' own Java
+        # toLowerCase.
+        counts = Counter(name.lower() for name in entries)
+        self._lowered = {
+            name.lower(): name for name in entries if counts[name.lower()] == 1
         }
-        object.__setattr__(self, "_lowered", lowered)
 
     def get(self, name: str) -> Optional[_CommentValue]:
         if name in self.entries:
@@ -312,7 +345,15 @@ class DorisDialect(MySQLDialect_pymysql):
         # Databases whose information_schema comment lookup failed, keyed by
         # `catalog.database` for an external catalog and the database name otherwise,
         # drained the same way.
-        self.comment_lookup_failures: Dict[str, str] = {}
+        self.comment_lookup_failures: Dict[str, CommentLookupFailure] = {}
+        # Scopes with a recorded failure. Kept after draining, so a database whose
+        # information_schema has no rows is reported once, not once per table.
+        self._failed_comment_scopes: Set[CommentScope] = set()
+        # External catalogs whose information_schema keys rows by `catalog.database`
+        # (show_full_dbname_in_info_schema_db). DorisSource shares one set across the
+        # engines it opens per database, so only the first database of such a catalog
+        # pays for the bare-name query that misses.
+        self.qualified_comment_catalogs: Set[str] = set()
         # Memoised on the dialect, which lives as long as the engine DorisSource
         # opens per database, so each database-wide query runs once per database
         # however many Inspectors reflect its tables.
@@ -335,7 +376,7 @@ class DorisDialect(MySQLDialect_pymysql):
         self.type_overlay_failures = {}
         return failures
 
-    def pop_comment_lookup_failures(self) -> Dict[str, str]:
+    def pop_comment_lookup_failures(self) -> Dict[str, CommentLookupFailure]:
         failures = self.comment_lookup_failures
         self.comment_lookup_failures = {}
         return failures
@@ -428,7 +469,9 @@ class DorisDialect(MySQLDialect_pymysql):
 
         scope = self._comment_scope(connection, schema) if self.read_comments else None
         if scope is not None:
-            table_comments = self._column_comments(connection, scope).get(table_name)
+            column_index = self._column_comments(connection, scope)
+            self._check_comments_served(scope, column_index, "COLUMNS")
+            table_comments = column_index.get(table_name)
             if table_comments is not None:
                 for col in columns:
                     # information_schema wins: it has the comment unescaped, and the
@@ -455,10 +498,39 @@ class DorisDialect(MySQLDialect_pymysql):
         if scope is None:
             return table_comment
 
-        comment = self._table_comments(connection, scope).get(table_name)
+        table_index = self._table_comments(connection, scope)
+        self._check_comments_served(scope, table_index, "TABLES")
+        comment = table_index.get(table_name)
         if comment is None:
             return table_comment
         return ReflectedTableComment(text=comment)
+
+    def _check_comments_served(
+        self, scope: CommentScope, index: CommentIndex[Any], view: str
+    ) -> None:
+        # A table is being reflected, so its database is not empty: no rows at all
+        # means information_schema does not cover it, and its descriptions would
+        # otherwise go missing without a word.
+        if not index.entries and scope not in self._failed_comment_scopes:
+            self._record_comment_failure(
+                scope,
+                CommentLookupFailureKind.NOT_SERVED,
+                f"information_schema.{view} returned no rows for "
+                f"{scope.qualified_database}",
+            )
+
+    def _record_comment_failure(
+        self, scope: CommentScope, kind: CommentLookupFailureKind, error: str
+    ) -> None:
+        self._failed_comment_scopes.add(scope)
+        failure = self.comment_lookup_failures.setdefault(
+            scope.qualified_database, CommentLookupFailure(kind)
+        )
+        # A query error explains more than missing rows, so it decides the message.
+        if kind == CommentLookupFailureKind.QUERY_FAILED:
+            failure.kind = kind
+        if error not in failure.errors:
+            failure.errors.append(error)
 
     def _column_comments(
         self, connection: Connection, scope: CommentScope
@@ -466,9 +538,9 @@ class DorisDialect(MySQLDialect_pymysql):
         if scope not in self._column_comment_cache:
             tables: Dict[str, Dict[str, Optional[str]]] = {}
             rows = self._query_comments(connection, _COLUMN_COMMENTS_SQL, scope)
-            for table, column, comment in rows:
-                tables.setdefault(str(table), {})[str(column)] = _non_empty_comment(
-                    comment
+            for row in map(ColumnCommentRow._make, rows):
+                tables.setdefault(str(row.table_name), {})[str(row.column_name)] = (
+                    _non_empty_comment(row.column_comment)
                 )
             self._column_comment_cache[scope] = CommentIndex(
                 {table: CommentIndex(columns) for table, columns in tables.items()}
@@ -481,26 +553,36 @@ class DorisDialect(MySQLDialect_pymysql):
         if scope not in self._table_comment_cache:
             rows = self._query_comments(connection, _TABLE_COMMENTS_SQL, scope)
             self._table_comment_cache[scope] = CommentIndex(
-                {str(table): _non_empty_comment(comment) for table, comment in rows}
+                {
+                    str(row.table_name): _non_empty_comment(row.table_comment)
+                    for row in map(TableCommentRow._make, rows)
+                }
             )
         return self._table_comment_cache[scope]
 
     def _query_comments(
         self, connection: Connection, sql: str, scope: CommentScope
     ) -> List[Sequence[Any]]:
-        qualified_database = scope.qualified_database
+        """Return the scope's rows, each still led by its TABLE_CATALOG."""
+        # An external catalog keys its rows by the bare database name by default,
+        # and by `catalog.database` once show_full_dbname_in_info_schema_db is on.
+        # With that setting on, FE strips the prefix before pushing the filter down,
+        # so a bare-name miss still loads the database's remote metadata. Whichever
+        # form hit first is tried first for the rest of the catalog.
+        names = [scope.database]
+        if scope.catalog:
+            names.append(scope.qualified_database)
+            if scope.catalog in self.qualified_comment_catalogs:
+                names.reverse()
         statement = text(sql)
+        rows: List[Sequence[Any]] = []
         try:
-            # An external catalog keys its rows by the bare database name by default,
-            # and by `catalog.database` once show_full_dbname_in_info_schema_db is on.
-            # The bare name goes first, and a miss costs one cheap empty query.
-            rows: List[Sequence[Any]] = list(
-                connection.execute(statement, {"schema": scope.database})
-            )
-            if not rows and qualified_database != scope.database:
-                rows = list(
-                    connection.execute(statement, {"schema": qualified_database})
-                )
+            for name in names:
+                rows = list(connection.execute(statement, {"schema": name}))
+                if rows:
+                    if scope.catalog and name == scope.qualified_database:
+                        self.qualified_comment_catalogs.add(scope.catalog)
+                    break
         except SQLAlchemyError as e:
             if _is_connection_lost(e):
                 # A dropped connection is not a missing grant: every later statement
@@ -509,14 +591,15 @@ class DorisDialect(MySQLDialect_pymysql):
                 raise
             # Comments are lost but the tables are not. The empty result is what gets
             # memoised, so a database whose lookup fails costs one failed query
-            # rather than one per table. A raised bare-name query is not a miss, so
-            # the qualified form is not tried; the failure is keyed by the database
-            # either way, and the error text carries the name that was bound.
-            self.comment_lookup_failures.setdefault(qualified_database, str(e))
+            # rather than one per table. A raised query is not a miss, so the other
+            # name form is not tried; the error text carries the name that was bound.
+            self._record_comment_failure(
+                scope, CommentLookupFailureKind.QUERY_FAILED, str(e)
+            )
             logger.info(
                 f"Reading comments from information_schema failed for "
-                f"{qualified_database}: {e}. Some or all of its tables and columns "
-                f"will have no descriptions."
+                f"{scope.qualified_database}: {e}. Some or all of its tables and "
+                f"columns will have no descriptions."
             )
             return []
         return self._rows_in_catalog(rows, scope)
@@ -524,7 +607,7 @@ class DorisDialect(MySQLDialect_pymysql):
     def _rows_in_catalog(
         self, rows: List[Sequence[Any]], scope: CommentScope
     ) -> List[Sequence[Any]]:
-        """Drop the leading TABLE_CATALOG column, keeping only the scope's own rows.
+        """Keep only the scope's own rows.
 
         Before Doris 2.1 an external catalog has no information_schema of its own
         (apache/doris#28919), so the query reads the internal catalog's, where a
@@ -533,14 +616,14 @@ class DorisDialect(MySQLDialect_pymysql):
         the lookup tens of times slower on a Paimon catalog, so the rows are checked.
         """
         if scope.catalog is None:
-            return [row[1:] for row in rows]
-        matching = [row[1:] for row in rows if row[0] == scope.catalog]
+            return rows
+        matching = [row for row in rows if row[0] == scope.catalog]
         if rows and not matching:
-            self.comment_lookup_failures.setdefault(
-                scope.qualified_database,
+            self._record_comment_failure(
+                scope,
+                CommentLookupFailureKind.NOT_SERVED,
                 f"information_schema returned rows of catalog {rows[0][0]!r} rather "
-                f"than {scope.catalog!r}; per-catalog information_schema needs "
-                f"Doris 2.1 or later",
+                f"than {scope.catalog!r}",
             )
         return matching
 

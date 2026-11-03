@@ -8,6 +8,8 @@ from sqlalchemy.exc import PendingRollbackError, ProgrammingError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.doris.doris_dialect import (
+    CommentLookupFailure,
+    CommentLookupFailureKind,
     DorisDialect,
     ReflectionFallback,
 )
@@ -523,26 +525,40 @@ class TestDorisSourceMethods:
 
     def test_comment_lookup_failure_reported_per_database(self):
         """Descriptions missing from a whole database look like undocumented tables
-        unless the report says the lookup failed."""
+        unless the report says why, and a server that does not serve comments needs
+        an upgrade rather than a grant."""
         config = DorisConfig(host_port="localhost:9030")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
 
+        failures = {
+            "db1": CommentLookupFailure(
+                CommentLookupFailureKind.QUERY_FAILED,
+                ["COLUMNS: Access denied", "TABLES: Query timeout"],
+            ),
+            "my_catalog.db2": CommentLookupFailure(
+                CommentLookupFailureKind.NOT_SERVED, ["no rows"]
+            ),
+        }
         dialects = []
-        for db in ("db1", "db2"):
+        for db, failure in failures.items():
             dialect = DorisDialect()
-            dialect.comment_lookup_failures[db] = "Access denied"
+            dialect.comment_lookup_failures[db] = failure
             conn = MagicMock()
             conn.dialect = dialect
             source._report_reflection_fallbacks(conn)
             dialects.append(dialect)
 
         assert source.report.databases_without_comments == 2
-        assert [w.title for w in source.report.warnings] == [
-            "Doris table and column comments unavailable"
-        ]
-        contexts = " ".join(str(warning) for warning in source.report.warnings)
-        assert contexts.count("db1: Access denied") == 1
-        assert contexts.count("db2: Access denied") == 1
+        assert len(source.report.warnings) == 2
+        warnings = {
+            context: warning.message
+            for warning in source.report.warnings
+            for context in warning.context
+        }
+        grant_message = warnings["db1: COLUMNS: Access denied; TABLES: Query timeout"]
+        upgrade_message = warnings["my_catalog.db2: no rows"]
+        assert "information_schema.TABLES" in grant_message
+        assert "Doris 2.1" in upgrade_message
         assert all(dialect.comment_lookup_failures == {} for dialect in dialects)
 
     def test_only_the_metadata_pass_reads_comments(self):
@@ -582,6 +598,12 @@ class TestDorisSourceMethods:
             False,
             True,
         ]
+        # One catalog's name form, once learned, is reused by every database.
+        assert all(
+            dialect.qualified_comment_catalogs
+            is db_dialects[0].qualified_comment_catalogs
+            for dialect in db_dialects
+        )
 
     @staticmethod
     def _inspector_losing_connection_on(method: str) -> MagicMock:
