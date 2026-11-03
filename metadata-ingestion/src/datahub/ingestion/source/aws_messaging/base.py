@@ -81,7 +81,9 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         raise NotImplementedError
 
     def first_resource_arn(self) -> Optional[str]:
-        """One ARN of this service, used only to read the account id."""
+        """One resource ARN of this service, used only to read the account id; None
+        when there are no resources. Anything that doesn't parse as an ARN (an
+        unrecognised SQS queue URL, say) is reported as an unreadable account."""
         raise NotImplementedError
 
     def _resolve_account_id(self) -> Optional[str]:
