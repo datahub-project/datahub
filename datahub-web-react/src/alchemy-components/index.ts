@@ -23,6 +23,7 @@ export * from './components/Drawer';
 export * from './components/Dropdown';
 export * from './components/FileDragAndDropArea';
 export * from './components/FileNode';
+export * from './components/FilterBar';
 export * from './components/GraphCard';
 export * from './components/Heading';
 export * from './components/Icon';
