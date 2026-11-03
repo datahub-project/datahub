@@ -99,19 +99,18 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self.graph = graph
         self.report = report
 
-        # Init cache, potentially restoring from a previous run.
-        shared_conn = None
-        if _cache_filename:
-            shared_conn = ConnectionWrapper(filename=_cache_filename)
+        # Init cache, potentially restoring from a previous run. Without a filename
+        # the connection uses a temp directory, removed on close.
+        self._conn = ConnectionWrapper(filename=_cache_filename)
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
-            shared_connection=shared_conn,
+            shared_connection=self._conn,
             extra_columns={"is_missing": lambda v: v is None},
         )
         # {urn: {simplified field path: original field path}}, only for fields whose
         # paths differ (v2 paths). SchemaInfo keys are simplified for the SQL parser,
         # but a schemaField URN must use the dataset's real field path to join.
         self._original_field_paths: FileBackedDict[Dict[str, str]] = FileBackedDict(
-            shared_connection=shared_conn, tablename="original_field_paths"
+            shared_connection=self._conn, tablename="original_field_paths"
         )
 
     @property
@@ -329,14 +328,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         if self.graph:
             aspect = self.graph.get_aspect(urn, SchemaMetadataClass)
-            schema_info = _convert_schema_aspect_to_info(aspect) if aspect else None
-            if aspect and schema_info:
-                self._save_to_cache(
-                    urn,
-                    schema_info,
-                    _original_field_paths(f.fieldPath for f in aspect.fields),
+            if aspect:
+                schema_info, original_paths = _schema_info_and_original_paths(
+                    aspect.fields
                 )
-                return schema_info
+                if schema_info:
+                    self._save_to_cache(urn, schema_info, original_paths)
+                    return schema_info
 
         self._save_to_cache(urn, None)
         return None
@@ -345,9 +343,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
         self._save_to_cache(
-            urn,
-            _convert_schema_aspect_to_info(schema_metadata),
-            _original_field_paths(f.fieldPath for f in schema_metadata.fields),
+            urn, *_schema_info_and_original_paths(schema_metadata.fields)
         )
 
     def add_schema_metadata_from_fetch(
@@ -366,11 +362,8 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_graphql_schema_metadata(
         self, urn: str, schema_metadata: GraphQLSchemaMetadata
     ) -> None:
-        schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
         self._save_to_cache(
-            urn,
-            schema_info,
-            _original_field_paths(f["fieldPath"] for f in schema_metadata["fields"]),
+            urn, *_graphql_schema_info_and_original_paths(schema_metadata)
         )
 
     def with_temp_tables(
@@ -405,19 +398,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def convert_graphql_schema_metadata_to_info(
         cls, schema: GraphQLSchemaMetadata
     ) -> SchemaInfo:
-        return {
-            get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
-                # The actual types are more of a "nice to have".
-                field["nativeDataType"] or "str"
-            )
-            for field in schema["fields"]
-            # TODO: We can't generate lineage to columns nested within structs yet.
-            if "." not in get_simple_field_path_from_v2_field_path(field["fieldPath"])
-        }
+        return _graphql_schema_info_and_original_paths(schema)[0]
 
     def close(self) -> None:
-        self._schema_cache.close()
-        self._original_field_paths.close()
+        # Closes (and flushes) both dicts; a temp-directory connection is removed.
+        self._conn.close()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):
@@ -460,33 +445,59 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
         )
 
 
+def _type_segment_count(field_path: str) -> int:
+    return field_path.count("[type=")
+
+
+def _simple_to_original_paths(
+    fields: Iterable[Tuple[str, str]],
+) -> Tuple[SchemaInfo, Dict[str, str]]:
+    """Build the SchemaInfo (simplified path -> native type) and the
+    simplified -> original field path map in one pass over (fieldPath, native type).
+
+    A union column simplifies to the same path as each of its members (e.g.
+    `[type=union].u`, `[type=union].[type=int].u`, `[type=union].[type=string].u`
+    all become `u`). The column itself is the candidate with the fewest `[type=...]`
+    segments; this does not depend on field order, which sources that sort fields
+    by fieldPath change. A plain (v1) path has none and so always wins, and is then
+    dropped from the map because it needs no translation."""
+    schema_info: SchemaInfo = {}
+    candidates: Dict[str, str] = {}
+    for field_path, native_type in fields:
+        simple = get_simple_field_path_from_v2_field_path(field_path)
+        # TODO: We can't generate lineage to columns nested within structs yet.
+        if "." in simple:
+            continue
+        # The actual types are more of a "nice to have".
+        schema_info[simple] = native_type or "str"
+        current = candidates.get(simple)
+        if current is None or _type_segment_count(field_path) < _type_segment_count(
+            current
+        ):
+            candidates[simple] = field_path
+    return schema_info, {k: v for k, v in candidates.items() if k != v}
+
+
+def _schema_info_and_original_paths(
+    schema_fields: Iterable[SchemaFieldClass],
+) -> Tuple[SchemaInfo, Dict[str, str]]:
+    return _simple_to_original_paths(
+        (col.fieldPath, col.nativeDataType) for col in schema_fields
+    )
+
+
+def _graphql_schema_info_and_original_paths(
+    schema: GraphQLSchemaMetadata,
+) -> Tuple[SchemaInfo, Dict[str, str]]:
+    return _simple_to_original_paths(
+        (field["fieldPath"], field["nativeDataType"]) for field in schema["fields"]
+    )
+
+
 def _convert_schema_field_list_to_info(
     schema_fields: List[SchemaFieldClass],
 ) -> SchemaInfo:
-    return {
-        get_simple_field_path_from_v2_field_path(col.fieldPath): (
-            # The actual types are more of a "nice to have".
-            col.nativeDataType or "str"
-        )
-        for col in schema_fields
-        # TODO: We can't generate lineage to columns nested within structs yet.
-        if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
-    }
-
-
-def _original_field_paths(field_paths: Iterable[str]) -> Dict[str, str]:
-    # Same keys as _convert_schema_field_list_to_info, restricted to fields whose
-    # path changes when simplified, so v1-path schemas cost nothing.
-    result: Dict[str, str] = {}
-    for field_path in field_paths:
-        simple = get_simple_field_path_from_v2_field_path(field_path)
-        if simple != field_path and "." not in simple:
-            result[simple] = field_path
-    return result
-
-
-def _convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> SchemaInfo:
-    return _convert_schema_field_list_to_info(schema_metadata.fields)
+    return _schema_info_and_original_paths(schema_fields)[0]
 
 
 def match_columns_to_schema(

@@ -1,3 +1,5 @@
+import json
+from typing import List
 from unittest.mock import MagicMock
 
 import pytest
@@ -5,6 +7,7 @@ import sqlglot
 from sqlglot import parse_one
 from sqlglot.expressions import Table
 
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.sql_parsing.schema_resolver import (
@@ -16,6 +19,8 @@ from datahub.sql_parsing.schema_resolver import (
     match_columns_to_schema,
 )
 from datahub.sql_parsing.sqlglot_lineage import _table_name_from_sqlglot_table
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 
 def create_default_schema_resolver(urn: str) -> SchemaResolver:
@@ -675,9 +680,108 @@ def test_original_field_paths_empty_for_v1_and_unknown_schemas():
     assert resolver.get_original_field_paths("urn:li:dataset:unknown") == {}
 
 
-def test_original_field_paths_cleared_when_schema_replaced():
+@pytest.mark.parametrize(
+    "replace",
+    [
+        pytest.param(
+            lambda r: r.add_raw_schema_info(_V2_URN, {"col_a": "bigint"}), id="raw"
+        ),
+        pytest.param(
+            lambda r: r.add_schema_metadata(
+                _V2_URN, create_mock_schema([("col_a", "bigint")])
+            ),
+            id="v1_schema",
+        ),
+        pytest.param(
+            lambda r: r.add_schema_metadata_from_fetch(_V2_URN, None), id="fetch_miss"
+        ),
+    ],
+)
+def test_original_field_paths_cleared_when_schema_replaced(replace):
     resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
     resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
-    resolver.add_raw_schema_info(_V2_URN, {"col_a": "bigint"})
+    replace(resolver)
 
     assert resolver.get_original_field_paths(_V2_URN) == {}
+
+
+def test_original_field_paths_for_mixed_v1_and_v2_schema():
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(
+        _V2_URN,
+        create_mock_schema(
+            [("col_a", "bigint"), ("[version=2.0].[type=string].col_b", "string")]
+        ),
+    )
+
+    assert resolver.resolve_urn(_V2_URN)[1] == {"col_a": "bigint", "col_b": "string"}
+    assert resolver.get_original_field_paths(_V2_URN) == {
+        "col_b": "[version=2.0].[type=string].col_b"
+    }
+
+
+def _hive_paths(name: str, hive_type: str) -> List[str]:
+    return [f.fieldPath for f in get_schema_fields_for_hive_column(name, hive_type)]
+
+
+def _avro_paths(avro_type: object) -> List[str]:
+    record = {
+        "type": "record",
+        "name": "R",
+        "fields": [{"name": "u", "type": avro_type}],
+    }
+    return [f.fieldPath for f in avro_schema_to_mce_fields(json.dumps(record))]
+
+
+@pytest.mark.parametrize(
+    "paths, expected",
+    [
+        # Real converter output; the column root is what a schemaField URN targets.
+        (
+            _hive_paths("s", "struct<a:int,b:string>"),
+            "[version=2.0].[type=struct].[type=struct].s",
+        ),
+        (
+            _hive_paths("arr", "array<int>"),
+            "[version=2.0].[type=struct].[type=array].[type=int].arr",
+        ),
+        (
+            _hive_paths("m", "map<string,int>"),
+            "[version=2.0].[type=struct].[type=map].[type=int].m",
+        ),
+        (
+            _hive_paths("u", "uniontype<int,string>"),
+            "[version=2.0].[type=struct].[type=union].u",
+        ),
+        # A nullable Avro union collapses to the member type: there is no wrapper.
+        (_avro_paths(["null", "long"]), "[version=2.0].[type=R].[type=long].u"),
+        (
+            _avro_paths(["null", "long", "string"]),
+            "[version=2.0].[type=R].[type=union].u",
+        ),
+    ],
+    ids=[
+        "struct",
+        "array",
+        "map",
+        "hive_union",
+        "avro_nullable_union",
+        "avro_multi_union",
+    ],
+)
+@pytest.mark.parametrize(
+    "order",
+    [list, sorted, lambda p: list(reversed(p))],
+    ids=["emitted", "sorted", "reversed"],
+)
+def test_original_field_path_is_the_column_root(paths, expected, order):
+    # Union members simplify to the same path as their column. The column must win
+    # whatever the field order: some sources sort fields by fieldPath, which puts
+    # members before the column.
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(
+        _V2_URN, create_mock_schema([(p, "t") for p in order(paths)])
+    )
+
+    simple = get_simple_field_path_from_v2_field_path(expected)
+    assert resolver.get_original_field_paths(_V2_URN) == {simple: expected}
