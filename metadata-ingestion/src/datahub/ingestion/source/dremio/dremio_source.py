@@ -385,6 +385,13 @@ class DremioSource(StatefulIngestionSourceBase):
         self, source_map: Dict[str, DremioSourceMapEntry]
     ) -> None:
         listed = {m.source_name.lower() for m in self.config.source_mappings or []}
+        for source_name in sorted(listed - source_map.keys()):
+            # A schema_pattern that allows only paths below the source also
+            # filters out the source container, so it never reaches the map.
+            self.report.warning(
+                message="source_mappings entry matches no ingested Dremio source, so no upstream lineage is emitted for it. Check that schema_pattern allows the source itself, e.g. ^MY_SRC($|\\..*)",
+                context=f"source={source_name}",
+            )
         for source_name, mapping in source_map.items():
             if mapping.dremio_source_category == "unknown":
                 self.report.warning(

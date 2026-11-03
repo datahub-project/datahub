@@ -58,6 +58,10 @@ Each Dremio table in a mapped source gets a COPY upstream on the source platform
   ingested with `convert_urns_to_lowercase: true` (which that connector recommends for lineage),
   or `false` for Snowflake ingested with `convert_urns_to_lowercase: false`.
 - Set `platform_instance` and `env` on the mapping to the values the target connector uses.
+- `schema_pattern` must allow the source itself, not only paths below it. Otherwise the source
+  is filtered out and its tables get no upstream. Use, for example, `^my_src$` together with
+  `^my_src\.my_db(\..*)?$`, or `^my_src($|\..*)`. A `source_mappings` entry that matches no
+  ingested source is reported as a warning.
 - The ingestion report lists one sample upstream URN per mapped source under
   `source_mapping_sample_upstream_urns`. Compare it with a URN of the target connector.
 

@@ -713,3 +713,34 @@ def test_map_urn_dremio_to_dremio_uses_dremio_naming() -> None:
         )
         == "urn:li:dataset:(urn:li:dataPlatform:dremio,remote.dremio.my_space.my_folder.my_view,DEV)"
     )
+
+
+def test_mapping_without_ingested_source_warns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # schema_pattern ^MY_SRC\.MY_DB.* filters out the MY_SRC container itself,
+    # so build_dremio_source_map never sees it.
+    source = _dremio_source(
+        monkeypatch,
+        [
+            DremioSourceMapping(source_name="MY_SRC", platform="snowflake"),
+            DremioSourceMapping(
+                source_name="other_src", platform="mssql", platform_instance="i"
+            ),
+        ],
+    )
+    source._validate_source_mappings(
+        _source_map(
+            "MSSQL",
+            None,
+            "other_src",
+            mappings=[
+                DremioSourceMapping(
+                    source_name="other_src", platform="mssql", platform_instance="i"
+                )
+            ],
+        )
+    )
+    assert _warning_contexts(source, "source_mappings entry matches no") == [
+        "source=my_src"
+    ]
