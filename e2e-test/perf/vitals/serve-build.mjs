@@ -178,7 +178,8 @@ async function graphqlOperations(req) {
     } catch {
         parsed = null;
     }
-    const variablesOf = (op) => (op && typeof op.variables === 'object' && op.variables) || {};
+    const variablesOf = (op) =>
+        (op && op.variables && typeof op.variables === 'object' && !Array.isArray(op.variables) && op.variables) || {};
     if (Array.isArray(parsed)) {
         return {
             batched: true,

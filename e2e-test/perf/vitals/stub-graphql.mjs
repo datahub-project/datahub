@@ -466,9 +466,19 @@ function recommendationEntity(asset) {
     };
 }
 
+function list(value) {
+    return Array.isArray(value) ? value.filter((item) => item != null) : [];
+}
+
+// Every criterion in `filters` and in each `orFilters[].and`, as GMS reads them.
+function criteria(input) {
+    return [...list(input?.filters), ...list(input?.orFilters).flatMap((group) => list(group.and))];
+}
+
 function ownerValues(variables) {
-    const filters = variables?.input?.filters || variables?.input?.orFilters?.flatMap((f) => f.and || []) || [];
-    return filters.find((filter) => filter.field === 'owners')?.values || [];
+    return criteria(variables?.input)
+        .filter((criterion) => criterion.field === 'owners')
+        .flatMap((criterion) => list(criterion.values));
 }
 
 // Your Assets asks for all types; Domains/Glossary/Tags "you own" ask for one type each.
@@ -621,7 +631,7 @@ const LAST_VIEWED_ANNOUNCEMENT_STEP = 'lastViewedAnnouncementTimeMs';
 // A step id that comes back is a step the user has seen. A returning user has
 // dismissed every onboarding tour, and last opened announcements a week ago.
 function batchGetStepStates(variables = {}) {
-    const ids = variables.input?.ids || [];
+    const ids = list(variables.input?.ids).map(String);
     return {
         batchGetStepStates: {
             __typename: 'BatchGetStepStatesResult',
@@ -741,9 +751,8 @@ const POSTS = [
     },
 ];
 
-function listPosts(variables = {}) {
-    const start = variables.input?.start || 0;
-    const posts = POSTS.map((post) => ({
+function postRecord(post) {
+    return {
         __typename: 'Post',
         urn: `urn:li:post:${post.id}`,
         type: 'POST',
@@ -757,9 +766,43 @@ function listPosts(variables = {}) {
             link: post.link,
             media: null,
         },
-    })).slice(start, start + (variables.input?.count ?? 10));
+    };
+}
+
+const POST_FIELDS = {
+    type: (post) => post.postType,
+    urn: (post) => post.urn,
+    lastModified: (post) => post.lastModified.time,
+};
+
+function postMatches(post, criterion) {
+    const read = POST_FIELDS[criterion.field];
+    if (!read) return true;
+    const actual = read(post);
+    const values = list(criterion.values);
+    const hit =
+        criterion.condition === 'GREATER_THAN'
+            ? values.some((value) => Number(actual) > Number(value))
+            : values.some((value) => String(value) === String(actual));
+    return criterion.negated ? !hit : hit;
+}
+
+// The home page asks for announcements newer than the last visit and not
+// dismissed. `orFilters` groups are OR'd, the criteria inside each are AND'd.
+function listPosts(variables = {}) {
+    const input = variables.input || {};
+    const groups = [
+        ...(list(input.filters).length ? [list(input.filters)] : []),
+        ...list(input.orFilters).map((group) => list(group.and)),
+    ];
+    const matching = POSTS.map(postRecord).filter(
+        (post) =>
+            groups.length === 0 || groups.some((group) => group.every((criterion) => postMatches(post, criterion))),
+    );
+    const start = input.start || 0;
+    const posts = matching.slice(start, start + (input.count ?? 10));
     return {
-        listPosts: { __typename: 'ListPostsResult', start, count: posts.length, total: POSTS.length, posts },
+        listPosts: { __typename: 'ListPostsResult', start, count: posts.length, total: matching.length, posts },
     };
 }
 

@@ -101,6 +101,59 @@ describe('home page fixtures', () => {
         assert.equal(homeRecommendations({ scenario: 'SEARCH_BAR' })[0].renderType, 'SEARCH_QUERY_LIST');
     });
 
+    it('reads owners from orFilters as well as filters', () => {
+        const result = graphqlStubData('getSearchResultsForMultipleCards', {
+            input: { types: [], filters: [], orFilters: [{ and: [{ field: 'owners', values: [ACTOR] }] }] },
+        }).searchAcrossEntities;
+        assert.equal(result.total, ownedSearch([]).total);
+    });
+
+    it('returns only announcements newer than the last visit and not dismissed', () => {
+        const all = graphqlStubData('listPosts', { input: { start: 0, count: 30 } }).listPosts.posts;
+        const newest = Math.max(...all.map((post) => post.lastModified.time));
+        const since = (time, dismissed = []) =>
+            graphqlStubData('listPosts', {
+                input: {
+                    start: 0,
+                    count: 30,
+                    orFilters: [
+                        {
+                            and: [
+                                { field: 'type', condition: 'EQUAL', values: ['HOME_PAGE_ANNOUNCEMENT'] },
+                                { field: 'urn', condition: 'EQUAL', values: dismissed, negated: true },
+                                { field: 'lastModified', condition: 'GREATER_THAN', values: [String(time)] },
+                            ],
+                        },
+                    ],
+                },
+            }).listPosts;
+        assert.equal(since(0).total, all.length);
+        assert.equal(since(newest).total, 0);
+        assert.ok(since(newest - 1).posts.every((post) => post.lastModified.time === newest));
+        assert.equal(since(0, [all[0].urn]).total, all.length - 1);
+    });
+
+    it('does not throw on malformed variables', () => {
+        const odd = [
+            null,
+            [],
+            { input: null },
+            { input: { ids: 'x', filters: [null], orFilters: [null, { and: null }] } },
+        ];
+        for (const variables of odd) {
+            for (const name of [
+                'batchGetStepStates',
+                'getSearchResultsForMultipleCards',
+                'listPosts',
+                'listRecommendations',
+                'getUserGroupsUrns',
+                'listGlobalViews',
+            ]) {
+                assert.doesNotThrow(() => graphqlStubData(name, variables), `${name} ${JSON.stringify(variables)}`);
+            }
+        }
+    });
+
     it('lists home page announcements, quick filters, groups and views', () => {
         const { posts, total } = graphqlStubData('listPosts', { input: { start: 0, count: 10 } }).listPosts;
         assert.ok(total >= 1 && posts.length === total);

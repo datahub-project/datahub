@@ -66,10 +66,10 @@ export function bootOutcome({ loginRc, homeRc, loginReport, homeReport }) {
     return { loginError, homeError, warning, exitCode };
 }
 
-let activeChildPid = null;
-// Pids signalled by a timed-out pass. A cancel during the grace still reaches
-// a detached Chrome after its parent has exited.
-let activeTermTree = [];
+// The running pass. `pid` is cleared once the root exits so a reused pid is
+// never walked; `termTree` keeps what a timeout signalled, so a cancel during
+// the grace still reaches a detached Chrome after its parent has exited.
+let activePass = null;
 
 function childPids(pid) {
     try {
@@ -83,14 +83,25 @@ function childPids(pid) {
     }
 }
 
-function collectProcessTree(pids) {
+function collectProcessTree(pid) {
     const seen = new Set();
     const collect = (current) => {
         if (!current || seen.has(current)) return [];
         seen.add(current);
         return [current, ...childPids(current).flatMap(collect)];
     };
-    return pids.flatMap(collect);
+    return collect(pid);
+}
+
+// Field 22 of /proc/<pid>/stat. A pid that was reused after its process exited
+// has a different start time, so a stale snapshot entry is never signalled.
+function processStartTime(pid) {
+    try {
+        const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+        return stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19] || null;
+    } catch {
+        return null;
+    }
 }
 
 function signalProcessGroups(pids, signal) {
@@ -110,19 +121,26 @@ function signalProcessGroups(pids, signal) {
 // Puppeteer launches Chrome with detached: true, so Chrome is its own process
 // group. A signal to the Lighthouse group never reaches it. Walk parent/child
 // pids, then signal each process group so Chrome's own children go too.
-// Returns the pids it signalled so a later SIGKILL can reach them after the
-// root has exited and its detached children were reparented to init.
-export function killProcessTree(pid, signal, known = []) {
-    const pids = [...new Set(collectProcessTree([pid, ...known]))];
-    signalProcessGroups(pids, signal);
-    return pids;
+// Returns a snapshot of what it signalled. Passing that snapshot back reaches a
+// detached Chrome after the root has exited and Chrome was reparented to init.
+export function killProcessTree(pid, signal, snapshot = []) {
+    const live = collectProcessTree(pid);
+    const known = snapshot.filter(
+        (entry) => !live.includes(entry.pid) && processStartTime(entry.pid) === entry.startTime,
+    );
+    const next = [...live.map((target) => ({ pid: target, startTime: processStartTime(target) })), ...known];
+    signalProcessGroups(
+        next.map((entry) => entry.pid),
+        signal,
+    );
+    return next.filter((entry) => entry.startTime !== null);
 }
 
 function installStopForwarding() {
     if (installStopForwarding.installed) return;
     installStopForwarding.installed = true;
     const stop = (signal) => {
-        if (activeChildPid) killProcessTree(activeChildPid, 'SIGKILL', activeTermTree);
+        if (activePass) killProcessTree(activePass.pid, 'SIGKILL', activePass.termTree);
         process.exit(signal === 'SIGINT' ? 130 : 143);
     };
     // The child is detached, so a cancel of this script does not reach it.
@@ -138,7 +156,8 @@ export function runBoundedProcess(execPath, args, { cwd, timeoutMs, graceMs, std
     installStopForwarding();
     return new Promise((resolve) => {
         const child = spawn(execPath, args, { cwd, stdio, detached: true });
-        activeChildPid = child.pid;
+        const pass = { pid: child.pid, termTree: [] };
+        activePass = pass;
         let settled = false;
         let timedOut = false;
         let exited = false;
@@ -149,14 +168,12 @@ export function runBoundedProcess(execPath, args, { cwd, timeoutMs, graceMs, std
             settled = true;
             clearTimeout(timer);
             clearTimeout(killTimer);
-            if (activeChildPid === child.pid) {
-                activeChildPid = null;
-                activeTermTree = [];
-            }
+            if (activePass === pass) activePass = null;
             resolve({ code: code == null ? 1 : code, timedOut });
         };
         const onExit = (code) => {
             exited = true;
+            pass.pid = null;
             // After a timeout the root can exit on SIGTERM while a detached Chrome
             // ignores it. Wait for the grace SIGKILL so the snapshot is not skipped.
             if (!timedOut) finish(code);
@@ -165,10 +182,10 @@ export function runBoundedProcess(execPath, args, { cwd, timeoutMs, graceMs, std
         child.on('error', () => onExit(1));
         timer = setTimeout(() => {
             timedOut = true;
-            activeTermTree = killProcessTree(child.pid, 'SIGTERM');
+            pass.termTree = killProcessTree(child.pid, 'SIGTERM');
             killTimer = setTimeout(() => {
                 // An exited root's pid may already be reused; reach its tree from the snapshot.
-                killProcessTree(exited ? null : child.pid, 'SIGKILL', activeTermTree);
+                killProcessTree(pass.pid, 'SIGKILL', pass.termTree);
                 if (exited) finish(1);
                 else child.once('exit', () => finish(1));
             }, graceMs);

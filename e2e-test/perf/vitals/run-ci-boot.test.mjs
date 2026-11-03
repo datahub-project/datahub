@@ -57,6 +57,16 @@ async function readPidFile(file) {
     throw new Error(`pid file was not written: ${file}`);
 }
 
+// SIGKILL is delivered asynchronously; give the kernel a moment to tear the process down.
+async function exitsSoon(pid, withinMs = 2000) {
+    const started = Date.now();
+    while (isAlive(pid)) {
+        if (Date.now() - started > withinMs) return false;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    return true;
+}
+
 function killQuietly(pid) {
     if (!pid) return;
     try {
@@ -90,7 +100,7 @@ async function expectGrandchildKilled({ rootExitsOnTerm }) {
         const grandPid = await readPidFile(pidFile);
         const result = await run;
         assert.equal(result.timedOut, true);
-        assert.equal(isAlive(grandPid), false);
+        assert.equal(await exitsSoon(grandPid), true);
     } finally {
         killQuietly(readPidIfWritten(pidFile));
         fs.rmSync(dir, { recursive: true, force: true });
@@ -183,7 +193,7 @@ await runBoundedProcess(process.execPath, [process.argv[2], process.argv[3]], {
             process.kill(child.pid, 'SIGTERM');
             const exitCode = await new Promise((resolve) => child.once('exit', resolve));
             assert.equal(exitCode, 143);
-            assert.equal(isAlive(grandPid), false);
+            assert.equal(await exitsSoon(grandPid), true);
         } finally {
             killQuietly(child.pid);
             killQuietly(readPidIfWritten(pidFile));
