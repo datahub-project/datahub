@@ -113,7 +113,8 @@ export default class DescriptionEditorPage extends BasePage {
     const fileNode = this.editorFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
     await expect(fileNode).toBeVisible();
 
-    const urlPattern = /\/openapi\/v1\/files\/product_assets\/urn:li:dataHubFile:.+/;
+    // fileId is percent-encoded in the URL (e.g. urn%3Ali%3AdataHubFile%3A...)
+    const urlPattern = /\/openapi\/v1\/files\/product_assets\/.+/;
     await this.waitForFileUrlAttribute(fileNode, urlPattern);
     await expect(fileNode).toContainText(fileName);
   }
@@ -122,7 +123,7 @@ export default class DescriptionEditorPage extends BasePage {
     const fileNode = this.aboutFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
     await expect(fileNode).toBeVisible();
 
-    const urlPattern = /\/openapi\/v1\/files\/product_assets\/urn:li:dataHubFile:.+/;
+    const urlPattern = /\/openapi\/v1\/files\/product_assets\/.+/;
     await this.waitForFileUrlAttribute(fileNode, urlPattern);
     await expect(fileNode).toContainText(fileName);
   }

@@ -106,7 +106,7 @@ Requirements and limitations:
   Tags and business metadata are an Advanced feature: on Essentials the catalog API returns
   `403` even for reads. The catalog does not exist on self-managed Kafka, and the block is
   ignored elsewhere.
-- The Schema Registry API key needs a role that grants catalog read access — in practice
+- The Schema Registry API key needs a role that grants catalog read access - in practice
   **DataSteward** on the environment. `EnvironmentAdmin` alone is not enough: it administers the
   environment but does not carry the catalog read permission.
 - If the key cannot read the catalog, ingestion continues without catalog metadata and records a
@@ -116,7 +116,7 @@ Requirements and limitations:
   you set `confluent_catalog.cluster_id` to the cluster this recipe ingests (e.g. `lkc-xxxxx`).
 - The catalog carries **no lineage between topics**. The producer/consumer graph shown in
   Confluent's Stream Lineage UI is not exposed by the API. Connector-to-topic lineage is
-  available through the [`kafka-connect`](/docs/generated/ingestion/sources/kafka-connect)
+  available through the [`kafka-connect`](kafka-connect.md)
   source for environments that use Kafka Connect.
 
 #### Custom Schema Registry

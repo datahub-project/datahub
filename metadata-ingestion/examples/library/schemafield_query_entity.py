@@ -1,10 +1,11 @@
-from typing import Any, cast
-
 import datahub.emitter.mce_builder as builder
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.metadata.schema_classes import (
+    DocumentationClass,
+    StructuredPropertiesClass,
+)
 
-gms_endpoint = "http://localhost:8080"
-graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
+graph = get_default_graph()
 
 dataset_urn = builder.make_dataset_urn(
     platform="postgres", name="public.customers", env="PROD"
@@ -14,30 +15,22 @@ field_urn = builder.make_schema_field_urn(
     parent_urn=dataset_urn, field_path="email_address"
 )
 
-entity = graph.get_entity_semityped(entity_urn=field_urn)
+# get_entity_semityped() cannot be used to test existence -- it always returns a
+# non-empty aspect bag, even for an entity that does not exist. graph.exists() is
+# the real probe.
+if not graph.exists(field_urn):
+    raise SystemExit(f"Schema field not found: {field_urn}")
 
-if entity:
-    print(f"Schema Field URN: {field_urn}")
-    print(f"Entity Type: {entity.get('entityType')}")
+print(f"Schema Field URN: {field_urn}")
 
-    aspects = cast(dict[str, Any], entity.get("aspects", {}))
+documentation = graph.get_aspect(entity_urn=field_urn, aspect_type=DocumentationClass)
+if documentation is not None:
+    for doc in documentation.documentations:
+        print(f"Documentation: {doc.documentation[:100]}...")
 
-    if "globalTags" in aspects:
-        tags = aspects["globalTags"]["tags"]
-        print(f"Tags: {[tag['tag'] for tag in tags]}")
-
-    if "glossaryTerms" in aspects:
-        terms = aspects["glossaryTerms"]["terms"]
-        print(f"Glossary Terms: {[term['urn'] for term in terms]}")
-
-    if "documentation" in aspects:
-        docs = aspects["documentation"]["documentations"]
-        for doc in docs:
-            print(f"Documentation: {doc['documentation'][:100]}...")
-
-    if "structuredProperties" in aspects:
-        props = aspects["structuredProperties"]["properties"]
-        for prop in props:
-            print(f"Property {prop['propertyUrn']}: {prop['values']}")
-else:
-    print(f"Schema field {field_urn} not found")
+structured_properties = graph.get_aspect(
+    entity_urn=field_urn, aspect_type=StructuredPropertiesClass
+)
+if structured_properties is not None:
+    for prop in structured_properties.properties:
+        print(f"Property {prop.propertyUrn}: {prop.values}")

@@ -1,6 +1,6 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 
-import { DataProduct, Entity, EntityType, ParentDocumentsResult } from '@types';
+import { DataProduct, Entity, EntityType, ParentApplicationsResult, ParentDocumentsResult } from '@types';
 
 type GetContextPathInput = Pick<
     GenericEntityProperties,
@@ -8,6 +8,7 @@ type GetContextPathInput = Pick<
 > & {
     parentDocuments?: ParentDocumentsResult;
     parentDataProducts?: DataProduct[] | null;
+    parentApplications?: ParentApplicationsResult | null;
 };
 
 const MAX_PARENT_DEPTH = 10;
@@ -45,6 +46,9 @@ export function getParentEntities(entityData: GetContextPathInput | null, entity
 
         case EntityType.Document:
             return entityData.parentDocuments?.documents || [];
+
+        case EntityType.Application:
+            return entityData.parentApplications?.applications || [];
 
         default: {
             // generic fallback

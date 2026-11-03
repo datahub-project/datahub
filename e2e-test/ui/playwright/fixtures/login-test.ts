@@ -38,11 +38,12 @@
 import { mergeTests } from '@playwright/test';
 import { loggerFixture } from './logger.fixture';
 import { mockingFixture } from './mocking.fixture';
+import { domainFixture } from './domain.fixture';
 import { LoginPage } from '../pages/login.page';
 
 // ── Compose logger + mocking (no auth) ───────────────────────────────────────
 
-const composedTest = mergeTests(loggerFixture, mockingFixture);
+const composedTest = mergeTests(loggerFixture, mockingFixture, domainFixture);
 
 // ── Extend with a clean unauthenticated context and loginPage ─────────────────
 

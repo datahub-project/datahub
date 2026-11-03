@@ -1,6 +1,5 @@
 import React from 'react';
 
-import { EntityCapabilityType } from '@app/entity/Entity';
 import DataProductsDropdown from '@app/entity/shared/components/styled/search/action/DataProductsDropdown';
 import DeleteDropdown from '@app/entity/shared/components/styled/search/action/DeleteDropdown';
 import DeprecationDropdown from '@app/entity/shared/components/styled/search/action/DeprecationDropdown';
@@ -10,6 +9,7 @@ import OwnersDropdown from '@app/entity/shared/components/styled/search/action/O
 import TagsDropdown from '@app/entity/shared/components/styled/search/action/TagsDropdown';
 import { SelectActionGroups } from '@app/entity/shared/components/styled/search/types';
 import { EntityAndType } from '@app/entity/shared/types';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';

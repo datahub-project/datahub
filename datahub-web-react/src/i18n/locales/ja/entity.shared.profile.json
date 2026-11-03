@@ -2,7 +2,7 @@
     "externalUrl.sourceFallback": "ソース",
     "externalUrl.viewIn": "{{displayName}}で表示",
     "noteModal.contentLabel": "内容",
-    "noteModal.contentPlaceholder": "メモを書きましょう。@userでユーザーをタグ付けしたり、@assetでアセットを参照して、メモをより充実させましょう!",
+    "noteModal.contentPlaceholder": "メモを書きましょう。@userでユーザーをタグ付けしたり、@assetでAssetを参照して、メモをより充実させましょう!",
     "noteModal.createdSuccess": "メモを作成しました!",
     "noteModal.createError": "メモの作成に失敗しました!予期しないエラーが発生しました",
     "noteModal.createTitle": "メモを作成",

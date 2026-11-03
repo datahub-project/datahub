@@ -1,5 +1,8 @@
 package com.linkedin.metadata.graph.cache.client;
 
+import static com.linkedin.metadata.Constants.APPLICATION_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.APPLICATION_PART_OF_RELATIONSHIP_NAME;
+import static com.linkedin.metadata.Constants.APPLICATION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
@@ -18,6 +21,7 @@ import static com.linkedin.metadata.Constants.IS_PART_OF_RELATIONSHIP_NAME;
 import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
 
+import com.linkedin.application.ApplicationProperties;
 import com.linkedin.container.Container;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -77,6 +81,19 @@ public class HierarchyReadSpecs {
                 GlossaryNodeInfo nodeInfo = new GlossaryNodeInfo(data);
                 return nodeInfo.hasParentNode()
                     ? Optional.of(nodeInfo.getParentNode())
+                    : Optional.empty();
+              })
+          .build();
+
+  private static final ParentAspectSpec APPLICATION_PARENT_ASPECT =
+      ParentAspectSpec.builder()
+          .entityType(APPLICATION_ENTITY_NAME)
+          .aspectName(APPLICATION_PROPERTIES_ASPECT_NAME)
+          .parentExtractor(
+              data -> {
+                ApplicationProperties properties = new ApplicationProperties(data);
+                return properties.hasParentApplication()
+                    ? Optional.of(properties.getParentApplication())
                     : Optional.empty();
               })
           .build();
@@ -161,6 +178,17 @@ public class HierarchyReadSpecs {
         .scrollSourceEntityTypes(Set.of(CONTAINER_ENTITY_NAME))
         .scrollDestinationEntityTypes(Set.of(CONTAINER_ENTITY_NAME))
         .relationshipType(IS_PART_OF_RELATIONSHIP_NAME)
+        .build();
+  }
+
+  @Nonnull
+  public static HierarchyReadSpec application(@Nonnull EntityGraphBinding binding) {
+    return HierarchyReadSpec.builder()
+        .binding(binding)
+        .parentAspectsByEntityType(Map.of(APPLICATION_ENTITY_NAME, APPLICATION_PARENT_ASPECT))
+        .scrollSourceEntityTypes(Set.of(APPLICATION_ENTITY_NAME))
+        .scrollDestinationEntityTypes(Set.of(APPLICATION_ENTITY_NAME))
+        .relationshipType(APPLICATION_PART_OF_RELATIONSHIP_NAME)
         .build();
   }
 

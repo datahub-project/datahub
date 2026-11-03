@@ -10,10 +10,12 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Loads CorpUserInfo flags via the session {@link OperationContext} aspect retriever, which
- * delegates to {@link com.linkedin.entity.client.SystemEntityClient} and honors the GMS {@code
- * entityClient} response cache configured in application.yaml. No separate TTL cache in this
- * provider — rely on the per-request {@link UsageActorClassResolver} corp-user flag cache instead.
+ * Loads CorpUserInfo flags via the session {@link OperationContext#getAspectRetriever() aspect
+ * retriever}, which reads primary storage directly (not the entityClient TTL cache). Usage
+ * aggregation classifies an actor during the same GMS request that may have just written {@code
+ * corpUserInfo} (e.g. provisioning a support user), so it requires read-your-writes; the cached
+ * retriever would return TTL-stale flags and misclassify the actor. Repeated per-request fetches
+ * are already deduped by {@link UsageActorClassResolver} via {@code UsageRequestState}.
  */
 @Slf4j
 public class AspectCorpUserFlagsProvider implements CorpUserFlagsProvider {

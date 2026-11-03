@@ -1,6 +1,6 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { SearchResultInterface } from '@app/entityV2/shared/components/styled/search/types';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 

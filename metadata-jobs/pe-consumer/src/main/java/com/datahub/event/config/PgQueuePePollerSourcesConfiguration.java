@@ -44,7 +44,8 @@ public class PgQueuePePollerSourcesConfiguration {
                 List.of(topic),
                 platformEventPollMaxBatch(),
                 "pgqueue-pe-" + groupId,
-                sleep.emptyPoll(),
+                sleep.emptyPollMin(),
+                peEmptyPollSleep(),
                 sleep.missingTopic(),
                 sleep.errorRecovery(),
                 (logicalTopic, batch, ctx) -> {
@@ -70,5 +71,14 @@ public class PgQueuePePollerSourcesConfiguration {
             .map(PeConsumerConfiguration.PgQueuePoll::getPlatformEventMaxBatch)
             .orElse(null),
         "peConsumer.pgQueue.platformEventMaxBatch");
+  }
+
+  private long peEmptyPollSleep() {
+    return PgQueueConsumerPollSettings.requireEmptyPollSleep(
+        Optional.ofNullable(configurationProvider.getPeConsumer())
+            .map(PeConsumerConfiguration::getPgQueue)
+            .map(PeConsumerConfiguration.PgQueuePoll::getPlatformEventEmptyPollSleepMillis)
+            .orElse(null),
+        "peConsumer.pgQueue.platformEventEmptyPollSleepMillis");
   }
 }

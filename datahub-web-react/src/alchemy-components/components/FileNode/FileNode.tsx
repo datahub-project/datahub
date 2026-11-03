@@ -1,9 +1,9 @@
-import { Button } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Button } from '@components/components/Button';
 import { getExtensionFromFileName } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileIcon } from '@components/components/FileNode/FileIcon';
 import { FileNodeProps } from '@components/components/FileNode/types';
@@ -11,7 +11,7 @@ import { Text } from '@components/components/Text';
 import { Tooltip } from '@components/components/Tooltip';
 import { getFontSize } from '@components/theme/utils';
 
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 
 const Container = styled.div<{ $border?: boolean; $fontSize?: string }>`
     display: flex;

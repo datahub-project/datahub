@@ -41,6 +41,9 @@ public class LineageGraphFiltersTest {
             "mlModelGroup",
             "dataProcess",
             "dataJob",
+            // dataFlow joins this set now that repositoryLineage is registered on it -- it is the
+            // entity's first lineage aspect, so it previously had no lineage edges at all.
+            "dataFlow",
             "mlModel",
             "mlFeature",
             "dataProcessInstance",
@@ -59,6 +62,39 @@ public class LineageGraphFiltersTest {
     assertTrue(filters.getEdgesPerEntityType().isEmpty());
 
     verify(mockLineageRegistry).getEntitiesWithLineageToEntityType("dataset");
+  }
+
+  @Test
+  public void testForEntityType_SchemaFieldKeepsConsumerEdges() {
+    LineageRegistry lineageRegistry = opContext.getLineageRegistry();
+
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            lineageRegistry, "schemaField", LineageDirection.DOWNSTREAM);
+
+    assertTrue(filters.getAllowedEntityTypes().contains("schemaField"));
+    assertTrue(filters.getAllowedEntityTypes().contains("metric"));
+    assertTrue(filters.getAllowedEntityTypes().contains("chart"));
+    assertTrue(filters.getAllowedEntityTypes().contains("dashboard"));
+    assertFalse(filters.getAllowedEntityTypes().contains("dataJob"));
+    assertFalse(filters.getAllowedEntityTypes().contains("dataset"));
+
+    Set<LineageRegistry.EdgeInfo> edges = filters.getEdgeInfo(lineageRegistry, "schemaField");
+    assertTrue(
+        edges.contains(
+            new LineageRegistry.EdgeInfo(
+                "DownstreamOf", RelationshipDirection.INCOMING, "schemaField")));
+    assertTrue(
+        edges.contains(
+            new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING, "metric")));
+    assertTrue(
+        edges.contains(
+            new LineageRegistry.EdgeInfo(
+                "consumesField", RelationshipDirection.INCOMING, "chart")));
+    assertTrue(
+        edges.contains(
+            new LineageRegistry.EdgeInfo(
+                "consumesField", RelationshipDirection.INCOMING, "dashboard")));
   }
 
   @Test
@@ -165,7 +201,7 @@ public class LineageGraphFiltersTest {
 
     List<Pair<String, LineageRegistry.EdgeInfo>> streamResult = filters.streamEdgeInfo().toList();
 
-    assertEquals(streamResult.size(), 2);
+    assertEquals(streamResult.size(), 3);
     assertTrue(
         streamResult.contains(
             Pair.of(
@@ -178,6 +214,12 @@ public class LineageGraphFiltersTest {
                 "chart",
                 new LineageRegistry.EdgeInfo(
                     "Consumes", RelationshipDirection.OUTGOING, "chart"))));
+    assertTrue(
+        streamResult.contains(
+            Pair.of(
+                "chart",
+                new LineageRegistry.EdgeInfo(
+                    "ConsumesMetric", RelationshipDirection.OUTGOING, "metric"))));
 
     assertTrue(filters.containsEdgeInfo("chart", streamResult.get(0).getValue()));
     assertFalse(

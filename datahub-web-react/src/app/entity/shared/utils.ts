@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { Entity, EntityType, PropertyValue } from '@types';
 
@@ -91,6 +91,13 @@ export const handleBatchError = (urns, e, defaultMessage) => {
             duration: 3,
         };
     }
+    if (getGraphqlErrorCode(e) === 400) {
+        // Other 400 messages may carry server internals, so only VALIDATION ones are shown verbatim.
+        const firstError = e.graphQLErrors?.[0];
+        if (firstError?.extensions?.errorSource === 'VALIDATION' && firstError?.message) {
+            return { content: firstError.message, duration: 3 };
+        }
+    }
     return defaultMessage;
 };
 
@@ -142,6 +149,8 @@ function formatEntityType(type: string): string {
             return EntityType.Dashboard;
         case 'chart':
             return EntityType.Chart;
+        case 'metric':
+            return EntityType.Metric;
         case 'tag':
             return EntityType.Tag;
         case 'dataflow':
@@ -189,6 +198,8 @@ function formatEntityType(type: string): string {
             return EntityType.StructuredProperty;
         case 'assertion': // Constants.ASSERTION_ENTITY_NAME
             return EntityType.Assertion;
+        case 'datahubingestionsource': // Constants.INGESTION_SOURCE_ENTITY_NAME
+            return EntityType.IngestionSource;
 
         default:
             return '';

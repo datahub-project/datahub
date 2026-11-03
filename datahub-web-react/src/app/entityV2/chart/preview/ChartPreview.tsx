@@ -10,7 +10,6 @@ import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
-    AccessLevel,
     BrowsePathV2,
     ChartStatsSummary,
     Container,
@@ -33,7 +32,6 @@ export const ChartPreview = ({
     description,
     platform,
     platformInstanceId,
-    access,
     owners,
     tags,
     glossaryTerms,
@@ -64,7 +62,6 @@ export const ChartPreview = ({
     platformInstanceId?: string;
     name?: string;
     description?: string | null;
-    access?: AccessLevel | null;
     owners?: Array<Owner> | null;
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
@@ -105,7 +102,6 @@ export const ChartPreview = ({
             logoUrl={logoUrl || ''}
             platform={platform}
             platformInstanceId={platformInstanceId}
-            qualifier={access}
             tags={tags}
             owners={owners}
             glossaryTerms={glossaryTerms || undefined}

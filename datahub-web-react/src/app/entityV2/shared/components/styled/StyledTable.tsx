@@ -35,3 +35,4 @@ export const StyledTable = styled(Table)`
         background-color: inherit;
     }
 ` as typeof Table;
+// this above line preserves the Table component's generic-ness

@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -63,7 +63,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
                     },
                 },
             });
-            message.success({ content: t('owner.removedSuccess'), duration: 2 });
+            toast.success(t('owner.removedSuccess'), { duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
@@ -79,9 +79,9 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
                     3000,
                 );
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error({ content: t('owner.removeError', { message: e.message || '' }), duration: 3 });
+                toast.error(t('owner.removeError', { message: e.message || '' }), { duration: 3 });
             }
         }
         refetch?.();

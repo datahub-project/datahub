@@ -20,23 +20,30 @@ const TITLE_FONT_SIZE: Record<CardSize, string> = {
     md: typography.fontSizes.lg,
 };
 
+const SUBTITLE_FONT_SIZE: Record<CardSize, string> = {
+    sm: typography.fontSizes.sm,
+    md: typography.fontSizes.md,
+};
+
 export const CardContainer = styled.div<{
     isClickable?: boolean;
     width?: string;
     maxWidth?: string;
     height?: string;
+    padding?: string;
+    gap?: string;
     $size?: CardSize;
-}>(({ isClickable, width, maxWidth, height, $size = 'md', theme }) => ({
+}>(({ isClickable, width, maxWidth, height, padding, gap, $size = 'md', theme }) => ({
     border: `1px solid ${theme.colors.border}`,
     borderRadius: radius.lg,
-    padding: SIZE_PADDING[$size],
+    padding: padding ?? SIZE_PADDING[$size],
     display: 'flex',
     flex: `1 1 ${maxWidth}`,
     minWidth: '150px',
     boxShadow: theme.colors.shadowXs,
     backgroundColor: theme.colors.bg,
     flexDirection: 'column',
-    gap: SIZE_GAP[$size],
+    gap: gap ?? SIZE_GAP[$size],
     maxWidth,
     width,
     height,
@@ -93,8 +100,8 @@ export const SubTitleContainer = styled.div({
 });
 
 export const SubTitle = styled.div<{ $noOfSubtitleLines?: number; $size?: CardSize }>(
-    ({ $noOfSubtitleLines, theme }) => ({
-        fontSize: typography.fontSizes.md,
+    ({ $noOfSubtitleLines, $size = 'md', theme }) => ({
+        fontSize: SUBTITLE_FONT_SIZE[$size],
         fontWeight: typography.fontWeights.normal,
         color: theme.colors.textSecondary,
         lineHeight: 'normal',

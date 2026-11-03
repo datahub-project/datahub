@@ -1,10 +1,10 @@
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import EntityRegistry from '@src/app/entityV2/EntityRegistry';
-import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@src/app/sharedV2/textUtil';
 import { EntityType } from '@src/types.generated';
 
 // Mock the dependencies
-vi.mock('@src/app/shared/textUtil', () => ({
+vi.mock('@src/app/sharedV2/textUtil', () => ({
     capitalizeFirstLetterOnly: vi.fn(),
 }));
 

@@ -171,8 +171,7 @@ public class DataHubUsageSpanExporter implements SpanExporter {
     }
 
     usageEvent.put(USAGE_SOURCE, BACKEND_SOURCE);
-    log.debug(
-        String.format("Emitting product analytics event. actor: %s, event: %s", actor, usageEvent));
+    log.debug("Emitting product analytics event. actor: {}, event: {}", actor, usageEvent);
     ProducerRecord<String, String> record =
         new ProducerRecord<>(topic, actor, usageEvent.toString());
     spanProducerRecordResolver.apply(record, parentSpan);

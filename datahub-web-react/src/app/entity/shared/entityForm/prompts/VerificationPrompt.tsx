@@ -34,22 +34,23 @@ interface Props {
 export default function VerificationPrompt({ formUrn, associatedUrn }: Props) {
     const { t } = useTranslation('entity.form');
     const urn = useMutationUrn();
-    const { refetch } = useEntityContext();
+    const { refetch, refetchForms } = useEntityContext();
     const [verifyFormMutation] = useVerifyFormMutation();
 
     function verifyForm() {
         verifyFormMutation({ variables: { input: { entityUrn: associatedUrn || urn || '', formUrn } } })
             .then(() => {
                 refetch();
+                refetchForms?.();
             })
             .catch(() => {
                 message.error(t('verifyError'));
             });
     }
 
-    const verificationPrompt = useRef(null);
+    const verificationPrompt = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        (verificationPrompt?.current as any)?.scrollIntoView({
+        verificationPrompt.current?.scrollIntoView({
             behavior: 'smooth',
             block: 'start',
             inline: 'nearest',

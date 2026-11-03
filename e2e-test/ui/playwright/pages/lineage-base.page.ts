@@ -14,6 +14,11 @@
  *   - Column edge:   [data-testid="rf__edge-{urn1}::{col1}-{urn2}::{col2}"]
  *   - Filter node:   [data-testid="rf__node-lf:{dir}:{urn}"]  dir = u | d
  *   - Column:        within lineage-node, [data-testid="column-{name}"]
+ *   - Column search: within lineage-node, [data-testid="column-search"]
+ *   - Column pages:  within lineage-node, [data-testid="column-pagination"]
+ *   - Filters panel: [data-testid="lineage-filters-panel"], toggles
+ *                    [data-testid="lineage-filter-{name}"]
+ *   - Node sidebar:  [data-testid="lineage-sidebar"]
  */
 
 import * as path from 'path';
@@ -29,6 +34,13 @@ import type { DataHubLogger } from '../utils/logger';
  * out rather than declared settled.
  */
 const VIEWPORT_SETTLE_MS = 2200;
+
+/** Toggles in the graph's filters panel, keyed by the suffix of their test id. */
+export type LineageFilterToggle =
+  | 'hide-transformations'
+  | 'hide-process-instances'
+  | 'show-ghost-entities'
+  | 'output-ports-only';
 
 export class LineageBasePage extends BasePage {
   // ── Static selector properties ───────────────────────────────────────────────
@@ -55,6 +67,8 @@ export class LineageBasePage extends BasePage {
   readonly lineageTabUpstreamOption: Locator;
   readonly columnDropdownVirtualList: Locator;
   readonly resultTextLink: Locator;
+  readonly lineageFiltersPanel: Locator;
+  readonly lineageSidebar: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -86,6 +100,8 @@ export class LineageBasePage extends BasePage {
     this.columnDropdownVirtualList = page.locator('.rc-virtual-list');
     // eslint-disable-next-line playwright/no-raw-locators -- CSS class substring match for generated class name; no data-testid on ResultText
     this.resultTextLink = page.locator('.ant-list-items [class*="ResultText"]').first();
+    this.lineageFiltersPanel = page.getByTestId('lineage-filters-panel');
+    this.lineageSidebar = page.getByTestId('lineage-sidebar');
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────────
@@ -107,6 +123,12 @@ export class LineageBasePage extends BasePage {
     await this.page.waitForLoadState('domcontentloaded');
   }
 
+  /** Open a schema field's own lineage graph, e.g. from a column's "view lineage" action. */
+  async goToSchemaFieldLineage(fieldUrn: string): Promise<void> {
+    await this.navigate(`/schemaField/${fieldUrn}/Lineage`);
+    await this.page.waitForLoadState('domcontentloaded');
+  }
+
   async goToDataset(urn: string, datasetName: string): Promise<void> {
     await this.navigate(`/dataset/${urn}/`);
     await this.page.waitForLoadState('domcontentloaded');
@@ -123,6 +145,15 @@ export class LineageBasePage extends BasePage {
 
   getNode(nodeUrn: string): Locator {
     return this.page.getByTestId(`lineage-node-${nodeUrn}`);
+  }
+
+  /**
+   * Bounding-box header and wrapper can share lineage-node-${urn}; prefer the first match
+   * for visibility assertions on Semantic Model / Data Product graphs.
+   */
+  getPrimaryNode(nodeUrn: string): Locator {
+    // eslint-disable-next-line playwright/no-nth-methods -- box header + wrapper share the same testid
+    return this.getNode(nodeUrn).first();
   }
 
   /** Get the ReactFlow canvas node element for a given entity URN. */
@@ -146,13 +177,47 @@ export class LineageBasePage extends BasePage {
     });
   }
 
+  /** Column-level lineage edge between two rendered columns, e.g. drawn on column hover/select. */
+  getColumnEdge(node1Urn: string, col1Name: string, node2Urn: string, col2Name: string): Locator {
+    return this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`);
+  }
+
+  /**
+   * The upstream segment of a column edge routed through a displayed operation node — a query or
+   * data job: `column -> operation`. The operation side of the edge id uses the operation node's
+   * urn as its "field" (see addEdge in useColumnHighlighting + parseColumnRef truncation of the
+   * fine-grained operation ref).
+   */
+  getColumnToOperationEdge(nodeUrn: string, colName: string, operationUrn: string): Locator {
+    return this.page.getByTestId(`rf__edge-${nodeUrn}::${colName}-${operationUrn}::${operationUrn}`);
+  }
+
+  /** The downstream segment of a column edge routed through a displayed operation node: `operation -> column`. */
+  getOperationToColumnEdge(operationUrn: string, nodeUrn: string, colName: string): Locator {
+    return this.page.getByTestId(`rf__edge-${operationUrn}::${operationUrn}-${nodeUrn}::${colName}`);
+  }
+
+  /**
+   * Column edge from a column to an entity that reads it as a whole, having no columns of its own
+   * (e.g. a metric). The entity side of the edge id has an empty field.
+   */
+  getColumnToEntityEdge(nodeUrn: string, colName: string, entityUrn: string): Locator {
+    return this.page.getByTestId(`rf__edge-${nodeUrn}::${colName}-${entityUrn}::`);
+  }
+
+  /** Assert a rendered edge is drawn with the lineage arrowhead marker (i.e. it's a real arrow). */
+  async checkEdgeHasArrowMarker(edge: Locator): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- ReactFlow edge path has no test id of its own
+    await expect(edge.locator('path.react-flow__edge-path')).toHaveAttribute('marker-end', /lineage-arrow/);
+  }
+
   async checkEdgeBetweenColumnsExists(
     node1Urn: string,
     col1Name: string,
     node2Urn: string,
     col2Name: string,
   ): Promise<void> {
-    await expect(this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`)).toBeAttached({
+    await expect(this.getColumnEdge(node1Urn, col1Name, node2Urn, col2Name)).toBeAttached({
       timeout: 10000,
     });
   }
@@ -163,7 +228,7 @@ export class LineageBasePage extends BasePage {
     node2Urn: string,
     col2Name: string,
   ): Promise<void> {
-    await expect(this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`)).not.toBeAttached({
+    await expect(this.getColumnEdge(node1Urn, col1Name, node2Urn, col2Name)).not.toBeAttached({
       timeout: 5000,
     });
   }
@@ -209,6 +274,27 @@ export class LineageBasePage extends BasePage {
       VIEWPORT_SETTLE_MS,
       { polling: 200, timeout: 15000 },
     );
+  }
+
+  // ── Node interactions ───────────────────────────────────────────────────────
+
+  /** The card of a node: its title area, which node hover and selection are driven from. */
+  getNodeCard(nodeUrn: string): Locator {
+    return this.getNode(nodeUrn).getByTestId(`unexpanded-lineage-card-${nodeUrn}`);
+  }
+
+  async hoverNode(nodeUrn: string): Promise<void> {
+    await this.getNodeCard(nodeUrn).hover();
+  }
+
+  /** Select a node on the graph, which also opens it in the lineage sidebar. */
+  async selectNode(nodeUrn: string): Promise<void> {
+    await this.getNodeCard(nodeUrn).click();
+  }
+
+  /** Whether the node as a whole is part of the highlighted column lineage, e.g. a metric reading a column. */
+  async checkNodeHighlighted(nodeUrn: string, highlighted: boolean): Promise<void> {
+    await expect(this.getPrimaryNode(nodeUrn)).toHaveAttribute('data-lineage-highlighted', String(highlighted));
   }
 
   // ── Column interactions ─────────────────────────────────────────────────────
@@ -304,6 +390,16 @@ export class LineageBasePage extends BasePage {
     await this.page.getByTestId(`manage-lineage-menu-${nodeUrn}`).click();
   }
 
+  async expectEditUpstreamLineageDisabled(): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD puts aria-disabled on the parent menu item
+    await expect(this.editUpstreamLineageButton.locator('xpath=ancestor::*[@aria-disabled="true"]')).toBeVisible();
+  }
+
+  async expectEditDownstreamLineageEnabled(): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- AntD puts aria-disabled on the parent menu item
+    await expect(this.editDownstreamLineageButton.locator('xpath=ancestor::*[@aria-disabled="true"]')).toHaveCount(0);
+  }
+
   async clickLineageEditMenuButton(): Promise<void> {
     await this.lineageEditMenuButton.click();
   }
@@ -314,6 +410,14 @@ export class LineageBasePage extends BasePage {
 
   async clickEditDownstreamLineage(): Promise<void> {
     await this.editDownstreamLineageButton.click();
+  }
+
+  async expectCurrentLineageContains(name: string): Promise<void> {
+    await expect(this.page.getByTestId('lineage-entity-item').getByText(name)).toBeVisible();
+  }
+
+  async expectCurrentLineageNotContains(name: string): Promise<void> {
+    await expect(this.page.getByTestId('lineage-entity-item').getByText(name)).toHaveCount(0);
   }
 
   // ── Lineage tab / entity page ─────────────────────────────────────────────
@@ -484,5 +588,104 @@ export class LineageBasePage extends BasePage {
   async clickUpstreamOption(): Promise<void> {
     await this.lineageTabDirectionSelect.click();
     await this.lineageTabUpstreamOption.last().click();
+  }
+
+  // ── Filters panel ───────────────────────────────────────────────────────────
+
+  /** Open the graph's filters panel, if it is not already open. */
+  async openFilterPanel(): Promise<void> {
+    if (!(await this.lineageFiltersPanel.isVisible())) {
+      await this.page.getByTestId('lineage-filters-button').click();
+    }
+    await expect(this.lineageFiltersPanel).toBeVisible({ timeout: 10000 });
+  }
+
+  getFilterToggle(filter: LineageFilterToggle): Locator {
+    return this.lineageFiltersPanel.getByTestId(`lineage-filter-${filter}`);
+  }
+
+  /**
+   * Set a filter toggle, opening the panel first. The toggle's `<input>` is transparent and sits
+   * under the slider that paints it, so dispatch the click rather than fighting actionability.
+   */
+  async setFilter(filter: LineageFilterToggle, enabled: boolean): Promise<void> {
+    await this.openFilterPanel();
+    const toggle = this.getFilterToggle(filter);
+    if ((await toggle.isChecked()) !== enabled) {
+      await toggle.dispatchEvent('click');
+    }
+    await expect(toggle).toBeChecked({ checked: enabled });
+  }
+
+  // ── Node selection and sidebar ──────────────────────────────────────────────
+
+  /** Click a node to select it, which opens the lineage sidebar for that entity. */
+  async clickNode(nodeUrn: string): Promise<void> {
+    await this.getReactFlowNode(nodeUrn).dispatchEvent('click');
+  }
+
+  /** Assert the lineage sidebar is open and showing the given entity. */
+  async checkSidebarShows(entityName: string): Promise<void> {
+    await expect(this.lineageSidebar).toBeVisible({ timeout: 15000 });
+    await expect(this.lineageSidebar.getByText(entityName).first()).toBeVisible({ timeout: 15000 });
+  }
+
+  // ── Column search and pagination within a node ──────────────────────────────
+
+  getColumnSearchInput(nodeUrn: string): Locator {
+    return this.page
+      .getByTestId(`lineage-node-${nodeUrn}`)
+      .getByTestId('column-search')
+      .getByTestId('search-bar-input');
+  }
+
+  async searchColumns(nodeUrn: string, query: string): Promise<void> {
+    const input = this.getColumnSearchInput(nodeUrn);
+    await input.click();
+    await input.fill(query);
+  }
+
+  async clearColumnSearch(nodeUrn: string): Promise<void> {
+    await this.getColumnSearchInput(nodeUrn).fill('');
+  }
+
+  getColumnPagination(nodeUrn: string): Locator {
+    return this.page.getByTestId(`lineage-node-${nodeUrn}`).getByTestId('column-pagination');
+  }
+
+  async goToColumnPage(nodeUrn: string, pageNumber: number): Promise<void> {
+    // antd renders each page button as li[title="<n>"]; title is the exact page number.
+    // eslint-disable-next-line playwright/no-raw-locators -- antd pagination item keyed by title attribute
+    await this.getColumnPagination(nodeUrn).locator(`li[title="${pageNumber}"]`).click();
+  }
+
+  /** The columns currently rendered on a node, in the order the node draws them. */
+  async getShownColumnNames(nodeUrn: string): Promise<string[]> {
+    const list = this.page.getByTestId(`lineage-node-${nodeUrn}`).getByTestId('columns-list');
+    // Each column's test id carries its own name, so match by prefix; the hover/selection
+    // readouts a column renders beside itself share that prefix and are not columns.
+    // eslint-disable-next-line playwright/no-raw-locators -- prefix match on generated per-column test ids
+    const testIds = await list
+      .locator(
+        '[data-testid^="column-"]:not([data-testid^="column-lineage-control-"]):not([data-testid^="column-lineage-count-"])',
+      )
+      .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid') ?? ''));
+    return testIds.map((id) => id.slice('column-'.length));
+  }
+
+  // ── Edge styling ────────────────────────────────────────────────────────────
+
+  /**
+   * Manually added edges are drawn dashed (`stroke-dasharray`), every other edge solid. The dash
+   * pattern itself is a style choice; assert only that the edge is dashed or is not.
+   */
+  async checkEdgeIsManual(node1Urn: string, node2Urn: string, isManual: boolean): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- ReactFlow edge path has no test id of its own
+    const path = this.page.getByTestId(`rf__edge-${node1Urn}-:-${node2Urn}`).locator('path.react-flow__edge-path');
+    if (isManual) {
+      await expect(path).not.toHaveCSS('stroke-dasharray', 'none');
+    } else {
+      await expect(path).toHaveCSS('stroke-dasharray', 'none');
+    }
   }
 }

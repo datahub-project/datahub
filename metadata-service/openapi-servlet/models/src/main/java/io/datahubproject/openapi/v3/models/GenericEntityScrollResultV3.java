@@ -13,4 +13,5 @@ public class GenericEntityScrollResultV3
   private List<GenericEntityV3> entities;
   private List<FacetMetadata> facets;
   private int totalCount;
+  private List<String> routeChain;
 }

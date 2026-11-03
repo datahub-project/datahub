@@ -11,7 +11,7 @@
     "link.linkUrl": "リンクURL",
     "link.text": "テキスト",
     "link.title": "リンクを追加",
-    "mentions.failedToFindEntity": "エンティティが見つかりませんでした",
+    "mentions.failedToFindEntity": "Entityが見つかりませんでした",
     "table.deleteColumn": "列を削除",
     "table.deleteRow": "行を削除",
     "table.deleteTable": "テーブルを削除",

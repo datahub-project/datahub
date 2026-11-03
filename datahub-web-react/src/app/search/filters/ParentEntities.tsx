@@ -1,6 +1,7 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { Tooltip, Typography } from 'antd';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
+import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -16,13 +17,12 @@ const ParentNodesWrapper = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     align-items: center;
-    margin-bottom: 3px;
     overflow: hidden;
+    line-height: 22px;
 `;
 
 const ParentNode = styled(Typography.Text)<{ color?: string }>`
-    margin-left: 4px;
-    color: ${(props) => (props.color ? props.color : props.theme.colors.textTertiary)};
+    color: ${(props) => props.color || props.theme.colors.textTertiary};
 `;
 
 const ArrowWrapper = styled.span`
@@ -71,7 +71,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                 <TooltipWrapper>
                     {orderedParentEntities.map((parentEntity, index) => (
                         <>
-                            {!hideIcon && <FolderOpenOutlined />}
+                            {!hideIcon && <FolderOpen />}
                             <ParentNode color="white">
                                 {entityRegistry.getDisplayName(parentEntity.type, parentEntity) ||
                                     t('filters.unknownEntity')}
@@ -90,7 +90,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                 {hasHiddenEntities && (
                     <>
                         {!hideIcon ? (
-                            [...Array(numHiddenEntities)].map(() => <FolderOpenOutlined />)
+                            [...Array(numHiddenEntities)].map(() => <FolderOpen />)
                         ) : (
                             <>
                                 {HIDDEN_COUNT_PREFIX}
@@ -107,7 +107,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                     const isLast = index === visibleNodes.length - 1;
                     return (
                         <>
-                            {!hideIcon && <FolderOpenOutlined style={{ marginRight: 4 }} />}
+                            {!hideIcon && <FolderOpen style={{ marginRight: 4 }} />}
                             <ParentNode
                                 style={isLast ? { flexShrink: 1 } : { flexShrink: 2 }}
                                 ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true}

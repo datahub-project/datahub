@@ -1,0 +1,49 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "8a0805af55f35ccc4c9f24b2d50facd202f00b72dc67d859b8d7d1f4814793f9",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.target,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.target,PROD)",
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"e\".\"id\" AS \"id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.target,PROD)",
+                "column": "name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"r\".\"name\" AS \"name\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO target SELECT e.id, r.name FROM db1.events AS e JOIN mysql({?: }, {?: }, {?: }, {?: }, {?: }) AS r ON e.id = r.id"
+    }
+}

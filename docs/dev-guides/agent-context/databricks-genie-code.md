@@ -3,7 +3,7 @@
 Give [Genie Code](https://docs.databricks.com/en/genie/genie-code.html) access to your enterprise data context in DataHub — find trustworthy data, understand lineage, look up ownership, and generate better SQL queries, all without leaving your notebook.
 
 :::tip OAuth MCP alternative (DataHub Cloud v1.0.2+)
-On DataHub Cloud v1.0.2+, you can register `https://<tenant>.acryl.io/integrations/ai/mcp` directly with Databricks as an external MCP tool using **OAuth 2.0** — DataHub supports Dynamic Client Registration so Databricks registers itself and stores refresh tokens automatically, eliminating the PAT in the Unity Catalog connection below. Your tenant URL is required here; the global `https://mcp.datahub.com/mcp` endpoint is not yet supported by Databricks. See the [OAuth + DCR section of the MCP guide](../../features/feature-guides/mcp.md#oauth2-with-dynamic-client-registration-recommended).
+On DataHub Cloud v1.0.2+, you can register `https://<tenant>.acryl.io/mcp` directly with Databricks as an external MCP tool using **OAuth 2.0** — DataHub supports Dynamic Client Registration so Databricks registers itself and stores refresh tokens automatically, eliminating the PAT in the Unity Catalog connection below. Your tenant URL is required here; the global `https://mcp.datahub.com/mcp` endpoint is not yet supported by Databricks. See the [OAuth + DCR section of the MCP guide](../../features/feature-guides/mcp.md#oauth2-with-dynamic-client-registration-recommended).
 :::
 
 <p align="center">
@@ -32,7 +32,7 @@ This creates a Unity Catalog HTTP connection to your DataHub [MCP server](../../
    - **Host**: Your DataHub MCP server URL:
      - DataHub Cloud: `https://<tenant>.acryl.io`
      - Self-hosted: `http://<gms-host>:8080`
-   - **Base path**: `/integrations/ai/mcp` (DataHub Cloud) or `/mcp` (self-hosted)
+   - **Base path**: `/mcp`
 
 3. Click **Create connection**.
 
@@ -73,6 +73,6 @@ table to show me the top 10 segments by size
 
 - **DataHub not showing up?** Check the connection under **Catalog > Connections**, verify the MCP URL and base path, and confirm the bearer token is still valid.
 - **`401 Unauthorized`?** Regenerate the DataHub access token and update the UC connection.
-- **No tools discovered?** Make sure DataHub's [MCP server](../../features/feature-guides/mcp.md) is enabled. Genie Code caps at 20 tools across all MCP servers. Base path is `/integrations/ai/mcp` (Cloud) or `/mcp` (self-hosted).
+- **No tools discovered?** Make sure DataHub's [MCP server](../../features/feature-guides/mcp.md) is enabled. Genie Code caps at 20 tools across all MCP servers. The base path is `/mcp`.
 
 **Links:** [MCP on Databricks](https://docs.databricks.com/en/generative-ai/agent-framework/mcp.html) · [DataHub MCP Server](../../features/feature-guides/mcp.md) · [Agent Context Kit](./agent-context.md)

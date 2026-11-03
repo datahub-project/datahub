@@ -101,16 +101,10 @@ class RollingRestartPhase(Phase):
     ) -> None:
         self._docker = docker
         self._mae_service = mae_service
-        # G20d — also tail GMS for the dual-write line. The debug profile
-        # collapses MAE into GMS (no standalone datahub-mae-consumer-debug),
-        # so UpdateIndicesUpgradeStrategy emits "Recorded dual-write start
-        # time …" into the GMS container's stdout instead. Without this,
-        # the tail returns empty and dual_write_start_times stays {}, which
-        # cascades into empty catch_up_windows and starves
-        # TC-201 / TC-203 / TC-204's validators. On a real two-service profile, the
-        # MAE tail captures the line first and GMS sees nothing — the
-        # "first timestamp per index wins" merge in _capture_dual_write...
-        # makes the extra tail a safe no-op there.
+        # G20d — GMS is tailed for the dual-write line too: the `debug` profile
+        # runs MAE inside GMS, so the line lands in GMS's stdout. On a split
+        # profile the MAE tail wins and the extra tail is a harmless no-op
+        # ("first timestamp per index wins" in _capture_dual_write_start_times).
         self._gms_service = gms_service
         self._services_in_order = list(services_in_order)
         self._new_image_tag = new_image_tag
@@ -229,7 +223,12 @@ class RollingRestartPhase(Phase):
         stop = threading.Event()
 
         present = set(self._docker.get_all_service_images().keys())
-        candidates = [s for s in (self._mae_service, self._gms_service) if s in present]
+        # An empty name means "this profile has no such container" (see
+        # ZDUTestConfig.mae_service), so drop falsy entries before the
+        # membership test rather than relying on "" never being a service key.
+        candidates = [
+            s for s in (self._mae_service, self._gms_service) if s and s in present
+        ]
         if not candidates:
             log.warning(
                 "No MAE or GMS service present in current stack — "

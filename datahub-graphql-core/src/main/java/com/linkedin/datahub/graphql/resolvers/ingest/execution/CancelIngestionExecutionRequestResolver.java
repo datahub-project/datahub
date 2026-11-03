@@ -10,12 +10,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CancelIngestionExecutionRequestInput;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
@@ -45,7 +45,7 @@ public class CancelIngestionExecutionRequestResolver
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (IngestionAuthUtils.canManageIngestion(context)) {
+          if (AuthorizationUtils.canManageIngestion(context)) {
 
             final CancelIngestionExecutionRequestInput input =
                 bindArgument(

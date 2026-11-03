@@ -543,11 +543,11 @@ extend type Dataset {
     """
     state: IncidentState
     """
-    Optional incident stage to filter by, defaults to any state.
+    Optional incident stage to filter by, defaults to any stage.
     """
     stage: IncidentStage
     """
-    Optional incident priority to filter by, defaults to any state.
+    Optional incident priority to filter by, defaults to any priority.
     """
     priority: IncidentPriority
     """
@@ -559,7 +559,7 @@ extend type Dataset {
     """
     start: Int
     """
-    Optional start offset, defaults to 20.
+    Optional number of results to return, defaults to 20.
     """
     count: Int
   ): EntityIncidentsResult @noAspects
@@ -575,11 +575,11 @@ extend type DataJob {
     """
     state: IncidentState
     """
-    Optional incident stage to filter by, defaults to any state.
+    Optional incident stage to filter by, defaults to any stage.
     """
     stage: IncidentStage
     """
-    Optional incident priority to filter by, defaults to any state.
+    Optional incident priority to filter by, defaults to any priority.
     """
     priority: IncidentPriority
     """
@@ -591,7 +591,7 @@ extend type DataJob {
     """
     start: Int
     """
-    Optional start offset, defaults to 20.
+    Optional number of results to return, defaults to 20.
     """
     count: Int
   ): EntityIncidentsResult @noAspects
@@ -607,11 +607,11 @@ extend type DataFlow {
     """
     state: IncidentState
     """
-    Optional incident stage to filter by, defaults to any state.
+    Optional incident stage to filter by, defaults to any stage.
     """
     stage: IncidentStage
     """
-    Optional incident priority to filter by, defaults to any state.
+    Optional incident priority to filter by, defaults to any priority.
     """
     priority: IncidentPriority
     """
@@ -623,7 +623,7 @@ extend type DataFlow {
     """
     start: Int
     """
-    Optional start offset, defaults to 20.
+    Optional number of results to return, defaults to 20.
     """
     count: Int
   ): EntityIncidentsResult @noAspects
@@ -639,11 +639,11 @@ extend type Dashboard {
     """
     state: IncidentState
     """
-    Optional incident stage to filter by, defaults to any state.
+    Optional incident stage to filter by, defaults to any stage.
     """
     stage: IncidentStage
     """
-    Optional incident priority to filter by, defaults to any state.
+    Optional incident priority to filter by, defaults to any priority.
     """
     priority: IncidentPriority
     """
@@ -655,7 +655,7 @@ extend type Dashboard {
     """
     start: Int
     """
-    Optional start offset, defaults to 20.
+    Optional number of results to return, defaults to 20.
     """
     count: Int
   ): EntityIncidentsResult @noAspects
@@ -671,11 +671,11 @@ extend type Chart {
     """
     state: IncidentState
     """
-    Optional incident stage to filter by, defaults to any state.
+    Optional incident stage to filter by, defaults to any stage.
     """
     stage: IncidentStage
     """
-    Optional incident priority to filter by, defaults to any state.
+    Optional incident priority to filter by, defaults to any priority.
     """
     priority: IncidentPriority
     """
@@ -687,7 +687,7 @@ extend type Chart {
     """
     start: Int
     """
-    Optional start offset, defaults to 20.
+    Optional number of results to return, defaults to 20.
     """
     count: Int
   ): EntityIncidentsResult @noAspects

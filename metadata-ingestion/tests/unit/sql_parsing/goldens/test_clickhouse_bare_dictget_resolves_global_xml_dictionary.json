@@ -1,0 +1,37 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "8b0ffad8ed13e440e09df23af19d0e47828560310c1ca472271a05a952441bd2",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)",
+                "column": "v",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "dictGet('My_Dict', 'v', \"src\".\"id\") AS \"v\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "INSERT INTO target SELECT dictGet({?: }, {?: }, id) AS v FROM src"
+    }
+}

@@ -6,8 +6,9 @@
  * include it and round-trip via the URL.
  */
 
-import { expect, test } from '../../fixtures/base-test';
+import { test } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.use({ featureName: 'search' });
 
@@ -17,7 +18,8 @@ const DATASET_NAME = 'fct_playwright_within_nested';
 test.describe('Search Filters — Within operator', () => {
   let searchPage: SearchPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     searchPage = new SearchPage(page, logger, logDir);
     await searchPage.navigateToHome();
   });
@@ -41,7 +43,7 @@ test.describe('Search Filters — Within operator', () => {
     // Switching to Equals on the parent should miss the child-only dataset.
     await searchPage.selectActiveFilterOperator('domains', 'equals');
     await searchPage.expectActiveFilterOperator('domains', 'equals');
-    await expect(page.getByText('of 0 results')).toBeVisible({ timeout: 15000 });
+    await searchPage.expectNoResults();
 
     // Reload preserves Within via the URL condition.
     await searchPage.selectActiveFilterOperator('domains', 'within');

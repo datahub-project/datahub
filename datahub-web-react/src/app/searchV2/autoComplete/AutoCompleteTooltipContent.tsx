@@ -1,4 +1,4 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -39,7 +39,7 @@ export default function AutoCompleteTooltipContent({ entity }: Props) {
                 <>
                     {[...parentContainers].reverse().map((container, index) => (
                         <>
-                            <FolderOpenOutlined />
+                            <FolderOpen />
                             <Container>{entityRegistry.getDisplayName(EntityType.Container, container)}</Container>
                             {index !== parentContainers.length - 1 && (
                                 <ArrowWrapper>{BREADCRUMB_SEPARATOR}</ArrowWrapper>

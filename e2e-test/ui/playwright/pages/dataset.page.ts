@@ -130,6 +130,7 @@ export class DatasetPage extends BasePage {
     await this.tagTermModalInput.click();
     await this.tagTermInput.fill(termName);
     await this.getTagOption(termName).click();
+    await this.tagTermModalInput.click();
     // Click the modal footer's confirm button directly: it sits below the trigger so the
     // dropdown popover (which AntD flips upward when results don't fit below) never
     // covers it, and clicking outside the dropdown dismisses the popover in one step.

@@ -9,6 +9,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -85,6 +86,8 @@ public class SearchService {
       List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size) {
+    opContext =
+        SearchTemplateSurfaces.withDefault(opContext, SearchTemplateSurfaces.SEARCH_ENTITIES);
 
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
     List<String> entitiesToSearch = getEntitiesToSearch(opContext, entityNames, size);
@@ -144,12 +147,18 @@ public class SearchService {
       int from,
       @Nullable Integer size,
       @Nullable List<String> facets) {
+    opContext =
+        SearchTemplateSurfaces.withDefault(opContext, SearchTemplateSurfaces.SEARCH_ENTITIES);
 
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
     log.debug(
-        String.format(
-            "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
-            entities, input, postFilters, sortCriteria, from, size));
+        "Searching Search documents entities: {}, input: {}, postFilters: {}, sortCriterion: {}, from: {}, size: {}",
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        from,
+        size);
 
     final List<String> finalFacets = facetInput(facets);
     List<String> nonEmptyEntities = getEntitiesToSearch(opContext, entities, size);
@@ -184,7 +193,7 @@ public class SearchService {
     if (lowercaseEntities.isEmpty()) {
       return opContext.withSpan(
           "getNonEmptyEntities",
-          () -> _entityDocCountCache.getNonEmptyEntities(opContext),
+          () -> _entityDocCountCache.getNonEmptyEntities(opContext.withSkipTemplateExecution(true)),
           MetricUtils.DROPWIZARD_NAME,
           MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }
@@ -253,13 +262,19 @@ public class SearchService {
       @Nullable String keepAlive,
       @Nullable Integer size,
       @Nullable List<String> facets) {
+    opContext =
+        SearchTemplateSurfaces.withDefault(opContext, SearchTemplateSurfaces.SCROLL_ENTITIES);
 
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
     final List<String> finalFacets = facetInput(facets);
     log.debug(
-        String.format(
-            "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
-            entities, input, postFilters, sortCriteria, scrollId, size));
+        "Searching Search documents entities: {}, input: {}, postFilters: {}, sortCriteria: {}, from: {}, size: {}",
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        size);
     List<String> entitiesToSearch = getEntitiesToSearch(opContext, entities, size);
     if (entitiesToSearch.isEmpty()) {
       // No indices with non-zero entries: skip querying and return empty result

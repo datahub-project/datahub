@@ -1,24 +1,21 @@
-import Icon from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useEffect } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
 import { QueryCreatedBy } from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
 import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import dayjs from '@utils/dayjs';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 import NoStatsAvailble from '@images/no-stats-available.svg?react';
-
-/* eslint-disable-next-line i18next/no-literal-string -- route identifier, not UI text */
-const QUERIES_TAB = 'Queries';
 
 interface Props {
     properties: {
@@ -89,8 +86,9 @@ const NoDataContainer = styled.div`
     align-items: center;
 `;
 
-const StyledIcon = styled(Icon)`
-    font-size: 80px;
+const NoStatsIcon = styled(NoStatsAvailble)`
+    width: 80px;
+    height: 80px;
     margin-bottom: 6px;
     color: ${(props) => props.theme.colors.bg};
 `;
@@ -123,12 +121,14 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
     const schemaFieldUrn = generateSchemaFieldUrn(fieldPath, urn) || '';
     const siblingSchemaFieldUrn =
         !isSeparateSiblings && siblingUrn ? generateSchemaFieldUrn(fieldPath, siblingUrn) || '' : '';
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? false;
 
     const { popularQueries, loading, total, selectedColumnsFilter, setSelectedColumnsFilter } = usePopularQueries({
         entityUrn: urn,
         siblingUrn,
         filterText: '',
         defaultSelectedColumns: [schemaFieldUrn || '', siblingSchemaFieldUrn],
+        canViewQueries,
     });
 
     useEffect(() => {
@@ -149,7 +149,7 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
         <QueriesTabContainer>
             {!loading && hasNoQueries && (
                 <NoDataContainer>
-                    <StyledIcon component={NoStatsAvailble} />
+                    <NoStatsIcon />
                     <Section>{t('queriesSidebarTab.noQueriesFound')}</Section>
                 </NoDataContainer>
             )}
@@ -187,7 +187,7 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                 <SeeAllButton
                     onClick={() => {
                         routeToTab({
-                            tabName: QUERIES_TAB,
+                            tabName: EntityTabPath.QUERIES,
                             tabParams: { column: schemaFieldUrn, siblingColumn: siblingSchemaFieldUrn },
                         });
                     }}

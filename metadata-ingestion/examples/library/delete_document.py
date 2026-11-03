@@ -1,9 +1,9 @@
-# Inlined from metadata-ingestion/examples/library/delete_document.py
 """Example: Deleting documents using the DataHub SDK.
 
 This example demonstrates how to delete documents from DataHub.
 """
 
+from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import DocumentUrn
 from datahub.sdk import DataHubClient
 
@@ -15,19 +15,20 @@ client = DataHubClient.from_env()
 # ============================================================================
 doc_urn = DocumentUrn("my-tutorial-doc")
 
-# First check if it exists
-doc = client.entities.get(doc_urn)
+# entities.get() raises ItemNotFoundError rather than returning None, so that is
+# how you check for existence.
+try:
+    client.entities.get(doc_urn)
+except ItemNotFoundError:
+    raise SystemExit(f"Document not found: {doc_urn}") from None
 
-if doc:
-    # Delete the document
-    client.entities.delete(str(doc_urn))
-    print(f"Document deleted: {doc_urn}")
-else:
-    print(f"Document not found: {doc_urn}")
+client.entities.delete(str(doc_urn))
+print(f"Document deleted: {doc_urn}")
 
 # ============================================================================
 # Example 2: Delete multiple documents
 # ============================================================================
+# Here a missing document is not an error -- we just skip it and carry on.
 doc_ids_to_delete = [
     "doc-1",
     "doc-2",
@@ -36,11 +37,13 @@ doc_ids_to_delete = [
 
 for doc_id in doc_ids_to_delete:
     doc_urn = DocumentUrn(doc_id)
-    doc = client.entities.get(doc_urn)
-    if doc:
-        client.entities.delete(str(doc_urn))
-        print(f"Deleted: {doc_urn}")
-    else:
+    try:
+        client.entities.get(doc_urn)
+    except ItemNotFoundError:
         print(f"Not found (skipping): {doc_urn}")
+        continue
+
+    client.entities.delete(str(doc_urn))
+    print(f"Deleted: {doc_urn}")
 
 print("Cleanup complete!")

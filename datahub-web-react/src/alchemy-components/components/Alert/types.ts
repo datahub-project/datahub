@@ -26,11 +26,12 @@ export interface AlertProps {
     /** Show a close/dismiss button */
     onClose?: () => void;
     /**
-     * Optional action button. Always rendered as a text button whose color
-     * matches the alert variant (e.g. success → green). Callers only pass
-     * label/onClick — no button variant or color to choose.
+     * Optional action. Prefer `{ label, onClick }` — Alert renders a text button
+     * whose color matches the alert variant (e.g. success → green), so callers
+     * don't choose a button variant or color. ReactNode is still accepted for
+     * existing call sites that pass a custom element.
      */
-    action?: AlertAction;
+    action?: AlertAction | React.ReactNode;
     /**
      * Where to render the `action` element.
      * - `'inline'` (default): under the description, inside the content column.

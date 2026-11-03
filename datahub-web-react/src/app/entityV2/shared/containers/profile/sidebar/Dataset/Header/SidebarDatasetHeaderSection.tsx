@@ -12,8 +12,8 @@ import {
     userExists,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { SidebarStatsColumn, getPopularityColumn } from '@app/entityV2/shared/containers/profile/utils';
-import CompactContext from '@app/shared/CompactContext';
-import { formatBytes, formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { formatBytes, formatNumber, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 
 const StatContent = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};

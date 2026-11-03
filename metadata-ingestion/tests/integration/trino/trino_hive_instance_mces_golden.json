@@ -246,7 +246,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1771824853"
+                            "transient_lastddltime": "1790866212"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -429,15 +429,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -550,7 +551,7 @@
                             "numrows": "3",
                             "rawdatasize": "94",
                             "totalsize": "97",
-                            "transient_lastddltime": "1771824858"
+                            "transient_lastddltime": "1790866216"
                         },
                         "name": "classification_test",
                         "tags": []
@@ -734,15 +735,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.classification_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.classification_test,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.classification_test,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.classification_test,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -866,7 +868,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824856"
+                            "transient_lastddltime": "1790866214"
                         },
                         "name": "map_test",
                         "tags": []
@@ -1018,15 +1020,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.map_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -1117,7 +1120,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824856"
+                            "transient_lastddltime": "1790866214"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -1313,15 +1316,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -1609,15 +1613,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -1719,7 +1724,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824850"
+                            "transient_lastddltime": "1790866210"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1895,15 +1900,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -2013,7 +2019,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824855"
+                            "transient_lastddltime": "1790866214"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -2189,15 +2195,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -2310,7 +2317,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824850"
+                            "transient_lastddltime": "1790866210"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -2458,15 +2465,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1._test_table_underscore,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -2557,7 +2565,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1771824856"
+                            "transient_lastddltime": "1790866214"
                         },
                         "name": "union_test",
                         "tags": []
@@ -2781,15 +2789,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3140,15 +3149,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -3303,7 +3313,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1632378600000,
+                "time": 1632398400000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -3357,166 +3367,6 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:trino"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-instance-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1._test_table_underscore,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-instance-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-instance-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-instance-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.classification_test,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-instance-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.map_test,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-instance-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-instance-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-instance-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-instance-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-instance-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {

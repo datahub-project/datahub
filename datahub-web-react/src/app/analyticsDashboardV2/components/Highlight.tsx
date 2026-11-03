@@ -1,7 +1,7 @@
 import { Card, Tooltip } from '@components';
 import React from 'react';
 
-import { formatNumber } from '@app/shared/formatNumber';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 
 import { Highlight as HighlightType } from '@types';
 

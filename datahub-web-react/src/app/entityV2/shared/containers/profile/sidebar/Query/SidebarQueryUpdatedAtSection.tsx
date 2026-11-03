@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 import { QueryEntity } from '@types';
 

@@ -17,6 +17,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.ebean.annotation.TxIsolation;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -98,6 +99,16 @@ public interface AspectDao {
   @Nonnull
   Map<String, Map<String, SystemAspect>> getLatestAspects(
       @Nonnull OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate);
+
+  /**
+   * {@link #getLatestAspects} with {@code forUpdate}, locking the rows even where locking reads are
+   * otherwise skipped (optimistic locking): for a check that must hold until the transaction ends.
+   */
+  @Nonnull
+  default Map<String, Map<String, SystemAspect>> getLatestAspectsLocked(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+    return getLatestAspects(opContext, urnAspects, true);
+  }
 
   /**
    * Updates the system aspect
@@ -462,6 +473,9 @@ public interface AspectDao {
   @Nonnull
   Integer countAspect(OperationContext operationContext, final RestoreIndicesArgs args);
 
+  /** Rows the urn has in primary storage, every aspect and every version; -1 when not supported. */
+  int countUrnRows(@Nonnull OperationContext opContext, @Nonnull String urn);
+
   /**
    * Stream latest-version aspect rows matching {@code args}, ordered by URN/aspect, and hand the
    * lazily-fetched {@link PartitionedStream} to {@code consumer} to process.
@@ -484,6 +498,22 @@ public interface AspectDao {
       @Nonnull OperationContext opContext,
       @Nonnull final RestoreIndicesArgs args,
       @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer);
+
+  /**
+   * As {@link #streamAspectBatches(OperationContext, RestoreIndicesArgs, Function)}, with the read
+   * running under {@code isolationLevel} when one is given. The level is advisory: a caller either
+   * relaxes consistency for speed or asks for committed reads, and a store without configurable
+   * isolation satisfies both by reading the way it always does. Stores that can honour the request
+   * override this.
+   */
+  @Nullable
+  default <R> R streamAspectBatches(
+      @Nonnull OperationContext opContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nullable final TxIsolation isolationLevel,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
+    return streamAspectBatches(opContext, args, consumer);
+  }
 
   /**
    * Stream latest-version (v0) rows for the given aspects ordered by creation time ascending,
@@ -541,6 +571,21 @@ public interface AspectDao {
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn);
+
+  /**
+   * {@link #deleteUrn}, leaving the rows of {@code keptAspectNames} in place; with none kept it is
+   * {@link #deleteUrn}. Same transaction requirement.
+   */
+  default int deleteUrnExcept(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> keptAspectNames) {
+    if (keptAspectNames.isEmpty()) {
+      return deleteUrn(opContext, txContext, urn);
+    }
+    throw new UnsupportedOperationException("deleteUrnExcept with kept aspects");
+  }
 
   /**
    * Optionally serialize concurrent writers on the given {@code (urn, aspect)} pairs before any row

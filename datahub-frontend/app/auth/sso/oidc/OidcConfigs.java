@@ -11,10 +11,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 /** Class responsible for extracting and validating OIDC related configurations. */
 @Getter
+@EqualsAndHashCode(callSuper = true)
 public class OidcConfigs extends SsoConfigs {
 
   /** Required configs */

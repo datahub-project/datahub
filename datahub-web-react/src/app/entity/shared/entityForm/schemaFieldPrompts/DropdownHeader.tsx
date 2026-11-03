@@ -1,4 +1,4 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -9,8 +9,6 @@ import { getNumPromptsCompletedForField } from '@app/entity/shared/containers/pr
 import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 
 import { SchemaField } from '@types';
-
-import GreenCircleIcon from '@images/greenCircleTwoTone.svg?react';
 
 const HeaderWrapper = styled.div`
     display: flex;
@@ -29,6 +27,11 @@ const PromptsCompletedText = styled.span`
     font-size: 14px;
     color: ${(props) => props.theme.colors.text};
     font-weight: 600;
+`;
+
+const GreenCheckCircle = styled(CheckCircle).attrs({ size: 16, weight: 'fill' })`
+    color: ${(props) => props.theme.colors.iconSuccess};
+    vertical-align: -2px;
 `;
 
 interface Props {
@@ -55,7 +58,7 @@ export default function DropdownHeader({ field, numPrompts, isExpanded }: Props)
             )}
             {numPromptsRemaining === 0 && !isExpanded && (
                 <PromptsCompletedText>
-                    <Icon component={GreenCircleIcon} /> {t('promptsCompleted', { count: numPrompts })}
+                    <GreenCheckCircle /> {t('promptsCompleted', { count: numPrompts })}
                 </PromptsCompletedText>
             )}
         </HeaderWrapper>

@@ -3,6 +3,7 @@ package com.linkedin.metadata.service;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -49,11 +50,14 @@ public class PageModuleServiceTest {
   @Mock private EntityClient mockEntityClient;
   @Mock private OperationContext mockOpContext;
 
+  private EntityClient.ReferencesCleanup references;
   private PageModuleService service;
 
   @BeforeMethod
-  public void setUp() {
+  public void setUp() throws Exception {
     MockitoAnnotations.openMocks(this);
+    references = mock(EntityClient.ReferencesCleanup.class);
+    when(mockEntityClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
     service = new PageModuleService(mockEntityClient);
   }
 
@@ -322,7 +326,7 @@ public class PageModuleServiceTest {
       spyService.deletePageModule(mockOpContext, moduleUrn);
 
       // Assert
-      verify(mockEntityClient, times(1)).deleteEntity(mockOpContext, moduleUrn);
+      verify(mockEntityClient, times(1)).deleteEntityThenReferences(mockOpContext, moduleUrn);
     }
   }
 
@@ -333,7 +337,7 @@ public class PageModuleServiceTest {
 
     doThrow(new RuntimeException("Test exception"))
         .when(mockEntityClient)
-        .deleteEntity(any(), any());
+        .deleteEntityThenReferences(any(), any());
 
     // Act & Assert
     assertThrows(
@@ -504,7 +508,7 @@ public class PageModuleServiceTest {
       spyService.deletePageModule(mockOpContext, moduleUrn);
 
       // Assert
-      verify(mockEntityClient, times(1)).deleteEntity(mockOpContext, moduleUrn);
+      verify(mockEntityClient, times(1)).deleteEntityThenReferences(mockOpContext, moduleUrn);
     }
   }
 

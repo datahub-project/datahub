@@ -14,6 +14,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { OwnershipManagementPage } from '../../pages/ownership-management.page';
 import { withTimestamp } from '../../utils/random';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'ownership-v2' });
 
@@ -26,48 +27,52 @@ test.describe('manage ownership', () => {
     await ownershipPage.navigate();
   });
 
-  test('create, edit, and delete ownership type', async ({ page, logger }) => {
-    const testOwnershipType = withTimestamp('OT');
-    const initialDescription = 'Test description';
-    const editedDescription = 'Edited description';
+  test(
+    'create, edit, and delete ownership type',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      const testOwnershipType = withTimestamp('OT');
+      const initialDescription = 'Test description';
+      const editedDescription = 'Edited description';
 
-    // CREATE: Add a new ownership type
-    logger.info(`Creating ownership type: ${testOwnershipType}`);
-    await ownershipPage.openCreateModal();
-    await ownershipPage.setOwnershipTypeName(testOwnershipType);
-    await ownershipPage.setOwnershipTypeDescription(initialDescription);
-    await ownershipPage.saveOwnershipType(testOwnershipType);
+      // CREATE: Add a new ownership type
+      logger.info(`Creating ownership type: ${testOwnershipType}`);
+      await ownershipPage.openCreateModal();
+      await ownershipPage.setOwnershipTypeName(testOwnershipType);
+      await ownershipPage.setOwnershipTypeDescription(initialDescription);
+      await ownershipPage.saveOwnershipType(testOwnershipType);
 
-    // Verify creation by navigating to fresh page state
-    await page.reload();
-    await expect(page.getByText('Manage Ownership')).toBeVisible();
-    await ownershipPage.expectItemVisible(testOwnershipType);
-    logger.info(`Created: ${testOwnershipType}`);
+      // Verify creation by navigating to fresh page state
+      await page.reload();
+      await expect(page.getByText('Manage Ownership')).toBeVisible();
+      await ownershipPage.expectItemVisible(testOwnershipType);
+      logger.info(`Created: ${testOwnershipType}`);
 
-    // EDIT: Update the description
-    logger.info(`Editing ownership type: ${testOwnershipType}`);
-    await ownershipPage.openRowDropdown(testOwnershipType);
-    await ownershipPage.clickEditMenu();
-    await ownershipPage.setOwnershipTypeDescription(editedDescription);
-    await ownershipPage.saveOwnershipType(testOwnershipType);
+      // EDIT: Update the description
+      logger.info(`Editing ownership type: ${testOwnershipType}`);
+      await ownershipPage.openRowDropdown(testOwnershipType);
+      await ownershipPage.clickEditMenu();
+      await ownershipPage.setOwnershipTypeDescription(editedDescription);
+      await ownershipPage.saveOwnershipType(testOwnershipType);
 
-    // Verify edit
-    await page.reload();
-    await expect(page.getByText('Manage Ownership')).toBeVisible();
-    await ownershipPage.expectItemVisible(editedDescription);
-    logger.info(`Edited: ${testOwnershipType}`);
+      // Verify edit
+      await page.reload();
+      await expect(page.getByText('Manage Ownership')).toBeVisible();
+      await ownershipPage.expectItemVisible(editedDescription);
+      logger.info(`Edited: ${testOwnershipType}`);
 
-    // DELETE: Remove the ownership type
-    logger.info(`Deleting ownership type: ${testOwnershipType}`);
-    await ownershipPage.openRowDropdown(testOwnershipType);
-    await ownershipPage.clickDeleteMenu();
+      // DELETE: Remove the ownership type
+      logger.info(`Deleting ownership type: ${testOwnershipType}`);
+      await ownershipPage.openRowDropdown(testOwnershipType);
+      await ownershipPage.clickDeleteMenu();
 
-    // Verify deletion
-    await page.reload();
-    await expect(page.getByText('Manage Ownership')).toBeVisible();
-    await ownershipPage.expectItemHidden(testOwnershipType);
-    logger.info(`Deleted: ${testOwnershipType}`);
+      // Verify deletion
+      await page.reload();
+      await expect(page.getByText('Manage Ownership')).toBeVisible();
+      await ownershipPage.expectItemHidden(testOwnershipType);
+      logger.info(`Deleted: ${testOwnershipType}`);
 
-    logger.info('Test completed successfully');
-  });
+      logger.info('Test completed successfully');
+    },
+  );
 });

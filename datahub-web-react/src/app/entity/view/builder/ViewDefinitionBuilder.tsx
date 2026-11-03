@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
@@ -48,6 +48,7 @@ type Props = {
 export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     // Stores an URN to the resolved entity.
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
+    const attemptedUrnsRef = useRef<Set<string>>(new Set());
 
     // Find the filters requiring entity resolution.
     const filtersToResolve = useMemo(
@@ -71,9 +72,12 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     const [getEntities, { data: resolvedEntitiesData }] = useGetEntitiesLazyQuery();
 
     useEffect(() => {
-        if (isResolutionRequired(urnsToResolve, entityCache)) {
-            getEntities({ variables: { urns: urnsToResolve } });
+        const attemptedUrns = attemptedUrnsRef.current;
+        if (!isResolutionRequired(urnsToResolve, entityCache, attemptedUrns)) {
+            return;
         }
+        urnsToResolve.forEach((urn) => attemptedUrns.add(urn));
+        getEntities({ variables: { urns: urnsToResolve } });
     }, [urnsToResolve, entityCache, getEntities]);
 
     /**
@@ -84,8 +88,7 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
      */
     useEffect(() => {
         if (resolvedEntitiesData && resolvedEntitiesData.entities?.length) {
-            const entities: Entity[] = (resolvedEntitiesData?.entities as Entity[]) || [];
-            setEntityCache(buildEntityCache(entities));
+            setEntityCache(buildEntityCache(resolvedEntitiesData.entities));
         }
     }, [resolvedEntitiesData]);
 

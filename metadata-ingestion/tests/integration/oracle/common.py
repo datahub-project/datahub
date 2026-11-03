@@ -116,27 +116,33 @@ class OracleSourceMockDataBase:
 
     def get_data(self, *arg: Any, **kwargs: Any) -> Any:
         assert arg or kwargs
-        key: Optional[str] = None
 
+        # SQLAlchemy 2.0 passes bind parameters as a positional dict (the kwargs
+        # form was removed), so gather params from both arg[1] and kwargs.
+        params = dict(kwargs)
+        if len(arg) > 1 and isinstance(arg[1], dict):
+            params.update(arg[1])
+
+        # Match by the SQL text first, then fall back to the `owner` bind value:
+        # per-schema table/view listings are keyed by owner ("schema1"/"schema2")
+        # in MOCK_DATA, while every other query is keyed by its SQL prefix.
+        candidate_keys = []
         if arg and isinstance(arg[0], str):
-            key = arg[0]
+            candidate_keys.append(arg[0])
+        elif arg and isinstance(arg[0], TextClause):
+            candidate_keys.append(str(arg[0]))
+        if params.get("owner"):
+            candidate_keys.append(params["owner"])
 
-        if arg and isinstance(arg[0], TextClause) and not kwargs:
-            key = str(arg[0])
+        for raw_key in candidate_keys:
+            key = re.sub(" +", " ", raw_key.replace("\n", " ").replace("\r", " "))
+            matched = [mock_key for mock_key in self.MOCK_DATA if mock_key in key]
+            if matched:
+                return OracleSourceMockDataBase.MOCK_DATA[matched[0]]
 
-        if arg and isinstance(arg[0], TextClause) and kwargs:
-            key = kwargs.get("owner")
-
-        # key should present in MOCK_DATA
-        assert key is not None
-        key = re.sub(" +", " ", key.replace("\n", " ").replace("\r", " "))
-        res = {mock_key: mock_key in key for mock_key in self.MOCK_DATA}
-
-        assert any(res.values())
-
-        return OracleSourceMockDataBase.MOCK_DATA[
-            [mock_key for mock_key, mock_value in res.items() if mock_value][0]
-        ]
+        raise AssertionError(
+            f"No mock key matched query (arg={arg!r}, kwargs={kwargs!r})"
+        )
 
 
 class OracleTestCaseBase:
