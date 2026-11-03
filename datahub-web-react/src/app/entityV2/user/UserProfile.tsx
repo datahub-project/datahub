@@ -7,6 +7,7 @@ import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { EntityContext } from '@app/entityV2/shared/EntityContext';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,
@@ -174,6 +175,7 @@ export default function UserProfile({ urn }: Props) {
 
     const finalTabs = [
         {
+            key: EntitySidebarTabKey.ABOUT,
             name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,
