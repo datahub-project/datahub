@@ -34,6 +34,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -54,6 +55,12 @@ public class DeleteEntityServiceGuardHandlingTest {
   private final EntitySearchService _searchService = mock(EntitySearchService.class);
   private final DeleteEntityService _deleteEntityService =
       new DeleteEntityService(_entityService, _graphService, _searchService, null, null);
+
+  // TestNG reuses this instance across data-provider rows, so mock invocations must not carry over.
+  @BeforeMethod
+  public void resetMocks() {
+    reset(_entityService, _graphService, _searchService);
+  }
 
   private static EntityResponse datasetWithContainerAspect(Urn datasetUrn, Urn containerUrn) {
     final Container containerAspect = new Container();
