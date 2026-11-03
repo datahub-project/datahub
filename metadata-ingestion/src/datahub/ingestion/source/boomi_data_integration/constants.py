@@ -126,6 +126,8 @@ class TargetLayout(StrEnum):
     OBJECT_STORAGE = "object_storage"
 
 
+ATHENA_TARGET = "athena"
+
 # Keyed by the Data Integration target name (`properties.target.name`).
 DI_PLATFORM_MAP: Dict[str, str] = {
     "snowflake": "snowflake",

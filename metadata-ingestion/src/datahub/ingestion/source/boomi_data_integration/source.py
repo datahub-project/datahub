@@ -310,6 +310,11 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         with self.report.new_stage(STAGE_ENVIRONMENTS):
             environments = self._discover_environments()
+            if self.config.extract_owners:
+                self.owner_resolver.preload(
+                    (access.environment.cross_id, access.token)
+                    for access in environments
+                )
         run_templates: Dict[str, RunTemplates] = {}
         with self.report.new_stage(STAGE_RIVERS):
             for access in environments:

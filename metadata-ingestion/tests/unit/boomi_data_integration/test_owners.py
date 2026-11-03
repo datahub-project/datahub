@@ -142,6 +142,25 @@ def test_forbidden_users_list_warns_once_and_retries_per_environment() -> None:
     assert resolver.report.users_unavailable is False
 
 
+def test_preload_lets_the_first_environment_use_a_later_token() -> None:
+    # The users list is account-wide; only env-2's token may read it, and rivers
+    # in env-1 come first.
+    resolver = _resolver()
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            USERS_URL,
+            [
+                {"status_code": 403, "json": {"detail": "Insufficient scopes"}},
+                {"json": _users(("Example User", "svc@example.com"))},
+            ],
+        )
+        resolver.preload([("env-1", TOKEN), ("env-2", SecretStr("t2"))])
+        assert _owners(resolver, "Example User", None, "env-1") == [
+            ("urn:li:corpuser:svc@example.com", "DATAOWNER")
+        ]
+        assert mock.call_count == 2
+
+
 def test_users_list_server_error_skips_owners() -> None:
     resolver = _resolver()
     with requests_mock.Mocker() as mock:

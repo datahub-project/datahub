@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import requests
 from pydantic import SecretStr
@@ -42,6 +42,14 @@ class OwnerResolver:
         self._emails: Optional[Dict[str, Optional[str]]] = None
         self._tried_environments: Set[str] = set()
         self._warned = False
+
+    def preload(self, environments: Iterable[Tuple[str, SecretStr]]) -> None:
+        """Loads the users list before any river is emitted, trying each
+        environment's token until one works, so rivers in the first environments
+        aren't written without owners when only a later token can read users."""
+        for environment_id, token in environments:
+            if self._load(environment_id, token) is not None:
+                return
 
     def owners(
         self, metadata: RiverMetadata, environment_id: str, token: SecretStr

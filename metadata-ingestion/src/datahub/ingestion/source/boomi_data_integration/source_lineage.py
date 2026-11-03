@@ -474,7 +474,10 @@ class SourceLineageResolver:
     @staticmethod
     def _rebuild(parsed_urn: str, scope: DatasetScope) -> Optional[str]:
         name = DatasetUrn.from_string(parsed_urn).name
-        if len(name.split(TABLE_NAME_SEPARATOR)) != scope.name_parts:
+        if len(name.split(TABLE_NAME_SEPARATOR)) not in (
+            scope.name_parts,
+            scope.full_name_parts,
+        ):
             return None
         return scope.urn(name)
 

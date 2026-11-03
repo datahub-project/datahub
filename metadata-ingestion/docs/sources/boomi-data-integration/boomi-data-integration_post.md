@@ -46,7 +46,7 @@ The source platform comes from the river's source type. `connection_type_platfor
 - Multi-table rivers read each selected table of each schema in the river.
 - Custom query rivers read the tables in their SQL. The query is parsed with the source platform's dialect, using `database` and `default_schema` from the source connection in `connection_to_platform` for unqualified names.
 - Logic SQL query and script steps read the tables in their SQL, parsed with the step's warehouse dialect and the step connection's `database` and `default_schema`. Tables an `INSERT`, `UPDATE`, `MERGE` or `CREATE TABLE` in the SQL writes become outputs too; for script steps they are the only outputs. An `UPDATE`'s own target is not listed as an input, but in a script a table written by one statement and read by a later one is.
-- A SQL table is only used when its name has as many parts as the platform's URNs, so a table missing its database or schema is skipped rather than given a name that would not join.
+- A SQL table is only used when its name has as many parts as the platform's URNs, so a table missing its database or schema is skipped rather than given a name that would not join. On Redshift, Postgres and SQL Server targets, a fully qualified `database.schema.table` in the SQL is used as written even when the connection has no `database` mapped.
 - Source tables of a multi-table river with a target prefix still get lineage, even though the targets are skipped.
 
 #### Column lineage

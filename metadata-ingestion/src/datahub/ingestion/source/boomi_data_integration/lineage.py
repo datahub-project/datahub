@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import List, Optional, Tuple
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -7,6 +7,7 @@ from datahub.ingestion.source.boomi_data_integration.config import (
     ConnectionPlatformDetail,
 )
 from datahub.ingestion.source.boomi_data_integration.constants import (
+    ATHENA_TARGET,
     DI_PLATFORM_MAP,
     LOGIC_STEP_TARGET_NAMES,
     SQL_QUERY_STEP_SUFFIX,
@@ -45,6 +46,9 @@ class DatasetScope:
     # Segments in a fully qualified name; SQL-parsed tables with any other
     # count would not join the platform's own URNs.
     name_parts: int
+    # A longer form SQL may also use: `database.schema.table` on a platform whose
+    # target names drop the database when connection_to_platform has none.
+    full_name_parts: Optional[int] = None
     platform_instance: Optional[str] = None
     database: Optional[str] = None
     default_schema: Optional[str] = None
@@ -159,7 +163,12 @@ class TargetLineageResolver:
         if layout is None or layout == TargetLayout.OBJECT_STORAGE or platform is None:
             return None
         database = connection.database if connection else None
-        return self.scope(platform, connection, target_name_parts(layout, database))
+        scope = self.scope(platform, connection, target_name_parts(layout, database))
+        if layout == TargetLayout.SCHEMA_TABLE and target_name != ATHENA_TARGET:
+            # Fully qualified SQL names the database itself, as the platform's own
+            # source does. (Athena's three-part form starts with the catalog.)
+            return replace(scope, full_name_parts=3)
+        return scope
 
     def _platform(
         self, target_name: str, connection: Optional[ConnectionPlatformDetail]

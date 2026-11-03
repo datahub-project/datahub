@@ -672,6 +672,23 @@ def test_script_steps_take_outputs_from_the_sql() -> None:
     assert _edges(single_lineage) == {"payment_id": ["id"]}
 
 
+def test_fully_qualified_sql_resolves_without_a_mapped_database() -> None:
+    # Redshift targets drop the database when connection_to_platform has none,
+    # but SQL that names it is fully qualified, as the redshift source names it.
+    resolver = _resolver()
+    node = _step(
+        "redshift_sql_query",
+        "INSERT INTO dev.reporting.totals (payment_id) SELECT id FROM dev.raw.payments",
+        connection_id="conn-rs",
+    )
+
+    lineage = resolver.step_lineage(node, "s")
+
+    redshift = "urn:li:dataset:(urn:li:dataPlatform:redshift,{},PROD)"
+    assert lineage.inputs == {redshift.format("dev.raw.payments")}
+    assert lineage.outputs == {redshift.format("dev.reporting.totals")}
+
+
 def test_non_sql_and_unknown_platform_steps() -> None:
     resolver = _resolver()
     river_step = LogicNode.model_validate(
