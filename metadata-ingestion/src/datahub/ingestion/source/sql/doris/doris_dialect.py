@@ -581,23 +581,6 @@ class DorisDialect(MySQLDialect_pymysql):
         scope: CommentScope,
         row_type: Type[_CommentRow],
     ) -> List[_CommentRow]:
-        try:
-            rows = [
-                row_type._make(row)
-                for row in self._query_comments(connection, sql, scope)
-            ]
-        except (TypeError, ValueError) as e:
-            # A row of the wrong shape, or one the driver cannot decode. Raised
-            # inside get_columns, these would cost the table its columns.
-            self._record_comment_failure(
-                scope, CommentLookupFailureKind.QUERY_FAILED, str(e)
-            )
-            return []
-        return self._rows_in_catalog(rows, scope)
-
-    def _query_comments(
-        self, connection: Connection, sql: str, scope: CommentScope
-    ) -> List[Sequence[Any]]:
         # An external catalog keys its rows by the bare database name by default,
         # and by `catalog.database` once show_full_dbname_in_info_schema_db is on.
         # With that setting on, FE strips the prefix before pushing the filter down,
@@ -609,11 +592,21 @@ class DorisDialect(MySQLDialect_pymysql):
             if scope.catalog in self.qualified_comment_catalogs:
                 names.reverse()
         statement = text(sql)
-        rows: List[Sequence[Any]] = []
+        rows: List[_CommentRow] = []
         try:
             for name in names:
-                rows = list(connection.execute(statement, {"schema": name}))
-                if rows:
+                result = [
+                    row_type._make(row)
+                    for row in connection.execute(statement, {"schema": name})
+                ]
+                if result:
+                    rows = result
+                # Only the scope's own catalog counts as a hit: before Doris 2.1 the
+                # bare name can match a same-named internal database instead.
+                if any(
+                    scope.catalog is None or row.table_catalog == scope.catalog
+                    for row in result
+                ):
                     if scope.catalog and name == scope.qualified_database:
                         self.qualified_comment_catalogs.add(scope.catalog)
                     break
@@ -637,7 +630,14 @@ class DorisDialect(MySQLDialect_pymysql):
                 scope, CommentLookupFailureKind.QUERY_FAILED, str(e)
             )
             return []
-        return rows
+        except (TypeError, ValueError) as e:
+            # A row of the wrong shape, or one the driver cannot decode. Raised
+            # inside get_columns, these would cost the table its columns.
+            self._record_comment_failure(
+                scope, CommentLookupFailureKind.QUERY_FAILED, str(e)
+            )
+            return []
+        return self._rows_in_catalog(rows, scope)
 
     def _rows_in_catalog(
         self, rows: List[_CommentRow], scope: CommentScope

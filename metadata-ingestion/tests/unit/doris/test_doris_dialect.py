@@ -839,6 +839,35 @@ class TestDorisComments:
         assert table.db.lower() == "information_schema"
         assert not table.catalog
 
+    def test_another_catalogs_rows_do_not_stop_the_qualified_retry(self, mock_text):
+        """A bare-name hit on a same-named internal database is not a hit for the
+        external catalog, so the qualified name is still tried."""
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_catalog.my_db"
+        internal = _execute_by_schema(
+            "my_db",
+            column_comment_rows=[("my_table", "col_a", "Internal table's comment")],
+            table_catalog="internal",
+        )
+        external = _execute_by_schema(
+            "my_catalog.my_db",
+            column_comment_rows=[("my_table", "col_a", "From the catalog")],
+        )
+
+        def execute(
+            statement: str, params: Optional[Dict[str, Any]] = None
+        ) -> List[Sequence[Any]]:
+            return internal(statement, params) or external(statement, params)
+
+        mock_connection.execute.side_effect = execute
+
+        columns = self._get_columns(dialect, mock_connection, "my_table")
+
+        assert columns[0]["comment"] == "From the catalog"
+        assert dialect.comment_lookup_failures == {}
+        assert dialect.qualified_comment_catalogs == {"my_catalog"}
+
     @pytest.mark.parametrize("table_catalog", ["internal", None])
     def test_another_catalogs_rows_do_not_lend_their_comments(
         self, mock_text, table_catalog
