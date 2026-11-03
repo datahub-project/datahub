@@ -1313,6 +1313,9 @@ elasticsearch:
     # Engine slots (elasticsearch8, opensearch3, elasticsearch9, opensearch2, postgres) are
     # optional. An unset slot uses default. A URN is selected only when its dialect matches.
     v3:
+      # Copy a business attribute's name and other searchable fields onto the referring V3 document.
+      # Off keeps the attribute URN and does not read the attribute while indexing.
+      businessAttributeExpansionEnabled: ${SEARCH_V3_BUSINESS_ATTRIBUTE_EXPANSION_ENABLED:false}
       templates:
         enabled: ${SEARCH_V3_TEMPLATES_ENABLED:false}
         # Per-surface rollout. The flag above is the rollback to the Java V2.5 builder: false
