@@ -551,40 +551,44 @@ function customMerge(isPrimary, key) {
     };
 }
 
-// Identity fields are chosen as a whole by customMerge. Filling nulls inside them would
-// mix the two siblings' platform or sibling payloads.
-const NULL_FILL_SKIP_DESCENT = new Set(['platform', 'siblings', 'siblingsSearch', 'urn']);
+// customMerge picks these from one sibling as a whole. Filling nulls inside them would
+// mix the two siblings' payloads, e.g. one sibling's lastModified time with the other's actor.
+const NULL_FILL_SKIP_DESCENT = new Set([
+    'platform',
+    'siblings',
+    'siblingsSearch',
+    'urn',
+    'lastModified',
+    'upstream',
+    'downstream',
+    'testResults',
+]);
 
-function fillNullsFromSecondary(merged: any, secondary: any, seen = new Set<any>()) {
-    if (!merged || !secondary || typeof merged !== 'object' || typeof secondary !== 'object') {
-        return;
-    }
-    if (seen.has(merged) || Array.isArray(merged) || Array.isArray(secondary)) {
-        return;
-    }
-    seen.add(merged);
+function isPlainRecord(value: unknown): value is Record<string, any> {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
 
+// Returns a copy rather than filling in place: customMerge can hand back a sibling's own
+// object, which Apollo shares with its cache and freezes in dev.
+function fillNullsFromSecondary(merged: any, secondary: any, seen = new Set<any>()): any {
+    if (!isPlainRecord(merged) || !isPlainRecord(secondary) || seen.has(secondary)) {
+        return merged;
+    }
+    seen.add(secondary);
+
+    const filled = { ...merged };
     Object.keys(secondary).forEach((key) => {
         const secondaryValue = secondary[key];
         if (secondaryValue == null) {
             return;
         }
-        if (merged[key] == null) {
-            merged[key] = secondaryValue;
-            return;
-        }
-        if (NULL_FILL_SKIP_DESCENT.has(key)) {
-            return;
-        }
-        if (
-            typeof merged[key] === 'object' &&
-            typeof secondaryValue === 'object' &&
-            !Array.isArray(merged[key]) &&
-            !Array.isArray(secondaryValue)
-        ) {
-            fillNullsFromSecondary(merged[key], secondaryValue, seen);
+        if (filled[key] == null) {
+            filled[key] = secondaryValue;
+        } else if (!NULL_FILL_SKIP_DESCENT.has(key)) {
+            filled[key] = fillNullsFromSecondary(filled[key], secondaryValue, seen);
         }
     });
+    return filled;
 }
 
 // should the entity's metadata win out against its siblings?
@@ -615,7 +619,7 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
 
     const isPrimary = shouldEntityBeTreatedAsPrimary(entity);
 
-    const combinedBaseEntity: any = siblings.reduce(
+    const mergedSiblings: any = siblings.reduce(
         (prev, current) =>
             merge(clean(isPrimary ? current : prev), clean(isPrimary ? prev : current), {
                 arrayMerge: combineMerge,
@@ -630,7 +634,7 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
     // nested objects: properties.created, createdActor, description, qualifiedName, and
     // lastModified all live under properties, so a root-only check leaves them null.
     const secondarySibling = isPrimary ? siblings[0] : entity;
-    fillNullsFromSecondary(combinedBaseEntity, secondarySibling);
+    const combinedBaseEntity = fillNullsFromSecondary(mergedSiblings, secondarySibling);
 
     // Force the urn of the combined entity to the current entity urn.
     combinedBaseEntity.urn = entity.urn;

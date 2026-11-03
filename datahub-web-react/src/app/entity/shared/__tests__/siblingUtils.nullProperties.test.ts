@@ -2,7 +2,7 @@ import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
 
 // GraphQL results can expose nulls as non-configurable properties. clean() then cannot
 // delete them, and deepmerge lets the null replace the other sibling's value.
-function withNonConfigurableNulls<T extends object>(record: T, keys: (keyof T)[]): T {
+function withNonConfigurableNulls(record: Record<string, unknown>, keys: string[]): Record<string, unknown> {
     const copy = { ...record };
     keys.forEach((key) => {
         Object.defineProperty(copy, key, {
@@ -112,6 +112,33 @@ describe('sibling null property merge', () => {
             time: 1793591700000,
             actor: 'urn:li:corpuser:bq-loader',
         });
+    });
+
+    it('fills nulls without writing into frozen cache objects', () => {
+        const deepFreeze = <T extends object>(value: T): T => {
+            Object.values(value).forEach((child) => child && typeof child === 'object' && deepFreeze(child));
+            return Object.freeze(value);
+        };
+        const primary = deepFreeze({
+            properties: {
+                name: 'events',
+                created: null,
+                lastModified: { time: 222, actor: null },
+            },
+        });
+        const sibling = {
+            properties: {
+                name: 'events',
+                created: 1793591629320,
+                lastModified: { time: 0, actor: 'urn:li:corpuser:bq-loader' },
+            },
+        };
+
+        const result = combineViewing(primary, sibling, true);
+
+        expect(result.properties.created).toBe(1793591629320);
+        // The stamp is taken whole from one sibling, never stitched from both.
+        expect(result.properties.lastModified).toEqual({ time: 222, actor: null });
     });
 
     it('falls back when a nullable primary property was deleted before merge', () => {
