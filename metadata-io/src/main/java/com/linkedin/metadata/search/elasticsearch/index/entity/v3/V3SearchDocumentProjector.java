@@ -38,6 +38,8 @@ public class V3SearchDocumentProjector {
   public static final String URN_FIELD = MappingConstants.URN_FIELD;
   public static final String ENTITY_TYPE_FIELD = MappingConstants.ENTITY_TYPE_FIELD;
   public static final String SYSTEM_METADATA_FIELD = "_systemMetadata";
+  public static final String REMOVED_FIELD = "removed";
+  public static final String TOMBSTONE_FIELD = "_v3Tombstone";
 
   /**
    * Aspect JSON stored in {@code _source} and not indexed. This is the same serialization written
@@ -69,6 +71,14 @@ public class V3SearchDocumentProjector {
     if (entityRegistry != null) {
       putParsedUrnName(document, urn, entityRegistry);
     }
+    return document;
+  }
+
+  public ObjectNode newTombstoneDocument(
+      @Nonnull final Urn urn, @Nonnull final EntitySpec entitySpec) {
+    final ObjectNode document = newEntityDocument(urn, entitySpec);
+    document.put(REMOVED_FIELD, true);
+    document.put(TOMBSTONE_FIELD, true);
     return document;
   }
 

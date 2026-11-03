@@ -11,6 +11,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
@@ -35,7 +36,9 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
@@ -315,6 +318,45 @@ public class ESWriteDAO {
     // Stable-id routing — see upsertDocumentBySearchGroup above.
     bulkProcessorFor(opContext, SearchComponent.SEARCH_V3)
         .add(opContext, docId, new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
+  }
+
+  /**
+   * Writes a V3 search document as its {@link V3SearchDocumentWrite.Kind} says. No write carries an
+   * external version: live and catch-up writes for one entity reach the index in change-log order,
+   * and the baseline fill, which does not, only creates documents that are absent.
+   */
+  public void writeV3SearchDocument(
+      @Nonnull OperationContext opContext, @Nonnull final V3SearchDocumentWrite write) {
+    if (!isV3Enabled()) {
+      log.debug("V3 entity index disabled, skipping write to {}", write.indexName());
+      return;
+    }
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
+
+    // Stable-id bulk-thread routing — docId is stable per entity. See
+    // upsertDocumentBySearchGroup above.
+    final DocWriteRequest<?> request =
+        switch (write.kind()) {
+          case MERGE, MERGE_EXISTING ->
+              new UpdateRequest(write.indexName(), write.docId())
+                  .doc(write.source(), XContentType.JSON)
+                  .docAsUpsert(write.kind() == V3SearchDocumentWrite.Kind.MERGE)
+                  .detectNoop(false)
+                  .retryOnConflict(config.getBulkProcessor().getNumRetries());
+          case CREATE ->
+              new IndexRequest(write.indexName())
+                  .id(write.docId())
+                  .source(write.source(), XContentType.JSON)
+                  .opType(DocWriteRequest.OpType.CREATE);
+          case REPLACE, TOMBSTONE ->
+              new IndexRequest(write.indexName())
+                  .id(write.docId())
+                  .source(write.source(), XContentType.JSON);
+        };
+    bulkProcessorFor(opContext, SearchComponent.SEARCH_V3).add(opContext, write.docId(), request);
   }
 
   /** Applies a script to a particular document */

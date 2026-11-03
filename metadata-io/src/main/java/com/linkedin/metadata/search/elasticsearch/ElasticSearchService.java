@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
@@ -368,6 +369,17 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
     log.debug("Deleting Search document searchGroup: {}, docId: {}", searchGroup, docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
+  }
+
+  /** Writes a V3 search document to the index and in the way the write names. */
+  public void writeV3SearchDocument(
+      @Nonnull OperationContext opContext, @Nonnull V3SearchDocumentWrite write) {
+    log.debug(
+        "Writing V3 search document index: {}, docId: {}, kind: {}",
+        write.indexName(),
+        write.docId(),
+        write.kind());
+    esWriteDAO.writeV3SearchDocument(opContext, write);
   }
 
   /**
