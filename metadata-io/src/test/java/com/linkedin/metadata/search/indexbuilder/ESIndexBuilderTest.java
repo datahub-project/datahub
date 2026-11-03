@@ -1338,12 +1338,43 @@ public class ESIndexBuilderTest {
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
             any(RequestOptions.class)))
-        .thenThrow(new OpenSearchStatusException("mapper conflict", RestStatus.BAD_REQUEST));
+        .thenThrow(
+            mappingRejection("mapper [field3] cannot be changed from type [text] to [keyword]"));
 
     assertThrows(
         OpenSearchStatusException.class,
         () -> indexBuilder.applyMappings(opContext, indexState, true));
     verify(searchClient, times(2))
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
+  }
+
+  /** A put-mapping rejection as the OpenSearch shim reports it. */
+  private static OpenSearchStatusException mappingRejection(String reason) {
+    return new OpenSearchStatusException(
+        "OpenSearch exception [type=illegal_argument_exception, reason=" + reason + "]",
+        RestStatus.BAD_REQUEST);
+  }
+
+  @Test
+  void testApplyMappings_BadRequestOtherThanAMappingRejectionIsNotRetried() throws IOException {
+    // A closed index is also a 400, and dropping the new property would not help.
+    ReindexConfig indexState = structuredPropertyAdditionState(Settings.EMPTY, new HashMap<>());
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(
+            new OpenSearchStatusException(
+                "OpenSearch exception [type=index_closed_exception, reason=closed]",
+                RestStatus.BAD_REQUEST));
+
+    assertThrows(
+        OpenSearchStatusException.class,
+        () -> indexBuilder.applyMappings(opContext, indexState, true));
+    verify(searchClient, times(1))
         .putIndexMapping(
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
@@ -1381,9 +1412,7 @@ public class ESIndexBuilderTest {
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
             any(RequestOptions.class)))
-        .thenThrow(
-            new OpenSearchStatusException(
-                "Limit of total fields [1000] has been exceeded", RestStatus.BAD_REQUEST));
+        .thenThrow(mappingRejection("Limit of total fields [1000] has been exceeded"));
 
     assertThrows(
         OpenSearchStatusException.class,
@@ -1396,19 +1425,35 @@ public class ESIndexBuilderTest {
   }
 
   @Test
-  void testBuildIndex_LeavesNewStructuredPropertiesUnmappedWhenNothingElseChanges()
-      throws IOException {
+  @SuppressWarnings("unchecked")
+  void testBuildIndex_AddsNewStructuredPropertiesWhenNothingElseChanges() throws IOException {
     ReindexConfig indexState = structuredPropertyAdditionState(Settings.EMPTY, new HashMap<>());
-    assertTrue(indexState.hasNewStructuredProperty());
+    assertFalse(indexState.requiresApplyMappings());
+    assertFalse(indexState.requiresApplySettings());
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(AcknowledgedResponse.class));
 
     assertEquals(
         indexBuilder.buildIndex(opContext, indexState),
-        ReindexResult.NOT_REINDEXED_NOTHING_APPLIED);
-    verify(searchClient, never())
+        ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+
+    ArgumentCaptor<PutMappingRequest> captor = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient)
         .putIndexMapping(
-            any(OperationFingerprint.class),
-            any(PutMappingRequest.class),
-            any(RequestOptions.class));
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    Map<String, Object> putStructuredProperties =
+        (Map<String, Object>)
+            ((Map<String, Object>)
+                    ReindexConfig.OBJECT_MAPPER
+                        .readValue(captor.getValue().source().utf8ToString(), Map.class)
+                        .get("properties"))
+                .get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    assertEquals(
+        ((Map<String, Object>) putStructuredProperties.get("properties")).keySet(),
+        Set.of("propC"));
   }
 
   @Test
@@ -1497,7 +1542,8 @@ public class ESIndexBuilderTest {
     ReindexConfig indexState =
         newStructuredPropertyBesideChangesThatWaitForReindex(
             Settings.builder().put("index.refresh_interval", "3s").build(),
-            Map.of("index", Map.of("refresh_interval", "1s")));
+            Map.of("index", Map.of("refresh_interval", "1s")),
+            false);
     assertTrue(indexState.hasStructuredPropertyTypeMismatch());
     assertFalse(indexState.isPureStructuredPropertyAddition());
     assertFalse(indexState.requiresReindex());
@@ -1540,14 +1586,13 @@ public class ESIndexBuilderTest {
   @Test
   void testApplyMappings_RejectedNewStructuredPropertiesDoNotFailSystemUpdate() throws IOException {
     ReindexConfig indexState =
-        newStructuredPropertyBesideChangesThatWaitForReindex(Settings.EMPTY, new HashMap<>());
+        newStructuredPropertyBesideChangesThatWaitForReindex(
+            Settings.EMPTY, new HashMap<>(), false);
     when(searchClient.putIndexMapping(
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
             any(RequestOptions.class)))
-        .thenThrow(
-            new OpenSearchStatusException(
-                "Limit of total fields [1000] has been exceeded", RestStatus.BAD_REQUEST));
+        .thenThrow(mappingRejection("Limit of total fields [1000] has been exceeded"));
 
     indexBuilder.applyMappings(opContext, indexState, true);
 
@@ -1559,10 +1604,60 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  void testApplyMappings_DefinitionUpsertAddsItsFieldWhileAReindexIsPending() throws IOException {
+    // A definition upsert calls applyMappings directly, even when field1's change waits for a
+    // reindex.
+    ReindexConfig indexState =
+        newStructuredPropertyBesideChangesThatWaitForReindex(Settings.EMPTY, new HashMap<>(), true);
+    assertTrue(indexState.requiresReindex());
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(AcknowledgedResponse.class));
+
+    indexBuilder.applyMappings(opContext, indexState, false);
+
+    ArgumentCaptor<PutMappingRequest> captor = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    Map<String, Object> putProperties =
+        (Map<String, Object>)
+            ReindexConfig.OBJECT_MAPPER
+                .readValue(captor.getValue().source().utf8ToString(), Map.class)
+                .get("properties");
+    assertEquals(putProperties.keySet(), Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD));
+    assertEquals(
+        ((Map<String, Object>)
+                ((Map<String, Object>) putProperties.get(STRUCTURED_PROPERTY_MAPPING_FIELD))
+                    .get("properties"))
+            .keySet(),
+        Set.of("propC"));
+  }
+
+  @Test
+  void testApplyMappings_DefinitionUpsertRejectionPropagates() throws IOException {
+    ReindexConfig indexState =
+        newStructuredPropertyBesideChangesThatWaitForReindex(Settings.EMPTY, new HashMap<>(), true);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(mappingRejection("Limit of total fields [1000] has been exceeded"));
+
+    assertThrows(
+        OpenSearchStatusException.class,
+        () -> indexBuilder.applyMappings(opContext, indexState, false));
+  }
+
+  @Test
   void testApplyMappings_NewStructuredPropertiesPutFailureOtherThanARejectionPropagates()
       throws IOException {
     ReindexConfig indexState =
-        newStructuredPropertyBesideChangesThatWaitForReindex(Settings.EMPTY, new HashMap<>());
+        newStructuredPropertyBesideChangesThatWaitForReindex(
+            Settings.EMPTY, new HashMap<>(), false);
     when(searchClient.putIndexMapping(
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
@@ -1574,14 +1669,14 @@ public class ESIndexBuilderTest {
 
   /**
    * The index maps field1 as text where the target maps keyword, and propA as text where its
-   * definition maps keyword; neither can change in place, and mappings reindex is off. The
-   * definitions also add propC.
+   * definition maps keyword; neither can change in place. The definitions also add propC.
    */
   private static ReindexConfig newStructuredPropertyBesideChangesThatWaitForReindex(
-      Settings currentSettings, Map<String, Object> targetSettings) {
+      Settings currentSettings, Map<String, Object> targetSettings, boolean mappingsReindex) {
     return ReindexConfig.builder()
         .name(TEST_INDEX_NAME)
         .exists(true)
+        .enableIndexMappingsReindex(mappingsReindex)
         .currentSettings(currentSettings)
         .targetSettings(targetSettings)
         .currentMappings(

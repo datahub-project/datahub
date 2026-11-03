@@ -255,9 +255,10 @@ public class ReindexConfig {
   }
 
   /**
-   * Put-mapping body holding only the structured-property fields {@code targetMappings} declares
-   * and {@code currentMappings} does not map, or an empty map when there are none. Put-mapping
-   * merges, so every field the body leaves out keeps its live mapping.
+   * Put-mapping body holding only the target's structured-property container, with its {@code type}
+   * and {@code dynamic} parameters and the fields {@code targetMappings} declares and {@code
+   * currentMappings} does not map, or an empty map when there are none. Put-mapping merges, so
+   * every field the body leaves out keeps its live mapping.
    */
   @SuppressWarnings("unchecked")
   static Map<String, Object> unmappedStructuredPropertyFieldsOnly(

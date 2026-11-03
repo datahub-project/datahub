@@ -637,8 +637,10 @@ public class ESIndexBuilder {
 
     // If there are no updates to mappings and settings, return
     if (!indexState.requiresApplyMappings() && !indexState.requiresApplySettings()) {
+      if (putUnmappedStructuredPropertyFields(opContext, indexState, true)) {
+        return ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED;
+      }
       log.info("No updates to index {}", indexState.name());
-      warnAboutUnmappedStructuredProperties(indexState);
       result = ReindexResult.NOT_REINDEXED_NOTHING_APPLIED;
       return result;
     }
@@ -969,20 +971,23 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Adds the structured property fields the index does not map yet when the rest of the mapping
-   * change cannot be applied in place, such as a type or analyzer change that waits for a reindex.
-   * The put carries only those fields, so a pending change elsewhere cannot fail it; put-mapping
-   * merges, and every other field keeps its live mapping. A definition upsert takes this path too
-   * when such a change is pending on the index.
+   * Adds the structured property fields the index does not map yet, when nothing else on the index
+   * changes or when the rest of the mapping change cannot be applied in place, such as a type or
+   * analyzer change that waits for a reindex. The put carries only the structured property
+   * container with those fields, so a pending change elsewhere cannot fail it; put-mapping merges,
+   * and every other field keeps its live mapping. A definition upsert takes this path too when such
+   * a change is pending on the index.
+   *
+   * @return whether the put added fields
    */
-  private void putUnmappedStructuredPropertyFields(
+  private boolean putUnmappedStructuredPropertyFields(
       @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState, boolean suppressError)
       throws IOException {
     Map<String, Object> mappings =
         ReindexConfig.unmappedStructuredPropertyFieldsOnly(
             indexState.targetMappings(), indexState.currentMappings());
     if (mappings.isEmpty()) {
-      return;
+      return false;
     }
     Set<String> newFields = new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(mappings));
     try {
@@ -1000,39 +1005,33 @@ public class ESIndexBuilder {
           indexState.name(),
           newFields,
           e);
-      return;
+      return false;
     }
     log.info("Index: {} - Added structured property fields {}", indexState.name(), newFields);
+    return true;
   }
 
   /**
-   * Whether the engine rejected a put-mapping body, which both engine clients report with status
-   * 400: a field past the total-fields limit, or a mapping the index cannot take. A timeout,
-   * throttling, or a server or connection failure is not, and may succeed on the next run.
+   * Error types an engine reports when it rejects a put-mapping body: a field past the total-fields
+   * limit or a mapping the index cannot take. Both are a 400, but so is a closed index.
+   */
+  private static final Set<String> MAPPING_REJECTION_TYPES =
+      Set.of("illegal_argument_exception", "mapper_parsing_exception", "mapper_exception");
+
+  /**
+   * Whether the engine rejected a put-mapping body. Anything else, such as a closed index, a
+   * timeout, throttling, or a server or connection failure, may succeed on the next run.
    */
   private static boolean isMappingRejection(@Nonnull Exception e) {
-    return (e instanceof OpenSearchStatusException openSearchException
-            && openSearchException.status() == RestStatus.BAD_REQUEST)
-        || (e instanceof ElasticsearchException elasticsearchException
-            && elasticsearchException.status() == RestStatus.BAD_REQUEST.getStatus());
-  }
-
-  /** Names the structured property fields an index leaves unmapped when nothing adds them. */
-  private static void warnAboutUnmappedStructuredProperties(@Nonnull ReindexConfig indexState) {
-    if (!indexState.hasNewStructuredProperty()) {
-      return;
+    if (e instanceof ElasticsearchException elasticsearchException) {
+      return elasticsearchException.status() == RestStatus.BAD_REQUEST.getStatus()
+          && MAPPING_REJECTION_TYPES.contains(elasticsearchException.error().type());
     }
-    Set<String> unmapped =
-        new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(indexState.targetMappings()));
-    unmapped.removeAll(ReindexConfig.structuredPropertyFieldIds(indexState.currentMappings()));
-    log.warn(
-        "Index: {} - Structured property fields {} have definitions but no mapping. A definition"
-            + " upsert or a reindex adds them, and so does system-update whenever it changes this"
-            + " index's mappings or settings in place. An index at its total-fields limit needs a"
-            + " higher index.mapping.total_fields.limit first: on the index itself, or in the"
-            + " settings overrides for a reindex.",
-        indexState.name(),
-        unmapped);
+    // The OpenSearch client carries the error type only in the message.
+    return e instanceof OpenSearchStatusException openSearchException
+        && openSearchException.status() == RestStatus.BAD_REQUEST
+        && openSearchException.getMessage() != null
+        && MAPPING_REJECTION_TYPES.stream().anyMatch(openSearchException.getMessage()::contains);
   }
 
   /**

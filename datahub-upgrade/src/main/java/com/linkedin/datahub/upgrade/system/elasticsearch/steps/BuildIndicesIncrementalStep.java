@@ -405,8 +405,8 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             allConfigs.stream()
                 .filter(c -> !c.requiresReindex())
                 .filter(c -> !incrementallyBuiltIndices.contains(c.name()))
-                // buildIndex also warns about definitions an otherwise unchanged index has no
-                // field for.
+                // buildIndex also adds the fields of definitions an otherwise unchanged index
+                // lacks.
                 .filter(
                     c ->
                         c.requiresApplyMappings()
@@ -656,7 +656,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         // stands, the index would receive documents under a mapping Phase 1 still has to change,
         // and the in-place apply pass below never reaches an index with a fill row. Unmapped
         // structured property fields do not count against matchesTarget, so a fill in place leaves
-        // their values unindexed until a reindex adds the fields.
+        // their values unindexed until a later system-update adds the fields.
         fills.put(config.name(), matchesTarget(config) ? Fill.IN_PLACE : Fill.REBUILD_INTO_NEXT);
       } else if (IndexMigrationStamp.incomplete(config.currentMappings())) {
         // The alias holds documents written by a migration whose rows belong to an earlier deploy,

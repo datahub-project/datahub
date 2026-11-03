@@ -66,9 +66,10 @@ public class ElasticSearchUpgradeUtils {
    * difference may trigger a reindex.
    *
    * <p>Nothing is read until the first {@code get()}, and a successful read is kept. Upgrades are
-   * built while Spring starts, so steps call {@code get()} when they run: a slow or failed read (on
-   * Cassandra each one is a filtering scan of the aspect table) stays inside the step that needs
-   * the definitions, and an upgrade that never runs never reads them.
+   * built while Spring starts, so most call {@code get()} from the step that needs the definitions:
+   * a slow or failed read (on Cassandra each one is a filtering scan of the aspect table) stays
+   * inside that step, and an upgrade that never runs never reads them. BuildIndices calls it when
+   * it is built, because its scale-down vote would count a failed read as no reindex due.
    *
    * @param structuredPropertiesConfiguration structured properties configuration
    * @param aspectDao the aspect DAO for database access

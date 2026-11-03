@@ -62,6 +62,9 @@ public class BuildIndicesPreStep implements UpgradeStep {
               IndexUtils.requireIndexBuilder(indexConfig.name()).getSearchClient();
           String indexName = IndexUtils.resolveAlias(opContext, searchClient, indexConfig.name());
 
+          // BuildIndices has no cleanup step: if the reindex then fails, for example on the
+          // total-fields limit, this block stays until a later run reindexes the index or an
+          // operator removes it.
           boolean ack = blockWrites(opContext, searchClient, indexName);
           if (!ack) {
             log.error(
