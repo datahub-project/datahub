@@ -454,6 +454,12 @@ def test_forbidden_model_fails_run_but_keeps_other_models(
     assert report.fabric_definitions_fetched == 1
     # A 403 zeroes out that model's tables, so the run is red, not green.
     assert [f.title for f in report.failures] == ["Fabric API Permission Denied"]
+    # Fabric's errorCode names the cause a bare 403 cannot (role, label, tenant setting).
+    assert any(
+        "errorCode=Unauthorized" in context
+        for failure in report.failures
+        for context in failure.context
+    )
 
     with open(f"{tmp_path}/powerbi_forbidden_mces.json") as f:
         urns = {mcp["entityUrn"] for mcp in json.load(f)}

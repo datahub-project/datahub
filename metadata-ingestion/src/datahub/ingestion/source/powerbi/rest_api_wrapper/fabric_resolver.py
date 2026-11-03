@@ -64,6 +64,49 @@ KEY_MESSAGE = "message"
 MSAL_ERROR = "error"
 MSAL_ERROR_DESCRIPTION = "error_description"
 
+# Fabric error-response fields (ErrorResponse in the Fabric REST API). Only
+# these are echoed into the report; the body may carry other fields.
+KEY_ERROR_CODE = "errorCode"
+KEY_REQUEST_ID = "requestId"
+KEY_MORE_DETAILS = "moreDetails"
+# Fabric messages are short, but cap them so a misbehaving proxy page cannot
+# flood the report.
+FABRIC_ERROR_MESSAGE_MAX_CHARS = 300
+
+
+def describe_fabric_error(e: Exception) -> Optional[str]:
+    """Fabric's own reason for a failed call, e.g. 'errorCode=InsufficientPrivileges'.
+
+    A 403 alone cannot tell a missing workspace role from an encrypted
+    sensitivity label or a disabled tenant setting; the errorCode can.
+    """
+    if not isinstance(e, requests.exceptions.HTTPError) or e.response is None:
+        return None
+    try:
+        body = e.response.json()
+    except ValueError:
+        return None
+    if not isinstance(body, dict):
+        return None
+    parts: List[str] = []
+    error_code = body.get(KEY_ERROR_CODE)
+    if isinstance(error_code, str) and error_code:
+        parts.append(f"errorCode={error_code}")
+    detail_codes = [
+        detail[KEY_ERROR_CODE]
+        for detail in body.get(KEY_MORE_DETAILS) or []
+        if isinstance(detail, dict) and isinstance(detail.get(KEY_ERROR_CODE), str)
+    ]
+    if detail_codes:
+        parts.append(f"detailCodes={','.join(detail_codes)}")
+    message = body.get(KEY_MESSAGE)
+    if isinstance(message, str) and message:
+        parts.append(f"message={message[:FABRIC_ERROR_MESSAGE_MAX_CHARS]}")
+    request_id = body.get(KEY_REQUEST_ID)
+    if isinstance(request_id, str) and request_id:
+        parts.append(f"requestId={request_id}")
+    return "; ".join(parts) or None
+
 
 class FabricDefinitionError(Exception):
     """A Fabric item definition could not be fetched for a non-transport reason."""

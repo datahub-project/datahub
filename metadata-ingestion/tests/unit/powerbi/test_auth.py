@@ -304,6 +304,33 @@ def test_powerbi_api_passes_certificate_credential_to_msal(
         )
 
 
+def test_workspace_apis_mode_fetches_fabric_token_with_certificate(
+    key_and_certificate: KeyAndCertificate,
+) -> None:
+    config = make_config(
+        certificate_data=key_and_certificate.key_pem
+        + key_and_certificate.certificate_pem,
+        metadata_api_mode="workspace_apis",
+    )
+    with mock.patch("msal.ConfidentialClientApplication") as mock_msal:
+        mock_msal.return_value.acquire_token_for_client.return_value = {
+            "access_token": "dummy",
+            "expires_in": 3600,
+        }
+        PowerBiAPI(config, PowerBiDashboardSourceReport())
+
+    for call in mock_msal.call_args_list:
+        assert_certificate_credential(
+            call.kwargs["client_credential"], key_and_certificate
+        )
+    # The Fabric resolver reuses the certificate-built client for its own scope.
+    requested_scopes = [
+        call.kwargs["scopes"]
+        for call in mock_msal.return_value.acquire_token_for_client.call_args_list
+    ]
+    assert ["https://api.fabric.microsoft.com/.default"] in requested_scopes
+
+
 def test_token_failure_surfaces_entra_error_details(
     key_and_certificate: KeyAndCertificate,
 ) -> None:

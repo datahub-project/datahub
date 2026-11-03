@@ -13,6 +13,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     FabricDefinitionError,
     FabricDefinitionResolver,
     FabricLroTimeoutError,
+    describe_fabric_error,
 )
 
 WORKSPACE = "64ED5CAD-7C10-4684-8180-826122881108"
@@ -196,6 +197,41 @@ def test_get_definition_http_error_propagates(
         m.post(DEFINITION_URL, status_code=403, json={"errorCode": "Unauthorized"})
         with pytest.raises(requests.exceptions.HTTPError):
             resolver.get_item_definition(WORKSPACE, MODEL, "semanticModels", "TMDL")
+
+
+def _http_error(status_code: int, body: Any) -> requests.exceptions.HTTPError:
+    with requests_mock.Mocker() as m:
+        if isinstance(body, str):
+            m.post(DEFINITION_URL, status_code=status_code, text=body)
+        else:
+            m.post(DEFINITION_URL, status_code=status_code, json=body)
+        response = requests.post(DEFINITION_URL)
+    return requests.exceptions.HTTPError(response=response)
+
+
+def test_describe_fabric_error_reports_codes_message_and_request_id() -> None:
+    error = _http_error(
+        403,
+        {
+            "requestId": "req-1",
+            "errorCode": "InsufficientPrivileges",
+            "message": "The caller does not have sufficient permissions.",
+            "moreDetails": [{"errorCode": "ItemHasProtectedLabel", "message": "x"}],
+            "not_an_allowlisted_field": "must-not-be-echoed",
+        },
+    )
+    description = describe_fabric_error(error)
+    assert description is not None
+    assert "errorCode=InsufficientPrivileges" in description
+    assert "detailCodes=ItemHasProtectedLabel" in description
+    assert "sufficient permissions" in description
+    assert "requestId=req-1" in description
+    assert "must-not-be-echoed" not in description
+
+
+def test_describe_fabric_error_ignores_non_json_and_non_http_errors() -> None:
+    assert describe_fabric_error(_http_error(403, "<html>Forbidden</html>")) is None
+    assert describe_fabric_error(ValueError("boom")) is None
 
 
 def test_list_items_follows_continuation_token(

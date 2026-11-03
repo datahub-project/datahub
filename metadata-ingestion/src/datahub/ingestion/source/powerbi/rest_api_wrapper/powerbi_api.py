@@ -64,6 +64,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     FabricDefinitionResolver,
     FabricItem,
     FabricLroTimeoutError,
+    describe_fabric_error,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.report_definition_parser import (
     ParsedPage,
@@ -989,6 +990,9 @@ class PowerBiAPI:
         self.reporter.fabric_definitions_failed += 1
         if isinstance(e, FabricLroTimeoutError):
             self.reporter.fabric_lro_timeouts += 1
+        fabric_error = describe_fabric_error(e)
+        if fabric_error:
+            context = f"{context}, fabric_error=({fabric_error})"
         self.log_http_error(
             message=f"Unable to fetch Fabric item definition ({context})"
         )
