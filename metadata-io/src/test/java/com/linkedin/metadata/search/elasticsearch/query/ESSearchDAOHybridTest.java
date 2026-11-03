@@ -54,6 +54,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -81,7 +82,7 @@ public class ESSearchDAOHybridTest {
   private HybridSearchResultReranker reranker;
   private OperationContext opContext;
   private MetricUtils metrics;
-  private ExecutorService hybridExecutor;
+  private ThreadPoolExecutor hybridExecutor;
   private ESSearchDAO dao;
 
   @BeforeMethod
@@ -626,6 +627,10 @@ public class ESSearchDAOHybridTest {
       }
       verify(metrics, timeout(30_000).atLeast(3))
           .increment(ESSearchDAO.class, "hybridReadRejected", 1);
+      assertEquals(
+          hybridExecutor.getQueue().remainingCapacity(),
+          0,
+          "the burst should leave the pool's queue full");
       // The executor stays full, so each of these is rejected in turn; if rejections counted,
       // three in a row would pause hybrid read and the last one would be skipped
       for (int i = 0; i < 4; i++) {

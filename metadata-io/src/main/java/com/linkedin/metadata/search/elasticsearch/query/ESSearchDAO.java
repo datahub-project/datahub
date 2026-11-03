@@ -172,6 +172,19 @@ public class ESSearchDAO {
   // bounded: when the workers and the queue are full, searches get the keyword ranking right away
   private static final ExecutorService HYBRID_EXECUTOR = newHybridExecutor();
 
+  // A test that fills the pool builds its own from this, since the shared pool keeps the workers
+  // that earlier tests started
+  @VisibleForTesting
+  static ThreadPoolExecutor newHybridExecutor() {
+    return new ThreadPoolExecutor(
+        8,
+        8,
+        0L,
+        TimeUnit.MILLISECONDS,
+        new ArrayBlockingQueue<>(16),
+        new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
+  }
+
   final boolean pointInTimeCreationEnabled;
   @Nonnull final ElasticSearchConfiguration searchConfiguration;
   @Nullable final CustomSearchConfiguration customSearchConfiguration;
@@ -973,19 +986,6 @@ public class ESSearchDAO {
   @VisibleForTesting
   void setHybridTimeoutMillis(long millis) {
     hybridTimeoutMillis = millis;
-  }
-
-  // A test that counts on the pool's capacity builds its own from this: the shared pool keeps the
-  // workers that earlier tests started
-  @VisibleForTesting
-  static ExecutorService newHybridExecutor() {
-    return new ThreadPoolExecutor(
-        8,
-        8,
-        0L,
-        TimeUnit.MILLISECONDS,
-        new ArrayBlockingQueue<>(16),
-        new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
   }
 
   @VisibleForTesting
