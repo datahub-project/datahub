@@ -40,6 +40,9 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
 from datahub.ingestion.source.rdf.ingestion.ast_converter import RDFToASTConverter
+from datahub.ingestion.source.rdf.ingestion.reference_closure import (
+    expand_referenced_entities,
+)
 from datahub.ingestion.source.rdf.ingestion.workunit_generator import WorkUnitGenerator
 from datahub.ingestion.source.rdf.rdf_config import RDFSourceConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -184,7 +187,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         self.report = RDFSourceReport()
         self.platform = "rdf"
         self.ast_converter = RDFToASTConverter(config, self.report)
-        self.workunit_generator = WorkUnitGenerator(self.report, config)
+        self.workunit_generator = WorkUnitGenerator(self.report, config, ctx)
 
         logger.info("Initializing RDF source")
         logger.debug(f"RDF source config: {config}")
@@ -452,12 +455,25 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
 
             # Apply SPARQL filter if provided
             if self.config.sparql_filter:
+                full_graph = rdf_graph
                 filtered_graph = self._apply_sparql_filter_with_logging(
-                    rdf_graph, triple_count
+                    full_graph, triple_count
                 )
                 if filtered_graph is None:
                     return None
-                # Type narrowing: filtered_graph is guaranteed to be Graph after None check
+                if self.config.include_referenced_entities:
+                    before_closure = len(filtered_graph)
+                    filtered_graph = expand_referenced_entities(
+                        filtered_graph, full_graph
+                    )
+                    if len(filtered_graph) != before_closure:
+                        logger.info(
+                            "Reference closure: %d → %d triples after including "
+                            "referenced entities",
+                            before_closure,
+                            len(filtered_graph),
+                        )
+                        self.report.report_triples_processed(len(filtered_graph))
                 rdf_graph = filtered_graph
             else:
                 # Report original triple count when no filter

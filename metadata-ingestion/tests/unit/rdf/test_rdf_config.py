@@ -184,6 +184,17 @@ class TestRDFConfig:
         config = RDFSourceConfig.model_validate(config_dict)
 
         assert config.sparql_filter is None
+        assert config.include_referenced_entities is False
+
+    def test_include_referenced_entities_can_be_enabled(self):
+        """Test that include_referenced_entities can be set to true."""
+        config = RDFSourceConfig.model_validate(
+            {
+                "source": "test.ttl",
+                "include_referenced_entities": True,
+            }
+        )
+        assert config.include_referenced_entities is True
 
     def test_sparql_filter_can_be_set(self):
         """Test that sparql_filter can be set to a valid SPARQL query."""
