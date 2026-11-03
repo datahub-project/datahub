@@ -2,7 +2,7 @@ import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVerti
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import AnnounceMenuAction from '@app/entityV2/shared/EntityDropdown/AnnounceMenuAction';
 import ChangeHistoryMenuAction from '@app/entityV2/shared/EntityDropdown/ChangeHistoryMenuAction';
 import DeleteEntityMenuItem from '@app/entityV2/shared/EntityDropdown/DeleteEntityMenuAction';

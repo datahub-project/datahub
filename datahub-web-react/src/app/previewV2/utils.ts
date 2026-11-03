@@ -2,8 +2,8 @@ import { toast } from '@components';
 import i18next from 'i18next';
 import { useState } from 'react';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';

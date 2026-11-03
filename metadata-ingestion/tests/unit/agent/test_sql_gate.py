@@ -1,4 +1,7 @@
+import json
+import pathlib
 import re
+from typing import Set
 
 import pytest
 from sqlglot import exp
@@ -257,6 +260,56 @@ def test_rejects_a_vendor_function_with_no_table_reference():
 
 
 @pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT secret('my_scope', 'my_key') AS s "
+        "FROM system.information_schema.tables LIMIT 1",
+        # Not selected, but the row count still answers a guess about the value.
+        "SELECT table_name FROM system.information_schema.tables "
+        "WHERE secret('my_scope', 'my_key') LIKE 'a%'",
+    ],
+)
+def test_rejects_databricks_secret(sql):
+    # sqlglot 30.22 models secret() as exp.Secret, so the vendor-function rule,
+    # which only sees exp.Anonymous, no longer refuses it; the refused-class rule does.
+    with pytest.raises(SqlScopeError, match="(?i)secret"):
+        check_query_scope(sql, platform="databricks")
+
+
+_MODELED_FUNCTIONS_BASELINE = (
+    pathlib.Path(__file__).parent / "sqlglot_modeled_functions_baseline.json"
+)
+
+
+def _modeled_functions() -> Set[str]:
+    def subclasses(cls: type) -> Set[type]:
+        found: Set[type] = set()
+        for sub in cls.__subclasses__():
+            found |= {sub} | subclasses(sub)
+        return found
+
+    return {
+        cls.__name__
+        for cls in subclasses(exp.Func)
+        if cls.__module__.startswith("sqlglot.")
+    }
+
+
+def test_sqlglot_upgrade_reviews_newly_modeled_functions():
+    # The vendor-function rule refuses what sqlglot leaves as exp.Anonymous, so each
+    # function sqlglot learns to model slips past it. The baseline is what sqlglot
+    # 30.22 models; it is not an allowlist, and only the functions added since
+    # 30.12 were checked against the gate. On a sqlglot upgrade, check each new
+    # function: refuse it in sql_gate._REFUSED_FUNCTION_CLASSES if it reads anything
+    # but its arguments (secrets, files, models, sequences), and classify any new
+    # CURRENT_* one (test_every_modeled_current_function_is_classified), then add it
+    # to the baseline.
+    baseline = set(json.loads(_MODELED_FUNCTIONS_BASELINE.read_text()))
+    new = sorted(_modeled_functions() - baseline)
+    assert not new, f"sqlglot models functions the SQL gate hasn't checked: {new}"
+
+
+@pytest.mark.parametrize(
     "platform, expression, label",
     [
         # Session and account state.
@@ -333,15 +386,6 @@ def test_rejects_bigquery_model_calls(expression, label):
             f"SELECT {expression} AS x FROM my_dataset.INFORMATION_SCHEMA.TABLES",
             platform="bigquery",
             scope=BigQueryMetadataProbe.catalog_scope,
-        )
-
-
-def test_rejects_databricks_secret():
-    # sqlglot 30.22 models secret() as exp.Secret; before, it is exp.Anonymous.
-    with pytest.raises(SqlScopeError, match="(?i)secret"):
-        check_query_scope(
-            "SELECT secret('my_scope', 'my_key') AS x FROM information_schema.tables",
-            platform="databricks",
         )
 
 

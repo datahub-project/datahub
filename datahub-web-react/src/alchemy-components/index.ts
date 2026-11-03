@@ -41,6 +41,7 @@ export * from './components/OverflowText';
 export * from './components/PageTitle';
 export * from './components/Pagination';
 export * from './components/Pills';
+export * from './components/Radio/Radio';
 export * from './components/ResizablePills';
 export * from './components/Popover';
 export * from './components/SearchBar';
