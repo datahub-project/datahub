@@ -995,7 +995,6 @@ Reference Links:
 | `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                                                                         | GMS        |
 | `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                                                                | GMS        |
 | `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                                                                    | GMS        |
-| `SHOW_INGESTION_PAGE_REDESIGN`          | `true`  | Show re-designed Ingestion page                                                                                 | GMS        |
 | `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                                                                        | GMS        |
 | `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                                                                      | GMS        |
 | `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                                                                  | GMS        |

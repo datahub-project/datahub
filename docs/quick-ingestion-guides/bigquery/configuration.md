@@ -53,7 +53,7 @@ This will securely store your BigQuery Service Account Private Key ID within Dat
 
 ## Configure Recipe
 
-5. Navigate to the **Sources** tab and click **Create new source**
+5. Navigate to the **Sources** tab and click **Create Source**
 
 <p align="center">
   <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_click_create_new_source_button.png"/>
@@ -66,6 +66,8 @@ This will securely store your BigQuery Service Account Private Key ID within Dat
 </p>
 
 7. Fill out the BigQuery Recipe
+
+Enter a **Source Name** at the top of the **Connection Details** page, then fill in the connection fields.
 
 You can find the following details in your Service Account Key file:
 
@@ -87,13 +89,11 @@ This step will ensure you have configured your credentials accurately and confir
   <img width="75%" alt="Test BigQuery connection" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery-test-connection.png"/>
 </p>
 
-After you have successfully tested your connection, click **Next**.
-
 ## Schedule Execution
 
 Now it's time to schedule a recurring ingestion pipeline to regularly extract metadata from your BigQuery instance.
 
-9. Decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
+9. In the **Sync Schedule** section, turn on **Run on a schedule**, then decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
 <p align="center">
     <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_scheduled_execution.png"/>
 </p>
@@ -103,14 +103,9 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
     <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_timezone_selector.png"/>
 </p>
 
-11. Click **Next** when you are done
+## Save and Run
 
-## Finish Up
-
-12. Name your ingestion source, then click **Save and Run**
-<p align="center">
-  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_name_ingestion.png"/>
-</p>
+11. Click **Save and Run** at the top of the page
 
 You will now find your new ingestion source running
 
@@ -120,25 +115,25 @@ You will now find your new ingestion source running
 
 ## Validate Ingestion Runs
 
-13. View the latest status of ingestion runs on the Ingestion page
+12. View the latest status of ingestion runs on the Ingestion page
 
 <p align="center">
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_succeeded.png"/>
 </p>
 
-14. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
+13. Open the **Run History** tab to see the full list of historical runs and outcomes; click a run's status to open its **Run Details** page
 
 <p align="center">
   <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_details.png"/>
 </p>
 
-15. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
+14. In the **Assets** section of the **Run Details** page, click **View all** to see which entities were ingested
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_details_view_all.png"/>
 </p>
 
-16. Pick an entity from the list to manually validate if it contains the detail you expected
+15. Pick an entity from the list to manually validate if it contains the detail you expected
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_ingested_assets.png"/>

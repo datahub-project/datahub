@@ -1,5 +1,5 @@
 import { SnowflakeFormDetails } from '@pages/ingestion/base/sources/SnowflakeSource';
-import { test } from '../../fixtures/base-test';
+import { test, expect } from '../../fixtures/base-test';
 import { IngestionV3Page } from '../../pages/ingestion/v3/ingestion-v3.page';
 import { generateRandomString, withRandomSuffix } from '../../utils/random';
 import { INGESTION_CLI_VERSION } from '../../utils/constants';
@@ -11,6 +11,7 @@ const EXECUTE_SOURCE_URN = 'urn:li:dataHubIngestionSource:playwright-v3-execute-
 const RUN_DETAILS_SOURCE = 'playwright v3 run details source';
 const SEARCH_SOURCE_1 = 'playwright v3 sources search apple';
 const SEARCH_SOURCE_2 = 'playwright v3 sources search banana';
+const FILTER_SOURCE = 'playwright v3 filter source';
 
 test.use({ featureName: 'ingestion-v3' });
 
@@ -21,8 +22,6 @@ test.describe('ingestion sources', () => {
     ingestionPage = new IngestionV3Page(page, logger, logDir);
 
     await apiMock.setFeatureFlags({
-      showIngestionPageRedesign: true,
-      ingestionOnboardingRedesignV1: true,
       showNavBarRedesign: true,
     });
 
@@ -99,7 +98,7 @@ test.describe('ingestion sources', () => {
     cleanup.track(sourceUrn);
   });
 
-  test('execute an ingestion source', async () => {
+  test('execute an ingestion source', { tag: [TestTag.P0, DomainTag.Ingestion] }, async () => {
     test.slow();
 
     await ingestionPage.sourcesTab.runIngestionSource(EXECUTE_SOURCE_URN, EXECUTE_SOURCE);
@@ -113,6 +112,20 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.expectSourceNotVisible(SEARCH_SOURCE_2);
 
     await ingestionPage.sourcesTab.clearSearch();
+  });
+
+  test('filter ingestion sources by UI', async () => {
+    await ingestionPage.sourcesTab.search(FILTER_SOURCE);
+    await ingestionPage.sourcesTab.expectSourceVisible(FILTER_SOURCE);
+
+    // Filter to UI sources only
+    await ingestionPage.sourcesTab.selectTypeFilter('UI');
+
+    // After filtering to UI only, CLI pill should not appear
+    await ingestionPage.sourcesTab.expectCliPillNotVisible();
+
+    // The pre-seeded UI source should still be visible
+    await expect(ingestionPage.sourcesTab.getSourceCell(FILTER_SOURCE)).toBeVisible();
   });
 
   test('view run details page', async () => {

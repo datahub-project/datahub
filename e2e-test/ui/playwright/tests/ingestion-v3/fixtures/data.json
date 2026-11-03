@@ -160,6 +160,16 @@
     }
   },
   {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-v3-filter-source",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright v3 filter source\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
     "entityType": "dataHubSecret",
     "entityUrn": "urn:li:dataHubSecret:playwright-v3-ingestion-secret",
     "changeType": "UPSERT",

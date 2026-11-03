@@ -1,6 +1,11 @@
+import type { Locator } from '@playwright/test';
 import { BaseSource } from './BaseSource';
 
 export class OdcsSource extends BaseSource {
+  getYamlSwitcherButton(): Locator {
+    return this.page.getByTestId('yaml-editor-tab');
+  }
+
   async fillPath(path: string): Promise<void> {
     this.logger?.step('fill odcs path', { path });
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Form.Item renders the input id from the field name; no data-testid on text fields

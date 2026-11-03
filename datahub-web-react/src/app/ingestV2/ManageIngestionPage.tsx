@@ -11,7 +11,6 @@ import { Tab } from '@components/components/Tabs/Tabs';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
-import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
@@ -83,13 +82,11 @@ export const ManageIngestionPage = () => {
     const canManageIngestion = platformPrivileges?.manageIngestion;
     const showIngestionTab = isIngestionEnabled && canManageIngestion;
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
-    const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     // undefined == not loaded, null == no permissions
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
 
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
@@ -133,9 +130,8 @@ export const ManageIngestionPage = () => {
     );
 
     const getExecutionRunDetailsPath = useCallback(
-        (urn: string) =>
-            showIngestionOnboardingRedesignV1 ? PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', urn) : undefined,
-        [showIngestionOnboardingRedesignV1],
+        (urn: string) => PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', urn),
+        [],
     );
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
@@ -180,8 +176,6 @@ export const ManageIngestionPage = () => {
         showIngestionTab && {
             component: (
                 <IngestionSourceList
-                    showCreateModal={showCreateSourceModal}
-                    setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
                     setHideSystemSources={handleSetHideSystemSources}
@@ -232,16 +226,12 @@ export const ManageIngestionPage = () => {
     const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
     const handleCreateSource = useCallback(() => {
-        if (showIngestionOnboardingRedesignV1) {
-            analytics.event({
-                type: EventType.EnterIngestionFlowEvent,
-                entryPoint: 'sources_page_cta',
-            });
-            history.push(PageRoutes.INGESTION_CREATE);
-        } else {
-            setShowCreateSourceModal(true);
-        }
-    }, [showIngestionOnboardingRedesignV1, history]);
+        analytics.event({
+            type: EventType.EnterIngestionFlowEvent,
+            entryPoint: 'sources_page_cta',
+        });
+        history.push(PageRoutes.INGESTION_CREATE);
+    }, [history]);
 
     const handleCreateSecret = () => {
         setShowCreateSecretModal(true);

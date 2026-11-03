@@ -18,8 +18,6 @@ test.describe('run history tab in manage data sources', () => {
     ingestionPage = new IngestionV3Page(page, logger, logDir);
 
     await apiMock.setFeatureFlags({
-      showIngestionPageRedesign: true,
-      ingestionOnboardingRedesignV1: true,
       showNavBarRedesign: true,
     });
 

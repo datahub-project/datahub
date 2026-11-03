@@ -344,10 +344,10 @@ Create these individual secrets in DataHub:
 
 **Step 3: Deploy via DataHub UI**
 
-1. Navigate to **Ingestion** > **Create new source**
+1. Navigate to **Ingestion** > **Create Source**
 2. Select **Iceberg** as the source type
-3. Paste your recipe configuration with secret references
-4. Configure a schedule (optional)
+3. Enter a **Source Name**, then paste your recipe configuration with secret references into the **YAML** tab
+4. Configure a schedule in the **Sync Schedule** section (optional)
 5. Click **Save and Run**
 
 ##### Using Vended Credentials (Optional)

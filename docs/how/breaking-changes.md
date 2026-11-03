@@ -229,11 +229,15 @@ Requirements:
 
 - [#20821](https://github.com/datahub-project/datahub/pull/20821) **(Ingestion / Dremio)** View lineage no longer doubles the prefix (`dremio.dremio.…`), so views now link to their real upstreams. Upstream dataset names parsed from SQL are now lowercase, like every other dataset name the Dremio source emits. **Action:** none.
 
+- [#XXXXX](https://github.com/datahub-project/datahub/pull/XXXXX) **(UI / Ingestion)** The redesigned ingestion experience is now the only one. The Manage Data Sources page always uses the new layout, and creating, editing and viewing a source's run details open as full pages instead of the old "Edit Data Source" pop-up. The `SHOW_INGESTION_PAGE_REDESIGN` and `INGESTION_ONBOARDING_REDESIGN_V1` environment variables no longer have any effect. **Action:** remove these variables from your deployment configuration. If you had set either one to `false` to keep the older screens, those screens are no longer available.
+
 ### Known Issues
 
 ### Potential Downtime
 
 ### Deprecations
+
+- [#XXXXX](https://github.com/datahub-project/datahub/pull/XXXXX) **(GraphQL)** The `showIngestionPageRedesign` and `ingestionOnboardingRedesignV1` fields of `FeatureFlagsConfig` are deprecated and always return `true`. They will be removed in a future release.
 
 - [#20460](https://github.com/datahub-project/datahub/pull/20460) **(Metadata model)** Audit stamps that only repeat the DataHub write are deprecated in favor of `systemMetadata.aspectCreated` and `systemMetadata.aspectModified` (Search V3 copies `_system.created.time`, `_system.created.actor`, `_system.modified.time`, and `_system.modified.actor`). This covers incidents, views, ownership types, lifecycle stage types, page templates, page modules, files, secrets, posts, documents, APIs, agent skills, and AI agents, plus the existing deprecations on domains, groups, and structured property definitions. The fields remain and are still indexed on Search V2. Search V3 does not index them. **Action:** read and write the system metadata stamps for these records. Do not add new writers that depend on the deprecated fields.
 
