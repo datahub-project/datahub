@@ -566,6 +566,78 @@ def test_db_v2_write_skips_nested_json_fields() -> None:
     assert dict(report.column_lineage_fields_skipped) == {"nested_field": 1}
 
 
+SNOWFLAKE = "officialboomi-X3979C-snowfl-prod"
+SNOWFLAKE_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000018"
+SNOWFLAKE_MY_TABLE = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.my_table,PROD)"
+)
+
+
+@pytest.mark.parametrize(
+    "operation_fields",
+    [
+        pytest.param("", id="object_type_id"),
+        pytest.param(
+            '<field id="sqlStatement" type="string" value="INSERT INTO my_table '
+            '(rna_db_label, rna_db_id) VALUES (?, ?)"/>',
+            id="sql_field",
+        ),
+    ],
+)
+def test_jdbc_url_connector_write_gets_map_column_lineage(
+    operation_fields: str,
+) -> None:
+    # The connection is only resolved from a JDBC URL in a field the source
+    # plugin has no id for, and the operation carries its profile on
+    # GenericOperationConfig as Database V2 does.
+    connection = (
+        _xml(V2_MYSQL_CONNECTION)
+        .replace(f'subType="{DB_V2}"', f'subType="{SNOWFLAKE}"')
+        .replace(
+            '<field id="url" type="string" value="jdbc:mysql://ensembldb.ensembl.org:3306/homo_sapiens_core_116_38"/>',
+            '<field id="connectionString" type="string" value="jdbc:snowflake://'
+            'acct.snowflakecomputing.com/?db=ANALYTICS&amp;schema=PUBLIC"/>',
+        )
+    )
+    send = (
+        _xml(MY_TABLE_SEND)
+        .replace('subType="database"', f'subType="{SNOWFLAKE}"')
+        .replace(
+            f'<DatabaseSendAction batchCount="10" commitOption="commitrows" enableBatching="true"><WriteProfile profileId="{MY_TABLE_PROFILE}"/>\n        </DatabaseSendAction>',
+            '<GenericOperationConfig customOperationType="INSERT" objectTypeId="MY_TABLE" '
+            f'operationType="CREATE" requestProfile="{MY_TABLE_PROFILE}" '
+            f'requestProfileType="json" responseProfileType="json">{operation_fields}'
+            "</GenericOperationConfig>",
+        )
+    )
+    assert "connectionString" in connection and "GenericOperationConfig" in send
+    components = _components(
+        **{
+            RNA_PROCESS: {
+                f'actionType="Send" allowDynamicCredentials="NONE" connectionId="{POSTGRES_CONNECTION}" connectorType="database"': (
+                    f'actionType="Send" allowDynamicCredentials="NONE" connectionId="{SNOWFLAKE_CONNECTION}" connectorType="{SNOWFLAKE}"'
+                ),
+            }
+        }
+    )
+    components[SNOWFLAKE_CONNECTION] = connection
+    components[MY_TABLE_SEND] = send
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    assert lineage.output_datasets == [SNOWFLAKE_MY_TABLE]
+    assert lineage.column_lineage == [
+        _edge([(RNA_TABLE, "id")], (SNOWFLAKE_MY_TABLE, "rna_db_id"), "IDENTITY"),
+        _edge(
+            [(RNA_TABLE, "descr"), (RNA_TABLE, "display_name")],
+            (SNOWFLAKE_MY_TABLE, "rna_db_label"),
+            "StringConcat",
+        ),
+    ]
+    assert dict(report.column_lineage_maps_skipped) == {}
+    assert dict(report.column_lineage_fields_skipped) == {}
+
+
 @pytest.mark.parametrize("missing", [RNA_MAP, SF_PROFILE])
 def test_unreadable_map_component_omits_process_lineage(missing: str) -> None:
     components = _components()

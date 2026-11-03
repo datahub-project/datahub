@@ -274,6 +274,16 @@ def map_field_edges(component: MapComponent) -> List[MapFieldEdge]:
     return edges
 
 
+def operation_sql(sub_type: str, operation: OperationComponent) -> Optional[str]:
+    # Database V2 always names its SQL field `query`; other connectors are
+    # matched on SQL-looking values, and more than one is never resolved.
+    if sub_type == SUBTYPE_DATABASE_V2:
+        return operation.query
+    if len(operation.sql_statements) == 1:
+        return operation.sql_statements[0]
+    return None
+
+
 @dataclass
 class _ShapeDatasets:
     urns: List[str]
@@ -549,9 +559,7 @@ class BoomiLineageResolver:
                     )
                 ]
             )
-        if sub_type == SUBTYPE_DATABASE_V2:
-            sql = operation.query
-        elif len(operation.sql_statements) > 1:
+        if sub_type != SUBTYPE_DATABASE_V2 and len(operation.sql_statements) > 1:
             self._unresolved(UnresolvedReason.AMBIGUOUS_SQL)
             self._warn_once(
                 f"sql-ambiguous:{operation_id}",
@@ -560,8 +568,7 @@ class BoomiLineageResolver:
                 context=f"subType={sub_type}, operationId={operation_id}",
             )
             return None
-        else:
-            sql = next(iter(operation.sql_statements), None)
+        sql = operation_sql(sub_type, operation)
         if sql:
             return self._datasets_from_sql(
                 sql, target, operation.direction, operation_id
@@ -838,15 +845,14 @@ class BoomiLineageResolver:
             if profile.sql:
                 return self._select_columns(profile.sql, read, profile, dataset_urn)
             return self._direct_columns(read, profile, dataset_urn)
-        if read.sub_type == SUBTYPE_DATABASE_V2:
-            if read.operation.query:
-                return self._select_columns(
-                    read.operation.query, read, profile, dataset_urn
-                )
-            return self._direct_columns(read, profile, dataset_urn)
         if read.sub_type == SUBTYPE_SALESFORCE:
             return self._direct_columns(read, profile, dataset_urn)
-        return None
+        # Database V2 and generic connectors, which only reach here once their
+        # platform resolved.
+        sql = operation_sql(read.sub_type, read.operation)
+        if sql:
+            return self._select_columns(sql, read, profile, dataset_urn)
+        return self._direct_columns(read, profile, dataset_urn)
 
     def _target_columns(
         self, write: _ResolvedShape, profile: ProfileComponent
@@ -865,15 +871,12 @@ class BoomiLineageResolver:
                     profile.sql, write, profile, dataset_urn
                 )
             return self._direct_columns(write, profile, dataset_urn)
-        if write.sub_type == SUBTYPE_DATABASE_V2:
-            if write.operation.query:
-                return self._insert_field_columns(
-                    write.operation.query, write, profile, dataset_urn
-                )
-            return self._direct_columns(write, profile, dataset_urn)
         if write.sub_type == SUBTYPE_SALESFORCE:
             return self._direct_columns(write, profile, dataset_urn)
-        return None
+        sql = operation_sql(write.sub_type, write.operation)
+        if sql:
+            return self._insert_field_columns(sql, write, profile, dataset_urn)
+        return self._direct_columns(write, profile, dataset_urn)
 
     def _direct_columns(
         self, shape: _ResolvedShape, profile: ProfileComponent, dataset_urn: str
