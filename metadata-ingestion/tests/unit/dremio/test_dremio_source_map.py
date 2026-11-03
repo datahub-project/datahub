@@ -548,20 +548,32 @@ def test_map_urn_file_object_storage_unchanged() -> None:
     ) == _urn("s3", "my_bucket/My_Folder/data.parquet")
 
 
-def test_process_dataset_emits_mapped_copy_upstream(
+def _dremio_source(
     monkeypatch: pytest.MonkeyPatch,
-) -> None:
+    source_mappings: Optional[List[DremioSourceMapping]] = None,
+) -> DremioSource:
     mock_session = MagicMock()
     monkeypatch.setattr("requests.Session", MagicMock(return_value=mock_session))
     mock_session.post.return_value.json.return_value = {"token": "dummy-token"}
     mock_session.post.return_value.status_code = 200
     ctx = MagicMock(run_id="test-run-id", graph=None)
-    source = DremioSource(
+    return DremioSource(
         DremioSourceConfig(
-            hostname="test-host", port=9047, username="u", password="p", env="DEV"
+            hostname="test-host",
+            port=9047,
+            username="u",
+            password="p",
+            env="DEV",
+            source_mappings=source_mappings,
         ),
         ctx,
     )
+
+
+def test_process_dataset_emits_mapped_copy_upstream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _dremio_source(monkeypatch)
     source.source_map = _source_map("MSSQL", "my_db", "MY_SRC")
     source.dremio_aspects = MagicMock()
     source.dremio_aspects.populate_dataset_mcp.return_value = []
@@ -588,3 +600,192 @@ def test_process_dataset_emits_mapped_copy_upstream(
     assert kwargs["downstream_urn"] == _urn(
         "dremio", "dremio.my_src.my_db.dbo.my_table"
     )
+    assert source.report.source_mapping_sample_upstream_urns == {"my_src": expected}
+
+
+def _warning_contexts(source: DremioSource, message_prefix: str) -> List[str]:
+    return [
+        context
+        for w in source.report.warnings
+        if w.message and w.message.startswith(message_prefix)
+        for context in w.context
+    ]
+
+
+def test_platform_instance_warning_only_for_listed_mappings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _dremio_source(
+        monkeypatch,
+        [DremioSourceMapping(source_name="Listed_Src", platform="mssql")],
+    )
+    source._validate_source_mappings(
+        {
+            **_source_map(
+                "MSSQL",
+                None,
+                "Listed_Src",
+                mappings=[
+                    DremioSourceMapping(source_name="Listed_Src", platform="mssql")
+                ],
+            ),
+            **_source_map("POSTGRES", "my_db", "auto_src"),
+        }
+    )
+    assert _warning_contexts(source, "Cross-platform source mapping") == [
+        "source=listed_src, platform=mssql"
+    ]
+
+
+def test_unknown_source_category_warns_once_per_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _dremio_source(monkeypatch)
+    source._validate_source_mappings(
+        {
+            **_source_map("MYARPDB", None, "custom_src"),
+            **_source_map("POSTGRES", "my_db", "pg_src"),
+        }
+    )
+    assert _warning_contexts(source, "Dremio source type has no built-in") == [
+        "source=custom_src, platform=myarpdb"
+    ]
+
+
+@pytest.mark.parametrize(
+    "source_type,platform,path,dataset,expected_name",
+    [
+        pytest.param(
+            "ORACLE",
+            "oracle",
+            ["my_oracle", "MY_SCHEMA"],
+            "ORDER",
+            "my_schema.ORDER",
+            id="oracle_keeps_reserved_word",
+        ),
+        pytest.param(
+            "ORACLE",
+            "oracle",
+            ["my_oracle", "MY_SCHEMA"],
+            "MY#TABLE",
+            "my_schema.MY#TABLE",
+            id="oracle_keeps_name_needing_quotes",
+        ),
+        pytest.param(
+            "SAPHANA",
+            "hana",
+            ["my_hana", "MY_SCHEMA"],
+            "MY_TABLE",
+            "my_schema.my_table",
+            id="hana_lowercases_uppercase_identifiers",
+        ),
+        pytest.param(
+            "SAPHANA",
+            "hana",
+            ["my_hana", "MY_SCHEMA"],
+            "My_Table",
+            "my_schema.My_Table",
+            id="hana_keeps_quoted_mixed_case",
+        ),
+    ],
+)
+def test_map_urn_normalizes_like_sqlalchemy_dialects(
+    source_type: str, platform: str, path: List[str], dataset: str, expected_name: str
+) -> None:
+    assert (
+        _map_to_urn(source_type, None, path, dataset)
+        == f"urn:li:dataset:(urn:li:dataPlatform:{platform},{expected_name},DEV)"
+    )
+
+
+@pytest.mark.parametrize(
+    "root_path,path,expected_name",
+    [
+        pytest.param(
+            "/",
+            ["my_s3", "my_bucket", "My_Folder"],
+            "my_bucket/My_Folder/data.parquet",
+            id="root_path_slash_adds_nothing",
+        ),
+        pytest.param(
+            "/My_Bucket/My_Prefix",
+            ["my_s3", "My_Folder"],
+            "My_Bucket/My_Prefix/My_Folder/data.parquet",
+            id="root_path_keeps_case",
+        ),
+        pytest.param(
+            "/",
+            ["my_s3"],
+            "data.parquet",
+            id="dataset_directly_under_source",
+        ),
+    ],
+)
+def test_map_urn_file_object_storage_keeps_case(
+    root_path: str, path: List[str], expected_name: str
+) -> None:
+    assert (
+        _map_to_urn("S3", None, path, "data.parquet", root_path)
+        == f"urn:li:dataset:(urn:li:dataPlatform:s3,{expected_name},DEV)"
+    )
+
+
+def test_map_urn_db2_uppercases_database() -> None:
+    # The Db2 connector uppercases the database and keeps the catalog's case
+    # for schema and table.
+    assert (
+        _map_to_urn("DB2", "my_db", ["my_db2", "MY_SCHEMA"], "MY_TABLE")
+        == "urn:li:dataset:(urn:li:dataPlatform:db2,MY_DB.MY_SCHEMA.MY_TABLE,DEV)"
+    )
+
+
+def test_map_urn_dremio_to_dremio_uses_dremio_naming() -> None:
+    mappings = [
+        DremioSourceMapping(
+            source_name="remote_dremio",
+            platform="dremio",
+            platform_instance="remote",
+            env="DEV",
+        )
+    ]
+    assert (
+        _map_to_urn(
+            "DREMIOTODREMIO",
+            None,
+            ["remote_dremio", "My_Space", "My_Folder"],
+            "My_View",
+            mappings=mappings,
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:dremio,remote.dremio.my_space.my_folder.my_view,DEV)"
+    )
+
+
+def test_mapping_without_ingested_source_warns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # schema_pattern ^MY_SRC\.MY_DB.* filters out the MY_SRC container itself,
+    # so build_dremio_source_map never sees it.
+    source = _dremio_source(
+        monkeypatch,
+        [
+            DremioSourceMapping(source_name="MY_SRC", platform="snowflake"),
+            DremioSourceMapping(
+                source_name="other_src", platform="mssql", platform_instance="i"
+            ),
+        ],
+    )
+    source._validate_source_mappings(
+        _source_map(
+            "MSSQL",
+            None,
+            "other_src",
+            mappings=[
+                DremioSourceMapping(
+                    source_name="other_src", platform="mssql", platform_instance="i"
+                )
+            ],
+        )
+    )
+    assert _warning_contexts(source, "source_mappings entry matches no") == [
+        "source=my_src"
+    ]
