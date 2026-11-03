@@ -4,6 +4,15 @@ from datahub.ingestion.source.powerbi.m_query.odbc import (
     extract_platform,
     extract_server,
     normalize_platform_name,
+    platform_patterns,
+)
+from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
+    ATHENA_PLATFORM,
+    DB2_PLATFORM,
+    HIVE_PLATFORM,
+    ODBC_THREE_TIER_PLATFORMS,
+    ODBC_TWO_TIER_PLATFORMS,
+    ORACLE_PLATFORM,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect
 
@@ -142,3 +151,19 @@ def test_hive_platform_has_valid_sqlglot_dialect():
     assert platform is not None
     # Must not raise "Unknown dialect '<platform>'".
     get_dialect(platform)
+
+
+def test_odbc_tier_platforms_match_odbc_platform_names():
+    """The URN-shape tier sets are built from SupportedDataPlatform, but ODBC
+    lineage compares them against the platform names odbc.py returns. Renaming a
+    key on either side would silently move that platform to the database.table
+    fallback, so pin them together."""
+    tier_platforms = {
+        *ODBC_TWO_TIER_PLATFORMS,
+        *ODBC_THREE_TIER_PLATFORMS,
+        ATHENA_PLATFORM,
+        DB2_PLATFORM,
+        HIVE_PLATFORM,
+        ORACLE_PLATFORM,
+    }
+    assert tier_platforms - platform_patterns.keys() == set()
