@@ -41,6 +41,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StatusClass,
 )
+from datahub.utilities.urns.urn import guess_entity_type
 
 
 def _make_source(
@@ -717,19 +718,30 @@ def _product_name_set(workunits: List, data_product_urn: str) -> Optional[str]:
     return None
 
 
-def _graph_with_products(products: Dict[str, str]) -> Any:
-    """A graph where `products` (urn -> display name) are the only Data Products.
+_PROPERTIES_BY_ENTITY_TYPE: Dict[str, type] = {
+    "dataProduct": DataProductPropertiesClass,
+    "domain": DomainPropertiesClass,
+}
 
-    Everything else — the contract's physical table, in particular — exists.
+
+def _graph_with_entities(entities: Dict[str, str]) -> Any:
+    """A graph where `entities` (urn -> display name) are the only Data Products
+    and Domains. The name search honors `entity_types`, so a lookup of the wrong
+    type finds nothing. Everything else (the physical table) exists.
     """
     graph = MagicMock()
     graph.exists.side_effect = lambda urn: (
-        urn in products if urn.startswith("urn:li:dataProduct:") else True
+        urn in entities
+        if guess_entity_type(urn) in _PROPERTIES_BY_ENTITY_TYPE
+        else True
     )
-    graph.get_urns_by_filter.side_effect = lambda **kwargs: iter(list(products))
+    graph.get_urns_by_filter.side_effect = lambda entity_types, **kwargs: iter(
+        [u for u in entities if guess_entity_type(u) in entity_types]
+    )
     graph.get_aspect.side_effect = lambda urn, aspect_cls: (
-        DataProductPropertiesClass(name=products[urn])
-        if aspect_cls is DataProductPropertiesClass and urn in products
+        aspect_cls(name=entities[urn])
+        if urn in entities
+        and _PROPERTIES_BY_ENTITY_TYPE[guess_entity_type(urn)] is aspect_cls
         else None
     )
     return graph
@@ -837,7 +849,7 @@ def test_data_product_resolved_by_display_name(tmp_path: pathlib.Path) -> None:
     )
     src = _make_source(
         tmp_path,
-        graph=_graph_with_products(
+        graph=_graph_with_entities(
             {"urn:li:dataProduct:abc-123": "Orders, Retail (EU)"}
         ),
         path=str(contract_file),
@@ -866,7 +878,7 @@ def test_data_product_name_matching_several_products_is_skipped(
     )
     src = _make_source(
         tmp_path,
-        graph=_graph_with_products(
+        graph=_graph_with_entities(
             {"urn:li:dataProduct:a": "Orders", "urn:li:dataProduct:b": "orders"}
         ),
         path=str(contract_file),
@@ -887,7 +899,7 @@ def test_data_product_not_found_is_skipped(tmp_path: pathlib.Path) -> None:
     contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
     src = _make_source(
         tmp_path,
-        graph=_graph_with_products({}),
+        graph=_graph_with_entities({}),
         path=str(contract_file),
         emit_data_product_association=True,
     )
@@ -908,7 +920,7 @@ def test_data_product_created_when_verification_disabled(
     contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
     src = _make_source(
         tmp_path,
-        graph=_graph_with_products({}),
+        graph=_graph_with_entities({}),
         path=str(contract_file),
         emit_data_product_association=True,
         verify_data_product_exists=False,
@@ -1050,7 +1062,7 @@ def test_data_product_full_urn_value_creates_product_named_by_id(
     )
     src = _make_source(
         tmp_path,
-        graph=_graph_with_products({}),
+        graph=_graph_with_entities({}),
         path=str(contract_file),
         emit_data_product_association=True,
         verify_data_product_exists=False,
@@ -1071,7 +1083,7 @@ def test_created_data_product_workunits_are_non_primary(
     contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
     src = _make_source(
         tmp_path,
-        graph=_graph_with_products({}),
+        graph=_graph_with_entities({}),
         path=str(contract_file),
         emit_data_product_association=True,
         verify_data_product_exists=False,
@@ -1104,7 +1116,7 @@ def test_existing_product_resolved_by_id_is_not_renamed(
     contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
     src = _make_source(
         tmp_path,
-        graph=_graph_with_products({product: "Curated Orders Name"}),
+        graph=_graph_with_entities({product: "Curated Orders Name"}),
         path=str(contract_file),
         emit_data_product_association=True,
         verify_data_product_exists=False,
@@ -1140,7 +1152,7 @@ def test_data_product_name_match_is_case_insensitive_across_contracts(
     )
     src = _make_source(
         tmp_path,
-        graph=_graph_with_products({product: "Orders (EU)"}),
+        graph=_graph_with_entities({product: "Orders (EU)"}),
         path=str(tmp_path),
         emit_data_product_association=True,
     )
@@ -1207,7 +1219,7 @@ def test_data_product_emit_failure_is_isolated_per_product(
     )
     src = _make_source(
         tmp_path,
-        graph=_graph_with_products({bad: "Orders", good: "Sales"}),
+        graph=_graph_with_entities({bad: "Orders", good: "Sales"}),
         path=str(tmp_path),
         emit_data_product_association=True,
     )
@@ -1305,19 +1317,8 @@ _DOMAIN_BODY = _VALID_CONTRACT_BODY.replace(
 )
 
 
-def _graph_with_domains(domains: Dict[str, str]) -> Any:
-    """A graph where `domains` (urn -> display name) are the only Domains."""
-    graph = MagicMock()
-    graph.exists.side_effect = lambda urn: (
-        urn in domains if urn.startswith("urn:li:domain:") else True
-    )
-    graph.get_urns_by_filter.side_effect = lambda **kwargs: iter(list(domains))
-    graph.get_aspect.side_effect = lambda urn, aspect_cls: (
-        DomainPropertiesClass(name=domains[urn])
-        if aspect_cls is DomainPropertiesClass and urn in domains
-        else None
-    )
-    return graph
+def _with_domain(value: str) -> str:
+    return _DOMAIN_BODY.replace("domain: sales", f"domain: '{value}'")
 
 
 def _domain_workunits(workunits: List, aspect_cls: type) -> List[MetadataWorkUnit]:
@@ -1330,10 +1331,22 @@ def _domain_workunits(workunits: List, aspect_cls: type) -> List[MetadataWorkUni
 
 def _dataset_domains(workunits: List) -> Dict[str, List[str]]:
     """Dataset urn -> the domains written to it."""
-    return {
-        _mcp(wu).entityUrn or "": list(_mcp(wu).aspect.domains)  # type: ignore[union-attr]
-        for wu in _domain_workunits(workunits, DomainsClass)
-    }
+    out: Dict[str, List[str]] = {}
+    for wu in _domain_workunits(workunits, DomainsClass):
+        aspect = _mcp(wu).aspect
+        assert isinstance(aspect, DomainsClass)
+        out[_mcp(wu).entityUrn or ""] = list(aspect.domains)
+    return out
+
+
+def _created_domains(workunits: List) -> Dict[str, Optional[str]]:
+    """Created domain urn -> its name."""
+    out: Dict[str, Optional[str]] = {}
+    for wu in _domain_workunits(workunits, DomainPropertiesClass):
+        aspect = _mcp(wu).aspect
+        assert isinstance(aspect, DomainPropertiesClass)
+        out[_mcp(wu).entityUrn or ""] = aspect.name
+    return out
 
 
 def _run_domain_source(
@@ -1346,21 +1359,23 @@ def _run_domain_source(
     return src, list(src.get_workunits_internal())
 
 
-def test_domain_association_off_by_default(tmp_path: pathlib.Path) -> None:
+@pytest.mark.parametrize("body", [_DOMAIN_BODY, _VALID_CONTRACT_BODY])
+def test_domain_association_off_by_default(tmp_path: pathlib.Path, body: str) -> None:
     _, workunits = _run_domain_source(
-        tmp_path, _DOMAIN_BODY, None, emit_domain_association=False
+        tmp_path, body, None, emit_domain_association=False
     )
     assert _domain_workunits(workunits, DomainsClass) == []
-    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert _created_domains(workunits) == {}
 
 
+@pytest.mark.parametrize("value", ["sales", "urn:li:domain:sales"])
 def test_domain_resolved_by_id_is_set_on_logical_dataset_only(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, value: str
 ) -> None:
     src, workunits = _run_domain_source(
         tmp_path,
-        _DOMAIN_BODY,
-        _graph_with_domains({"urn:li:domain:sales": "Curated Sales"}),
+        _with_domain(value),
+        _graph_with_entities({"urn:li:domain:sales": "Curated Sales"}),
         emit_logical_parent=True,
     )
     logical_urn = _logical_urn_of(workunits)
@@ -1370,21 +1385,31 @@ def test_domain_resolved_by_id_is_set_on_logical_dataset_only(
         wu.is_primary_source for wu in _domain_workunits(workunits, DomainsClass)
     )
     # An existing domain is never rewritten.
-    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert _created_domains(workunits) == {}
     assert src.report.domains_resolved_by_id == 1
 
 
-def test_domain_resolved_by_display_name(tmp_path: pathlib.Path) -> None:
+def test_domain_and_data_product_names_resolve_to_their_own_entity_type(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Both lookups share the name search; each must only see its own type."""
+    body = _with_domain("Sales").replace(
+        "status: active", "status: active\ndataProduct: Sales"
+    )
     src, workunits = _run_domain_source(
         tmp_path,
-        _DOMAIN_BODY,
-        _graph_with_domains({"urn:li:domain:abc-123": "Sales"}),
+        body,
+        _graph_with_entities(
+            {"urn:li:domain:d-1": "Sales", "urn:li:dataProduct:p-1": "Sales"}
+        ),
+        emit_data_product_association=True,
     )
     assert _dataset_domains(workunits) == {
-        _logical_urn_of(workunits): ["urn:li:domain:abc-123"]
+        _logical_urn_of(workunits): ["urn:li:domain:d-1"]
     }
+    assert _output_ports(workunits, "urn:li:dataProduct:p-1")
     assert src.report.domains_resolved_by_name == 1
-    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert src.report.data_products_resolved_by_name == 1
 
 
 def test_missing_domain_is_created_once_and_never_stale_removed(
@@ -1397,7 +1422,7 @@ def test_missing_domain_is_created_once_and_never_stale_removed(
     )
     src = _make_source(
         tmp_path,
-        graph=_graph_with_domains({}),
+        graph=_graph_with_entities({}),
         path=str(tmp_path),
         emit_domain_association=True,
     )
@@ -1405,10 +1430,8 @@ def test_missing_domain_is_created_once_and_never_stale_removed(
 
     created = _domain_workunits(workunits, DomainPropertiesClass)
     assert len(created) == 1
-    assert _mcp(created[0]).entityUrn == "urn:li:domain:sales"
     props = _mcp(created[0]).aspect
     assert isinstance(props, DomainPropertiesClass)
-    assert props.name == "sales"
     assert "ODCS" in (props.description or "")
     status = [
         wu
@@ -1423,21 +1446,55 @@ def test_missing_domain_is_created_once_and_never_stale_removed(
     assert src.report.domains_created == 1
 
 
+def test_full_urn_value_creates_domain_named_by_id(tmp_path: pathlib.Path) -> None:
+    _, workunits = _run_domain_source(
+        tmp_path, _with_domain("urn:li:domain:sales"), _graph_with_entities({})
+    )
+    assert _created_domains(workunits) == {"urn:li:domain:sales": "sales"}
+
+
+def test_verify_domain_exists_reports_instead_of_creating(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _run_domain_source(
+        tmp_path, _DOMAIN_BODY, _graph_with_entities({}), verify_domain_exists=True
+    )
+    assert _domain_workunits(workunits, DomainsClass) == []
+    assert _created_domains(workunits) == {}
+    assert src.report.domains_unresolved == 1
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Sales, EMEA",  # cannot form a urn id
+        "urn:li:dataProduct:x",  # another entity's urn
+        "URN:LI:DOMAIN:x",  # not a plain Domain urn
+        "urn:li:domain:urn:li:domain:x",  # urn nested in the id
+    ],
+)
+def test_value_that_is_not_a_domain_id_is_never_created(
+    tmp_path: pathlib.Path, value: str
+) -> None:
+    src, workunits = _run_domain_source(
+        tmp_path, _with_domain(value), _graph_with_entities({})
+    )
+    assert _domain_workunits(workunits, DomainsClass) == []
+    assert _created_domains(workunits) == {}
+    assert src.report.domains_unresolved == 1
+
+
 def test_domain_name_matching_several_domains_is_skipped(
     tmp_path: pathlib.Path,
 ) -> None:
     src, workunits = _run_domain_source(
         tmp_path,
         _DOMAIN_BODY,
-        _graph_with_domains({"urn:li:domain:a": "Sales", "urn:li:domain:b": "sales"}),
+        _graph_with_entities({"urn:li:domain:a": "Sales", "urn:li:domain:b": "sales"}),
     )
     assert _domain_workunits(workunits, DomainsClass) == []
-    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert _created_domains(workunits) == {}
     assert src.report.domains_unresolved == 1
-    assert any(
-        "ODCS domain matches several Domains" in str(getattr(w, "title", ""))
-        for w in src.report.warnings
-    )
 
 
 def test_domain_search_failure_neither_creates_nor_clears(
@@ -1449,7 +1506,7 @@ def test_domain_search_failure_neither_creates_nor_clears(
     src, workunits = _run_domain_source(tmp_path, _DOMAIN_BODY, graph)
 
     assert _domain_workunits(workunits, DomainsClass) == []
-    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert _created_domains(workunits) == {}
     assert src.report.domains_unresolved == 1
 
 
@@ -1458,7 +1515,7 @@ def test_domain_existence_check_failure_leaves_domain_unchanged(
 ) -> None:
     """A failed existence check is not proof the id-derived domain exists:
     assigning it would replace the dataset's real domain with a dangling urn."""
-    graph = _graph_with_domains({"urn:li:domain:abc-123": "Sales"})
+    graph = _graph_with_entities({"urn:li:domain:abc-123": "Sales"})
 
     def _exists(urn: str) -> bool:
         if urn.startswith("urn:li:domain:"):
@@ -1469,73 +1526,86 @@ def test_domain_existence_check_failure_leaves_domain_unchanged(
     src, workunits = _run_domain_source(tmp_path, _DOMAIN_BODY, graph)
 
     assert _domain_workunits(workunits, DomainsClass) == []
-    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert _created_domains(workunits) == {}
     assert src.report.domains_unresolved == 1
     assert src.report.domains_resolved_by_id == 0
 
 
+@pytest.mark.parametrize("first,second", [("Sales", "sales"), ("sales", "Sales")])
 def test_case_variants_of_a_new_domain_create_it_once(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, first: str, second: str
 ) -> None:
     """A domain created earlier in the run is not searchable yet, so a case
     variant of its name must reuse it instead of creating a second domain."""
-    (tmp_path / "a.odcs.yaml").write_text(
-        _DOMAIN_BODY.replace("domain: sales", "domain: Sales"), encoding="utf-8"
-    )
+    (tmp_path / "a.odcs.yaml").write_text(_with_domain(first), encoding="utf-8")
     (tmp_path / "b.odcs.yaml").write_text(
-        _DOMAIN_BODY.replace("id: test-contract-1", "id: test-contract-2"),
+        _with_domain(second).replace("id: test-contract-1", "id: test-contract-2"),
         encoding="utf-8",
     )
     src = _make_source(
         tmp_path,
-        graph=_graph_with_domains({}),
+        graph=_graph_with_entities({}),
         path=str(tmp_path),
         emit_domain_association=True,
     )
     workunits = list(src.get_workunits_internal())
 
-    assert len(_domain_workunits(workunits, DomainPropertiesClass)) == 1
+    assert _created_domains(workunits) == {f"urn:li:domain:{first}": first}
     assert {tuple(v) for v in _dataset_domains(workunits).values()} == {
-        ("urn:li:domain:Sales",)
+        (f"urn:li:domain:{first}",)
     }
     assert src.report.domains_created == 1
+    assert src.report.domains_resolved_by_name == 0
 
 
 def test_domain_emission_failure_does_not_drop_the_contract(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    body = (
+        _DOMAIN_BODY
+        + """\
+  - name: t2
+    physicalName: t2
+    properties:
+      - name: id
+        logicalType: number
+"""
+    )
     src = _make_source(
         tmp_path,
-        graph=_graph_with_domains({}),
-        path=str(_write(tmp_path / "c.odcs.yaml", _DOMAIN_BODY)),
+        graph=_graph_with_entities({}),
+        path=str(_write(tmp_path / "c.odcs.yaml", body)),
         emit_domain_association=True,
     )
+    calls: List[str] = []
 
-    def _boom(*args: Any, **kwargs: Any) -> Any:
+    def _boom(raw: str, *args: Any) -> Any:
+        calls.append(raw)
         raise RuntimeError("unexpected")
 
     monkeypatch.setattr(src, "_resolve_domain", _boom)
     workunits = list(src.get_workunits_internal())
 
     assert _domain_workunits(workunits, DomainsClass) == []
-    assert _aspects_of(workunits, DatasetPropertiesClass)
+    assert len(_aspects_of(workunits, DatasetPropertiesClass)) == 2
     assert src.report.contracts_skipped == 0
-    assert any(
-        "Failed to set Domain" in str(getattr(w, "title", ""))
-        for w in src.report.warnings
-    )
+    assert src.report.warnings
+    # Failed once for the value, not once per schema entry.
+    assert calls == ["sales"]
 
 
+@pytest.mark.parametrize("domain_line", ["", "\ndomain: '  '"])
 def test_contract_without_domain_clears_logical_dataset_domain(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, domain_line: str
 ) -> None:
-    src, workunits = _run_domain_source(
-        tmp_path, _VALID_CONTRACT_BODY, _graph_with_domains({})
+    body = _VALID_CONTRACT_BODY.replace(
+        "status: active", f"status: active{domain_line}"
     )
+    _, workunits = _run_domain_source(tmp_path, body, _graph_with_entities({}))
     assert _dataset_domains(workunits) == {_logical_urn_of(workunits): []}
 
 
-def test_domain_without_graph_is_associated_unverified(
+def test_domain_without_graph_is_set_unverified_and_reported(
     tmp_path: pathlib.Path,
 ) -> None:
     src, workunits = _run_domain_source(tmp_path, _DOMAIN_BODY, None)
@@ -1543,7 +1613,9 @@ def test_domain_without_graph_is_associated_unverified(
         _logical_urn_of(workunits): ["urn:li:domain:sales"]
     }
     # Without a graph nothing proves the domain is missing, so none is created.
-    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert _created_domains(workunits) == {}
+    assert src.report.domains_resolved_by_id == 0
+    assert src.report.warnings
 
 
 # ---------------------------------------------------------------------------

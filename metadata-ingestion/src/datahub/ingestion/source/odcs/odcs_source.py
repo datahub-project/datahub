@@ -8,7 +8,7 @@ import re
 import tempfile
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Dict, Generator, Iterable, List, Optional, Set, Type, TypeVar
+from typing import Dict, Generator, Iterable, List, Optional, Set, Type, Union
 from urllib.parse import urlparse
 
 import jsonschema
@@ -256,11 +256,6 @@ class _DataProductMembership:
             self.asset_urns.append(asset_urn)
 
 
-# Properties aspects resolved by display name; both carry a `name`.
-_NamedProperties = TypeVar(
-    "_NamedProperties", DataProductPropertiesClass, DomainPropertiesClass
-)
-
 # Written only on a domain ODCS creates, so curators can tell where it came from.
 _CREATED_DOMAIN_DESCRIPTION = (
     "Created by the DataHub ODCS connector from a data contract's `domain` field."
@@ -403,12 +398,10 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._data_product_ports: Dict[str, _DataProductMembership] = {}
         # `dataProduct` value -> resolution; cached so a value shared by many
         # contracts resolves and warns once. Whether the product is new is folded
-        # into the resolution (and then the membership), so there is no parallel
-        # created-products dict to keep in sync.
+        # into the resolution (and then the membership).
         self._data_product_urns: Dict[str, _EntityResolution] = {}
         # `domain` value -> resolution, cached like `_data_product_urns`.
         self._domain_urns: Dict[str, _EntityResolution] = {}
-        self._created_domains_emitted: Set[str] = set()
         # Casefolded name -> urn of each domain created this run. A new domain is
         # not searchable until indexed, so a case variant of its name (`Sales`
         # vs `sales`) would otherwise create a second one.
@@ -1694,30 +1687,18 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.data_products_resolved_by_id += 1
             return _EntityResolution(urn=by_id)
 
-        by_name = self._entities_named(
-            raw, DataProductUrn.ENTITY_TYPE, DataProductPropertiesClass, "Data Product"
+        by_name = self._resolve_by_name(
+            raw,
+            context,
+            DataProductUrn.ENTITY_TYPE,
+            DataProductPropertiesClass,
+            label="Data Product",
+            field_name="dataProduct",
         )
-        if by_name is None:
-            # The name search failed rather than coming back empty. A failure is
-            # not proof the product is absent, so leave the contract unresolved
-            # instead of seeding a duplicate at the id-derived urn. The failure
-            # was already warned about in `_entities_named`.
-            return _EntityResolution()
-        if len(by_name) == 1:
-            self.report.data_products_resolved_by_name += 1
-            return _EntityResolution(urn=by_name[0])
-        if len(by_name) > 1:
-            self.report.warning(
-                title="ODCS dataProduct matches several Data Products",
-                message=(
-                    "More than one Data Product carries this name, so the "
-                    "contract's datasets were left out of all of them. Set "
-                    "`dataProduct` to the id of the intended product, or to its "
-                    "full urn."
-                ),
-                context=f"{context} matches={', '.join(sorted(by_name))}",
-            )
-            return _EntityResolution()
+        if by_name is not None:
+            if by_name.urn is not None:
+                self.report.data_products_resolved_by_name += 1
+            return by_name
 
         if not self.config.verify_data_product_exists and by_id is not None:
             # The graph was definitive that no product exists at this id (a
@@ -1753,18 +1734,60 @@ class ODCSSource(StatefulIngestionSourceBase):
         )
         return _EntityResolution()
 
+    def _resolve_by_name(
+        self,
+        raw: str,
+        context: str,
+        entity_type: str,
+        properties_cls: Union[
+            Type[DataProductPropertiesClass], Type[DomainPropertiesClass]
+        ],
+        label: str,
+        field_name: str,
+    ) -> Optional[_EntityResolution]:
+        """The name-match step shared by `dataProduct` and `domain` resolution.
+
+        Returns None when nothing carries this name, leaving the caller's own
+        missing-entity policy (create or report). Otherwise returns the single
+        match, or an unresolved result when the search was uncertain or matched
+        several entities.
+        """
+        by_name = self._entities_named(raw, entity_type, properties_cls, label)
+        if by_name is None:
+            # The search failed rather than coming back empty. A failure is not
+            # proof the entity is absent, so leave the contract unresolved instead
+            # of seeding a duplicate at the id-derived urn. Already warned about
+            # in `_entities_named`.
+            return _EntityResolution()
+        if len(by_name) == 1:
+            return _EntityResolution(urn=by_name[0])
+        if len(by_name) > 1:
+            self.report.warning(
+                title=f"ODCS {field_name} matches several {label}s",
+                message=(
+                    f"More than one {label} carries this name, so the contract's "
+                    f"datasets were linked to none of them. Set `{field_name}` to "
+                    "the id of the intended one, or to its full urn."
+                ),
+                context=f"{context} matches={', '.join(sorted(by_name))}",
+            )
+            return _EntityResolution()
+        return None
+
     def _entities_named(
         self,
         name: str,
         entity_type: str,
-        properties_cls: Type[_NamedProperties],
+        properties_cls: Union[
+            Type[DataProductPropertiesClass], Type[DomainPropertiesClass]
+        ],
         label: str,
     ) -> Optional[List[str]]:
         """Urns of every `entity_type` entity whose display name equals `name`.
 
         Returns None whenever the result is uncertain rather than definitive, so
         the caller can distinguish that from a genuine empty result and never
-        seed a product off the back of it. That covers both a failed search (a
+        seed an entity off the back of it. That covers both a failed search (a
         graph error) and a candidate whose aspect read failed while fewer than
         two matches were confirmed — an unreadable candidate could be a
         same-named duplicate, so the partial view is neither a trustworthy miss
@@ -1779,7 +1802,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         try:
             # Case-insensitive exact name match (IEQUAL). A relevance-ranked
             # full-text `query=name` searches every field and, once capped, can
-            # rank the true `dataProductProperties.name` match past the cap and
+            # rank the true `name` match past the cap and
             # miss it; a plain EQUAL is case-sensitive, but the match is
             # documented as case-insensitive. Materialize here: the filter
             # scrolls lazily, so the search's network calls happen as the
@@ -1825,7 +1848,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 continue
             if props is not None and (props.name or "").strip().casefold() == wanted:
                 matches.append(urn)
-        # An unreadable candidate might itself be a same-named product, so a
+        # An unreadable candidate might itself be a same-named entity, so a
         # partial view can be trusted as neither a definitive miss (which would
         # seed a stub) nor a unique match (which could mask a duplicate). Only a
         # >=2 result is safe under that uncertainty — it is ambiguous either way;
@@ -1882,23 +1905,24 @@ class ODCSSource(StatefulIngestionSourceBase):
         domains: List[str] = []
         if raw:
             if raw not in self._domain_urns:
+                # Cache an unresolved placeholder first: if resolution raises,
+                # later datasets naming this value skip it instead of failing again.
+                self._domain_urns[raw] = _EntityResolution()
                 resolution = self._resolve_domain(raw, contract, source_uri)
                 self._domain_urns[raw] = resolution
                 if resolution.urn is None:
                     self.report.domains_unresolved += 1
+                elif resolution.created_name is not None:
+                    # Once per value, and a reused case variant carries no name,
+                    # so each created domain is written once.
+                    yield from self._created_domain_workunits(
+                        resolution.urn, resolution.created_name
+                    )
             resolution = self._domain_urns[raw]
             if resolution.urn is None:
                 # Leave the dataset's current domain alone: an unresolved value
                 # (often a transient lookup failure) is not a request to clear it.
                 return
-            if (
-                resolution.created_name is not None
-                and resolution.urn not in self._created_domains_emitted
-            ):
-                self._created_domains_emitted.add(resolution.urn)
-                yield from self._created_domain_workunits(
-                    resolution.urn, resolution.created_name
-                )
             domains = [resolution.urn]
         # The logical dataset is ODCS-owned, so the contract decides its domain:
         # a contract without `domain` clears it.
@@ -1923,65 +1947,58 @@ class ODCSSource(StatefulIngestionSourceBase):
     def _resolve_domain(
         self, raw: str, contract: ODCSContract, source_uri: str
     ) -> _EntityResolution:
-        """Resolve a `domain` value to a Domain urn, creating the domain if needed.
+        """Resolve a `domain` value to a Domain urn, creating the domain if allowed.
 
         Tried as an id first, then matched against domain names. A value matching
-        neither is created at its id-derived urn, but only once the graph has
-        definitively shown it is absent.
+        neither is created at its id-derived urn (unless `verify_domain_exists`),
+        but only once the graph has definitively shown it is absent.
         """
         context = f"file={source_uri} contract={contract.id} domain={raw}"
         try:
             by_id: Optional[str] = odcs_to_domain_urn(raw)
         except InvalidUrnError:
             by_id = None
-        exists = None if by_id is None else self._urn_exists_in_graph(by_id)
-        if by_id in self._urn_verify_failed:
-            # The existence check failed open. Assigning the id-derived urn would
-            # replace the dataset's real domain with one that may not exist.
-            self.report.warning(
-                title="ODCS domain could not be verified",
-                message=(
-                    "The DataHub lookup failed, so the contract's datasets keep "
-                    "their current domain. Rerun when DataHub is reachable."
-                ),
-                context=context,
-            )
-            return _EntityResolution()
-        # `is not False` also covers the no-graph case (file sink), where the
-        # id-derived urn is used unverified and nothing is created.
-        if by_id is not None and exists is not False:
-            self.report.domains_resolved_by_id += 1
-            return _EntityResolution(urn=by_id)
+        if self.ctx.graph is None:
+            return self._unverified_domain(by_id, context)
+        if by_id is not None:
+            exists = self._urn_exists_in_graph(by_id)
+            if by_id in self._urn_verify_failed:
+                # The existence check failed open. Assigning the id-derived urn
+                # would replace the dataset's real domain with one that may not
+                # exist.
+                self.report.warning(
+                    title="ODCS domain could not be verified",
+                    message=(
+                        "The DataHub lookup failed, so the contract's datasets keep "
+                        "their current domain. Rerun when DataHub is reachable."
+                    ),
+                    context=context,
+                )
+                return _EntityResolution()
+            if exists:
+                self.report.domains_resolved_by_id += 1
+                return _EntityResolution(urn=by_id)
 
-        by_name = self._entities_named(
-            raw, DomainUrn.ENTITY_TYPE, DomainPropertiesClass, "Domain"
+        by_name = self._resolve_by_name(
+            raw,
+            context,
+            DomainUrn.ENTITY_TYPE,
+            DomainPropertiesClass,
+            label="Domain",
+            field_name="domain",
         )
-        if by_name is None:
-            # Uncertain, not empty: creating here could duplicate an existing
-            # domain. Already warned about in `_entities_named`.
-            return _EntityResolution()
-        if len(by_name) == 1:
-            self.report.domains_resolved_by_name += 1
-            return _EntityResolution(urn=by_name[0])
-        if len(by_name) > 1:
-            self.report.warning(
-                title="ODCS domain matches several Domains",
-                message=(
-                    "More than one Domain carries this name, so none was set on "
-                    "the contract's datasets. Set `domain` to the id of the "
-                    "intended domain, or to its full urn."
-                ),
-                context=f"{context} matches={', '.join(sorted(by_name))}",
-            )
-            return _EntityResolution()
+        if by_name is not None:
+            if by_name.urn is not None:
+                self.report.domains_resolved_by_name += 1
+            return by_name
 
         if by_id is None:
             self.report.warning(
                 title="ODCS domain not found in DataHub",
                 message=(
-                    "No Domain matches this value by name, and the value cannot "
-                    "be an id, so no domain could be created for it. Rename the "
-                    "domain to match, or set `domain` to the domain's id or urn."
+                    "No Domain matches this value by name, and the value cannot be "
+                    "an id, so no domain could be created for it. Rename the domain "
+                    "to match, or set `domain` to the domain's id or urn."
                 ),
                 context=context,
             )
@@ -1991,8 +2008,18 @@ class ODCSSource(StatefulIngestionSourceBase):
         created_name = DomainUrn.from_string(by_id).id
         created_earlier = self._created_domains_by_name.get(created_name.casefold())
         if created_earlier is not None:
-            self.report.domains_resolved_by_name += 1
             return _EntityResolution(urn=created_earlier)
+        if self.config.verify_domain_exists:
+            self.report.warning(
+                title="ODCS domain not found in DataHub",
+                message=(
+                    "No Domain matches this value by id or by name, so none was set "
+                    "on the contract's datasets. Create the domain first, or set "
+                    "`verify_domain_exists: false` to have ODCS create it."
+                ),
+                context=context,
+            )
+            return _EntityResolution()
         self._created_domains_by_name[created_name.casefold()] = by_id
         self.report.domains_created += 1
         self.report.info(
@@ -2001,6 +2028,31 @@ class ODCSSource(StatefulIngestionSourceBase):
             context=f"{context} created={by_id}",
         )
         return _EntityResolution(urn=by_id, created_name=created_name)
+
+    def _unverified_domain(
+        self, by_id: Optional[str], context: str
+    ) -> _EntityResolution:
+        """With no graph (file sink), use the id-derived urn without checking it."""
+        if by_id is None:
+            self.report.warning(
+                title="ODCS domain not resolved: no DataHub graph",
+                message=(
+                    "The value cannot be an id, and matching it by name needs a "
+                    "DataHub graph (datahub-rest sink), so no domain was set."
+                ),
+                context=context,
+            )
+            return _EntityResolution()
+        self.report.warning(
+            title="ODCS domain not verified: no DataHub graph",
+            message=(
+                "The domain was set by id without checking that it exists. A value "
+                "that is a domain's name rather than its id points at no domain; "
+                "use a datahub-rest sink to resolve names."
+            ),
+            context=f"{context} urn={by_id}",
+        )
+        return _EntityResolution(urn=by_id)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with contextlib.ExitStack() as stack:

@@ -212,16 +212,25 @@ The value is resolved against DataHub in order:
    generated ids, so this is how a value like `Sales` finds them.
 
 A name carried by more than one domain (for example, same-named sub-domains under different
-parents) is ambiguous and skipped with a warning; set `domain` to the intended domain's id.
-A value matching nothing is **created** at `urn:li:domain:<value>`, named after its id (the
-value itself, or the id part of a full urn), with a description noting that the ODCS
-connector created it (`report.domains_created`). Values that differ only in case reuse the
-domain created earlier in the same run.
+parents) is ambiguous and skipped with a warning; set `domain` to the intended domain's id. A
+value that is a urn but not a plain Domain urn (another entity's urn, odd casing) is never
+read as an id.
+
+When nothing matches, ODCS **creates** the domain at `urn:li:domain:<value>`, named after its
+id (the value itself, or the id part of a full urn), with a description noting that the ODCS
+connector created it (`report.domains_created`). Creation needs a DataHub graph that has
+confirmed the domain is absent, and a value that forms a valid id. A value that cannot (for
+example, one containing commas or parentheses) must match an existing domain by name.
+Values that differ only in case reuse the domain created earlier in the same run. Set
+`verify_domain_exists: true` to report a missing domain instead of creating it. Unlike
+`verify_data_product_exists`, it defaults to `false`, because a domain is a simple grouping
+that is safe to create from a contract.
+
 ODCS never rewrites the name or description of an existing domain and never stale-removes a
-domain, even one it created. A failed lookup is reported (`report.domains_unresolved`) and
-creates nothing and leaves the datasets' current domain in place, so a transient error can
-neither produce a duplicate nor replace a domain. With a file sink there is
-no graph, so the id-derived urn is set unverified and nothing is created.
+domain, even one it created. A failed lookup is reported (`report.domains_unresolved`),
+creates nothing, and leaves the datasets' current domain in place, so a transient error can
+neither produce a duplicate nor replace a domain. With a file sink there is no graph: the
+id-derived urn is set unverified with a warning, and nothing is created.
 
 With the option on, the contract owns the logical dataset's domain: dropping `domain` from a
 contract clears it on the next run. An unresolved value leaves the current domain in place.

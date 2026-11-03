@@ -2022,10 +2022,16 @@ def odcs_to_data_product_urn(data_product: str) -> str:
 def odcs_to_domain_urn(domain: str) -> str:
     """The Domain urn a contract's `domain` value names, read as an id.
 
-    Raises `InvalidUrnError` when the value cannot form a urn.
+    Raises `InvalidUrnError` when the value cannot form a urn, or is a urn that
+    is not a plain Domain urn (another entity's, odd casing, or a urn nested in
+    the id), which `make_domain_urn` would otherwise wrap into a bogus Domain id.
     """
-    urn = make_domain_urn(domain.strip())
-    DomainUrn.from_string(urn)
+    value = domain.strip()
+    if value.lower().startswith("urn:") and not value.startswith("urn:li:domain:"):
+        raise InvalidUrnError(f"Not a Domain urn: {value}")
+    urn = make_domain_urn(value)
+    if DomainUrn.from_string(urn).id.lower().startswith("urn:"):
+        raise InvalidUrnError(f"Not a Domain urn: {value}")
     return urn
 
 

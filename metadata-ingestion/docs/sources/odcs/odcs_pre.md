@@ -70,7 +70,8 @@ how to disable replication.
 - **Domain assignment is opt-in.** The contract-level `domain` field is emitted only as the
   `odcs.domain` custom property by default. Set `emit_domain_association: true` to set that
   DataHub Domain on the contract's logical `odcs` datasets, resolved by id or by name and
-  created when missing.
+  created when missing (`verify_domain_exists: true` reports it instead). The contract then
+  owns that domain: removing `domain` from a contract clears it, including one set by hand.
 - **Logical Models are in private beta.** The logical `odcs` datasets this source emits —
   and the assertions attached to them — render in the UI only when `LOGICAL_MODELS_ENABLED`
   is enabled (off by default). The metadata is ingested either way. The recommended workflow
