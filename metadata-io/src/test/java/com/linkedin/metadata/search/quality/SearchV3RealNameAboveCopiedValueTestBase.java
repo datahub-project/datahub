@@ -330,6 +330,17 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     for (int i = 0; i < 5; i++) {
       String n = String.format("%02d", i);
       addDataset("scr_" + n, "Sphynx Corner Weekly R" + n, SPHYNX_QUERY, null);
+      // Opaque names, no title, and a steward value exactly equal to the search.
+      corpus.put(
+          datasetUrn("sse_" + n),
+          new Dataset(
+              datasetUrn("sse_" + n),
+              DATASET_ENTITY_NAME,
+              "sse_" + n,
+              null,
+              null,
+              null,
+              SPHYNX_QUERY));
     }
     // Record identifiers, and a dataset that only mentions them in its description.
     addDataset("adoption_register", "Adoption Register", GUID, null);
@@ -396,6 +407,24 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
               > titles.stream().max(Integer::compare).get(),
           "(c) a partial steward-only match ranks above a partial title — " + order);
     }
+  }
+
+  /**
+   * An exact match on another searchable property ranks above every partial match: the five
+   * datasets whose steward is exactly "sphynx corner" (opaque names, no title) rank above every
+   * partial real name and every partial title.
+   */
+  protected void assertExactPropertyRanksAbovePartialMatches(Mode mode) throws Exception {
+    List<Dataset> served = search(mode, SPHYNX_QUERY, 0, 90).served();
+    List<Integer> exactSteward = positions(served, "sse_");
+    List<Integer> partials = new ArrayList<>(positions(served, "sphynx_corner_daily_"));
+    partials.addAll(positions(served, "scw_"));
+    String order = String.format("%s, query %s: %s", mode, SPHYNX_QUERY, groups(served));
+    assertEquals(exactSteward.size(), 5, "exact steward matches served — " + order);
+    assertTrue(
+        exactSteward.stream().max(Integer::compare).get()
+            < partials.stream().min(Integer::compare).get(),
+        "a partial match ranks above an exact steward match — " + order);
   }
 
   private static List<Integer> positions(List<Dataset> served, String prefix) {

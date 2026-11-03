@@ -137,4 +137,14 @@ public class SearchV3RealNameAboveCopiedValueElasticSearchTest
       throws Exception {
     assertPartialRealNameAboveOtherPartialMatches(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
+
+  @Test
+  public void testClassOrderDefaultExactPropertyRanksAbovePartialMatches() throws Exception {
+    assertExactPropertyRanksAbovePartialMatches(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyExactPropertyRanksAbovePartialMatches() throws Exception {
+    assertExactPropertyRanksAbovePartialMatches(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
+  }
 }

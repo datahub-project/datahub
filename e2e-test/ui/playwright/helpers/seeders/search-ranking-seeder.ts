@@ -200,8 +200,11 @@ export function buildRankingCorpus(): CorpusEntry[] {
     entries.push(dataset(`scw_${n}`, `Sphynx Corner Weekly ${n}`));
     entries.push({ ...dataset(`sct_${n}`), steward: `Sphynx Corner Team ${n}` });
   }
-  for (let i = 0; i < 5; i += 1)
+  for (let i = 0; i < 5; i += 1) {
     entries.push(dataset(`scr_${pad(i, 2)}`, `Sphynx Corner Weekly R${pad(i, 2)}`, SPHYNX_QUERY));
+    // Opaque names, no title, and a steward value exactly equal to the search.
+    entries.push({ ...dataset(`sse_${pad(i, 2)}`), steward: SPHYNX_QUERY });
+  }
 
   // Record identifiers.
   entries.push(dataset('adoption_register', 'Adoption Register', GUID));

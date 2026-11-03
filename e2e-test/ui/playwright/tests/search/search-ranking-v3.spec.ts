@@ -301,6 +301,21 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
     }
   });
 
+  test('an exact match on another searchable property ranks above every partial match', async ({}, testInfo) => {
+    // Five datasets with opaque names and no title have the steward value exactly "sphynx corner".
+    // They rank above every partial real name and every partial title.
+    const { actual } = await searchAndRecord(testInfo, SPHYNX_QUERY, 90);
+    const order = `query ${SPHYNX_QUERY}: ${sphynxGroups(actual)}`;
+    const at = (prefix: string) => actual.map((e, i) => (e.name.startsWith(prefix) ? i : -1)).filter((i) => i >= 0);
+    const exactSteward = at('sse_');
+    const partials = [...at('sphynx_corner_daily_'), ...at('scw_')];
+    expect(exactSteward.length, `exact steward matches served — ${order}`).toBe(5);
+    expect(
+      Math.max(...exactSteward) < Math.min(...partials),
+      `a partial match ranks above an exact steward match — ${order}`,
+    ).toBe(true);
+  });
+
   test('a record identifier finds its dataset first, as typed and in upper case', async ({}, testInfo) => {
     for (const query of [GUID, GUID.toUpperCase()]) {
       const { urns } = await searchAndRecord(testInfo, query, 1);
