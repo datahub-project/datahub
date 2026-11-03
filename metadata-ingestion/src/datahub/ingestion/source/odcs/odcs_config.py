@@ -342,8 +342,8 @@ class ODCSSourceConfig(
         default=False,
         description="Whether to set the DataHub Domain named by the contract's `domain` field "
         "on the contract's logical `odcs` datasets. Physical datasets are never touched. The "
-        "value is resolved against existing domains (full URN, then `urn:li:domain:<value>`, "
-        "then an exact, case-insensitive match on domain name); when nothing matches, ODCS "
+        "value is resolved against existing domains (as a full URN or `urn:li:domain:<value>`, "
+        "then by an exact, case-insensitive match on domain name); when nothing matches, ODCS "
         "creates the domain at `urn:li:domain:<value>`. With this on, the contract owns the "
         "logical dataset's domain: a contract without `domain` clears it. Off by default: the "
         "ODCS field is free text.",

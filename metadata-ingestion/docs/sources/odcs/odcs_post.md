@@ -206,18 +206,21 @@ domain is often set by another connector or by hand.
 
 The value is resolved against DataHub in order:
 
-1. a full `urn:li:domain:...` value, used verbatim;
-2. `urn:li:domain:<value>`, when a domain exists under that id;
-3. an exact, case-insensitive match on a domain's **name**. Domains created in the UI get
+1. the value as an id: a full `urn:li:domain:...` value, or `urn:li:domain:<value>`, when a
+   domain exists under that urn;
+2. an exact, case-insensitive match on a domain's **name**. Domains created in the UI get
    generated ids, so this is how a value like `Sales` finds them.
 
 A name carried by more than one domain (for example, same-named sub-domains under different
 parents) is ambiguous and skipped with a warning; set `domain` to the intended domain's id.
-A value matching nothing is **created** at `urn:li:domain:<value>`, named after the value,
-with a description noting that the ODCS connector created it (`report.domains_created`).
+A value matching nothing is **created** at `urn:li:domain:<value>`, named after its id (the
+value itself, or the id part of a full urn), with a description noting that the ODCS
+connector created it (`report.domains_created`). Values that differ only in case reuse the
+domain created earlier in the same run.
 ODCS never rewrites the name or description of an existing domain and never stale-removes a
 domain, even one it created. A failed lookup is reported (`report.domains_unresolved`) and
-creates nothing, so a transient error cannot produce a duplicate. With a file sink there is
+creates nothing and leaves the datasets' current domain in place, so a transient error can
+neither produce a duplicate nor replace a domain. With a file sink there is
 no graph, so the id-derived urn is set unverified and nothing is created.
 
 With the option on, the contract owns the logical dataset's domain: dropping `domain` from a

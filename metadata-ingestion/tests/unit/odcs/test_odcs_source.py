@@ -1347,7 +1347,7 @@ def _run_domain_source(
 
 
 def test_domain_association_off_by_default(tmp_path: pathlib.Path) -> None:
-    src, workunits = _run_domain_source(
+    _, workunits = _run_domain_source(
         tmp_path, _DOMAIN_BODY, None, emit_domain_association=False
     )
     assert _domain_workunits(workunits, DomainsClass) == []
@@ -1451,6 +1451,79 @@ def test_domain_search_failure_neither_creates_nor_clears(
     assert _domain_workunits(workunits, DomainsClass) == []
     assert _domain_workunits(workunits, DomainPropertiesClass) == []
     assert src.report.domains_unresolved == 1
+
+
+def test_domain_existence_check_failure_leaves_domain_unchanged(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A failed existence check is not proof the id-derived domain exists:
+    assigning it would replace the dataset's real domain with a dangling urn."""
+    graph = _graph_with_domains({"urn:li:domain:abc-123": "Sales"})
+
+    def _exists(urn: str) -> bool:
+        if urn.startswith("urn:li:domain:"):
+            raise RuntimeError("timeout")
+        return True
+
+    graph.exists.side_effect = _exists
+    src, workunits = _run_domain_source(tmp_path, _DOMAIN_BODY, graph)
+
+    assert _domain_workunits(workunits, DomainsClass) == []
+    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert src.report.domains_unresolved == 1
+    assert src.report.domains_resolved_by_id == 0
+
+
+def test_case_variants_of_a_new_domain_create_it_once(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A domain created earlier in the run is not searchable yet, so a case
+    variant of its name must reuse it instead of creating a second domain."""
+    (tmp_path / "a.odcs.yaml").write_text(
+        _DOMAIN_BODY.replace("domain: sales", "domain: Sales"), encoding="utf-8"
+    )
+    (tmp_path / "b.odcs.yaml").write_text(
+        _DOMAIN_BODY.replace("id: test-contract-1", "id: test-contract-2"),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_domains({}),
+        path=str(tmp_path),
+        emit_domain_association=True,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert len(_domain_workunits(workunits, DomainPropertiesClass)) == 1
+    assert {tuple(v) for v in _dataset_domains(workunits).values()} == {
+        ("urn:li:domain:Sales",)
+    }
+    assert src.report.domains_created == 1
+
+
+def test_domain_emission_failure_does_not_drop_the_contract(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_domains({}),
+        path=str(_write(tmp_path / "c.odcs.yaml", _DOMAIN_BODY)),
+        emit_domain_association=True,
+    )
+
+    def _boom(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(src, "_resolve_domain", _boom)
+    workunits = list(src.get_workunits_internal())
+
+    assert _domain_workunits(workunits, DomainsClass) == []
+    assert _aspects_of(workunits, DatasetPropertiesClass)
+    assert src.report.contracts_skipped == 0
+    assert any(
+        "Failed to set Domain" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
 
 
 def test_contract_without_domain_clears_logical_dataset_domain(

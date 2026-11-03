@@ -409,6 +409,10 @@ class ODCSSource(StatefulIngestionSourceBase):
         # `domain` value -> resolution, cached like `_data_product_urns`.
         self._domain_urns: Dict[str, _EntityResolution] = {}
         self._created_domains_emitted: Set[str] = set()
+        # Casefolded name -> urn of each domain created this run. A new domain is
+        # not searchable until indexed, so a case variant of its name (`Sales`
+        # vs `sales`) would otherwise create a second one.
+        self._created_domains_by_name: Dict[str, str] = {}
 
         if self.config.http_connection and not self.config.http_connection.verify_ssl:
             self.report.warning(
@@ -1135,9 +1139,21 @@ class ODCSSource(StatefulIngestionSourceBase):
                     assertion_urns,
                 )
             self._record_data_product_asset(contract, binding, source_uri)
-            yield from self._emit_domain_association(
-                contract, binding.logical_urn, source_uri
-            )
+            # Best-effort, opt-in feature: a failure here must not drop the rest
+            # of the file, whose skipped datasets stale-removal would then delete.
+            try:
+                yield from self._emit_domain_association(
+                    contract, binding.logical_urn, source_uri
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to set Domain on ODCS dataset",
+                    message="The dataset's domain was left unchanged; the rest of "
+                    "the run is unaffected.",
+                    context=f"file={source_uri} contract={contract.id} "
+                    f"dataset={binding.logical_urn}",
+                    exc=e,
+                )
 
     def _emit_logical_dataset(
         self,
@@ -1918,9 +1934,22 @@ class ODCSSource(StatefulIngestionSourceBase):
             by_id: Optional[str] = odcs_to_domain_urn(raw)
         except InvalidUrnError:
             by_id = None
+        exists = None if by_id is None else self._urn_exists_in_graph(by_id)
+        if by_id in self._urn_verify_failed:
+            # The existence check failed open. Assigning the id-derived urn would
+            # replace the dataset's real domain with one that may not exist.
+            self.report.warning(
+                title="ODCS domain could not be verified",
+                message=(
+                    "The DataHub lookup failed, so the contract's datasets keep "
+                    "their current domain. Rerun when DataHub is reachable."
+                ),
+                context=context,
+            )
+            return _EntityResolution()
         # `is not False` also covers the no-graph case (file sink), where the
         # id-derived urn is used unverified and nothing is created.
-        if by_id is not None and self._urn_exists_in_graph(by_id) is not False:
+        if by_id is not None and exists is not False:
             self.report.domains_resolved_by_id += 1
             return _EntityResolution(urn=by_id)
 
@@ -1960,6 +1989,11 @@ class ODCSSource(StatefulIngestionSourceBase):
         # Name the new domain after the urn's id, never the raw value, which may
         # be a full `urn:li:domain:...` string.
         created_name = DomainUrn.from_string(by_id).id
+        created_earlier = self._created_domains_by_name.get(created_name.casefold())
+        if created_earlier is not None:
+            self.report.domains_resolved_by_name += 1
+            return _EntityResolution(urn=created_earlier)
+        self._created_domains_by_name[created_name.casefold()] = by_id
         self.report.domains_created += 1
         self.report.info(
             title="Created new Domain",
