@@ -985,6 +985,92 @@ def test_lookup_dsn_prefers_exact_key_over_case_only_match():
 
 
 @pytest.mark.parametrize(
+    "catalog, expected",
+    [
+        ("SPARK", None),
+        # A real Unity Catalog catalog named "spark" is lowercase and kept.
+        ("spark", "spark.default.orders"),
+        ("hive_metastore", "hive_metastore.default.orders"),
+    ],
+)
+def test_odbc_databricks_spark_pseudo_catalog_warns_and_skips(
+    catalog: str, expected: Optional[str]
+) -> None:
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", catalog),
+            ("Schema", "default"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Databricks",
+        datahub_data_platform_name="databricks",
+    )
+
+    result = instance.expression_lineage(
+        detail, "databricks", pair, server_name="dsn", dsn="d"
+    )
+
+    titles = [w.title for w in instance.reporter.warnings]
+    if expected is None:
+        assert result.upstreams == []
+        assert titles == ["Cannot map Spark ODBC catalog to Databricks"]
+    else:
+        assert [u.urn for u in result.upstreams] == [
+            f"urn:li:dataset:(urn:li:dataPlatform:databricks,{expected},PROD)"
+        ]
+        assert titles == []
+
+
+@pytest.mark.parametrize(
+    "navigation",
+    [
+        # Navigation stops before a Table/View leaf.
+        _nav_accessor(("Database", "DB"), ("Schema", "S")),
+        # Leaf addressed with Item= and no Kind.
+        IdentifierAccessor(
+            identifier="db",
+            items={"Kind": "Database", "Name": "db"},
+            next=IdentifierAccessor(
+                identifier="t", items={"Item": "orders"}, next=None
+            ),
+        ),
+    ],
+    ids=["no-leaf", "item-without-kind"],
+)
+def test_odbc_navigation_without_table_reports_its_own_warning(
+    navigation: IdentifierAccessor,
+) -> None:
+    """dsn_to_database_schema cannot supply a table, so a missing leaf must not
+    point users at it; the warning carries the navigation items instead."""
+    instance = _build_odbc_lineage(dsn_to_database_schema={"d": "DB.S"})
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=navigation,
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Snowflake",
+        datahub_data_platform_name="snowflake",
+    )
+
+    result = instance.expression_lineage(
+        detail, "snowflake", pair, server_name="dsn", dsn="d"
+    )
+
+    assert result.upstreams == []
+    titles = [w.title for w in instance.reporter.warnings]
+    assert titles == ["ODBC navigation has no table"]
+    assert "navigation=" in str(instance.reporter.warnings[0].context)
+
+
+@pytest.mark.parametrize(
     "powerbi_platform, platform",
     [("MySQL", "mysql"), ("Teradata", "teradata")],
 )

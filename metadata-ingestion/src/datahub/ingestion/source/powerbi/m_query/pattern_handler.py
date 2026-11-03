@@ -3,7 +3,7 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, FrozenSet, List, Optional, Set, Tuple, Type
+from typing import Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
@@ -2191,11 +2191,6 @@ ODBC_TWO_TIER_PLATFORMS: FrozenSet[str] = frozenset(
 # BigQuery equivalent project.dataset.table). When ODBC navigation (+ optional
 # dsn_to_database_schema backfill) yields database + table but no schema, these
 # must warn-and-skip rather than emit a truncated database.table URN.
-# Known gap (not verified against a live driver): odbc.py maps the Simba Spark
-# driver to databricks. If its navigation exposes a constant "SPARK" catalog like
-# Hive's "HIVE", the URN becomes spark.<schema>.<table>, which never joins the
-# Databricks connector's <catalog>.<schema>.<table> (e.g. hive_metastore), and
-# dsn_to_database_schema cannot correct it because navigation wins.
 # db2 has no SupportedDataPlatform member because it is only reachable over ODBC
 # (odbc.py sniffs it from the driver / dsn_to_platform_name); its datahub platform
 # name is the literal "db2" that the standalone Db2Source registers. Its standalone
@@ -2219,6 +2214,15 @@ ATHENA_PLATFORM: str = (
 )
 ORACLE_PLATFORM: str = SupportedDataPlatform.ORACLE.value.datahub_data_platform_name
 HIVE_PLATFORM: str = SupportedDataPlatform.HIVE.value.datahub_data_platform_name
+DATABRICKS_PLATFORM: str = (
+    SupportedDataPlatform.DATABRICKS_SQL.value.datahub_data_platform_name
+)
+# odbc.py maps the Simba Spark driver to databricks, whose navigation can expose a
+# constant "SPARK" catalog like Hive's "HIVE". spark.<schema>.<table> never joins
+# the Databricks connector's <catalog>.<schema>.<table> (e.g. hive_metastore), and
+# dsn_to_database_schema cannot fix it because navigation wins, so skip instead.
+# Exact case only: a Unity Catalog catalog really named "spark" is lowercase.
+SIMBA_SPARK_PSEUDO_CATALOG: str = "SPARK"
 
 
 class OdbcLineage(AbstractLineage):
@@ -2624,6 +2628,7 @@ class OdbcLineage(AbstractLineage):
         config_database: Optional[str],
         config_schema: Optional[str],
         oracle_default_database: Optional[str] = None,
+        navigation_items: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[str]:
         """Build the fully-qualified upstream name from an ODBC hierarchical
         navigation, backfilling levels navigation did not supply from
@@ -2650,7 +2655,17 @@ class OdbcLineage(AbstractLineage):
             )
 
         if table_name is None:
-            skip_missing_level()
+            # dsn_to_database_schema can only supply database/schema levels, so
+            # pointing users at it here would be wrong advice.
+            self.reporter.warning(
+                title="ODBC navigation has no table",
+                message=(
+                    "ODBC hierarchical navigation did not reach a Table or View "
+                    "step (with a Kind of Table or View), so there is no upstream "
+                    "table to link. Skipping lineage."
+                ),
+                context=f"{context}, navigation={navigation_items}",
+            )
             return None
 
         if data_platform in ODBC_TWO_TIER_PLATFORMS:
@@ -2688,6 +2703,21 @@ class OdbcLineage(AbstractLineage):
             return f"{schema}.{table_name}"
 
         if data_platform in ODBC_THREE_TIER_PLATFORMS:
+            if (
+                data_platform == DATABRICKS_PLATFORM
+                and database_name == SIMBA_SPARK_PSEUDO_CATALOG
+            ):
+                self.reporter.warning(
+                    title="Cannot map Spark ODBC catalog to Databricks",
+                    message=(
+                        "ODBC navigation exposed the constant SPARK catalog, which "
+                        "does not match any Databricks catalog (for example "
+                        "hive_metastore); skipping lineage rather than emitting a "
+                        "URN that never joins."
+                    ),
+                    context=context,
+                )
+                return None
             # database.schema.table; never fall back to a truncated database.table.
             database = database_name or config_database
             schema = schema_name or config_schema
@@ -2741,6 +2771,7 @@ class OdbcLineage(AbstractLineage):
         database_name = None
         schema_name = None
         table_name = None
+        navigation_items: List[Dict[str, Any]] = []
 
         temp_accessor: Optional[IdentifierAccessor] = (
             data_access_func_detail.identifier_accessor
@@ -2750,6 +2781,7 @@ class OdbcLineage(AbstractLineage):
             logger.debug(
                 f"identifier = {temp_accessor.identifier} items = {temp_accessor.items}"
             )
+            navigation_items.append(temp_accessor.items)
             if temp_accessor.items.get("Kind") == "Database":
                 database_name = temp_accessor.items["Name"]
 
@@ -2784,6 +2816,7 @@ class OdbcLineage(AbstractLineage):
             config_database=dsn_levels.database,
             config_schema=dsn_levels.schema,
             oracle_default_database=oracle_default_database,
+            navigation_items=navigation_items,
         )
 
         if qualified_table_name is None:

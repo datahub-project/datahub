@@ -2160,7 +2160,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def _report_unmatched_athena_table_platform_overrides(self) -> None:
         # A typo in an override silently leaves lineage on Athena, so surface every
-        # configured override that never rewrote a URN during the run.
+        # configured override that never rewrote a URN during the run. Without
+        # lineage extraction no override can ever match, so stay silent.
+        if not self.source_config.extract_lineage:
+            return
         applied = self.reporter.athena_table_platform_overrides_applied
         for index, override in enumerate(
             self.source_config.athena_table_platform_override
@@ -2170,9 +2173,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.warning(
                 title="Athena table platform override never matched",
                 message=(
-                    "No Athena upstream table matched this "
-                    "athena_table_platform_override entry during the run. Check the "
-                    "database, table and dsn values for typos."
+                    "No upstream processed in this run matched this "
+                    "athena_table_platform_override entry. Overrides apply only to "
+                    "Athena reached over ODBC, not to AmazonAthena.Databases sources. "
+                    "If that table was processed in this run, check the database, "
+                    "table and dsn values for typos."
                 ),
                 context=(
                     f"database={override.database}, table={override.table}, "

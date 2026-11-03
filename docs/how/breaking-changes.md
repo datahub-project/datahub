@@ -67,7 +67,7 @@ Requirements:
 
 - [#18670](https://github.com/datahub-project/datahub/pull/18670) **(Ingestion / Power BI)** ODBC hierarchical navigation now builds upstream URNs in the shape each platform's own connector uses, so some ODBC upstream URNs change or are skipped:
 
-  - **BigQuery, Snowflake, Postgres, MSSQL, Redshift, Databricks, Db2:** navigation with no schema level now warns and skips instead of emitting a truncated `database.table`.
+  - **BigQuery, Snowflake, Postgres, MSSQL, Redshift, Databricks, Db2:** navigation with no schema level now warns and skips instead of emitting a truncated `database.table`. Databricks navigation through the constant `SPARK` catalog (Simba Spark driver) also warns and skips instead of emitting `spark.schema.table`, which never matched a Databricks entity.
   - **Athena:** emits `database.table` instead of `catalog.database.table`. Navigation with only a catalog and a table warns and skips.
   - **Oracle:** emits `schema.table` instead of `database.schema.table` or `database.table`, matching the Oracle connector's default, and warns and skips when there is no schema. It emits `database.schema.table` only when `default_database` is set for the server under `server_to_platform_instance`.
   - **MySQL, Teradata and other two-part platforms:** full `Database + Schema + Table` navigation now emits `database.table` instead of `database.schema.table`, with a warning. `Schema + Table` navigation, previously skipped, now emits `schema.table`.

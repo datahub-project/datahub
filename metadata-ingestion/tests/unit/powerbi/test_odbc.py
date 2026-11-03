@@ -8,6 +8,7 @@ from datahub.ingestion.source.powerbi.m_query.odbc import (
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     ATHENA_PLATFORM,
+    DATABRICKS_PLATFORM,
     DB2_PLATFORM,
     HIVE_PLATFORM,
     ODBC_THREE_TIER_PLATFORMS,
@@ -162,6 +163,7 @@ def test_odbc_tier_platforms_match_odbc_platform_names():
         *ODBC_TWO_TIER_PLATFORMS,
         *ODBC_THREE_TIER_PLATFORMS,
         ATHENA_PLATFORM,
+        DATABRICKS_PLATFORM,
         DB2_PLATFORM,
         HIVE_PLATFORM,
         ORACLE_PLATFORM,

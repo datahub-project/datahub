@@ -1956,6 +1956,26 @@ def test_get_workunits_internal_warns_once_per_unmatched_athena_override():
     assert "table=ordres" in str(unmatched[0].context)
 
 
+def test_get_workunits_internal_skips_unmatched_override_warning_without_lineage():
+    """With extract_lineage off no override can match, so none is reported."""
+    source = _make_source(
+        workspaces_to_return=[_make_workspace("WS-A")],
+        excluded_ids=set(),
+        extract_lineage=False,
+        extract_column_level_lineage=False,
+        athena_table_platform_override=[
+            {"database": "sales", "table": "orders", "platform": "mysql"},
+        ],
+    )
+
+    list(source.get_workunits_internal())
+
+    assert not any(
+        w.title == "Athena table platform override never matched"
+        for w in source.reporter.warnings
+    )
+
+
 def test_get_workunits_internal_phase2_failure_skips_only_that_workspace():
     """A per-workspace detail fetch failure must be reported and must not
     stop the remaining workspaces from being emitted."""
