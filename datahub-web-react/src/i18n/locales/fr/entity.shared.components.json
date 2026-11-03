@@ -100,5 +100,9 @@
     "searchActions.owners.addTitle": "Ajouter des propriétaires",
     "searchActions.owners.removeTitle": "Retirer des propriétaires",
     "searchActions.tags.addTitle": "Ajouter des Tags",
-    "searchActions.tags.removeTitle": "Retirer des Tags"
+    "searchActions.tags.removeTitle": "Retirer des Tags",
+    "structuredProperty.addMore": "+ Ajouter",
+    "structuredProperty.selectPlaceholder": "Sélectionner",
+    "viewAll.resultsIncomplete": "Les résultats sont peut-être incomplets.",
+    "viewAll.searchAllAssets": "Rechercher tous les assets {{platform}} ingérés"
 }

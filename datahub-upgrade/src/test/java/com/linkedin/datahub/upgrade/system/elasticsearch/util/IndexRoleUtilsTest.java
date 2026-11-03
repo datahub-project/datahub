@@ -7,11 +7,14 @@ import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.time.Duration;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.client.Request;
 import org.opensearch.client.ResponseException;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -36,6 +39,20 @@ public class IndexRoleUtilsTest {
   @Mock private ResponseException responseException;
 
   private OperationContext operationContext = TestOperationContexts.systemContextNoValidate();
+
+  // These tests drive IndexRoleUtils' real retry paths (including retry-exhaustion cases). The
+  // production wait between attempts is 2s, so without this override a handful of retry tests would
+  // sleep for real -- the dominant cost of this class. Override to ~0 so the retry logic still runs
+  // but the waits don't. Cleared after the class so it doesn't leak to others in the same fork.
+  @BeforeClass
+  public void disableRetryWaits() {
+    IndexUtils.setRetryWaitOverrideForTesting(Duration.ofMillis(1));
+  }
+
+  @AfterClass
+  public void restoreRetryWaits() {
+    IndexUtils.clearRetryWaitOverrideForTesting();
+  }
 
   @BeforeMethod
   public void setUp() {

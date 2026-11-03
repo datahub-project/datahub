@@ -100,5 +100,9 @@
     "searchActions.owners.addTitle": "Legg til eiere",
     "searchActions.owners.removeTitle": "Fjern eiere",
     "searchActions.tags.addTitle": "Legg til Tags",
-    "searchActions.tags.removeTitle": "Fjern Tags"
+    "searchActions.tags.removeTitle": "Fjern Tags",
+    "structuredProperty.addMore": "+ Legg til flere",
+    "structuredProperty.selectPlaceholder": "Velg",
+    "viewAll.resultsIncomplete": "Resultatene kan være ufullstendige.",
+    "viewAll.searchAllAssets": "Søk i alle innhentede {{platform}}-ressurser"
 }

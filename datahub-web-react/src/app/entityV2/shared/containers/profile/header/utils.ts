@@ -1,4 +1,4 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';

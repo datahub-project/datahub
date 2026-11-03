@@ -22,7 +22,7 @@ import TestPageContainer from '@utils/test-utils/TestPageContainer';
 const mockEntityUrn = { value: 'urn:li:dataset:(urn:li:dataPlatform:bigquery,ds_a,PROD)' };
 const mockUseGetEntityWithSchema = vi.fn();
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({ urn: mockEntityUrn.value, entityType: 'DATASET', entityData: null }),
     useRefetch: () => vi.fn(),
     useMutationUrn: () => mockEntityUrn.value,

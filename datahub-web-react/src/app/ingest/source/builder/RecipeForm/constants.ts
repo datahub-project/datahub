@@ -396,14 +396,14 @@ import {
     SQLMESH,
     VERTICA,
 } from '@app/ingest/source/builder/constants';
-import { BIGQUERY } from '@app/ingest/source/conf/bigquery/bigquery';
-import { HIVE } from '@app/ingest/source/conf/hive/hive';
-import { KAFKA } from '@app/ingest/source/conf/kafka/kafka';
-import { LOOKER } from '@app/ingest/source/conf/looker/looker';
-import { POSTGRES } from '@app/ingest/source/conf/postgres/postgres';
-import { REDSHIFT } from '@app/ingest/source/conf/redshift/redshift';
-import { SNOWFLAKE } from '@app/ingest/source/conf/snowflake/snowflake';
-import { TABLEAU } from '@app/ingest/source/conf/tableau/tableau';
+import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
+import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
+import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
+import { POSTGRES } from '@app/ingestV2/source/conf/postgres/postgres';
+import { REDSHIFT } from '@app/ingestV2/source/conf/redshift/redshift';
+import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
+import { TABLEAU } from '@app/ingestV2/source/conf/tableau/tableau';
 
 export enum RecipeSections {
     Connection = 0,
