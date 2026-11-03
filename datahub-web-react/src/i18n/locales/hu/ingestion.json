@@ -123,6 +123,8 @@
     "source.createError": "Nem sikerült létrehozni az adatbetöltési forrást!",
     "source.createErrorInterpolated": "Nem sikerült létrehozni az adatbetöltési forrást!: \n {{error}}",
     "source.createSuccess": "Az adatbetöltési forrás sikeresen létrejött!",
+    "source.emptyLastRunFilterSubtitle": "A frissítés előtt futtatott források néhány perc múlva jelenhetnek meg, amíg a legutóbbi futásuk indexelése zajlik.",
+    "source.emptyLastRunFilterTitle": "Nincs ilyen legutóbbi futási állapotú forrás",
     "source.emptySearchSubtitle": "Próbáljon másik keresési feltételt legalább 3 karakterrel...",
     "source.emptySearchTitle": "Nincs keresési találat!",
     "source.emptyTitle": "Még nincs {{sourceType}}!",

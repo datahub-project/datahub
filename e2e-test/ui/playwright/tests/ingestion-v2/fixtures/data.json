@@ -148,5 +148,65 @@
       "value": "{\"name\":\"playwright-ingestion-secret\",\"value\":\"test-secret-value\"}",
       "contentType": "application/json"
     }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-last-run-older",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright last run older\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-last-run-older",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestInput",
+    "aspect": {
+      "value": "{\"task\":\"RUN_INGEST\",\"args\":{},\"executorId\":\"default\",\"source\":{\"type\":\"INGESTION_SOURCE\",\"ingestionSource\":\"urn:li:dataHubIngestionSource:playwright-last-run-older\"},\"requestedAt\":1700000000000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-last-run-older",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestResult",
+    "aspect": {
+      "value": "{\"status\":\"SUCCESS\",\"startTimeMs\":1700000000000,\"durationMs\":5000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-last-run-newer",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright last run newer\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-last-run-newer",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestInput",
+    "aspect": {
+      "value": "{\"task\":\"RUN_INGEST\",\"args\":{},\"executorId\":\"default\",\"source\":{\"type\":\"INGESTION_SOURCE\",\"ingestionSource\":\"urn:li:dataHubIngestionSource:playwright-last-run-newer\"},\"requestedAt\":1700000100000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-last-run-newer",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestResult",
+    "aspect": {
+      "value": "{\"status\":\"FAILURE\",\"startTimeMs\":1700000100000,\"durationMs\":5000}",
+      "contentType": "application/json"
+    }
   }
 ]

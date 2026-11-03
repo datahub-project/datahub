@@ -123,6 +123,8 @@
     "source.createError": "Ingestionソースの作成に失敗しました!",
     "source.createErrorInterpolated": "Ingestionソースの作成に失敗しました: \n {{error}}",
     "source.createSuccess": "Ingestionソースを作成しました。",
+    "source.emptyLastRunFilterSubtitle": "アップグレード前に実行されたソースは、最新の実行がインデックスされるまで数分かかる場合があります。",
+    "source.emptyLastRunFilterTitle": "この最新実行ステータスのソースはありません",
     "source.emptySearchSubtitle": "3文字以上の別の検索キーワードを試してください...",
     "source.emptySearchTitle": "検索結果がありません!",
     "source.emptyTitle": "{{sourceType}}はまだありません!",

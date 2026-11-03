@@ -56,6 +56,7 @@ public class FeatureFlags {
   private boolean dataProcessInstanceEntityEnabled = true;
   private boolean entityVersioning = false;
   private boolean showHasSiblingsFilter = false;
+  private boolean showIngestionSourceLastRunControls = false;
   private boolean showSearchBarAutocompleteRedesign = false;
   private boolean showManageTags = false;
   private boolean showIntroducePage = false;

@@ -123,6 +123,8 @@
     "source.createError": "Falha ao criar fonte de ingestion!",
     "source.createErrorInterpolated": "Falha ao criar fonte de ingestion!: \n {{error}}",
     "source.createSuccess": "Fonte de ingestion criada com sucesso!",
+    "source.emptyLastRunFilterSubtitle": "Fontes executadas antes de uma atualização podem levar alguns minutos para aparecer enquanto a última execução é indexada.",
+    "source.emptyLastRunFilterTitle": "Nenhuma fonte com este status da última execução",
     "source.emptySearchSubtitle": "Tente outra pesquisa com pelo menos 3 caracteres...",
     "source.emptySearchTitle": "Nenhum resultado de pesquisa!",
     "source.emptyTitle": "Nenhum {{sourceType}} ainda!",

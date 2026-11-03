@@ -123,6 +123,8 @@
     "source.createError": "创建数据引入源失败！",
     "source.createErrorInterpolated": "创建数据引入源失败：\n {{error}}",
     "source.createSuccess": "已成功创建数据引入源！",
+    "source.emptyLastRunFilterSubtitle": "升级前运行过的源可能需要几分钟才会显示，因为其最近一次运行正在建立索引。",
+    "source.emptyLastRunFilterTitle": "没有处于此最近运行状态的源",
     "source.emptySearchSubtitle": "请尝试使用至少 3 个字符的其他搜索词…",
     "source.emptySearchTitle": "无搜索结果！",
     "source.emptyTitle": "尚无 {{sourceType}}！",

@@ -123,6 +123,8 @@
     "source.createError": "Failed to create ingestion source!",
     "source.createErrorInterpolated": "Failed to create ingestion source!: \n {{error}}",
     "source.createSuccess": "Successfully created ingestion source!",
+    "source.emptyLastRunFilterSubtitle": "Sources that ran before an upgrade may take a few minutes to appear while their latest run is indexed.",
+    "source.emptyLastRunFilterTitle": "No sources with this latest run status",
     "source.emptySearchSubtitle": "Try another search query with at least 3 characters...",
     "source.emptySearchTitle": "No search results!",
     "source.emptyTitle": "No {{sourceType}} yet!",

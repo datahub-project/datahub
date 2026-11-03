@@ -123,6 +123,8 @@
     "source.createError": "Impossibile creare l'origine di ingestion!",
     "source.createErrorInterpolated": "Impossibile creare l'origine di ingestion!: \n {{error}}",
     "source.createSuccess": "Origine di ingestion creata correttamente!",
+    "source.emptyLastRunFilterSubtitle": "Le origini eseguite prima di un aggiornamento possono impiegare alcuni minuti a comparire mentre la loro ultima esecuzione viene indicizzata.",
+    "source.emptyLastRunFilterTitle": "Nessuna origine con questo stato dell'ultima esecuzione",
     "source.emptySearchSubtitle": "Prova un'altra Query di ricerca con almeno 3 caratteri...",
     "source.emptySearchTitle": "Nessun risultato di ricerca!",
     "source.emptyTitle": "Ancora nessun {{sourceType}}!",
