@@ -3,6 +3,7 @@ import logging
 import re
 from typing import (
     Any,
+    Counter,
     Dict,
     Generator,
     List,
@@ -27,6 +28,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     StringTypeClass,
 )
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,33 @@ SCHEMA_EXTRACTABLE_METHODS = ["get", "post", "put", "patch"]
 
 # HTTP methods that typically don't provide useful schemas
 OTHER_HTTP_METHODS = ["delete", "options", "head"]
+
+
+class SpecFragment(StrEnum):
+    """Kinds of malformed spec fragments skipped (or replaced with a default)
+    while discovering endpoints. Values double as log labels and report keys."""
+
+    BASE_PATH = "basePath"
+    SERVER = "servers[0]"
+    SERVER_URL = "servers[0].url"
+    PATH_ITEM = "path item"
+    METHOD_SPEC = "method spec"
+    RESPONSES = "responses"
+    RESPONSE_200 = "200 response"
+    DESCRIPTION = "description"
+    TAGS = "tags"
+    CONTENT = "content"
+    JSON_CONTENT = "application/json content"
+    CSV_CONTENT = "text/csv content"
+    V2_EXAMPLES = "v2 examples"
+
+
+def _record_skipped(
+    skipped: Optional[Counter[SpecFragment]], fragment: SpecFragment
+) -> None:
+    if skipped is not None:
+        skipped[fragment] += 1
+
 
 # Default timeout for outbound HTTP calls (seconds).
 _REQUEST_TIMEOUT_SECONDS = 30
@@ -172,11 +201,14 @@ def get_swag_json(
     return parsed
 
 
-def get_url_basepath(sw_dict: dict) -> str:
+def get_url_basepath(
+    sw_dict: dict, skipped: Optional[Counter[SpecFragment]] = None
+) -> str:
     base_path = sw_dict.get("basePath")
     if isinstance(base_path, str):
         return base_path
     if "basePath" in sw_dict:
+        _record_skipped(skipped, SpecFragment.BASE_PATH)
         logger.warning(
             "Ignoring malformed basePath %r (expected string, got %s)",
             base_path,
@@ -191,12 +223,14 @@ def get_url_basepath(sw_dict: dict) -> str:
             url = first_server.get("url", "")
             if isinstance(url, str):
                 return url
+            _record_skipped(skipped, SpecFragment.SERVER_URL)
             logger.warning(
                 "Ignoring malformed servers[0].url %r (expected string, got %s)",
                 url,
                 type(url).__name__,
             )
             return ""
+        _record_skipped(skipped, SpecFragment.SERVER)
         logger.warning(
             "Ignoring malformed servers[0] entry %r (expected object, got %s)",
             first_server,
@@ -206,14 +240,20 @@ def get_url_basepath(sw_dict: dict) -> str:
     return ""
 
 
-def _is_object(value: object, label: str, context: str) -> TypeGuard[Dict[Any, Any]]:
-    """Log and reject a malformed non-object value; never logs the value
-    itself, since it may be arbitrarily large (e.g. a full response body)."""
+def _is_object(
+    value: object,
+    fragment: SpecFragment,
+    context: str,
+    skipped: Optional[Counter[SpecFragment]],
+) -> TypeGuard[Dict[Any, Any]]:
+    """Log, count and reject a malformed non-object value; never logs the
+    value itself, since it may be arbitrarily large (e.g. a full response body)."""
     if isinstance(value, dict):
         return True
+    _record_skipped(skipped, fragment)
     logger.warning(
-        "Skipping malformed %s at %s (expected object, got %s)",
-        label,
+        "Skipping malformed %r at %s (expected object, got %s)",
+        fragment.value,
         context,
         type(value).__name__,
     )
@@ -248,9 +288,14 @@ def check_sw_version(sw_dict: dict) -> None:
         logger.info("This plugin has not been fully tested with Swagger version >3.0")
 
 
-def get_endpoints(sw_dict: dict) -> dict:
+def get_endpoints(
+    sw_dict: dict, skipped: Optional[Counter[SpecFragment]] = None
+) -> dict:
     """
-    Get all the URLs, together with their description and the tags
+    Get all the URLs, together with their description and the tags.
+
+    Malformed fragments are skipped (logged per location) and, when `skipped`
+    is given, counted there by kind so the caller can surface a summary.
     """
     url_details: Dict[str, Dict[str, Any]] = {}
 
@@ -264,7 +309,7 @@ def get_endpoints(sw_dict: dict) -> dict:
     for p_k, p_o in sw_dict["paths"].items():
         # Only set metadata if it doesn't already exist (don't overwrite higher-priority metadata)
         # A malformed path item must not abort every other endpoint's extraction.
-        if not _is_object(p_o, "path item", p_k):
+        if not _is_object(p_o, SpecFragment.PATH_ITEM, p_k, skipped):
             continue
 
         for method in all_methods:
@@ -272,17 +317,17 @@ def get_endpoints(sw_dict: dict) -> dict:
             if not method_spec:
                 continue
             context = f"{method} {p_k}"
-            if not _is_object(method_spec, "method spec", context):
+            if not _is_object(method_spec, SpecFragment.METHOD_SPEC, context, skipped):
                 continue
 
             responses = method_spec.get("responses", {})
-            if not _is_object(responses, "responses", context):
+            if not _is_object(responses, SpecFragment.RESPONSES, context, skipped):
                 continue
             base_res = responses.get("200") or responses.get(200)
             if not base_res:
                 # if there is no 200 response, we skip this method
                 continue
-            if not _is_object(base_res, "200 response", context):
+            if not _is_object(base_res, SpecFragment.RESPONSE_200, context, skipped):
                 continue
 
             # Initialize endpoint details if it doesn't exist
@@ -297,6 +342,7 @@ def get_endpoints(sw_dict: dict) -> dict:
                 # if both are not present, we will use an empty string
                 desc = method_spec.get("description") or method_spec.get("summary", "")
                 if not isinstance(desc, str):
+                    _record_skipped(skipped, SpecFragment.DESCRIPTION)
                     logger.warning(
                         "Skipping malformed 'description'/'summary' %r on %r "
                         "(expected string, got %s)",
@@ -313,6 +359,7 @@ def get_endpoints(sw_dict: dict) -> dict:
                 if not isinstance(tags, list) or not all(
                     isinstance(tag, str) for tag in tags
                 ):
+                    _record_skipped(skipped, SpecFragment.TAGS)
                     logger.warning(
                         "Skipping malformed 'tags' %r on %r (expected list of "
                         "strings, got %s)",
@@ -324,7 +371,7 @@ def get_endpoints(sw_dict: dict) -> dict:
                 details["tags"] = tags
 
             # Example data can be added from any method (accumulate if needed)
-            example_data = check_for_api_example_data(base_res, p_k)
+            example_data = check_for_api_example_data(base_res, p_k, skipped)
             if example_data and "data" not in details:
                 details["data"] = example_data
 
@@ -335,7 +382,9 @@ def get_endpoints(sw_dict: dict) -> dict:
     return dict(sorted(url_details.items()))
 
 
-def check_for_api_example_data(base_res: dict, key: str) -> dict:
+def check_for_api_example_data(
+    base_res: dict, key: str, skipped: Optional[Counter[SpecFragment]] = None
+) -> dict:
     """
     Try to determine if example data is defined for the endpoint, and return it
     """
@@ -345,12 +394,12 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
         # get_endpoints calls this once per spec, outside the per-endpoint try/except
         # in APISource.get_workunits_internal -- an unguarded crash here would abort
         # extraction for every endpoint, not just the one with the malformed example.
-        if not _is_object(res_cont, "'content'", f"endpoint {key!r}"):
+        if not _is_object(res_cont, SpecFragment.CONTENT, f"endpoint {key!r}", skipped):
             return data
         if "application/json" in res_cont:
             json_content = res_cont["application/json"]
             if not _is_object(
-                json_content, "'application/json' content", f"endpoint {key!r}"
+                json_content, SpecFragment.JSON_CONTENT, f"endpoint {key!r}", skipped
             ):
                 return data
 
@@ -389,6 +438,7 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
             ):
                 data = csv_content["schema"]
             else:
+                _record_skipped(skipped, SpecFragment.CSV_CONTENT)
                 logger.warning(
                     "Skipping malformed 'text/csv' content %r for endpoint %r",
                     csv_content,
@@ -399,7 +449,9 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
         v2_examples = base_res["examples"]
         # The value itself may legitimately be a raw string (literal example text)
         # rather than a parsed object -- only the container needs to be a dict.
-        if not _is_object(v2_examples, "v2 'examples'", f"endpoint {key!r}"):
+        if not _is_object(
+            v2_examples, SpecFragment.V2_EXAMPLES, f"endpoint {key!r}", skipped
+        ):
             return data
         data = v2_examples.get("application/json", {})
 

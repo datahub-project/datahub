@@ -1,8 +1,9 @@
 import json
 import unittest
-from typing import Any, Dict, List
+from typing import Any, Counter, Dict, List
 from unittest.mock import MagicMock, patch
 
+import pytest
 import requests
 import yaml
 from pydantic import SecretStr, ValidationError
@@ -18,6 +19,7 @@ from datahub.ingestion.source.openapi import (
     OpenApiGetTokenConfig,
 )
 from datahub.ingestion.source.openapi_parser import (
+    SpecFragment,
     _join_url,
     check_sw_version,
     extract_fields,
@@ -98,6 +100,26 @@ class TestGetUrlBasepath:
     def test_malformed_server_url_returns_empty_string(self):
         sw_dict = {"openapi": "3.0.0", "servers": [{"url": 123}]}
         assert get_url_basepath(sw_dict) == ""
+
+    @pytest.mark.parametrize(
+        "sw_dict, fragment",
+        [
+            ({"basePath": None}, SpecFragment.BASE_PATH),
+            ({"servers": [{"url": 123}]}, SpecFragment.SERVER_URL),
+            ({"servers": ["not-a-dict"]}, SpecFragment.SERVER),
+        ],
+    )
+    def test_malformed_fragment_is_counted(
+        self, sw_dict: Dict[str, Any], fragment: SpecFragment
+    ) -> None:
+        skipped: Counter[SpecFragment] = Counter()
+        get_url_basepath(sw_dict, skipped)
+        assert skipped == Counter({fragment: 1})
+
+    def test_well_formed_spec_counts_nothing(self) -> None:
+        skipped: Counter[SpecFragment] = Counter()
+        get_url_basepath({"servers": [{"url": "/api"}]}, skipped)
+        assert not skipped
 
 
 class TestGetEndpoints(unittest.TestCase):
@@ -940,6 +962,26 @@ paths:
         self.assertTrue(
             any("no swagger or openapi version key" in msg for msg in cm.output)
         )
+
+
+_OK_GET: Dict[str, Any] = {"get": {"responses": {"200": {"description": "ok"}}}}
+
+
+def test_get_endpoints_counts_each_malformed_fragment() -> None:
+    sw_dict = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/a": None,
+            "/b": None,
+            "/c": {"get": {"tags": "x", "responses": {"200": {"examples": "oops"}}}},
+            "/pets": _OK_GET,
+        },
+    }
+    skipped: Counter[SpecFragment] = Counter()
+    get_endpoints(sw_dict, skipped)
+    assert skipped == Counter(
+        {SpecFragment.PATH_ITEM: 2, SpecFragment.TAGS: 1, SpecFragment.V2_EXAMPLES: 1}
+    )
 
 
 class TestExplodeDict(unittest.TestCase):
@@ -5109,6 +5151,50 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                     method="post",
                 )
         self.assertNotIn("hunter2", str(ctx.exception))
+
+    def test_malformed_spec_fragments_summarized_in_report(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "basePath": 42,
+            "paths": {
+                "/broken": None,
+                "/tagged": {
+                    "get": {"tags": "x", "responses": {"200": {"description": "ok"}}}
+                },
+                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
+            },
+        }
+        with patch.object(OpenApiConfig, "get_swagger", return_value=sw_dict):
+            list(self.source.get_workunits_internal())
+
+        report = self.source.report
+        self.assertEqual(report.malformed_spec_fragments_skipped, 3)
+        self.assertEqual(
+            dict(report.malformed_spec_fragments_by_kind),
+            {"basePath": 1, "path item": 1, "tags": 1},
+        )
+        summaries = [
+            w
+            for w in report.warnings
+            if w.title == "Malformed OpenAPI Spec Fragments Skipped"
+        ]
+        self.assertEqual(len(summaries), 1)
+
+    def test_well_formed_spec_reports_no_skipped_fragments(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {"/pets": {"get": {"responses": {"200": {"description": "ok"}}}}},
+        }
+        with patch.object(OpenApiConfig, "get_swagger", return_value=sw_dict):
+            list(self.source.get_workunits_internal())
+
+        self.assertEqual(self.source.report.malformed_spec_fragments_skipped, 0)
+        self.assertFalse(
+            any(
+                w.title == "Malformed OpenAPI Spec Fragments Skipped"
+                for w in self.source.report.warnings
+            )
+        )
 
     def test_get_schema_from_response_empty_shapes_return_none(self):
         # An empty/no-op object-shape schema ("properties": {}, "oneOf": [], etc.)

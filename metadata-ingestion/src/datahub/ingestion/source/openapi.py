@@ -1,8 +1,8 @@
 import json
 import logging
 from abc import ABC
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Any, Counter, Dict, Iterable, List, Literal, Optional, Tuple
 
 import requests
 from pydantic import SecretStr, field_validator, model_validator
@@ -26,6 +26,7 @@ from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.openapi_parser import (
     SCHEMA_EXTRACTABLE_METHODS,
+    SpecFragment,
     clean_url,
     compose_url_attr,
     extract_fields,
@@ -48,6 +49,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
 )
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -103,6 +105,14 @@ class SchemaExtractionStats:
             + self.from_endpoint_data
             + self.no_schema_found
         )
+
+
+@dataclass
+class OpenApiSourceReport(SourceReport):
+    malformed_spec_fragments_skipped: int = 0
+    malformed_spec_fragments_by_kind: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
 
 
 class OpenApiGetTokenConfig(ConfigModel):
@@ -369,7 +379,7 @@ class APISource(Source, ABC):
         super().__init__(ctx)
         self.config = config
         self.platform = platform
-        self.report = SourceReport()
+        self.report = OpenApiSourceReport()
         self.url_basepath = ""
         self.schema_extraction_stats = SchemaExtractionStats()
 
@@ -932,8 +942,9 @@ class APISource(Source, ABC):
         config = self.config
         try:
             sw_dict = self.config.get_swagger()
-            self.url_basepath = get_url_basepath(sw_dict)
-            url_endpoints = get_endpoints(sw_dict)
+            skipped_fragments: Counter[SpecFragment] = Counter()
+            self.url_basepath = get_url_basepath(sw_dict, skipped_fragments)
+            url_endpoints = get_endpoints(sw_dict, skipped_fragments)
         except Exception as e:
             # get_url_basepath/get_endpoints are included here (not just
             # get_swagger) because a spec that fetches/parses fine but is
@@ -958,6 +969,8 @@ class APISource(Source, ABC):
             )
             return
 
+        self._report_skipped_spec_fragments(skipped_fragments)
+
         # Sample from "listing endpoint" for guessing composed endpoints
         root_dataset_samples: Dict[str, Any] = {}
 
@@ -981,6 +994,30 @@ class APISource(Source, ABC):
                 continue
 
             yield from workunits
+
+    def _report_skipped_spec_fragments(
+        self, skipped_fragments: Counter[SpecFragment]
+    ) -> None:
+        total = sum(skipped_fragments.values())
+        if not total:
+            return
+        self.report.malformed_spec_fragments_skipped += total
+        for fragment, count in skipped_fragments.items():
+            self.report.malformed_spec_fragments_by_kind[fragment.value] += count
+        # One summary entry rather than one per fragment: the per-location
+        # detail is already in the module log, and a broken generator can
+        # produce hundreds of these.
+        self.report.warning(
+            title="Malformed OpenAPI Spec Fragments Skipped",
+            message="Some malformed parts of the OpenAPI spec were skipped or replaced "
+            "with defaults, so fewer endpoints or less endpoint metadata may have been "
+            "ingested. Check the ingestion logs for each location.",
+            context=", ".join(
+                f"{fragment.value}: {count}"
+                for fragment, count in sorted(skipped_fragments.items())
+            ),
+            log=False,
+        )
 
     def _process_endpoint(
         self,
@@ -1076,7 +1113,7 @@ class APISource(Source, ABC):
                 context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
             )
 
-    def get_report(self) -> SourceReport:
+    def get_report(self) -> OpenApiSourceReport:
         return self.report
 
     def close(self) -> None:
