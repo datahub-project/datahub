@@ -1,0 +1,51 @@
+{
+  "@type": "QueryResult",
+  "result": [
+    {
+      "@type": "Folder",
+      "id": "Rjo4OTQzMzg4",
+      "name": "Test Account",
+      "fullPath": "Test Account",
+      "deleted": false,
+      "parentId": "",
+      "parentName": ""
+    },
+    {
+      "@type": "Folder",
+      "id": "Rjo4OTQzMzg5",
+      "name": "Process Library",
+      "fullPath": "Test Account/Process Library",
+      "deleted": false,
+      "parentId": "Rjo4OTQzMzg4",
+      "parentName": "Test Account"
+    },
+    {
+      "@type": "Folder",
+      "id": "Rjo4OTQzNDEw",
+      "name": "DataHub Test",
+      "fullPath": "Test Account/DataHub Test",
+      "deleted": false,
+      "parentId": "Rjo4OTQzMzg4",
+      "parentName": "Test Account"
+    },
+    {
+      "@type": "Folder",
+      "id": "Rjo4OTQzNDEx",
+      "name": "Orders",
+      "fullPath": "Test Account/DataHub Test/Orders",
+      "deleted": false,
+      "parentId": "Rjo4OTQzNDEw",
+      "parentName": "DataHub Test"
+    },
+    {
+      "@type": "Folder",
+      "id": "Rjo4OTQzNDEy",
+      "name": "Shared",
+      "fullPath": "Test Account/DataHub Test/Shared",
+      "deleted": false,
+      "parentId": "Rjo4OTQzNDEw",
+      "parentName": "DataHub Test"
+    }
+  ],
+  "numberOfResults": 5
+}

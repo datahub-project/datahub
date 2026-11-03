@@ -1078,6 +1078,16 @@
     displayName: Informatica
     type: OTHERS
     logoUrl: "assets/platforms/informaticalogo.png"
+- entityUrn: urn:li:dataPlatform:boomi
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: boomi
+    displayName: Boomi
+    type: OTHERS
+    logoUrl: "assets/platforms/boomilogo.png"
 - entityUrn: urn:li:dataPlatform:snaplogic
   entityType: dataPlatform
   aspectName: dataPlatformInfo
