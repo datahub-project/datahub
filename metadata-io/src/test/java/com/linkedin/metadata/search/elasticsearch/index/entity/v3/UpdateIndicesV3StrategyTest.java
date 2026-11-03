@@ -318,7 +318,7 @@ public class UpdateIndicesV3StrategyTest {
                 operationContext,
                 Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
                 true));
-    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
+    verify(elasticSearchService, never()).writeV3SearchDocument(any(), any());
   }
 
   @Test
@@ -1699,6 +1699,31 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testTimeseriesWriteDoesNotCreateADocumentWhileTheAliasIsFilledInPlace()
+      throws Exception {
+    stubTransformedDocument();
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockSystemMetadata.hasRunId()).thenReturn(true);
+    when(mockSystemMetadata.getRunId()).thenReturn("run-ts");
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    when(targets.activeFillTargetFor(liveAlias())).thenReturn(Optional.of(liveAlias()));
+
+    strategyWithTargets(targets)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    assertEquals(
+        v3Write(operationContext, liveAlias(), DOCUMENT_KINDS).kind(),
+        V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    verify(elasticSearchService, never())
+        .appendRunIdBySearchGroup(any(), anyString(), anyString(), any(Urn.class), anyString());
+    verify(elasticSearchService)
+        .appendRunIdToExistingDocument(
+            eq(operationContext), eq(liveAlias()), eq(expectedDocId), eq("run-ts"));
+  }
+
+  @Test
   public void testLiveWriteUpsertsOutsideAnInPlaceFill() throws Exception {
     stubTransformedDocument();
 
@@ -1805,6 +1830,28 @@ public class UpdateIndicesV3StrategyTest {
     assertTrue(
         projected.getAllValues().stream().anyMatch(record -> profile.data().equals(record.data())),
         "the latest profile is projected into the created document");
+  }
+
+  @Test
+  public void testBaselineFillFailsWhenTimeseriesHydrationFails() throws Exception {
+    stubTransformedDocument();
+    AspectSpec profileSpec = mock(AspectSpec.class);
+    when(profileSpec.getName()).thenReturn("datasetProfile");
+    when(profileSpec.isTimeseries()).thenReturn(true);
+    when(profileSpec.getSearchableFieldSpecs())
+        .thenReturn(List.of(mock(SearchableFieldSpec.class)));
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(List.of(mockAspectSpec, profileSpec));
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_BASELINE, FILL_TARGET));
+    when(timeseriesAspectService.getLatestTimeseriesAspectValues(any(), any(), any(), any()))
+        .thenThrow(new RuntimeException("timeseries unavailable"));
+
+    expectThrows(
+        RuntimeException.class,
+        () ->
+            strategy.processBatch(
+                operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true));
+    verify(elasticSearchService, never()).writeV3SearchDocument(any(), any());
   }
 
   private UpdateIndicesV3Strategy strategyWithTargets(IncrementalReindexWriteTargets targets) {

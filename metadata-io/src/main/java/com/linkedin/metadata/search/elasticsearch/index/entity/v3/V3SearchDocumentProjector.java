@@ -39,7 +39,7 @@ public class V3SearchDocumentProjector {
   public static final String ENTITY_TYPE_FIELD = MappingConstants.ENTITY_TYPE_FIELD;
   public static final String SYSTEM_METADATA_FIELD = "_systemMetadata";
   public static final String REMOVED_FIELD = "removed";
-  public static final String TOMBSTONE_FIELD = "_v3Tombstone";
+  public static final String TOMBSTONE_FIELD = MappingConstants.TOMBSTONE_FIELD;
 
   /**
    * Aspect JSON stored in {@code _source} and not indexed. This is the same serialization written

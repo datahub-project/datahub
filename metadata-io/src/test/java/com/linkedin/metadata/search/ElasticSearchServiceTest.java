@@ -318,6 +318,7 @@ public class ElasticSearchServiceTest {
     testInstance.appendRunIdBySearchGroup(opContext, searchGroup, TEST_DOC_ID, TEST_URN, runId);
 
     ArgumentCaptor<Map<String, Object>> scriptParamsCaptor = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<Map<String, Object>> upsertCaptor = ArgumentCaptor.forClass(Map.class);
 
     verify(mockEsWriteDAO)
         .applyScriptUpdateBySearchGroup(
@@ -326,10 +327,12 @@ public class ElasticSearchServiceTest {
             eq(TEST_DOC_ID),
             eq(ElasticSearchService.SCRIPT_SOURCE),
             scriptParamsCaptor.capture(),
-            any(Map.class));
+            upsertCaptor.capture());
 
     assertEquals(runId, scriptParamsCaptor.getValue().get("runId"));
     assertEquals(MAX_RUN_IDS_INDEXED, scriptParamsCaptor.getValue().get("maxRunIds"));
+    assertEquals(TEST_URN.toString(), upsertCaptor.getValue().get("urn"));
+    assertEquals(List.of(runId), upsertCaptor.getValue().get("runId"));
   }
 
   @Test

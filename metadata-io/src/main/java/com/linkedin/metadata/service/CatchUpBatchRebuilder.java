@@ -165,7 +165,8 @@ public final class CatchUpBatchRebuilder {
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> replayed,
       @Nonnull Map<String, SystemAspect> storedAspects) {
-    MCLItem replayedEvent = replayed.get(0);
+    MCLItem replayedEvent =
+        replayed.stream().filter(CatchUpBatchRebuilder::isBaselineEvent).findFirst().orElseThrow();
     if (!isStored(storedAspects, replayedEvent.getEntitySpec().getKeyAspectName())) {
       log.info("Baseline fill finds no key aspect in primary storage for {}; skipping it", urn);
       return List.of();

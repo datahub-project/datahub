@@ -371,7 +371,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     esWriteDAO.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
   }
 
-  /** Writes a V3 search document to the index and in the way the write names. */
+  /**
+   * Writes a V3 search document. The write's {@link V3SearchDocumentWrite.Kind} selects the index
+   * operation.
+   *
+   * @param opContext the operation context
+   * @param write the document write to apply
+   */
   public void writeV3SearchDocument(
       @Nonnull OperationContext opContext, @Nonnull V3SearchDocumentWrite write) {
     log.debug(

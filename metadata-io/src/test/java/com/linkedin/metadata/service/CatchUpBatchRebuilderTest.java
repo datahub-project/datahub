@@ -344,6 +344,30 @@ public class CatchUpBatchRebuilderTest {
   }
 
   @Test
+  public void testIncompleteBaselineKeepsItsHeadersWhenALiveEventLeadsTheBatch() {
+    DatasetProperties storedProperties = new DatasetProperties().setName("stored");
+    AspectRetriever retriever =
+        retrieverHolding(Map.of(KEY, stored(datasetKey()), PROPERTIES, stored(storedProperties)));
+    MCLItem live = event(PROPERTIES, new DatasetProperties().setName("live"), null);
+    MCLItem partial =
+        event(PROPERTIES, new DatasetProperties().setName("row"), BackfillHeaders.MODE_BASELINE);
+
+    List<MCLItem> events =
+        new CatchUpBatchRebuilder(
+                mock(ElasticSearchService.class), new Sha256UrnEntityDocumentIdHasher())
+            .rebuild(context(retriever), Map.of(DATASET, List.of(live, partial)))
+            .batches()
+            .get(DATASET);
+
+    assertFalse(events.isEmpty());
+    for (MCLItem event : events) {
+      assertEquals(
+          event.getMetadataChangeLog().getHeaders().get(BackfillHeaders.MODE_HEADER_NAME),
+          BackfillHeaders.MODE_BASELINE);
+    }
+  }
+
+  @Test
   public void testCompleteBaselineBatchIsReturnedAsItIs() {
     AspectRetriever retriever = retrieverHolding(Map.of());
     MCLItem complete =

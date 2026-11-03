@@ -205,9 +205,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   /**
    * Adds the latest value of each searchable timeseries aspect to the baseline fill batches.
    * Timeseries aspects are not in the primary storage the fill reads, the fill creates each
-   * document once, and a live timeseries write does not create a document while a fill builds the
-   * index, so the created document has to carry them. A failed read propagates: the fill is the
-   * only pass over the entity.
+   * document once, and a live timeseries write does not create a document while that fill is in
+   * place on the alias, so the created document has to carry them. A failed read propagates: the
+   * fill is the only pass over the entity.
    */
   @Nonnull
   private Map<Urn, List<MCLItem>> withLatestTimeseriesAspects(
@@ -580,6 +580,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       clearHardDeleteMarker(combinedDocument);
     }
     boolean carriesDelete = carriesDelete(events);
+    // An in-place fill creates into this same alias. A timeseries-only batch is not in SQL, so
+    // catch-up cannot rebuild the entity, and a document created here would make the fill skip it.
+    boolean updateOnly = timeseriesOnlyDuringInPlaceFill(indexName, events);
     Optional<Runnable> mirrored =
         writeV3Document(
             opContext,
@@ -588,14 +591,16 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                 docId,
                 urn,
                 combinedDocument.toString(),
-                V3SearchDocumentWrite.Kind.MERGE),
+                updateOnly
+                    ? V3SearchDocumentWrite.Kind.MERGE_EXISTING
+                    : V3SearchDocumentWrite.Kind.MERGE),
             carriesDelete);
     log.debug(
         "V3 merged combined document for URN: {} into index: {} with {} aspects",
         urn,
         indexName,
         events.size());
-    appendRunIds(opContext, indexKey, indexName, docId, urn, runIds, carriesDelete);
+    appendRunIds(opContext, indexKey, indexName, docId, urn, runIds, carriesDelete, updateOnly);
     return mirrored.map(List::of).orElse(List.of());
   }
 
@@ -694,19 +699,31 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull String docId,
       @Nonnull Urn urn,
       @Nonnull List<String> runIds,
-      boolean carriesDelete) {
+      boolean carriesDelete,
+      boolean updateOnly) {
     if (runIds.isEmpty()) {
       return;
     }
-    for (String runId : runIds) {
-      elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
+    if (updateOnly) {
+      appendRunIdsToExistingDocument(opContext, indexName, docId, runIds);
+    } else {
+      for (String runId : runIds) {
+        elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
+      }
     }
     if (incrementalReindexWriteTargets == null) {
       return;
     }
     incrementalReindexWriteTargets
         .oldBackingIndexFor(indexName)
-        .ifPresent(index -> appendRunIdsOnIndex(opContext, index, docId, urn, runIds));
+        .ifPresent(
+            index -> {
+              if (updateOnly) {
+                appendRunIdsToExistingDocument(opContext, index, docId, runIds);
+              } else {
+                appendRunIdsOnIndex(opContext, index, docId, urn, runIds);
+              }
+            });
     if (carriesDelete) {
       incrementalReindexWriteTargets
           .fillTargetFor(indexName)
@@ -866,6 +883,25 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
   private static boolean carriesDelete(@Nonnull List<MCLItem> events) {
     return events.stream().anyMatch(event -> event.getChangeType() == ChangeType.DELETE);
+  }
+
+  /**
+   * True when this alias is the index an in-place fill is creating and the batch holds only
+   * timeseries aspects. Creating a document here would block that fill, and catch-up never sees the
+   * batch.
+   */
+  private boolean timeseriesOnlyDuringInPlaceFill(
+      @Nonnull String indexName, @Nonnull List<MCLItem> events) {
+    if (incrementalReindexWriteTargets == null
+        || events.isEmpty()
+        || incrementalReindexWriteTargets
+            .activeFillTargetFor(indexName)
+            .filter(indexName::equals)
+            .isEmpty()) {
+      return false;
+    }
+    return events.stream()
+        .allMatch(event -> event.getAspectSpec() != null && event.getAspectSpec().isTimeseries());
   }
 
   /** The backfill mode stamped on a replayed event, or null for a live write. */

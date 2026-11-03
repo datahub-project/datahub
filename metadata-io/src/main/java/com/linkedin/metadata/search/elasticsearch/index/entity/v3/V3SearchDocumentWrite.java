@@ -26,17 +26,12 @@ public record V3SearchDocumentWrite(
 
   /**
    * The same write, addressed to an index a fill is building. The fill writes only documents that
-   * are absent, so a merge there must not create a partial one that would block it, and a delete
-   * becomes the hard-delete placeholder so the fill cannot bring the entity back.
+   * are absent, so a merge there must not create a partial one that would block it. A hard delete
+   * writes its own placeholder; this copy does not invent one.
    */
   @Nonnull
   public V3SearchDocumentWrite redirectedToFill(@Nonnull final String fillIndexName) {
-    final Kind fillKind =
-        switch (kind) {
-          case MERGE -> Kind.MERGE_EXISTING;
-          case DELETE -> Kind.TOMBSTONE;
-          default -> kind;
-        };
+    final Kind fillKind = kind == Kind.MERGE ? Kind.MERGE_EXISTING : kind;
     return new V3SearchDocumentWrite(fillIndexName, docId, urn, source, fillKind);
   }
 

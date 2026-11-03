@@ -22,12 +22,12 @@ public class V3SearchDocumentWriteTest {
   }
 
   @Test
-  public void testFillCopyOfADeleteIsATombstone() {
+  public void testFillCopyOfADeleteStaysADelete() {
     V3SearchDocumentWrite delete = write(V3SearchDocumentWrite.Kind.DELETE);
 
     assertEquals(
         delete.redirectedToFill("test_groupindex_v3_next").kind(),
-        V3SearchDocumentWrite.Kind.TOMBSTONE);
+        V3SearchDocumentWrite.Kind.DELETE);
   }
 
   @Test

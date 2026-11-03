@@ -90,7 +90,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
   private final String upgradeVersion;
   private final BuildIndicesConfiguration buildIndicesConfig;
-  @Nullable private final UpdateIndicesService updateIndicesService;
+  @Nonnull private final UpdateIndicesService updateIndicesService;
   private final Urn upgradeIdUrn;
   private final Urn phase1UpgradeIdUrn;
 
@@ -101,27 +101,8 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       List<ElasticSearchIndexed> indexedServices,
       Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
       String upgradeVersion,
-      @Nullable BuildIndicesConfiguration buildIndicesConfig) {
-    this(
-        opContext,
-        entityService,
-        aspectDao,
-        indexedServices,
-        structuredProperties,
-        upgradeVersion,
-        buildIndicesConfig,
-        null);
-  }
-
-  public IncrementalReindexCatchUpStep(
-      OperationContext opContext,
-      EntityService<?> entityService,
-      AspectDao aspectDao,
-      List<ElasticSearchIndexed> indexedServices,
-      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
-      String upgradeVersion,
       @Nullable BuildIndicesConfiguration buildIndicesConfig,
-      @Nullable UpdateIndicesService updateIndicesService) {
+      @Nonnull UpdateIndicesService updateIndicesService) {
     this.opContext = opContext;
     this.entityService = entityService;
     this.aspectDao = aspectDao;
@@ -380,9 +361,6 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
   private void cleanupV3FillTombstones(
       @Nonnull Map<String, String> phase1State, @Nonnull Map<String, String> catchUpState) {
-    if (updateIndicesService == null) {
-      return;
-    }
     for (String indexName : IncrementalReindexState.getAllIndexStates(phase1State).keySet()) {
       if (opContext
               .getSearchContext()
