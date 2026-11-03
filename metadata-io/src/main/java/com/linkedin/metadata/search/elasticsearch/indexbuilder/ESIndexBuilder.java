@@ -36,9 +36,12 @@ import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
 import java.net.SocketTimeoutException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -68,6 +71,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.conn.ConnectTimeoutException;
 import org.opensearch.OpenSearchException;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
@@ -1480,8 +1484,13 @@ public class ESIndexBuilder {
     return request;
   }
 
+  /** A blank id would turn {@code GET /_tasks/<id>} into a listing of every task in the cluster. */
+  private static boolean isUsableTaskId(@Nullable String taskId) {
+    return taskId != null && !taskId.isBlank() && taskId.contains(":");
+  }
+
   private static void addTaskId(List<String> taskIds, @Nullable String taskId) {
-    if (taskId != null && !taskIds.contains(taskId)) {
+    if (isUsableTaskId(taskId) && !taskIds.contains(taskId)) {
       taskIds.add(taskId);
     }
   }
@@ -1512,6 +1521,9 @@ public class ESIndexBuilder {
     final long deadline = clock.getAsLong() + DIAGNOSTICS_BUDGET.toMillis();
     int logged = 0;
     for (String taskId : taskIds) {
+      if (!isUsableTaskId(taskId)) {
+        continue;
+      }
       if (clock.getAsLong() > deadline) {
         log.warn("Reindex diagnostics stopped after {}s", DIAGNOSTICS_BUDGET.toSeconds());
         return;
@@ -1564,15 +1576,20 @@ public class ESIndexBuilder {
           logReindexFailure(
               opContext, sourceIndex, ReindexFailure.parse(taskId, failure), clock, deadline);
         }
-      } catch (ResponseException e) {
-        // The search engine answered (e.g. 404 for an unknown task); the other tasks may still be
-        // readable.
-        log.warn("Could not read reindex task {} for diagnostics: {}", taskId, e.toString());
-      } catch (Exception e) {
+      } catch (ConnectException
+          | NoRouteToHostException
+          | UnknownHostException
+          | SocketTimeoutException
+          | ConnectTimeoutException e) {
         log.warn(
             "Could not reach the search engine for reindex diagnostics, skipping the rest: {}",
             e.toString());
         return;
+      } catch (Exception e) {
+        // The engine answered with an error (e.g. 404 for a purged task) or the task JSON had an
+        // unexpected shape; the other tasks may still be readable. Matched broadly on purpose: the
+        // OpenSearch and Elasticsearch 8 clients throw unrelated ResponseException types.
+        log.warn("Could not read reindex task {} for diagnostics: {}", taskId, e.toString());
       }
     }
   }
@@ -1688,8 +1705,8 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Logs what identifies the source document and the size and first characters of the rejected
-   * value, read from the source index.
+   * Logs what identifies the source document and the size of the rejected value, read from the
+   * source index. The value itself is user content and is not logged.
    */
   private void logSourceValueSize(
       OperationContext opContext, String sourceIndex, String docId, @Nullable String field) {
@@ -1732,12 +1749,11 @@ public class ESIndexBuilder {
           String s = String.valueOf(v);
           int bytes = s.getBytes(StandardCharsets.UTF_8).length;
           log.error(
-              "  value of {}: {} characters, {} UTF-8 bytes{}, starts: '{}'",
+              "  value of {}: {} characters, {} UTF-8 bytes{}",
               field,
               s.length(),
               bytes,
-              bytes > LUCENE_MAX_TERM_BYTES ? " (over the 32766-byte keyword limit)" : "",
-              s.length() > VALUE_PREFIX_CHARS ? s.substring(0, VALUE_PREFIX_CHARS) + "..." : s);
+              bytes > LUCENE_MAX_TERM_BYTES ? " (over the 32766-byte keyword limit)" : "");
         }
       }
     } catch (Exception e) {
@@ -1831,7 +1847,7 @@ public class ESIndexBuilder {
    */
   private ReindexTaskLookup lookupReindexTask(
       @Nonnull OperationContext opContext, @Nullable final String taskId) {
-    if (taskId == null || taskId.isBlank() || !taskId.contains(":")) {
+    if (!isUsableTaskId(taskId)) {
       return ReindexTaskLookup.BLANK_TASK_ID;
     }
     try {
@@ -1854,10 +1870,9 @@ public class ESIndexBuilder {
    *
    * <p>Note: per-document failure details ({@code failures[]}) live in the task <em>response</em>
    * body, which {@code GetTaskResponse} does not expose (it parses only the task {@code status}
-   * counters). {@code versionConflicts} is the counter that surfaces the silent-drop case here; the
-   * exhaustive {@code failures[]} array can be retrieved out-of-band via the {@code
-   * /openapi/operations/elasticSearch/getTaskStatus} endpoint or a direct {@code GET
-   * _tasks/<taskId>} against the cluster.
+   * counters). {@code versionConflicts} is the counter that surfaces the silent-drop case here;
+   * when a reindex fails, {@link #logReindexFailureDiagnostics} reads {@code failures[]} from the
+   * raw {@code GET _tasks/<taskId>} response and logs it.
    */
   // Package-private for direct unit testing of the counter formatting.
   static String describeReindexTaskStatus(@Nonnull final GetTaskResponse response) {

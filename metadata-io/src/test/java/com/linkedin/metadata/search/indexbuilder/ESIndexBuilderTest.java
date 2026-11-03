@@ -3417,7 +3417,7 @@ public class ESIndexBuilderTest {
   @Test
   void testReindexFailureDiagnosticsStopsWhenSearchEngineUnreachable() throws IOException {
     when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
-        .thenThrow(new IOException("unreachable"));
+        .thenThrow(new java.net.ConnectException("Connection refused"));
 
     indexBuilder.logReindexFailureDiagnostics(
         opContext, "source", "dest", List.of("node:1", "node:2"));
@@ -3447,6 +3447,45 @@ public class ESIndexBuilderTest {
     // A task the search engine answers for but can't return (e.g. 404) doesn't stop the others.
     verify(searchClient, times(2))
         .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
+  }
+
+  @Test
+  void testReindexFailureDiagnosticsContinuesPastElasticsearch8ErrorResponse() throws IOException {
+    // The ES8 shim surfaces the Elasticsearch client's ResponseException, not OpenSearch's.
+    org.elasticsearch.client.Response notFound =
+        mock(org.elasticsearch.client.Response.class, RETURNS_DEEP_STUBS);
+    when(notFound.getStatusLine().getStatusCode()).thenReturn(404);
+    when(notFound.getEntity()).thenReturn(null);
+    org.elasticsearch.client.ResponseException notFoundException =
+        new org.elasticsearch.client.ResponseException(notFound);
+    RawResponse taskResponse =
+        rawResponse("{\"completed\": true, \"response\": {\"total\": 3, \"failures\": []}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenThrow(notFoundException)
+        .thenReturn(taskResponse);
+
+    indexBuilder.logReindexFailureDiagnostics(
+        opContext, "source", "dest", List.of("node:1", "node:2"));
+
+    verify(searchClient, times(2))
+        .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
+  }
+
+  @Test
+  void testReindexFailureDiagnosticsSkipsBlankTaskIds() throws IOException {
+    RawResponse taskResponse =
+        rawResponse("{\"completed\": true, \"response\": {\"total\": 3, \"failures\": []}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(taskResponse);
+
+    indexBuilder.logReindexFailureDiagnostics(
+        opContext, "source", "dest", java.util.Arrays.asList("", null, "node:1"));
+
+    // A blank id would request GET /_tasks/, which lists every task in the cluster.
+    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
+    verify(searchClient, times(1))
+        .performLowLevelRequest(any(OperationFingerprint.class), requests.capture());
+    assertEquals(requests.getValue().getEndpoint(), "/_tasks/node:1");
   }
 
   @Test
