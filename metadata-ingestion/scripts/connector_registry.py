@@ -226,7 +226,9 @@ def save_connector_registry(registry: ConnectorRegistry, output_dir: str) -> Non
 
         package_names.append(package_name)
 
-    # Generate manifest file
+    # Keep packages that only exist on disk (e.g. outside a --source run, or whose
+    # plugins all failed to load) so the manifest never hides an existing file.
+    package_names.extend(set(existing_package_data) - set(package_names))
     manifest_dict = {"packages": sorted(package_names)}
     manifest_file = output_path / "manifest.json"
     write_manifest = should_write_json_file(
@@ -267,6 +269,11 @@ def generate_connector_registry_cli(
         return
 
     registry = generate_connector_registry([source] if source else None)
+    if source and not registry.plugin_details:
+        logger.error(
+            f"Source '{source}' produced no connector details; leaving registry unchanged"
+        )
+        return
     save_connector_registry(registry, output_dir)
 
     # Show package breakdown
