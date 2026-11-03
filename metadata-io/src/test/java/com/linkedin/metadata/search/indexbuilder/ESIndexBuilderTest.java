@@ -1364,39 +1364,7 @@ public class ESIndexBuilderTest {
   @Test
   void testApplyMappings_DefinitionUpsertPutFailurePropagates() throws IOException {
     // A definition upsert passes suppressError=false; its put exists to add the new property.
-    ReindexConfig indexState =
-        ReindexConfig.builder()
-            .name(TEST_INDEX_NAME)
-            .exists(true)
-            .currentSettings(Settings.EMPTY)
-            .targetSettings(new HashMap<>())
-            .currentMappings(
-                Map.of(
-                    "properties",
-                    Map.of(
-                        STRUCTURED_PROPERTY_MAPPING_FIELD,
-                        Map.of(
-                            "dynamic",
-                            "false",
-                            "properties",
-                            Map.of("propA", Map.of("type", "keyword"))))))
-            .targetMappings(
-                Map.of(
-                    "properties",
-                    Map.of(
-                        STRUCTURED_PROPERTY_MAPPING_FIELD,
-                        Map.of(
-                            "type",
-                            "object",
-                            "dynamic",
-                            false,
-                            "properties",
-                            Map.of(
-                                "propA",
-                                Map.of("type", "keyword"),
-                                "propC",
-                                Map.of("type", "double"))))))
-            .build();
+    ReindexConfig indexState = structuredPropertyAdditionState(Settings.EMPTY, new HashMap<>());
     assertTrue(indexState.isPureStructuredPropertyAddition());
     when(searchClient.putIndexMapping(
             any(OperationFingerprint.class),
@@ -1411,6 +1379,101 @@ public class ESIndexBuilderTest {
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
             any(RequestOptions.class));
+  }
+
+  @Test
+  void testBuildIndex_LeavesNewStructuredPropertiesUnmappedWhenNothingElseChanges()
+      throws IOException {
+    ReindexConfig indexState = structuredPropertyAdditionState(Settings.EMPTY, new HashMap<>());
+    assertTrue(indexState.hasNewStructuredProperty());
+
+    assertEquals(
+        indexBuilder.buildIndex(opContext, indexState),
+        ReindexResult.NOT_REINDEXED_NOTHING_APPLIED);
+    verify(searchClient, never())
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testBuildIndex_SettingsChangeAlsoAddsNewStructuredProperties() throws IOException {
+    ReindexConfig indexState =
+        structuredPropertyAdditionState(
+            Settings.builder().put("index.refresh_interval", "3s").build(),
+            Map.of("index", Map.of("refresh_interval", "1s")));
+    assertFalse(indexState.requiresApplyMappings());
+    assertTrue(indexState.requiresApplySettings());
+    AcknowledgedResponse acknowledged = mock(AcknowledgedResponse.class);
+    when(acknowledged.isAcknowledged()).thenReturn(true);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(acknowledged);
+    when(searchClient.updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(acknowledged);
+
+    assertEquals(
+        indexBuilder.buildIndex(opContext, indexState),
+        ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED);
+
+    ArgumentCaptor<PutMappingRequest> captor = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    Map<String, Object> putStructuredProperties =
+        (Map<String, Object>)
+            ((Map<String, Object>)
+                    ReindexConfig.OBJECT_MAPPER
+                        .readValue(captor.getValue().source().utf8ToString(), Map.class)
+                        .get("properties"))
+                .get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    assertEquals(
+        ((Map<String, Object>) putStructuredProperties.get("properties")).keySet(),
+        Set.of("propC"));
+  }
+
+  /** The index maps propA; the definitions add propC, and no other mapping changes. */
+  private static ReindexConfig structuredPropertyAdditionState(
+      Settings currentSettings, Map<String, Object> targetSettings) {
+    return ReindexConfig.builder()
+        .name(TEST_INDEX_NAME)
+        .exists(true)
+        .currentSettings(currentSettings)
+        .targetSettings(targetSettings)
+        .currentMappings(
+            Map.of(
+                "properties",
+                Map.of(
+                    STRUCTURED_PROPERTY_MAPPING_FIELD,
+                    Map.of(
+                        "dynamic",
+                        "false",
+                        "properties",
+                        Map.of("propA", Map.of("type", "keyword"))))))
+        .targetMappings(
+            Map.of(
+                "properties",
+                Map.of(
+                    STRUCTURED_PROPERTY_MAPPING_FIELD,
+                    Map.of(
+                        "type",
+                        "object",
+                        "dynamic",
+                        false,
+                        "properties",
+                        Map.of(
+                            "propA",
+                            Map.of("type", "keyword"),
+                            "propC",
+                            Map.of("type", "double"))))))
+        .build();
   }
 
   @Test

@@ -513,21 +513,7 @@ public class ESIndexBuilder {
             : mappings;
 
     builder.targetMappings(targetMappings);
-    ReindexConfig config = builder.build();
-    if (!copyStructuredPropertyMappings
-        && config.hasNewStructuredProperty()
-        && !config.requiresApplyMappings()) {
-      Set<String> unmapped =
-          new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(config.targetMappings()));
-      unmapped.removeAll(ReindexConfig.structuredPropertyFieldIds(config.currentMappings()));
-      log.warn(
-          "Index: {} - Structured property fields {} have definitions but no mapping. A definition"
-              + " upsert or a reindex adds them, and system-update adds them when it applies a"
-              + " mapping change in place.",
-          indexName,
-          unmapped);
-    }
-    return config;
+    return builder.build();
   }
 
   @SuppressWarnings("unchecked")
@@ -651,6 +637,17 @@ public class ESIndexBuilder {
     // If there are no updates to mappings and settings, return
     if (!indexState.requiresApplyMappings() && !indexState.requiresApplySettings()) {
       log.info("No updates to index {}", indexState.name());
+      if (indexState.hasNewStructuredProperty()) {
+        Set<String> unmapped =
+            new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(indexState.targetMappings()));
+        unmapped.removeAll(ReindexConfig.structuredPropertyFieldIds(indexState.currentMappings()));
+        log.warn(
+            "Index: {} - Structured property fields {} have definitions but no mapping. A definition"
+                + " upsert or a reindex adds them, and system-update adds them when it applies a"
+                + " mapping change in place.",
+            indexState.name(),
+            unmapped);
+      }
       result = ReindexResult.NOT_REINDEXED_NOTHING_APPLIED;
       return result;
     }
@@ -896,19 +893,21 @@ public class ESIndexBuilder {
         // System-update sends new structured-property fields along with the index's other mapping
         // changes, and they can push the index past its total-fields limit. They then wait for the
         // next definition upsert or reindex instead of blocking those changes. A definition upsert
-        // (suppressError=false) exists to add them, so its failure propagates.
-        // Against itself every structured-property field counts as mapped, so this drops them all.
-        Map<String, Object> withoutStructuredPropertyFields =
-            ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(mappings, mappings);
-        if (!suppressError || withoutStructuredPropertyFields == mappings) {
+        // (suppressError=false) exists to add them, so its failure propagates. Any failure retries,
+        // not only a rejected mapping, because the engine clients report a rejection as different
+        // exception types; a transient failure then costs only this run's new fields.
+        Set<String> newFields = ReindexConfig.structuredPropertyFieldIds(mappings);
+        if (!suppressError || newFields.isEmpty()) {
           throw e;
         }
-        Set<String> newFields = ReindexConfig.structuredPropertyFieldIds(mappings);
         log.warn(
             "Index: {} - Put-mapping failed, retrying without the new structured property fields {}",
             indexState.name(),
             newFields,
             e);
+        // Against itself every structured-property field counts as mapped, so this drops them all.
+        Map<String, Object> withoutStructuredPropertyFields =
+            ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(mappings, mappings);
         try {
           searchClient.putIndexMapping(
               opContext,
