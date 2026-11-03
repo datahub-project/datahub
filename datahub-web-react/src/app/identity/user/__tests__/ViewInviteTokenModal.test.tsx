@@ -8,6 +8,7 @@ import { render, screen } from '@utils/test-utils/customRender';
 const SELECTED_ROLE_URN = 'urn:li:dataHubRole:Admin';
 
 const mockUserContext = {
+    loaded: true,
     platformPrivileges: {
         managePolicies: false,
     },
@@ -44,7 +45,17 @@ vi.mock('@graphql/mutations.generated', () => ({
 describe('ViewInviteTokenModal', () => {
     beforeEach(() => {
         getInviteToken.mockClear();
+        mockUserContext.loaded = true;
         mockUserContext.platformPrivileges.managePolicies = false;
+    });
+
+    it('waits for privileges before requesting a token or showing the no-role footer', () => {
+        mockUserContext.loaded = false;
+        render(<ViewInviteTokenModal open onClose={() => undefined} />);
+
+        expect(screen.queryByText(/will not be assigned a role/)).not.toBeInTheDocument();
+        expect(screen.queryByTestId('role-picker')).not.toBeInTheDocument();
+        expect(getInviteToken).toHaveBeenCalledWith(expect.objectContaining({ skip: true }));
     });
 
     it('hides the role picker without Manage Policies and requests a role-less link', () => {

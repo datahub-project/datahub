@@ -391,15 +391,16 @@ public class PrivilegeGrantAuthorizationValidatorTest {
 
   // --- trusted internal writes ---
 
+  /** Client-supplied appSource=systemUpdate must not skip the privilege check. */
   @Test
-  public void testSystemUpdateSourceSkipped() {
+  public void testSystemUpdateSourceDoesNotSkipAuth() {
     final BatchItem item =
         upsert(OTHER_USER, ROLE_MEMBERSHIP_ASPECT_NAME, roles(ADMIN_ROLE), ACTOR);
     ((TestMCP) item)
         .setSystemMetadata(
             new SystemMetadata()
                 .setProperties(new StringMap(java.util.Map.of(APP_SOURCE, SYSTEM_UPDATE_SOURCE))));
-    assertTrue(validate(item).isEmpty());
+    assertAuthFailure(validate(item));
   }
 
   /** The invite-accept flow assigns roles as the system actor. */

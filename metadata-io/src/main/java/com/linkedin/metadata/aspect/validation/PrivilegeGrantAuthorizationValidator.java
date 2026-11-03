@@ -1,13 +1,11 @@
 package com.linkedin.metadata.aspect.validation;
 
-import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INVITE_TOKEN_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ROLE_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
@@ -35,7 +33,6 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.PoliciesConfig.Privilege;
-import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
@@ -424,14 +421,12 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
     }
   }
 
-  /** Bootstrap, upgrade steps, and other system-mediated writes are trusted. */
+  /**
+   * A write whose audit stamp is the system actor is trusted. Real system upgrades skip earlier via
+   * {@link #isInternalOperation}. Client-supplied {@code appSource=systemUpdate} is not trusted;
+   * {@code AspectsBatchImpl} strips that stamp for non-system writers.
+   */
   private static boolean isTrustedInternalWrite(@Nonnull BatchItem item) {
-    final SystemMetadata systemMetadata = item.getSystemMetadata();
-    if (systemMetadata != null
-        && systemMetadata.hasProperties()
-        && SYSTEM_UPDATE_SOURCE.equals(systemMetadata.getProperties().get(APP_SOURCE))) {
-      return true;
-    }
     final AuditStamp auditStamp = item.getAuditStamp();
     return auditStamp != null
         && auditStamp.hasActor()
