@@ -16,12 +16,14 @@ constructor so importing this module stays cheap when the provider is unused.
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
     EmbeddingResult,
+    EmbeddingTask,
 )
 
 if TYPE_CHECKING:
@@ -128,11 +130,16 @@ class OnnxEmbeddingProvider(EmbeddingProvider):
             sorted(self._input_names),
         )
 
-    def embed(self, texts: list[str]) -> EmbeddingResult:
+    def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
         import numpy as np
 
         if not texts:
             return EmbeddingResult(embeddings=[])
+        if task is EmbeddingTask.QUERY:
+            # GMS prefixes queries with the same variable (OnnxEmbeddingProvider.java).
+            instruction = os.environ.get("ONNX_EMBEDDING_QUERY_INSTRUCTION", "")
+            if instruction.strip():
+                texts = [instruction + text for text in texts]
 
         encodings = self._tokenizer.encode_batch(texts)
         input_ids = np.array([e.ids for e in encodings], dtype=np.int64)

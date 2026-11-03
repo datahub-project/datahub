@@ -35,6 +35,7 @@ class ServiceFeature(Enum):
     PATCH_CAPABLE = "patch_capable"
     CLI_TELEMETRY = "cli_telemetry"
     DATAHUB_CLOUD = "datahub_cloud"
+    EMBEDDING_SERVICE = "embedding_service"
     # Server can accept semanticModel/metric entities (and their structured-property
     # entityTypes). Version-gated on managed servers; OSS is recipe-driven, so no
     # "core" requirement is defined (supports_feature returns False for core).
@@ -223,6 +224,19 @@ class RestServiceConfig:
 
         return server_env != "core"
 
+    @property
+    def embedding_service_path(self) -> Optional[str]:
+        # /config advertises {"embeddingService": {"enabled": true, "path":
+        # "/openapi/v1/llm/v1/embeddings"}}. Absence means unsupported, including
+        # OSS GMS. Never infer availability from the version or deployment type.
+        service = self.raw_config.get("embeddingService")
+        if not isinstance(service, dict) or service.get("enabled") is not True:
+            return None
+        path = service.get("path")
+        if isinstance(path, str) and path.startswith("/") and not path.startswith("//"):
+            return path
+        return None
+
     def supports_feature(self, feature: ServiceFeature) -> bool:
         """
         Determines whether a specific feature is supported based on service version
@@ -236,6 +250,9 @@ class RestServiceConfig:
         """
         # Special handling for features that rely on config flags
         config_based_features = {
+            ServiceFeature.EMBEDDING_SERVICE: lambda: (
+                self.embedding_service_path is not None
+            ),
             ServiceFeature.NO_CODE: lambda: self.is_no_code_enabled,
             ServiceFeature.STATEFUL_INGESTION: lambda: (
                 self.raw_config.get("statefulIngestionCapable", False) is True

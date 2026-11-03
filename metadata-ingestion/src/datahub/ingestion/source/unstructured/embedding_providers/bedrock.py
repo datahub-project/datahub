@@ -12,6 +12,7 @@ import boto3
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
     EmbeddingResult,
+    EmbeddingTask,
 )
 
 # Bedrock model IDs are namespaced by the upstream provider, e.g.
@@ -28,12 +29,17 @@ class BedrockEmbeddingProvider(EmbeddingProvider):
         self.model_id = f"bedrock/{model}"
         self._client = boto3.client("bedrock-runtime", region_name=aws_region)
 
-    def embed(self, texts: list[str]) -> EmbeddingResult:
+    def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
         # Different Bedrock-hosted model families use different request/response
         # shapes. Match by the official Bedrock model-id prefix rather than a
         # substring search so unrelated models don't get mis-formatted.
         if self._model.startswith(_COHERE_PREFIX):
-            body = {"texts": texts, "input_type": "search_document"}
+            body = {
+                "texts": texts,
+                "input_type": "search_query"
+                if task is EmbeddingTask.QUERY
+                else "search_document",
+            }
             response = self._client.invoke_model(
                 modelId=self._model,
                 body=json.dumps(body),

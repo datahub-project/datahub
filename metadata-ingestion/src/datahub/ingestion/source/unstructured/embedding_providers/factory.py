@@ -3,6 +3,7 @@
 import os
 from typing import TYPE_CHECKING, Optional
 
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
 )
@@ -19,6 +20,7 @@ SUPPORTED_PROVIDERS: tuple[str, ...] = (
     "vertex_ai",
     "onnx",
     "classical",
+    "datahub",
 )
 
 # Providers that embed in-process with no external API behind them ("local" is not one:
@@ -57,7 +59,18 @@ def derive_model_id(provider: Optional[str], model: Optional[str]) -> Optional[s
     return f"{provider}/{model}"
 
 
-def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
+def create_embedding_provider(
+    config: "EmbeddingConfig", *, graph: Optional[DataHubGraph] = None
+) -> EmbeddingProvider:
+    provider = _create_embedding_provider(config, graph=graph)
+    if config.model_embedding_key is not None:
+        provider.model_embedding_key = config.model_embedding_key
+    return provider
+
+
+def _create_embedding_provider(
+    config: "EmbeddingConfig", *, graph: Optional[DataHubGraph] = None
+) -> EmbeddingProvider:
     """Build a provider instance from an :class:`EmbeddingConfig`.
 
     Validation of presence of provider/model/required fields is the caller's
@@ -69,6 +82,26 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
         config.api_key.get_secret_value() if config.api_key else None
     )
     timeout = config.request_timeout
+
+    if provider == "datahub":
+        from datahub.ingestion.source.unstructured.embedding_providers.datahub_server import (
+            server_embedding_provider,
+        )
+
+        if graph is None:
+            raise ValueError(
+                "The datahub embedding provider requires a DataHubGraph connection."
+            )
+        server_provider = server_embedding_provider(graph, timeout=timeout)
+        if (model is not None and model != server_provider.index_config.model_id) or (
+            config.model_embedding_key is not None
+            and config.model_embedding_key
+            != server_provider.index_config.model_embedding_key
+        ):
+            raise ValueError(
+                "Server semantic index model changed. Resolve the embedding configuration again before embedding."
+            )
+        return server_provider
 
     if provider is None or model is None:
         raise ValueError("EmbeddingConfig.provider and .model must be set")

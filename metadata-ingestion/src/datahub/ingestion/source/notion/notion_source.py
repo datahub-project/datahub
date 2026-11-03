@@ -887,6 +887,10 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             # Test the resolved configuration
+            if resolved_config.provider == "datahub":
+                return DocumentChunkingSource.test_embedding_capability(
+                    resolved_config, graph=graph
+                )
             return DocumentChunkingSource.test_embedding_capability(resolved_config)
 
         except ValueError as e:

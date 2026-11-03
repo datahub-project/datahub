@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.source.unstructured.embedding_providers.base import EmbeddingTask
 from datahub.ingestion.source.unstructured.embedding_providers.cohere import (
     CohereEmbeddingProvider,
 )
@@ -46,7 +47,7 @@ def test_cohere_provider_posts_v1_embed_with_bearer_auth():
         "post",
         return_value=_ok_response({"embeddings": [[0.1, 0.2, 0.3]]}),
     ) as mock_post:
-        result = provider.embed(["hello"])
+        result = provider.embed(["hello"], task=EmbeddingTask.DOCUMENT)
 
     assert result.embeddings == [[0.1, 0.2, 0.3]]
 
@@ -85,7 +86,7 @@ def test_cohere_provider_surfaces_http_errors():
         ),
         pytest.raises(RuntimeError, match="401"),
     ):
-        provider.embed(["hello"])
+        provider.embed(["hello"], task=EmbeddingTask.DOCUMENT)
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +104,7 @@ def test_openai_provider_posts_to_default_url():
             {"data": [{"embedding": [0.1, 0.2]}, {"embedding": [0.3, 0.4]}]}
         ),
     ) as mock_post:
-        result = provider.embed(["a", "b"])
+        result = provider.embed(["a", "b"], task=EmbeddingTask.DOCUMENT)
 
     assert result.embeddings == [[0.1, 0.2], [0.3, 0.4]]
 
@@ -143,7 +144,7 @@ def test_openai_provider_surfaces_http_errors():
         ),
         pytest.raises(RuntimeError, match="429"),
     ):
-        provider.embed(["x"])
+        provider.embed(["x"], task=EmbeddingTask.DOCUMENT)
 
 
 def test_openai_provider_raises_when_no_key_and_no_base_url():
@@ -167,7 +168,7 @@ def test_openai_provider_passes_timeout_to_post_json():
         "post",
         return_value=_ok_response({"data": [{"embedding": [0.0]}]}),
     ) as mock_post:
-        provider.embed(["x"])
+        provider.embed(["x"], task=EmbeddingTask.DOCUMENT)
     assert mock_post.call_args.kwargs["timeout"] == 12.5
 
 
@@ -283,7 +284,7 @@ def test_bedrock_provider_uses_cohere_batch_shape():
         provider = BedrockEmbeddingProvider(
             model="cohere.embed-english-v3", aws_region="us-east-1"
         )
-        result = provider.embed(["hello"])
+        result = provider.embed(["hello"], task=EmbeddingTask.DOCUMENT)
 
     assert result.embeddings == [[0.1, 0.2]]
     args, kwargs = mock_client.invoke_model.call_args
@@ -311,7 +312,7 @@ def test_bedrock_provider_uses_titan_single_input_shape():
         provider = BedrockEmbeddingProvider(
             model="amazon.titan-embed-text-v2:0", aws_region="us-east-1"
         )
-        result = provider.embed(["a", "b"])
+        result = provider.embed(["a", "b"], task=EmbeddingTask.DOCUMENT)
 
     assert result.embeddings == [[1.0], [2.0]]
     assert mock_client.invoke_model.call_count == 2
@@ -327,7 +328,7 @@ def test_bedrock_provider_raises_on_unknown_model_family():
             model="mistral.mistral-embed-v1", aws_region="us-east-1"
         )
         with pytest.raises(ValueError, match="Unsupported Bedrock embedding model"):
-            provider.embed(["hello"])
+            provider.embed(["hello"], task=EmbeddingTask.DOCUMENT)
 
 
 def test_bedrock_provider_does_not_match_substring_only():
@@ -341,7 +342,7 @@ def test_bedrock_provider_does_not_match_substring_only():
             model="custom.cohere-lookalike-v1", aws_region="us-east-1"
         )
         with pytest.raises(ValueError, match="Unsupported Bedrock embedding model"):
-            provider.embed(["hello"])
+            provider.embed(["hello"], task=EmbeddingTask.DOCUMENT)
 
 
 def test_bedrock_provider_model_id_is_namespaced():
@@ -685,7 +686,7 @@ def test_vertex_ai_provider_embed_sends_retrieval_document_task_type():
     with patch.object(
         provider._session, "post", return_value=_ok_response(payload)
     ) as mock_post:
-        result = provider.embed(["a", "b"])
+        result = provider.embed(["a", "b"], task=EmbeddingTask.DOCUMENT)
 
     assert result.embeddings == [[0.1, 0.2], [0.3, 0.4]]
     body = mock_post.call_args.kwargs["json"]
@@ -707,7 +708,7 @@ def test_vertex_ai_provider_raises_when_predictions_missing():
         ),
         pytest.raises(RuntimeError, match="missing 'predictions' list"),
     ):
-        provider.embed(["x"])
+        provider.embed(["x"], task=EmbeddingTask.DOCUMENT)
 
 
 def test_vertex_ai_provider_model_id_is_namespaced():
@@ -730,7 +731,7 @@ def test_cohere_provider_raises_when_embeddings_field_missing():
         ),
         pytest.raises(RuntimeError, match="missing 'embeddings' field"),
     ):
-        provider.embed(["x"])
+        provider.embed(["x"], task=EmbeddingTask.DOCUMENT)
 
 
 def test_openai_provider_raises_when_data_field_missing_or_wrong_type():
@@ -743,4 +744,71 @@ def test_openai_provider_raises_when_data_field_missing_or_wrong_type():
         ),
         pytest.raises(RuntimeError, match="missing 'data' list"),
     ):
-        provider.embed(["x"])
+        provider.embed(["x"], task=EmbeddingTask.DOCUMENT)
+
+
+@pytest.mark.parametrize("task", list(EmbeddingTask))
+def test_cohere_task_mapping(task):
+    provider = CohereEmbeddingProvider(model="embed-english-v3.0", api_key="k")
+    with patch.object(
+        provider._session, "post", return_value=_ok_response({"embeddings": [[1.0]]})
+    ) as post:
+        provider.embed(["text"], task=task)
+    assert post.call_args.kwargs["json"]["input_type"] == (
+        "search_query" if task is EmbeddingTask.QUERY else "search_document"
+    )
+
+
+@pytest.mark.parametrize("task", list(EmbeddingTask))
+def test_bedrock_cohere_task_mapping(task):
+    import json
+
+    from datahub.ingestion.source.unstructured.embedding_providers.bedrock import (
+        BedrockEmbeddingProvider,
+    )
+
+    with patch("boto3.client") as client:
+        client.return_value.invoke_model.return_value = {
+            "body": MagicMock(read=lambda: json.dumps({"embeddings": [[1.0]]}))
+        }
+        provider = BedrockEmbeddingProvider(
+            model="cohere.embed-english-v3", aws_region="us-east-1"
+        )
+        provider.embed(["text"], task=task)
+    body = json.loads(client.return_value.invoke_model.call_args.kwargs["body"])
+    assert body["input_type"] == (
+        "search_query" if task is EmbeddingTask.QUERY else "search_document"
+    )
+
+
+@pytest.mark.parametrize("task", list(EmbeddingTask))
+def test_vertex_task_mapping(task):
+    provider = _make_vertex_provider()
+    with patch.object(
+        provider._session,
+        "post",
+        return_value=_ok_response({"predictions": [{"embeddings": {"values": [1.0]}}]}),
+    ) as post:
+        provider.embed(["text"], task=task)
+    assert post.call_args.kwargs["json"]["instances"] == [
+        {
+            "task_type": "RETRIEVAL_QUERY"
+            if task is EmbeddingTask.QUERY
+            else "RETRIEVAL_DOCUMENT",
+            "content": "text",
+        }
+    ]
+
+
+@pytest.mark.parametrize("task", list(EmbeddingTask))
+def test_openai_and_local_are_symmetric(task):
+    provider = OpenAIEmbeddingProvider(
+        model="model", api_key="k", base_url="http://localhost:11434/v1"
+    )
+    with patch.object(
+        provider._session,
+        "post",
+        return_value=_ok_response({"data": [{"embedding": [1.0]}]}),
+    ) as post:
+        provider.embed(["text"], task=task)
+    assert post.call_args.kwargs["json"] == {"model": "model", "input": ["text"]}

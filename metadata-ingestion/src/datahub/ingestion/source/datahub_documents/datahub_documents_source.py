@@ -25,11 +25,18 @@ from datahub.configuration.common import GraphError, OperationalError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    SourceCapability,
+    SourceReport,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -38,6 +45,10 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_config import 
 )
 from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
     DocumentChunkingStateHandler,
+)
+from datahub.ingestion.source.datahub_documents.document_embedding import (
+    is_below_embed_minimum,
+    resolve_embed_text,
 )
 from datahub.ingestion.source.datahub_documents.document_indexing_lock import (
     DocumentIndexingLock,
@@ -144,7 +155,8 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 @platform_name("DataHubDocuments", id="datahub-documents")
 @support_status(SupportStatus.ALPHA)
 @config_class(DataHubDocumentsSourceConfig)
-class DataHubDocumentsSource(StatefulIngestionSourceBase):
+@capability(SourceCapability.TEST_CONNECTION, "Checks semantic embedding availability")
+class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     """
     Extract Document entities from DataHub and generate semantic embeddings for semantic search.
 
@@ -270,6 +282,41 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             f"mode: {'event-driven' if self.config.event_mode.enabled else 'batch'}, "
             f"incremental: {self.config.incremental.enabled}"
         )
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        graph: Optional[DataHubGraph] = None
+        try:
+            config = DataHubDocumentsSourceConfig.model_validate(config_dict)
+            graph = DataHubGraph(
+                config=DatahubClientConfig(
+                    server=config.datahub.server,
+                    token=config.datahub.token.get_secret_value()
+                    if config.datahub.token
+                    else None,
+                )
+            )
+            embedding = DocumentChunkingSource.resolve_embedding_config(
+                config.embedding, graph, fail_on_lookup_error=True
+            )
+            capability_report = DocumentChunkingSource.test_embedding_capability(
+                embedding, graph=graph
+            )
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(capable=True),
+                capability_report={"semantic_search": capability_report},
+            )
+        except Exception as error:
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False,
+                    failure_reason=str(error),
+                    mitigation_message="Check the DataHub connection and embedding configuration. Use a provider with its own credentials if server embeddings are unavailable.",
+                )
+            )
+        finally:
+            if graph is not None:
+                graph.close()
 
     @staticmethod
     def _default_lock_id(pipeline_name: Optional[str]) -> str:
@@ -1543,11 +1590,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         unused in `text`. Only the emptiness check strips; the value itself is
         returned as-is, so existing content hashes do not change.
         """
-        semantic_text = contents.get("semanticText") or ""
-        if semantic_text.strip():
-            return semantic_text
-        text = contents.get("text") or ""
-        return text if text.strip() else ""
+        return resolve_embed_text(contents)
 
     def _calculate_text_hash(self, text: str) -> str:
         """Calculate hash of document content AND processing configuration.
@@ -1588,8 +1631,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         empty documents are always skipped, but skip_empty_text=False keeps
         short-but-non-empty documents embeddable regardless of min_text_length.
         """
-        return not text or (
-            self.config.skip_empty_text and len(text) < self.config.min_text_length
+        return is_below_embed_minimum(
+            text,
+            min_text_length=self.config.min_text_length,
+            skip_empty_text=self.config.skip_empty_text,
         )
 
     def _update_document_state(self, document_urn: str, text: str) -> None:

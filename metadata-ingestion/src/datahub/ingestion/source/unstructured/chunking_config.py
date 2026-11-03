@@ -66,11 +66,18 @@ class EmbeddingConfig(ConfigModel):
     # Core configuration (Optional - loaded from server if not set)
     provider: Optional[
         Literal[
-            "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+            "bedrock",
+            "cohere",
+            "openai",
+            "local",
+            "vertex_ai",
+            "onnx",
+            "classical",
+            "datahub",
         ]
     ] = Field(
         default=None,
-        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
+        description="Embedding provider. 'datahub' uses the server's advertised embedding service and DataHub credentials. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
     )
     endpoint: Optional[str] = Field(
         default=None,

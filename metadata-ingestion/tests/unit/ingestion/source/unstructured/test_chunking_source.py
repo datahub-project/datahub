@@ -24,6 +24,7 @@ from datahub.ingestion.source.unstructured.chunking_source import (
 )
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingResult,
+    EmbeddingTask,
 )
 from datahub.metadata.schema_classes import (
     EmbeddingChunkClass,
@@ -644,7 +645,7 @@ def test_generate_embeddings_invokes_provider_with_text(pipeline_context):
 
     embeddings = source._generate_embeddings([{"text": "hello world"}])
     assert embeddings == [[0.1, 0.2, 0.3]]
-    provider.embed.assert_called_once_with(["hello world"])
+    provider.embed.assert_called_once_with(["hello world"], task=EmbeddingTask.DOCUMENT)
 
 
 def test_generate_embeddings_creates_provider_from_config(pipeline_context):
@@ -671,7 +672,9 @@ def test_generate_embeddings_creates_provider_from_config(pipeline_context):
 
     assert embeddings == [[0.1, 0.2, 0.3]]
     mock_factory.assert_called_once_with(source.config.embedding)
-    fake_provider.embed.assert_called_once_with(["hello world"])
+    fake_provider.embed.assert_called_once_with(
+        ["hello world"], task=EmbeddingTask.DOCUMENT
+    )
 
 
 def test_test_embedding_capability_uses_factory_and_returns_dimension():
@@ -1396,7 +1399,7 @@ class TestSkipMarkersAndEmbedAccounting:
         source = self._source(pipeline_context, chunking_config)
         vectors = {"alpha": [1.0, 0.0], "gamma": [0.0, 1.0]}
         provider = MagicMock()
-        provider.embed.side_effect = lambda texts: EmbeddingResult(
+        provider.embed.side_effect = lambda texts, task: EmbeddingResult(
             embeddings=[vectors[t] for t in texts]
         )
         source._provider = provider
@@ -1630,7 +1633,7 @@ def _per_input_provider(dim: int = 4) -> MagicMock:
     multiple batches.
     """
     provider = MagicMock()
-    provider.embed.side_effect = lambda batch: EmbeddingResult(
+    provider.embed.side_effect = lambda batch, task: EmbeddingResult(
         embeddings=[[0.1] * dim for _ in batch]
     )
     return provider

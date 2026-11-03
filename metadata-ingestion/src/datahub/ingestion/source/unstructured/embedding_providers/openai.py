@@ -6,6 +6,7 @@ from datahub.ingestion.source.unstructured.embedding_providers.base import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     EmbeddingProvider,
     EmbeddingResult,
+    EmbeddingTask,
     build_retrying_session,
     post_json,
 )
@@ -51,7 +52,8 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
             }
         )
 
-    def embed(self, texts: list[str]) -> EmbeddingResult:
+    def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
+        # OpenAI embeddings are symmetric: queries and documents embed alike.
         payload = post_json(
             self._url,
             body={"model": self._model, "input": texts},

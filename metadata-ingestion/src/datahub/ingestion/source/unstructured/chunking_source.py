@@ -38,6 +38,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 )
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
+    EmbeddingTask,
 )
 from datahub.ingestion.source.unstructured.embedding_providers.classical import (
     MAX_CODE_POINTS as CLASSICAL_MAX_CODE_POINTS,
@@ -48,8 +49,15 @@ from datahub.ingestion.source.unstructured.embedding_providers.factory import (
     create_embedding_provider,
     derive_model_id,
 )
+from datahub.ingestion.source.unstructured.semantic_chunks import (
+    MAX_SERIALIZED_ASPECT_BYTES,
+    build_semantic_content,
+    cap_chunks,
+    chunk_elements,
+    embed_chunks,
+    has_embeddable_text,
+)
 from datahub.metadata.schema_classes import (
-    EmbeddingChunkClass,
     EmbeddingModelDataClass,
     SemanticContentClass,
 )
@@ -59,14 +67,6 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
-
-# A serialized semanticContent aspect larger than this is refused by GMS (RestLi
-# parse cap) and, even if that were raised, exceeds the Kafka producer max request
-# size (5MB) — which splits the SQL store and search index. Keep the assembled
-# aspect below the 5MB floor with headroom. max_chunks_per_document is the primary
-# bound; this is the backstop for a document whose per-chunk text is pathologically
-# large.
-MAX_SERIALIZED_ASPECT_BYTES = 4 * 1024 * 1024
 
 
 class SkipMarkerReadError(RuntimeError):
@@ -85,15 +85,6 @@ def compute_source_text_sha256(text: str) -> str:
     contract on both sides.
     """
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def _has_embeddable_text(chunk: dict[str, Any]) -> bool:
-    """Whether a chunk is sent to the embedding provider.
-
-    Blank chunks are skipped. The same predicate must gate both the provider call
-    and the aspect emission, or the returned vectors shift onto the wrong chunks.
-    """
-    return bool((chunk.get("text") or "").strip())
 
 
 @dataclass
@@ -219,6 +210,13 @@ class DocumentChunkingSource(Source):
             self.embedding_model = derive_model_id(
                 self.config.embedding.provider, self.config.embedding.model
             )
+            if self.config.embedding.provider == "datahub":
+                index_config = self.config.embedding._server_config
+                assert index_config is not None
+                self.embedding_model = derive_model_id(
+                    self.config.embedding._normalize_provider(index_config.provider),
+                    index_config.model_id,
+                )
             # The classical provider rejects inputs over its code point cap instead
             # of truncating, so a chunk size above it would fail every document.
             if (
@@ -334,7 +332,12 @@ class DocumentChunkingSource(Source):
     def _get_provider(self) -> EmbeddingProvider:
         """Lazily instantiate and cache the embedding provider."""
         if self._provider is None:
-            self._provider = create_embedding_provider(self.config.embedding)
+            if self.config.embedding.provider == "datahub":
+                self._provider = create_embedding_provider(
+                    self.config.embedding, graph=self.graph
+                )
+            else:
+                self._provider = create_embedding_provider(self.config.embedding)
         return self._provider
 
     def get_model_embedding_key(self) -> Optional[str]:
@@ -397,7 +400,7 @@ class DocumentChunkingSource(Source):
         # All-blank chunk text is deterministic for this document: _generate_embeddings
         # would filter every chunk before calling the provider, so treat it as a
         # deliberate skip rather than an embedding failure that would retry forever.
-        if not any(_has_embeddable_text(chunk) for chunk in chunks):
+        if not any(has_embeddable_text(chunk) for chunk in chunks):
             logger.warning(f"Only blank chunk text for document {document_urn}")
             yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
             return
@@ -896,29 +899,7 @@ class DocumentChunkingSource(Source):
         processed. Both callers handle the exception per document.
         """
         try:
-            from unstructured.chunking.basic import chunk_elements as basic_chunk
-            from unstructured.chunking.title import chunk_by_title
-            from unstructured.staging.base import elements_from_dicts
-
-            # Convert dict elements to Unstructured Element objects
-            element_objects = elements_from_dicts(elements)
-
-            # Apply chunking strategy
-            if self.config.chunking.strategy == "by_title":
-                chunks = chunk_by_title(
-                    elements=element_objects,
-                    max_characters=self.config.chunking.max_characters,
-                    combine_text_under_n_chars=self.config.chunking.combine_text_under_n_chars,
-                )
-            else:  # basic
-                chunks = basic_chunk(
-                    elements=element_objects,
-                    max_characters=self.config.chunking.max_characters,
-                    overlap=self.config.chunking.overlap,
-                )
-
-            # Convert chunks back to dicts
-            chunk_dicts = [chunk.to_dict() for chunk in chunks]
+            chunk_dicts = chunk_elements(elements, self.config.chunking)
             logger.info(
                 f"Created {len(chunk_dicts)} chunks using {self.config.chunking.strategy} strategy"
             )
@@ -967,20 +948,11 @@ class DocumentChunkingSource(Source):
         alignment is preserved.
         """
         max_chunks = self.config.chunking.max_chunks_per_document
-        embeddable_seen = 0
-        cutoff = len(chunks)
-        for i, chunk in enumerate(chunks):
-            if _has_embeddable_text(chunk):
-                embeddable_seen += 1
-                if embeddable_seen == max_chunks:
-                    cutoff = i + 1
-                    break
+        capped = cap_chunks(chunks, max_chunks)
         # Only real truncation counts: if the dropped tail has no embeddable text
         # (e.g. the Nth embeddable chunk is followed only by trailing blanks), nothing
         # that would have been embedded is lost, so emit unchanged without a warning.
-        if cutoff >= len(chunks) or not any(
-            _has_embeddable_text(chunk) for chunk in chunks[cutoff:]
-        ):
+        if not capped.truncated:
             return chunks
 
         self._count_oversized(document_urn, dropped=False)
@@ -994,39 +966,24 @@ class DocumentChunkingSource(Source):
             context=f"{document_urn}: {len(chunks)} raw chunks -> capped at {max_chunks} embeddable",
             log=False,
         )
-        return chunks[:cutoff]
+        return capped.chunks
 
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
         """Generate embeddings via the configured provider.
 
         Returns one vector per embeddable (non-blank) chunk, in chunk order.
         """
-        texts = [chunk["text"] for chunk in chunks if _has_embeddable_text(chunk)]
-        if not texts:
+        if not any(has_embeddable_text(chunk) for chunk in chunks):
             return []
 
         provider = self._get_provider()
         try:
-            embeddings: list[list[float]] = []
-            for i in range(0, len(texts), self.config.embedding.batch_size):
-                batch = texts[i : i + self.config.embedding.batch_size]
-                result = provider.embed(batch)
-                # Checked per batch so a short batch fails before the remaining
-                # provider calls are spent and miscounts cannot net out across a
-                # batch boundary. Raised inside the try so both callers record it
-                # as an embedding failure (no semanticContent is written, the
-                # document is retried) instead of counting a success and then
-                # emitting a misaligned aspect. RuntimeError is the type the inline
-                # callers already treat as "provider misbehaved, defer the
-                # document", the same contract as the zero-vector check.
-                if len(result.embeddings) != len(batch):
-                    raise RuntimeError(
-                        f"Embedding provider returned {len(result.embeddings)} "
-                        f"vectors for {len(batch)} chunks"
-                    )
-                embeddings.extend(result.embeddings)
-                logger.debug(f"Generated {len(result.embeddings)} embeddings for batch")
-
+            # A short batch raises RuntimeError inside the try, so both callers
+            # record it as an embedding failure (no semanticContent is written, the
+            # document is retried) instead of emitting a misaligned aspect.
+            embeddings = embed_chunks(
+                chunks, provider, self.config.embedding.batch_size
+            )
             logger.info(
                 f"Generated {len(embeddings)} embeddings using {self.embedding_model}"
             )
@@ -1104,57 +1061,9 @@ class DocumentChunkingSource(Source):
         model_version = derive_model_id(
             self.config.embedding.provider, self.config.embedding.model
         )
+        if self.config.embedding.provider == "datahub":
+            model_version = self.embedding_model
         assert model_version is not None
-
-        # characterOffset counts every chunk, blank ones included, so offsets keep
-        # mapping onto the original document text. Only embeddable chunks were sent
-        # to the provider, so pair vectors with that same subset; zipping against
-        # every chunk would shift each vector after a blank chunk onto the wrong text.
-        offsets: list[int] = []
-        current_offset = 0
-        for chunk in chunks:
-            offsets.append(current_offset)
-            current_offset += len(chunk.get("text") or "")
-        embeddable = [
-            (chunk, offset)
-            for chunk, offset in zip(chunks, offsets, strict=True)
-            if _has_embeddable_text(chunk)
-        ]
-        # Build embedding chunks. _generate_embeddings already rejected a vector count
-        # that differs from the embeddable chunk count; strict=True keeps that
-        # invariant from silently degrading into a shorter chunk list here.
-        embedding_chunks = []
-
-        for i, ((chunk, offset), embedding) in enumerate(
-            zip(embeddable, embeddings, strict=True)
-        ):
-            chunk_text = chunk.get("text", "")
-
-            embedding_chunk = EmbeddingChunkClass(
-                position=i,
-                vector=embedding,
-                characterOffset=offset,
-                characterLength=len(chunk_text),
-                tokenCount=None,
-                text=chunk_text,
-            )
-            embedding_chunks.append(embedding_chunk)
-
-        # totalTokens is intentionally omitted: provider responses report token
-        # usage at the batch level (OpenAI usage.prompt_tokens,
-        # Cohere meta.billed_units.input_tokens), not per-chunk, and we don't
-        # currently plumb that aggregate through EmbeddingResult. Emitting 0
-        # would be misleading; the field is optional in the schema.
-        embedding_model_data = EmbeddingModelDataClass(
-            modelVersion=model_version,
-            generatedAt=int(datetime.utcnow().timestamp() * 1000),
-            sourceTextSha256=source_text_sha256,
-            chunkingStrategy=self.config.chunking.strategy,
-            # Counts the chunks that carry a vector (the emitted list), not every
-            # chunk the splitter produced: blank chunks are never embedded.
-            totalChunks=len(embeddable),
-            chunks=embedding_chunks,
-        )
 
         # Build SemanticContent aspect
         # Prefer the server-sourced key (authoritative); fall back to local derivation.
@@ -1169,33 +1078,20 @@ class DocumentChunkingSource(Source):
             # a legal Elasticsearch field name.
             model_key = re.sub(r"[^a-zA-Z0-9_]", "_", self.config.embedding.model)
 
-        semantic_content = SemanticContentClass(
-            embeddings={model_key: embedding_model_data}
+        capped = build_semantic_content(
+            chunks,
+            embeddings,
+            model_version=model_version,
+            model_key=model_key,
+            strategy=self.config.chunking.strategy,
+            generated_at=int(datetime.utcnow().timestamp() * 1000),
+            source_text_sha256=source_text_sha256,
+            max_serialized_bytes=MAX_SERIALIZED_ASPECT_BYTES,
         )
-
-        # Backstop after chunk capping. The pre-embed chunk cap cannot know the
-        # embedding dimension, so a high-dimensional model (e.g. a 3072-dim provider)
-        # can still assemble an aspect over the size floor at the default cap, as can a
-        # document whose per-chunk text is pathologically large. Truncate to the largest
-        # chunk prefix that serializes under the ceiling and emit that, rather than emit
-        # a poison MCP that GMS rejects (failing the whole async sink batch) or drop the
-        # whole document. Binary search because each serialize is multi-MB. Dropping from
-        # the tail keeps the kept chunks' character offsets and vectors aligned.
-        serialized_bytes = len(json.dumps(semantic_content.to_obj()))
-        if serialized_bytes > MAX_SERIALIZED_ASPECT_BYTES:
-            lo, hi = 0, len(embedding_chunks)
-            while lo < hi:
-                mid = (lo + hi + 1) // 2
-                embedding_model_data.chunks = embedding_chunks[:mid]
-                embedding_model_data.totalChunks = mid
-                if (
-                    len(json.dumps(semantic_content.to_obj()))
-                    <= MAX_SERIALIZED_ASPECT_BYTES
-                ):
-                    lo = mid
-                else:
-                    hi = mid - 1
-            if lo == 0:
+        semantic_content = capped.content
+        serialized_bytes = capped.original_bytes
+        if capped.kept_chunks < capped.original_chunks:
+            if semantic_content is None:
                 # Even a single chunk exceeds the ceiling: nothing safe to emit.
                 self._count_oversized(document_urn, dropped=True)
                 self.report.warning(
@@ -1209,8 +1105,6 @@ class DocumentChunkingSource(Source):
                     log=False,
                 )
                 return
-            embedding_model_data.chunks = embedding_chunks[:lo]
-            embedding_model_data.totalChunks = lo
             self._count_oversized(document_urn, dropped=False)
             self.report.warning(
                 title="semanticContent aspect truncated to size ceiling",
@@ -1220,9 +1114,11 @@ class DocumentChunkingSource(Source):
                 "chunking.max_chunks_per_document or chunking.max_characters (with "
                 "force_reprocess to re-embed an already-processed document), or reduce the "
                 "embedding dimension, to change how much of the document is embedded.",
-                context=f"{document_urn}: {serialized_bytes} bytes > {MAX_SERIALIZED_ASPECT_BYTES}, kept {lo}/{len(embedding_chunks)} chunks",
+                context=f"{document_urn}: {serialized_bytes} bytes > {MAX_SERIALIZED_ASPECT_BYTES}, kept {capped.kept_chunks}/{capped.original_chunks} chunks",
                 log=False,
             )
+
+        assert semantic_content is not None
 
         # Create MetadataWorkUnit
         mcp = MetadataChangeProposalWrapper(
@@ -1276,6 +1172,36 @@ class DocumentChunkingSource(Source):
         from datahub.ingestion.source.unstructured.chunking_config import (
             EmbeddingConfig,
         )
+
+        if embedding_config.provider == "datahub":
+            from datahub.ingestion.source.unstructured.embedding_providers.datahub_server import (
+                server_embedding_provider,
+            )
+
+            if graph is None:
+                raise ValueError(
+                    "The datahub embedding provider requires a DataHubGraph connection."
+                )
+            provider = server_embedding_provider(
+                graph, timeout=embedding_config.request_timeout
+            )
+            index_config = provider.index_config
+            if (
+                embedding_config.model is not None
+                and embedding_config.model != index_config.model_id
+            ) or (
+                embedding_config.model_embedding_key is not None
+                and embedding_config.model_embedding_key
+                != index_config.model_embedding_key
+            ):
+                raise ValueError(
+                    "The datahub embedding provider must use the server semantic index model and model_embedding_key. Remove the local overrides."
+                )
+            resolved = embedding_config.model_copy(deep=True)
+            resolved.model = index_config.model_id
+            resolved.model_embedding_key = index_config.model_embedding_key
+            resolved._server_config = index_config
+            return resolved
 
         # Check if user provided explicit embedding configuration
         if embedding_config.has_local_config():
@@ -1438,6 +1364,9 @@ class DocumentChunkingSource(Source):
         provider = embedding_config.provider
         model = embedding_config.model
 
+        if provider == "datahub":
+            return derive_model_id(provider, model), None
+
         if provider == "bedrock":
             if not model:
                 return None, CapabilityReport(
@@ -1576,6 +1505,8 @@ class DocumentChunkingSource(Source):
     @staticmethod
     def test_embedding_capability(
         embedding_config: "EmbeddingConfig",
+        *,
+        graph: Optional[DataHubGraph] = None,
     ) -> CapabilityReport:
         """Test if embedding generation will work with the provided configuration.
 
@@ -1605,7 +1536,10 @@ class DocumentChunkingSource(Source):
             return error_report
 
         try:
-            provider = create_embedding_provider(embedding_config)
+            if embedding_config.provider == "datahub":
+                provider = create_embedding_provider(embedding_config, graph=graph)
+            else:
+                provider = create_embedding_provider(embedding_config)
         except ImportError as e:
             return CapabilityReport(
                 capable=False,
@@ -1620,7 +1554,9 @@ class DocumentChunkingSource(Source):
             )
 
         try:
-            result = provider.embed(["DataHub semantic search test"])
+            result = provider.embed(
+                ["DataHub semantic search test"], task=EmbeddingTask.DOCUMENT
+            )
 
             if not result.embeddings:
                 return CapabilityReport(

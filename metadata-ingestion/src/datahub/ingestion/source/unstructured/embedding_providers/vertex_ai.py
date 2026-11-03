@@ -18,6 +18,7 @@ from datahub.ingestion.source.unstructured.embedding_providers.base import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     EmbeddingProvider,
     EmbeddingResult,
+    EmbeddingTask,
     attach_retries,
     post_json,
 )
@@ -61,13 +62,14 @@ class VertexAIEmbeddingProvider(EmbeddingProvider):
             f"publishers/google/models/{self._model}:predict"
         )
 
-    def embed(self, texts: list[str]) -> EmbeddingResult:
-        # Asymmetric Gemini embedding models require a task_type. Mirrors the
-        # search-side RETRIEVAL_QUERY in VertexAiEmbeddingProvider.java.
+    def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
+        # Asymmetric Gemini embedding models require a task_type, as
+        # VertexAiEmbeddingProvider.java sends.
+        task_type = (
+            "RETRIEVAL_QUERY" if task is EmbeddingTask.QUERY else "RETRIEVAL_DOCUMENT"
+        )
         body = {
-            "instances": [
-                {"task_type": "RETRIEVAL_DOCUMENT", "content": text} for text in texts
-            ]
+            "instances": [{"task_type": task_type, "content": text} for text in texts]
         }
         payload = post_json(
             self._url, body=body, session=self._session, timeout=self._timeout
