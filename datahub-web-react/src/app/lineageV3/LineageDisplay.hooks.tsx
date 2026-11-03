@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
+import { FitViewOptions, useOnViewportChange, useReactFlow } from 'reactflow';
 
 import analytics, { EventType } from '@app/analytics';
-import { FetchStatus, LineageEntity, LineageNode } from '@app/lineageV3/common';
+import { FetchStatus, LineageEntity, LineageNode, LineageNodesContext } from '@app/lineageV3/common';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -79,4 +80,76 @@ export function useTrackLineageView({ initialized, type, adjacencyList, rootUrn,
 
         setHasTracked(true);
     }, [initialized, type, adjacencyList, rootUrn, nodes, hasTracked]);
+}
+
+/** Fits the whole graph once it loads. Returns whether a fit is still scheduled or animating. */
+export function useFitView(loaded: boolean): boolean {
+    const { fitView } = useReactFlow();
+    const { displayVersion } = useContext(LineageNodesContext);
+    const [, displayVersionNodes] = displayVersion;
+    const [pendingFits, setPendingFits] = useState(0);
+
+    const scheduleFit = useCallback(
+        (delay: number, options: FitViewOptions) => {
+            let finished = false;
+            const finish = () => {
+                if (finished) return;
+                finished = true;
+                setPendingFits((n) => n - 1);
+            };
+            setPendingFits((n) => n + 1);
+            const fitTimeout = setTimeout(() => fitView(options), delay);
+            const finishTimeout = setTimeout(finish, delay + (options.duration ?? 0));
+            return () => {
+                clearTimeout(fitTimeout);
+                clearTimeout(finishTimeout);
+                finish();
+            };
+        },
+        [fitView],
+    );
+
+    useEffect(() => {
+        if (!loaded) return () => {};
+        return scheduleFit(1000, { duration: 1000, maxZoom: 2, padding: 0.5 });
+    }, [loaded, scheduleFit]);
+
+    useEffect(() => {
+        if (!loaded || !displayVersionNodes.length) return () => {};
+        return scheduleFit(100, {
+            duration: 1000,
+            nodes: displayVersionNodes.map((urn) => ({ id: urn })),
+            maxZoom: 1,
+            padding: 0.2,
+        });
+    }, [loaded, displayVersionNodes, scheduleFit]);
+
+    return pendingFits > 0;
+}
+
+const SETTLED_DELAY_MS = 250;
+
+/**
+ * Whether the graph has stopped changing: nothing is loading and the viewport is still.
+ * Waits briefly before reporting settled, since back-to-back requests leave a render between them with neither in flight.
+ */
+export function useLineageSettled(loading: boolean, fitting: boolean): boolean {
+    const [moving, setMoving] = useState(false);
+    const [settled, setSettled] = useState(false);
+    useOnViewportChange({
+        onStart: useCallback(() => setMoving(true), []),
+        onEnd: useCallback(() => setMoving(false), []),
+    });
+
+    const busy = loading || fitting || moving;
+    useEffect(() => {
+        if (busy) {
+            setSettled(false);
+            return () => {};
+        }
+        const timeout = setTimeout(() => setSettled(true), SETTLED_DELAY_MS);
+        return () => clearTimeout(timeout);
+    }, [busy]);
+
+    return settled && !busy;
 }
