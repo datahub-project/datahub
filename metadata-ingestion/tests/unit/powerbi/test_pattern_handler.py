@@ -40,6 +40,7 @@ from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     OdbcLineage,
     OracleLineage,
     _get_data_source_tokens,
+    _lookup_dsn,
     _remap_column_lineage_to_pbi_fields,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
@@ -1033,6 +1034,42 @@ def test_odbc_three_tier_database_table_backfills_schema_from_dsn_mapping():
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.orders,PROD)"
     ]
+
+
+def test_odbc_dsn_mapping_matches_dsn_case_insensitively():
+    """Windows ODBC DSNs are case-insensitive, so a connect string's DSN=BQ_Prod
+    must still pick up a dsn_to_database_schema key written as bq_prod."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"bq_prod": "my_project"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "my_dataset"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Google BigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+    result = instance.expression_lineage(
+        detail, "bigquery", pair, server_name="dsn", dsn="BQ_Prod"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.orders,PROD)"
+    ]
+
+
+def test_lookup_dsn_prefers_exact_key_over_case_only_match():
+    mapping = {"bq_prod": "project_a", "BQ_Prod": "project_b"}
+
+    assert _lookup_dsn(mapping, "BQ_Prod") == "project_b"
+    assert _lookup_dsn(mapping, "other") is None
 
 
 def test_odbc_two_part_mysql_allows_database_table_fallback():

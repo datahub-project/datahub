@@ -105,6 +105,18 @@ class _InstanceSplitName:
     table_name: str
 
 
+def _lookup_dsn(mapping: Dict[str, str], dsn: str) -> Optional[str]:
+    # Windows ODBC DSN names are case-insensitive, but recipe keys are
+    # case-sensitive strings; an exact key still wins over a case-only match.
+    if dsn in mapping:
+        return mapping[dsn]
+    dsn_key = dsn.casefold()
+    for key, value in mapping.items():
+        if key.casefold() == dsn_key:
+            return value
+    return None
+
+
 def _data_platform_pair_for(platform: str) -> DataPlatformPair:
     """Resolve a DataPlatformPair for a DataHub platform name.
 
@@ -2244,7 +2256,7 @@ class OdbcLineage(AbstractLineage):
             server_name = dsn
             if self.config.dsn_to_platform_name:
                 logger.debug(f"Attempting to map DSN {dsn} to platform")
-                name = self.config.dsn_to_platform_name.get(dsn)
+                name = _lookup_dsn(self.config.dsn_to_platform_name, dsn)
                 if name:
                     logger.debug(f"Found DSN {dsn} mapped to platform {name}")
                     data_platform, powerbi_platform = normalize_platform_name(name)
@@ -2296,7 +2308,7 @@ class OdbcLineage(AbstractLineage):
         supplies those missing high-order levels so a fully-qualified upstream
         URN can still be built.
         """
-        value = self.config.dsn_to_database_schema.get(dsn)
+        value = _lookup_dsn(self.config.dsn_to_database_schema, dsn)
         if not value:
             return _DsnDatabaseSchema()
         # Config validation already stripped segments and rejected blanks.
@@ -2559,7 +2571,9 @@ class OdbcLineage(AbstractLineage):
                     override.database.casefold() == urn_database_key
                     and override.table.casefold() == urn_table_key
                 ):
-                    if override.dsn == dsn:
+                    if override.dsn is not None and override.dsn.casefold() == (
+                        dsn.casefold()
+                    ):
                         # DSN-scoped match takes priority
                         matched_index = index
                         break
