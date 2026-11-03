@@ -2591,6 +2591,7 @@ class OdbcLineage(AbstractLineage):
     def _qualify_odbc_navigation_table(
         self,
         data_platform: str,
+        dsn: str,
         database_name: Optional[str],
         schema_name: Optional[str],
         table_name: Optional[str],
@@ -2599,108 +2600,105 @@ class OdbcLineage(AbstractLineage):
         oracle_default_database: Optional[str] = None,
     ) -> Optional[str]:
         """Build the fully-qualified upstream name from an ODBC hierarchical
-        navigation, backfilling tiers missing from navigation with
-        dsn_to_database_schema values (navigation always wins). Returns None when a
-        required tier cannot be resolved, so the caller warns and skips.
+        navigation, backfilling levels navigation did not supply from
+        dsn_to_database_schema (navigation always wins). URN shapes mirror each
+        platform's standalone connector. Returns None, after reporting why, when a
+        required level cannot be resolved."""
+        context = (
+            f"table-name={self.table.full_name}, data-platform={data_platform}, "
+            f"dsn={dsn}, database={database_name}, schema={schema_name}, "
+            f"table={table_name}"
+        )
 
-        URN shapes mirror each platform's standalone connector:
-          - two-tier (Oracle/Hive): schema.table; any Kind=Database pseudo-catalog is
-            dropped. A single-segment dsn_to_database_schema value is a database:
-            for Hive (no separate schema tier) it doubles as the schema, but for
-            Oracle (real schemas) it is not promoted into the schema slot, so an
-            Oracle nav with no schema warns and skips. Oracle additionally emits
-            database.schema.table when the user opts in via
-            server_to_platform_instance `default_database` (oracle_default_database),
-            mirroring standalone Oracle's add_database_name_to_urn=true; within that
-            opt-in the database is navigation, then the dsn_to_database_schema
-            database segment, then default_database. Without the opt-in the
-            database segment is unused, since the URN is schema.table.
-          - three-tier (BigQuery/Snowflake/...): database.schema.table; a missing tier
-            skips rather than emitting a truncated database.table.
-          - Athena: database.table, where the database sits in navigation's schema
-            slot below the strippable Kind=Database catalog. The database is resolved
-            from navigation Schema, the DSN schema segment, or a one-part DSN database
-            (matching the SQL path); the Kind=Database node is only the strippable
-            catalog and can never stand in for it, so a missing database skips rather
-            than emitting catalog.table. (Composing catalog.database.table for the
-            caller to strip back to database.table is a provable no-op here, so we
-            build the two-part name directly.)
-          - everything else (MySQL/Teradata/ClickHouse/...): database.table; the
-            schema tier is never spliced in, to avoid emitting a spurious
-            three-part URN that cannot match their two-part entities. A
-            navigation Schema with no Database node is the database (e.g.
-            Teradata ODBC's Schema -> Table) and wins over any
-            dsn_to_database_schema value. If navigation supplied both Database
-            and Schema, the Schema is dropped with a warning so the drop is
-            never silent.
-        """
+        def skip_missing_level() -> None:
+            self.reporter.warning(
+                title="Can not determine qualified table name",
+                message=(
+                    "ODBC hierarchical navigation did not expose every level of "
+                    "the qualified table name, and no mapping supplied the rest. "
+                    "Skipping lineage. Add the missing level(s) via "
+                    "'dsn_to_database_schema: {<dsn>: <database>[.<schema>]}' "
+                    "in your PowerBI recipe."
+                ),
+                context=context,
+            )
+
         if table_name is None:
+            skip_missing_level()
             return None
 
         if data_platform in ODBC_TWO_TIER_PLATFORMS:
+            # schema.table (Oracle/Hive). A Kind=Database node is a pseudo-catalog
+            # (e.g. Hive's "HIVE"), never the schema. Hive has no separate schema
+            # tier, so a one-part mapping value (a database) doubles as the schema;
+            # Oracle has real schemas, so it does not.
             schema = schema_name or config_schema
-            # Hive has no separate schema tier, so a bare (one-part)
-            # dsn_to_database_schema value — a database — doubles as the schema.
             if schema is None and data_platform == HIVE_PLATFORM:
                 schema = config_database
             if schema is None:
+                self.reporter.warning(
+                    title="Cannot build two-tier ODBC table name",
+                    message=(
+                        "Two-tier ODBC navigation exposed no schema level, and no "
+                        "mapping supplied one; skipping lineage. Supply the schema "
+                        "via 'dsn_to_database_schema: {<dsn>: <schema>}' (Oracle: "
+                        "'<database>.<schema>'; the database segment only appears in "
+                        "the URN when default_database is set for the server) in your "
+                        "PowerBI recipe — hierarchical navigation reads "
+                        "dsn_to_database_schema, not the Oracle default_schema knob."
+                    ),
+                    context=context,
+                )
                 return None
-            if oracle_default_database is not None:
-                # Precedence: navigation, then the per-DSN dsn_to_database_schema
-                # database, then the per-server default_database (a fallback for
-                # bare TNS aliases that carry no database), matching
-                # OracleLineage's effective_db precedence.
-                database = database_name or config_database or oracle_default_database
-                return f"{database}.{schema}.{table_name}"
+            if data_platform == ORACLE_PLATFORM and oracle_default_database:
+                # default_database opts into database.schema.table, mirroring
+                # standalone Oracle's add_database_name_to_urn=true. Precedence
+                # matches OracleLineage's effective_db: navigation, then the per-DSN
+                # mapping, then the per-server default_database.
+                oracle_database = (
+                    database_name or config_database or oracle_default_database
+                )
+                return f"{oracle_database}.{schema}.{table_name}"
             return f"{schema}.{table_name}"
 
-        database = database_name or config_database
-        schema = schema_name
-        if schema is None and data_platform in ODBC_THREE_TIER_PLATFORMS:
-            schema = config_schema
-
-        # Only three-tier platforms compose a three-part name. Two-part platforms
-        # must never splice in a schema tier — even when navigation or
-        # dsn_to_database_schema supplies one — or the URN cannot match their
-        # database.table entities.
-        if (
-            database is not None
-            and schema is not None
-            and data_platform in ODBC_THREE_TIER_PLATFORMS
-        ):
-            return f"{database}.{schema}.{table_name}"
-        # Three-tier platforms must not fall back to a truncated database.table.
         if data_platform in ODBC_THREE_TIER_PLATFORMS:
-            return None
+            # database.schema.table; never fall back to a truncated database.table.
+            database = database_name or config_database
+            schema = schema_name or config_schema
+            if database is None or schema is None:
+                skip_missing_level()
+                return None
+            return f"{database}.{schema}.{table_name}"
+
         if data_platform == ATHENA_PLATFORM:
-            # Athena's real database sits in the schema slot below the strippable
-            # Kind=Database catalog, so the catalog can never stand in for it.
+            # database.table, where Athena's database sits in navigation's schema
+            # slot below the strippable Kind=Database catalog, so the catalog can
+            # never stand in for it.
             athena_database = schema_name or config_schema or config_database
             if athena_database is None:
+                skip_missing_level()
                 return None
             return f"{athena_database}.{table_name}"
+
+        # Everything else (MySQL/Teradata/ClickHouse/...) is database.table; a schema
+        # tier is never spliced in. A navigation Schema with no Database above it is
+        # the database (e.g. Teradata's Schema -> Table) and must win over the
+        # mapping, or a DSN serving several databases collapses onto one.
         if database_name is None and schema_name is not None:
-            # On two-part platforms (MySQL, Teradata, ...) a navigation Schema with
-            # no Database above it *is* the database. A dsn_to_database_schema
-            # value must never override a level navigation supplied: on a DSN that
-            # serves several databases, that would collapse every table onto the
-            # one configured database.
             return f"{schema_name}.{table_name}"
-        if database is not None:
-            if schema_name is not None:
-                self.reporter.warning(
-                    title="Dropped ODBC navigation schema level",
-                    message="ODBC navigation supplied a schema level that this "
-                    "platform's database.table URN shape does not use; emitting "
-                    "database.table without it.",
-                    context=(
-                        f"table-name={self.table.full_name}, "
-                        f"data-platform={data_platform}, database={database}, "
-                        f"schema={schema_name}, table={table_name}"
-                    ),
-                )
-            return f"{database}.{table_name}"
-        return None
+        database = database_name or config_database
+        if database is None:
+            skip_missing_level()
+            return None
+        if schema_name is not None:
+            self.reporter.warning(
+                title="Dropped ODBC navigation schema level",
+                message="ODBC navigation supplied a schema level that this "
+                "platform's database.table URN shape does not use; emitting "
+                "database.table without it.",
+                context=context,
+            )
+        return f"{database}.{table_name}"
 
     def expression_lineage(
         self,
@@ -2745,6 +2743,7 @@ class OdbcLineage(AbstractLineage):
 
         qualified_table_name = self._qualify_odbc_navigation_table(
             data_platform=data_platform,
+            dsn=dsn,
             database_name=database_name or None,
             schema_name=schema_name or None,
             table_name=table_name or None,
@@ -2754,37 +2753,6 @@ class OdbcLineage(AbstractLineage):
         )
 
         if qualified_table_name is None:
-            if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
-                # database_name here is a Kind=Database pseudo-catalog (e.g. Hive's
-                # "HIVE"), not a real schema; emitting it would produce a dangling URN.
-                self.reporter.warning(
-                    title="Cannot build two-tier ODBC table name",
-                    message=(
-                        "Two-tier ODBC navigation exposed no schema level, and no "
-                        "mapping supplied one; skipping lineage. Supply the schema "
-                        "via 'dsn_to_database_schema: {<dsn>: <schema>}' (Oracle: "
-                        "'<database>.<schema>'; the database segment only appears in "
-                        "the URN when default_database is set for the server) in your "
-                        "PowerBI recipe — hierarchical navigation reads "
-                        "dsn_to_database_schema, not the Oracle default_schema knob."
-                    ),
-                    context=f"table-name={self.table.full_name}, data-platform={data_platform}, dsn={dsn}, database={database_name}, table={table_name}",
-                )
-            else:
-                self.reporter.warning(
-                    title="Can not determine qualified table name",
-                    message=(
-                        "ODBC hierarchical navigation did not expose every level of "
-                        "the qualified table name, and no mapping supplied the rest. "
-                        "Skipping lineage. Add the missing level(s) via "
-                        "'dsn_to_database_schema: {<dsn>: <database>[.<schema>]}' "
-                        "in your PowerBI recipe."
-                    ),
-                    context=(
-                        f"table-name={self.table.full_name}, data-platform={data_platform}, "
-                        f"dsn={dsn}, database={database_name}, schema={schema_name}, table={table_name}"
-                    ),
-                )
             return Lineage.empty()
 
         logger.debug(
