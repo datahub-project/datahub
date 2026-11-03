@@ -11,6 +11,7 @@ import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMapp
 import static io.datahubproject.test.search.SearchTestUtils.createDelegatingSettingsBuilder;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -168,6 +169,9 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   /** One index built from one property definition, searched through its configured default. */
   private record Stack(ElasticSearchService service, OperationContext routerContext) {}
 
+  static final String STEWARD = "io.example.steward";
+  static final String SPHYNX_QUERY = "sphynx corner";
+  static final Urn STEWARD_URN = UrnUtils.getUrn("urn:li:structuredProperty:" + STEWARD);
   static final String GUID = "3f2b9c1e-7d4a-4b8e-9a61-2c5d8e0f1a7b";
   static final String HYPHENATED_ID = "PET-ADOPT-0042";
 
@@ -192,7 +196,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
       String name,
       @Nullable String title,
       @Nullable String recordId,
-      @Nullable String description) {
+      @Nullable String description,
+      @Nullable String steward) {
     boolean column() {
       return SCHEMA_FIELD_ENTITY_NAME.equals(entityType);
     }
@@ -205,7 +210,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   private void add(String name, @Nullable String title) {
     corpus.put(
         datasetUrn(name),
-        new Dataset(datasetUrn(name), DATASET_ENTITY_NAME, name, title, null, null));
+        new Dataset(datasetUrn(name), DATASET_ENTITY_NAME, name, title, null, null, null));
   }
 
   private void addDataset(
@@ -215,18 +220,19 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
       @Nullable String description) {
     corpus.put(
         datasetUrn(name),
-        new Dataset(datasetUrn(name), DATASET_ENTITY_NAME, name, title, recordId, description));
+        new Dataset(
+            datasetUrn(name), DATASET_ENTITY_NAME, name, title, recordId, description, null));
   }
 
   /** A dataset whose key differs from its display name, e.g. a table in a schema named like it. */
   private void addKeyed(String key, String name, @Nullable String title) {
     String urn = "urn:li:dataset:(urn:li:dataPlatform:hive," + key + ",PROD)";
-    corpus.put(urn, new Dataset(urn, DATASET_ENTITY_NAME, name, title, null, null));
+    corpus.put(urn, new Dataset(urn, DATASET_ENTITY_NAME, name, title, null, null, null));
   }
 
   private void addColumn(String parent, String fieldPath, @Nullable String title) {
     String urn = "urn:li:schemaField:(" + datasetUrn(parent) + "," + fieldPath + ")";
-    corpus.put(urn, new Dataset(urn, SCHEMA_FIELD_ENTITY_NAME, fieldPath, title, null, null));
+    corpus.put(urn, new Dataset(urn, SCHEMA_FIELD_ENTITY_NAME, fieldPath, title, null, null, null));
   }
 
   private void buildCorpus() {
@@ -303,6 +309,27 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
       addKeyed("persian_nook.persian_nook_daily_" + n, "persian_nook_daily_" + n, null);
       addKeyed("persian_nook.pnw_" + n, "pnw_" + n, "Persian Nook Weekly " + n);
     }
+    // "sphynx corner" has no exact match. Partial real names, partial titles, partial values of
+    // another searchable property (steward), and titles whose record ID equals the search.
+    for (int i = 0; i < 10; i++) {
+      String n = String.format("%02d", i);
+      add("sphynx_corner_daily_" + n, null);
+      add("scw_" + n, "Sphynx Corner Weekly " + n);
+      corpus.put(
+          datasetUrn("sct_" + n),
+          new Dataset(
+              datasetUrn("sct_" + n),
+              DATASET_ENTITY_NAME,
+              "sct_" + n,
+              null,
+              null,
+              null,
+              "Sphynx Corner Team " + n));
+    }
+    for (int i = 0; i < 5; i++) {
+      String n = String.format("%02d", i);
+      addDataset("scr_" + n, "Sphynx Corner Weekly R" + n, SPHYNX_QUERY, null);
+    }
     // Record identifiers, and a dataset that only mentions them in its description.
     addDataset("adoption_register", "Adoption Register", GUID, null);
     addDataset("adoption_ledger", null, HYPHENATED_ID, null);
@@ -336,6 +363,85 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    */
   protected void assertCanonicalExampleOrder(Mode mode) throws Exception {
     assertTrancheOrder(mode, "my cat");
+  }
+
+  /**
+   * For "sphynx corner", which nothing matches exactly: every partial real name
+   * (sphynx_corner_daily_NN) ranks above every partial title ("Sphynx Corner Weekly NN"), including
+   * five titled datasets whose record ID equals the search; no dataset matching only through
+   * another searchable property (steward "Sphynx Corner Team NN") ranks above a partial title; and
+   * the five record-ID datasets stay within the partial-title group.
+   */
+  protected void assertPartialRealNameAboveOtherPartialMatches(Mode mode) throws Exception {
+    List<Dataset> served = search(mode, SPHYNX_QUERY, 0, 80).served();
+    List<Integer> real = positions(served, "sphynx_corner_daily_");
+    List<Integer> titles = new ArrayList<>(positions(served, "scw_"));
+    List<Integer> recordIdTitles = positions(served, "scr_");
+    titles.addAll(recordIdTitles);
+    List<Integer> steward = positions(served, "sct_");
+    String order = String.format("%s, query %s: %s", mode, SPHYNX_QUERY, groups(served));
+    assertEquals(real.size(), 10, "partial real names served — " + order);
+    assertEquals(titles.size(), 15, "partial titles served — " + order);
+    assertTrue(
+        real.stream().max(Integer::compare).get() < titles.stream().min(Integer::compare).get(),
+        "(a) a partial title ranks above a partial real name — " + order);
+    if (!steward.isEmpty()) {
+      assertTrue(
+          steward.stream().min(Integer::compare).get()
+              > titles.stream().max(Integer::compare).get(),
+          "(b) a steward-only match ranks above a partial title — " + order);
+    }
+    int titleTop = titles.stream().min(Integer::compare).get();
+    int titleBottom = titles.stream().max(Integer::compare).get();
+    assertTrue(
+        recordIdTitles.stream().allMatch(p -> p >= titleTop && p <= titleBottom)
+            && served.subList(titleTop, titleBottom + 1).stream()
+                .allMatch(d -> d.name().startsWith("scw_") || d.name().startsWith("scr_")),
+        "(c) the record-ID datasets leave the partial-title group — " + order);
+  }
+
+  private static List<Integer> positions(List<Dataset> served, String prefix) {
+    List<Integer> out = new ArrayList<>();
+    for (int i = 0; i < served.size(); i++) {
+      if (served.get(i).name().startsWith(prefix)) {
+        out.add(i);
+      }
+    }
+    return out;
+  }
+
+  /** The served order as runs of one group: real name, title, title with record ID, steward. */
+  private static String groups(List<Dataset> served) {
+    List<String> runs = new ArrayList<>();
+    String run = null;
+    int count = 0;
+    for (Dataset d : served) {
+      String n = d.name();
+      String g =
+          n.startsWith("sphynx_corner_daily_")
+              ? "REAL_NAME"
+              : n.startsWith("scw_")
+                  ? "TITLE"
+                  : n.startsWith("scr_")
+                      ? "TITLE_WITH_RECORD_ID"
+                      : n.startsWith("sct_") ? "STEWARD_ONLY" : "OTHER(" + n + ")";
+      if (g.equals(run)) {
+        count++;
+        continue;
+      }
+      if (run != null) {
+        runs.add(run + " x" + count);
+      }
+      run = g;
+      count = 1;
+    }
+    if (run != null) {
+      runs.add(run + " x" + count);
+    }
+    return String.join(" > ", runs)
+        + (served.stream().anyMatch(d -> d.name().startsWith("sct_"))
+            ? ""
+            : " (no steward-only row served)");
   }
 
   /** A real name equal to its own copied title is an exact real-name match. */
@@ -664,7 +770,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
       String urn = entity.getEntity().toString();
       out.add(
           corpus.getOrDefault(
-              urn, new Dataset(urn, entity.getEntity().getEntityType(), urn, null, null, null)));
+              urn,
+              new Dataset(urn, entity.getEntity().getEntityType(), urn, null, null, null, null)));
     }
     return new Page(out, result.getNumEntities());
   }
@@ -935,11 +1042,20 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     definitionAspects.put(DISPLAY_TITLE_URN, List.of(displayTitle, new Status().setRemoved(false)));
     definitionAspects.put(
         RECORD_ID_URN, List.of(recordIdDefinition, new Status().setRemoved(false)));
+    StructuredPropertyDefinition stewardDefinition =
+        new StructuredPropertyDefinition()
+            .setQualifiedName(STEWARD)
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+            .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(true));
+    definitionAspects.put(STEWARD_URN, List.of(stewardDefinition, new Status().setRemoved(false)));
     definitionAspects.put(UrnUtils.getUrn(bodyUrn), List.of(classOrderTemplate(body)));
     definitionAspects.put(UrnUtils.getUrn(routerUrn), List.of(classOrderRouter(bodyUrn)));
     List<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
         List.of(
-            Pair.of(DISPLAY_TITLE_URN, displayTitle), Pair.of(RECORD_ID_URN, recordIdDefinition));
+            Pair.of(DISPLAY_TITLE_URN, displayTitle),
+            Pair.of(RECORD_ID_URN, recordIdDefinition),
+            Pair.of(STEWARD_URN, stewardDefinition));
 
     Map<Urn, List<MCLItem>> events = new LinkedHashMap<>();
     for (Dataset d : corpus.values()) {
@@ -967,6 +1083,9 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
       if (d.recordId() != null) {
         values.add(assignment(RECORD_ID_URN, d.recordId()));
       }
+      if (d.steward() != null) {
+        values.add(assignment(STEWARD_URN, d.steward()));
+      }
       if (!values.isEmpty()) {
         items.add(event(entityRegistry, urn, new StructuredProperties().setProperties(values)));
       }
@@ -987,7 +1106,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
             .aspectRetriever(aspectRetriever)
             .cachingAspectRetriever(definitionsWithActiveUsers(aspectRetriever))
             .graphRetriever(GraphRetriever.EMPTY)
-            .searchRetriever(propertySearchRetriever(List.of(DISPLAY_TITLE_URN, RECORD_ID_URN)))
+            .searchRetriever(
+                propertySearchRetriever(List.of(DISPLAY_TITLE_URN, RECORD_ID_URN, STEWARD_URN)))
             .build();
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(

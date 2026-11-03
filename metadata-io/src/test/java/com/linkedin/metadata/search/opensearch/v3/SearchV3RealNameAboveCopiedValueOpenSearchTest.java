@@ -126,4 +126,15 @@ public class SearchV3RealNameAboveCopiedValueOpenSearchTest
   public void testClassOrderDefaultNoCopyExactNameWithoutOwnTitleRanksFirst() throws Exception {
     assertExactNameWithoutOwnTitleRanksFirst(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
+
+  @Test
+  public void testClassOrderDefaultPartialRealNameAboveOtherPartialMatches() throws Exception {
+    assertPartialRealNameAboveOtherPartialMatches(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyPartialRealNameAboveOtherPartialMatches()
+      throws Exception {
+    assertPartialRealNameAboveOtherPartialMatches(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
+  }
 }
