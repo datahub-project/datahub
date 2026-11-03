@@ -4,9 +4,9 @@ import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useDomainsContext } from '@app/domain/DomainsContext';
-import { useRefetch } from '@app/entity/shared/EntityContext';
 import DomainParentSelect from '@app/entity/shared/EntityDropdown/DomainParentSelect';
 import { useHandleMoveDomainComplete } from '@app/entity/shared/EntityDropdown/useHandleMoveDomainComplete';
+import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useMoveDomainMutation } from '@graphql/domain.generated';

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import {
     CREATED_PROPERTY,
     DOMAIN_PROPERTY,

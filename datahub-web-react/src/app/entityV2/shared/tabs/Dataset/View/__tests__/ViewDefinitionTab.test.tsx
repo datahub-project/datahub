@@ -3,11 +3,11 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import ViewDefinitionTab from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
-vi.mock('@app/entity/shared/EntityContext', async (importOriginal) => ({
+vi.mock('@app/entityV2/shared/EntityContext', async (importOriginal) => ({
     ...(await importOriginal<object>()),
     useBaseEntity: vi.fn(),
 }));

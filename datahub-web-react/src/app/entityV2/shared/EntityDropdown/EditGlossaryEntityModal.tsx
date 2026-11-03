@@ -6,8 +6,8 @@ import { useTheme } from 'styled-components/macro';
 
 import { Editor } from '@components/components/Editor';
 
-import { useRefetch } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import {
     EditorContainer,
     Field,

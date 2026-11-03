@@ -2,9 +2,9 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import MultiSelectInput from '@app/entity/shared/components/styled/StructuredProperty/MultiSelectInput';
-import NumberInput from '@app/entity/shared/components/styled/StructuredProperty/NumberInput';
-import SingleSelectInput from '@app/entity/shared/components/styled/StructuredProperty/SingleSelectInput';
+import MultiSelectInput from '@app/entityV2/shared/components/styled/StructuredProperty/MultiSelectInput';
+import NumberInput from '@app/entityV2/shared/components/styled/StructuredProperty/NumberInput';
+import SingleSelectInput from '@app/entityV2/shared/components/styled/StructuredProperty/SingleSelectInput';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { mockVisibilityObserver } from '@utils/test-utils/mockVisibilityObserver';
 
