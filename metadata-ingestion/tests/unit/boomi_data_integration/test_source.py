@@ -275,15 +275,25 @@ def test_console_url_only_for_logic_rivers(river_type: str) -> None:
     assert [f.external_url for f in flows] == [None]
 
 
-def test_console_url_must_use_https() -> None:
-    with pytest.raises(ValidationError):
+@pytest.mark.parametrize(
+    "console_url",
+    [
+        "http://console.example.com",
+        "https://console.example.com/?tab=rivers",
+        "https://console.example.com/#/home",
+        "https://user:secret@console.example.com",
+    ],
+)
+def test_console_url_rejects_unusable_base(console_url: str) -> None:
+    with pytest.raises(ValidationError) as excinfo:
         BoomiDataIntegrationSourceConfig.model_validate(
             {
                 "account_id": ACCOUNT_ID,
                 "api_token": "token-a",
-                "console_url": "http://console.example.com",
+                "console_url": console_url,
             }
         )
+    assert "secret" not in str(excinfo.value)
 
 
 def test_river_pattern_filters_rivers() -> None:

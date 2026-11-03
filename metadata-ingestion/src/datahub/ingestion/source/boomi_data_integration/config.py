@@ -106,7 +106,8 @@ class BoomiDataIntegrationSourceConfig(
         description=(
             "Console base URL used for links to logic rivers and runs, for example "
             "`https://console.rivery.io`. Links are emitted for the `us` region "
-            "without this setting; set it for other regions. Must use https."
+            "without this setting; set it for other regions. Must be an https base "
+            "URL without a query or fragment."
         ),
     )
     api_token: Optional[SecretStr] = Field(
@@ -206,9 +207,20 @@ class BoomiDataIntegrationSourceConfig(
         if value is None:
             return None
         parsed = urlparse(value)
-        if parsed.scheme != HTTPS_SCHEME or not parsed.hostname:
+        # River paths are appended to this base, so a query or fragment would
+        # swallow them.
+        if (
+            parsed.scheme != HTTPS_SCHEME
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+        ):
             raise ValueError(
-                f"console_url must be an https URL such as https://console.rivery.io, got {value!r}"
+                # The value is left out because it may carry a password.
+                "console_url must be an https base URL such as https://console.rivery.io, "
+                "without credentials, a query or a fragment"
             )
         return value.rstrip("/")
 
