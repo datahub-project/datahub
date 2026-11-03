@@ -6,16 +6,17 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 import { AvatarSizeOptions } from '@components/theme/config';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { ActorEntity, getActorPictureLink } from '@app/entityV2/shared/utils/actorUtils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 
-import { CorpGroup, CorpUser, EntityType } from '@types';
+import { EntityType } from '@types';
 
-function resolveEntityType(user: CorpUser | CorpGroup): EntityType {
+function resolveEntityType(user: ActorEntity): EntityType {
     return user.type;
 }
 
 interface Props {
-    user?: CorpUser | CorpGroup;
+    user?: ActorEntity;
     size?: AvatarSizeOptions;
     entityRegistry: EntityRegistry;
 }
@@ -24,7 +25,7 @@ export default function AvatarPillWithLinkAndHover({ user, size, entityRegistry 
     if (!user) return null;
 
     const entityType = resolveEntityType(user);
-    const avatarUrl = user.editableProperties?.pictureLink;
+    const avatarUrl = getActorPictureLink(user);
 
     return (
         <HoverEntityTooltip entity={user} showArrow={false}>
@@ -38,7 +39,7 @@ export default function AvatarPillWithLinkAndHover({ user, size, entityRegistry 
                     name={entityRegistry.getDisplayName(entityType, user)}
                     imageUrl={avatarUrl}
                     size={size}
-                    type={entityType === EntityType.CorpUser ? AvatarType.user : AvatarType.group}
+                    type={entityType === EntityType.CorpGroup ? AvatarType.group : AvatarType.user}
                     showInPill
                 />
             </Link>

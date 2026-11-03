@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import translateFieldPath from '@app/entity/dataset/profile/schema/utils/translateFieldPath';
+import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { getNumPromptsCompletedForField } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/utils';
 import { useEntityFormContext } from '@app/entityV2/shared/entityForm/EntityFormContext';

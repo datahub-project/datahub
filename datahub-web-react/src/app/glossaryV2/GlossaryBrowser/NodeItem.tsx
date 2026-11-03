@@ -40,6 +40,7 @@ interface Props {
     openToEntity?: boolean;
     refreshBrowser?: boolean;
     nodeUrnToHide?: string;
+    termUrnToHide?: string;
     selectTerm?: (urn: string, displayName: string) => void;
     selectNode?: (urn: string, displayName: string) => void;
     depth: number;
@@ -55,6 +56,7 @@ function NodeItem(props: Props) {
         openToEntity,
         refreshBrowser,
         nodeUrnToHide,
+        termUrnToHide,
         selectTerm,
         selectNode,
         depth,
@@ -175,6 +177,7 @@ function NodeItem(props: Props) {
                                     hideTerms={hideTerms}
                                     openToEntity={openToEntity}
                                     nodeUrnToHide={nodeUrnToHide}
+                                    termUrnToHide={termUrnToHide}
                                     selectTerm={selectTerm}
                                     selectNode={selectNode}
                                     key={child.urn}
@@ -193,6 +196,7 @@ function NodeItem(props: Props) {
                                         includeActiveTabPath
                                         depth={depth + 1}
                                         selectedUrns={selectedUrns}
+                                        termUrnToHide={termUrnToHide}
                                         iconColor={glossaryColor}
                                     />
                                 ))}

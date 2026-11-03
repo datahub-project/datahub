@@ -1,18 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import {
-    buildEntityCache,
-    extractEntityTypesFilterValues,
-    fromUnionType,
-    isResolutionRequired,
-    toUnionType,
-} from '@app/entity/view/builder/utils';
-import { ViewBuilderState } from '@app/entity/view/types';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { buildEntityCache, isEntityResolutionRequired } from '@app/entityV2/shared/utils/selectorUtils';
+import { extractEntityTypesFilterValues, fromUnionType, toUnionType } from '@app/entityV2/view/builder/utils';
 import { AdvancedSearchFilters, LayoutDirection } from '@app/search/AdvancedSearchFilters';
 import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
 import { ViewBuilderMode } from '@app/search/view/builder/types';
+import { ViewBuilderState } from '@app/search/view/types';
 
 import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
 import { Entity, FacetFilter, FacetFilterInput, LogicalOperator } from '@types';
@@ -73,7 +68,7 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
 
     useEffect(() => {
         const attemptedUrns = attemptedUrnsRef.current;
-        if (!isResolutionRequired(urnsToResolve, entityCache, attemptedUrns)) {
+        if (!isEntityResolutionRequired(urnsToResolve, entityCache, attemptedUrns)) {
             return;
         }
         urnsToResolve.forEach((urn) => attemptedUrns.add(urn));

@@ -29,7 +29,7 @@ type Props = {
 };
 
 export default function MultipleOpenEndedInput({ selectedValues, updateSelectedValues, inputType = 'text' }: Props) {
-    const { t } = useTranslation('entityV1.shared.components');
+    const { t } = useTranslation('entity.shared.components');
     const { t: tc } = useTranslation('common.actions');
 
     function updateInput(text: string, index: number) {

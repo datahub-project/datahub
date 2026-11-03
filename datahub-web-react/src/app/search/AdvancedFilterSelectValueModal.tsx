@@ -1,8 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { SetDomainModal } from '@app/entity/shared/containers/profile/sidebar/Domain/SetDomainModal';
-import { EditOwnersModal } from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SetDomainModal';
+import { EditOwnersModal } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
 import { ChooseEntityTypeModal } from '@app/search/ChooseEntityTypeModal';
 import { ContainerSelectModal } from '@app/search/ContainerSelectModal';
 import { EditTextModal } from '@app/search/EditTextModal';

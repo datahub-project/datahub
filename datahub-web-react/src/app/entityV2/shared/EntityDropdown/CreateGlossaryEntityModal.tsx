@@ -17,9 +17,13 @@ import {
     useGlossaryNameValidation,
 } from '@app/entityV2/shared/EntityDropdown/glossaryEntityModal.shared';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
-import { GLOSSARY_SEARCH_INDEX_REFRESH_MS, buildOptimisticGlossaryEntity } from '@app/glossaryV2/utils';
+import {
+    GLOSSARY_SEARCH_INDEX_REFRESH_MS,
+    buildOptimisticGlossaryEntity,
+    getGlossaryRootToUpdate,
+    updateGlossarySidebar,
+} from '@app/glossaryV2/utils';
 import { validateCustomUrnId } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
