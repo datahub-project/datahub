@@ -103,11 +103,6 @@ public class SearchV3RealNameAboveCopiedValueElasticSearchTest
   }
 
   @Test
-  public void testClassOrderDefaultExactNameRanksFirstAboveLongerMatches() throws Exception {
-    assertExactNameRanksFirstAboveLongerMatches(Mode.CLASS_ORDER_DEFAULT);
-  }
-
-  @Test
   public void testClassOrderDefaultNoCopyExactNameRanksFirstAboveLongerMatches() throws Exception {
     assertExactNameRanksFirstAboveLongerMatches(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }

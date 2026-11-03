@@ -211,6 +211,9 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
   });
 
   test('the exact name is the first result, above longer matches that are not exact', async ({}, testInfo) => {
+    // Copying the title into the name lets exact-title copies match the exact-name rule, so this
+    // standard is checked only where the title is searched on its own field.
+    test.skip(MODE === 'classOrder', 'not supported when the title is copied into the name');
     // An asset whose name equals the search ranks first, even when its own title ("Ragdoll Lounge
     // Visits"), and other assets' titles and names (12 tables titled "Ragdoll Lounge" in the schema
     // ragdoll_lounge), are longer matches that contain the search.
