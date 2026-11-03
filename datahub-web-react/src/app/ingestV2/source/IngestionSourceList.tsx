@@ -25,7 +25,7 @@ import {
     getIngestionSourceSystemFilter,
     getSortInput,
 } from '@app/ingestV2/source/utils';
-import { TabType, tabUrlMap } from '@app/ingestV2/types';
+import { TabType } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/sharedV2/Message';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -444,10 +444,10 @@ export const IngestionSourceList = ({
     const handleSetFocusExecutionUrn = useCallback(
         (val) => {
             history.push(PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', val), {
-                fromUrl: tabUrlMap[TabType.Sources],
+                fromUrl: `${location.pathname}${location.search}`,
             });
         },
-        [history],
+        [history, location.pathname, location.search],
     );
 
     return (

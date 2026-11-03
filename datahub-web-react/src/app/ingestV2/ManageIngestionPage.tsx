@@ -230,8 +230,8 @@ export const ManageIngestionPage = () => {
             type: EventType.EnterIngestionFlowEvent,
             entryPoint: 'sources_page_cta',
         });
-        history.push(PageRoutes.INGESTION_CREATE);
-    }, [history]);
+        history.push(PageRoutes.INGESTION_CREATE, { backUrl: `${location.pathname}${location.search}` });
+    }, [history, location.pathname, location.search]);
 
     const handleCreateSecret = () => {
         setShowCreateSecretModal(true);

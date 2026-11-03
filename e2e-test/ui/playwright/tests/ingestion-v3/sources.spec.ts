@@ -129,7 +129,7 @@ test.describe('ingestion sources', () => {
     await expect(ingestionPage.sourcesTab.getSourceCell(FILTER_SOURCE)).toBeVisible();
   });
 
-  test('view run details page', async () => {
+  test('view run details page', async ({ page }) => {
     // Source and its SUCCESS execution are pre-seeded via fixtures/data.json.
     await ingestionPage.sourcesTab.search(RUN_DETAILS_SOURCE);
     await ingestionPage.sourcesTab.expectSourceVisible(RUN_DETAILS_SOURCE);
@@ -141,5 +141,18 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.expectRunSuccessVisible();
 
     await ingestionPage.sourcesTab.navigateBackToIngestion();
+
+    await expect(page).toHaveURL((url) => url.searchParams.get('query') === RUN_DETAILS_SOURCE);
+    await ingestionPage.sourcesTab.expectSourceVisible(RUN_DETAILS_SOURCE);
+  });
+
+  test('keep the list search after cancelling create source', async ({ page }) => {
+    await ingestionPage.sourcesTab.search(SEARCH_SOURCE_1);
+
+    await ingestionPage.sourcesTab.openCreateSourceModal();
+    await ingestionPage.sourcesTab.cancelCreateSourceModal();
+
+    await expect(page).toHaveURL((url) => url.searchParams.get('query') === SEARCH_SOURCE_1);
+    await ingestionPage.sourcesTab.expectSourceVisible(SEARCH_SOURCE_1);
   });
 });

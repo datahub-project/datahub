@@ -158,8 +158,8 @@ export function IngestionSourceCreatePage() {
             type: EventType.IngestionExitConfigurationEvent,
             exitType: 'cancel',
         });
-        history.push(PageRoutes.INGESTION);
-    }, [history]);
+        history.push(location.state?.backUrl ?? PageRoutes.INGESTION);
+    }, [history, location.state?.backUrl]);
 
     return (
         <DiscardUnsavedChangesConfirmationProvider
