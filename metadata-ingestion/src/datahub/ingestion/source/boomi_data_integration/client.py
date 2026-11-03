@@ -38,10 +38,13 @@ from datahub.ingestion.source.boomi_data_integration.constants import (
     RIVERS_PROBE_PAGE_SIZE,
     RUN_TIME_FORMAT,
     RUNS_PAGE_SIZE,
+    USERS_PAGE_SIZE,
+    USERS_PATH,
 )
 from datahub.ingestion.source.boomi_data_integration.models import (
     Activity,
     DIModel,
+    DIUser,
     Environment,
     PageResponse,
     River,
@@ -251,6 +254,9 @@ class BoomiDataIntegrationClient:
             _window_params(start, end),
             truncation_is_failure=False,
         )
+
+    def list_users(self, token: SecretStr) -> Iterator[DIUser]:
+        return self._paginate(USERS_PATH, token, USERS_PAGE_SIZE, DIUser)
 
 
 def _utc_param(value: datetime) -> str:

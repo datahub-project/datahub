@@ -457,3 +457,68 @@ def test_source_to_target_river_emits_load_job_with_target() -> None:
     assert io.outputDatasets == [
         "urn:li:dataset:(urn:li:dataPlatform:postgres,crm.leads,PROD)"
     ]
+
+
+def _run_multi_table_river(**overrides: object) -> List[Entity]:
+    definition = json.loads(
+        (API_RESPONSES / "river_a00000000000000000000002.json").read_text()
+    )
+    source = _source(**overrides)
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            f"{BASE_URL}/environments", json=_page([_environment("env-a", "Prod")])
+        )
+        mock.get(f"{BASE_URL}/environments/env-a/rivers", json=_page([_summary("r-1")]))
+        mock.get(f"{BASE_URL}/environments/env-a/rivers/r-1", json=definition)
+        users = mock.get(
+            f"{BASE_URL}/users",
+            json=_page(
+                [
+                    {
+                        "user_id": "u-1",
+                        "user_name": "Example User",
+                        "user_email": "svc@example.com",
+                    }
+                ]
+            ),
+        )
+        entities = _entities(source)
+        assert users.called == bool(overrides.get("extract_owners"))
+    return entities
+
+
+def test_load_job_carries_source_and_column_lineage() -> None:
+    entities = _run_multi_table_river()
+
+    job = next(e for e in entities if isinstance(e, DataJob))
+    io = job._get_aspect(DataJobInputOutputClass)
+    assert io is not None
+    assert io.inputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,ops.agents,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,ops.tickets,PROD)",
+    ]
+    assert io.fineGrainedLineages is not None
+    assert [f.downstreams for f in io.fineGrainedLineages] == [
+        [
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,"
+            "dev.ops.tickets,PROD),id)"
+        ],
+        [
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,"
+            "dev.ops.tickets,PROD),subject)"
+        ],
+    ]
+    assert job.owners is None
+
+
+def test_owners_are_opt_in() -> None:
+    entities = _run_multi_table_river(extract_owners=True)
+
+    flow = next(e for e in entities if isinstance(e, DataFlow))
+    job = next(e for e in entities if isinstance(e, DataJob))
+    # The editor is not in this users list, so only the creator is an owner.
+    for entity in (flow, job):
+        assert entity.owners is not None
+        assert [str(owner.owner) for owner in entity.owners] == [
+            "urn:li:corpuser:svc@example.com"
+        ]

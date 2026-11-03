@@ -35,6 +35,7 @@ ENV_DEV = "e00000000000000000000002"
 ACTIONS_RIVER = "a00000000000000000000004"
 BIGQUERY_CONNECTION = "6ae8eee7c23a3443ebd7abe4"
 POSTGRES_CONNECTION = "a00000000000000000000092"
+RNACENTRAL_CONNECTION = "6ae8eee6aedaa2d068489624"
 
 
 def _load(name: str) -> Dict[str, Any]:
@@ -52,6 +53,7 @@ def _register_mocks(
     activities_status: int = 200,
 ) -> None:
     mock.get(f"{BASE_URL}/environments", json=_load("environments.json"))
+    mock.get(f"{BASE_URL}/users", json=_load("users.json"))
     mock.get(
         f"{BASE_URL}/environments/{ENV_PROD}",
         json=_load("environment_production.json"),
@@ -104,10 +106,15 @@ def _recipe(output_path: Path) -> Dict[str, object]:
                     {"environment_id": ENV_DEV, "api_token": "token-dev"},
                 ],
                 "river_pattern": {"deny": ["^tmp_.*"]},
+                "extract_owners": True,
                 "connection_to_platform": {
                     BIGQUERY_CONNECTION: {
                         "platform": "bigquery",
                         "database": "example-project-123456",
+                    },
+                    RNACENTRAL_CONNECTION: {
+                        "platform": "postgres",
+                        "database": "pfmegrnargs",
                     },
                     POSTGRES_CONNECTION: {
                         "platform": "postgres",
@@ -156,6 +163,14 @@ def test_boomi_data_integration_ingestion(
     assert report.runs_emitted == 9
     assert report.runs_river_not_emitted == 2
     assert report.runs_unknown_status == 0
+    assert report.source_tables_emitted == 7
+    assert report.sql_tables_emitted == 12
+    assert report.column_lineage_edges_emitted == 8
+    assert dict(report.sources_unsupported) == {"hubspot": 1}
+    assert report.column_lineage_skipped["insert_without_column_list"] == 2
+    assert report.column_lineage_skipped["multi_statement_script"] == 1
+    assert report.users_listed == 3
+    assert report.owners_ambiguous_names == 1
 
     mce_helpers.check_golden_file(
         pytestconfig,

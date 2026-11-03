@@ -49,11 +49,20 @@ class ConnectionPlatformDetail(ConfigModel):
     database: Optional[str] = Field(
         default=None,
         description=(
-            "Top-level name the river does not carry. For BigQuery this is the "
-            "project ID and is required for target lineage. For Redshift, Postgres "
-            "and SQL Server it is prefixed to `schema.table`. For Databricks it is "
-            "used when the river has no catalog."
+            "Top-level name the river does not carry. On a source connection it "
+            "is the source database, required for source lineage from Postgres, "
+            "SQL Server, Snowflake, Redshift and BigQuery (the project ID); MySQL "
+            "and MariaDB sources do not need it. On a target connection it is the "
+            "BigQuery project ID, required for target lineage; for Redshift, "
+            "Postgres and SQL Server it is prefixed to `schema.table`; for "
+            "Databricks it is used when the river has no catalog. It is also the "
+            "default database for unqualified tables in custom queries and logic "
+            "SQL steps."
         ),
+    )
+    default_schema: Optional[str] = Field(
+        default=None,
+        description="Default schema for unqualified tables in custom queries and logic SQL steps.",
     )
     convert_urns_to_lowercase: Optional[bool] = Field(
         default=None,
@@ -145,7 +154,28 @@ class BoomiDataIntegrationSourceConfig(
     )
     include_lineage: bool = Field(
         default=True,
-        description="Emit lineage from rivers and logic steps to the tables they load.",
+        description=(
+            "Emit lineage from the tables rivers and logic steps read to the "
+            "tables they load."
+        ),
+    )
+    include_column_lineage: bool = Field(
+        default=True,
+        description=(
+            "Emit column lineage from multi-table column mappings and from SQL in "
+            "custom queries and logic SQL steps. Only used when `include_lineage` "
+            "is on."
+        ),
+    )
+    extract_owners: bool = Field(
+        default=False,
+        description=(
+            "Emit the river creator as a data owner and the last editor as a "
+            "technical owner. Rivers only carry display names, so they are "
+            "resolved to emails through the users list, which needs the "
+            "`user:list` scope; names that match no user or several users are "
+            "skipped."
+        ),
     )
     connection_type_platform_map: Dict[str, str] = Field(
         default_factory=dict,
@@ -158,7 +188,8 @@ class BoomiDataIntegrationSourceConfig(
         default_factory=dict,
         description=(
             "Platform details keyed by connection ID (`cross_id`). Needed for "
-            "BigQuery targets, whose project is not part of the river."
+            "the database of most source connections and for BigQuery targets, "
+            "since rivers and connections carry neither."
         ),
     )
     # Not named convert_urns_to_lowercase: that name turns on the framework's

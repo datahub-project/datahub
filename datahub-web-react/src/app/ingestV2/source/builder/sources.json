@@ -53,7 +53,7 @@
         "urn": "urn:li:dataPlatform:boomi-data-integration",
         "name": "boomi-data-integration",
         "displayName": "Boomi Data Integration",
-        "description": "Import environments, groups, rivers, logic steps, target lineage, and run history from Boomi Data Integration.",
+        "description": "Import environments, groups, rivers, logic steps, source, target and column lineage, and run history from Boomi Data Integration.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/boomi-data-integration",
         "recipe": "source:\n  type: boomi-data-integration\n  config:\n    account_id: \"${BOOMI_DI_ACCOUNT_ID}\"\n    region: us  # us, eu, il or au\n    # One token per environment; or set api_token for a single environment.\n    environment_tokens:\n      - environment_id: \"<environment id>\"\n        api_token: \"${BOOMI_DI_TOKEN}\"\n    stateful_ingestion:\n      enabled: true\n",
         "category": "ETL / ELT",

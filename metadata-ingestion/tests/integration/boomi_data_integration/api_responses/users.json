@@ -1,0 +1,37 @@
+{
+  "next_page": null,
+  "previous_page": null,
+  "page": 1,
+  "current_page_size": 3,
+  "total_items": 3,
+  "account_id": "acct000000000000000000001",
+  "items": [
+    {
+      "user_id": "u00000000000000000000001",
+      "user_email": "svc@example.com",
+      "user_name": "Example User",
+      "environments": {},
+      "is_admin": false,
+      "status": "active",
+      "source": "rivery"
+    },
+    {
+      "user_id": "u00000000000000000000002",
+      "user_email": "first@example.com",
+      "user_name": "Shared Name",
+      "environments": {},
+      "is_admin": false,
+      "status": "active",
+      "source": "rivery"
+    },
+    {
+      "user_id": "u00000000000000000000003",
+      "user_email": "second@example.com",
+      "user_name": "Shared Name",
+      "environments": {},
+      "is_admin": false,
+      "status": "active",
+      "source": "rivery"
+    }
+  ]
+}

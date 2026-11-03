@@ -236,6 +236,32 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -280,7 +306,10 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.rna,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.rnc_database,PROD)"
+            ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.rnacentral.rna,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.rnacentral.rnc_database_copy,PROD)"
@@ -342,6 +371,32 @@
             "typeNames": [
                 "Load"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -543,6 +598,32 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -572,6 +653,27 @@
                     "urn": "urn:li:container:42e6fb63556ca93a9c41d8d6f45b2868"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.rnc_database,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.xref,PROD)"
+            ],
+            "outputDatasets": [],
+            "inputDatajobs": []
         }
     },
     "systemMetadata": {
@@ -628,6 +730,32 @@
             "typeNames": [
                 "Load"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -736,6 +864,32 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4b1de83529098c6db5,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4b1de83529098c6db5,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -780,11 +934,39 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,homo_sapiens_core_110_38.gene,PROD)"
+            ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,example-project-123456.dh_test_ensembl.ensembl_genes,PROD)"
             ],
-            "inputDatajobs": []
+            "inputDatajobs": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,homo_sapiens_core_110_38.gene,PROD),biotype)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,example-project-123456.dh_test_ensembl.ensembl_genes,PROD),biotype)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,homo_sapiens_core_110_38.gene,PROD),stable_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,example-project-123456.dh_test_ensembl.ensembl_genes,PROD),stable_id)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -841,6 +1023,32 @@
             "typeNames": [
                 "Load"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4b1de83529098c6db5,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -946,6 +1154,32 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -990,7 +1224,9 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.rnacentral.rnc_database_copy,PROD)"
+            ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.analytics.rna_summary,PROD)"
             ],
@@ -1053,6 +1289,32 @@
             "typeNames": [
                 "Logic Step"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),96542bd28b184cc9b1aa2ba3b92a3fbb)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -1173,6 +1435,32 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),1d306f8dbb0d4284bf72028a8fdccaae)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),1d306f8dbb0d4284bf72028a8fdccaae)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1281,6 +1569,32 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),735f9f564b8640819f8a31cf0f2990e2)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),735f9f564b8640819f8a31cf0f2990e2)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1313,12 +1627,28 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.rnacentral.rna,PROD)"
+            ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.analytics.xref_rollup,PROD)"
             ],
             "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),1d306f8dbb0d4284bf72028a8fdccaae)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.rnacentral.rna,PROD),dbid)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.analytics.xref_rollup,PROD),dbid)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
@@ -1390,6 +1720,32 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),97e1c551d9a9456a9932712efc968c7d)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),97e1c551d9a9456a9932712efc968c7d)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1422,7 +1778,9 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.analytics.xref_rollup,PROD)"
+            ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.analytics.final_rollup,PROD)"
             ],
@@ -1488,6 +1846,32 @@
             "typeNames": [
                 "Logic Step"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),d00c1958b9a649efbcb3b2d493164c15)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -1762,6 +2146,32 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -1879,6 +2289,32 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1974,6 +2410,32 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000002,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000002,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -2018,12 +2480,41 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:oracle,ops.agents,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:oracle,ops.tickets,PROD)"
+            ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:databricks,dev.ops.support_agents,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:databricks,dev.ops.tickets,PROD)"
             ],
-            "inputDatajobs": []
+            "inputDatajobs": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,ops.tickets,PROD),ticket_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,dev.ops.tickets,PROD),id)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,ops.tickets,PROD),subject)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,dev.ops.tickets,PROD),subject)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2080,6 +2571,32 @@
             "typeNames": [
                 "Load"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000002,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -2187,6 +2704,32 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -2216,6 +2759,26 @@
                     "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,core.gene,PROD)"
+            ],
+            "outputDatasets": [],
+            "inputDatajobs": []
         }
     },
     "systemMetadata": {
@@ -2272,6 +2835,32 @@
             "typeNames": [
                 "Load"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -2376,6 +2965,32 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -2461,6 +3076,32 @@
             "typeNames": [
                 "Run"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD),run)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -2756,6 +3397,32 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -2800,11 +3467,28 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,main.ops.regions,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,main.ops.tickets,PROD)"
+            ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:databricks,main.gold.region_totals,PROD)"
             ],
-            "inputDatajobs": []
+            "inputDatajobs": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,main.ops.regions,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,main.gold.region_totals,PROD),region)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2875,6 +3559,32 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000001)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000001)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -2907,7 +3617,9 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,dw.warehouse.public.leads,PROD)"
+            ],
             "outputDatasets": [],
             "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000001)"
@@ -2970,6 +3682,32 @@
             "typeNames": [
                 "Logic Step"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -3089,6 +3827,32 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000003)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000003)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -3196,6 +3960,32 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000004)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000004)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -3228,12 +4018,40 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,example-project-123456.gold.region_totals,PROD)"
+            ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,example-project-123456.reporting.weekly_summary,PROD)"
             ],
             "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000004)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,example-project-123456.gold.region_totals,PROD),region)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,example-project-123456.reporting.weekly_summary,PROD),region)"
+                    ],
+                    "transformOperation": "IDENTITY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,example-project-123456.gold.region_totals,PROD),ticket_count)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,example-project-123456.reporting.weekly_summary,PROD),tickets)"
+                    ],
+                    "transformOperation": "SQL",
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
@@ -3305,6 +4123,32 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000005)",
     "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000005)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -3337,8 +4181,12 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,raw.payments,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,reporting.daily_totals,PROD)"
+            ],
             "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000005)"
             ]
@@ -3376,7 +4224,7 @@
             "customProperties": {
                 "step_type": "redshift_sql_script"
             },
-            "name": "Vacuum",
+            "name": "Daily totals",
             "type": {
                 "string": "COMMAND"
             },
@@ -3400,6 +4248,32 @@
             "typeNames": [
                 "Logic Step"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD),b0000000000000000000000000000006)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
