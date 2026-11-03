@@ -710,17 +710,24 @@ def test_execution_403_skips_history_with_one_warning() -> None:
     assert not report.failures
 
 
-def test_execution_server_error_is_a_failure_and_processes_still_emit() -> None:
+@pytest.mark.parametrize("status_code", [400, 503])
+def test_execution_listing_error_is_a_warning_and_processes_still_emit(
+    status_code: int,
+) -> None:
     source = _source(include_undeployed_processes=True)
     with requests_mock.Mocker() as mock:
-        _register(mock, [_process_record("p1", "Orders Sync")], execution_status=400)
+        _register(
+            mock, [_process_record("p1", "Orders Sync")], execution_status=status_code
+        )
         mock.get(f"{BASE_URL}/Component/p1", text=XML)
         flows = _flows(source)
 
+    report = source.get_report()
     assert len(flows) == 1
-    assert [f.title for f in source.get_report().failures] == [
-        "Failed to list Boomi executions"
-    ]
+    assert report.executions_unavailable
+    # A failure would stand down stale removal of the processes.
+    assert not report.failures
+    assert [w.title for w in report.warnings] == ["Failed to list Boomi executions"]
 
 
 def test_execution_no_runtimes_400_is_not_a_failure() -> None:

@@ -631,7 +631,10 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
             else:
-                self.report.failure(
+                # Run history is supplementary and executions are not part of
+                # stale state, so a failure here must not stand down stale
+                # removal of processes that were emitted correctly.
+                self.report.warning(
                     title="Failed to list Boomi executions",
                     message="Execution history is skipped.",
                     exc=e,
