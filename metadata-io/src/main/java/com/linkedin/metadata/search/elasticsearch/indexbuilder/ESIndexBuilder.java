@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -94,6 +95,7 @@ import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
@@ -543,8 +545,7 @@ public class ESIndexBuilder {
    * the index to them; systemUpdateEnabled only decides whether a structured-property difference
    * may trigger that reindex.
    */
-  @VisibleForTesting
-  public boolean shouldPreserveStructuredPropertyMappings(boolean copyStructuredPropertyMappings) {
+  private boolean shouldPreserveStructuredPropertyMappings(boolean copyStructuredPropertyMappings) {
     return copyStructuredPropertyMappings || !structPropConfig.isEnabled();
   }
 
@@ -881,17 +882,17 @@ public class ESIndexBuilder {
             requestOptionsLong);
       } catch (IOException | RuntimeException e) {
         // System-update sends new structured-property fields along with the index's other mapping
-        // changes, and they can push the index past its total-fields limit. They then wait for the
-        // next definition upsert or reindex instead of blocking those changes. A definition upsert
-        // (suppressError=false) exists to add them, so its failure propagates. Any failure retries,
-        // not only a rejected mapping, because the engine clients report a rejection as different
-        // exception types; a transient failure then costs only this run's new fields.
+        // changes, and they can push the index past its total-fields limit. When the engine
+        // rejects the put, the other changes go in without them, and they wait for the next
+        // definition upsert or reindex. Any other failure, and any failure of a definition upsert
+        // (suppressError=false), propagates, so the next run sends the full put again.
         Set<String> newFields = ReindexConfig.structuredPropertyFieldIds(mappings);
-        if (!suppressError || newFields.isEmpty()) {
+        if (!suppressError || newFields.isEmpty() || !isMappingRejection(e)) {
           throw e;
         }
         log.warn(
-            "Index: {} - Put-mapping failed, retrying without the new structured property fields {}",
+            "Index: {} - Put-mapping rejected, retrying without the new structured property fields"
+                + " {}",
             indexState.name(),
             newFields,
             e);
@@ -911,7 +912,7 @@ public class ESIndexBuilder {
         }
         log.error(
             "Index: {} - Applied the mapping changes without the new structured property fields {};"
-                + " a definition upsert or a reindex adds them. If the put failed on the"
+                + " a definition upsert or a reindex adds them. If the rejection names the"
                 + " total-fields limit, raise index.mapping.total_fields.limit on the index for an"
                 + " upsert, or in the settings overrides for a reindex.",
             indexState.name(),
@@ -933,7 +934,7 @@ public class ESIndexBuilder {
           indexState.name(),
           indexState.requiresReindex(),
           indexState.enableIndexMappingsReindex());
-      warnAboutUnmappedStructuredProperties(indexState);
+      putUnmappedStructuredPropertyFields(opContext, indexState, suppressError);
       if (v3IndexNeedsRebuild(opContext, indexState)) {
         // Search V3 writes values for root fields an older V3 mapping declares as aliases, and the
         // engine rejects writes to an alias, so this index stops taking V3 writes; an older V3
@@ -967,6 +968,55 @@ public class ESIndexBuilder {
     }
   }
 
+  /**
+   * Adds the structured property fields the index does not map yet when the rest of the mapping
+   * change cannot be applied in place, such as a type or analyzer change that waits for a reindex.
+   * The put carries only those fields, so a pending change elsewhere cannot fail it; put-mapping
+   * merges, and every other field keeps its live mapping. A definition upsert takes this path too
+   * when such a change is pending on the index.
+   */
+  private void putUnmappedStructuredPropertyFields(
+      @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState, boolean suppressError)
+      throws IOException {
+    Map<String, Object> mappings =
+        ReindexConfig.unmappedStructuredPropertyFieldsOnly(
+            indexState.targetMappings(), indexState.currentMappings());
+    if (mappings.isEmpty()) {
+      return;
+    }
+    Set<String> newFields = new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(mappings));
+    try {
+      searchClient.putIndexMapping(
+          opContext, new PutMappingRequest(indexState.name()).source(mappings), requestOptionsLong);
+    } catch (IOException | RuntimeException e) {
+      if (!suppressError || !isMappingRejection(e)) {
+        throw e;
+      }
+      log.error(
+          "Index: {} - Put-mapping rejected the new structured property fields {}; a definition"
+              + " upsert or a reindex adds them. If the rejection names the total-fields limit,"
+              + " raise index.mapping.total_fields.limit on the index for an upsert, or in the"
+              + " settings overrides for a reindex.",
+          indexState.name(),
+          newFields,
+          e);
+      return;
+    }
+    log.info("Index: {} - Added structured property fields {}", indexState.name(), newFields);
+  }
+
+  /**
+   * Whether the engine rejected a put-mapping body, which both engine clients report with status
+   * 400: a field past the total-fields limit, or a mapping the index cannot take. A timeout,
+   * throttling, or a server or connection failure is not, and may succeed on the next run.
+   */
+  private static boolean isMappingRejection(@Nonnull Exception e) {
+    return (e instanceof OpenSearchStatusException openSearchException
+            && openSearchException.status() == RestStatus.BAD_REQUEST)
+        || (e instanceof ElasticsearchException elasticsearchException
+            && elasticsearchException.status() == RestStatus.BAD_REQUEST.getStatus());
+  }
+
   /** Names the structured property fields an index leaves unmapped when nothing adds them. */
   private static void warnAboutUnmappedStructuredProperties(@Nonnull ReindexConfig indexState) {
     if (!indexState.hasNewStructuredProperty()) {
@@ -977,10 +1027,10 @@ public class ESIndexBuilder {
     unmapped.removeAll(ReindexConfig.structuredPropertyFieldIds(indexState.currentMappings()));
     log.warn(
         "Index: {} - Structured property fields {} have definitions but no mapping. A definition"
-            + " upsert or a reindex adds them, and system-update adds them when it applies a"
-            + " mapping change in place. An index at its total-fields limit needs a higher"
-            + " index.mapping.total_fields.limit first: on the index itself, or in the settings"
-            + " overrides for a reindex.",
+            + " upsert or a reindex adds them, and so does system-update whenever it changes this"
+            + " index's mappings or settings in place. An index at its total-fields limit needs a"
+            + " higher index.mapping.total_fields.limit first: on the index itself, or in the"
+            + " settings overrides for a reindex.",
         indexState.name(),
         unmapped);
   }

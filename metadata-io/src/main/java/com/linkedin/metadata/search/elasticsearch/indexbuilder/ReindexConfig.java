@@ -255,6 +255,24 @@ public class ReindexConfig {
   }
 
   /**
+   * Put-mapping body holding only the structured-property fields {@code targetMappings} declares
+   * and {@code currentMappings} does not map, or an empty map when there are none. Put-mapping
+   * merges, so every field the body leaves out keeps its live mapping.
+   */
+  @SuppressWarnings("unchecked")
+  static Map<String, Object> unmappedStructuredPropertyFieldsOnly(
+      @Nonnull Map<String, Object> targetMappings, @Nullable Map<String, Object> currentMappings) {
+    Map<String, Object> putMappings =
+        mappingsWithoutMappedStructuredPropertyFields(targetMappings, currentMappings);
+    if (structuredPropertyFieldIds(putMappings).isEmpty()) {
+      return Map.of();
+    }
+    Object container =
+        ((Map<String, Object>) putMappings.get(PROPERTIES)).get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    return Map.of(PROPERTIES, Map.of(STRUCTURED_PROPERTY_MAPPING_FIELD, container));
+  }
+
+  /**
    * Ids of the structured-property fields {@code mappings} declares, as the mapping diff names
    * them.
    */

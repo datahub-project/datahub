@@ -71,7 +71,8 @@ public class BuildIndices implements BlockingSystemUpgrade {
     _structuredProperties =
         Set.copyOf(
             ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
-                configurationProvider.getStructuredProperties(), aspectDao));
+                    configurationProvider.getStructuredProperties(), aspectDao)
+                .get());
 
     _incrementalReindexEnabled =
         configurationProvider.getElasticSearch().getBuildIndices() != null
@@ -185,12 +186,12 @@ public class BuildIndices implements BlockingSystemUpgrade {
               baseElasticSearchComponents,
               indexedServices,
               configurationProvider,
-              _structuredProperties));
+              () -> _structuredProperties));
       steps.add(
           new BuildIndicesStep(indexedServices, _structuredProperties, configurationProvider));
       steps.add(
           new BuildIndicesPostStep(
-              baseElasticSearchComponents, indexedServices, _structuredProperties));
+              baseElasticSearchComponents, indexedServices, () -> _structuredProperties));
     }
     return steps;
   }

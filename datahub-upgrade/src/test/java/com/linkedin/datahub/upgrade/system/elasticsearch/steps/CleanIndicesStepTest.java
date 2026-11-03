@@ -72,7 +72,7 @@ public class CleanIndicesStepTest {
             searchClient,
             esConfig,
             List.of(),
-            Set.of(),
+            Set::of,
             entityService,
             UPGRADE_VERSION,
             buildIndicesConfig);
@@ -141,7 +141,7 @@ public class CleanIndicesStepTest {
             searchClient,
             esConfig,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             entityService,
             UPGRADE_VERSION,
             buildIndicesConfig);

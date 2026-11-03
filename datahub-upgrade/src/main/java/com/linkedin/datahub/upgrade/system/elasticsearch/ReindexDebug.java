@@ -22,6 +22,7 @@ import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -65,7 +66,7 @@ public class ReindexDebug implements Upgrade {
           baseElasticSearchComponents,
       final ConfigurationProvider configurationProvider,
       final AspectDao aspectDao) {
-    final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
+    final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties =
         ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
             configurationProvider.getStructuredProperties(), aspectDao);
     final List<UpgradeStep> steps = new ArrayList<>();

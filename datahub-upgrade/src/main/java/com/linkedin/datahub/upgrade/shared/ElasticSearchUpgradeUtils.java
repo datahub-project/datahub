@@ -1,13 +1,11 @@
 package com.linkedin.datahub.upgrade.shared;
 
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ForwardingSet;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -67,29 +65,23 @@ public class ElasticSearchUpgradeUtils {
    * systemUpdateEnabled} does not gate this; it only decides whether a structured-property
    * difference may trigger a reindex.
    *
-   * <p>The definitions load on first use. Upgrades are built while Spring starts, so this keeps a
-   * slow or failed read (on Cassandra each load is a filtering scan of the aspect table) inside the
-   * step that needs them, and an upgrade that never runs never reads them.
+   * <p>Nothing is read until the first {@code get()}, and a successful read is kept. Upgrades are
+   * built while Spring starts, so steps call {@code get()} when they run: a slow or failed read (on
+   * Cassandra each one is a filtering scan of the aspect table) stays inside the step that needs
+   * the definitions, and an upgrade that never runs never reads them.
    *
    * @param structuredPropertiesConfiguration structured properties configuration
    * @param aspectDao the aspect DAO for database access
    * @return active structured property definitions, or none when structured properties are disabled
    */
-  public static Set<Pair<Urn, StructuredPropertyDefinition>>
+  public static Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>>
       getStructuredPropertiesForIndexMappings(
           StructuredPropertiesConfiguration structuredPropertiesConfiguration,
           AspectDao aspectDao) {
     if (!structuredPropertiesConfiguration.isEnabled()) {
-      return Set.of();
+      return Set::of;
     }
-    Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> definitions =
-        Suppliers.memoize(() -> getActiveStructuredPropertiesDefinitions(aspectDao));
-    return new ForwardingSet<>() {
-      @Override
-      protected Set<Pair<Urn, StructuredPropertyDefinition>> delegate() {
-        return definitions.get();
-      }
-    };
+    return Suppliers.memoize(() -> getActiveStructuredPropertiesDefinitions(aspectDao));
   }
 
   /**
@@ -108,7 +100,6 @@ public class ElasticSearchUpgradeUtils {
         aspectDao.streamAspects(STRUCTURED_PROPERTY_ENTITY_NAME, STATUS_ASPECT_NAME)) {
       removedStructuredPropertyUrns =
           stream
-              .filter(ElasticSearchUpgradeUtils::isLatestVersion)
               .filter(ElasticSearchUpgradeUtils::isRemoved)
               .map(EntityAspect::getUrn)
               .collect(Collectors.toSet());
@@ -119,18 +110,12 @@ public class ElasticSearchUpgradeUtils {
         aspectDao.streamAspects(
             STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)) {
       return stream
-          .filter(ElasticSearchUpgradeUtils::isLatestVersion)
           .map(ElasticSearchUpgradeUtils::toMappableDefinition)
           .flatMap(Optional::stream)
           .filter(
               definition -> !removedStructuredPropertyUrns.contains(definition.getKey().toString()))
           .collect(Collectors.toSet());
     }
-  }
-
-  // Cassandra's streamAspects returns every version of an aspect; only the latest one counts.
-  private static boolean isLatestVersion(EntityAspect entityAspect) {
-    return entityAspect.getVersion() == ASPECT_LATEST_VERSION;
   }
 
   // An unreadable status keeps its property: leaving an active property out of the mappings would
@@ -140,9 +125,9 @@ public class ElasticSearchUpgradeUtils {
       return RecordUtils.toRecordTemplate(Status.class, statusAspect.getMetadata()).isRemoved();
     } catch (RuntimeException e) {
       log.error(
-          "Treating structured property {} as active, its status is unreadable: {}",
+          "Treating structured property {} as active, its status is unreadable",
           statusAspect.getUrn(),
-          e.getMessage());
+          e);
       return false;
     }
   }
@@ -162,15 +147,17 @@ public class ElasticSearchUpgradeUtils {
               StructuredPropertyDefinition.class, entityAspect.getMetadata());
       if (definition.getEntityTypes(GetMode.NULL) == null
           || definition.getValueType(GetMode.NULL) == null) {
-        throw new IllegalArgumentException("definition has no entityTypes or valueType");
+        log.error(
+            "Leaving structured property {} out of the index mappings: its definition has no"
+                + " entityTypes or valueType",
+            urn);
+        return Optional.empty();
       }
       StructuredPropertyUtils.toElasticsearchFieldName(urn, definition);
       return Optional.of(Pair.of(urn, definition));
     } catch (RuntimeException e) {
       log.error(
-          "Leaving structured property {} out of the index mappings: {}",
-          entityAspect.getUrn(),
-          e.getMessage());
+          "Leaving structured property {} out of the index mappings", entityAspect.getUrn(), e);
       return Optional.empty();
     }
   }

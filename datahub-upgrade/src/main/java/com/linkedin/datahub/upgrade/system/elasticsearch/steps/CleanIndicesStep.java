@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -29,7 +30,7 @@ public class CleanIndicesStep implements UpgradeStep {
   private final SearchClientShim<?> searchClient;
   private final ElasticSearchConfiguration esConfig;
   private final List<ElasticSearchIndexed> indexedServices;
-  private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
+  private final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties;
   private final EntityService<?> entityService;
   private final String upgradeVersion;
   private final boolean incrementalReindexEnabled;
@@ -39,7 +40,7 @@ public class CleanIndicesStep implements UpgradeStep {
       final SearchClientShim<?> searchClient,
       final ElasticSearchConfiguration esConfig,
       final List<ElasticSearchIndexed> indexedServices,
-      final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
+      final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties,
       final EntityService<?> entityService,
       final String upgradeVersion,
       final BuildIndicesConfiguration buildIndicesConfig) {
@@ -80,7 +81,8 @@ public class CleanIndicesStep implements UpgradeStep {
               protectedPhysicalIndices);
         }
 
-        IndexUtils.getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties)
+        IndexUtils.getAllReindexConfigs(
+                context.opContext(), indexedServices, structuredProperties.get())
             .forEach(
                 reindexConfig ->
                     ESIndexBuilder.cleanOrphanedIndices(

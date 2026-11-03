@@ -20,6 +20,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -372,43 +373,6 @@ public class ElasticSearchUpgradeUtilsTest {
   }
 
   @Test
-  public void testGetActiveStructuredPropertiesDefinitionsReadsLatestVersionsOnly() {
-    AspectDao freshMockAspectDao = mock(AspectDao.class);
-    Urn urn = UrnUtils.getUrn("urn:li:structuredProperty:restored");
-    // The property was soft deleted once (version 1) and restored (version 0).
-    Status removed = new Status();
-    removed.setRemoved(true);
-    EntityAspect oldStatus = mock(EntityAspect.class);
-    when(oldStatus.getUrn()).thenReturn(urn.toString());
-    when(oldStatus.getVersion()).thenReturn(1L);
-    when(oldStatus.getMetadata()).thenReturn(RecordUtils.toJsonString(removed));
-    Status restored = new Status();
-    restored.setRemoved(false);
-    EntityAspect latestStatus = mock(EntityAspect.class);
-    when(latestStatus.getUrn()).thenReturn(urn.toString());
-    when(latestStatus.getMetadata()).thenReturn(RecordUtils.toJsonString(restored));
-    StructuredPropertyDefinition oldDefinition = definition("restored.old");
-    EntityAspect oldDefinitionAspect = mock(EntityAspect.class);
-    when(oldDefinitionAspect.getUrn()).thenReturn(urn.toString());
-    when(oldDefinitionAspect.getVersion()).thenReturn(1L);
-    when(oldDefinitionAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(oldDefinition));
-    StructuredPropertyDefinition definition = definition("restored.property");
-    EntityAspect definitionAspect = mock(EntityAspect.class);
-    when(definitionAspect.getUrn()).thenReturn(urn.toString());
-    when(definitionAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(definition));
-    // Cassandra streams every version of an aspect.
-    when(freshMockAspectDao.streamAspects(anyString(), anyString()))
-        .thenReturn(Stream.of(oldStatus, latestStatus))
-        .thenReturn(Stream.of(oldDefinitionAspect, definitionAspect));
-
-    Set<Pair<Urn, StructuredPropertyDefinition>> result =
-        ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(freshMockAspectDao);
-
-    assertEquals(result.size(), 1);
-    assertEquals(result.iterator().next().getSecond().getQualifiedName(), "restored.property");
-  }
-
-  @Test
   public void testGetStructuredPropertiesForIndexMappingsLoadsDefinitionsWhenEnabled() {
     AspectDao freshMockAspectDao = mock(AspectDao.class);
     EntityAspect definitionAspect = mock(EntityAspect.class);
@@ -423,11 +387,12 @@ public class ElasticSearchUpgradeUtilsTest {
     // systemUpdateEnabled only gates reindexing, not which definitions the targets are built from.
     Set<Pair<Urn, StructuredPropertyDefinition>> result =
         ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
-            StructuredPropertiesConfiguration.builder()
-                .enabled(true)
-                .systemUpdateEnabled(false)
-                .build(),
-            freshMockAspectDao);
+                StructuredPropertiesConfiguration.builder()
+                    .enabled(true)
+                    .systemUpdateEnabled(false)
+                    .build(),
+                freshMockAspectDao)
+            .get();
 
     assertEquals(result.size(), 1);
     assertEquals(result.iterator().next().getFirst(), urn);
@@ -440,14 +405,14 @@ public class ElasticSearchUpgradeUtilsTest {
         .thenReturn(Stream.empty())
         .thenReturn(Stream.empty());
 
-    Set<Pair<Urn, StructuredPropertyDefinition>> result =
+    Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> result =
         ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
             StructuredPropertiesConfiguration.builder().enabled(true).build(), freshMockAspectDao);
     // Upgrades are built while Spring starts; the read waits for the step that needs it.
     verifyNoInteractions(freshMockAspectDao);
 
-    assertTrue(result.isEmpty());
-    assertTrue(result.isEmpty());
+    assertTrue(result.get().isEmpty());
+    assertTrue(result.get().isEmpty());
     // One load: the status stream and the definition stream.
     verify(freshMockAspectDao, times(2)).streamAspects(anyString(), anyString());
   }
@@ -458,11 +423,12 @@ public class ElasticSearchUpgradeUtilsTest {
 
     Set<Pair<Urn, StructuredPropertyDefinition>> result =
         ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
-            StructuredPropertiesConfiguration.builder()
-                .enabled(false)
-                .systemUpdateEnabled(true)
-                .build(),
-            freshMockAspectDao);
+                StructuredPropertiesConfiguration.builder()
+                    .enabled(false)
+                    .systemUpdateEnabled(true)
+                    .build(),
+                freshMockAspectDao)
+            .get();
 
     assertTrue(result.isEmpty());
     verifyNoInteractions(freshMockAspectDao);

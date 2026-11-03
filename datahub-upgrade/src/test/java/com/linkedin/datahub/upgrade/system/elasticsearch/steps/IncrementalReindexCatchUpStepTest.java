@@ -127,7 +127,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             new BuildIndicesConfiguration(),
             updateIndicesService);
@@ -210,7 +210,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             config,
             updateIndicesService);
@@ -275,7 +275,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             config,
             updateIndicesService);
@@ -385,7 +385,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             config,
             updateIndicesService);
@@ -458,7 +458,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             config,
             updateIndicesService);
@@ -1311,7 +1311,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             configWithPoll,
             updateIndicesService);
@@ -1354,7 +1354,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             configWithPoll,
             updateIndicesService);

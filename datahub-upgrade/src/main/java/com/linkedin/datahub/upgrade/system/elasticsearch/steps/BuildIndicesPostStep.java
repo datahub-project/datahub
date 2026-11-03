@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +35,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
 
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
   private final List<ElasticSearchIndexed> services;
-  private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
+  private final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties;
 
   @Override
   public String id() {
@@ -53,7 +54,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
       try {
 
         List<ReindexConfig> indexConfigs =
-            getAllReindexConfigs(opContext, services, structuredProperties).stream()
+            getAllReindexConfigs(opContext, services, structuredProperties.get()).stream()
                 .filter(ReindexConfig::requiresReindex)
                 .collect(Collectors.toList());
 

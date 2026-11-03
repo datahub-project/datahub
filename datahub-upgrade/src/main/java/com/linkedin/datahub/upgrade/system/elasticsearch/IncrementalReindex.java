@@ -23,6 +23,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,7 +51,7 @@ public class IncrementalReindex implements NonBlockingSystemUpgrade {
       @Nullable AspectIndexLoader aspectIndexLoader,
       UpdateIndicesService updateIndicesService) {
 
-    Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
+    Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties =
         ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
             configurationProvider.getStructuredProperties(), aspectDao);
 
