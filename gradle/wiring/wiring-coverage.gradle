@@ -1,0 +1,52 @@
+/*
+Wiring ratchet: every Spring configuration class must be loaded by a real-context test in its own
+module, or be listed in that module's wiring-baseline.txt, which may only shrink.
+See gradle/wiring/README.md. Applied to every Java subproject from the root build.gradle.
+*/
+import io.datahubproject.wiring.WiringCoverageCheck
+import io.datahubproject.wiring.WiringCoverageRecorderArgs
+
+def recordDir = layout.buildDirectory.dir('wiring-coverage/test')
+def updateBaseline = project.hasProperty('updateWiringBaseline')
+
+dependencies {
+  // testImplementation so hand-built contexts can call WiringCoverage.attach()/initializer().
+  testImplementation project(':wiring-coverage')
+}
+
+def testTask = tasks.named('test', Test)
+testTask.configure {
+  def recorderArgs = objects.newInstance(WiringCoverageRecorderArgs)
+  recorderArgs.dir.set(recordDir)
+  jvmArgumentProviders.add(recorderArgs)
+  // Recorder files are appended per JVM; start every real run from an empty directory.
+  doFirst { recordDir.get().asFile.deleteDir() }
+  finalizedBy 'checkWiringCoverage'
+}
+
+def checkTask = tasks.register('checkWiringCoverage', WiringCoverageCheck) {
+  group = 'verification'
+  description = 'Fails when a Spring configuration class is neither loaded by a real-context test nor baselined.'
+  classesDirs.from(sourceSets.main.output.classesDirs)
+  recordings.from(recordDir)
+  baseline.set(layout.projectDirectory.file('wiring-baseline.txt'))
+  projectPath.set(project.path)
+  rootDirectory.set(rootProject.layout.projectDirectory)
+  it.updateBaseline.set(updateBaseline)
+  report.set(layout.buildDirectory.file('reports/wiring-coverage/report.txt'))
+  mustRunAfter testTask
+  dependsOn tasks.named('classes')
+  if (updateBaseline) {
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+  }
+  // Coverage is only meaningful after the full suite ran (or was restored from cache).
+  onlyIf('the test task ran its whole suite successfully') {
+    def t = testTask.get()
+    def s = t.state
+    def ran = !s.skipped || s.skipMessage in ['UP-TO-DATE', 'FROM-CACHE', 'NO-SOURCE']
+    // --tests runs a subset; build-script filters are the module's normal suite and still count.
+    def filtered = !t.filter.commandLineIncludePatterns.isEmpty()
+    ran && s.failure == null && !filtered
+  }
+}

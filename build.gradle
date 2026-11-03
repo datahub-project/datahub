@@ -892,6 +892,10 @@ subprojects {
     if (project.name == 'datahub-web-react') {
       return
     }
+    // Wiring ratchet (gradle/wiring/README.md). datahub-frontend is Play/Guice, not Spring.
+    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend') {
+      project.apply from: rootProject.file('gradle/wiring/wiring-coverage.gradle')
+    }
     /* TODO: evaluate ignoring jar timestamps for increased caching (compares checksum instead)
     jar {
       preserveFileTimestamps = false
