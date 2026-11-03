@@ -662,6 +662,11 @@ class TestAwsCommon:
             minutes=1
         )
         config.get_glue_client()
+        # The Glue call did the refresh, so the S3 client below is rebuilt because
+        # its key no longer matches, not because of its own expiry check.
+        assert config._cached_credentials is not None
+        assert config._cached_credentials["AccessKeyId"] != old_key
+        assert not config._should_refresh_credentials()
 
         client2: Any = config.get_s3_client()
         assert client2 is not client1
