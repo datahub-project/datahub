@@ -2,7 +2,9 @@ import itertools
 from typing import Callable, List, Optional, Tuple, Union
 
 from botocore.exceptions import BotoCoreError, ClientError
+from requests.exceptions import RequestException
 
+from datahub.configuration.common import GraphError
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws_messaging.arn import parse_arn
@@ -83,21 +85,34 @@ class S3NotificationLineage:
         if self.graph is None:
             return []
         urn_prefix, matches = self._matcher(notification)
-        hits = self.graph.get_urns_by_filter(
-            entity_types=["dataset"],
-            platform=S3_PLATFORM,
-            platform_instance=self.platform_instance,
-            env=self.env,
-            extraFilters=[
-                {"field": "urn", "condition": "START_WITH", "values": [urn_prefix]}
-            ],
-        )
-        found = sorted(
-            itertools.islice(
-                (urn for urn in hits if matches(urn)),
-                MAX_S3_DATASETS_PER_NOTIFICATION + 1,
+        try:
+            hits = self.graph.get_urns_by_filter(
+                entity_types=["dataset"],
+                platform=S3_PLATFORM,
+                platform_instance=self.platform_instance,
+                env=self.env,
+                extraFilters=[
+                    {"field": "urn", "condition": "START_WITH", "values": [urn_prefix]}
+                ],
             )
-        )
+            found = sorted(
+                itertools.islice(
+                    (urn for urn in hits if matches(urn)),
+                    MAX_S3_DATASETS_PER_NOTIFICATION + 1,
+                )
+            )
+        except (GraphError, RequestException) as e:
+            self.report.warning(
+                title="S3 dataset search failed",
+                message=(
+                    "Could not search DataHub for the S3 datasets under the "
+                    "notification's prefix; earlier S3 notification lineage is kept."
+                ),
+                context=f"s3://{notification.bucket}/{notification.prefix or ''}",
+                exc=e,
+            )
+            self.complete = False
+            return []
         if len(found) > MAX_S3_DATASETS_PER_NOTIFICATION:
             self.report.warning(
                 title="S3 notification matches too many datasets",

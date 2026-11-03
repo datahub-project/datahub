@@ -6,6 +6,7 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
+from datahub.configuration.common import GraphError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging import s3_notifications
 from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase
@@ -347,6 +348,20 @@ def test_cap_removes_nothing(aws: None, monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(s3_notifications, "MAX_S3_DATASETS_PER_NOTIFICATION", 1)
     # Only the folder fits under the cap; the earlier orders edge is kept.
     assert _removals(S3_DATASETS) == []
+
+
+def test_failed_dataset_search_removes_nothing(aws: None) -> None:
+    _seed()
+    graph = search_graph(
+        S3_DATASETS, prior_upstreams=[_edge(ORDERS_URN, "s3_notification")]
+    )
+    graph.get_urns_by_filter.side_effect = GraphError("search timed out")
+    source = SqsSource.create(
+        base_config(lineage={"lambda_functions": False, "s3_notifications": True}),
+        PipelineContext(run_id="s3-test", graph=graph),
+    )
+    assert [op for op in upstream_ops(source) if op[0] == "remove"] == []
+    assert "S3 dataset search failed" in [w.title for w in source.get_report().warnings]
 
 
 def test_platform_map_sets_instance_and_env(aws: None) -> None:
