@@ -238,6 +238,42 @@ class TestPowerBiConfig:
         with pytest.raises(ValueError, match="is not a recognized DataHub platform"):
             PowerBiDashboardSourceConfig.model_validate(config_dict)
 
+    @pytest.mark.parametrize("platform_instance", ["", "   "])
+    def test_athena_override_blank_platform_instance_invalid(
+        self, platform_instance: str
+    ) -> None:
+        """A blank platform_instance would build a URN like '   .db.tbl'."""
+        config_dict = {
+            **self.base_config,
+            "athena_table_platform_override": [
+                {
+                    "database": "db",
+                    "table": "tbl",
+                    "platform": "mysql",
+                    "platform_instance": platform_instance,
+                }
+            ],
+        }
+        with pytest.raises(ValidationError):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    def test_athena_override_platform_instance_is_stripped(self) -> None:
+        config_dict = {
+            **self.base_config,
+            "athena_table_platform_override": [
+                {
+                    "database": "db",
+                    "table": "tbl",
+                    "platform": "mysql",
+                    "platform_instance": " mysql_prod ",
+                }
+            ],
+        }
+        config = PowerBiDashboardSourceConfig.model_validate(config_dict)
+        assert config.athena_table_platform_override[0].platform_instance == (
+            "mysql_prod"
+        )
+
     def test_bigquery_external_query_unknown_platform_invalid(self):
         """Unknown external platform must be rejected at config validation."""
         config_dict = {

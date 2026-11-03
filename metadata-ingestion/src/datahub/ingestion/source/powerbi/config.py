@@ -468,6 +468,11 @@ class AthenaPlatformOverride(ConfigModel):
         "entities.",
     )
 
+    @field_validator("platform_instance")
+    @classmethod
+    def _validate_platform_instance(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
+
 
 class BigQueryExternalQueryPlatformDetail(PlatformDetail):
     """Maps a BigQuery ``EXTERNAL_QUERY`` connection to the external source it federates to.
