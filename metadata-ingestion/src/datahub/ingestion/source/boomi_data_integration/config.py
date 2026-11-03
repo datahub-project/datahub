@@ -9,6 +9,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.boomi_data_integration.constants import (
+    API_CONSOLE_URLS,
     DEFAULT_MAX_REQUESTS_PER_SECOND,
     DEFAULT_REQUEST_TIMEOUT_SECONDS,
     HTTP_SCHEME,
@@ -98,6 +99,14 @@ class BoomiDataIntegrationSourceConfig(
         description=(
             "API host, for example `https://api.rivery.io`. Overrides `region`. "
             "Must use https, except for a loopback host."
+        ),
+    )
+    console_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Console base URL used for links to rivers and runs, for example "
+            "`https://console.rivery.io`. Links are emitted for the `us` region "
+            "without this setting; set it for other regions. Must use https."
         ),
     )
     api_token: Optional[SecretStr] = Field(
@@ -191,6 +200,18 @@ class BoomiDataIntegrationSourceConfig(
             )
         return value.rstrip("/")
 
+    @field_validator("console_url")
+    @classmethod
+    def _validate_console_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        parsed = urlparse(value)
+        if parsed.scheme != HTTPS_SCHEME or not parsed.hostname:
+            raise ValueError(
+                f"console_url must be an https URL such as https://console.rivery.io, got {value!r}"
+            )
+        return value.rstrip("/")
+
     @field_validator("api_token")
     @classmethod
     def _blank_api_token_is_unset(
@@ -213,3 +234,7 @@ class BoomiDataIntegrationSourceConfig(
     @property
     def resolved_api_url(self) -> str:
         return self.api_url or REGION_API_URLS[self.region]
+
+    @property
+    def resolved_console_url(self) -> Optional[str]:
+        return self.console_url or API_CONSOLE_URLS.get(self.resolved_api_url)

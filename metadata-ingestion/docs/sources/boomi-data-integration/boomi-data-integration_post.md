@@ -4,6 +4,8 @@
 
 For every environment, the source plugin lists the rivers and then reads each river's definition. Each river becomes a DataFlow with the custom properties `river_type`, `river_status`, `schedule` and `datasource_id` where the API returns them, and the river description when present. Source-to-target rivers whose definition can be read also get `run_type`, `source` and `target`.
 
+Each DataFlow links to the river in the Data Integration console. The console host is only known for the `us` region. For other regions, set `console_url` to the base URL of your console, or no link is emitted.
+
 - A source-to-target river gets one `load` DataJob whose outputs are the target tables.
 - An action or connector executor river gets one `run` DataJob with subtype `Run`.
 - A logic river gets one DataJob per step, named by the step ID. Containers (`run_once`, `loop`, `condition`) are flattened. Inside a sequential container each step depends on the previous one; steps in a parallel container and the branches of a condition all depend on whatever ran before the container. A condition branch that runs no step passes its predecessors through. A `river` step records the river it runs in the `river_id` property. Disabled steps are skipped.
@@ -36,6 +38,7 @@ The target platform comes from the river's target type. `connection_type_platfor
 - S3, GCS, Blob Storage and OneLake targets get no lineage.
 - BigQuery targets get no lineage unless the target connection is in `connection_to_platform` with the project as `database`.
 - Run history and owners are not ingested yet.
+- A job's lineage is only written when the source plugin finds at least one target, so lineage added in the UI or by other sources is not overwritten with an empty list. If a river's target later stops resolving, for example because it moved to object storage or `include_lineage` was turned off, the lineage from earlier runs stays until it is removed in DataHub.
 
 ### Troubleshooting
 

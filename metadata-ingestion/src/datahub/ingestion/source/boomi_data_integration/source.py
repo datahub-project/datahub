@@ -48,6 +48,7 @@ from datahub.ingestion.source.boomi_data_integration.constants import (
     PROP_SOURCE_NAME,
     PROP_STEP_TYPE,
     PROP_TARGET_NAME,
+    RIVER_CONSOLE_URL_TEMPLATE,
     RUN_JOB_ID,
     SCHEDULE_SEPARATOR,
     UNREACHABLE_ENVIRONMENTS_TEMPLATE,
@@ -418,6 +419,17 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
 
+    def _river_url(self, environment_id: str, river_id: str) -> Optional[str]:
+        console_url = self.config.resolved_console_url
+        if console_url is None:
+            return None
+        return RIVER_CONSOLE_URL_TEMPLATE.format(
+            console_url=console_url,
+            account_id=self.config.account_id,
+            environment_id=environment_id,
+            river_id=river_id,
+        )
+
     def _fetch_river(
         self, access: EnvironmentAccess, summary: RiverSummary
     ) -> Optional[River]:
@@ -487,6 +499,9 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             last_modified=last_modified,
             subtype=DataFlowSubTypes.BOOMI_DI_RIVER,
             parent_container=parent,
+            external_url=self._river_url(
+                access.environment.cross_id, summary.river_cross_id
+            ),
         )
         yield flow
         for spec in jobs:

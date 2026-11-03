@@ -287,6 +287,7 @@
                 "source": "postgresql",
                 "target": "snowflake"
             },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000001/6ae8ef3fa9fd03374b44b3bd",
             "name": "DH Test - PG to Snowflake multi",
             "description": "Created by DataHub connector validation",
             "created": {
@@ -698,6 +699,7 @@
                 "source": "mysql",
                 "target": "bigquery"
             },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000001/6ae8ef4b1de83529098c6db5",
             "name": "DH Test - MySQL to BigQuery custom query",
             "description": "Created by DataHub connector validation",
             "created": {
@@ -947,6 +949,7 @@
                 "source": "postgresql",
                 "target": "snowflake"
             },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000001/6ae8ef4a4921540c5370cd42",
             "name": "DH Test - PG to Snowflake prefixed",
             "description": "Created by DataHub connector validation",
             "created": {
@@ -1511,6 +1514,7 @@
                 "source": "oracle",
                 "target": "databricks"
             },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000002/a00000000000000000000002",
             "name": "Ops to Databricks",
             "description": "Synthetic Ops to Databricks river.",
             "created": {
@@ -1695,6 +1699,7 @@
                 "river_status": "active",
                 "datasource_id": "logic"
             },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000001/6ae8ef6f61a8be2df8f864ca",
             "name": "DH Test - Logic orchestration",
             "description": "Created by DataHub connector validation",
             "created": {
@@ -2642,6 +2647,7 @@
                 "source": "hubspot",
                 "target": "postgres_rds"
             },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000002/a00000000000000000000001",
             "name": "Leads to Postgres",
             "description": "Synthetic Leads to Postgres river.",
             "created": {
@@ -2779,6 +2785,7 @@
                 "river_status": "active",
                 "datasource_id": "actions"
             },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000002/a00000000000000000000004",
             "name": "Call Payments API",
             "description": "Synthetic Call Payments API river.",
             "created": {
@@ -2873,6 +2880,7 @@
                 "schedule": "0 6 * * *",
                 "datasource_id": "salesforce"
             },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000002/a00000000000000000000005",
             "name": "UI Made Salesforce Load",
             "description": "Synthetic UI Made Salesforce Load river.",
             "created": {
@@ -3020,6 +3028,7 @@
                 "river_status": "active",
                 "datasource_id": "logic"
             },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000002/a00000000000000000000006",
             "name": "Regional Rollups",
             "description": "Synthetic Regional Rollups river.",
             "created": {
@@ -3453,6 +3462,7 @@
                 "source": "mysql",
                 "target": "s3"
             },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000002/a00000000000000000000003",
             "name": "Archive to S3",
             "description": "Synthetic Archive to S3 river.",
             "created": {

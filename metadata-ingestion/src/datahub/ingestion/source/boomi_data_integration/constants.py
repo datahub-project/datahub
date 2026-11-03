@@ -19,6 +19,15 @@ REGION_API_URLS: Dict[DIRegion, str] = {
     DIRegion.AU: "https://api.ap-southeast-2.rivery.io",
 }
 
+# Only the US console host is confirmed. Other regions get console links only
+# when console_url is set.
+API_CONSOLE_URLS: Dict[str, str] = {
+    REGION_API_URLS[DIRegion.US]: "https://console.rivery.io",
+}
+RIVER_CONSOLE_URL_TEMPLATE = (
+    "{console_url}/rivers/{account_id}/{environment_id}/{river_id}"
+)
+
 HTTPS_SCHEME = "https"
 HTTP_SCHEME = "http"
 LOOPBACK_HOSTS: FrozenSet[str] = frozenset({"localhost", "127.0.0.1", "::1"})

@@ -1,11 +1,16 @@
 import json
 from pathlib import Path
-from typing import Dict, Iterable, List, Union
+from typing import Dict, Iterable, List, Optional, Union
 
+import pytest
 import requests_mock
+from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.boomi_data_integration.config import (
+    BoomiDataIntegrationSourceConfig,
+)
 from datahub.ingestion.source.boomi_data_integration.source import (
     BoomiDataIntegrationSource,
 )
@@ -215,6 +220,48 @@ def _ingested_flow_ids(source: BoomiDataIntegrationSource) -> List[str]:
         mock.get(f"{BASE_URL}/environments/env-a/rivers/r-2", status_code=400)
         entities = _entities(source)
     return [e.urn.flow_id for e in entities if isinstance(e, DataFlow)]
+
+
+@pytest.mark.parametrize(
+    "overrides, api_url, expected",
+    [
+        (
+            {},
+            "https://api.rivery.io",
+            "https://console.rivery.io/rivers/acct-0001/env-a/r-1",
+        ),
+        ({"region": "eu"}, "https://api.eu-west-1.rivery.io", None),
+        (
+            {"region": "eu", "console_url": "https://console.example.com/"},
+            "https://api.eu-west-1.rivery.io",
+            "https://console.example.com/rivers/acct-0001/env-a/r-1",
+        ),
+    ],
+)
+def test_river_console_url(
+    overrides: Dict[str, object], api_url: str, expected: Optional[str]
+) -> None:
+    source = _source(**overrides)
+    base_url = f"{api_url}/v1/accounts/{ACCOUNT_ID}"
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            f"{base_url}/environments", json=_page([_environment("env-a", "Prod")])
+        )
+        mock.get(f"{base_url}/environments/env-a/rivers", json=_page([_summary("r-1")]))
+        mock.get(f"{base_url}/environments/env-a/rivers/r-1", status_code=400)
+        flows = [e for e in _entities(source) if isinstance(e, DataFlow)]
+    assert [f.external_url for f in flows] == [expected]
+
+
+def test_console_url_must_use_https() -> None:
+    with pytest.raises(ValidationError):
+        BoomiDataIntegrationSourceConfig.model_validate(
+            {
+                "account_id": ACCOUNT_ID,
+                "api_token": "token-a",
+                "console_url": "http://console.example.com",
+            }
+        )
 
 
 def test_river_pattern_filters_rivers() -> None:
