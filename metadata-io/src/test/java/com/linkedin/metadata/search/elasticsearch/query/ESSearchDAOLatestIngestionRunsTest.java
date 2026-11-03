@@ -3,10 +3,13 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.search.LatestIngestionRuns;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -70,6 +73,33 @@ public class ESSearchDAOLatestIngestionRunsTest {
         source.contains("{\"executionResultStatus.keyword\":{\"value\":\"SUCCESS\""), source);
     assertTrue(
         source.contains("{\"executionResultStatus.keyword\":{\"value\":\"FAILURE\""), source);
+  }
+
+  @Test
+  public void testRequestOnV3UsesResolvedFields() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    ESSearchDAO v3SearchDAO =
+        new ESSearchDAO(
+            false,
+            TEST_OS_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    String source =
+        v3SearchDAO
+            .buildLatestIngestionRunsRequest(opContext, Set.of(SOURCE_A))
+            .source()
+            .toString();
+
+    assertFalse(source.contains(".keyword"), source);
+    assertTrue(source.contains("\"field\":\"ingestionSource\""), source);
+    assertTrue(source.contains("{\"executionResultStatus\":{\"value\":\"SUCCESS\""), source);
+    assertTrue(source.contains("\"_entityType\":{\"value\":\"dataHubExecutionRequest\""), source);
   }
 
   @Test
