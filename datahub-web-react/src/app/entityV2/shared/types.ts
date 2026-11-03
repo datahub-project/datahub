@@ -66,8 +66,8 @@ export type EntityTab = {
 };
 
 export type EntitySidebarTab = {
-    key?: string;
-    name: string;
+    key?: string; // Stable, language-independent id of the tab (see `EntitySidebarTabKey`).
+    name: string; // Display label; may be translated, so never use it to identify the tab.
     component: React.FunctionComponent<EntityTabProps>;
     icon: React.FunctionComponent<any>;
     selectedIcon?: React.FunctionComponent<any>; // Icon to use when this tab is selected

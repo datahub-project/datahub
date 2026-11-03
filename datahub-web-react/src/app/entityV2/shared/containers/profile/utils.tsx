@@ -8,7 +8,7 @@ import { useLocation } from 'react-router';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getSchemaFieldParentLink } from '@app/entityV2/schemaField/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
+import { EntitySidebarTabKey, GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import SidebarPopularityHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
 import {
@@ -256,10 +256,11 @@ const getFinalSidebarTabs = (
 
     let finalTabs = sidebarTabsWithDefaults;
 
-    // Add a default "About" tab if only the legacy sections were provided.
+    // Add a default "Summary" tab if only the legacy sections were provided.
     if ((sidebarSections || [])?.length > 0) {
         finalTabs = [
             {
+                key: EntitySidebarTabKey.SUMMARY,
                 name: t('profile.defaultSummaryTabLabel'),
                 icon: BookOpen,
                 component: EntitySidebarSectionsTab,
