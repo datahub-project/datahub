@@ -1158,9 +1158,10 @@ public class ESIndexBuilderTest {
   @Test
   @SuppressWarnings("unchecked")
   void testApplyMappings_LeavesMappedStructuredPropertiesOutOfThePut() throws IOException {
-    // The live index mapped an unversioned and a versioned property dynamically as text, which the
-    // engine reports as nested objects; their definitions map keyword, a type change put-mapping
-    // rejects. The target also adds a regular field and a new property.
+    // The live index mapped two properties dynamically as text: propA as a plain field, and a
+    // versioned property as the nested objects the engine reports for it. Their definitions map
+    // keyword, a type change put-mapping rejects. The target also adds a regular field and a new
+    // property.
     Map<String, Object> current =
         Map.of(
             "properties",
@@ -1247,6 +1248,104 @@ public class ESIndexBuilderTest {
         Set.of("propC"));
     // A reindex still builds the index from the definitions.
     assertTrue(indexState.targetMappings().toString().contains("propA={type=keyword}"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testApplyMappings_RetriesWithoutNewStructuredPropertiesWhenThePutFails() throws IOException {
+    ReindexConfig indexState =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .currentMappings(
+                Map.of(
+                    "properties",
+                    Map.of(
+                        "field1",
+                        Map.of("type", "text"),
+                        STRUCTURED_PROPERTY_MAPPING_FIELD,
+                        Map.of(
+                            "dynamic",
+                            "false",
+                            "properties",
+                            Map.of("propA", Map.of("type", "keyword"))))))
+            .targetMappings(
+                Map.of(
+                    "properties",
+                    Map.of(
+                        "field1",
+                        Map.of("type", "text"),
+                        "field3",
+                        Map.of("type", "keyword"),
+                        STRUCTURED_PROPERTY_MAPPING_FIELD,
+                        Map.of(
+                            "type",
+                            "object",
+                            "dynamic",
+                            false,
+                            "properties",
+                            Map.of(
+                                "propA",
+                                Map.of("type", "keyword"),
+                                "propC",
+                                Map.of("type", "double"))))))
+            .build();
+    // The new property would push the index past its total-fields limit.
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(new RuntimeException("Limit of total fields [1000] has been exceeded"))
+        .thenReturn(mock(AcknowledgedResponse.class));
+
+    indexBuilder.applyMappings(opContext, indexState, true);
+
+    ArgumentCaptor<PutMappingRequest> captor = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient, times(2))
+        .putIndexMapping(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    Map<String, Object> retried =
+        (Map<String, Object>)
+            ReindexConfig.OBJECT_MAPPER
+                .readValue(captor.getAllValues().get(1).source().utf8ToString(), Map.class)
+                .get("properties");
+    assertTrue(retried.containsKey("field3"));
+    assertTrue(
+        ((Map<String, Object>)
+                ((Map<String, Object>) retried.get(STRUCTURED_PROPERTY_MAPPING_FIELD))
+                    .get("properties"))
+            .isEmpty());
+  }
+
+  @Test
+  void testApplyMappings_PutFailureWithoutNewStructuredPropertiesPropagates() throws IOException {
+    ReindexConfig indexState =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .currentMappings(Map.of("properties", Map.of("field1", Map.of("type", "text"))))
+            .targetMappings(
+                Map.of(
+                    "properties",
+                    Map.of("field1", Map.of("type", "text"), "field3", Map.of("type", "keyword"))))
+            .build();
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(new RuntimeException("mapper conflict"));
+
+    assertThrows(
+        RuntimeException.class, () -> indexBuilder.applyMappings(opContext, indexState, true));
+    verify(searchClient, times(1))
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
   }
 
   @Test

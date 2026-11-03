@@ -23,7 +23,9 @@ public class StructuredPropertiesConfiguration {
   /**
    * Whether system-update may reindex an entity search index because its structured-property
    * mappings differ from the definitions: a removed property, or a type or {@code copy_to}
-   * mismatch. Without it those differences wait for an explicit reindex.
+   * mismatch. Necessary but not sufficient: the reindex also needs mappings reindex enabled, and a
+   * type or {@code copy_to} mismatch also needs {@link #typeMismatchReindexEnabled} or {@link
+   * #copyToMismatchReindexEnabled}. Without them the difference waits for an explicit reindex.
    */
   private boolean systemUpdateEnabled;
 

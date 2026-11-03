@@ -33,6 +33,12 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
    */
   private static ESIndexBuilder builderForExistingIndex(Map<String, Object> currentMappings)
       throws Exception {
+    return builderForExistingIndex(currentMappings, mock(StructuredPropertiesConfiguration.class));
+  }
+
+  private static ESIndexBuilder builderForExistingIndex(
+      Map<String, Object> currentMappings, StructuredPropertiesConfiguration structPropConfig)
+      throws Exception {
     SearchClientShim<?> searchClient = mock(SearchClientShim.class, RETURNS_DEEP_STUBS);
     when(searchClient.indexExists(any(), any(), any())).thenReturn(true);
     when(searchClient.getIndexSettings(any(), any(), any()).getIndexToSettings())
@@ -47,13 +53,7 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
     GitVersion gitVersion = mock(GitVersion.class);
     when(gitVersion.getVersion()).thenReturn("test");
     ESIndexBuilder builder =
-        spy(
-            new ESIndexBuilder(
-                searchClient,
-                config,
-                mock(StructuredPropertiesConfiguration.class),
-                Map.of(),
-                gitVersion));
+        spy(new ESIndexBuilder(searchClient, config, structPropConfig, Map.of(), gitVersion));
     doReturn(false).when(builder).isOpenSearch29OrHigher(any());
     return builder;
   }
@@ -228,5 +228,63 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
         mergedSpFields.containsKey("propertyA"),
         "merge must land on a target without a properties entry");
     assertTrue(immutableTarget.isEmpty(), "caller's map untouched");
+  }
+
+  /**
+   * With structured properties enabled and the system-update reindex gate off (the defaults), the
+   * target comes from the definitions: a field the live index holds without a definition is left
+   * out, a dynamically mapped field takes its definition's type, and neither difference triggers a
+   * reindex.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testBuildReindexStateTargetsDefinitionsWhenEnabled() throws Exception {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Object> currentMappings =
+        Map.of(
+            "properties",
+            Map.of(
+                "structuredProperties",
+                Map.of(
+                    "dynamic",
+                    "false",
+                    "properties",
+                    Map.of(
+                        "stale", Map.of("type", "keyword"),
+                        "propertyA", Map.of("type", "text")))));
+    ESIndexBuilder builder =
+        builderForExistingIndex(
+            currentMappings,
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(false)
+                .typeMismatchReindexEnabled(true)
+                .build());
+    Map<String, Object> definitionTarget =
+        Map.of(
+            "properties",
+            Map.of(
+                "structuredProperties",
+                Map.of(
+                    "type",
+                    "object",
+                    "dynamic",
+                    false,
+                    "properties",
+                    Map.of("propertyA", Map.of("type", "keyword")))));
+
+    ReindexConfig result =
+        builder.buildReindexState(opContext, INDEX, definitionTarget, Map.of(), false);
+
+    Map<String, Object> targetFields =
+        (Map<String, Object>)
+            ((Map<String, Object>)
+                    ((Map<String, Object>) result.targetMappings().get("properties"))
+                        .get("structuredProperties"))
+                .get("properties");
+    assertEquals(targetFields, Map.of("propertyA", Map.of("type", "keyword")));
+    assertTrue(result.hasRemovedStructuredProperty());
+    assertTrue(result.hasStructuredPropertyTypeMismatch());
+    assertFalse(result.requiresReindex());
   }
 }

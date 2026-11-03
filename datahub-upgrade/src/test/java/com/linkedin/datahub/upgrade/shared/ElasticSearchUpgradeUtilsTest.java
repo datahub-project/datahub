@@ -301,10 +301,10 @@ public class ElasticSearchUpgradeUtilsTest {
     activeStatus.setRemoved(false);
 
     when(aspect1.getUrn()).thenReturn(urn1.toString());
-    when(aspect1.getMetadata()).thenReturn("{}"); // JSON string representation
+    when(aspect1.getMetadata()).thenReturn(RecordUtils.toJsonString(def1));
 
     when(aspect2.getUrn()).thenReturn(urn2.toString());
-    when(aspect2.getMetadata()).thenReturn("{}"); // JSON string representation
+    when(aspect2.getMetadata()).thenReturn(RecordUtils.toJsonString(def2));
 
     when(freshMockAspectDao.streamAspects(anyString(), anyString()))
         .thenReturn(Stream.empty()) // First call for removed properties (none)
@@ -319,6 +319,74 @@ public class ElasticSearchUpgradeUtilsTest {
     // Verify both properties are returned
     assertTrue(result.stream().anyMatch(pair -> pair.getFirst().equals(urn1)));
     assertTrue(result.stream().anyMatch(pair -> pair.getFirst().equals(urn2)));
+  }
+
+  @Test
+  public void testGetActiveStructuredPropertiesDefinitionsSkipsUnmappableDefinition() {
+    AspectDao freshMockAspectDao = mock(AspectDao.class);
+    Urn validUrn = UrnUtils.getUrn("urn:li:structuredProperty:valid");
+    StructuredPropertyDefinition valid = new StructuredPropertyDefinition();
+    valid.setQualifiedName("valid.property");
+    EntityAspect validAspect = mock(EntityAspect.class);
+    when(validAspect.getUrn()).thenReturn(validUrn.toString());
+    when(validAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(valid));
+    // A space in the qualified name has no search field name; older definitions can carry one.
+    StructuredPropertyDefinition spaced = new StructuredPropertyDefinition();
+    spaced.setQualifiedName("has space");
+    EntityAspect spacedAspect = mock(EntityAspect.class);
+    when(spacedAspect.getUrn()).thenReturn("urn:li:structuredProperty:spaced");
+    when(spacedAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(spaced));
+    EntityAspect unreadableAspect = mock(EntityAspect.class);
+    when(unreadableAspect.getUrn()).thenReturn("urn:li:structuredProperty:unreadable");
+    when(unreadableAspect.getMetadata()).thenReturn("not json");
+    when(freshMockAspectDao.streamAspects(anyString(), anyString()))
+        .thenReturn(Stream.empty())
+        .thenReturn(Stream.of(spacedAspect, unreadableAspect, validAspect));
+
+    Set<Pair<Urn, StructuredPropertyDefinition>> result =
+        ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(freshMockAspectDao);
+
+    assertEquals(result.size(), 1);
+    assertEquals(result.iterator().next().getFirst(), validUrn);
+  }
+
+  @Test
+  public void testGetActiveStructuredPropertiesDefinitionsReadsLatestVersionsOnly() {
+    AspectDao freshMockAspectDao = mock(AspectDao.class);
+    Urn urn = UrnUtils.getUrn("urn:li:structuredProperty:restored");
+    // The property was soft deleted once (version 1) and restored (version 0).
+    Status removed = new Status();
+    removed.setRemoved(true);
+    EntityAspect oldStatus = mock(EntityAspect.class);
+    when(oldStatus.getUrn()).thenReturn(urn.toString());
+    when(oldStatus.getVersion()).thenReturn(1L);
+    when(oldStatus.getMetadata()).thenReturn(RecordUtils.toJsonString(removed));
+    Status restored = new Status();
+    restored.setRemoved(false);
+    EntityAspect latestStatus = mock(EntityAspect.class);
+    when(latestStatus.getUrn()).thenReturn(urn.toString());
+    when(latestStatus.getMetadata()).thenReturn(RecordUtils.toJsonString(restored));
+    StructuredPropertyDefinition oldDefinition = new StructuredPropertyDefinition();
+    oldDefinition.setQualifiedName("restored.old");
+    EntityAspect oldDefinitionAspect = mock(EntityAspect.class);
+    when(oldDefinitionAspect.getUrn()).thenReturn(urn.toString());
+    when(oldDefinitionAspect.getVersion()).thenReturn(1L);
+    when(oldDefinitionAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(oldDefinition));
+    StructuredPropertyDefinition definition = new StructuredPropertyDefinition();
+    definition.setQualifiedName("restored.property");
+    EntityAspect definitionAspect = mock(EntityAspect.class);
+    when(definitionAspect.getUrn()).thenReturn(urn.toString());
+    when(definitionAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(definition));
+    // Cassandra streams every version of an aspect.
+    when(freshMockAspectDao.streamAspects(anyString(), anyString()))
+        .thenReturn(Stream.of(oldStatus, latestStatus))
+        .thenReturn(Stream.of(oldDefinitionAspect, definitionAspect));
+
+    Set<Pair<Urn, StructuredPropertyDefinition>> result =
+        ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(freshMockAspectDao);
+
+    assertEquals(result.size(), 1);
+    assertEquals(result.iterator().next().getSecond().getQualifiedName(), "restored.property");
   }
 
   @Test

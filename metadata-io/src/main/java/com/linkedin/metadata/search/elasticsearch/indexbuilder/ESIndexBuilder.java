@@ -870,8 +870,30 @@ public class ESIndexBuilder {
       // put-mapping onto an existing index must not relabel it, so the stamp never travels here.
       Map<String, Object> mappings = new HashMap<>(mappingsToPut);
       mappings.remove(V3DocumentIdScheme.META);
-      PutMappingRequest request = new PutMappingRequest(indexState.name()).source(mappings);
-      searchClient.putIndexMapping(opContext, request, requestOptionsLong);
+      try {
+        searchClient.putIndexMapping(
+            opContext,
+            new PutMappingRequest(indexState.name()).source(mappings),
+            requestOptionsLong);
+      } catch (IOException | RuntimeException e) {
+        // New structured-property fields can push an index past its total-fields limit. They wait
+        // for the next definition upsert or reindex instead of blocking the index's other changes.
+        // Against itself every structured-property field counts as mapped, so this drops them all.
+        Map<String, Object> withoutStructuredPropertyFields =
+            ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(mappings, mappings);
+        if (withoutStructuredPropertyFields == mappings) {
+          throw e;
+        }
+        log.error(
+            "Index: {} - Put-mapping with new structured property fields failed, applying the"
+                + " other mapping changes without them",
+            indexState.name(),
+            e);
+        searchClient.putIndexMapping(
+            opContext,
+            new PutMappingRequest(indexState.name()).source(withoutStructuredPropertyFields),
+            requestOptionsLong);
+      }
       log.info("Updated index {} with new mappings", indexState.name());
     } else {
       // Reached when the mappings differ but put-mapping cannot express the diff: not a pure

@@ -643,7 +643,13 @@ public class ReindexConfig {
         Pair<Long, Long> spDiffCount =
             structuredPropertiesDiffCount(super.currentMappings, super.targetMappings);
         super.hasNewStructuredProperty = spDiffCount.getSecond() > 0;
-        super.hasRemovedStructuredProperty = spDiffCount.getFirst() > 0;
+        // A target without the structuredProperties container does not manage structured
+        // properties (LoadIndices builds its configs from empty targets), so the live fields are
+        // not removals there.
+        super.hasRemovedStructuredProperty =
+            spDiffCount.getFirst() > 0
+                && getOrDefault(super.targetMappings, List.of(PROPERTIES))
+                    .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD);
         // calculateMapDifference strips the structuredProperties subtree from mappingsDiff (by
         // name via isKnownDynamicField). Detect type conflicts (e.g. float vs double) separately
         // so system-update can reindex indices that locked the wrong type via dynamic mapping on
