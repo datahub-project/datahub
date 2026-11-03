@@ -19,24 +19,28 @@ env:
         "key": "ING",
         "team_id": "b1c9a278-522e-47cb-81af-8b860ead0c76",
         "assignee_id": "bc8e2a72-2aaa-44df-a54d-2bcbe44fbf20",
+        "extra_label_ids": ["f66795cd-4fa2-4d8b-9018-f0a1a89f7f87"],
         "description": "Python ingestion framework, connectors, sources, and CLI tools for extracting metadata from external data sources. Any PR touching metadata-ingestion/ or metadata-ingestion-modules/ belongs to this team."
       },
       {
         "key": "CAT",
         "team_id": "56af88f4-c7c2-40f6-9858-dcba33a5f55e",
         "assignee_id": "11af987f-3b7c-4a84-bcff-a76659fdfe70",
+        "extra_label_ids": ["50118e2a-872b-49a3-a233-2ebc2b1ecc51"],
         "description": "DataHub frontend (React/TypeScript, datahub-web-react), GraphQL API layer (datahub-graphql-core), and application-layer GMS services including auth, search API, entity services, and REST/OpenAPI endpoints"
       },
       {
         "key": "PFP",
         "team_id": "71e24163-bc3b-4dfb-bba5-3acb822830e3",
         "assignee_id": "854a61e3-dba9-4293-b527-f953bd742201",
+        "extra_label_ids": ["109b55ae-afbd-41a1-878e-348f5086c310"],
         "description": "Platform infrastructure — Ebean/database storage layer, Elasticsearch indexing, Kafka consumers (MAE/MCE/PE), GMS infrastructure (factories, wiring), metadata-utils, Docker, and Kubernetes"
       },
       {
         "key": "OBS",
         "team_id": "1a592e48-d6ba-4b92-a241-8172b568e9bb",
         "assignee_id": "f81f2754-6338-467c-9c91-a12e727b4c36",
+        "extra_label_ids": ["81fd32f2-aba1-4438-ac4a-24f5e4de3b5b"],
         "description": "Data Quality and Assertions. Any PR touching the Assertions/Monitors or Incidents codebase belongs to this team."
       },
       {
@@ -229,6 +233,7 @@ jobs:
             echo "team_key=$TEAM_KEY"
             echo "team_id=$(echo "$TEAM_CONFIG" | jq -r '.team_id')"
             echo "assignee_id=$(echo "$TEAM_CONFIG" | jq -r '.assignee_id')"
+            echo "label_ids=$(echo "$TEAM_CONFIG" | jq -c '["bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f"] + (.extra_label_ids // [])')"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create Linear Ticket for PR
@@ -249,6 +254,7 @@ jobs:
           TEAM_KEY: ${{ steps.route-team.outputs.team_key }}
           TEAM_ID: ${{ steps.route-team.outputs.team_id }}
           ASSIGNEE_ID: ${{ steps.route-team.outputs.assignee_id }}
+          LABEL_IDS: ${{ steps.route-team.outputs.label_ids }}
         run: |
           if [ -z "$PR_BODY" ]; then
             PR_BODY="No description provided"
@@ -306,12 +312,12 @@ jobs:
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\", \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\", \"labelIds\": $LABEL_IDS}}}")
           else
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"labelIds\": $LABEL_IDS}}}")
           fi
 
           if [ -z "$RESPONSE" ]; then
@@ -470,6 +476,7 @@ jobs:
             echo "team_key=$TEAM_KEY"
             echo "team_id=$(echo "$TEAM_CONFIG" | jq -r '.team_id')"
             echo "assignee_id=$(echo "$TEAM_CONFIG" | jq -r '.assignee_id')"
+            echo "label_ids=$(echo "$TEAM_CONFIG" | jq -c '["bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f"] + (.extra_label_ids // [])')"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create Linear Ticket for Issue
@@ -486,6 +493,7 @@ jobs:
           TEAM_KEY: ${{ steps.route-team.outputs.team_key }}
           TEAM_ID: ${{ steps.route-team.outputs.team_id }}
           ASSIGNEE_ID: ${{ steps.route-team.outputs.assignee_id }}
+          LABEL_IDS: ${{ steps.route-team.outputs.label_ids }}
         run: |
           # Deduplication guard
           if COMMENTS_JSON=$(gh issue view "$ISSUE_NUMBER" --json comments 2>/dev/null); then
@@ -526,12 +534,12 @@ jobs:
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\", \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\", \"labelIds\": $LABEL_IDS}}}")
           else
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"labelIds\": $LABEL_IDS}}}")
           fi
 
           if [ -z "$RESPONSE" ]; then
