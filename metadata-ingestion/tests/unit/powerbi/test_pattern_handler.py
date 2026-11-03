@@ -1010,7 +1010,7 @@ def test_odbc_three_tier_database_table_backfills_schema_from_dsn_mapping():
     warning and dropping lineage.
     """
     instance = _build_odbc_lineage(
-        dsn_to_database_schema={"snow_dsn": "ANALYTICS.PUBLIC"},
+        dsn_to_database_schema={"snow_dsn": "OTHER_DB.PUBLIC"},
     )
     detail = DataAccessFunctionDetail(
         arg_list={},
