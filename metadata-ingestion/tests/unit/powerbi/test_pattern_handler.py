@@ -8,7 +8,7 @@ end-to-end coverage lives in ``tests/integration/powerbi/test_m_parser.py``.
 """
 
 from contextlib import AbstractContextManager
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1057,6 +1057,83 @@ def test_odbc_three_tier_database_table_without_schema_warns_and_skips(
     assert [w.title for w in instance.reporter.warnings] == [
         "Can not determine qualified table name"
     ]
+
+
+@pytest.mark.parametrize(
+    "powerbi_platform, platform, expected",
+    [
+        ("Oracle", "oracle", "sales.orders"),
+        ("Hive", "hive", "sales.orders"),
+        ("Amazon Athena", "athena", "sales.orders"),
+    ],
+)
+def test_odbc_navigation_schema_wins_over_two_part_dsn_mapping(
+    powerbi_platform: str, platform: str, expected: str
+) -> None:
+    """A navigation Schema must beat the schema segment of a two-part mapping."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"d": "other_db.other_schema"}
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Schema", "SALES"), ("Table", "ORDERS")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name=powerbi_platform,
+        datahub_data_platform_name=platform,
+    )
+
+    result = instance.expression_lineage(
+        detail, platform, pair, server_name="dsn", dsn="d"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{expected},PROD)"
+    ]
+
+
+@pytest.mark.parametrize(
+    "navigation, expected_urns, expected_titles",
+    [
+        # An empty Database name is absent, so the Schema is the database.
+        (
+            [("Database", ""), ("Schema", "sales"), ("Table", "orders")],
+            ["urn:li:dataset:(urn:li:dataPlatform:mysql,sales.orders,PROD)"],
+            [],
+        ),
+        # An empty Table name is no table, not a "db." URN.
+        (
+            [("Database", "sales"), ("Table", "")],
+            [],
+            ["ODBC navigation has no table"],
+        ),
+    ],
+    ids=["empty-database", "empty-table"],
+)
+def test_odbc_navigation_treats_empty_names_as_missing(
+    navigation: List[Tuple[str, str]],
+    expected_urns: List[str],
+    expected_titles: List[str],
+) -> None:
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(*navigation),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="MySQL", datahub_data_platform_name="mysql"
+    )
+
+    result = instance.expression_lineage(
+        detail, "mysql", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == expected_urns
+    assert [w.title for w in instance.reporter.warnings] == expected_titles
 
 
 @pytest.mark.parametrize(

@@ -1952,8 +1952,11 @@ def test_get_workunits_internal_warns_once_per_unmatched_athena_override():
         for w in source.reporter.warnings
         if w.title == "Athena table platform override never matched"
     ]
+    # Same-title warnings are merged into one entry, so also check the applied
+    # override's context was never added.
     assert len(unmatched) == 1
     assert "table=ordres" in str(unmatched[0].context)
+    assert "table=orders" not in str(unmatched[0].context)
 
 
 def test_get_workunits_internal_skips_unmatched_override_warning_without_lineage():
