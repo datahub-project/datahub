@@ -159,6 +159,7 @@ class Constant:
     ACTIVE = ACTIVE_WORKSPACE_STATE
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     EXTERNAL_QUERY_NOT_MAPPED = "BigQuery EXTERNAL_QUERY connection not mapped"
+    M_QUERY_NAVIGATION_UNRESOLVED = "M-Query navigation not resolved to a table"
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
     USERS = "users"

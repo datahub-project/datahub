@@ -10,7 +10,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 :::info Context add-on
-Agents and scoped MCP servers are part of the DataHub Cloud **Context** add-on, currently in Public Beta.
+Agents and scoped MCP servers are part of the DataHub Cloud **Context** add-on.
 :::
 
 Your agent, such as Claude, ChatGPT, Copilot, CrewAI, or a LangChain app, gets a single tool for asking DataHub. It hands each data question to Ask DataHub or a custom DataHub agent, which finds the data, runs the SQL, and returns the answer.
