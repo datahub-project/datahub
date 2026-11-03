@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set
 
 import sqlglot
+from sqlalchemy.dialects.oracle.base import OracleDialect
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -51,6 +52,7 @@ from datahub.ingestion.source.dremio.dremio_naming import (
     DREMIO_DATABASE_NAME,
     DremioSchemaResolver,
     dremio_dataset_name,
+    is_dremio_platform,
 )
 from datahub.ingestion.source.dremio.dremio_profiling import (
     DremioProfiler,
@@ -125,6 +127,30 @@ def passes_dremio_filters(
     return True
 
 
+# The Oracle and SAP HANA connectors read names through SQLAlchemy dialects
+# whose normalize_name lowercases an ALL-UPPERCASE name unless it would then
+# need quoting (a reserved word, or a character such as `#`).
+# ponytail: HANA uses Oracle's reserved words here; a word reserved in only one
+# of them keeps the wrong case. Use the sqlalchemy-hana dialect if that matters.
+_NORMALIZING_DIALECT = OracleDialect()
+
+
+def _match_connector_urn_case(
+    platform: str, parts: List[str], convert_urns_to_lowercase: Optional[bool]
+) -> List[str]:
+    """Lowercase the name parts when asked to, or by default for Snowflake.
+    By default, Oracle's and SAP HANA's ALL-UPPERCASE parts are lowercased like
+    SQLAlchemy's normalize_name. Every other platform keeps Dremio's case."""
+    platform = platform.lower()
+    if convert_urns_to_lowercase is not None:
+        return [p.lower() for p in parts] if convert_urns_to_lowercase else parts
+    if platform == "snowflake":  # convert_urns_to_lowercase defaults to True
+        return [p.lower() for p in parts]
+    if platform in ("oracle", "hana"):
+        return [str(_NORMALIZING_DIALECT.normalize_name(p)) for p in parts]
+    return parts
+
+
 @dataclass
 class DremioSourceMapEntry:
     platform: str
@@ -134,6 +160,56 @@ class DremioSourceMapEntry:
     database_name: str = ""
     platform_instance: Optional[str] = None
     env: Optional[str] = None
+    convert_urns_to_lowercase: Optional[bool] = None
+    # None: unknown, so skip the database only if the path starts with it.
+    database_in_path: Optional[bool] = None
+
+
+def map_dremio_dataset_to_urn(
+    mapping: Optional[DremioSourceMapEntry],
+    dremio_path: List[str],
+    dremio_dataset: str,
+    default_env: str,
+) -> Optional[str]:
+    """The upstream URN on the mapped platform for a Dremio table."""
+    if not mapping or not mapping.platform:
+        return None
+    platform = mapping.platform
+
+    if is_dremio_platform(platform):
+        # A Dremio-to-Dremio source shows the remote Dremio's catalog.
+        name = dremio_dataset_name([*dremio_path[1:], dremio_dataset])
+    elif mapping.dremio_source_category == "file_object_storage":
+        # Object keys are case-sensitive; a root path of `/` adds nothing.
+        name = "/".join(
+            part
+            for part in [mapping.root_path.strip("/"), *dremio_path[1:], dremio_dataset]
+            if part
+        )
+    else:
+        parts = [*dremio_path[1:], dremio_dataset]
+        database = mapping.database_name
+        if database and (
+            mapping.database_in_path is False
+            or (
+                mapping.database_in_path is None
+                and (len(parts) < 2 or parts[0].lower() != database.lower())
+            )
+        ):
+            # The Db2 connector uppercases the database.
+            parts.insert(0, database.upper() if platform.lower() == "db2" else database)
+        name = ".".join(
+            _match_connector_urn_case(
+                platform, parts, mapping.convert_urns_to_lowercase
+            )
+        )
+
+    return make_dataset_urn_with_platform_instance(
+        platform=platform.lower(),
+        name=name,
+        platform_instance=mapping.platform_instance,
+        env=mapping.env or default_env,
+    )
 
 
 @platform_name("Dremio")
@@ -346,10 +422,24 @@ class DremioSource(StatefulIngestionSourceBase):
     def _validate_source_mappings(
         self, source_map: Dict[str, DremioSourceMapEntry]
     ) -> None:
+        listed = {m.source_name.lower() for m in self.config.source_mappings or []}
+        for source_name in sorted(listed - source_map.keys()):
+            # A schema_pattern that allows only paths below the source also
+            # filters out the source container, so it never reaches the map.
+            self.report.warning(
+                message="source_mappings entry matches no ingested Dremio source, so no upstream lineage is emitted for it. Check that schema_pattern allows the source itself, e.g. ^MY_SRC($|\\..*)",
+                context=f"source={source_name}",
+            )
         for source_name, mapping in source_map.items():
+            if mapping.dremio_source_category == "unknown":
+                self.report.warning(
+                    message="Dremio source type has no built-in category, so its upstream URNs may be wrong. Register it with source_type_mappings",
+                    context=f"source={source_name}, platform={mapping.platform}",
+                )
             if (
-                mapping.platform
-                and mapping.platform.lower() != "dremio"
+                source_name in listed
+                and mapping.platform
+                and not is_dremio_platform(mapping.platform)
                 and not mapping.platform_instance
             ):
                 self.report.warning(
@@ -544,6 +634,9 @@ class DremioSource(StatefulIngestionSourceBase):
                 logger.debug(f"Upstream dataset for {dataset_urn}: {upstream_urn}")
 
                 if upstream_urn:
+                    self.report.source_mapping_sample_upstream_urns.setdefault(
+                        dremio_source.lower(), upstream_urn
+                    )
                     upstream_lineage = UpstreamLineage(
                         upstreams=[
                             UpstreamClass(
@@ -795,47 +888,11 @@ class DremioSource(StatefulIngestionSourceBase):
         dremio_path: List[str],
         dremio_dataset: str,
     ) -> Optional[str]:
-        """
-        Map a Dremio dataset to a DataHub URN.
-        """
-        mapping = self.source_map.get(dremio_source.lower())
-        if not mapping:
-            return None
-
-        platform = mapping.platform
-        if not platform:
-            return None
-
-        platform_instance = mapping.platform_instance
-        env = mapping.env or self.config.env
-
-        root_path = ""
-        database_name = ""
-
-        if mapping.dremio_source_category == "file_object_storage":
-            if mapping.root_path:
-                root_path = f"{mapping.root_path[1:]}/"
-            dremio_dataset = f"{root_path}{'/'.join(dremio_path[1:])}/{dremio_dataset}"
-        else:
-            if mapping.database_name:
-                database_name = f"{mapping.database_name}."
-            dremio_dataset = (
-                f"{database_name}{'.'.join(dremio_path[1:])}.{dremio_dataset}"
-            )
-
-        if platform_instance:
-            return make_dataset_urn_with_platform_instance(
-                platform=platform.lower(),
-                name=dremio_dataset,
-                platform_instance=platform_instance,
-                env=env,
-            )
-
-        return make_dataset_urn_with_platform_instance(
-            platform=platform.lower(),
-            name=dremio_dataset,
-            platform_instance=None,
-            env=env,
+        return map_dremio_dataset_to_urn(
+            self.source_map.get(dremio_source.lower()),
+            dremio_path,
+            dremio_dataset,
+            self.config.env,
         )
 
     def get_report(self) -> SourceReport:
@@ -879,8 +936,9 @@ def build_dremio_source_map(
         source_type = source.dremio_source_type.lower()
         source_category = mapper.lookup_category(source_type)
         datahub_platform = mapper.lookup_datahub_platform(source_type)
-        root_path = source.root_path.lower() if source.root_path else ""
-        database_name = source.database_name.lower() if source.database_name else ""
+        root_path = source.root_path or ""
+        database_name = source.database_name or ""
+        database_in_path = mapper.lookup_database_in_path(source_type)
         source_present = False
 
         for mapping in source_mappings_config:
@@ -893,6 +951,8 @@ def build_dremio_source_map(
                     database_name=database_name,
                     platform_instance=mapping.platform_instance,
                     env=mapping.env,
+                    convert_urns_to_lowercase=mapping.convert_urns_to_lowercase,
+                    database_in_path=database_in_path,
                 )
                 source_present = True
                 break
@@ -906,6 +966,7 @@ def build_dremio_source_map(
                 database_name=database_name,
                 platform_instance=None,
                 env=None,
+                database_in_path=database_in_path,
             )
 
     return source_map
