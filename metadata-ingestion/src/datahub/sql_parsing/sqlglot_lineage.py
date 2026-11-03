@@ -2338,8 +2338,11 @@ def _try_extract_select(
         #   Should create: downstream=col_a, upstream=col_b
         #   Without fix:   downstream=col_b, upstream=col_b (WRONG!)
         if (
-            statement.this
-            and hasattr(statement.this, "expressions")
+            # Only a Schema target carries an INSERT column list. Other targets
+            # can also expose expressions - e.g. a ClickHouse table function in
+            # INSERT INTO FUNCTION remote(...) SELECT ..., whose expressions are
+            # function arguments, not column names - and must not be mapped.
+            isinstance(statement.this, sqlglot.exp.Schema)
             and statement.this.expressions
             and isinstance(select_statement, sqlglot.exp.Select)
         ):
@@ -2354,11 +2357,19 @@ def _try_extract_select(
                 for insert_col, select_expr in zip(
                     insert_columns, select_expressions, strict=False
                 ):
-                    insert_col_name = (
-                        insert_col.alias_or_name
-                        if hasattr(insert_col, "alias_or_name")
-                        else str(insert_col)
-                    )
+                    # Reuse the INSERT column's own Identifier as the alias so
+                    # its quoting is preserved: rebuilding one from the name
+                    # string would drop the quoted flag, and a quoted
+                    # mixed-case target would then fold to lowercase on
+                    # dialects like Postgres, Redshift, and DuckDB.
+                    if isinstance(insert_col, sqlglot.exp.Identifier):
+                        insert_col_identifier = insert_col.copy()
+                    else:
+                        insert_col_identifier = sqlglot.exp.to_identifier(
+                            insert_col.alias_or_name
+                            if hasattr(insert_col, "alias_or_name")
+                            else str(insert_col)
+                        )
                     # Create an explicit Alias node: expr AS insert_col_name
                     # The Alias node should survive optimization better than just setting alias property.
                     # If the SELECT expression already has an alias, replace it instead of
@@ -2370,7 +2381,7 @@ def _try_extract_select(
                         expr_to_alias = expr_to_alias.this
                     aliased_expr = sqlglot.exp.Alias(
                         this=expr_to_alias,
-                        alias=sqlglot.exp.to_identifier(insert_col_name),
+                        alias=insert_col_identifier,
                     )
                     new_selects.append(aliased_expr)
 
