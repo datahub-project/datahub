@@ -105,6 +105,14 @@ def make_notebook_name(workspace_id: str, notebook_id: str) -> str:
     return f"{workspace_id}{URN_PATTERN_SEPARATOR}{notebook_id}"
 
 
+def make_eventstream_flow_id(workspace_id: str, eventstream_id: str) -> str:
+    """Generate flow ID for an Eventstream modelled as its own pipeline.
+
+    Flow ID format: {workspaceGUID}.{eventstreamGUID}
+    """
+    return f"{workspace_id}{URN_PATTERN_SEPARATOR}{eventstream_id}"
+
+
 def make_notebook_flow_id(workspace_id: str, notebook_id: str) -> str:
     """Generate flow ID for a notebook modelled as its own pipeline (DataFlow).
 

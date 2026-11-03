@@ -71,7 +71,7 @@ The service principal or user must have the following Microsoft Entra API permis
 
 - `Workspace.Read.All` (delegated) - Required to list and read workspace metadata
 - Or `Workspace.ReadWrite.All` (delegated) - Provides read and write access
-- `Eventstream.Read.All` or `Item.Read.All` - Required only when `eventstream.enabled` is true, to list eventstreams and read each item's topology
+- `Eventstream.Read.All` or `Item.Read.All` - Required only when `extract_eventstream.enabled` is true, to list eventstreams and read each item's topology
 
 **Token Audiences:**
 The connector uses two different token audiences depending on the operation:

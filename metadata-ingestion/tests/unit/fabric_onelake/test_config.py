@@ -317,26 +317,28 @@ class TestSqlEndpointDependencyValidator:
     def test_eventstream_defaults_off(self) -> None:
         """Eventstream ingestion is opt-in and does not keep connection secrets."""
         config = FabricOneLakeSourceConfig(credential=AzureCredentialConfig())
-        assert not config.eventstream.enabled
-        assert config.eventstream.include_topology
-        assert not config.eventstream.include_connection_properties
-        assert config.eventstream.eventstream_pattern.is_allow_all()
-        assert config.eventstream.source_type_pattern.is_allow_all()
-        assert config.eventstream.destination_type_pattern.is_allow_all()
+        assert not config.extract_eventstream.enabled
+        assert config.extract_eventstream.include_topology
+        assert not config.extract_eventstream.include_connection_properties
+        assert config.extract_eventstream.eventstream_pattern.is_allow_all()
+        assert config.extract_eventstream.source_type_pattern.is_allow_all()
+        assert config.extract_eventstream.destination_type_pattern.is_allow_all()
 
     def test_eventstream_pattern_filters_display_name(self) -> None:
         config = FabricOneLakeSourceConfig(
             credential=AzureCredentialConfig(),
-            eventstream=EventstreamConfig(
+            extract_eventstream=EventstreamConfig(
                 enabled=True,
                 eventstream_pattern={"allow": ["^orders-"]},
             ),
         )
-        assert config.eventstream.eventstream_pattern.allowed("orders-live")
-        assert not config.eventstream.eventstream_pattern.allowed("clicks-live")
+        assert config.extract_eventstream.eventstream_pattern.allowed("orders-live")
+        assert not config.extract_eventstream.eventstream_pattern.allowed("clicks-live")
 
     def test_eventstream_topology_filters_require_topology(self) -> None:
-        with pytest.raises(ValidationError, match="include_topology"):
+        with pytest.raises(
+            ValidationError, match="extract_eventstream.include_topology"
+        ):
             EventstreamConfig(
                 include_topology=False,
                 include_connection_properties=True,

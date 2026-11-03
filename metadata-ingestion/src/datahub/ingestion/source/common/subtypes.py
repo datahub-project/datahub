@@ -237,6 +237,8 @@ class DataFlowSubTypes(StrEnum):
     # Microsoft Fabric — a notebook modelled as its own pipeline (DataFlow), with
     # its Spark executions as DataJobs rolling up to it.
     FABRIC_SPARK_PIPELINE = "Fabric Spark Pipeline"
+    # Microsoft Fabric — one Eventstream item modelled as its own pipeline.
+    FABRIC_EVENTSTREAM = "Fabric Eventstream"
 
 
 class DataJobSubTypes(StrEnum):
@@ -295,6 +297,10 @@ class DataJobSubTypes(StrEnum):
     # A Fabric notebook's executed Spark application, rolled up to the notebook
     # pipeline (DataFlow). Carries the Spark-plan table lineage.
     FABRIC_SPARK_JOB = "Fabric Spark Job"
+    FABRIC_EVENTSTREAM_SOURCE = "Fabric Eventstream Source"
+    FABRIC_EVENTSTREAM_DESTINATION = "Fabric Eventstream Destination"
+    FABRIC_EVENTSTREAM_OPERATOR = "Fabric Eventstream Operator"
+    FABRIC_EVENTSTREAM_STREAM = "Fabric Eventstream Stream"
     FABRIC_OFFICE365_EMAIL = "Office 365 Email"
     FABRIC_EMAIL_ACTIVITY = "Email Activity"
     FABRIC_TEAMS_ACTIVITY = "Teams Activity"

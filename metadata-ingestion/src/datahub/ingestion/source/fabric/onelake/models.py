@@ -99,6 +99,18 @@ class FabricTableSchema:
 
 
 @dataclass
+class FabricEventstream:
+    """A Fabric Eventstream item from GET /workspaces/{id}/eventstreams."""
+
+    id: str
+    display_name: str
+    workspace_id: str
+    description: Optional[str] = None
+    owner_user_principal_name: Optional[str] = None
+    sensitivity_label_id: Optional[str] = None
+
+
+@dataclass
 class FabricQueryInsightsRow:
     """A single row from `queryinsights.exec_requests_history`.
 

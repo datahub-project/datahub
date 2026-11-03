@@ -147,7 +147,7 @@ source:
     # (sources, destinations, operators, streams).
     # Requires Eventstream.Read.All or Item.Read.All.
     # https://learn.microsoft.com/en-us/rest/api/fabric/eventstream/topology/get-eventstream-topology
-    # eventstream:
+    # extract_eventstream:
     #   enabled: false
     #   eventstream_pattern:
     #     allow:

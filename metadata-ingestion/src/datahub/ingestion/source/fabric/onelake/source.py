@@ -8,6 +8,7 @@ This connector extracts metadata from Microsoft Fabric OneLake including:
 - Tables as Datasets with schema metadata
 - Views as Datasets with view definition and lineage parsed from the view SQL
 - Notebooks as Datasets with subtype Notebook, including fabricGitSource contents
+- Eventstreams as pipelines, with topology nodes as jobs, when extract_eventstream is enabled
 """
 
 import logging
@@ -71,6 +72,7 @@ from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceCo
 from datahub.ingestion.source.fabric.onelake.constants import (
     FABRIC_SQL_DEFAULT_SCHEMA,
 )
+from datahub.ingestion.source.fabric.onelake.eventstreams import process_eventstreams
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
     FabricLakehouse,
@@ -217,7 +219,9 @@ class WarehouseSchemaKey(WarehouseKey):
     "`notebook_execution.enabled` is set, each notebook is modelled as a "
     "pipeline (DataFlow) with one Spark-job DataJob per table it writes, whose "
     "input tables are recovered from each run's Spark physical plans and "
-    "resolved against ingested tables.",
+    "resolved against ingested tables. When `extract_eventstream.enabled` is "
+    "set, each eventstream is a pipeline and its topology nodes are jobs. "
+    "A Lakehouse destination is an outlet of the OneLake table it writes.",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -635,6 +639,19 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 )
 
         yield from self._process_notebooks(workspace)
+        yield from self._process_eventstreams(workspace)
+
+    def _process_eventstreams(self, workspace: FabricWorkspace) -> Iterable[Entity]:
+        """Ingest Eventstream items when extract_eventstream.enabled is set."""
+        yield from process_eventstreams(
+            client=self.client,
+            config=self.config,
+            report=self.report,
+            workspace=workspace,
+            owners_fn=self._owners,
+            normalize_name=self._norm,
+            attach_sensitivity=self._attach_sensitivity,
+        )
 
     def _process_notebooks(
         self, workspace: FabricWorkspace

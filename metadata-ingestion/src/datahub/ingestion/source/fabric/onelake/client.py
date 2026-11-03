@@ -22,6 +22,7 @@ from datahub.ingestion.source.fabric.common.models import (
 from datahub.ingestion.source.fabric.common.utils import parse_iso_datetime
 from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
 from datahub.ingestion.source.fabric.onelake.models import (
+    FabricEventstream,
     FabricLakehouse,
     FabricTable,
     FabricWarehouse,
@@ -246,6 +247,42 @@ class OneLakeClient(BaseFabricClient):
                     annotations.sensitivity_label_id if annotations else None
                 ),
             )
+
+    def list_eventstreams(self, workspace_id: str) -> Iterator[FabricEventstream]:
+        """List Eventstream items in a workspace.
+
+        GET /v1/workspaces/{workspaceId}/eventstreams
+        """
+        logger.info(f"Listing eventstreams for workspace {workspace_id}")
+        for item in self._paginate(f"workspaces/{workspace_id}/eventstreams"):
+            item_id = item.get("id", "")
+            if not item_id:
+                continue
+            annotations = self.get_item_annotations(workspace_id, item_id, listed=item)
+            yield FabricEventstream(
+                id=item_id,
+                display_name=item.get("displayName", ""),
+                workspace_id=workspace_id,
+                description=item.get("description"),
+                owner_user_principal_name=annotations.owner_user_principal_name,
+                sensitivity_label_id=annotations.sensitivity_label_id,
+            )
+
+    def get_eventstream_topology(
+        self, workspace_id: str, eventstream_id: str
+    ) -> Dict[str, object]:
+        """Read one Eventstream's sources, destinations, operators, and streams.
+
+        Reference:
+        https://learn.microsoft.com/en-us/rest/api/fabric/eventstream/topology/get-eventstream-topology
+        """
+        endpoint = f"workspaces/{workspace_id}/eventstreams/{eventstream_id}/topology"
+        payload = self.get(endpoint).json()
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Eventstream topology for {eventstream_id} was not an object"
+            )
+        return payload
 
     def list_folders(self, workspace_id: str) -> Dict[str, Tuple[str, Optional[str]]]:
         """List workspace folders as id -> (display name, parent folder id).

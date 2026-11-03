@@ -53,6 +53,7 @@ class FabricOneLakeSourceReport(
     shortcuts_found: int = 0
     views_scanned: int = 0
     notebooks_scanned: int = 0
+    eventstreams_scanned: int = 0
     notebook_runs_scanned: int = 0
     notebook_spark_sessions_scanned: int = 0
     notebook_spark_lineage_extracted: int = 0
@@ -67,6 +68,8 @@ class FabricOneLakeSourceReport(
     filtered_tables: LossyList[str] = field(default_factory=LossyList)
     filtered_views: LossyList[str] = field(default_factory=LossyList)
     filtered_notebooks: LossyList[str] = field(default_factory=LossyList)
+    filtered_eventstreams: LossyList[str] = field(default_factory=LossyList)
+    filtered_eventstream_nodes: LossyList[str] = field(default_factory=LossyList)
     # Tables and columns skipped by profile_pattern or profiler limits.
     filtered: LossyList[str] = field(default_factory=LossyList)
 
@@ -158,6 +161,18 @@ class FabricOneLakeSourceReport(
     def report_notebook_filtered(self, notebook_path: str) -> None:
         """Record a notebook excluded by notebook_pattern."""
         self.filtered_notebooks.append(notebook_path)
+
+    def report_eventstream_scanned(self) -> None:
+        """Increment eventstreams scanned counter."""
+        self.eventstreams_scanned += 1
+
+    def report_eventstream_filtered(self, eventstream_name: str) -> None:
+        """Record an eventstream excluded by eventstream_pattern."""
+        self.filtered_eventstreams.append(eventstream_name)
+
+    def report_eventstream_node_filtered(self, node_name: str) -> None:
+        """Record a topology node excluded by a source or destination type pattern."""
+        self.filtered_eventstream_nodes.append(node_name)
 
     def report_notebook_run_scanned(self) -> None:
         """Increment notebook runs scanned counter."""

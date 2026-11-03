@@ -257,7 +257,7 @@ class EventstreamConfig(ConfigModel):
             requiring.append("destination_type_pattern")
         if requiring:
             raise ValueError(
-                "eventstream.include_topology must be true when "
+                "extract_eventstream.include_topology must be true when "
                 f"{', '.join(requiring)} is set. Those options apply to the "
                 "topology response."
             )
@@ -511,10 +511,10 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    # Eventstream items. Off unless eventstream.enabled. The source lists
-    # workspaces/{id}/eventstreams and, when include_topology is set, each
-    # item's /topology.
-    eventstream: EventstreamConfig = Field(
+    # Eventstream items. Off unless extract_eventstream.enabled. The source
+    # lists workspaces/{id}/eventstreams and, when include_topology is set,
+    # each item's /topology.
+    extract_eventstream: EventstreamConfig = Field(
         default_factory=EventstreamConfig,
         description=(
             "Eventstream ingestion. Lists eventstreams in each workspace and, "
