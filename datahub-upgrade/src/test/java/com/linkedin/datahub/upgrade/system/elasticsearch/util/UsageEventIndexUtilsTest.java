@@ -30,7 +30,9 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.core.rest.RestStatus;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -46,6 +48,19 @@ public class UsageEventIndexUtilsTest {
   @Mock private ResponseException responseException;
   @Mock private OpenSearchStatusException openSearchStatusException;
   @Mock private OperationContext operationContext;
+
+  // These tests drive UsageEventIndexUtils' real retry paths; the production 2s wait between
+  // attempts would otherwise dominate this class's runtime. Override to ~0 so the retry logic still
+  // runs without the real sleeps. Cleared after the class so it doesn't leak within a JVM fork.
+  @BeforeClass
+  public void disableRetryWaits() {
+    IndexUtils.setRetryWaitOverrideForTesting(Duration.ofMillis(1));
+  }
+
+  @AfterClass
+  public void restoreRetryWaits() {
+    IndexUtils.clearRetryWaitOverrideForTesting();
+  }
 
   @BeforeMethod
   public void setUp() {

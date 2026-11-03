@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { DomainsPaginationContainer } from '@app/domain/DomainsList';
 import CreateDataProductModal from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
 import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductResult';
 import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
@@ -19,8 +18,14 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { DataProduct, Domain, EntityType } from '@types';
 
-const DataProductsPaginationWrapper = styled(DomainsPaginationContainer)`
+const DataProductsPaginationWrapper = styled.div`
+    display: flex;
     justify-content: center;
+    align-items: center;
+    padding: 12px;
+    padding-left: 16px;
+    border-bottom: 1px solid;
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const ResultsWrapper = styled.div`
