@@ -317,6 +317,31 @@ jobs:
           node datahub-web-react/scripts/page-bundle-size.mjs --dist datahub-web-react/dist --check
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      # datahub-frontend's Java tests (and their JaCoCo report) run in this job's Gradle build,
+      # not in frontend-test, so its coverage has to be uploaded from here.
+      - name: Upload datahub-frontend Java coverage to Codecov
+        if: ${{ !cancelled() && github.event_name != 'release' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./build/coverage-reports/datahub-frontend/jacoco-datahub-frontend.xml
+          disable_search: true
+          fail_ci_if_error: false
+          flags: frontend-java
+          name: frontend-java
+          verbose: true
+      - name: Upload datahub-frontend Java coverage to Codecov on Release
+        if: ${{ !cancelled() && github.event_name == 'release' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./build/coverage-reports/datahub-frontend/jacoco-datahub-frontend.xml
+          disable_search: true
+          fail_ci_if_error: false
+          flags: frontend-java
+          name: frontend-java
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload frontend build artifacts
