@@ -434,6 +434,25 @@ public class ElasticSearchUpgradeUtilsTest {
   }
 
   @Test
+  public void testGetStructuredPropertiesForIndexMappingsLoadsOnceOnFirstUse() {
+    AspectDao freshMockAspectDao = mock(AspectDao.class);
+    when(freshMockAspectDao.streamAspects(anyString(), anyString()))
+        .thenReturn(Stream.empty())
+        .thenReturn(Stream.empty());
+
+    Set<Pair<Urn, StructuredPropertyDefinition>> result =
+        ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
+            StructuredPropertiesConfiguration.builder().enabled(true).build(), freshMockAspectDao);
+    // Upgrades are built while Spring starts; the read waits for the step that needs it.
+    verifyNoInteractions(freshMockAspectDao);
+
+    assertTrue(result.isEmpty());
+    assertTrue(result.isEmpty());
+    // One load: the status stream and the definition stream.
+    verify(freshMockAspectDao, times(2)).streamAspects(anyString(), anyString());
+  }
+
+  @Test
   public void testGetStructuredPropertiesForIndexMappingsEmptyWhenDisabled() {
     AspectDao freshMockAspectDao = mock(AspectDao.class);
 

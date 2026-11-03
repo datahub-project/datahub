@@ -234,8 +234,8 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
   /**
    * With structured properties enabled and the system-update reindex gate off (the defaults), the
    * target comes from the definitions: a field the live index holds without a definition is left
-   * out, a dynamically mapped field takes its definition's type, and neither difference triggers a
-   * reindex, even with mappings reindex on.
+   * out, a dynamically mapped field takes its definition's type, a definition the index lacks is
+   * added, and no difference triggers a reindex, even with mappings reindex on.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -272,7 +272,11 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
                     "dynamic",
                     false,
                     "properties",
-                    Map.of("propertyA", Map.of("type", "keyword")))));
+                    Map.of(
+                        "propertyA",
+                        Map.of("type", "keyword"),
+                        "propertyB",
+                        Map.of("type", "double")))));
 
     ReindexConfig result =
         builder.buildReindexState(opContext, INDEX, definitionTarget, Map.of(), false);
@@ -283,7 +287,10 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
                     ((Map<String, Object>) result.targetMappings().get("properties"))
                         .get("structuredProperties"))
                 .get("properties");
-    assertEquals(targetFields, Map.of("propertyA", Map.of("type", "keyword")));
+    assertEquals(
+        targetFields,
+        Map.of("propertyA", Map.of("type", "keyword"), "propertyB", Map.of("type", "double")));
+    assertTrue(result.hasNewStructuredProperty());
     assertTrue(result.hasRemovedStructuredProperty());
     assertTrue(result.hasStructuredPropertyTypeMismatch());
     assertFalse(result.requiresReindex());

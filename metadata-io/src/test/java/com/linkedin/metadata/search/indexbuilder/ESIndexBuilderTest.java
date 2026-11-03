@@ -1320,6 +1320,48 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  void testApplyMappings_RetryFailurePropagates() throws IOException {
+    ReindexConfig indexState =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .currentMappings(Map.of("properties", Map.of("field1", Map.of("type", "text"))))
+            .targetMappings(
+                Map.of(
+                    "properties",
+                    Map.of(
+                        "field1",
+                        Map.of("type", "text"),
+                        "field3",
+                        Map.of("type", "keyword"),
+                        STRUCTURED_PROPERTY_MAPPING_FIELD,
+                        Map.of(
+                            "type",
+                            "object",
+                            "dynamic",
+                            false,
+                            "properties",
+                            Map.of("propC", Map.of("type", "double"))))))
+            .build();
+    // The failure is not about the new property, so the retry without it fails too.
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(new RuntimeException("mapper conflict"));
+
+    assertThrows(
+        RuntimeException.class, () -> indexBuilder.applyMappings(opContext, indexState, true));
+    verify(searchClient, times(2))
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
   void testApplyMappings_DefinitionUpsertPutFailurePropagates() throws IOException {
     // A definition upsert passes suppressError=false; its put exists to add the new property.
     ReindexConfig indexState =

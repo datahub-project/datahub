@@ -6,6 +6,8 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASP
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ForwardingSet;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -24,6 +26,7 @@ import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
@@ -62,8 +65,11 @@ public class ElasticSearchUpgradeUtils {
    * Structured property definitions to build index mapping targets from: the active definitions
    * whenever structured properties are enabled, so a reindex converges each index to them. {@code
    * systemUpdateEnabled} does not gate this; it only decides whether a structured-property
-   * difference may trigger a reindex. On Cassandra each load is a filtering scan of the aspect
-   * table, as it already was when systemUpdateEnabled gated it.
+   * difference may trigger a reindex.
+   *
+   * <p>The definitions load on first use. Upgrades are built while Spring starts, so this keeps a
+   * slow or failed read (on Cassandra each load is a filtering scan of the aspect table) inside the
+   * step that needs them, and an upgrade that never runs never reads them.
    *
    * @param structuredPropertiesConfiguration structured properties configuration
    * @param aspectDao the aspect DAO for database access
@@ -73,9 +79,17 @@ public class ElasticSearchUpgradeUtils {
       getStructuredPropertiesForIndexMappings(
           StructuredPropertiesConfiguration structuredPropertiesConfiguration,
           AspectDao aspectDao) {
-    return structuredPropertiesConfiguration.isEnabled()
-        ? getActiveStructuredPropertiesDefinitions(aspectDao)
-        : Set.of();
+    if (!structuredPropertiesConfiguration.isEnabled()) {
+      return Set.of();
+    }
+    Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> definitions =
+        Suppliers.memoize(() -> getActiveStructuredPropertiesDefinitions(aspectDao));
+    return new ForwardingSet<>() {
+      @Override
+      protected Set<Pair<Urn, StructuredPropertyDefinition>> delegate() {
+        return definitions.get();
+      }
+    };
   }
 
   /**

@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
@@ -512,7 +513,21 @@ public class ESIndexBuilder {
             : mappings;
 
     builder.targetMappings(targetMappings);
-    return builder.build();
+    ReindexConfig config = builder.build();
+    if (!copyStructuredPropertyMappings
+        && config.hasNewStructuredProperty()
+        && !config.requiresApplyMappings()) {
+      Set<String> unmapped =
+          new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(config.targetMappings()));
+      unmapped.removeAll(ReindexConfig.structuredPropertyFieldIds(config.currentMappings()));
+      log.warn(
+          "Index: {} - Structured property fields {} have definitions but no mapping. A definition"
+              + " upsert or a reindex adds them; system-update adds them only alongside other"
+              + " mapping or settings changes.",
+          indexName,
+          unmapped);
+    }
+    return config;
   }
 
   @SuppressWarnings("unchecked")
@@ -888,16 +903,26 @@ public class ESIndexBuilder {
         if (!suppressError || withoutStructuredPropertyFields == mappings) {
           throw e;
         }
-        log.error(
-            "Index: {} - Put-mapping with new structured property fields {} failed, applying the"
-                + " other mapping changes without them",
+        Set<String> newFields = ReindexConfig.structuredPropertyFieldIds(mappings);
+        log.warn(
+            "Index: {} - Put-mapping failed, retrying without the new structured property fields {}",
             indexState.name(),
-            ReindexConfig.structuredPropertyFieldIds(mappings),
+            newFields,
             e);
-        searchClient.putIndexMapping(
-            opContext,
-            new PutMappingRequest(indexState.name()).source(withoutStructuredPropertyFields),
-            requestOptionsLong);
+        try {
+          searchClient.putIndexMapping(
+              opContext,
+              new PutMappingRequest(indexState.name()).source(withoutStructuredPropertyFields),
+              requestOptionsLong);
+        } catch (IOException | RuntimeException retryFailure) {
+          retryFailure.addSuppressed(e);
+          throw retryFailure;
+        }
+        log.error(
+            "Index: {} - Applied the mapping changes without the new structured property fields {};"
+                + " a definition upsert or a reindex adds them",
+            indexState.name(),
+            newFields);
       }
       log.info("Updated index {} with new mappings", indexState.name());
     } else {
