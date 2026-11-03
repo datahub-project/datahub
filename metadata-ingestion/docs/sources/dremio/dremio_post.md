@@ -59,7 +59,7 @@ Each Dremio table in a mapped source gets a COPY upstream on the source platform
   casing, set `convert_urns_to_lowercase` on the mapping, for example `true` for SQL Server
   ingested with `convert_urns_to_lowercase: true` (which that connector recommends for lineage),
   or `false` for Snowflake ingested with `convert_urns_to_lowercase: false`. The option applies to
-  database sources only; object storage paths keep their case.
+  database sources only; object storage and Dremio-to-Dremio mappings ignore it.
 - Set `platform_instance` and `env` on the mapping to the values the target connector uses.
 - `schema_pattern` must allow the source itself, not only paths below it. Otherwise the source
   is filtered out and its tables get no upstream. Use, for example, `^my_src$` together with
