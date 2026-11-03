@@ -53,7 +53,7 @@ This is expected on any instance that has async materialized views, and needs no
 
 #### "Table reflected without keys after an unexpected error"
 
-The same degradation as above, but triggered by an error Doris is not known to raise for this — most often a missing grant on the table, or a connection dropped mid-reflection. The table is still ingested from `DESCRIBE`, so its columns are complete, but keys and foreign keys are missing.
+The same degradation as above, but triggered by an error Doris is not known to raise for this — most often a missing grant on the table. The table is still ingested from `DESCRIBE`, so its columns are complete, but keys and foreign keys are missing.
 
 Check that the ingestion account can run `SHOW CREATE TABLE` on the tables named in the warning context. Unlike the warning above, this one is worth acting on.
 
@@ -65,12 +65,12 @@ Confirm the ingestion account can run `DESCRIBE` on the tables named in the warn
 
 #### "Doris table and column comments unavailable"
 
-The `information_schema` comment lookup failed for the database named in the warning context, so some or all of its table and column descriptions are missing. Everything else about those tables is unaffected.
+The `information_schema` comment lookup failed for the database named in the warning context, so some or all of its tables and columns were ingested without descriptions. This clears the descriptions an earlier run ingested from Doris; descriptions edited in DataHub are kept. Everything else about those tables is unaffected.
 
-Confirm the ingestion account can query `information_schema.TABLES` and `information_schema.COLUMNS`.
+Confirm the ingestion account can query `information_schema.TABLES` and `information_schema.COLUMNS`. On a large external catalog the lookup can also outrun the connection's read timeout (`options.connect_args.read_timeout`), so raise it if the error in the warning context is a timeout.
 
 #### "Lost the Doris connection while reflecting a table"
 
-The connection dropped while the table or view named in the failure context was being read, so it was skipped rather than ingested with an empty or partial schema, and stale-entity removal is skipped for this run so it is not deleted. Tables reflected after it in the same database usually fail the same way.
+The connection dropped while the table or view named in the failure context was being read, so it was skipped rather than ingested with an empty or partial schema, and stale-entity removal is skipped for this run so it is not deleted. The source then reconnects, so the tables after it are still ingested.
 
 Check FE availability and any proxy or load-balancer idle timeout between the ingestion executor and Doris, then rerun.
