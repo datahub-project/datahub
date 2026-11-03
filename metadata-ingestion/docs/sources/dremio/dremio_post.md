@@ -51,11 +51,15 @@ Each Dremio table in a mapped source gets a COPY upstream on the source platform
   the Dremio path. For sources that list only schemas (Postgres, Redshift, Synapse, ...), the
   database from the Dremio source config is prepended.
 - Casing follows the target connector's default: lowercase for Snowflake, ALL-UPPERCASE names
-  lowercased for Oracle, Dremio's case otherwise. If you ingested the target with non-default
+  lowercased for Oracle and SAP HANA, an uppercased database for Db2, Dremio's case otherwise.
+  Object storage keys keep their case. A Dremio-to-Dremio source maps to `dremio.<path>`,
+  lowercased. If you ingested the target with non-default
   casing, set `convert_urns_to_lowercase` on the mapping, for example `true` for SQL Server
   ingested with `convert_urns_to_lowercase: true` (which that connector recommends for lineage),
   or `false` for Snowflake ingested with `convert_urns_to_lowercase: false`.
 - Set `platform_instance` and `env` on the mapping to the values the target connector uses.
+- The ingestion report lists one sample upstream URN per mapped source under
+  `source_mapping_sample_upstream_urns`. Compare it with a URN of the target connector.
 
 ```yaml
 source_mappings:
