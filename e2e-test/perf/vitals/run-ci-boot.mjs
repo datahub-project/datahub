@@ -67,6 +67,9 @@ export function bootOutcome({ loginRc, homeRc, loginReport, homeReport }) {
 }
 
 let activeChildPid = null;
+// Pids signalled by a timed-out pass. A cancel during the grace still reaches
+// a detached Chrome after its parent has exited.
+let activeTermTree = [];
 
 function childPids(pid) {
     try {
@@ -80,17 +83,18 @@ function childPids(pid) {
     }
 }
 
-// Puppeteer launches Chrome with detached: true, so Chrome is its own process
-// group. A signal to the Lighthouse group never reaches it. Walk parent/child
-// pids, then signal each process group so Chrome's own children go too.
-export function killProcessTree(pid, signal) {
+function collectProcessTree(pids) {
     const seen = new Set();
     const collect = (current) => {
         if (!current || seen.has(current)) return [];
         seen.add(current);
         return [current, ...childPids(current).flatMap(collect)];
     };
-    for (const target of collect(pid).reverse()) {
+    return pids.flatMap(collect);
+}
+
+function signalProcessGroups(pids, signal) {
+    for (const target of [...pids].reverse()) {
         try {
             process.kill(-target, signal);
         } catch {
@@ -103,11 +107,22 @@ export function killProcessTree(pid, signal) {
     }
 }
 
+// Puppeteer launches Chrome with detached: true, so Chrome is its own process
+// group. A signal to the Lighthouse group never reaches it. Walk parent/child
+// pids, then signal each process group so Chrome's own children go too.
+// Returns the pids it signalled so a later SIGKILL can reach them after the
+// root has exited and its detached children were reparented to init.
+export function killProcessTree(pid, signal, known = []) {
+    const pids = [...new Set(collectProcessTree([pid, ...known]))];
+    signalProcessGroups(pids, signal);
+    return pids;
+}
+
 function installStopForwarding() {
     if (installStopForwarding.installed) return;
     installStopForwarding.installed = true;
     const stop = (signal) => {
-        if (activeChildPid) killProcessTree(activeChildPid, 'SIGKILL');
+        if (activeChildPid) killProcessTree(activeChildPid, 'SIGKILL', activeTermTree);
         process.exit(signal === 'SIGINT' ? 130 : 143);
     };
     // The child is detached, so a cancel of this script does not reach it.
@@ -126,6 +141,7 @@ export function runBoundedProcess(execPath, args, { cwd, timeoutMs, graceMs, std
         activeChildPid = child.pid;
         let settled = false;
         let timedOut = false;
+        let exited = false;
         let timer;
         let killTimer;
         const finish = (code) => {
@@ -133,15 +149,29 @@ export function runBoundedProcess(execPath, args, { cwd, timeoutMs, graceMs, std
             settled = true;
             clearTimeout(timer);
             clearTimeout(killTimer);
-            if (activeChildPid === child.pid) activeChildPid = null;
+            if (activeChildPid === child.pid) {
+                activeChildPid = null;
+                activeTermTree = [];
+            }
             resolve({ code: code == null ? 1 : code, timedOut });
         };
-        child.on('exit', (code) => finish(code));
-        child.on('error', () => finish(1));
+        const onExit = (code) => {
+            exited = true;
+            // After a timeout the root can exit on SIGTERM while a detached Chrome
+            // ignores it. Wait for the grace SIGKILL so the snapshot is not skipped.
+            if (!timedOut) finish(code);
+        };
+        child.on('exit', onExit);
+        child.on('error', () => onExit(1));
         timer = setTimeout(() => {
             timedOut = true;
-            killProcessTree(child.pid, 'SIGTERM');
-            killTimer = setTimeout(() => killProcessTree(child.pid, 'SIGKILL'), graceMs);
+            activeTermTree = killProcessTree(child.pid, 'SIGTERM');
+            killTimer = setTimeout(() => {
+                // An exited root's pid may already be reused; reach its tree from the snapshot.
+                killProcessTree(exited ? null : child.pid, 'SIGKILL', activeTermTree);
+                if (exited) finish(1);
+                else child.once('exit', () => finish(1));
+            }, graceMs);
         }, timeoutMs);
     });
 }

@@ -10,6 +10,14 @@ import { bootOutcome, runBoundedProcess } from './run-ci-boot.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 function isAlive(pid) {
+    // An orphan reparented to a subreaper that has not reaped it yet is a zombie:
+    // already killed, but kill(pid, 0) still succeeds.
+    try {
+        const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+        if (stat.slice(stat.lastIndexOf(')') + 2).startsWith('Z')) return false;
+    } catch {
+        // no /proc entry, fall through to kill(pid, 0)
+    }
     try {
         process.kill(pid, 0);
         return true;
@@ -18,16 +26,21 @@ function isAlive(pid) {
     }
 }
 
-function wedgeScript() {
+// Child discovery reads /proc/<pid>/task/<pid>/children, which only Linux has.
+const procTree = { skip: process.platform !== 'linux' && 'needs Linux /proc for child discovery' };
+
+// The root traps SIGTERM like Puppeteer does, unless rootExitsOnTerm: then it
+// exits and leaves its detached grandchild to be reparented to init.
+function wedgeScript({ rootExitsOnTerm = false } = {}) {
     return `
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+${rootExitsOnTerm ? '' : "process.on('SIGTERM', () => {});"}
 const child = spawn(process.execPath, ['-e', 'process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);'], {
     detached: true,
     stdio: 'ignore',
 });
 fs.writeFileSync(process.argv[2], String(child.pid));
-process.on('SIGTERM', () => {});
 setInterval(() => {}, 1000);
 `;
 }
@@ -42,6 +55,46 @@ async function readPidFile(file) {
         await new Promise((resolve) => setTimeout(resolve, 20));
     }
     throw new Error(`pid file was not written: ${file}`);
+}
+
+function killQuietly(pid) {
+    if (!pid) return;
+    try {
+        process.kill(pid, 'SIGKILL');
+    } catch (error) {
+        if (error.code !== 'ESRCH') throw error;
+    }
+}
+
+function readPidIfWritten(file) {
+    try {
+        return Number(fs.readFileSync(file, 'utf8')) || null;
+    } catch {
+        return null;
+    }
+}
+
+// The deadline is generous so a loaded runner still writes the pid file first;
+// the test waits for it so the timeout always lands on a running grandchild.
+async function expectGrandchildKilled({ rootExitsOnTerm }) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vitals-kill-'));
+    const script = path.join(dir, 'wedge.mjs');
+    const pidFile = path.join(dir, 'grand.pid');
+    fs.writeFileSync(script, wedgeScript({ rootExitsOnTerm }));
+    try {
+        const run = runBoundedProcess(process.execPath, [script, pidFile], {
+            timeoutMs: 3000,
+            graceMs: 400,
+            stdio: 'ignore',
+        });
+        const grandPid = await readPidFile(pidFile);
+        const result = await run;
+        assert.equal(result.timedOut, true);
+        assert.equal(isAlive(grandPid), false);
+    } finally {
+        killQuietly(readPidIfWritten(pidFile));
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
 }
 
 describe('bootOutcome', () => {
@@ -100,26 +153,15 @@ describe('runBoundedProcess', () => {
         assert.ok(elapsed < 3000, `returned in ${elapsed}ms`);
     });
 
-    it('SIGKILLs a detached grandchild Chrome would leave behind', async () => {
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vitals-kill-'));
-        const script = path.join(dir, 'wedge.mjs');
-        const pidFile = path.join(dir, 'grand.pid');
-        fs.writeFileSync(script, wedgeScript());
-        try {
-            const result = await runBoundedProcess(process.execPath, [script, pidFile], {
-                timeoutMs: 400,
-                graceMs: 400,
-                stdio: 'ignore',
-            });
-            const grandPid = Number(fs.readFileSync(pidFile, 'utf8'));
-            assert.equal(result.timedOut, true);
-            assert.equal(isAlive(grandPid), false);
-        } finally {
-            fs.rmSync(dir, { recursive: true, force: true });
-        }
-    });
+    it('SIGKILLs a detached grandchild Chrome would leave behind', { ...procTree, timeout: 10_000 }, () =>
+        expectGrandchildKilled({ rootExitsOnTerm: false }),
+    );
 
-    it('SIGKILLs the detached grandchild when this process is canceled', { timeout: 10_000 }, async () => {
+    it('SIGKILLs a detached grandchild after its parent exits on SIGTERM', { ...procTree, timeout: 10_000 }, () =>
+        expectGrandchildKilled({ rootExitsOnTerm: true }),
+    );
+
+    it('SIGKILLs the detached grandchild when this process is canceled', { ...procTree, timeout: 10_000 }, async () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vitals-cancel-'));
         const script = path.join(dir, 'wedge.mjs');
         const wrapper = path.join(dir, 'wrapper.mjs');
@@ -143,11 +185,8 @@ await runBoundedProcess(process.execPath, [process.argv[2], process.argv[3]], {
             assert.equal(exitCode, 143);
             assert.equal(isAlive(grandPid), false);
         } finally {
-            try {
-                process.kill(child.pid, 'SIGKILL');
-            } catch {
-                // already exited
-            }
+            killQuietly(child.pid);
+            killQuietly(readPidIfWritten(pidFile));
             fs.rmSync(dir, { recursive: true, force: true });
         }
     });
