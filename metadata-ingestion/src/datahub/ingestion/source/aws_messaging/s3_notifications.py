@@ -143,8 +143,17 @@ class S3NotificationLineage:
                 self.complete = False
                 continue
             for notification in notifications:
-                target_urn = self.resolver.urn(parse_arn(notification.target_arn))
+                target = parse_arn(notification.target_arn)
+                target_urn = self.resolver.urn(target)
                 if target_urn is None:
+                    if (
+                        target is not None
+                        and target.service == self.resolver.service
+                        and self.resolver.is_local(target)
+                    ):
+                        # One of this source's own queues or topics that this run
+                        # didn't read, so earlier edges into it are kept.
+                        self.complete = False
                     continue
                 upstreams = self._datasets(notification)
                 if not upstreams:

@@ -11,7 +11,9 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging import s3_notifications
 from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase
 from datahub.ingestion.source.aws_messaging.clients import S3NotificationClient
+from datahub.ingestion.source.aws_messaging.models import Arn
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
+from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
 from datahub.metadata.schema_classes import (
@@ -362,6 +364,41 @@ def test_failed_dataset_search_removes_nothing(aws: None) -> None:
     )
     assert [op for op in upstream_ops(source) if op[0] == "remove"] == []
     assert "S3 dataset search failed" in [w.title for w in source.get_report().warnings]
+
+
+def test_search_filters_on_the_upper_case_env(aws: None) -> None:
+    # Dataset URNs carry DEV even when the recipe says dev, and the search
+    # filter is an exact match; the platform_map validator upper-cases it.
+    _seed()
+    graph = search_graph(S3_DATASETS)
+    source = SqsSource.create(
+        base_config(
+            lineage={"lambda_functions": False, "s3_notifications": True},
+            platform_map={"s3": {"env": "dev"}},
+        ),
+        PipelineContext(run_id="s3-test", graph=graph),
+    )
+    list(source.get_workunits())
+    assert {call.kwargs["env"] for call in graph.get_urns_by_filter.call_args_list} == {
+        "DEV"
+    }
+
+
+def test_unresolved_own_target_removes_nothing(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The notification's queue is this source's own, but this run couldn't
+    # resolve it, so its earlier S3 edges are unknown rather than gone.
+    _seed()
+    original = ResourceResolver.urn
+
+    def unresolved(self: ResourceResolver, arn: Optional[Arn]) -> Optional[str]:
+        if arn is not None and arn.resource_name == "uploads":
+            return None
+        return original(self, arn)
+
+    monkeypatch.setattr(ResourceResolver, "urn", unresolved)
+    assert _removals(S3_DATASETS) == []
 
 
 def test_platform_map_sets_instance_and_env(aws: None) -> None:
