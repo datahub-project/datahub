@@ -82,6 +82,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTestResult,
     ExistingAssertionNote,
     classify_contract_model_run,
+    is_passing_test_result,
     make_assertion_from_freshness,
     make_assertion_from_test,
     make_assertion_note_from_test,
@@ -90,6 +91,13 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_assertion_result_from_test,
     make_contract_assertion_info,
     make_custom_assertion_info,
+    select_test_results_to_emit,
+)
+from datahub.ingestion.source.dremio.dremio_naming import (
+    DBT_DREMIO_NO_SCHEMA,
+    DbtDremioSchemaResolver,
+    dremio_dataset_name,
+    is_dremio_platform,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -416,6 +424,10 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     node_cll_failures_list: LossyList[str] = field(default_factory=LossyList)
     node_emission_failures: int = 0
     node_emission_failures_list: LossyList[str] = field(default_factory=LossyList)
+
+    # Non-passing dbt test results skipped because a newer result for the same
+    # test was present (only_emit_latest_test_result).
+    num_superseded_test_failures_not_emitted: int = 0
 
     # Details on where column info comes from.
     nodes_with_catalog_columns: int = 0
@@ -869,6 +881,17 @@ class DBTCommonConfig(
             "The default will change to ``true`` in a future release once assertion "
             "result consumers can filter by severity; set ``true`` today to adopt the "
             "forthcoming behavior."
+        ),
+    )
+    only_emit_latest_test_result: bool = Field(
+        default=True,
+        description=(
+            "When multiple run_results files contain a result for the same dbt test "
+            "(e.g. a glob over historical runs, or `dbt build` followed by `dbt retry`), "
+            "only emit the most recent result. Older results are stale, and replaying "
+            "them on every ingestion re-triggers assertion notifications (a failure "
+            "immediately followed by a pass). Set to false to emit every result, "
+            "e.g. to backfill assertion run history."
         ),
     )
     infer_dbt_schemas: bool = Field(
@@ -2154,6 +2177,27 @@ class DBTNode:
         fqn = self._join_parts([self.database, self.schema, self.name])
         return fqn.replace('"', "")
 
+    def _target_platform_schema(self, target_platform: str) -> Optional[str]:
+        if is_dremio_platform(target_platform) and self.schema == DBT_DREMIO_NO_SCHEMA:
+            return None
+        return self.schema
+
+    def get_target_platform_fqn(self, target_platform: str) -> str:
+        """The name the target platform's own source gives this node's dataset.
+
+        The Dremio source names every dataset ``dremio.<path>``, lowercased, and
+        dbt-dremio's ``no_schema`` placeholder is not part of that path.
+        """
+        if self.is_semantic_model() or not is_dremio_platform(target_platform):
+            return self.get_db_fqn()
+        return dremio_dataset_name(
+            [
+                self.database,
+                self._target_platform_schema(target_platform),
+                self.name,
+            ]
+        ).replace('"', "")
+
     def get_urn(
         self,
         target_platform: str,
@@ -2162,7 +2206,7 @@ class DBTNode:
         # Otherwise, it's the target platform instance.
         data_platform_instance: Optional[str],
     ) -> str:
-        db_fqn = self.get_db_fqn()
+        db_fqn = self.get_target_platform_fqn(target_platform)
         if self.convert_urns_to_lowercase:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
@@ -2178,15 +2222,30 @@ class DBTNode:
     def is_semantic_model(self) -> bool:
         return self.node_type == DBT_NODE_TYPE_SEMANTIC_MODEL
 
-    def get_fake_ephemeral_table_name(self) -> str:
+    def _fake_ephemeral_parts(self, target_platform: str) -> List[Optional[str]]:
         assert self.is_ephemeral_model()
 
-        # Similar to get_db_fqn.
-        db_fqn = self._join_parts(
-            [self.database, self.schema, f"__datahub__dbt__ephemeral__{self.name}"]
-        )
-        db_fqn = db_fqn.lower()
-        return db_fqn.replace('"', "")
+        schema = self._target_platform_schema(target_platform)
+        if schema and is_dremio_platform(target_platform):
+            # A nested Dremio folder is a dotted schema, but detach_ctes keeps only
+            # 3 parts of the swapped-in name. Fold the folders into one part: the
+            # name is a placeholder that only has to match its own URN.
+            schema = schema.replace(".", "_")
+        return [self.database, schema, f"__datahub__dbt__ephemeral__{self.name}"]
+
+    def get_fake_ephemeral_table_name(self, target_platform: str) -> str:
+        """The table name an ephemeral model's CTE is swapped for in compiled SQL."""
+        db_fqn = self._join_parts(self._fake_ephemeral_parts(target_platform))
+        return db_fqn.lower().replace('"', "")
+
+    def get_fake_ephemeral_dataset_name(self, target_platform: str) -> str:
+        """The placeholder dataset name the schema resolver gives
+        get_fake_ephemeral_table_name."""
+        if is_dremio_platform(target_platform):
+            return dremio_dataset_name(
+                self._fake_ephemeral_parts(target_platform)
+            ).replace('"', "")
+        return self.get_fake_ephemeral_table_name(target_platform)
 
     def get_urn_for_upstream_lineage(
         self,
@@ -2804,6 +2863,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     raise upstream_errors[node.dbt_name]
                 upstreams = upstreams_by_test[node.dbt_name]
 
+                results_to_emit = select_test_results_to_emit(
+                    node.test_results,
+                    latest_only=self.config.only_emit_latest_test_result,
+                )
+                if (
+                    self.config.entities_enabled.can_emit_test_results
+                    and self.config.only_emit_latest_test_result
+                ):
+                    self._report_superseded_non_passing_results(node, results_to_emit)
                 # In case a dbt test depends on multiple tables, we create separate assertions for each.
                 for upstream_node_name, upstream_urn in upstreams.items():
                     assertion_urn = self._make_test_assertion_urn(
@@ -2850,7 +2918,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         if ownership_mcp:
                             yield ownership_mcp
 
-                    for test_result in node.test_results:
+                    for test_result in results_to_emit:
                         if self.config.entities_enabled.can_emit_test_results:
                             yield make_assertion_result_from_test(
                                 node,
@@ -3045,6 +3113,27 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return None
 
         return result
+
+    def _report_superseded_non_passing_results(
+        self, node: DBTNode, results_to_emit: List[DBTTestResult]
+    ) -> None:
+        # Without a record of what earlier ingestions already emitted we cannot tell
+        # a superseded failure that was ingested before from one that never was, so
+        # surface it rather than dropping it silently.
+        for test_result in node.test_results:
+            if test_result in results_to_emit or is_passing_test_result(
+                test_result, self.config.test_warnings_are_errors
+            ):
+                continue
+            self.report.num_superseded_test_failures_not_emitted += 1
+            self.report.warning(
+                title="Superseded dbt test failures not emitted",
+                message="A newer result exists for these dbt tests, so older non-passing "
+                "results from other run_results files were not emitted. Set "
+                "`only_emit_latest_test_result: false` to emit every result.",
+                context=f"{node.dbt_name} ({test_result.invocation_id}: {test_result.status})",
+                log=False,
+            )
 
     def create_freshness_assertion_mcps(
         self,
@@ -3715,7 +3804,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         warehouse_model_names: Dict[str, str] = {}  # warehouse name -> model unique id
         for node in original_nodes:
             if node.node_type == "model" and node.exists_in_target_platform:
-                warehouse_model_names[node.get_db_fqn()] = node.dbt_name
+                warehouse_model_names[
+                    node.get_target_platform_fqn(self.config.target_platform)
+                ] = node.dbt_name
 
         # Pass 2 - identify + drop duplicate sources.
         source_references_to_update: Dict[
@@ -3726,7 +3817,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if (
                 node.node_type == "source"
                 and node.exists_in_target_platform
-                and (model_name := warehouse_model_names.get(node.get_db_fqn()))
+                and (
+                    model_name := warehouse_model_names.get(
+                        node.get_target_platform_fqn(self.config.target_platform)
+                    )
+                )
             ):
                 self.report.warning(
                     title="Duplicate model and source names detected",
@@ -3825,11 +3920,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         graph: Optional[DataHubGraph] = self.ctx.graph
 
-        resolver_class: Type[SchemaResolver] = (
-            SchemaResolver
-            if self.config.include_database_name
-            else _TwoTierSchemaResolver
-        )
+        resolver_class: Type[SchemaResolver]
+        if is_dremio_platform(self.config.target_platform):
+            resolver_class = DbtDremioSchemaResolver
+        elif self.config.include_database_name:
+            resolver_class = SchemaResolver
+        else:
+            resolver_class = _TwoTierSchemaResolver
         schema_resolver = resolver_class(
             platform=self.config.target_platform,
             platform_instance=self.config.target_platform_instance,
@@ -3875,7 +3972,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_node_urn = (
                         mce_builder.make_dataset_urn_with_platform_instance(
                             platform=self.config.target_platform,
-                            name=node.get_fake_ephemeral_table_name(),
+                            name=node.get_fake_ephemeral_dataset_name(
+                                self.config.target_platform
+                            ),
                             platform_instance=self.config.target_platform_instance,
                             env=self.config.env,
                         )
@@ -3981,7 +4080,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 elif node.compiled_code:
                     # Add CTE stops based on the upstreams list.
                     cte_mapping = {
-                        cte_name: upstream_node.get_fake_ephemeral_table_name()
+                        cte_name: upstream_node.get_fake_ephemeral_table_name(
+                            self.config.target_platform
+                        )
                         for upstream_node in [
                             all_nodes_map[upstream_node_name]
                             for upstream_node_name in node.upstream_nodes

@@ -8,7 +8,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/repository/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfileTab, EntityTabPath } from '@app/entityV2/shared/constants';
+import { EntityProfileTab, EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -156,6 +156,7 @@ export class RepositoryEntity implements Entity<Repository> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),

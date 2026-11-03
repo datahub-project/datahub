@@ -97,5 +97,9 @@
     "searchActions.owners.addTitle": "新增擁有者",
     "searchActions.owners.removeTitle": "移除擁有者",
     "searchActions.tags.addTitle": "新增標籤",
-    "searchActions.tags.removeTitle": "移除標籤"
+    "searchActions.tags.removeTitle": "移除標籤",
+    "structuredProperty.addMore": "+ 新增更多",
+    "structuredProperty.selectPlaceholder": "選取",
+    "viewAll.resultsIncomplete": "結果可能不完整。",
+    "viewAll.searchAllAssets": "搜尋所有已擷取的 {{platform}} 資料資產"
 }

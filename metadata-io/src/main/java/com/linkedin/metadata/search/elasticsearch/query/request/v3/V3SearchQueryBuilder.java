@@ -44,6 +44,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryStrategy;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.SynonymMapLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFields;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -853,11 +854,6 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
     String matchQuery =
         intent == QueryIntent.EXACT_NAME ? stripSurroundingQuotes(sanitizedQuery) : sanitizedQuery;
 
-    MultiMatchQueryBuilder multiMatch =
-        QueryBuilders.multiMatchQuery(matchQuery)
-            .type(MultiMatchQueryBuilder.Type.BEST_FIELDS)
-            .tieBreaker(SIMPLE_QUERY_DISMAX_TIE_BREAKER);
-
     // AND operator for navigational queries: deep FQNs (2+ dots) and long exact names (5+
     // delimiter tokens). Narrows the candidate set; the full OR query runs when this finds nothing.
     boolean isDeepFqn =
@@ -868,17 +864,13 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
                     .filter(part -> !part.isEmpty())
                     .count()
                 >= 5;
-    if (isDeepFqn || isLongExactName) {
-      multiMatch.operator(Operator.AND);
-    }
-
     // EXACT_NAME and FQN queries search the name-related subfields. A structured property is named
     // by its own path, so a name-focused light query does not search them. KEYWORD queries search
     // every field queried by default. Word grams need 2+ tokens, so single words skip them.
     boolean useNameFocusedFields = intent == QueryIntent.EXACT_NAME || intent == QueryIntent.FQN;
     boolean isTrueSingleWord = SINGLE_WORD_PATTERN.matcher(matchQuery.trim()).matches();
-    Map<String, Float> fieldBoosts = new LinkedHashMap<>();
-    boolean[] lenient = {false};
+    Map<String, Map<String, Float>> fieldBoostsByIdentity = new LinkedHashMap<>();
+    Map<String, Boolean> lenientByIdentity = new LinkedHashMap<>();
     configuredFields.stream()
         .filter(SearchFieldConfig::isQueryByDefault)
         .filter(cfg -> cfg.isDelimitedSubfield() || (cfg.isWordGramSubfield() && !isTrueSingleWord))
@@ -886,24 +878,40 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
         .filter(cfg -> !useNameFocusedFields || EXACT_NAME_FOCUSED_FIELDS.contains(cfg.shortName()))
         .forEach(
             cfg -> {
-              fieldBoosts.merge(cfg.fieldName(), cfg.boost(), Math::max);
-              if (StructuredPropertyUtils.isStructuredPropertyField(cfg.fieldName())) {
-                lenient[0] = true;
-              }
+              String identity = identityGroup(cfg.shortName());
+              fieldBoostsByIdentity
+                  .computeIfAbsent(identity, ignored -> new LinkedHashMap<>())
+                  .merge(cfg.fieldName(), cfg.boost(), Math::max);
+              lenientByIdentity.merge(
+                  identity,
+                  StructuredPropertyUtils.isStructuredPropertyField(cfg.fieldName()),
+                  Boolean::logicalOr);
             });
-    if (fieldBoosts.isEmpty()) {
+    if (fieldBoostsByIdentity.isEmpty()) {
       return Optional.empty();
     }
-    if (lenient[0]) {
-      // A property field may be mapped on only some indices of a multi-index search. Lenient
-      // applies to the whole multi_match; an unmapped shared field would already fail the query.
-      multiMatch.lenient(true);
-    }
-    fieldBoosts.forEach(multiMatch::field);
+    DisMaxQueryBuilder textMatches =
+        QueryBuilders.disMaxQuery().tieBreaker(SIMPLE_QUERY_DISMAX_TIE_BREAKER);
+    fieldBoostsByIdentity.forEach(
+        (identity, fieldBoosts) -> {
+          MultiMatchQueryBuilder multiMatch =
+              QueryBuilders.multiMatchQuery(matchQuery)
+                  .type(MultiMatchQueryBuilder.Type.BEST_FIELDS)
+                  .tieBreaker(SIMPLE_QUERY_DISMAX_TIE_BREAKER);
+          if (isDeepFqn || isLongExactName) {
+            multiMatch.operator(Operator.AND);
+          }
+          if (lenientByIdentity.getOrDefault(identity, false)) {
+            // A property field may be mapped on only some indices of a multi-index search.
+            multiMatch.lenient(true);
+          }
+          fieldBoosts.forEach(multiMatch::field);
+          textMatches.add(multiMatch);
+        });
 
     // No typed name: a synonym that is a different name gets no exact-name terms
     if (!useNameFocusedFields || !exactMatch || typedQuery == null) {
-      return Optional.of(multiMatch);
+      return Optional.of(textMatches);
     }
     // Exact name hits score above multi_match results. The name is the query as typed: escaping
     // and splitting would make "load-job" an exact match for a name "Load Job"
@@ -917,7 +925,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
         QueryBuilders.termQuery("title", exactQuery)
             .caseInsensitive(true)
             .boost(EXACT_NAME_CONSTANT_BOOST));
-    nameBoost.add(multiMatch);
+    nameBoost.add(textMatches);
     return Optional.of(nameBoost);
   }
 
@@ -1722,13 +1730,25 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
         .toList();
   }
 
+  /** Search V3 has no mapped {@code .delimited} subfield. */
+  @Override
+  protected boolean includeDelimitedSubfields() {
+    return false;
+  }
+
   /** Search V3 queries the resolved annotation. A {@code v3} override does not change Search V2. */
   @Override
   @Nonnull
   protected Optional<SearchableAnnotation> unqualifiedQueryAnnotation(
       @Nonnull SearchableFieldSpec fieldSpec) {
     final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
-    if (!resolved.isV3Searchable() || !resolved.isQueryByDefault()) {
+    if (!resolved.isV3Searchable()) {
+      return Optional.empty();
+    }
+    // A field copied into other, with no label of its own, is not a default match. It stays
+    // selectable when a field configuration names other, which is where the value is searched.
+    if (!resolved.isQueryByDefault()
+        && !(resolved.isCopyToOther() && resolved.indexedFieldName().isEmpty())) {
       return Optional.empty();
     }
     return Optional.of(resolved);
@@ -1838,7 +1858,8 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   /**
    * The root fields of these standard fields that a V3 index searches, and the analyzed subfields
    * its labels declare. A label without {@code text} is not a full-text target. A root field that
-   * is not a shared label has no analyzed subfields on V3.
+   * is not a shared label has no analyzed subfields on V3. {@code .delimited} names are not built
+   * for V3; any that arrive are dropped here with the V2 word-gram fields.
    */
   @Nonnull
   private Set<SearchFieldConfig> withSharedFields(
@@ -2020,9 +2041,18 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   }
 
   /**
-   * One simple query per analyzer, split so structured-property fields that may be unmapped on some
-   * indices of a multi-index search are on their own lenient clause. Shared fields stay on a strict
-   * clause.
+   * A label in {@link SearchTemplateFields#IDENTITY_FIELDS} is its own group. Every other label
+   * shares one group, so those scores do not stack on top of name, qualifiedName, and id.
+   */
+  @Nonnull
+  private static String identityGroup(@Nonnull String shortName) {
+    return SearchTemplateFields.IDENTITY_FIELDS.contains(shortName) ? shortName : "";
+  }
+
+  /**
+   * One simple query per analyzer and identity label. This prevents a hit matching the same input
+   * in name, qualifiedName, and id from accumulating each field's score. A structured property may
+   * be unmapped on some indices, so it stays on its own lenient clause.
    */
   private static void addSimpleQuery(
       @Nonnull DisMaxQueryBuilder disMax,
@@ -2032,15 +2062,17 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       float boostMultiplier,
       boolean fuzzy,
       int maxExpansions) {
-    Map<Boolean, List<SearchFieldConfig>> groups = new LinkedHashMap<>();
+    Map<SimpleQueryGroup, List<SearchFieldConfig>> groups = new LinkedHashMap<>();
     for (SearchFieldConfig field : fields) {
+      boolean structuredProperty =
+          StructuredPropertyUtils.isStructuredPropertyField(field.fieldName());
       groups
           .computeIfAbsent(
-              StructuredPropertyUtils.isStructuredPropertyField(field.fieldName()),
+              new SimpleQueryGroup(identityGroup(field.shortName()), structuredProperty),
               key -> new ArrayList<>())
           .add(field);
     }
-    for (Map.Entry<Boolean, List<SearchFieldConfig>> group : groups.entrySet()) {
+    for (Map.Entry<SimpleQueryGroup, List<SearchFieldConfig>> group : groups.entrySet()) {
       SimpleQueryStringBuilder builder = QueryBuilders.simpleQueryStringQuery(query);
       builder.analyzer(analyzer);
       builder.defaultOperator(Operator.OR);
@@ -2049,7 +2081,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
         builder.fuzzyMaxExpansions(maxExpansions);
         builder.fuzzyTranspositions(true);
       }
-      if (group.getKey()) {
+      if (group.getKey().structuredProperty()) {
         builder.lenient(true);
       }
       for (SearchFieldConfig field : group.getValue()) {
@@ -2058,6 +2090,9 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       disMax.add(builder);
     }
   }
+
+  /** Identity label plus whether the clause is a structured property. */
+  private record SimpleQueryGroup(@Nonnull String identity, boolean structuredProperty) {}
 
   @Nonnull
   private static SearchFieldConfig sharedField(

@@ -4,7 +4,7 @@ import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { StructuredReportItemList } from '@app/ingest/source/executions/reporting/StructuredReportItemList';
 import { StructuredReportItemLevel, StructuredReport as StructuredReportType } from '@app/ingest/source/types';
 

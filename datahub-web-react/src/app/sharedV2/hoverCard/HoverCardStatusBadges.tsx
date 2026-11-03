@@ -1,9 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import HealthIcon from '@app/previewV2/HealthIcon';
 
