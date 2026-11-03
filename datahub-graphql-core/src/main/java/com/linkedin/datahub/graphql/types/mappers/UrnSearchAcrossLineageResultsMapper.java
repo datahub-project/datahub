@@ -37,9 +37,9 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
     result.setSearchResults(
         input.getEntities().stream()
-            // SearchAcrossLineageResult.entity is non-null, so a schema field GraphQL can't return
-            // would null the whole list.
-            .filter(r -> KnownEntities.hasRepresentableParent(context, r.getEntity()))
+            // SearchAcrossLineageResult.entity is non-null, so a hit GraphQL can't return would
+            // null the whole list.
+            .filter(r -> KnownEntities.isReturnable(context, r.getEntity()))
             .map(r -> mapResult(context, r))
             .collect(Collectors.toList()));
     result.setFacets(

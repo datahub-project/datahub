@@ -156,6 +156,31 @@ public final class KnownEntities {
   }
 
   /**
+   * Under tolerant handling, false for a urn GraphQL can't return as an entity, logging the skip:
+   * an entity type it can't map (one only a newer version registered, or one it doesn't model), or
+   * a schema field whose parent it can't represent. Use it before a non-null entity slot, such as a
+   * search result's. True for every urn when unknown data isn't tolerated.
+   */
+  public static boolean isReturnable(@Nullable final QueryContext context, @Nonnull final Urn urn) {
+    if (!handling().toleratesUnknownEntityAspect()) {
+      return true;
+    }
+    if (!hasRepresentableParent(context, urn)) {
+      return false;
+    }
+    final boolean known = isKnown(context, urn);
+    if (known && UrnToEntityMapper.map(context, urn) != null) {
+      return true;
+    }
+    UNREPRESENTABLE.skippedBecause(
+        skipMetrics(context, known),
+        urn.getEntityType(),
+        "GraphQL can't represent its entity type",
+        urn);
+    return false;
+  }
+
+  /**
    * The urn as an entity GraphQL can return, or null. A schema field also needs a parent GraphQL
    * can represent, as the loader returns one without it as missing.
    */

@@ -18,20 +18,27 @@ import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Arrays;
 import java.util.List;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
- * SearchAcrossLineageResult.entity is non-null, so lineage leaves out a schema field whose parent
- * GraphQL can't represent (telemetry is in the registry but not modelled), as search does.
+ * SearchAcrossLineageResult.entity is non-null, so lineage leaves out a hit GraphQL can't return,
+ * as search does: a schema field whose parent it can't represent (telemetry is in the registry but
+ * not modelled), an entity type it doesn't model (dataProcess has lineage but no GraphQL type), and
+ * an entity type only a newer version registered.
  */
 public class LineageResultsMapperSchemaFieldTest {
 
   private static final String ON_DATASET =
       "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,linked,PROD),col_a)";
   private static final String ON_TELEMETRY = "urn:li:schemaField:(urn:li:telemetry:client,col_b)";
+  private static final String DATA_PROCESS = "urn:li:dataProcess:(proc,airflow,PROD)";
+  private static final String FROM_NEWER_BUILD = "urn:li:entityFromNewerBuild:x";
+  private static final List<String> HITS =
+      List.of(ON_TELEMETRY, DATA_PROCESS, ON_DATASET, FROM_NEWER_BUILD);
 
   private QueryContext context;
 
@@ -49,21 +56,23 @@ public class LineageResultsMapperSchemaFieldTest {
   }
 
   @Test
-  public void testSearchAcrossLineageLeavesOutTheField() {
+  public void testSearchAcrossLineageLeavesOutHitsGraphQLCannotReturn() {
     assertEquals(
-        UrnSearchAcrossLineageResultsMapper.map(context, searchResult()).getSearchResults().stream()
+        UrnSearchAcrossLineageResultsMapper.map(context, searchResult(HITS))
+            .getSearchResults()
+            .stream()
             .map(r -> r.getEntity().getUrn())
             .toList(),
         List.of(ON_DATASET));
   }
 
   @Test
-  public void testScrollAcrossLineageLeavesOutTheField() {
+  public void testScrollAcrossLineageLeavesOutHitsGraphQLCannotReturn() {
     LineageScrollResult scroll =
         new LineageScrollResult()
             .setPageSize(10)
-            .setNumEntities(2)
-            .setEntities(entities())
+            .setNumEntities(HITS.size())
+            .setEntities(entities(HITS))
             .setMetadata(metadata());
 
     assertEquals(
@@ -74,28 +83,31 @@ public class LineageResultsMapperSchemaFieldTest {
   }
 
   @Test
-  public void testStrictKeepsTheField() {
+  public void testStrictKeepsEveryHit() {
     UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
 
+    // As before: a hit GraphQL can't map keeps its place with no entity.
     assertEquals(
-        UrnSearchAcrossLineageResultsMapper.map(context, searchResult()).getSearchResults().stream()
-            .map(r -> r.getEntity().getUrn())
+        UrnSearchAcrossLineageResultsMapper.map(context, searchResult(HITS))
+            .getSearchResults()
+            .stream()
+            .map(r -> r.getEntity() == null ? null : r.getEntity().getUrn())
             .toList(),
-        List.of(ON_TELEMETRY, ON_DATASET));
+        Arrays.asList(ON_TELEMETRY, null, ON_DATASET, null));
   }
 
-  private static LineageSearchResult searchResult() {
+  private static LineageSearchResult searchResult(List<String> urns) {
     return new LineageSearchResult()
         .setFrom(0)
         .setPageSize(10)
-        .setNumEntities(2)
-        .setEntities(entities())
+        .setNumEntities(urns.size())
+        .setEntities(entities(urns))
         .setMetadata(metadata());
   }
 
-  private static LineageSearchEntityArray entities() {
+  private static LineageSearchEntityArray entities(List<String> urns) {
     LineageSearchEntityArray entities = new LineageSearchEntityArray();
-    for (String urn : List.of(ON_TELEMETRY, ON_DATASET)) {
+    for (String urn : urns) {
       entities.add(
           new LineageSearchEntity()
               .setEntity(UrnUtils.getUrn(urn))
