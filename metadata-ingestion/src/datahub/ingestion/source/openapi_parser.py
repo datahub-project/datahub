@@ -12,7 +12,7 @@ from typing import (
     Tuple,
     TypeGuard,
 )
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 import requests
 import yaml
@@ -154,6 +154,13 @@ def request_call(
         )
 
 
+def redact_url(url: str) -> str:
+    """Drop userinfo, query and fragment, which may carry credentials or API keys."""
+    parts = urlsplit(url)
+    host = parts.netloc.rsplit("@", 1)[-1]
+    return urlunsplit((parts.scheme, host, parts.path, "", ""))
+
+
 def get_swag_json(
     url: str,
     token: Optional[str] = None,
@@ -174,7 +181,9 @@ def get_swag_json(
     )
 
     if response.status_code != 200:
-        raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
+        raise Exception(
+            f"Unable to retrieve {redact_url(tot_url)}, error {response.status_code}"
+        )
     try:
         parsed = json.loads(response.content)
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -186,7 +195,7 @@ def get_swag_json(
             parsed = yaml.safe_load(response.content)
         except (yaml.YAMLError, UnicodeDecodeError) as e:
             raise ValueError(
-                f"Unable to parse OpenAPI spec from {tot_url} as JSON or YAML"
+                f"Unable to parse OpenAPI spec from {redact_url(tot_url)} as JSON or YAML"
             ) from e
     if not isinstance(parsed, dict):
         # A valid JSON/YAML document (e.g. a bare list, string, or number) is
@@ -195,7 +204,7 @@ def get_swag_json(
         # a dict, so fail clearly here instead of a confusing TypeError/
         # KeyError deep in one of them.
         raise ValueError(
-            f"OpenAPI spec at {tot_url} did not parse to a JSON/YAML object "
+            f"OpenAPI spec at {redact_url(tot_url)} did not parse to a JSON/YAML object "
             f"(got {type(parsed).__name__})"
         )
     return parsed
@@ -583,10 +592,8 @@ def extract_fields(
         # own clause to degrade the same way other unparseable bodies do.
         logger.warning(f"Non-JSON response --- {dataset_name}")
         return [], {}
-    if isinstance(dict_data, str):
-        logger.warning(
-            f"Scalar string response, no fields to extract --- {dataset_name}"
-        )
+    if not isinstance(dict_data, (dict, list)):
+        logger.warning(f"Scalar response, no fields to extract --- {dataset_name}")
         return [], {}
     elif isinstance(dict_data, list):
         # it's maybe just a list
@@ -867,11 +874,10 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
         return schema
 
     allof_schemas = schema.get("allOf", [])
-    if allof_schemas and not isinstance(allof_schemas, list):
-        # A non-list, truthy "allOf" (e.g. a dict from a generator bug) would
-        # otherwise iterate as if each of its keys were a member schema -- every
-        # one fails the isinstance(resolved_allof, dict) guard below and is
-        # skipped, silently discarding everything the malformed allOf contained.
+    if not isinstance(allof_schemas, list):
+        # A non-list "allOf" (a dict from a generator bug, or false/None from a
+        # hand-written spec) fails get_schema_metadata's metaschema check and
+        # loses the whole schema, so drop the keyword and keep the rest.
         logger.warning(
             "Schema 'allOf' is not a list (got %s); ignoring",
             type(allof_schemas).__name__,
@@ -1315,30 +1321,30 @@ def _promote_pattern_properties_to_additional(
     return promoted_schema
 
 
+def _normalize_subschema(value: object) -> Optional[object]:
+    """Normalize one property/pattern/union-member schema, or None to drop it."""
+    if value is True:
+        # get_schema_metadata only understands dict schema values; a bare
+        # "true" (matches anything) is equivalent to an empty schema.
+        return {}
+    if not isinstance(value, dict):
+        # Anything else non-dict (false, None -- e.g. a hand-written "foo:" with
+        # no value parses to None, a scalar) can't be represented as a schema --
+        # drop it rather than let get_schema_metadata crash on it.
+        return None
+    return _normalize_map_schemas(value)
+
+
 def _normalize_map_schemas_mapping(
     mapping: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], bool]:
     new_mapping: Dict[str, Any] = {}
     changed = False
     for key, value in mapping.items():
-        if value is True:
-            # get_schema_metadata only understands dict schema values; a bare
-            # "true" (matches anything) is equivalent to an empty schema.
-            new_mapping[key] = {}
-            changed = True
-            continue
-        if not isinstance(value, dict):
-            # Anything else non-dict (false, None -- e.g. a hand-written
-            # "foo:" with no value parses to None, a scalar) can't be
-            # represented as a field/pattern schema -- drop it rather than
-            # let get_schema_metadata crash (it only accepts object/boolean
-            # JSON Schema values).
-            changed = True
-            continue
-        normalized = _normalize_map_schemas(value)
-        if normalized is not value:
-            changed = True
-        new_mapping[key] = normalized
+        normalized = _normalize_subschema(value)
+        changed = changed or normalized is None or normalized is not value
+        if normalized is not None:
+            new_mapping[key] = normalized
     return new_mapping, changed
 
 
@@ -1346,24 +1352,10 @@ def _normalize_map_schemas_list(members: List[Any]) -> Tuple[List[Any], bool]:
     new_members: List[Any] = []
     changed = False
     for member in members:
-        # Same reasoning as _normalize_map_schemas_mapping: a non-dict
-        # member of oneOf/anyOf/allOf (bare bool, None, scalar) reaches
-        # get_schema_metadata's _get_type_from_schema, which does
-        # `if Ellipsis in schema` and crashes -- destroying this endpoint's
-        # entire spec-derived schema for a legal JSON Schema construct.
-        if member is True:
-            new_members.append({})
-            changed = True
-            continue
-        if not isinstance(member, dict):
-            # false, None, or a scalar can't be represented as a
-            # union-branch schema -- drop it rather than crash.
-            changed = True
-            continue
-        normalized = _normalize_map_schemas(member)
-        if normalized is not member:
-            changed = True
-        new_members.append(normalized)
+        normalized = _normalize_subschema(member)
+        changed = changed or normalized is None or normalized is not member
+        if normalized is not None:
+            new_members.append(normalized)
     return new_members, changed
 
 
@@ -1582,10 +1574,16 @@ def _resolve_schema_refs(schema: object, sw_dict: Dict, max_depth: int = 10) -> 
                 prop_schema, sw_dict, max_depth=max_depth - 1
             )
 
-    # Recursively resolve references in array items
-    if "items" in resolved_schema:
+    # Recursively resolve references in array items, including tuple-form lists.
+    items = resolved_schema.get("items")
+    if isinstance(items, list):
+        resolved_schema["items"] = [
+            _resolve_schema_refs(item, sw_dict, max_depth=max_depth - 1)
+            for item in items
+        ]
+    elif "items" in resolved_schema:
         resolved_schema["items"] = _resolve_schema_refs(
-            resolved_schema["items"], sw_dict, max_depth=max_depth - 1
+            items, sw_dict, max_depth=max_depth - 1
         )
 
     # Recursively resolve references in additionalProperties

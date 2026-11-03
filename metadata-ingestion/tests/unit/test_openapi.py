@@ -3700,6 +3700,17 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 get_swag_json("https://api.example.com")
         self.assertIn("as JSON or YAML", str(ctx.exception))
 
+    def test_get_swag_json_error_redacts_url_credentials(self):
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(status_code=401, content=b"")
+            with self.assertRaises(Exception) as ctx:
+                get_swag_json(
+                    "https://user:secret@api.example.com",
+                    swagger_file="openapi.json?api_key=secret",
+                )
+        self.assertNotIn("secret", str(ctx.exception))
+        self.assertIn("https://api.example.com/openapi.json", str(ctx.exception))
+
     def test_get_swag_json_raises_on_non_dict_document(self):
         # Regression: a valid JSON/YAML document that isn't an object (e.g. a
         # bare list) is not a valid OpenAPI/Swagger spec, but used to be
@@ -4001,6 +4012,13 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(fields, [])
         self.assertEqual(sample, {})
 
+    def test_extract_fields_scalar_response_degrades_gracefully(self):
+        for body in (b"200", b"true", b"null"):
+            with self.subTest(body=body):
+                response = MagicMock()
+                response.content = body
+                self.assertEqual(extract_fields(response, "pets"), ([], {}))
+
     def test_extract_fields_non_utf8_response_degrades_gracefully(self):
         # Regression: json.loads decodes bytes itself (detect_encoding +
         # .decode(...)) and raises UnicodeDecodeError -- not a JSONDecodeError
@@ -4200,23 +4218,29 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIsNotNone(metadata)
 
     def test_merge_allof_non_list_allof_ignored_with_warning(self):
-        # Regression: a truthy but non-list "allOf" (e.g. a dict from a generator
-        # bug) used to iterate as if each of its keys were a member schema; every
-        # one failed the isinstance(resolved_allof, dict) guard and was silently
-        # skipped, discarding everything the malformed allOf contained with zero
-        # warning and zero indication anything was wrong with the spec.
-        schema = {
-            "type": "object",
-            "properties": {"kept": {"type": "string"}},
-            "allOf": {"type": "object", "properties": {"lost": {"type": "string"}}},
-        }
-        with self.assertLogs(
-            "datahub.ingestion.source.openapi_parser", level="WARNING"
-        ) as cm:
-            merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
-        self.assertNotIn("allOf", merged)
-        self.assertIn("kept", merged["properties"])
-        self.assertTrue(any("not a list" in msg for msg in cm.output))
+        # A non-list "allOf" (a dict from a generator bug, or false/None from a
+        # hand-written spec) fails get_schema_metadata's metaschema check, so it
+        # is dropped with a warning and the rest of the schema is kept.
+        for allof in (
+            {"type": "object", "properties": {"lost": {"type": "string"}}},
+            False,
+            None,
+        ):
+            with self.subTest(allof=allof):
+                schema = {
+                    "type": "object",
+                    "properties": {"kept": {"type": "string"}},
+                    "allOf": allof,
+                }
+                with self.assertLogs(
+                    "datahub.ingestion.source.openapi_parser", level="WARNING"
+                ) as cm:
+                    merged = merge_allof_schemas(
+                        schema, _EMPTY_OPENAPI_SW, max_depth=10
+                    )
+                self.assertNotIn("allOf", merged)
+                self.assertIn("kept", merged["properties"])
+                self.assertTrue(any("not a list" in msg for msg in cm.output))
 
     def test_merge_allof_non_list_required_ignored(self):
         # Regression: a malformed spec's "required" (e.g. a bare string instead
@@ -5094,3 +5118,12 @@ def test_promoted_pattern_map_keeps_value_type_beside_union(
         platform="openapi", name="pattern-union", json_schema=resolved
     )
     assert any(f.fieldPath.endswith(".id") for f in metadata.fields)
+
+
+def test_tuple_items_refs_resolved() -> None:
+    schema = {
+        "type": "array",
+        "items": [{"$ref": "#/components/schemas/Item"}, {"type": "integer"}],
+    }
+    resolved = resolve_schema_references(schema, _ITEM_ID_ONLY_SW)
+    assert resolved["items"]["anyOf"][0]["properties"] == {"id": {"type": "string"}}

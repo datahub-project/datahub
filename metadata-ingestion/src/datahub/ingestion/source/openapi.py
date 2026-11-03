@@ -36,6 +36,7 @@ from datahub.ingestion.source.openapi_parser import (
     get_swag_json,
     get_tok,
     get_url_basepath,
+    redact_url,
     request_call,
     set_metadata,
     try_guessing,
@@ -964,7 +965,7 @@ class APISource(Source, ABC):
             self.report.failure(
                 title="Failed to Fetch OpenAPI Spec",
                 message="Unable to retrieve, parse, or interpret the OpenAPI specification",
-                context=f"{config.url} / {config.swagger_file}",
+                context=f"{redact_url(config.url)} / {redact_url(config.swagger_file)}",
                 exc=e,
             )
             return
