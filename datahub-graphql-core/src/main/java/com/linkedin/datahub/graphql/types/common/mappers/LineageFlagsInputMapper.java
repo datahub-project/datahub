@@ -28,13 +28,13 @@ public class LineageFlagsInputMapper
 
   @Nonnull
   public static com.linkedin.metadata.query.LineageFlags map(
-      QueryContext queryContext, @Nonnull final LineageFlags lineageFlags) {
+      @Nullable final QueryContext queryContext, @Nonnull final LineageFlags lineageFlags) {
     return INSTANCE.apply(queryContext, lineageFlags);
   }
 
   @Override
   public com.linkedin.metadata.query.LineageFlags apply(
-      QueryContext context, @Nullable final LineageFlags lineageFlags) {
+      @Nullable final QueryContext context, @Nullable final LineageFlags lineageFlags) {
     com.linkedin.metadata.query.LineageFlags result =
         new com.linkedin.metadata.query.LineageFlags();
     if (lineageFlags == null) {

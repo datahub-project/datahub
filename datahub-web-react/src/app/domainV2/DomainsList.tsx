@@ -13,7 +13,7 @@ import { DomainListMenuColumn, DomainNameColumn, DomainOwnersColumn } from '@app
 import { addToListDomainsCache, removeFromListDomainsCache } from '@app/domainV2/utils';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { getElasticCappedTotalValueText } from '@app/entity/shared/constants';
+import { getElasticCappedTotalValueText } from '@app/entityV2/shared/constants';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
 import { SearchBar } from '@app/search/SearchBar';

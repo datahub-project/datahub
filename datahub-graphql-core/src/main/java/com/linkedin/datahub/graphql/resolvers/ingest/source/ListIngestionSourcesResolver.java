@@ -4,13 +4,13 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesResult;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.util.SelectionSetUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -52,7 +52,7 @@ public class ListIngestionSourcesResolver
 
     final QueryContext context = environment.getContext();
 
-    if (!IngestionAuthUtils.canManageIngestion(context)) {
+    if (!AuthorizationUtils.canManageIngestion(context)) {
       throw new AuthorizationException(
           "You are not authorized to list ingestion sources. Please contact your DataHub administrator.");
     }

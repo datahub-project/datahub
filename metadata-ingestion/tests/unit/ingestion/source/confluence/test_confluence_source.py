@@ -12,37 +12,10 @@ from datahub.ingestion.source.confluence.confluence_source import (
     EXTRACTION_ALGO_VERSION,
     ConfluenceSource,
 )
-
-
-@pytest.fixture
-def cloud_config() -> ConfluenceSourceConfig:
-    """Fixture for Cloud configuration."""
-    return ConfluenceSourceConfig.model_validate(
-        {
-            "url": "https://test.atlassian.net/wiki",
-            "username": "test@example.com",
-            "api_token": "test-token-123",
-            "cloud": True,
-        }
-    )
-
-
-@pytest.fixture
-def datacenter_config() -> ConfluenceSourceConfig:
-    """Fixture for Data Center configuration."""
-    return ConfluenceSourceConfig.model_validate(
-        {
-            "url": "https://confluence.company.com",
-            "personal_access_token": "test-pat-123",
-            "cloud": False,
-        }
-    )
-
-
-@pytest.fixture
-def pipeline_context() -> PipelineContext:
-    """Fixture for pipeline context."""
-    return PipelineContext(run_id="test-run")
+from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (
+    create_mock_confluence_client,
+)
+from tests.unit.ingestion.source.confluence.conftest import make_source
 
 
 def test_source_initialization_cloud(
@@ -577,9 +550,6 @@ def test_browse_path_emitted_for_root_page(
     """Test that BrowsePathsV2 is emitted for root pages with just space name."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
-    from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
-        create_mock_confluence_client,
-    )
 
     with patch(
         "datahub.ingestion.source.confluence.confluence_source.Confluence"
@@ -618,9 +588,6 @@ def test_browse_path_emitted_for_nested_page(
     """Test that BrowsePathsV2 is emitted for nested pages with full hierarchy."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
-    from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
-        create_mock_confluence_client,
-    )
 
     with patch(
         "datahub.ingestion.source.confluence.confluence_source.Confluence"
@@ -671,9 +638,6 @@ def test_browse_path_deep_hierarchy(
     """Test that BrowsePathsV2 handles deeply nested pages correctly."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
-    from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
-        create_mock_confluence_client,
-    )
 
     with patch(
         "datahub.ingestion.source.confluence.confluence_source.Confluence"
@@ -721,9 +685,6 @@ def test_browse_path_ancestor_not_ingested(
     """Test that ancestors not being ingested don't get URNs in browse path."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import BrowsePathsV2Class
-    from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
-        create_mock_confluence_client,
-    )
 
     # Configure to only ingest specific pages (exclude ancestors)
     config_dict = {
@@ -1120,14 +1081,6 @@ def test_content_hash_in_custom_properties(
     assert different_hash != expected_hash
 
 
-def _build_source(
-    config: ConfluenceSourceConfig, ctx: PipelineContext
-) -> ConfluenceSource:
-    """Instantiate a ConfluenceSource with the network client patched out."""
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
-        return ConfluenceSource(config, ctx)
-
-
 def test_folder_entity_emits_folder_subtype_document(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
@@ -1140,7 +1093,7 @@ def test_folder_entity_emits_folder_subtype_document(
         SubTypesClass,
     )
 
-    source = _build_source(cloud_config, pipeline_context)
+    source = make_source(cloud_config, ctx=pipeline_context)
     folder = FolderNode(
         id="900",
         title="Engineering",
@@ -1179,7 +1132,7 @@ def test_folder_entity_links_to_ingested_parent(
     from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
     from datahub.metadata.schema_classes import DocumentInfoClass
 
-    source = _build_source(cloud_config, pipeline_context)
+    source = make_source(cloud_config, ctx=pipeline_context)
     instance_id = source._get_instance_id()
     folder = FolderNode(
         id="900",
@@ -1211,7 +1164,7 @@ def test_folder_entity_omits_parent_when_not_ingested(
     from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
     from datahub.metadata.schema_classes import DocumentInfoClass
 
-    source = _build_source(cloud_config, pipeline_context)
+    source = make_source(cloud_config, ctx=pipeline_context)
     folder = FolderNode(
         id="900",
         title="Orphan Folder",

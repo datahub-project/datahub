@@ -8,7 +8,6 @@ import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/dataFlow/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
@@ -35,6 +34,7 @@ import {
     SidebarTagsSection,
     StatusSection,
 } from '@app/entityV2/shared/profileChunks';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 

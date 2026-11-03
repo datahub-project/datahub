@@ -6,14 +6,14 @@ import { useTheme } from 'styled-components/macro';
 
 import { Editor } from '@components/components/Editor';
 
-import { useRefetch } from '@app/entity/shared/EntityContext';
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import {
     EditorContainer,
     Field,
     useGlossaryNameValidation,
 } from '@app/entityV2/shared/EntityDropdown/glossaryEntityModal.shared';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 

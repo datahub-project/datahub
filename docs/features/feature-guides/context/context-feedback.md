@@ -7,10 +7,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Context Feedback
 
-<FeatureAvailability saasOnly />
+<FeatureAvailability saasOnly stage="public-beta"/>
 
-:::caution Public Beta
-Context Feedback is part of the DataHub Cloud **Context** add-on and is in Public Beta. Details on this page may change as the feature evolves.
+:::info Context add-on
+Context Feedback is part of the DataHub Cloud **Context** add-on.
 :::
 
 Agents know when they're uncertain. When an agent can't find a definition, finds two that disagree, or is corrected by a user, it records a note in Context Feedback. The notes collect in one place, so your team can see where your context falls short in real use, fix each gap once, and add an eval so it stays fixed.

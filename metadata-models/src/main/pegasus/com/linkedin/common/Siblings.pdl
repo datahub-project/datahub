@@ -4,7 +4,8 @@ namespace com.linkedin.common
  * Siblings information of an entity.
  */
 @Aspect = {
-  "name": "siblings"
+  "name": "siblings",
+  "schemaVersion": 2
 }
 record Siblings {
 
@@ -31,5 +32,9 @@ record Siblings {
   /**
    * If this is the leader entity of the set of siblings
    */
-   primary: boolean
+  @Searchable = {
+    "fieldName": "siblingsPrimary",
+    "fieldType": "BOOLEAN"
+  }
+  primary: boolean
 }

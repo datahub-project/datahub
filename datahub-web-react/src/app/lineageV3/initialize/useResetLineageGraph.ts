@@ -6,9 +6,10 @@ import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeP
 import { EntityType, LineageDirection } from '@types';
 
 /**
- * Resets the lineage node context whenever the home node or selected time range changes, and
+ * Resets the lineage node context whenever the home node or the lineage time range changes, and
  * clears fetched edges whenever `showGhostEntities` changes, since ghost entities affect which
- * edges are considered fetched.
+ * edges are considered fetched. Initializers whose member query does not take the time params are
+ * remounted on a time-range change (see LineageExplorer) so their members are fetched again.
  */
 export default function useResetLineageGraph(
     context: NodeContext,
@@ -31,9 +32,13 @@ export default function useResetLineageGraph(
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [urn, type, startTimeMillis, endTimeMillis, nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion]);
 
+    // Only schema-field pages react to ignoreSchemaFieldStatus; it flips when appConfig loads, which
+    // must not clear other pages' fetched edges.
+    const skipForSchemaField = type === EntityType.SchemaField && ignoreSchemaFieldStatus;
+
     useEffect(() => {
         // Not necessary if on schema field page and ignoring status
-        if (!(type === EntityType.SchemaField && ignoreSchemaFieldStatus)) {
+        if (!skipForSchemaField) {
             adjacencyList[LineageDirection.Upstream].clear();
             adjacencyList[LineageDirection.Downstream].clear();
             edges.clear();
@@ -43,5 +48,5 @@ export default function useResetLineageGraph(
             });
             setDisplayVersion([0, []]);
         }
-    }, [showGhostEntities, ignoreSchemaFieldStatus, type, nodes, adjacencyList, edges, setDisplayVersion]);
+    }, [showGhostEntities, skipForSchemaField, nodes, adjacencyList, edges, setDisplayVersion]);
 }

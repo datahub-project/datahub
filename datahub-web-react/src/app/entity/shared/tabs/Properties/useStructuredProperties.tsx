@@ -1,4 +1,4 @@
-import { getStructuredPropertyValue } from '@app/entity/shared/utils';
+import { getStructuredPropertyValue } from '@app/entityV2/shared/utils';
 
 import { PropertyValue, StructuredPropertiesEntry } from '@types';
 

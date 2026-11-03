@@ -9,7 +9,7 @@ import styled, { useTheme } from 'styled-components/macro';
 import { Editor } from '@components/components/Editor';
 
 import analytics, { EventType } from '@app/analytics';
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
 import {
     EditorContainer,

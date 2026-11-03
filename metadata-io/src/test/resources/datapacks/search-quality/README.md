@@ -12,7 +12,10 @@ Regenerate judgments, Cranfield, and the probes with:
 python3 metadata-ingestion/tests/unit/search_quality/generate_search_quality_pack.py
 ```
 
-The generator leaves both longtail-ecommerce shards in place. The ecommerce entities
+The generator leaves both longtail-ecommerce shards in place, and it leaves
+`08-stage2-default.json` in place. That shard is pack data and is not rebuilt.
+`stage2-default` grades live in `judgments.cloud.json` and are not part of the OSS
+backport patch. The ecommerce entities
 were normalized from `datahub-project/static-assets` `datapacks/showcase-ecommerce`
 at commit `a4228e9f9e9c6ca4ccb453528448fca07170ce88` and are not rebuilt from that
 snapshot. Provenance is in `source/showcase-ecommerce/provenance.json`. The profile
@@ -50,9 +53,11 @@ nDCG mean, and a grade has to be defensible from the asset's name, title, descri
 text. Mechanism probes encode a ranking rule and stay out of both means: `entity-boost`,
 `entity-search`, `structured-property`, `sort`, `field-probe`, `autocomplete`, and
 `keyword-probe`. `entity-boost` gives a glossary term, glossary node, data
-product, domain, and dataset one shared name and description, so their order only checks the
-shipped `entityTypeBoosts` (glossary term and node 10, domain and data product 5, dataset
-unweighted). That order is not evidence that those weights are the right product choice.
+product, domain, and dataset one shared name and description. The glossary term and
+data product may lead in either order, and both stay in the top three with the dataset.
+The glossary node probe expects the data product ahead of the node. Shipped
+`entityTypeBoosts` are glossary term and node 10, domain and data product 5, and dataset
+unweighted. These probes are not evidence that those weights are the right product choice.
 
 Each engine writes one JSON file per gate to
 `metadata-io/build/reports/search-quality/<engine>-<metric>.json` before the floor check. A named

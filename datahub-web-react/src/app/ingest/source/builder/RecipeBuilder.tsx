@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { CSVInfo } from '@app/ingest/source/builder/CSVInfo';
 import { IngestionDocumentationHint } from '@app/ingest/source/builder/IngestionDocumentationHint';
 import { LookerWarning } from '@app/ingest/source/builder/LookerWarning';
