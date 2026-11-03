@@ -1,26 +1,39 @@
+import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder
-from datahub.ingestion.source.aws_messaging.clients import CloudTrailLakeClient
+from datahub.ingestion.source.aws_messaging.clients import (
+    CloudTrailLakeClient,
+    SnsClient,
+)
 from datahub.ingestion.source.aws_messaging.cloudtrail import ProducerLineage
 from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
 from datahub.ingestion.source.aws_messaging.constants import AwsService
+from datahub.ingestion.source.aws_messaging.models import SnsSubscription
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     MetadataChangeProposalClass,
 )
-from tests.unit.aws_messaging.conftest import ACCOUNT, REGION, base_config, sqs_client
+from tests.unit.aws_messaging.conftest import (
+    ACCOUNT,
+    REGION,
+    base_config,
+    sns_client,
+    sqs_client,
+)
 from tests.unit.aws_messaging.test_lambda_eventbridge import (
     create_function,
     job_edges,
@@ -422,3 +435,35 @@ def test_statement_rejects_a_region_that_is_not_an_aws_region() -> None:
     )
     with pytest.raises(ValueError):
         producers.statement(datetime(2026, 10, 28, tzinfo=timezone.utc))
+
+
+def test_patched_topic_clears_observed_producers_after_a_successful_query(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A partial subscription listing writes topic properties as a patch; a
+    # successful query that saw no role senders must still clear the old value.
+    sns_client().create_topic(Name="order-events")
+
+    def truncated(
+        self: SnsClient, topic_arn: str, on_error: Callable[[ClientError], None]
+    ) -> Iterator[SnsSubscription]:
+        on_error(ClientError({"Error": {"Code": "Throttling", "Message": "x"}}, "List"))
+        yield from ()
+
+    monkeypatch.setattr(SnsClient, "list_subscriptions", truncated)
+    monkeypatch.setattr(
+        CloudTrailLakeClient, "run_query", lambda self, *args, **kwargs: []
+    )
+    source = SnsSource.create(
+        base_config(
+            cloudtrail_producers={"enabled": True, "event_data_store": STORE},
+            lineage={"lambda_functions": False},
+        ),
+        PipelineContext(run_id="cloudtrail-test"),
+    )
+    operations = [
+        (op["op"], op["path"])
+        for wu in property_patches(list(source.get_workunits()))
+        for op in json.loads(wu.metadata.aspect.value)
+    ]
+    assert ("remove", "/customProperties/observed_producers") in operations

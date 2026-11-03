@@ -37,6 +37,7 @@ from datahub.ingestion.source.aws_messaging.clients import (
 )
 from datahub.ingestion.source.aws_messaging.config import SnsSourceConfig
 from datahub.ingestion.source.aws_messaging.constants import (
+    OBSERVED_PRODUCERS_PROPERTY,
     QUEUE_URL_PATTERN,
     SNS_PLATFORM,
     TRUE_STRING,
@@ -284,6 +285,14 @@ class SnsSource(AwsMessagingSourceBase):
             patch.set_external_url(properties.externalUrl)
         for key, value in sorted(properties.customProperties.items()):
             patch.add_custom_property(key, value)
+        if (
+            OBSERVED_PRODUCERS_PROPERTY not in properties.customProperties
+            and self.producers is not None
+            and self.producers.query()
+        ):
+            # A successful query that saw no role senders clears the value, as the
+            # full write on the other path does.
+            patch.remove_custom_property(OBSERVED_PRODUCERS_PROPERTY)
         for mcp in patch.build():
             yield MetadataWorkUnit(id=f"{urn}-datasetProperties-patch", mcp_raw=mcp)
 
