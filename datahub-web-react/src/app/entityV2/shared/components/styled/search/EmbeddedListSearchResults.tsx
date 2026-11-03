@@ -1,7 +1,9 @@
 import { Icon, Loader, Pagination, Text } from '@components';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import {
@@ -13,10 +15,11 @@ import { EntityAndType } from '@app/entityV2/shared/types';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { UnionType } from '@app/search/utils/constants';
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
-import { DataHubView, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
+import { DataHubView, Dataset, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
 
 const SearchBody = styled.div<{ showFilters?: boolean }>`
     height: 100%;
@@ -100,6 +103,27 @@ const LoadingContainer = styled.div`
     flex: 1;
 `;
 
+const WarningMessage = styled.div`
+    gap: 8px;
+    padding: 8px;
+    display: flex;
+    margin: 8px 16px 0 16px;
+    align-items: center;
+    color: ${(props) => props.theme.colors.textWarning};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
+    border-radius: 8px;
+`;
+
+const WarningIcon = styled(Warning)`
+    color: ${(props) => props.theme.colors.iconWarning};
+    font-size: 16px;
+`;
+
+const SearchAllAssetsLink = styled.span`
+    cursor: pointer;
+    text-decoration: underline;
+`;
+
 const ViewsContainer = styled.div`
     background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 10px 16px;
@@ -171,6 +195,8 @@ interface Props {
     view?: DataHubView;
     errorMessage?: string;
     selectLimit?: number;
+    isViewAllMode?: boolean;
+    handleViewAllClickWarning?: () => void;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -200,6 +226,8 @@ export const EmbeddedListSearchResults = ({
     view,
     errorMessage,
     selectLimit,
+    isViewAllMode = false,
+    handleViewAllClickWarning,
 }: Props) => {
     const { t } = useTranslation('entity.shared.components');
     const { t: tc } = useTranslation('common.actions');
@@ -213,6 +241,17 @@ export const EmbeddedListSearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
+
+    const history = useHistory();
+    const platformUrn = searchResponse?.facets?.find((facet) => facet.field === 'platform')?.aggregations?.[0]?.value;
+    const platform = (combinedSiblingSearchResults?.[0]?.entity as Dataset | undefined)?.platform?.name;
+
+    const handleSearchAllAssetsClick = () => {
+        handleViewAllClickWarning?.();
+        if (platformUrn) {
+            navigateToSearchUrl({ filters: [{ field: 'platform', values: [platformUrn] }], history });
+        }
+    };
 
     return (
         <>
@@ -251,6 +290,29 @@ export const EmbeddedListSearchResults = ({
                                 </Pill>
                             )}
                         </ViewsContainer>
+                    )}
+                    {isViewAllMode && (
+                        <WarningMessage>
+                            <WarningIcon weight="fill" />
+                            <Text weight="bold" style={{ lineHeight: 'normal' }}>
+                                {t('viewAll.resultsIncomplete')}{' '}
+                                {platform && (
+                                    <SearchAllAssetsLink
+                                        onClick={handleSearchAllAssetsClick}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleSearchAllAssetsClick();
+                                            }
+                                        }}
+                                        role="button"
+                                        tabIndex={0}
+                                    >
+                                        {t('viewAll.searchAllAssets', { platform })}
+                                    </SearchAllAssetsLink>
+                                )}
+                            </Text>
+                        </WarningMessage>
                     )}
                     {loading && (
                         <LoadingContainer>

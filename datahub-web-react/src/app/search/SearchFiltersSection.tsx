@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { buildInitialViewState, fromUnionType } from '@app/entity/view/builder/utils';
+import { buildInitialViewState, fromUnionType } from '@app/entityV2/view/builder/utils';
 import { SEARCH_RESULTS_ADVANCED_SEARCH_ID } from '@app/onboarding/config/SearchOnboardingConfig';
 import { AdvancedSearchFilters } from '@app/search/AdvancedSearchFilters';
 import { SaveAsViewButton } from '@app/search/SaveAsViewButton';

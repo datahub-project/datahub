@@ -4,9 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '@app/entity/view/types';
 import { ViewBuilderForm } from '@app/search/view/builder/ViewBuilderForm';
 import { ViewBuilderMode } from '@app/search/view/builder/types';
+import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '@app/search/view/types';
 import ClickOutside from '@app/sharedV2/ClickOutside';
 import { Button } from '@src/alchemy-components';
 import { getModalDomContainer } from '@utils/focus';
