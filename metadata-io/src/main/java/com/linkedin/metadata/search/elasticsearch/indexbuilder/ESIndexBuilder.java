@@ -848,8 +848,25 @@ public class ESIndexBuilder {
       throws IOException {
     if (indexState.isPureMappingsAddition()
         || indexState.isPureStructuredPropertyAddition()
+        || indexState.hasSafeStructuredPropertyAddition()
         || indexState.isInPlaceMappingParameterUpdate()) {
       Map<String, Object> mappingsToPut = indexState.targetMappings();
+      if (!indexState.isPureMappingsAddition()
+          && !indexState.isPureStructuredPropertyAddition()
+          && !indexState.isInPlaceMappingParameterUpdate()) {
+        // Unrelated mapping drift must neither block new properties nor travel in their PUT.
+        log.warn(
+            "Index: {} - Applying structured-property mappings only; unrelated mapping"
+                + " differences remain and may require reindexing.",
+            indexState.name());
+        mappingsToPut =
+            Map.of(
+                PROPERTIES,
+                Map.of(
+                    STRUCTURED_PROPERTY_MAPPING_FIELD,
+                    propertiesOf(indexState.targetMappings())
+                        .get(STRUCTURED_PROPERTY_MAPPING_FIELD)));
+      }
       if (indexState.cannotApplyKnnVectorMappingInPlace()) {
         log.error(
             "Index: {} - Skipping knn_vector mapping update because index.knn is false and"

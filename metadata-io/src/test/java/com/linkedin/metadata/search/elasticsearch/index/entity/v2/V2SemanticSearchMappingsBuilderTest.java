@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class V2SemanticSearchMappingsBuilderTest {
@@ -62,6 +63,32 @@ public class V2SemanticSearchMappingsBuilderTest {
     semanticConfig.setModels(
         Map.of("cohere_embed_v3", cohereModel, "openai_text_embedding_3_small", openaiModel));
     return semanticConfig;
+  }
+
+  @DataProvider
+  public Object[][] embeddingEngines() {
+    return new Object[][] {
+      {SearchClientShim.SearchEngineType.OPENSEARCH_2},
+      {SearchClientShim.SearchEngineType.ELASTICSEARCH_8}
+    };
+  }
+
+  @Test(dataProvider = "embeddingEngines")
+  @SuppressWarnings("unchecked")
+  public void testEmbeddingMetadataDoesNotCreateDynamicMappings(
+      SearchClientShim.SearchEngineType engine) {
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    when(client.getEngineType()).thenReturn(engine);
+    Map<String, Object> mapping =
+        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings
+            .buildEmbeddingFieldConfig(buildTestSemanticConfig(), client);
+    Map<String, Object> models = (Map<String, Object>) mapping.get("properties");
+    for (Object value : models.values()) {
+      Map<String, Object> model = (Map<String, Object>) value;
+      assertEquals(model.get("dynamic"), false);
+      Map<String, Object> fields = (Map<String, Object>) model.get("properties");
+      assertEquals(fields.keySet(), Set.of("chunks", "sourceTextSha256"));
+    }
   }
 
   @BeforeMethod

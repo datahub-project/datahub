@@ -39,6 +39,12 @@
             <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexMigrationStampTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdSchemeTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.index.DocumentIdSchemeStampingMappingsBuilderTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.SemanticStructuredPropertyMappingTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchMappingsBuilderTest">
+                <methods>
+                    <include name="testEmbeddingMetadataDoesNotCreateDynamicMappings"/>
+                </methods>
+            </class>
         </classes>
     </test>
 </suite>
