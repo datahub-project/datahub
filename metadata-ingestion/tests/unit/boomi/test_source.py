@@ -374,6 +374,19 @@ def test_config_rejects_invalid_api_url(api_url: str) -> None:
         )
 
 
+def test_config_api_url_error_omits_password() -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        BoomiSourceConfig.model_validate(
+            {
+                "account_id": ACCOUNT_ID,
+                "username": "svc@example.com",
+                "api_token": "secret-token",
+                "api_url": "https://user:url-password@api.boomi.com",
+            }
+        )
+    assert "url-password" not in str(excinfo.value)
+
+
 @pytest.mark.parametrize(
     "api_url", ["http://localhost:8080", "http://127.0.0.1:9000", "http://[::1]:80"]
 )

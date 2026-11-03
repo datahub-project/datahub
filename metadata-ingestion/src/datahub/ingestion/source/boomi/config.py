@@ -121,7 +121,8 @@ class BoomiSourceConfig(
             or parsed.fragment
         ):
             raise ValueError(
-                f"api_url must be a base URL such as https://api.boomi.com, without credentials, a query or a fragment, got {value!r}"
+                # The value is left out because it may carry a password.
+                "api_url must be a base URL such as https://api.boomi.com, without credentials, a query or a fragment"
             )
         # The client appends /api/rest/v1/<account_id>, so a full Platform API
         # URL here would double the prefix.
