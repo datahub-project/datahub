@@ -29,6 +29,10 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 ORDERS_EXTRACT = "e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc"
 CATALOG_SYNC = "6363d3f8-93fa-4c4d-a399-45bde722ee63"
+# Database read -> Map -> database write, and Salesforce query -> Map ->
+# database write, for column lineage.
+RNA_TO_MY_TABLE = "7d88f56c-bf97-4760-ba61-170b6b0f6e8c"
+SF_TO_MY_TABLE = "c7b70264-535d-423f-9f17-e80bc777dd17"
 
 # The ids below are not in the captures. Their records are copied from
 # captured ones, so the shape stays real, and cover cases the trial account
@@ -205,6 +209,20 @@ PROCESSES_PAGE_2 = [
         _PROCESS_TEMPLATE,
         componentId=ORDERS_EXTRACT_TEST,
         name="DH Test - Orders Extract Test",
+    ),
+    _copy(
+        _PROCESS_TEMPLATE,
+        componentId=RNA_TO_MY_TABLE,
+        name="DH Test - RNA to My Table",
+        createdDate="2026-11-02T20:39:43Z",
+        modifiedDate="2026-11-02T20:39:43Z",
+    ),
+    _copy(
+        _PROCESS_TEMPLATE,
+        componentId=SF_TO_MY_TABLE,
+        name="DH Test - SF to My Table",
+        createdDate="2026-11-02T20:40:35Z",
+        modifiedDate="2026-11-02T20:40:35Z",
     ),
 ]
 
@@ -608,7 +626,7 @@ def test_boomi_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
     report = pipeline.source.get_report()
     assert isinstance(report, BoomiSourceReport)
     assert report.folders_emitted == 5
-    assert report.processes_emitted == 7
+    assert report.processes_emitted == 9
     assert report.processes_duplicate_branch_copies == 1
     assert list(report.processes_undeployed_skipped) == []
     assert list(report.environments_filtered) == ["DH Test Dev Env"]
@@ -622,7 +640,11 @@ def test_boomi_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
     assert report.executions_over_cap == 1
     assert report.executions_process_not_emitted == 1
     assert report.executions_unknown_status == 1
-    assert report.lineage_edges_resolved == 11
+    assert report.lineage_edges_resolved == 15
+    assert report.column_lineage_maps_resolved == 2
+    assert report.column_lineage_edges_emitted == 4
+    assert dict(report.column_lineage_maps_skipped) == {}
+    assert dict(report.column_lineage_fields_skipped) == {}
     assert dict(report.lineage_edges_unresolved) == {"unsupported_connector": 1}
     assert dict(report.lineage_skipped_subtypes) == {
         "http": 1,
@@ -692,6 +714,8 @@ def test_boomi_stateful_removes_undeployed_process(
     # The trial account's two never-deployed processes, plus one deployed only
     # to a denied environment.
     assert sorted(report.processes_undeployed_skipped) == [
+        "DH Test - RNA to My Table",
+        "DH Test - SF to My Table",
         "DH Test - SFTP Pickup",
         "DH Test - Salesforce Accounts",
         "DH Test - Shipment Notify",

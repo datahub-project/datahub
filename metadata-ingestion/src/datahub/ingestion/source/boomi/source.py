@@ -82,6 +82,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DataProcessTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     OwnershipTypeClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DataJobUrn, DataProcessInstanceUrn
@@ -267,6 +270,10 @@ def dedupe_branch_copies(
     SourceCapability.LINEAGE_COARSE,
     "From connector operations and process calls. Enabled by default via include_lineage",
 )
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "From Map shapes and INSERT ... SELECT SQL. Enabled by default via include_column_lineage, and needs include_lineage",
+)
 @capability(SourceCapability.OWNERSHIP, "From process createdBy and modifiedBy")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class BoomiSource(StatefulIngestionSourceBase, TestableSource):
@@ -281,7 +288,7 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         self.client = BoomiClient(config, self.report)
         self._ui_host = ui_host_for_api_url(config.api_url)
         self.lineage: Optional[BoomiLineageResolver] = (
-            BoomiLineageResolver(config, self.client, self.report)
+            BoomiLineageResolver(config, self.client, self.report, ctx.graph)
             if config.include_lineage
             else None
         )
@@ -644,11 +651,23 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 self.report.process_calls_resolved += 1
                 input_jobs.append(str(child_urn))
+            fine_grained = [
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=edge.upstreams,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[edge.downstream],
+                    transformOperation=edge.transform,
+                )
+                for edge in pending.lineage.column_lineage
+            ]
+            self.report.column_lineage_edges_emitted += len(fine_grained)
             extra_aspects.append(
                 DataJobInputOutputClass(
                     inputDatasets=pending.lineage.input_datasets,
                     outputDatasets=pending.lineage.output_datasets,
                     inputDatajobs=input_jobs,
+                    fineGrainedLineages=fine_grained or None,
                 )
             )
         return DataJob(

@@ -36,6 +36,14 @@ class BoomiSourceReport(StaleEntityRemovalSourceReport):
     lineage_components_fetched: int = 0
     lineage_component_failures: LossyList[str] = field(default_factory=LossyList)
     lineage_processes_incomplete: LossyList[str] = field(default_factory=LossyList)
+    column_lineage_edges_emitted: int = 0
+    column_lineage_maps_resolved: int = 0
+    column_lineage_maps_skipped: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    column_lineage_fields_skipped: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
     process_calls_resolved: int = 0
     process_calls_child_not_emitted: int = 0
 

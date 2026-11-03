@@ -26,6 +26,8 @@ source:
 
     # Lineage from connector operations and process calls.
     include_lineage: true
+    # Column lineage from Map shapes and INSERT ... SELECT SQL.
+    include_column_lineage: true
     # Experimental: give connectors without built-in support a platform.
     connection_type_platform_map:
       "officialboomi-X3979C-snowfl-prod": snowflake

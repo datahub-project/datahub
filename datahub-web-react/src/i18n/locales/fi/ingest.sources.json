@@ -16,7 +16,7 @@
     "sources.athena.description": "Tuo skeemat, taulut, näkymät ja lineage S3:ään Athenasta.",
     "sources.azureAd.description": "Tuo käyttäjät ja ryhmät Azure Active Directorystä.",
     "sources.bigquery.description": "Tuo projektit, tietoaineistot, taulut, näkymät, lineage, kyselyt ja tilastot BigQuerystä.",
-    "sources.boomi.description": "Tuo kansiot, prosessit, lineage, käyttöönotot, omistajuus ja ajohistoria Boomi Integrationista.",
+    "sources.boomi.description": "Tuo kansiot, prosessit, taulu- ja sarakekohtainen lineage, käyttöönotot, omistajuus ja ajohistoria Boomi Integrationista.",
     "sources.cassandra.description": "Tuo taulut, avainavaruudet ja sarakeskeemat Cassandrasta.",
     "sources.clickhouse.description": "Tuo taulut, näkymät, materialisoidut näkymät, sanakirjat, tilastot, kyselyt ja lineage ClickHousesta.",
     "sources.cockroachdb.description": "Tuo tietokannat, skeemat, taulut, näkymät, tilastot ja lineage CockroachDBstä.",

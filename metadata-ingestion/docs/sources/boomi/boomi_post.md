@@ -51,6 +51,8 @@ The order is: `connection_to_platform`, then the connector-specific parsing abov
 
 Unqualified table names in SQL get the connection's database but no schema, because the schema they resolve to depends on the database's search path. For PostgreSQL and SQL Server, set `default_schema` in `connection_to_platform` so the URNs match the ones from the database's own source. Oracle URLs carry a SID or service name, which DataHub's Oracle source does not put in URNs, so Oracle tables get no database unless you set one. Table names are lowercased by default. The source plugin never builds a URN from a host name.
 
+For a write with SQL, the written table is an output, and any other table the statement reads, such as the source of an `INSERT ... SELECT` or a `MERGE`, is an input. This does not depend on `include_column_lineage`.
+
 ##### Mapping connections
 
 Use `connection_to_platform` when the URNs have to match another source that sets a platform instance, or when a connection does not carry the database or schema. Keys are connection component IDs, which you can copy from the connection's URL in Boomi. An entry wins over everything read from the connection:
@@ -84,6 +86,33 @@ SAP (`sapjco`), HTTP (`http`), FTP (`ftp`), SFTP (`officialboomi-X3979C-sftpv2-p
 
 When an operation has no table or SQL cannot be parsed, the edge is skipped rather than guessed, and counted by reason in `lineage_edges_unresolved`. When a connection, operation or profile cannot be read, the process's inputs and outputs are left out of this run altogether, so the lineage stored by an earlier run is kept instead of being replaced by a partial set. These processes are listed in `lineage_processes_incomplete`.
 
+##### Column lineage
+
+With `include_column_lineage: true` (the default) and `include_lineage` enabled, the source plugin adds column lineage to the process DataJob from two places.
+
+**Map shapes.** For each Map shape, the source plugin reads the Map component and looks along the shape's connectors for the nearest Connector shapes before and after it. The search stops at Process Call, Process Route, Stop, Return Documents and Exception shapes, so no column lineage crosses into or out of another process. A read counts when its operation uses the Map's source profile, and a write counts when its operation uses the Map's destination profile, so a map is never tied to a connector by position alone. Within the map:
+
+- A field mapped straight to another field gives an `IDENTITY` edge.
+- A function with fields as inputs gives an edge from every input field to each destination field it feeds. The transform is the function type, for example `StringConcat`.
+- Functions with no field inputs, such as Get Current Date, and map Defaults give no edge, because nothing upstream feeds them.
+
+Profile fields become columns as follows. Operations of connectors resolved from a JDBC URL or a mapping are treated like Database V2 ones: their request or response profile on `GenericOperationConfig` supplies the fields, and their SQL field, when present, plays the part of the query.
+
+| Side                     | How a field becomes a column                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Database read with SQL   | Boomi does not tie profile fields to the SQL, so a field is only a column when the statement reads exactly one table and the field name matches one of its outputs, ignoring case. An alias leads back to the column it selects. With `SELECT *`, field names are taken as the table's columns. Fields of a statement that joins several tables are skipped. |
+| Database read or write   | With a table name and no SQL, or a dynamic insert or update, field names are the table's columns.                                                                                                                                                                                                                                                            |
+| Database write with SQL  | Fields bind to statement parameters, so only a field named in the INSERT's column list is taken as that column. This covers a legacy profile's SQL, a Database V2 operation's query and the SQL field of another connector's operation. Nested fields of a JSON or XML request profile are skipped.                                                          |
+| Salesforce read or write | Field names are the object's field API names, with their case kept. Fields of related objects are skipped.                                                                                                                                                                                                                                                   |
+
+Database column names follow the casing of the table name, so they are lowercased unless `convert_urns_to_lowercase` is `false` for the connection. Salesforce field names keep their case. When the source plugin runs with a DataHub graph, for example through the DataHub sink or `datahub_api`, it reads each dataset's schema and uses the stored field path. A column that is not in a stored schema is skipped.
+
+**SQL.** When a database operation writes with `INSERT ... SELECT`, the column lineage of the parsed statement is used. The parser names the written columns after the SELECT's outputs, so they are matched to the INSERT's column list by position. An `INSERT ... SELECT` without a column list gives no column lineage, because its target columns cannot be known without the table's schema. A column the statement fills from a table takes its lineage from the SQL only, so a Map edge into the same column through the same write is skipped and counted as `written_by_sql`. When a write's SQL reads other tables but its columns cannot be matched to the INSERT's column list, as with `SELECT *`, a `UNION`, a different number of columns or a repeated output name, any of the target's columns may come from the SQL, so every Map edge into that write is skipped and counted as `unmapped_sql_write`. A `MERGE` gives table lineage only, and its columns are counted as `merge_statement`.
+
+Anything that cannot be tied to a concrete column is skipped rather than guessed. Skipped fields are counted by reason in `column_lineage_fields_skipped`, and maps without a matching read or write, or with a connector that has no column support, in `column_lineage_maps_skipped`. If a Map component or a profile it needs cannot be read, the process's lineage is left out of the run, as for other components.
+
+The Map, profile and process XML this relies on was validated against components created through the Platform API on a trial account. Maps built in the Boomi UI can also carry display path attributes (`fromNamePath`, `toNamePath` and their key forms), which are not used.
+
 ##### Process calls
 
 A Process Call shape adds the called process's DataJob to the caller's input DataJobs, but only when the called process is ingested in the same run. Calls to filtered or undeployed processes are counted in `process_calls_child_not_emitted`.
@@ -102,11 +131,13 @@ If Branch and Merge is enabled on the account, set `branch_name` (usually `main`
 
 Boomi allows 10 Platform API requests per second per account and answers with HTTP 503 when the limit is exceeded. The source plugin caps itself at `max_requests_per_second` (8 by default) and retries 429, 500, 502, 503 and 504 responses with exponential backoff. Lower the cap if other API clients share the account.
 
-The source plugin makes one request per process to read its component XML, so an account with 1,000 processes needs a little over two minutes at the default rate. Lineage adds one request for each distinct connection, operation and database profile; components shared between processes are read once per run.
+The source plugin makes one request per process to read its component XML, so an account with 1,000 processes needs a little over two minutes at the default rate. Lineage adds one request for each distinct connection, operation and database profile, and column lineage one for each distinct map and the profiles it connects; components shared between processes are read once per run.
 
 ### Limitations
 
-- Lineage is table level only. Column lineage from Map components is not extracted.
+- Column lineage does not look inside User-Defined Function components, scripting, process properties, Set Properties shapes or document caches. A function's inputs are linked to all of its outputs.
+- Column lineage needs a connector with a resolved dataset on both sides of a Map: a database, Salesforce, a connector whose connection holds a JDBC URL, or a mapped connector. Maps that read JSON, XML or flat files from HTTP, file or other non-dataset connectors are skipped.
+- A field is linked through the nearest Connector shapes around a Map only. Data that passes through several Maps in a row, or through a sub-process, gets no column lineage.
 - Lineage is read from the current component versions, not the version deployed to each environment.
 - Connectors without built-in support, such as Amazon S3 and NetSuite, only get lineage when their connection holds a JDBC URL, or through `connection_type_platform_map` or `connection_to_platform`. These generic paths are experimental.
 - Salesforce connections do not name the org, so Salesforce datasets from different orgs only stay apart if you set `platform_instance` in `connection_to_platform`.
