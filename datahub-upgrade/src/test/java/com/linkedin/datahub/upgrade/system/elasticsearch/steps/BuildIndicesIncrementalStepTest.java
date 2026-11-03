@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -54,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -1100,7 +1102,12 @@ public class BuildIndicesIncrementalStepTest {
     verify(indexBuilder, never()).createIndex(any(OperationContext.class), anyString(), any());
     verify(indexBuilder, never())
         .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
-    verify(indexBuilder).markMigrationIncomplete(any(OperationContext.class), eq(V3_INDEX_NAME));
+    // Structured property fields the index lacks go in before the fill writes their values.
+    InOrder fillOrder = inOrder(indexBuilder);
+    fillOrder.verify(indexBuilder).buildIndex(any(OperationContext.class), eq(v3Config));
+    fillOrder
+        .verify(indexBuilder)
+        .markMigrationIncomplete(any(OperationContext.class), eq(V3_INDEX_NAME));
     Map<String, String> state = persistedState();
     assertEquals(
         IncrementalReindexState.getStatus(state, V3_INDEX_NAME),

@@ -927,16 +927,18 @@ public class ESIndexBuilder {
       // in-place updatable parameter. buildIndex passes suppressError=true, so without this
       // warning the upgrade step reports success while the index mapping is silently left
       // untouched — the operator sees no reindex and no change.
+      boolean addedStructuredPropertyFields =
+          putUnmappedStructuredPropertyFields(opContext, indexState, suppressError);
       log.warn(
-          "Index: {} - Mapping changes were NOT applied: put-mapping cannot express this diff,"
+          "Index: {} - Mapping changes were NOT applied{}: put-mapping cannot express this diff,"
               + " so a reindex is required to pick them up."
               + " requiresReindex={}, enableIndexMappingsReindex={}."
               + " If reindexing is disabled, enable ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX"
               + " or the new mappings will keep being ignored.",
           indexState.name(),
+          addedStructuredPropertyFields ? " beyond the new structured property fields" : "",
           indexState.requiresReindex(),
           indexState.enableIndexMappingsReindex());
-      putUnmappedStructuredPropertyFields(opContext, indexState, suppressError);
       if (v3IndexNeedsRebuild(opContext, indexState)) {
         // Search V3 writes values for root fields an older V3 mapping declares as aliases, and the
         // engine rejects writes to an alias, so this index stops taking V3 writes; an older V3
@@ -950,7 +952,9 @@ public class ESIndexBuilder {
                 + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true, then RestoreIndices.",
             indexState.name());
       }
-      if (!suppressError) {
+      // A definition upsert (suppressError=false) that added its fields did what it was for; the
+      // warning above already reports the rest of the diff.
+      if (!suppressError && !addedStructuredPropertyFields) {
         if (EntityIndexVersion.V3.matches(indexState.name())) {
           log.error(
               "Attempted to apply invalid mappings for {}.\n{}",
@@ -1007,7 +1011,17 @@ public class ESIndexBuilder {
           e);
       return false;
     }
-    log.info("Index: {} - Added structured property fields {}", indexState.name(), newFields);
+    if (suppressError) {
+      // System-update adds fields the index was missing, possibly while values for them were
+      // written; put-mapping does not index what documents already hold.
+      log.warn(
+          "Index: {} - Added structured property fields {}. Values that documents already held"
+              + " for them stay unsearchable until RestoreIndices rewrites those documents.",
+          indexState.name(),
+          newFields);
+    } else {
+      log.info("Index: {} - Added structured property fields {}", indexState.name(), newFields);
+    }
     return true;
   }
 
