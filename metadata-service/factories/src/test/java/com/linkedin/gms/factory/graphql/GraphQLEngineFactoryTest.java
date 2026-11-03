@@ -93,6 +93,9 @@ import org.testng.annotations.Test;
     locations = "classpath:/application.yaml",
     properties = {
       "platformAnalytics.enabled=false",
+      // Pinned so an exported env var can't change which root fields are gated.
+      "featureFlags.businessAttributeEntityEnabled=false",
+      "featureFlags.entityVersioning=false",
       "graphQL.concurrency.separateThreadPool=true",
       "LINEAGE_DEFAULT_LAST_DAYS_FILTER=30",
       "authentication.tokenService.signingKey=test-signing-key-for-tests",
