@@ -405,7 +405,13 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             allConfigs.stream()
                 .filter(c -> !c.requiresReindex())
                 .filter(c -> !incrementallyBuiltIndices.contains(c.name()))
-                .filter(c -> c.requiresApplyMappings() || c.requiresApplySettings())
+                // buildIndex also warns about definitions an otherwise unchanged index has no
+                // field for.
+                .filter(
+                    c ->
+                        c.requiresApplyMappings()
+                            || c.requiresApplySettings()
+                            || c.hasNewStructuredProperty())
                 .collect(Collectors.toList());
 
         for (ReindexConfig config : configsNoReindex) {

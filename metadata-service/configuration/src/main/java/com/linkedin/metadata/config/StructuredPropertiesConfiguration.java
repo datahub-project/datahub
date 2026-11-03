@@ -30,18 +30,18 @@ public class StructuredPropertiesConfiguration {
   private boolean systemUpdateEnabled;
 
   /**
-   * When true (and {@link #systemUpdateEnabled} is also true), system-update reindexes entity
-   * search indices whose structured-property field Elasticsearch types differ from the
-   * definition-driven target (e.g. dynamic {@code float}/{@code long} vs intended {@code double}
-   * for NUMBER). Both flags must be enabled for type-mismatch reindex to run.
+   * When true, and {@link #systemUpdateEnabled} and mappings reindex are also enabled,
+   * system-update reindexes entity search indices whose structured-property field Elasticsearch
+   * types differ from the definition-driven target (e.g. dynamic {@code float}/{@code long} vs
+   * intended {@code double} for NUMBER).
    */
   private boolean typeMismatchReindexEnabled;
 
   /**
-   * When true (and {@link #systemUpdateEnabled} is also true), system-update reindexes entity
-   * search indices whose structured-property {@code copy_to} targets differ from the
-   * definition-driven mapping. A put-mapping does not backfill already-indexed documents, so the
-   * difference requires a full reindex.
+   * When true, and {@link #systemUpdateEnabled} and mappings reindex are also enabled,
+   * system-update reindexes entity search indices whose structured-property {@code copy_to} targets
+   * differ from the definition-driven mapping. A put-mapping does not backfill already-indexed
+   * documents, so the difference requires a full reindex.
    */
   private boolean copyToMismatchReindexEnabled;
 

@@ -66,9 +66,12 @@ public class BuildIndices implements BlockingSystemUpgrade {
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
             graphService, entitySearchService, systemMetadataService, timeseriesAspectService);
 
+    // Read now: the scale-down vote is the first step to use the definitions and counts a failure
+    // as "no reindex due", so a failed read must fail the run before that vote.
     _structuredProperties =
-        ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
-            configurationProvider.getStructuredProperties(), aspectDao);
+        Set.copyOf(
+            ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
+                configurationProvider.getStructuredProperties(), aspectDao));
 
     _incrementalReindexEnabled =
         configurationProvider.getElasticSearch().getBuildIndices() != null

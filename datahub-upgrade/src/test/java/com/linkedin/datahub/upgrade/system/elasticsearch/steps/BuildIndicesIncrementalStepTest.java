@@ -187,6 +187,19 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
+  public void testPassesAnIndexWithUnmappedStructuredPropertiesToBuildIndex() throws Throwable {
+    // Nothing is applied to it, but buildIndex reports the definitions it has no field for.
+    ReindexConfig unchangedConfig = mockReindexConfig(INDEX_NAME, false);
+    when(unchangedConfig.hasNewStructuredProperty()).thenReturn(true);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(unchangedConfig));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(unchangedConfig));
+  }
+
+  @Test
   public void testReconcilesInPlaceMappingUpdateWhenEnabled() throws Throwable {
     buildIndicesConfig.setReconcileInPlaceMappingUpdates(true);
     step = createStep();

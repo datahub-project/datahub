@@ -798,14 +798,19 @@ public class ReindexConfig {
             if (super.hasRemovedStructuredProperty && !super.enableStructuredPropertiesReindex) {
               log.warn(
                   "Index: {} - There's a removed Structured Property, however Structured Property"
-                      + " reindexing is DISABLED.",
+                      + " reindexing is DISABLED. It needs"
+                      + " ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true and"
+                      + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true.",
                   super.name);
             }
             if (super.hasStructuredPropertyTypeMismatch
                 && !super.enableStructuredPropertyTypeMismatchReindex) {
               log.warn(
                   "Index: {} - Structured Property field type mismatch(es) detected ({}), however"
-                      + " Structured Property type-mismatch reindexing is DISABLED.",
+                      + " Structured Property type-mismatch reindexing is DISABLED. It needs"
+                      + " ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE,"
+                      + " ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX and"
+                      + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX set to true.",
                   super.name,
                   mismatchedStructuredPropertyFields);
             }
@@ -813,7 +818,10 @@ public class ReindexConfig {
                 && !super.enableStructuredPropertyCopyToMismatchReindex) {
               log.warn(
                   "Index: {} - Structured Property copy_to mismatch(es) detected ({}), however"
-                      + " Structured Property copy_to reindexing is DISABLED.",
+                      + " Structured Property copy_to reindexing is DISABLED. It needs"
+                      + " ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE,"
+                      + " ENABLE_STRUCTURED_PROPERTIES_COPY_TO_MISMATCH_REINDEX and"
+                      + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX set to true.",
                   super.name,
                   mismatchedStructuredPropertyCopyTo);
             }

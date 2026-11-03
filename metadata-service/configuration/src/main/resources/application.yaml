@@ -2003,7 +2003,7 @@ structuredProperties:
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
   systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # lets system update reindex for structured property mapping differences (removed property, type or copy_to mismatch)
   # Reindex when existing SP field ES types disagree with definition-driven targets (e.g. float vs double).
-  # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
+  # Requires systemUpdateEnabled and ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true as well.
   typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
   # Reindex when an existing SP field's copy_to disagrees with the definition-driven target.
   # Requires systemUpdateEnabled and ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
