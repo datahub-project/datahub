@@ -23,6 +23,7 @@ from datahub.ingestion.source.aws_messaging.clients import (
 from datahub.ingestion.source.aws_messaging.eventbridge import (
     template_field_map,
 )
+from datahub.ingestion.source.aws_messaging.jobs import JobEdgeTracker
 from datahub.ingestion.source.aws_messaging.models import RuleTarget
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
@@ -799,3 +800,31 @@ def test_malformed_pipe_field_urn_is_kept(aws: None) -> None:
     assert "Stale field lineage not checked" in [
         w.title for w in source.get_report().warnings
     ]
+
+
+def test_stale_cross_account_job_edge_is_retracted() -> None:
+    # No recipe reads another account's queue in full, so the edge from this
+    # recipe's rule is checked from the job's side.
+    remote_queue = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sqs,210987654321.{REGION}.refunds,PROD)"
+    )
+    remote_topic = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sns,210987654321.{REGION}.refunds,PROD)"
+    )
+    graph = stale_graph(
+        io=DataJobInputOutputClass(
+            inputDatasets=[],
+            outputDatasets=[QUEUE_URN, remote_queue, remote_topic],
+        )
+    )
+    tracker = JobEdgeTracker(
+        report=SqsSourceReport(),
+        graph=graph,
+        instance=ACCOUNT,
+        region=REGION,
+        platform="sqs",
+    )
+    tracker.record(RULE_JOB, outputs=[QUEUE_URN])
+    removed = job_removals(list(tracker.stale_workunits([])))
+    # The sns source owns the topic edge; the live queue edge stays.
+    assert removed == {removed_edge(RULE_JOB, "outputDatasetEdges", remote_queue)}

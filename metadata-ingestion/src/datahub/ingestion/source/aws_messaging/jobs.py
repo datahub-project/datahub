@@ -3,7 +3,7 @@ from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 from requests.exceptions import RequestException
 
 from datahub.configuration.common import GraphError
-from datahub.emitter.mce_builder import make_data_job_urn
+from datahub.emitter.mce_builder import make_data_job_urn, make_data_platform_urn
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.openapi import RelationshipDirection
@@ -17,9 +17,10 @@ from datahub.ingestion.source.aws_messaging.mapper import secondary, shared_stat
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
+    EdgeClass,
     FineGrainedLineageClass,
 )
-from datahub.metadata.urns import DataJobUrn, SchemaFieldUrn
+from datahub.metadata.urns import DataJobUrn, DatasetUrn, SchemaFieldUrn
 from datahub.sdk import DataFlow, DataJob
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.utilities.urns.error import InvalidUrnError
@@ -88,9 +89,12 @@ class JobEdgeTracker:
         graph: Optional[DataHubGraph],
         instance: Optional[str],
         region: str,
+        platform: str,
     ):
         self.report = report
         self.graph = graph
+        # The dataset platform this source writes job edges for (sqs or sns).
+        self.platform = platform
         # Every job this recipe emits is in its own account and region, so its flow
         # id starts `<instance>.<region>.`. Another account's recipe may write a
         # job edge to one of these queues that this run can never see.
@@ -148,34 +152,98 @@ class JobEdgeTracker:
                         and kind == JobEdgeKind.PRODUCES
                         else []
                     )
-                    if not edge_gone and not stale_fields:
-                        continue
-                    patch = patches.setdefault(job, DataJobPatchBuilder(job))
-                    if edge_gone:
-                        if kind == JobEdgeKind.CONSUMES:
-                            patch.remove_input_dataset(dataset)
-                        else:
-                            patch.remove_output_dataset(dataset)
-                        self.report.job_edges_removed += 1
-                    for lineage in stale_fields:
-                        patch.remove_fine_grained_lineage(lineage)
-                        self.report.column_lineage_edges_removed += 1
+                    self._remove(patches, job, kind, dataset, edge_gone, stale_fields)
             except (GraphError, RequestException) as e:
-                # Removal is best effort; leaving an edge in place is safe.
-                self.report.warning(
-                    title="Stale lineage not checked",
-                    message=(
-                        "Could not read existing job lineage from DataHub; stale "
-                        "edges to this resource are kept this run."
-                    ),
-                    context=dataset,
-                    exc=e,
-                )
+                self._not_checked(dataset, e)
+        self._stale_remote_edges(self.graph, patches)
         for job in sorted(patches):
             for mcp in patches[job].build():
                 yield MetadataWorkUnit(
                     id=f"{job}-io-stale-patch", mcp_raw=mcp, is_primary_source=False
                 )
+
+    def _stale_remote_edges(
+        self, graph: DataHubGraph, patches: Dict[str, DataJobPatchBuilder]
+    ) -> None:
+        """Edges from this run's jobs to another account's or region's queues or
+        topics. No recipe reads those datasets in full, so the dataset pass above
+        never reaches them; the job's own edge list does."""
+        for job in sorted({job for job, _, _ in self.seen}):
+            try:
+                io = graph.get_aspect(job, DataJobInputOutputClass)
+            except (GraphError, RequestException) as e:
+                self._not_checked(job, e)
+                continue
+            if io is None:
+                continue
+            for kind, urns in (
+                (
+                    JobEdgeKind.CONSUMES,
+                    _edge_urns(io.inputDatasets, io.inputDatasetEdges),
+                ),
+                (
+                    JobEdgeKind.PRODUCES,
+                    _edge_urns(io.outputDatasets, io.outputDatasetEdges),
+                ),
+            ):
+                platform = self._owned_platform(job, kind)
+                if platform is None:
+                    continue
+                for dataset in sorted(urns):
+                    if not self._remote(dataset) or (job, kind, dataset) in self.seen:
+                        continue
+                    stale_fields = (
+                        self._stale_pipe_fields(job, dataset, True)
+                        if platform == EVENTBRIDGE_PIPES_PLATFORM
+                        and kind == JobEdgeKind.PRODUCES
+                        else []
+                    )
+                    self._remove(patches, job, kind, dataset, True, stale_fields)
+
+    def _remote(self, dataset: str) -> bool:
+        """A dataset of this source's platform outside the recipe's own account
+        and region."""
+        try:
+            urn = DatasetUrn.from_string(dataset)
+        except InvalidUrnError:
+            return False
+        return urn.platform == make_data_platform_urn(
+            self.platform
+        ) and not urn.name.startswith(self.own_flow_prefix)
+
+    def _remove(
+        self,
+        patches: Dict[str, DataJobPatchBuilder],
+        job: str,
+        kind: JobEdgeKind,
+        dataset: str,
+        edge_gone: bool,
+        stale_fields: List[FineGrainedLineageClass],
+    ) -> None:
+        if not edge_gone and not stale_fields:
+            return
+        patch = patches.setdefault(job, DataJobPatchBuilder(job))
+        if edge_gone:
+            if kind == JobEdgeKind.CONSUMES:
+                patch.remove_input_dataset(dataset)
+            else:
+                patch.remove_output_dataset(dataset)
+            self.report.job_edges_removed += 1
+        for lineage in stale_fields:
+            patch.remove_fine_grained_lineage(lineage)
+            self.report.column_lineage_edges_removed += 1
+
+    def _not_checked(self, context: str, exc: Exception) -> None:
+        # Removal is best effort; leaving an edge in place is safe.
+        self.report.warning(
+            title="Stale lineage not checked",
+            message=(
+                "Could not read existing job lineage from DataHub; stale "
+                "edges to this resource are kept this run."
+            ),
+            context=context,
+            exc=exc,
+        )
 
     def _owned_platform(self, job: str, kind: JobEdgeKind) -> Optional[str]:
         """The job's platform, if this run is the one that writes and reads in
@@ -233,3 +301,7 @@ class JobEdgeTracker:
                         )
                     )
         return stale
+
+
+def _edge_urns(urns: Optional[List[str]], edges: Optional[List[EdgeClass]]) -> Set[str]:
+    return set(urns or []) | {edge.destinationUrn for edge in edges or []}

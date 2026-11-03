@@ -102,6 +102,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             graph=ctx.graph if config.remove_stale_lineage else None,
             instance=config.platform_instance,
             region=self.region,
+            platform=self.platform,
         )
         if not config.lineage.lambda_functions:
             self.jobs.mark_unknown(
