@@ -266,9 +266,13 @@ jobs:
           Lower only the ceilings that shrank and refresh the inventory snapshot.
           EOF
           )"
-          # run_id is stable across workflow re-runs; force-with-lease lets a retry
-          # after a successful push + failed `gh pr create` update the same branch.
-          git push -u origin "$BRANCH" --force-with-lease
+          # run_id is stable across workflow re-runs, so a retry after a successful
+          # push + failed `gh pr create` must update the same branch. The checkout
+          # only has the default branch, so a bare --force-with-lease has no
+          # remote-tracking ref to compare against and rejects the retry. Pin the
+          # lease to the branch's current remote tip (empty = must not exist yet).
+          remote_sha=$(git ls-remote --heads origin "refs/heads/$BRANCH" | cut -f1)
+          git push -u origin "$BRANCH" --force-with-lease="refs/heads/$BRANCH:${remote_sha}"
           existing=$(gh pr list --head "$BRANCH" --base "$DEFAULT_BRANCH" --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
             echo "Ratchet PR #$existing already open for $BRANCH — updated branch tip."
