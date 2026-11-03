@@ -14,6 +14,7 @@ import ChangeTransactionView, {
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
 import {
     PARAM_DESCRIPTION,
+    findDescriptionChange,
     getCategoryOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { getChangeEventString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
@@ -387,9 +388,7 @@ const HistorySidebar = ({
         // the prior version's last known description instead of an all-green empty→new view.
         let lastKnownDescription = '';
         return baseEntries.map((entry) => {
-            const docChange = (entry.transaction.changes ?? []).find(
-                (c) => c?.category === ChangeCategoryType.Documentation,
-            );
+            const docChange = findDescriptionChange(entry.transaction.changes ?? []);
             if (!docChange) return entry;
 
             const descParam = (docChange.parameters ?? []).find((p) => p.key === PARAM_DESCRIPTION);

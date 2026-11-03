@@ -53,6 +53,8 @@ def test_bootstrap_platforms_keep_registry_info() -> None:
         "postgres",
         "powerbi",
         "s3",
+        "sagemaker",
+        "sigma",
         "snowflake",
         "tableau",
     }
@@ -153,8 +155,15 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         "catalog-quoted",
         "catalog-property",
         "identity-name-qualified-parity",
+        "identity-name-id-parity",
         "identity-bounded-qualified-path",
         "identity-earlier-qualified-segment",
+        "label-tool",
+        "label-id",
+        "label-text",
+        "label-description",
+        "label-name",
+        "label-custom-properties",
     ]
     for item in longtail:
         grades = [grade["relevance"] for grade in item["grades"]]
@@ -221,12 +230,24 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         if item["id"] == "identity-name-qualified-parity"
     )
     assert identity_parity["containsInTop"] == {
-        "n": 2,
+        "n": 3,
         "values": [
             "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,identity_name_only,PROD)",
             "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,identity_name_and_qualified,PROD)",
         ],
     }
+    identity_id_parity = next(
+        item for item in keyword_probes if item["id"] == "identity-name-id-parity"
+    )
+    assert identity_id_parity["entityTypes"] == ["dataFlow"]
+    assert identity_id_parity["scoreRatioAtMost"] == {
+        "max": 1.02,
+        "numerator": "urn:li:dataFlow:(catalogprobe,identityprobe_parity,prod)",
+        "denominator": "urn:li:dataFlow:(catalogprobe,flow_name_only,prod)",
+    }
+    assert next(item for item in keyword_probes if item["id"] == "label-tool")[
+        "expectNoHits"
+    ]
     identity_path = next(
         item
         for item in keyword_probes

@@ -254,6 +254,31 @@ class LangfuseSeeder:
             f"{timeout_seconds}s"
         )
 
+    def check_generation_has_cost(self, observation_id: str) -> None:
+        """Langfuse computes cost when it ingests a generation, from default
+        model prices its worker loads at startup. If that load failed, every
+        generation is stored without cost and the golden comparison fails
+        with a long diff. Fail here with the likely cause instead."""
+        data = self._get(
+            OBSERVATIONS_PATH,
+            {
+                "fromStartTime": "2020-01-01T00:00:00Z",
+                "toStartTime": "2030-01-01T00:00:00Z",
+                "limit": 100,
+                "fields": "core,usage",
+            },
+        )
+        observation = next(
+            item for item in data.get("data", []) if item["id"] == observation_id
+        )
+        if observation.get("totalCost") is None:
+            raise RuntimeError(
+                f"Generation {observation_id} has no cost. The Langfuse worker "
+                "probably started before the web container finished its "
+                "Postgres migrations and could not load default model prices; "
+                "check the worker log for 'Error upserting default model prices'."
+            )
+
     def wait_until_score_visible(
         self, score_id: str, timeout_seconds: float = 60.0
     ) -> None:
@@ -398,6 +423,7 @@ def seed(base_url: str, public_key: str, secret_key: str) -> SeededDataSummary:
     )
 
     seeder.wait_until_observation_visible(SPAN_MULTI_GENERATION_2)
+    seeder.check_generation_has_cost(SPAN_MULTI_GENERATION_2)
 
     # --- Scores: two attachable (trace + observation level), one dropped (session level) ---
     seeder.create_score(

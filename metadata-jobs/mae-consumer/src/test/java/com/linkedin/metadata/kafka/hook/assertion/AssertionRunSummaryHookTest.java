@@ -81,6 +81,20 @@ public class AssertionRunSummaryHookTest {
             eq(operationContext), patchMatching(expectedPatch(resultType, expectedStatus, 1000L)));
   }
 
+  @Test
+  public void testUnknownResultTypeDoesNotPatchSummary() throws Exception {
+    when(event.getAspect())
+        .thenReturn(
+            GenericRecordUtils.serializeAspect(runEvent(AssertionResultType.$UNKNOWN, 3000L)));
+
+    hook.invoke(operationContext, event);
+
+    verify(assertionService, never()).getAssertionRunSummary(any(), any());
+    verify(assertionService, never())
+        .patchAssertionRunSummary(
+            any(OperationContext.class), any(AssertionRunSummaryPatchBuilder.class));
+  }
+
   @Test(dataProvider = "resultTypes")
   public void testDoesNotReplaceNewerSummary(
       AssertionResultType resultType, AssertionStatus ignoredStatus) throws Exception {

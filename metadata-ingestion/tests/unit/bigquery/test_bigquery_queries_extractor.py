@@ -25,7 +25,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Set, Tuple
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 from google.api_core.exceptions import BadRequest
@@ -38,8 +38,12 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryQueriesExtractorReport,
+    BigQueryV2Report,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryProject
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryProject,
+    BigQuerySchemaApi,
+)
 from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryFilter,
     BigQueryIdentifierBuilder,
@@ -1881,3 +1885,81 @@ class TestSkipProjectsWithoutBigQuery:
         )
 
         assert self._failed_projects(report) == {"project=ok-proj"}
+
+
+class TestTableClassification:
+    """is_temp_table / is_allowed_table decide which parsed references the
+    aggregator keeps, using the set of tables discovered during schema extraction."""
+
+    def _extractor(
+        self, discovered: Optional[Set[str]] = None
+    ) -> BigQueryQueriesExtractor:
+        report = BigQueryV2Report()
+        return BigQueryQueriesExtractor(
+            connection=MagicMock(),
+            schema_api=create_autospec(BigQuerySchemaApi, instance=True),
+            config=BigQueryQueriesExtractorConfig(temp_table_dataset_prefix="_"),
+            structured_report=report,
+            filters=BigQueryFilter(
+                BigQueryFilterConfig(dataset_pattern={"deny": [".*denied.*"]}),
+                report,
+            ),
+            identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), report),
+            discovered_tables=discovered,
+        )
+
+    def test_temp_dataset_prefix_marks_table_as_temporary(self) -> None:
+        extractor = self._extractor()
+        assert extractor.is_temp_table("my-project._scratch.t")
+        assert not extractor.is_temp_table("my-project.sales.t")
+
+    def test_undiscovered_but_allowed_table_is_inferred_temporary(self) -> None:
+        extractor = self._extractor(
+            discovered={"projects/my-project/datasets/sales/tables/known"}
+        )
+
+        assert extractor.is_temp_table("my-project.sales.unknown")
+        assert "my-project.sales.unknown" in extractor.report.inferred_temp_tables
+        assert not extractor.is_temp_table("my-project.sales.known")
+        # Denied by pattern: not an inferred temp table, just filtered.
+        assert not extractor.is_temp_table("my-project.denied.unknown")
+
+    def test_allowed_table_requires_discovery_and_pattern_match(self) -> None:
+        extractor = self._extractor(
+            discovered={"projects/my-project/datasets/sales/tables/known"}
+        )
+
+        assert extractor.is_allowed_table("my-project.sales.known")
+        assert not extractor.is_allowed_table("my-project.sales.unknown")
+        assert not extractor.is_allowed_table("my-project.denied.known")
+
+    def test_unparseable_names_are_neither_temporary_nor_allowed(self) -> None:
+        extractor = self._extractor()
+        assert not extractor.is_temp_table("not-a-table-name")
+        assert not extractor.is_allowed_table("not-a-table-name")
+
+
+def test_unparseable_query_log_rows_are_reported_and_skipped() -> None:
+    """One malformed JOBS row must not lose the rest of the region's query log."""
+    report = BigQueryV2Report()
+    connection = MagicMock()
+    extractor = BigQueryQueriesExtractor(
+        connection=connection,
+        schema_api=create_autospec(BigQuerySchemaApi, instance=True),
+        config=BigQueryQueriesExtractorConfig(),
+        structured_report=report,
+        filters=BigQueryFilter(BigQueryFilterConfig(), report),
+        identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), report),
+    )
+    good = _job("select * from `my_dataset`.`a`")
+    connection.query.return_value = [good, object(), good]
+    extractor.start_time, extractor.end_time = extractor._get_time_window()
+
+    entries = list(
+        extractor.fetch_region_query_log(
+            BigqueryProject(id="my-project", name="my-project"), "region-us"
+        )
+    )
+
+    assert len(entries) == 2
+    assert "Error parsing query log row" in {w.message for w in report.warnings}
