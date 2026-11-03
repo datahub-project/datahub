@@ -1930,3 +1930,27 @@ def test_fill_dashboards_wires_tile_dataset_via_registry_and_report_via_workspac
     info_titles = [i.title for i in api.reporter.infos]
     assert "Missing Dataset Lineage For Tile" in info_titles
     assert "Missing Report Lineage For Tile" in info_titles
+
+
+def test_get_workunits_internal_warns_once_per_unmatched_athena_override():
+    """Overrides that never rewrote a URN during the run each get one warning, so a
+    typo in database/table/dsn is visible; applied overrides stay silent."""
+    source = _make_source(
+        workspaces_to_return=[_make_workspace("WS-A")],
+        excluded_ids=set(),
+        athena_table_platform_override=[
+            {"database": "sales", "table": "orders", "platform": "mysql"},
+            {"database": "sales", "table": "ordres", "platform": "mysql"},
+        ],
+    )
+    source.reporter.athena_table_platform_overrides_applied.add(0)
+
+    list(source.get_workunits_internal())
+
+    unmatched = [
+        w
+        for w in source.reporter.warnings
+        if w.title == "Athena table platform override never matched"
+    ]
+    assert len(unmatched) == 1
+    assert "table=ordres" in str(unmatched[0].context)

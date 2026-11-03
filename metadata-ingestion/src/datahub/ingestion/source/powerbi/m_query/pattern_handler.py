@@ -2494,23 +2494,34 @@ class OdbcLineage(AbstractLineage):
                 return urn
             urn_database, urn_table = name_parts
 
-            # Find matching override: DSN-scoped first, then global
-            target_platform = None
-            target_platform_instance = None
-            for override in self.config.athena_table_platform_override:
-                if override.database == urn_database and override.table == urn_table:
+            # Find matching override: DSN-scoped first, then global. Compare
+            # case-insensitively: make_urn lowercases names by default
+            # (convert_lineage_urns_to_lowercase), while users copy mixed-case
+            # names straight from the Power Query navigator.
+            urn_database_key = urn_database.casefold()
+            urn_table_key = urn_table.casefold()
+            matched_index: Optional[int] = None
+            for index, override in enumerate(
+                self.config.athena_table_platform_override
+            ):
+                if (
+                    override.database.casefold() == urn_database_key
+                    and override.table.casefold() == urn_table_key
+                ):
                     if override.dsn == dsn:
                         # DSN-scoped match takes priority
-                        target_platform = override.platform
-                        target_platform_instance = override.platform_instance
+                        matched_index = index
                         break
-                    elif override.dsn is None and target_platform is None:
+                    elif override.dsn is None and matched_index is None:
                         # Global match (only if no DSN-scoped match found yet)
-                        target_platform = override.platform
-                        target_platform_instance = override.platform_instance
+                        matched_index = index
 
-            if not target_platform:
+            if matched_index is None:
                 return urn
+            self.reporter.athena_table_platform_overrides_applied.add(matched_index)
+            matched_override = self.config.athena_table_platform_override[matched_index]
+            target_platform = matched_override.platform
+            target_platform_instance = matched_override.platform_instance
 
             # A platform change hands the entity to the source connector (e.g.
             # mysql), so Athena's platform_instance must never carry over — it

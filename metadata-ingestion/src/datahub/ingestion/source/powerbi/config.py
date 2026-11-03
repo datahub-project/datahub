@@ -296,6 +296,11 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_external_query_connections_resolved: int = 0
     m_query_external_query_connections_unmapped: int = 0
     m_query_external_query_failures: int = 0
+    # Indexes into athena_table_platform_override of overrides that rewrote at
+    # least one URN; used to warn once per run about overrides that never matched.
+    athena_table_platform_overrides_applied: Set[int] = dataclass_field(
+        default_factory=set
+    )
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count

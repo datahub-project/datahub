@@ -2156,6 +2156,30 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 # scan_result and parsed children.
                 del workspaces[workspace_id]
 
+        self._report_unmatched_athena_table_platform_overrides()
+
+    def _report_unmatched_athena_table_platform_overrides(self) -> None:
+        # A typo in an override silently leaves lineage on Athena, so surface every
+        # configured override that never rewrote a URN during the run.
+        applied = self.reporter.athena_table_platform_overrides_applied
+        for index, override in enumerate(
+            self.source_config.athena_table_platform_override
+        ):
+            if index in applied:
+                continue
+            self.reporter.warning(
+                title="Athena table platform override never matched",
+                message=(
+                    "No Athena upstream table matched this "
+                    "athena_table_platform_override entry during the run. Check the "
+                    "database, table and dsn values for typos."
+                ),
+                context=(
+                    f"database={override.database}, table={override.table}, "
+                    f"dsn={override.dsn}, platform={override.platform}"
+                ),
+            )
+
     def get_report(self) -> SourceReport:
         return self.reporter
 

@@ -1547,6 +1547,39 @@ def test_odbc_athena_nav_applies_table_platform_override():
     ]
 
 
+def test_odbc_athena_nav_override_matches_case_insensitively():
+    """make_urn lowercases names by default, while users copy mixed-case names
+    from the Power Query navigator into the override; it must still match."""
+    instance = _build_odbc_lineage(
+        athena_table_platform_override=[
+            AthenaPlatformOverride(database="SalesDb", table="Orders", platform="mysql")
+        ],
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "AwsDataCatalog"),
+            ("Schema", "SalesDb"),
+            ("Table", "Orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,salesdb.orders,PROD)"
+    ]
+    assert instance.reporter.athena_table_platform_overrides_applied == {0}
+
+
 def test_odbc_athena_table_only_one_part_dsn_emits_database_table():
     """Table-only Athena navigation with a one-part dsn_to_database_schema value
     supplies the database (no navigation catalog is present), so a valid 2-part
