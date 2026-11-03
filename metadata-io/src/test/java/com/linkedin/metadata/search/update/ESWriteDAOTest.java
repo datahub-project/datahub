@@ -320,6 +320,16 @@ public class ESWriteDAOTest {
   }
 
   @Test
+  public void testWriteV3SearchDocumentMergeExistingDoesNotCreateADocument() {
+    esWriteDAO.writeV3SearchDocument(
+        opContext, v3Write("{\"description\":\"updated\"}", Kind.MERGE_EXISTING));
+
+    ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertFalse(requestCaptor.getValue().docAsUpsert());
+  }
+
+  @Test
   public void testWriteV3SearchDocumentTombstoneReplacesTheDocument() {
     esWriteDAO.writeV3SearchDocument(
         opContext, v3Write("{\"urn\":\"" + V3_URN + "\",\"removed\":true}", Kind.TOMBSTONE));
@@ -1149,6 +1159,7 @@ public class ESWriteDAOTest {
     // Note: We can't directly verify conflicts setting as it's not exposed via getter
     // but we know it's set to "proceed" in the implementation
     assertNotNull(capturedRequest);
+    assertTrue(capturedRequest.isRefresh());
   }
 
   @DataProvider(name = "writabilityConfig")

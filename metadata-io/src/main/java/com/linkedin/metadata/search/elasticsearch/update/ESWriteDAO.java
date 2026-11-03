@@ -340,10 +340,10 @@ public class ESWriteDAO {
     // upsertDocumentBySearchGroup above.
     final DocWriteRequest<?> request =
         switch (write.kind()) {
-          case MERGE ->
+          case MERGE, MERGE_EXISTING ->
               new UpdateRequest(write.indexName(), write.docId())
                   .doc(write.source(), XContentType.JSON)
-                  .docAsUpsert(true)
+                  .docAsUpsert(write.kind() == V3SearchDocumentWrite.Kind.MERGE)
                   .detectNoop(false)
                   .retryOnConflict(config.getBulkProcessor().getNumRetries());
           case CREATE ->
@@ -891,6 +891,9 @@ public class ESWriteDAO {
 
     // Set conflicts strategy to proceed (skip conflicting documents)
     request.setConflicts("proceed");
+    // Progress is measured by counting what remains, which only sees the deletes after a refresh.
+    // Without it an index with a long or disabled refresh interval reports no progress.
+    request.setRefresh(true);
 
     return request;
   }

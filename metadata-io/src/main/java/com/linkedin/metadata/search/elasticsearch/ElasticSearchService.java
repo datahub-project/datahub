@@ -483,8 +483,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   /**
    * As {@link #appendRunIdBySearchGroup}, on an index named directly rather than through its search
-   * group's alias: a fill's next physical index, or the swapped-out backing index kept current for
-   * rollback.
+   * group's alias: the swapped-out backing index kept current for rollback. A fill's next index
+   * uses {@link #appendRunIdToExistingDocument}, which does not create a document.
    */
   public void appendRunIdByIndexName(
       @Nonnull OperationContext opContext,
@@ -500,6 +500,24 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         SCRIPT_SOURCE,
         runIdScriptParams(runId),
         runIdUpsert(urn, runId));
+  }
+
+  /**
+   * Appends a run id only when the document is already there. A fill creates documents only where
+   * the index holds none, so a document created here that held only a run id would block it.
+   */
+  public void appendRunIdToExistingDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nullable String runId) {
+    log.debug(
+        "Appending run id to existing document in index '{}', docId='{}', runId='{}'",
+        indexName,
+        docId,
+        runId);
+    esWriteDAO.applyScriptUpdateByIndexName(
+        opContext, indexName, docId, SCRIPT_SOURCE, runIdScriptParams(runId), null);
   }
 
   private static Map<String, Object> runIdUpsert(@Nonnull Urn urn, @Nullable String runId) {

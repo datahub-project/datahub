@@ -1575,6 +1575,7 @@ public class UpdateIndicesV3StrategyTest {
   private static final Set<V3SearchDocumentWrite.Kind> DOCUMENT_KINDS =
       Set.of(
           V3SearchDocumentWrite.Kind.MERGE,
+          V3SearchDocumentWrite.Kind.MERGE_EXISTING,
           V3SearchDocumentWrite.Kind.CREATE,
           V3SearchDocumentWrite.Kind.REPLACE);
   private static final Set<V3SearchDocumentWrite.Kind> TOMBSTONE_KIND =
@@ -2393,8 +2394,9 @@ public class UpdateIndicesV3StrategyTest {
 
   @Test
   public void testLiveAspectDeleteIsMirroredIntoAnInFlightRebuildTarget() throws Exception {
-    // A removed aspect has no row to replay either: the partial document that clears its fields
-    // on the alias is repeated on the next index.
+    // A removed aspect has no row to replay either. The partial document that clears its fields
+    // on the alias is repeated on the next index only when that document already exists, so the
+    // create-only fill is not blocked by a partial one.
     stubTransformedDocument();
     when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
     IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
@@ -2424,6 +2426,7 @@ public class UpdateIndicesV3StrategyTest {
     assertEquals(liveWrite.docId(), expectedDocId);
     V3SearchDocumentWrite mirroredWrite = v3Write(operationContext, next, DOCUMENT_KINDS);
     assertEquals(mirroredWrite.docId(), expectedDocId);
+    assertEquals(mirroredWrite.kind(), V3SearchDocumentWrite.Kind.MERGE_EXISTING);
     assertEquals(mirroredWrite.source(), liveWrite.source());
   }
 

@@ -162,15 +162,25 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
   }
 
-  /** Removes temporary V3 fill guards after the corresponding catch-up window has converged. */
+  /**
+   * Removes temporary V3 fill guards after the corresponding catch-up window has converged. A
+   * cleanup that does not finish throws, so catch-up stays incomplete and the next run retries.
+   */
   public void deleteV3Tombstones(@Nonnull OperationContext opContext, @Nonnull String indexName) {
-    elasticSearchService
-        .getEsWriteDAO()
-        .deleteByQuerySync(
-            opContext,
-            indexName,
-            QueryBuilders.termQuery(V3SearchDocumentProjector.TOMBSTONE_FIELD, true),
-            null);
+    ESWriteDAO.DeleteByQueryResult result =
+        elasticSearchService
+            .getEsWriteDAO()
+            .deleteByQuerySync(
+                opContext,
+                indexName,
+                QueryBuilders.termQuery(V3SearchDocumentProjector.TOMBSTONE_FIELD, true),
+                null);
+    if (!result.isSuccess()) {
+      throw new IllegalStateException(
+          String.format(
+              "Removing V3 tombstones from %s did not finish (%d remaining): %s",
+              indexName, result.getRemainingDocuments(), result.getFailureReason()));
+    }
   }
 
   /**

@@ -684,7 +684,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   /**
    * Appends this batch's run ids on every index the merge just wrote, so rollback and list-runs can
    * find the entities a run touched. Same document-id routing as the merge, and queued after it, so
-   * the append sees that document.
+   * the append sees that document. In a next index a fill is building, the append only updates a
+   * document the fill already wrote, like the mirrored merge.
    */
   private void appendRunIds(
       @Nonnull OperationContext opContext,
@@ -709,7 +710,17 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     if (carriesDelete) {
       incrementalReindexWriteTargets
           .fillTargetFor(indexName)
-          .ifPresent(index -> appendRunIdsOnIndex(opContext, index, docId, urn, runIds));
+          .ifPresent(index -> appendRunIdsToExistingDocument(opContext, index, docId, runIds));
+    }
+  }
+
+  private void appendRunIdsToExistingDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull List<String> runIds) {
+    for (String runId : runIds) {
+      elasticSearchService.appendRunIdToExistingDocument(opContext, indexName, docId, runId);
     }
   }
 
@@ -751,10 +762,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * alias, while that fill is in flight: the alias still serves the old index, and catch-up
    * re-derives its window from primary storage, which holds nothing for a removed entity or aspect.
    * The fill creates only absent documents, so a mirrored tombstone keeps the entity deleted. A
-   * mirrored merge can create a partial document, which catch-up repairs after the fill. Returns
-   * the mirrored write, so the batch can issue it again if its drain fails, and lets a failure to
-   * hand it to the bulk processor propagate: nothing replays a hard delete, so a mirror that does
-   * not land leaves the entity in the next index across the swap.
+   * mirrored merge only updates a document the fill already wrote, so it cannot leave a partial one
+   * for the fill to skip. Returns the mirrored write, so the batch can issue it again if its drain
+   * fails, and lets a failure to hand it to the bulk processor propagate: nothing replays a hard
+   * delete, so a mirror that does not land leaves the entity in the next index across the swap.
    */
   @Nonnull
   private Optional<Runnable> writeV3Document(

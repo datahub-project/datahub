@@ -12,13 +12,22 @@ public class V3SearchDocumentWriteTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
 
   @Test
-  public void testFillCopyOfAMergeKeepsTheWriteKind() {
+  public void testFillCopyOfAMergeDoesNotCreateADocument() {
     V3SearchDocumentWrite merge = write(V3SearchDocumentWrite.Kind.MERGE);
 
     V3SearchDocumentWrite copy = merge.redirectedToFill("test_groupindex_v3_next");
 
     assertEquals(copy.indexName(), "test_groupindex_v3_next");
-    assertEquals(copy.kind(), V3SearchDocumentWrite.Kind.MERGE);
+    assertEquals(copy.kind(), V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+  }
+
+  @Test
+  public void testFillCopyOfADeleteIsATombstone() {
+    V3SearchDocumentWrite delete = write(V3SearchDocumentWrite.Kind.DELETE);
+
+    assertEquals(
+        delete.redirectedToFill("test_groupindex_v3_next").kind(),
+        V3SearchDocumentWrite.Kind.TOMBSTONE);
   }
 
   @Test

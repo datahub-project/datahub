@@ -396,6 +396,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
               .isEmpty()) {
         continue;
       }
+      // A cleanup that does not finish throws. The step stays failed, so the next run retries it.
       updateIndicesService.deleteV3Tombstones(opContext, indexName);
     }
   }

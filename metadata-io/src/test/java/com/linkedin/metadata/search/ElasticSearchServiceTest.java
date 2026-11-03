@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -329,6 +330,20 @@ public class ElasticSearchServiceTest {
 
     assertEquals(runId, scriptParamsCaptor.getValue().get("runId"));
     assertEquals(MAX_RUN_IDS_INDEXED, scriptParamsCaptor.getValue().get("maxRunIds"));
+  }
+
+  @Test
+  public void testAppendRunIdToExistingDocumentNeverCreatesOne() {
+    testInstance.appendRunIdToExistingDocument(opContext, "datasetindex_v3", TEST_DOC_ID, "run-1");
+
+    verify(mockEsWriteDAO)
+        .applyScriptUpdateByIndexName(
+            eq(opContext),
+            eq("datasetindex_v3"),
+            eq(TEST_DOC_ID),
+            eq(ElasticSearchService.SCRIPT_SOURCE),
+            any(Map.class),
+            isNull());
   }
 
   @Test

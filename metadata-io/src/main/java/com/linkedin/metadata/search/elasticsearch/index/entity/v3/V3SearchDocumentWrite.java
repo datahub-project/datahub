@@ -24,10 +24,20 @@ public record V3SearchDocumentWrite(
     return new V3SearchDocumentWrite(targetIndexName, docId, urn, source, kind);
   }
 
-  /** The same write, addressed to an index a fill is building. */
+  /**
+   * The same write, addressed to an index a fill is building. The fill writes only documents that
+   * are absent, so a merge there must not create a partial one that would block it, and a delete
+   * becomes the hard-delete placeholder so the fill cannot bring the entity back.
+   */
   @Nonnull
   public V3SearchDocumentWrite redirectedToFill(@Nonnull final String fillIndexName) {
-    return redirectedTo(fillIndexName);
+    final Kind fillKind =
+        switch (kind) {
+          case MERGE -> Kind.MERGE_EXISTING;
+          case DELETE -> Kind.TOMBSTONE;
+          default -> kind;
+        };
+    return new V3SearchDocumentWrite(fillIndexName, docId, urn, source, fillKind);
   }
 
   /**
@@ -45,6 +55,8 @@ public record V3SearchDocumentWrite(
     /** Removes the document. A steady-state hard delete. */
     DELETE,
     /** Merges a partial document, creating it when absent. Live writes. */
-    MERGE
+    MERGE,
+    /** Merges a partial document into an existing one, and does nothing when it is absent. */
+    MERGE_EXISTING
   }
 }
