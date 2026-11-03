@@ -488,6 +488,21 @@ _INSERT_COLUMN_LIST_SCHEMAS = {
             _INSERT_COLUMN_LIST_SCHEMAS,
             id="count_mismatch",
         ),
+        pytest.param(
+            # Snowflake folds the quoted target name like the rest of the query, so it
+            # still resolves to the target schema's declared casing.
+            "quoted_mixed_case_target",
+            'INSERT INTO my_db.my_schema.tgt_mixed ("CamelCase", b) '
+            "SELECT x, y FROM my_db.my_schema.src",
+            {
+                **_INSERT_COLUMN_LIST_SCHEMAS,
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt_mixed,PROD)": {
+                    "CamelCase": "VARCHAR",
+                    "b": "NUMBER",
+                },
+            },
+            id="quoted_mixed_case_target",
+        ),
     ],
 )
 def test_insert_column_list_maps_positionally(
