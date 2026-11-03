@@ -123,6 +123,8 @@ class SnsDataProtectionConfig(ConfigModel):
 
 
 class SnsSourceConfig(AwsMessagingConfigBase):
+    endpoint_service: ClassVar[AwsService] = AwsService.SNS
+
     topic_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns on topic names to include.",
