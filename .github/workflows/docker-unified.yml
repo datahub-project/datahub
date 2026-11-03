@@ -551,6 +551,10 @@ jobs:
             uv cache prune --ci
           elif [[ -x "$HOME/.local/bin/uv" ]]; then
             "$HOME/.local/bin/uv" cache prune --ci
+          elif [[ -x metadata-ingestion/venv/bin/uv ]]; then
+            # Nothing puts uv on PATH here; the image build runs
+            # :metadata-ingestion:environmentSetup, which installs it into this venv.
+            metadata-ingestion/venv/bin/uv cache prune --ci
           else
             echo "uv not found; saving the uv cache without pruning"
           fi
