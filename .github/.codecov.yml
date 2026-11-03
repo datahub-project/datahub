@@ -60,6 +60,34 @@ flag_management:
     - name: metadata-integration
       paths:
         - "metadata-integration/**"
+
+# Wiring = code that only runs when a real context is assembled: Spring factories and
+# @Configuration classes, MCL/MCP hooks, the GraphQL engine and datahub-frontend's Guice modules.
+# Regressions here tend to pass unit tests and break at boot, so its patch coverage gets its own
+# status. Informational for now: it is reported on PRs but never fails the check.
+component_management:
+  individual_components:
+    - component_id: wiring
+      name: wiring
+      paths:
+        - "metadata-service/factories/src/main/**"
+        - "metadata-service/war/src/main/**"
+        - "**/src/main/java/**/*Factory.java"
+        - "**/src/main/java/**/*Configuration.java"
+        - "**/src/main/java/**/*Config.java"
+        - "**/src/main/java/**/config/**"
+        - "**/src/main/java/**/hook/**"
+        - "**/src/main/java/**/hooks/**"
+        - "**/src/main/java/**/*Engine.java"
+        - "**/src/main/java/**/*EngineArgs.java"
+        - "datahub-frontend/app/*Module.java"
+        - "datahub-frontend/app/**/*Module.java"
+        - "datahub-frontend/app/config/**"
+      statuses:
+        - type: patch
+          target: 75% # same bar as the default patch status
+          informational: true
+
 coverage:
   status:
     project: false
