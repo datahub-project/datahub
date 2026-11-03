@@ -68,8 +68,9 @@ public class ElasticSearchUpgradeUtils {
    * <p>Nothing is read until the first {@code get()}, and a successful read is kept. Upgrades are
    * built while Spring starts, so most call {@code get()} from the step that needs the definitions:
    * a slow or failed read (on Cassandra each one is a filtering scan of the aspect table) stays
-   * inside that step, and an upgrade that never runs never reads them. BuildIndices calls it when
-   * it is built, because its scale-down vote would count a failed read as no reindex due.
+   * inside that step, and those upgrades read nothing unless they run. BuildIndices is the
+   * exception: it calls it when it is built, because its scale-down vote would count a failed read
+   * as no reindex due.
    *
    * @param structuredPropertiesConfiguration structured properties configuration
    * @param aspectDao the aspect DAO for database access
