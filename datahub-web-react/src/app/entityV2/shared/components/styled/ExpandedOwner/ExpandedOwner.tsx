@@ -24,9 +24,10 @@ type Props = {
     owner: Owner;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
+    hideHoverCard?: boolean;
 };
 
-export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) => {
+export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly, hideHoverCard }: Props) => {
     const { t } = useTranslation('entity.shared.components');
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
@@ -102,6 +103,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
                     onClose={!readOnly ? onClose : undefined}
                     hideLink={readOnly}
                     propagationDetails={propagationDetails}
+                    hideHoverCard={hideHoverCard}
                 />
             </OwnerWrapper>
             <ConfirmationModal

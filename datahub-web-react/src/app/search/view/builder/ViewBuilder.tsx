@@ -5,12 +5,12 @@ import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ViewBuilderState } from '@app/entity/view/types';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertStateToUpdateInput } from '@app/entity/view/utils';
 import { useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
 import { ViewBuilderModal } from '@app/search/view/builder/ViewBuilderModal';
 import { ViewBuilderMode } from '@app/search/view/builder/types';
 import { updateListMyViewsCache, updateViewSelectCache } from '@app/search/view/cacheUtils';
+import { ViewBuilderState } from '@app/search/view/types';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertStateToUpdateInput } from '@app/search/view/utils';
 
 import { useCreateViewMutation, useUpdateViewMutation } from '@graphql/view.generated';
 import { DataHubView } from '@types';

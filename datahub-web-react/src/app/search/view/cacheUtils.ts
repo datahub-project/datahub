@@ -1,4 +1,4 @@
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/search/view/utils';
 
 import {
     ListGlobalViewsDocument,
