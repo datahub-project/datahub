@@ -1442,12 +1442,13 @@ def test_odbc_oracle_two_part_dsn_mapping_table_only_nav(
 
 
 def test_odbc_oracle_nav_database_wins_over_default_database():
-    """When both a navigation Database and default_database are present, the
-    navigation-supplied database wins (default_database is only the fallback for
-    bare TNS aliases). Mirrors OracleLineage's effective_db precedence and the
-    'navigation always wins' contract."""
+    """When a navigation Database, a dsn_to_database_schema database and
+    default_database are all present, the navigation-supplied database wins.
+    Mirrors OracleLineage's effective_db precedence and the 'navigation always
+    wins' contract."""
     instance = _build_odbc_lineage(
-        platform_detail=OraclePlatformDetail(default_database="MYDB")
+        platform_detail=OraclePlatformDetail(default_database="MYDB"),
+        dsn_to_database_schema={"d": "OTHERDB.HR"},
     )
     detail = DataAccessFunctionDetail(
         arg_list={},
@@ -1464,7 +1465,7 @@ def test_odbc_oracle_nav_database_wins_over_default_database():
     )
 
     result = instance.expression_lineage(
-        detail, "oracle", pair, server_name="oracle_server", dsn=""
+        detail, "oracle", pair, server_name="oracle_server", dsn="d"
     )
 
     assert [u.urn for u in result.upstreams] == [
@@ -1652,6 +1653,88 @@ def test_odbc_athena_nav_applies_table_platform_override():
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:mysql,my_schema.my_table,PROD)"
     ]
+
+
+@pytest.mark.parametrize(
+    "overrides, expected_platform",
+    [
+        # A DSN-scoped entry wins over a global one listed before it.
+        (
+            [
+                {"database": "mydb", "table": "orders", "platform": "hive"},
+                {
+                    "dsn": "d",
+                    "database": "mydb",
+                    "table": "orders",
+                    "platform": "mysql",
+                },
+            ],
+            "mysql",
+        ),
+        # Among global entries for the same table, the first one wins.
+        (
+            [
+                {"database": "mydb", "table": "orders", "platform": "mysql"},
+                {"database": "mydb", "table": "orders", "platform": "hive"},
+            ],
+            "mysql",
+        ),
+    ],
+    ids=["dsn-scoped-beats-earlier-global", "first-global-wins"],
+)
+def test_odbc_athena_override_priority(
+    overrides: List[Dict[str, str]], expected_platform: str
+) -> None:
+    instance = _build_odbc_lineage(
+        athena_table_platform_override=[AthenaPlatformOverride(**o) for o in overrides]
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Schema", "mydb"), ("Table", "orders")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="d"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:{expected_platform},mydb.orders,PROD)"
+    ]
+
+
+def test_odbc_athena_post_processing_keeps_unparseable_urn_and_warns() -> None:
+    """A malformed upstream URN must not crash the table: both the catalog strip
+    and the platform override leave it unchanged and report a warning."""
+    instance = _build_odbc_lineage(
+        athena_table_platform_override=[
+            AthenaPlatformOverride(database="mydb", table="orders", platform="mysql")
+        ]
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+    lineage = Lineage(
+        upstreams=[DataPlatformTable(data_platform_pair=pair, urn="not-a-urn")],
+        column_lineage=[],
+    )
+
+    stripped = instance._strip_athena_catalog_from_lineage(
+        lineage, platform_instance=None
+    )
+    overridden = instance._apply_table_platform_override(
+        lineage, dsn="d", platform_instance=None
+    )
+
+    assert [u.urn for u in stripped.upstreams] == ["not-a-urn"]
+    assert [u.urn for u in overridden.upstreams] == ["not-a-urn"]
+    assert len(instance.reporter.warnings) == 2
 
 
 def test_odbc_athena_nav_override_matches_case_insensitively():

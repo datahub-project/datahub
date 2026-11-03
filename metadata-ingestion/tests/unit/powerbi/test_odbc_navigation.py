@@ -365,6 +365,20 @@ _ODBC_NAV_SUCCESS_CASES = [
         "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.accounts,PROD)",
         id="athena-catalog-strip-preserves-platform-instance",
     ),
+    # dataset_type_mapping resolves on the PowerBI platform name, so the instance
+    # only applies if ODBC resolves with the runtime pair (Athena), not ODBC's own.
+    pytest.param(
+        _ODBC_ATHENA_NAV_CATALOG_SCHEMA_TABLE,
+        "accounts",
+        "mydb.accounts",
+        {
+            "dataset_type_mapping": {
+                "Amazon Athena": {"platform_instance": "my_instance"}
+            }
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.accounts,PROD)",
+        id="athena-platform-instance-from-dataset-type-mapping",
+    ),
     pytest.param(
         _ODBC_DB2_NAV_DATABASE_NO_SCHEMA,
         "ORDERS",
@@ -412,6 +426,14 @@ _ODBC_NAV_WARN_CASES = [
         {},
         "Can not determine qualified table name",
         id="db2-missing-schema-warns-instead-of-truncated-urn",
+    ),
+    pytest.param(
+        _ODBC_MYSQL_NAV_TABLE_ONLY,
+        "employees",
+        "employees.employees",
+        {},
+        "Can not determine qualified table name",
+        id="mysql-table-only-without-mapping-warns-instead-of-none-database",
     ),
 ]
 
