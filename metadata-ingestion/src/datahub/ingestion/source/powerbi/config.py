@@ -642,7 +642,11 @@ class PowerBiDashboardSourceConfig(
         "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'. "
         "For Oracle hierarchical navigation, use 'database.schema': a one-part value is "
         "not used as the schema, and the database segment only appears in the URN when "
-        "default_database is set for the server in server_to_platform_instance.",
+        "default_database is set for the server in server_to_platform_instance. "
+        "These per-platform rules apply to hierarchical navigation only: for ODBC SQL "
+        "queries the value is passed to the SQL parser as the default database and "
+        "schema unchanged, so for Oracle, Hive and two-part platforms such as MySQL a "
+        "two-part value can produce a different URN than navigation does.",
     )
     # Athena federated table platform override
     athena_table_platform_override: List[AthenaPlatformOverride] = pydantic.Field(
