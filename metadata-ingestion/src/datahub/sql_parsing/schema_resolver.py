@@ -300,11 +300,15 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def _prefers_urn_lower(self) -> bool:
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
-    def get_original_field_paths(self, urn: str) -> Dict[str, str]:
+    def get_original_field_paths(self, urn: str) -> Optional[Dict[str, str]]:
         """{simplified field path: original field path} for the fields of `urn`
         whose stored path differs from its simplified form (e.g. v2 paths). Fields
-        absent from the result use the simplified path as-is."""
-        return self._original_field_paths.get(urn) or {}
+        absent from the result use the simplified path as-is; `{}` means there is
+        nothing to translate.
+
+        None means the originals are unknown: no schema for `urn`, or a schema
+        stored without its field paths (`add_raw_schema_info`)."""
+        return self._original_field_paths.get(urn)
 
     def has_urn(self, urn: str) -> bool:
         return self._schema_cache.get(urn) is not None
@@ -389,7 +393,8 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         original_field_paths: Optional[Dict[str, str]] = None,
     ) -> None:
         self._schema_cache[urn] = schema_info
-        if original_field_paths:
+        # Presence means "originals known", so a v1 schema stores {}.
+        if schema_info is not None and original_field_paths is not None:
             self._original_field_paths[urn] = original_field_paths
         else:
             # One DELETE, rather than a lookup followed by a DELETE.
