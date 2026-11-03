@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock
 
@@ -19,6 +18,7 @@ from datahub.ingestion.source.dremio.dremio_source import (
     DremioSource,
     DremioSourceMapEntry,
     build_dremio_source_map,
+    map_dremio_dataset_to_urn,
 )
 from datahub.metadata.schema_classes import UpstreamLineageClass
 
@@ -67,6 +67,7 @@ def test_build_source_map_simple():
             dremio_source_category="database",
             root_path="/",
             database_name="redshiftdb",
+            database_in_path=False,
         ),
     }
 
@@ -134,6 +135,7 @@ def test_build_source_map_same_platform_multiple_sources():
             dremio_source_category="database",
             root_path="/",
             database_name="redshiftdb",
+            database_in_path=False,
         ),
         "source3": DremioSourceMapEntry(
             source_name="source3",
@@ -142,6 +144,7 @@ def test_build_source_map_same_platform_multiple_sources():
             dremio_source_category="database",
             root_path="/",
             database_name="redshiftproddb",
+            database_in_path=False,
         ),
         "source4": DremioSourceMapEntry(
             source_name="Source4",
@@ -258,33 +261,25 @@ def _map_to_urn(
     mappings: Optional[List[DremioSourceMapping]] = None,
     mapper: Optional[DremioToDataHubSourceTypeMapping] = None,
 ) -> Optional[str]:
-    stub = SimpleNamespace(
-        source_map=_source_map(
-            dremio_source_type, database_name, path[0], root_path, mappings, mapper
-        ),
-        config=SimpleNamespace(env="DEV"),
+    source_map = _source_map(
+        dremio_source_type, database_name, path[0], root_path, mappings, mapper
     )
-    return DremioSource._map_dremio_dataset_to_urn(
-        stub,  # type: ignore[arg-type]
-        dremio_source=path[0],
-        dremio_path=path,
-        dremio_dataset=dataset,
+    return map_dremio_dataset_to_urn(
+        source_map.get(path[0].lower()), path, dataset, default_env="DEV"
     )
 
 
+def _urn(platform: str, name: str, env: str = "DEV") -> str:
+    return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{env})"
+
+
 @pytest.mark.parametrize(
-    "database_name",
-    [
-        pytest.param("my_db", id="database_configured"),
-        pytest.param(None, id="no_database_configured"),
-    ],
-)
-@pytest.mark.parametrize(
-    "source_type,platform,path,expected_name",
+    "source_type,platform,database_name,path,expected_name",
     [
         pytest.param(
             "MSSQL",
             "mssql",
+            "my_db",
             ["MY_SRC", "MY_DB", "dbo"],
             "MY_DB.dbo.my_Table",
             id="mssql_configured_database",
@@ -292,20 +287,15 @@ def _map_to_urn(
         pytest.param(
             "MSSQL",
             "mssql",
+            None,
             ["MY_SRC", "other_db", "dbo"],
             "other_db.dbo.my_Table",
-            id="mssql_other_database",
+            id="mssql_no_database_configured",
         ),
         pytest.param(
             "MYSQL",
             "mysql",
-            ["MY_SRC", "my_db"],
-            "my_db.my_Table",
-            id="mysql_configured_database",
-        ),
-        pytest.param(
-            "MYSQL",
-            "mysql",
+            "my_db",
             ["MY_SRC", "other_db"],
             "other_db.my_Table",
             id="mysql_other_database",
@@ -313,95 +303,140 @@ def _map_to_urn(
         pytest.param(
             "SNOWFLAKE",
             "snowflake",
+            "MY_DB",
             ["MY_SRC", "MY_DB", "PUBLIC"],
             "my_db.public.my_table",
             id="snowflake_configured_database",
         ),
         pytest.param(
-            "SNOWFLAKE",
-            "snowflake",
-            ["MY_SRC", "OTHER_DB", "PUBLIC"],
-            "other_db.public.my_table",
-            id="snowflake_other_database",
+            "TERADATA",
+            "teradata",
+            "my_db",
+            ["MY_SRC", "other_db"],
+            "other_db.my_Table",
+            id="teradata_other_database",
         ),
     ],
 )
 def test_map_urn_does_not_prepend_database_already_in_path(
-    database_name: Optional[str],
     source_type: str,
     platform: str,
+    database_name: Optional[str],
     path: List[str],
     expected_name: str,
 ) -> None:
-    # These sources list every database as a folder under the source, whether
-    # or not the Dremio source config names one.
-    assert (
-        _map_to_urn(source_type, database_name, path, "my_Table")
-        == f"urn:li:dataset:(urn:li:dataPlatform:{platform},{expected_name},DEV)"
+    # These sources list databases as folders under the source.
+    assert _map_to_urn(source_type, database_name, path, "my_Table") == _urn(
+        platform, expected_name
     )
 
 
 @pytest.mark.parametrize(
-    "source_type,platform",
+    "source_type,platform,database_name,schema,expected_name",
     [
-        pytest.param("POSTGRES", "postgres", id="postgres"),
-        pytest.param("REDSHIFT", "redshift", id="redshift"),
-        pytest.param("SYNAPSE", "mssql", id="synapse"),
+        pytest.param(
+            "POSTGRES",
+            "postgres",
+            "my_db",
+            "my_schema",
+            "my_db.my_schema.my_table",
+            id="postgres",
+        ),
+        pytest.param(
+            "POSTGRES",
+            "postgres",
+            "analytics",
+            "analytics",
+            "analytics.analytics.my_table",
+            id="postgres_schema_named_like_database",
+        ),
+        pytest.param(
+            "REDSHIFT", "redshift", "dev", "DEV", "dev.DEV.my_table", id="redshift"
+        ),
+        pytest.param(
+            "SYNAPSE",
+            "mssql",
+            "my_db",
+            "dbo",
+            "my_db.dbo.my_table",
+            id="synapse",
+        ),
     ],
 )
 def test_map_urn_prepends_database_missing_from_path(
-    source_type: str, platform: str
+    source_type: str,
+    platform: str,
+    database_name: str,
+    schema: str,
+    expected_name: str,
 ) -> None:
     # These sources connect to the one configured database and list only its
-    # schemas.
-    assert (
-        _map_to_urn(source_type, "my_db", ["my_src", "my_schema"], "my_table")
-        == f"urn:li:dataset:(urn:li:dataPlatform:{platform},my_db.my_schema.my_table,DEV)"
-    )
+    # schemas, so a schema named like the database is still a schema.
+    assert _map_to_urn(
+        source_type, database_name, ["my_src", schema], "my_table"
+    ) == _urn(platform, expected_name)
 
 
 @pytest.mark.parametrize(
-    "path,expected_name",
+    "database_in_path,path,expected_name",
     [
         pytest.param(
+            None,
             ["my_src", "MY_DB", "my_schema"],
             "MY_DB.my_schema.my_table",
-            id="path_starts_with_database",
+            id="undeclared_path_starts_with_database",
         ),
         pytest.param(
+            None,
             ["my_src", "my_schema"],
             "my_db.my_schema.my_table",
-            id="path_without_database",
+            id="undeclared_path_without_database",
+        ),
+        pytest.param(
+            None, ["my_src"], "my_db.my_table", id="undeclared_table_under_source"
+        ),
+        pytest.param(
+            False,
+            ["my_src", "my_db"],
+            "my_db.my_db.my_table",
+            id="declared_schema_only",
+        ),
+        pytest.param(
+            True,
+            ["my_src", "other_db"],
+            "other_db.my_table",
+            id="declared_database_in_path",
         ),
     ],
 )
-def test_map_urn_custom_source_type_skips_database_already_in_path(
-    path: List[str], expected_name: str
+def test_map_urn_custom_source_type_database_in_path(
+    database_in_path: Optional[bool], path: List[str], expected_name: str
 ) -> None:
     mapper = DremioToDataHubSourceTypeMapping(
         extra_mappings={
             "MYARPDB": DremioSourceTypeOverride(
-                platform="myplatform", category="database"
+                platform="myplatform",
+                category="database",
+                database_in_path=database_in_path,
             )
         }
     )
-    assert (
-        _map_to_urn("MYARPDB", "my_db", path, "my_table", mapper=mapper)
-        == f"urn:li:dataset:(urn:li:dataPlatform:myplatform,{expected_name},DEV)"
+    assert _map_to_urn("MYARPDB", "my_db", path, "my_table", mapper=mapper) == _urn(
+        "myplatform", expected_name
+    )
+
+
+def test_map_urn_table_directly_under_source_named_like_database() -> None:
+    # A single-element path has no database folder to match, even when the
+    # table shares the database's name.
+    assert _map_to_urn("MYARPDB", "my_db", ["my_src"], "my_db") == _urn(
+        "myarpdb", "my_db.my_db"
     )
 
 
 @pytest.mark.parametrize(
     "source_type,platform,path,dataset,expected_name",
     [
-        pytest.param(
-            "SNOWFLAKE",
-            "snowflake",
-            ["my_snowflake", "MY_DB", "PUBLIC"],
-            "My_Table",
-            "my_db.public.my_table",
-            id="snowflake_lowercases",
-        ),
         pytest.param(
             "ORACLE",
             "oracle",
@@ -431,29 +466,50 @@ def test_map_urn_custom_source_type_skips_database_already_in_path(
 def test_map_urn_matches_target_connector_default_casing(
     source_type: str, platform: str, path: List[str], dataset: str, expected_name: str
 ) -> None:
-    assert (
-        _map_to_urn(source_type, None, path, dataset)
-        == f"urn:li:dataset:(urn:li:dataPlatform:{platform},{expected_name},DEV)"
+    assert _map_to_urn(source_type, None, path, dataset) == _urn(
+        platform, expected_name
     )
 
 
 @pytest.mark.parametrize(
-    "source_type,platform,convert,expected_name",
+    "source_type,platform,database_name,path,convert,expected_name",
     [
         pytest.param(
-            "MSSQL", "mssql", True, "my_db.dbo.my_table", id="mssql_force_lowercase"
+            "MSSQL",
+            "mssql",
+            "my_db",
+            ["my_src", "MY_DB", "dbo"],
+            True,
+            "my_db.dbo.my_table",
+            id="mssql_force_lowercase",
         ),
         pytest.param(
             "SNOWFLAKE",
             "snowflake",
+            "MY_DB",
+            ["my_src", "MY_DB", "dbo"],
             False,
             "MY_DB.dbo.My_Table",
             id="snowflake_keep_case",
         ),
+        pytest.param(
+            "SYNAPSE",
+            "mssql",
+            "SalesDB",
+            ["my_src", "dbo"],
+            False,
+            "SalesDB.dbo.My_Table",
+            id="keep_case_keeps_database_case",
+        ),
     ],
 )
 def test_map_urn_convert_urns_to_lowercase_override(
-    source_type: str, platform: str, convert: bool, expected_name: str
+    source_type: str,
+    platform: str,
+    database_name: str,
+    path: List[str],
+    convert: bool,
+    expected_name: str,
 ) -> None:
     mappings = [
         DremioSourceMapping(
@@ -463,16 +519,9 @@ def test_map_urn_convert_urns_to_lowercase_override(
             convert_urns_to_lowercase=convert,
         )
     ]
-    assert (
-        _map_to_urn(
-            source_type,
-            "my_db",
-            ["my_src", "MY_DB", "dbo"],
-            "My_Table",
-            mappings=mappings,
-        )
-        == f"urn:li:dataset:(urn:li:dataPlatform:{platform},{expected_name},DEV)"
-    )
+    assert _map_to_urn(
+        source_type, database_name, path, "My_Table", mappings=mappings
+    ) == _urn(platform, expected_name)
 
 
 def test_map_urn_source_mapping_platform_instance_and_env() -> None:
@@ -484,23 +533,19 @@ def test_map_urn_source_mapping_platform_instance_and_env() -> None:
             env="PROD",
         )
     ]
-    assert (
-        _map_to_urn(
-            "SNOWFLAKE",
-            "my_db",
-            ["my_src", "MY_DB", "PUBLIC"],
-            "My_Table",
-            mappings=mappings,
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.public.my_table,PROD)"
-    )
+    assert _map_to_urn(
+        "SNOWFLAKE",
+        "my_db",
+        ["my_src", "MY_DB", "PUBLIC"],
+        "My_Table",
+        mappings=mappings,
+    ) == _urn("snowflake", "my_instance.my_db.public.my_table", "PROD")
 
 
 def test_map_urn_file_object_storage_unchanged() -> None:
-    assert (
-        _map_to_urn("S3", None, ["my_s3", "My_Folder"], "data.parquet", "/my_bucket")
-        == "urn:li:dataset:(urn:li:dataPlatform:s3,my_bucket/My_Folder/data.parquet,DEV)"
-    )
+    assert _map_to_urn(
+        "S3", None, ["my_s3", "My_Folder"], "data.parquet", "/my_bucket"
+    ) == _urn("s3", "my_bucket/My_Folder/data.parquet")
 
 
 def test_process_dataset_emits_mapped_copy_upstream(
@@ -529,7 +574,7 @@ def test_process_dataset_emits_mapped_copy_upstream(
 
     workunits = list(source.process_dataset(dataset))
 
-    expected = "urn:li:dataset:(urn:li:dataPlatform:mssql,MY_DB.dbo.my_Table,DEV)"
+    expected = _urn("mssql", "MY_DB.dbo.my_Table")
     lineage = [
         wu.metadata.aspect
         for wu in workunits
@@ -540,6 +585,6 @@ def test_process_dataset_emits_mapped_copy_upstream(
     source.sql_parsing_aggregator.add_known_lineage_mapping.assert_called_once()
     kwargs = source.sql_parsing_aggregator.add_known_lineage_mapping.call_args.kwargs
     assert kwargs["upstream_urn"] == expected
-    assert kwargs["downstream_urn"] == (
-        "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.my_src.my_db.dbo.my_table,DEV)"
+    assert kwargs["downstream_urn"] == _urn(
+        "dremio", "dremio.my_src.my_db.dbo.my_table"
     )
