@@ -522,8 +522,8 @@ public class ESIndexBuilder {
       unmapped.removeAll(ReindexConfig.structuredPropertyFieldIds(config.currentMappings()));
       log.warn(
           "Index: {} - Structured property fields {} have definitions but no mapping. A definition"
-              + " upsert or a reindex adds them; system-update adds them only alongside other"
-              + " mapping or settings changes.",
+              + " upsert or a reindex adds them, and system-update adds them when it applies a"
+              + " mapping change in place.",
           indexName,
           unmapped);
     }
@@ -915,7 +915,9 @@ public class ESIndexBuilder {
               new PutMappingRequest(indexState.name()).source(withoutStructuredPropertyFields),
               requestOptionsLong);
         } catch (IOException | RuntimeException retryFailure) {
-          retryFailure.addSuppressed(e);
+          if (retryFailure != e) {
+            retryFailure.addSuppressed(e);
+          }
           throw retryFailure;
         }
         log.error(
