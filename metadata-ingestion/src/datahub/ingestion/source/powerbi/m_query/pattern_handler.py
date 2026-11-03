@@ -2191,6 +2191,11 @@ ODBC_TWO_TIER_PLATFORMS: FrozenSet[str] = frozenset(
 # BigQuery equivalent project.dataset.table). When ODBC navigation (+ optional
 # dsn_to_database_schema backfill) yields database + table but no schema, these
 # must warn-and-skip rather than emit a truncated database.table URN.
+# Known gap (not verified against a live driver): odbc.py maps the Simba Spark
+# driver to databricks. If its navigation exposes a constant "SPARK" catalog like
+# Hive's "HIVE", the URN becomes spark.<schema>.<table>, which never joins the
+# Databricks connector's <catalog>.<schema>.<table> (e.g. hive_metastore), and
+# dsn_to_database_schema cannot correct it because navigation wins.
 # db2 has no SupportedDataPlatform member because it is only reachable over ODBC
 # (odbc.py sniffs it from the driver / dsn_to_platform_name); its datahub platform
 # name is the literal "db2" that the standalone Db2Source registers. Its standalone
