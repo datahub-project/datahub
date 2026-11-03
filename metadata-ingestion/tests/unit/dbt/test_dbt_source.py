@@ -3440,6 +3440,44 @@ def test_create_freshness_assertion_mcps_asserts_on_target_platform_instance():
     assert events[0].asserteeUrn == expected
 
 
+def test_assertion_info_is_emitted_before_other_assertion_aspects():
+    # Servers authorize writes to an assertion by the entity it asserts on, which
+    # comes from assertionInfo, so no other aspect may precede it.
+    source = create_mocked_dbt_source()
+    _graph_with_note(source, None, "dbt-source")
+    test_node, model_node = _described_test_with_result()
+    source_node = _make_dbt_node(
+        "source.project.raw.users", node_type="source", database="db", schema="raw"
+    )
+    source_node.freshness_info = make_freshness_info()
+
+    mcps = [
+        *source.create_test_entity_mcps(
+            [test_node], {"model.project.my_model": model_node}
+        ),
+        *source.create_freshness_assertion_mcps([source_node]),
+    ]
+
+    aspects_by_urn: Dict[str, List[str]] = {}
+    for mcp in mcps:
+        assert mcp.entityUrn is not None and mcp.aspectName is not None
+        aspects_by_urn.setdefault(mcp.entityUrn, []).append(mcp.aspectName)
+    assert len(aspects_by_urn) == 2
+    test_aspects, freshness_aspects = aspects_by_urn.values()
+    assert test_aspects == [
+        "assertionInfo",
+        "dataPlatformInstance",
+        "assertionNote",
+        "ownership",
+        "assertionRunEvent",
+    ]
+    assert freshness_aspects == [
+        "assertionInfo",
+        "dataPlatformInstance",
+        "assertionRunEvent",
+    ]
+
+
 def test_load_run_results_skips_generate():
     run_results_json = {
         "args": {"which": "generate"},
