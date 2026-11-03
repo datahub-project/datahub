@@ -1518,6 +1518,8 @@ public class ESIndexBuilder {
       LongSupplier clock) {
     final long deadline = clock.getAsLong() + DIAGNOSTICS_BUDGET.toMillis();
     int logged = 0;
+    // A retried reindex usually fails on the same documents again; log each failure once.
+    Set<String> seenFailures = new HashSet<>();
     for (String taskId : taskIds) {
       if (!isUsableTaskId(taskId)) {
         continue;
@@ -1569,7 +1571,19 @@ public class ESIndexBuilder {
           log.warn("Reindex task {} reported no failures", taskId);
         }
         int loggedForTask = 0;
+        int repeated = 0;
         for (ReindexTaskReport.Failure failure : report.failures()) {
+          if (!seenFailures.add(
+              failure.docId()
+                  + "|"
+                  + failure.shard()
+                  + "|"
+                  + failure.field()
+                  + "|"
+                  + failure.causes())) {
+            repeated++;
+            continue;
+          }
           if (logged >= MAX_LOGGED_REINDEX_FAILURES) {
             break;
           }
@@ -1577,7 +1591,13 @@ public class ESIndexBuilder {
           loggedForTask++;
           logReindexFailure(opContext, sourceIndex, failure, clock, deadline);
         }
-        if (loggedForTask < report.totalFailures()) {
+        if (repeated > 0) {
+          log.warn(
+              "Reindex task {}: {} failure(s) repeat an earlier task's and are not logged again",
+              taskId,
+              repeated);
+        }
+        if (loggedForTask + repeated < report.totalFailures()) {
           log.warn(
               "Logged {} of {} reindex failures in task {}",
               loggedForTask,
@@ -1621,7 +1641,11 @@ public class ESIndexBuilder {
       log.error("  structured property: {}", describeStructuredPropertyField(failure.field()));
     }
     if (failure.docId() != null && clock.getAsLong() <= deadline) {
-      logSourceValueSize(opContext, sourceIndex, failure.docId(), failure.field());
+      logSourceValueSize(
+          opContext,
+          sourceIndex,
+          failure.docId(),
+          failure.field() == null ? null : sourcePath(failure.field()));
     }
   }
 
@@ -1631,14 +1655,34 @@ public class ESIndexBuilder {
    */
   @VisibleForTesting
   public static String describeStructuredPropertyField(String field) {
-    String[] parts = field.split("\\.");
+    String path = sourcePath(field);
+    String subfield = path.equals(field) ? "" : ", subfield " + field.substring(path.length() + 1);
+    String[] parts = path.split("\\.");
     if (parts.length == 5 && "_versioned".equals(parts[1])) {
       return String.format(
-          "qualifiedName %s (any '_' may be '.'), version %s, value type %s",
-          parts[2], parts[3], parts[4]);
+          "qualifiedName %s (any '_' may be '.'), version %s, value type %s%s",
+          parts[2], parts[3], parts[4], subfield);
     }
     return String.format(
-        "qualifiedName %s (any '_' may be '.')", field.substring("structuredProperties.".length()));
+        "qualifiedName %s (any '_' may be '.')%s",
+        path.substring("structuredProperties.".length()), subfield);
+  }
+
+  /**
+   * Multi-fields the search mappings add under a field; they have no _source entry of their own.
+   */
+  private static final Set<String> MULTI_FIELD_SUFFIXES = Set.of("keyword", "delimited", "ngram");
+
+  /**
+   * The {@code _source} path behind a mapped field: {@code name.keyword} is indexed from {@code
+   * name}. An immense-term rejection names the {@code .keyword} subfield, not the stored field.
+   */
+  @VisibleForTesting
+  public static String sourcePath(String field) {
+    int dot = field.lastIndexOf('.');
+    return dot > 0 && MULTI_FIELD_SUFFIXES.contains(field.substring(dot + 1))
+        ? field.substring(0, dot)
+        : field;
   }
 
   private static final int LUCENE_MAX_TERM_BYTES = 32766;

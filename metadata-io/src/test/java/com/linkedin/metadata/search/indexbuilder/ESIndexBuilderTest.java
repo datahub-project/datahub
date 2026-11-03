@@ -3573,15 +3573,21 @@ public class ESIndexBuilderTest {
   @Test
   void testReindexFailureDiagnosticsHandlesSourceDocumentShapes() throws IOException {
     String field = "structuredProperties._versioned.desc.10000000000000.string";
-    String failure =
-        "{\"id\": \"a\", \"cause\": {\"type\": \"illegal_argument_exception\", \"reason\":"
-            + " \"Document contains at least one immense term in field=\\\""
-            + field
-            + "\\\"\"}}";
+    // Distinct documents, so each failure gets its own source lookup (repeats are logged once).
+    List<String> failures = new ArrayList<>();
+    for (int i = 0; i < 4; i++) {
+      failures.add(
+          "{\"id\": \"a"
+              + i
+              + "\", \"cause\": {\"type\": \"illegal_argument_exception\", \"reason\":"
+              + " \"Document contains at least one immense term in field=\\\""
+              + field
+              + "\\\"\"}}");
+    }
     RawResponse task =
         rawResponse(
             "{\"completed\": true, \"response\": {\"failures\": ["
-                + String.join(",", Collections.nCopies(4, failure))
+                + String.join(",", failures)
                 + "]}}");
     RawResponse noSource = rawResponse("{\"found\": true}");
     RawResponse fieldMissing =
@@ -3751,6 +3757,84 @@ public class ESIndexBuilderTest {
     assertTrue(logs.contains("shard 19"), logs);
     assertFalse(logs.contains("shard 20,"), logs);
     assertTrue(logs.contains("20 of 25"), "the total count is reported when capped:\n" + logs);
+  }
+
+  // Shaped like the failure Elasticsearch 8 reported in a hydra run: an immense term is rejected
+  // on the .keyword multi-field, which has no _source entry of its own.
+  private static final String IMMENSE_KEYWORD_TASK_JSON =
+      "{\"completed\":true,\"response\":{\"total\":1,\"created\":0,\"failures\":[{\"index\":\"d\","
+          + "\"id\":\"urn%3Ali%3Adataset%3Abig\",\"status\":400,\"cause\":{"
+          + "\"type\":\"document_parsing_exception\",\"reason\":\"[1:303] failed to parse field "
+          + "[structuredProperties.e2e_big.keyword] of type [keyword] in document with id 'x'. "
+          + "Preview of field's value: 'ZZZZ'\",\"caused_by\":{\"type\":\"illegal_argument_exception\","
+          + "\"reason\":\"Document contains at least one immense term in "
+          + "field=\\\"structuredProperties.e2e_big.keyword\\\" (whose UTF8 encoding is longer "
+          + "than the max length 32766)\"}}}]}}";
+
+  @Test
+  void testDiagnosticsReadsSourceValueBehindKeywordSubfield() throws IOException {
+    RawResponse task = rawResponse(IMMENSE_KEYWORD_TASK_JSON);
+    RawResponse doc =
+        rawResponse(
+            "{\"_source\":{\"urn\":\"urn:li:dataset:big\","
+                + "\"structuredProperties\":{\"e2e_big\":\""
+                + "Z".repeat(40000)
+                + "\"}}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(task)
+        .thenReturn(doc);
+
+    String logs = diagnosticsLogs(List.of("node1:1"));
+
+    assertTrue(logs.contains("qualifiedName e2e_big (any '_' may be '.'), subfield keyword"), logs);
+    assertTrue(
+        logs.contains(
+            "value of structuredProperties.e2e_big: 40000 characters, 40000 UTF-8 bytes"
+                + " (over the 32766-byte keyword limit)"),
+        logs);
+    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
+    verify(searchClient, times(2))
+        .performLowLevelRequest(any(OperationFingerprint.class), requests.capture());
+    assertTrue(
+        requests
+            .getAllValues()
+            .get(1)
+            .getParameters()
+            .get("_source_includes")
+            .endsWith(",structuredProperties.e2e_big"));
+  }
+
+  @Test
+  void testDiagnosticsLogsAFailureRepeatedByRetriesOnce() throws IOException {
+    RawResponse first = rawResponse(PORTED_SAMPLE_TASK_JSON);
+    RawResponse doc = rawResponse("{\"_source\": {}}");
+    RawResponse retry = rawResponse(PORTED_SAMPLE_TASK_JSON);
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(first)
+        .thenReturn(doc)
+        .thenReturn(retry);
+
+    String logs = diagnosticsLogs(List.of("node1:1", "node1:2"));
+
+    assertEquals(logs.split("document=doc1", -1).length - 1, 1, logs);
+    assertTrue(
+        logs.contains(
+            "Reindex task node1:2: 1 failure(s) repeat an earlier task's and are not logged again"),
+        logs);
+    // Two task reads and one source document lookup; the repeat is not looked up again.
+    verify(searchClient, times(3))
+        .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
+  }
+
+  @Test
+  void testSourcePathStripsMultiFieldSuffix() {
+    assertEquals(
+        ESIndexBuilder.sourcePath("structuredProperties.e2e_big.keyword"),
+        "structuredProperties.e2e_big");
+    assertEquals(ESIndexBuilder.sourcePath("name.delimited"), "name");
+    assertEquals(
+        ESIndexBuilder.sourcePath("structuredProperties._versioned.q.1.string"),
+        "structuredProperties._versioned.q.1.string");
   }
 
   private void stubPortedPollCounts(long destCount) throws IOException {
