@@ -61,10 +61,14 @@ Confirm the ingestion account can run `DESCRIBE` on the tables named in the warn
 
 The `information_schema` comment lookup failed for the database named in the warning context, so some or all of its tables and columns were ingested without descriptions. This clears the descriptions an earlier run ingested from Doris; descriptions edited in DataHub are kept. Everything else about those tables is unaffected.
 
-Confirm the ingestion account can query `information_schema.TABLES` and `information_schema.COLUMNS`. On a large external catalog the lookup can also outrun the connection's read timeout (`options.connect_args.read_timeout`), so raise it if the error in the warning context is a timeout.
+Confirm the ingestion account can query `information_schema.TABLES` and `information_schema.COLUMNS`. On a large external catalog the lookup can also outrun the connection's read timeout (`options.connect_args.read_timeout`) or Doris' `query_timeout` session variable, so raise whichever one the error in the warning context names.
 
 #### "Lost the Doris connection while reflecting a table"
 
 The connection dropped while the table or view named in the failure context was being read, so it was skipped rather than ingested with an empty or partial schema, and stale-entity removal is skipped for this run so it is not deleted. The source then reconnects, so the tables after it are still ingested.
 
 Check FE availability and any proxy or load-balancer idle timeout between the ingestion executor and Doris, then rerun.
+
+#### "Could not reconnect to Doris"
+
+After a dropped connection the source could not reconnect, so it skipped the rest of that database's tables and views rather than waiting out a connect timeout for each one. `tables_skipped_after_connection_loss` in the report counts them. Stale-entity removal is skipped for the run, so they are not deleted. Check that the FE is up and reachable from the ingestion executor, then rerun.

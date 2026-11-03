@@ -187,13 +187,17 @@ def _non_empty_comment(value: object) -> Optional[str]:
     return comment if comment.strip() else None
 
 
-def _is_connection_lost(error: BaseException) -> bool:
+def _is_connection_lost(error: BaseException, connection: object) -> bool:
     """Whether `error` means the connection is gone rather than the statement failed.
 
     A dropped connection invalidates the SQLAlchemy connection, and every later
     statement on it raises PendingRollbackError until it is rolled back, so both
     forms mean that nothing read over this connection from here on can be trusted.
+    A failed reconnect (pymysql 2003) is not classed as a disconnect but leaves the
+    connection invalidated, so the connection's own state is checked as well.
     """
+    if isinstance(connection, Connection) and connection.invalidated:
+        return True
     if isinstance(error, DBAPIError):
         return error.connection_invalidated
     return isinstance(error, PendingRollbackError)
@@ -319,7 +323,7 @@ class DorisDialect(MySQLDialect_pymysql):
                     connection, table_name, schema, **kw
                 )
         except (SQLAlchemyError, TypeError) as e:
-            if _is_connection_lost(e):
+            if _is_connection_lost(e, connection):
                 # DESCRIBE would only fail with PendingRollbackError, hiding the
                 # original disconnect behind it.
                 raise
@@ -373,7 +377,7 @@ class DorisDialect(MySQLDialect_pymysql):
         if full_name not in self.reflection_fallbacks:
             self._overlay_doris_types(connection, full_name, columns)
 
-        scope = self._comment_scope(connection, schema) if self.read_comments else None
+        scope = self._comment_scope(connection, schema)
         if scope is not None:
             table_comments = self._column_comments(connection, scope).get(
                 table_name, {}
@@ -399,7 +403,7 @@ class DorisDialect(MySQLDialect_pymysql):
         """
         table_comment = super().get_table_comment(connection, table_name, schema, **kw)
 
-        scope = self._comment_scope(connection, schema) if self.read_comments else None
+        scope = self._comment_scope(connection, schema)
         if scope is None:
             return table_comment
 
@@ -457,7 +461,7 @@ class DorisDialect(MySQLDialect_pymysql):
                 )
             )
         except SQLAlchemyError as e:
-            if _is_connection_lost(e):
+            if _is_connection_lost(e, connection):
                 # Typically the database-wide query outrunning a read timeout on a
                 # large external catalog. The table's columns were already read, so
                 # roll back to let the next statement reconnect rather than fail
@@ -490,8 +494,8 @@ class DorisDialect(MySQLDialect_pymysql):
         # An external-catalog connection's URL database is `catalog.database`, while
         # the schema the inspector passes in is usually the bare name. Doris database
         # names cannot contain a dot, so the last segment is always the database.
-        current_schema = schema or connection.engine.url.database
-        if not current_schema:
+        current_schema = self._current_schema(connection, schema)
+        if not self.read_comments or current_schema is None:
             return None
         catalog, _, database = current_schema.rpartition(".")
         if not catalog:
@@ -526,7 +530,7 @@ class DorisDialect(MySQLDialect_pymysql):
                         col["type"] = parsed_type
 
         except (SQLAlchemyError, IndexError, TypeError) as e:
-            if _is_connection_lost(e):
+            if _is_connection_lost(e, connection):
                 raise
             # Columns survive with MySQL's types; only the Doris-specific ones are
             # lost. Recorded rather than logged so the source can report it, since a
@@ -537,10 +541,14 @@ class DorisDialect(MySQLDialect_pymysql):
                 f"Falling back to MySQL type reflection."
             )
 
+    @staticmethod
+    def _current_schema(connection: Connection, schema: Optional[str]) -> Optional[str]:
+        return schema or connection.engine.url.database or None
+
     def _full_name(self, connection, table_name, schema):
         # type: (Connection, str, Optional[str]) -> Optional[str]
-        current_schema = schema or connection.engine.url.database
-        if not current_schema:
+        current_schema = self._current_schema(connection, schema)
+        if current_schema is None:
             return None
         quote = self.identifier_preparer.quote_identifier
         return f"{quote(current_schema)}.{quote(table_name)}"

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import INTEGER, create_engine
 from sqlalchemy.engine import Connection, Inspector
-from sqlalchemy.exc import PendingRollbackError, ProgrammingError
+from sqlalchemy.exc import OperationalError, PendingRollbackError, ProgrammingError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.doris.doris_dialect import (
@@ -546,9 +546,9 @@ class TestDorisSourceMethods:
         assert contexts.count("db2: Access denied") == 1
         assert all(dialect.comment_lookup_failures == {} for dialect in dialects)
 
-    def test_only_the_metadata_pass_reads_comments(self):
-        """Profiling reflects every table again but never uses comments, so a lookup
-        failing there must not report descriptions the metadata pass ingested."""
+    def test_only_the_metadata_pass_reads_comments_and_reports(self):
+        """Profiling reflects every table again but never uses comments, and its
+        reflection degradations were already reported by the metadata pass."""
         config = DorisConfig(host_port="localhost:9030", database="db1")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
         engines: List[MagicMock] = []
@@ -556,6 +556,10 @@ class TestDorisSourceMethods:
         def make_engine(url: str, **kwargs: Any) -> MagicMock:
             engine = MagicMock()
             engine.dialect = DorisDialect()
+            engine.dialect.reflection_fallbacks["`db1`.`my_async_mv`"] = (
+                ReflectionFallback(error="async materialized view", expected=True)
+            )
+            engine.connect.return_value.dialect = engine.dialect
             engine.connect.return_value.__enter__.return_value = _mock_list_conn()
             engines.append(engine)
             return engine
@@ -583,6 +587,7 @@ class TestDorisSourceMethods:
             False,
             True,
         ]
+        assert source.report.tables_reflected_without_keys == 2
 
     @staticmethod
     def _inspector_losing_connection_on(method: str) -> MagicMock:
@@ -646,13 +651,15 @@ class TestDorisSourceMethods:
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
         inspector = self._inspector_losing_connection_on("get_columns")
 
-        list(
+        workunits = list(
             source._process_view(
                 "db1.my_view", inspector, "db1", "my_view", source.config
             )
         )
 
+        assert not any(wu.get_aspect_of_type(SchemaMetadataClass) for wu in workunits)
         assert len(source.report.failures) == 1
+        assert inspector.bind.invalidated is False
 
     @pytest.mark.parametrize("kind", ["table", "view"])
     def test_errors_on_a_live_connection_are_not_failures(self, kind):
@@ -718,7 +725,9 @@ class TestDorisSourceMethods:
         # Reported once, as the failure, not again as a loop_tables warning.
         assert "t2" not in str(source.report.warnings)
 
-    def test_column_errors_on_a_live_connection_keep_the_base_behaviour(self):
+    def test_column_errors_on_a_live_connection_skip_the_table(self):
+        """Unlike the base class, the table is not emitted with an empty schema,
+        which would overwrite the good one."""
         config = DorisConfig(host_port="localhost:9030")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
         inspector = MagicMock(spec=Inspector)
@@ -727,11 +736,42 @@ class TestDorisSourceMethods:
         )
         inspector.bind = MagicMock(spec=Connection, invalidated=False)
 
-        assert source._get_columns("db1.my_table", inspector, "db1", "my_table") == []
+        with pytest.raises(ProgrammingError):
+            source._get_columns("db1.my_table", inspector, "db1", "my_table")
         assert len(source.report.failures) == 0
-        assert "Access denied" in str(source.report.warnings)
-        # The failed reflection is not repeated just to produce the warning.
-        inspector.get_columns.assert_called_once()
+
+    def test_table_without_columns_is_warned_about(self):
+        config = DorisConfig(host_port="localhost:9030")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+        inspector = MagicMock(spec=Inspector)
+        inspector.get_columns.return_value = []
+
+        assert source._get_columns("db1.my_table", inspector, "db1", "my_table") == []
+        assert "db1.my_table" in str(source.report.warnings)
+
+    def test_failed_reconnect_skips_the_rest_of_the_database(self):
+        """Each remaining table would otherwise wait out its own connect timeouts
+        and fail the same way."""
+        config = DorisConfig(host_port="localhost:9030")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+        inspector = self._inspector_losing_connection_on("get_columns")
+        inspector.get_table_names.return_value = ["t1", "t2", "t3"]
+        inspector.bind.execute.side_effect = OperationalError(
+            "SELECT 1", {}, Exception("Can't connect to MySQL server")
+        )
+
+        with (
+            patch.object(
+                source, "get_identifier", side_effect=lambda schema, entity, **_: entity
+            ),
+            patch.object(source, "get_db_name", return_value="db1"),
+        ):
+            list(source.loop_tables(inspector, "db1", source.config))
+
+        assert inspector.get_columns.call_count == 1
+        assert len(source.report.failures) == 2
+        assert "Can't connect" in str(source.report.failures)
+        assert source.report.tables_skipped_after_connection_loss == 2
 
     def test_get_inspectors_exception_handling(self):
         config = DorisConfig(host_port="localhost:9030")
