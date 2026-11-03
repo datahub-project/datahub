@@ -14,6 +14,7 @@ import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.bulk.UpdateAction;
 import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
 import co.elastic.clients.json.JsonpUtils;
@@ -29,6 +30,7 @@ import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
@@ -223,6 +225,31 @@ public class Es8SearchClientShimConversionTest {
     assertTrue(
         operation.isIndex(),
         "IndexRequest with default OpType.INDEX must produce an IndexOperation");
+  }
+
+  /** A scripted upsert keeps its upsert document and still runs the script on a missing doc. */
+  @Test
+  public void testAddToProcessorWithScriptedUpsertKeepsTheUpsertDocument() throws Exception {
+    @SuppressWarnings("unchecked")
+    BulkIngester<Object> mockProcessor = mock(BulkIngester.class);
+    UpdateRequest updateRequest =
+        new UpdateRequest("my_index", "doc-1")
+            .script(
+                new org.opensearch.script.Script(
+                    org.opensearch.script.ScriptType.INLINE,
+                    "painless",
+                    "ctx._source.count = 1",
+                    Collections.emptyMap()))
+            .scriptedUpsert(true)
+            .upsert(Collections.singletonMap("urn", "urn:li:dataset:a"));
+
+    invokeAddToProcessor(mockProcessor, updateRequest);
+
+    var captor = forClass(BulkOperation.class);
+    verify(mockProcessor).add(captor.capture(), eq(updateRequest));
+    UpdateAction<?, ?> action = captor.getValue().update().action();
+    assertEquals(action.scriptedUpsert(), Boolean.TRUE);
+    assertEquals(action.upsert(), Collections.singletonMap("urn", "urn:li:dataset:a"));
   }
 
   /** Helper to invoke protected addToProcessor(BulkIngester, DocWriteRequest) via reflection. */

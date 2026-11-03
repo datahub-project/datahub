@@ -67,8 +67,9 @@ public final class OrderedSearchFields {
   /**
    * A script update that writes an aspect's ordered fields.
    *
-   * @param upsert the fields as written to a document that does not exist yet; with nothing to
-   *     compare against they apply as they are, even on clients that do not run the script there
+   * @param upsert the document as written when it does not exist yet: the rest of the document (its
+   *     identity included) plus the ordered fields, which apply as they are with nothing to compare
+   *     against, even on clients that do not run the script there
    */
   public record Update(
       @Nonnull String script,
@@ -84,7 +85,9 @@ public final class OrderedSearchFields {
   /**
    * Removes the aspect's ordered and max fields from {@code document}, along with its {@code
    * _aspects} entry when it has one, and returns the script update that writes them. Empty when the
-   * aspect has no ordered fields, leaving the document unchanged.
+   * aspect has no ordered fields, leaving the document unchanged. The document should carry the
+   * entity's identity fields, so a script that runs before the document exists cannot create one
+   * without them.
    */
   @Nonnull
   public static Optional<Update> split(@Nonnull String aspectName, @Nonnull ObjectNode document) {
@@ -107,11 +110,16 @@ public final class OrderedSearchFields {
     Map<String, Object> aspect = takeAspect(document, aspectName);
     params.put("aspect", aspect);
 
-    Map<String, Object> upsert = new HashMap<>();
+    Map<String, Object> upsert = new HashMap<>(OBJECT_MAPPER.convertValue(document, MAP_TYPE));
     ordered.forEach((field, value) -> putIfNotNull(upsert, field, value));
     max.forEach((field, value) -> putIfNotNull(upsert, field, value));
     if (aspect != null) {
-      upsert.put(MappingConstants.ASPECTS_FIELD_NAME, Map.of(aspectName, aspect));
+      Map<String, Object> aspects = new HashMap<>();
+      if (upsert.get(MappingConstants.ASPECTS_FIELD_NAME) instanceof Map<?, ?> remaining) {
+        remaining.forEach((name, value) -> aspects.put(String.valueOf(name), value));
+      }
+      aspects.put(aspectName, aspect);
+      upsert.put(MappingConstants.ASPECTS_FIELD_NAME, aspects);
     }
     return Optional.of(new Update(SCRIPT, params, upsert));
   }

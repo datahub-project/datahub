@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -17,10 +16,12 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.ingestion.IngestionSourceRunEvents;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -51,7 +52,11 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class})
+@Import({
+  EntityRegistryFactory.class,
+  RestliEntityClientFactory.class,
+  TimeseriesAspectServiceFactory.class
+})
 public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
 
   // RESTATE is excluded so restore-indices replays of old runs do not rewrite the latest run.
@@ -60,24 +65,29 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
   private static final String FAILURE_METRIC = "ingestionSourceRunEvent_failure";
 
   private final SystemEntityClient systemEntityClient;
+  private final TimeseriesAspectService timeseriesAspectService;
   private final boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public IngestionSourceRunEventHook(
       @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final TimeseriesAspectService timeseriesAspectService,
       @Nonnull @Value("${ingestionSourceRunEvents.hook.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${ingestionSourceRunEvents.hook.consumerGroupSuffix}")
           String consumerGroupSuffix) {
     this.systemEntityClient = systemEntityClient;
+    this.timeseriesAspectService = timeseriesAspectService;
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
   }
 
   @VisibleForTesting
   public IngestionSourceRunEventHook(
-      @Nonnull final SystemEntityClient systemEntityClient, @Nonnull Boolean isEnabled) {
-    this(systemEntityClient, isEnabled, "");
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final TimeseriesAspectService timeseriesAspectService,
+      @Nonnull Boolean isEnabled) {
+    this(systemEntityClient, timeseriesAspectService, isEnabled, "");
   }
 
   @Override
@@ -178,10 +188,8 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
         });
 
     Set<Urn> sourceUrns = existingSources(operationContext, sourceUrns(changes, inputs));
-    Map<Urn, DataHubIngestionSourceRunEvent> latestEvents = new HashMap<>();
-    for (Urn sourceUrn : sourceUrns) {
-      latestEvents.put(sourceUrn, latestEvent(operationContext, sourceUrn));
-    }
+    Map<Urn, DataHubIngestionSourceRunEvent> latestEvents =
+        latestEvents(operationContext, sourceUrns);
 
     for (RunChange change : changes) {
       ExecutionRequestInput input = inputs.get(change.executionRequest());
@@ -228,25 +236,32 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
         .collect(Collectors.toSet());
   }
 
-  @Nullable
-  private DataHubIngestionSourceRunEvent latestEvent(
-      @Nonnull OperationContext operationContext, @Nonnull Urn sourceUrn) throws Exception {
-    List<com.linkedin.metadata.aspect.EnvelopedAspect> latest =
-        systemEntityClient.getTimeseriesAspectValues(
-            operationContext,
-            sourceUrn.toString(),
-            INGESTION_SOURCE_ENTITY_NAME,
-            INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
-            null,
-            null,
-            1,
-            null);
-    if (latest.isEmpty()) {
-      return null;
+  /** Each source's latest recorded event, read for the whole batch in one request. */
+  @Nonnull
+  private Map<Urn, DataHubIngestionSourceRunEvent> latestEvents(
+      @Nonnull OperationContext operationContext, @Nonnull Set<Urn> sourceUrns) {
+    Map<Urn, DataHubIngestionSourceRunEvent> latest = new HashMap<>();
+    if (sourceUrns.isEmpty()) {
+      return latest;
     }
-    GenericAspect value = latest.get(0).getAspect();
-    return GenericRecordUtils.deserializeAspect(
-        value.getValue(), value.getContentType(), DataHubIngestionSourceRunEvent.class);
+    timeseriesAspectService
+        .getLatestTimeseriesAspectValues(
+            operationContext, sourceUrns, Set.of(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME), null)
+        .forEach(
+            (sourceUrn, aspects) -> {
+              com.linkedin.metadata.aspect.EnvelopedAspect event =
+                  aspects.get(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+              if (event != null) {
+                GenericAspect value = event.getAspect();
+                latest.put(
+                    sourceUrn,
+                    GenericRecordUtils.deserializeAspect(
+                        value.getValue(),
+                        value.getContentType(),
+                        DataHubIngestionSourceRunEvent.class));
+              }
+            });
+    return latest;
   }
 
   /** Sources that still exist; an event for a deleted source would recreate it. */

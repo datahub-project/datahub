@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -31,6 +30,7 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -59,6 +59,7 @@ public class IngestionSourceRunEventHookTest {
   private final Set<Urn> sources = new HashSet<>();
   private OperationContext opContext;
   private SystemEntityClient client;
+  private TimeseriesAspectService timeseriesAspectService;
   private IngestionSourceRunEventHook hook;
 
   @BeforeMethod
@@ -67,7 +68,8 @@ public class IngestionSourceRunEventHookTest {
     sources.clear();
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     client = mock(SystemEntityClient.class);
-    hook = new IngestionSourceRunEventHook(client, true);
+    timeseriesAspectService = mock(TimeseriesAspectService.class);
+    hook = new IngestionSourceRunEventHook(client, timeseriesAspectService, true);
     sources.add(SOURCE);
     inputs.put(RUN, input());
     when(client.batchGetV2(any(OperationContext.class), any(), any()))
@@ -141,8 +143,8 @@ public class IngestionSourceRunEventHookTest {
 
     // One read for the results' inputs and one for the source.
     verify(client, times(2)).batchGetV2(any(OperationContext.class), any(), any());
-    verify(client, times(1))
-        .getTimeseriesAspectValues(any(), any(), any(), any(), any(), any(), any(), any());
+    verify(timeseriesAspectService, times(1))
+        .getLatestTimeseriesAspectValues(any(), eq(Set.of(SOURCE)), any(), any());
     List<DataHubIngestionSourceRunEvent> events = allEmitted(2);
     // The older run's failure carries the success just recorded for the newer run.
     assertEquals(events.get(1).getRequestedAtMillis(), 50L);
@@ -246,20 +248,16 @@ public class IngestionSourceRunEventHookTest {
         DataHubIngestionSourceRunEvent.class);
   }
 
-  private void latestEvent(DataHubIngestionSourceRunEvent event) throws Exception {
-    when(client.getTimeseriesAspectValues(
-            any(),
-            eq(SOURCE.toString()),
-            eq(INGESTION_SOURCE_ENTITY_NAME),
-            eq(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME),
-            any(),
-            any(),
-            any(),
-            any()))
+  private void latestEvent(DataHubIngestionSourceRunEvent event) {
+    when(timeseriesAspectService.getLatestTimeseriesAspectValues(
+            any(), eq(Set.of(SOURCE)), eq(Set.of(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME)), any()))
         .thenReturn(
-            List.of(
-                new com.linkedin.metadata.aspect.EnvelopedAspect()
-                    .setAspect(GenericRecordUtils.serializeAspect(event))));
+            Map.of(
+                SOURCE,
+                Map.of(
+                    INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
+                    new com.linkedin.metadata.aspect.EnvelopedAspect()
+                        .setAspect(GenericRecordUtils.serializeAspect(event)))));
   }
 
   private static DataHubIngestionSourceRunEvent event(

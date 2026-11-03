@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Iterator, List, Optional
 
 import pytest
@@ -130,11 +131,13 @@ def source_urns(auth_session) -> Iterator[List[str]]:
 def test_list_sorts_by_last_run(auth_session, graph_client, source_urns):
     first, second = source_urns
     first_run = _run(auth_session, first)
+    # Distinct request times, so the expected order does not depend on a tie.
+    time.sleep(0.05)
     second_run = _run(auth_session, second)
 
     first_event = _ensure_run_event(graph_client, first, first_run, "PENDING")
     second_event = _ensure_run_event(graph_client, second, second_run, "PENDING")
-    assert second_event.requestedAtMillis >= first_event.requestedAtMillis
+    assert second_event.requestedAtMillis > first_event.requestedAtMillis
     _ensure_listed(auth_session, source_urns, [second, first])
 
     newer_first_run = _run(auth_session, first)

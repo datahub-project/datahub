@@ -50,6 +50,7 @@ public class OrderedSearchFieldsTest {
     assertEquals(
         update.upsert().keySet(),
         Set.of(
+            "urn",
             "lastRunRequestedAtMillis",
             "lastRunStatus",
             "lastSuccessfulRunRequestedAtMillis",
