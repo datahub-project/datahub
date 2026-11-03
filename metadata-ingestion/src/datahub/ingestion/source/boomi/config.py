@@ -10,9 +10,12 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.boomi.constants import (
     DEFAULT_API_URL,
+    DEFAULT_EXECUTION_HISTORY_DAYS,
+    DEFAULT_MAX_EXECUTIONS_PER_PROCESS,
     DEFAULT_MAX_REQUESTS_PER_SECOND,
     DEFAULT_REQUEST_TIMEOUT_SECONDS,
     LOOPBACK_HOSTS,
+    MAX_EXECUTION_HISTORY_DAYS,
     MAX_REQUESTS_PER_SECOND_LIMIT,
     SCHEME_HTTP,
     SCHEME_HTTPS,
@@ -70,7 +73,9 @@ class BoomiSourceConfig(
         description=(
             "Regex patterns matched against the environment name. Only deployments "
             "to allowed environments count towards deployment properties and "
-            "`include_undeployed_processes`."
+            "`include_undeployed_processes`. Execution records are not filtered by "
+            "environment directly, because they name the runtime (atom), not the "
+            "environment. Runs follow the ingested processes."
         ),
     )
     include_undeployed_processes: bool = Field(
@@ -87,6 +92,27 @@ class BoomiSourceConfig(
             "Emit the process creator as a data owner and the last modifier as a "
             "technical owner."
         ),
+    )
+    include_execution_history: bool = Field(
+        default=True,
+        description=(
+            "Emit recent process executions as run history (DataProcessInstance) "
+            "on each ingested process. Requires the View Results privilege."
+        ),
+    )
+    execution_history_days: int = Field(
+        default=DEFAULT_EXECUTION_HISTORY_DAYS,
+        ge=1,
+        le=MAX_EXECUTION_HISTORY_DAYS,
+        description=(
+            "How many days of execution history to read. Boomi purges execution "
+            "history after 30 days by default, so older runs are not available."
+        ),
+    )
+    max_executions_per_process: int = Field(
+        default=DEFAULT_MAX_EXECUTIONS_PER_PROCESS,
+        gt=0,
+        description="Most recent executions to emit for each process.",
     )
     max_requests_per_second: int = Field(
         default=DEFAULT_MAX_REQUESTS_PER_SECOND,

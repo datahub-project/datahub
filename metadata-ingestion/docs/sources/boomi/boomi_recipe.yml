@@ -23,6 +23,13 @@ source:
 
     include_undeployed_processes: false
     extract_owners: true
+
+    # Run history. Requires the View Results privilege; set to false if the
+    # token lacks it. Boomi purges executions after 30 days by default.
+    include_execution_history: true
+    execution_history_days: 7
+    max_executions_per_process: 50
+
     max_requests_per_second: 8
 
     stateful_ingestion:

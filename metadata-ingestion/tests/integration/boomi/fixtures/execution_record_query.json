@@ -1,0 +1,318 @@
+{
+  "@type": "QueryResult",
+  "result": [
+    {
+      "@type": "ExecutionRecord",
+      "executionId": "execution-c514bb14-272d-4ad8-84e4-9d4a6d361be2-2026.11.02",
+      "account": "acme-AB1CD2",
+      "executionTime": "2026-11-02T19:19:38Z",
+      "status": "ERROR",
+      "executionType": "exec_manual",
+      "processName": "DH Test - Orders Extract",
+      "processId": "e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc",
+      "atomName": "DH Test Atom",
+      "atomId": "8d4d2cca-afc1-4dcc-998a-f3cff7c29b05",
+      "inboundDocumentCount": 1,
+      "inboundErrorDocumentCount": 1,
+      "outboundDocumentCount": 0,
+      "executionDuration": [
+        "Long",
+        3751
+      ],
+      "message": "Error retrieving db data: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.; Caused by: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.",
+      "inboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "outboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "nodeId": "atom04[execution-c514bb14-272d-4ad8-84e4-9d4a6d361be2-2026.11.02]",
+      "recordedDate": "2026-11-02T19:19:42Z",
+      "clusterNodeId": "atom04"
+    },
+    {
+      "@type": "ExecutionRecord",
+      "executionId": "execution-96778737-54d4-4dea-99e2-c0789b2c2a03-2026.11.02",
+      "account": "acme-AB1CD2",
+      "executionTime": "2026-11-02T19:19:40Z",
+      "status": "ERROR",
+      "executionType": "exec_manual",
+      "processName": "DH Test - Catalog Sync",
+      "processId": "6363d3f8-93fa-4c4d-a399-45bde722ee63",
+      "atomName": "DH Test Atom",
+      "atomId": "8d4d2cca-afc1-4dcc-998a-f3cff7c29b05",
+      "inboundDocumentCount": 1,
+      "inboundErrorDocumentCount": 1,
+      "outboundDocumentCount": 1,
+      "executionDuration": [
+        "Long",
+        3218
+      ],
+      "message": "Failed Loading the class",
+      "inboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "outboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "nodeId": "atom04[execution-96778737-54d4-4dea-99e2-c0789b2c2a03-2026.11.02]",
+      "recordedDate": "2026-11-02T19:19:44Z",
+      "clusterNodeId": "atom04"
+    },
+    {
+      "@type": "ExecutionRecord",
+      "executionId": "execution-07bd4077-692b-4cd1-8432-f72dfbfbc389-2026.11.02",
+      "account": "acme-AB1CD2",
+      "executionTime": "2026-11-02T19:19:41Z",
+      "status": "ERROR",
+      "executionType": "exec_manual",
+      "processName": "DH Test - Posts Fetch",
+      "processId": "161c2360-f2fb-4e20-aba5-db60101ce2b1",
+      "atomName": "DH Test Prod Atom",
+      "atomId": "1d1473aa-4f4e-4db8-bd89-e0e70cf65939",
+      "inboundDocumentCount": 1,
+      "inboundErrorDocumentCount": 1,
+      "outboundDocumentCount": 1,
+      "executionDuration": [
+        "Long",
+        3877
+      ],
+      "message": "Child Synchronous Process Call: DH Test - Orders Extract [execution-07bd4077-692b-4cd1-8432-f72dfbfbc389-2026.11.02(shape4)] call ended in error: com.boomi.connector.ConnectorException: Error retrieving db data: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.; Caused by: Error retrieving db data: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.; Caused by: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.",
+      "inboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "outboundDocumentSize": [
+        "Long",
+        27520
+      ],
+      "nodeId": "atom02[execution-07bd4077-692b-4cd1-8432-f72dfbfbc389-2026.11.02]",
+      "recordedDate": "2026-11-02T19:19:45Z",
+      "clusterNodeId": "atom02"
+    },
+    {
+      "@type": "ExecutionRecord",
+      "executionId": "execution-cdc6f4ad-a9a6-495d-b9ad-8d628c05b269-2026.11.02",
+      "account": "acme-AB1CD2",
+      "executionTime": "2026-11-02T19:19:44Z",
+      "status": "ERROR",
+      "executionType": "sub_process",
+      "processName": "DH Test - Orders Extract",
+      "processId": "e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc",
+      "atomName": "DH Test Prod Atom",
+      "atomId": "1d1473aa-4f4e-4db8-bd89-e0e70cf65939",
+      "inboundDocumentCount": 1,
+      "inboundErrorDocumentCount": 1,
+      "outboundDocumentCount": 0,
+      "executionDuration": [
+        "Long",
+        744
+      ],
+      "message": "Error retrieving db data: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.; Caused by: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.",
+      "topLevelExecutionId": "execution-07bd4077-692b-4cd1-8432-f72dfbfbc389-2026.11.02",
+      "inboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "outboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "nodeId": "atom02[execution-07bd4077-692b-4cd1-8432-f72dfbfbc389-2026.11.02]",
+      "recordedDate": "2026-11-02T19:19:45Z",
+      "clusterNodeId": "atom02"
+    },
+    {
+      "@type": "ExecutionRecord",
+      "executionId": "execution-8a053433-11e2-4a15-82ae-1f332c57628b-2026.11.02",
+      "account": "acme-AB1CD2",
+      "executionTime": "2026-11-02T19:21:34Z",
+      "status": "ERROR",
+      "executionType": "exec_manual",
+      "processName": "DH Test - Orders Extract",
+      "processId": "e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc",
+      "atomName": "DH Test Atom",
+      "atomId": "8d4d2cca-afc1-4dcc-998a-f3cff7c29b05",
+      "inboundDocumentCount": 1,
+      "inboundErrorDocumentCount": 1,
+      "outboundDocumentCount": 0,
+      "executionDuration": [
+        "Long",
+        3983
+      ],
+      "message": "Error retrieving db data: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.; Caused by: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.",
+      "inboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "outboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "nodeId": "atom02[execution-8a053433-11e2-4a15-82ae-1f332c57628b-2026.11.02]",
+      "recordedDate": "2026-11-02T19:21:38Z",
+      "clusterNodeId": "atom02"
+    },
+    {
+      "@type": "ExecutionRecord",
+      "executionId": "execution-de5778f1-17bc-45f4-a3e4-b2123ccb2a21-2026.11.02",
+      "account": "acme-AB1CD2",
+      "executionTime": "2026-11-02T19:21:34Z",
+      "status": "ERROR",
+      "executionType": "exec_manual",
+      "processName": "DH Test - Catalog Sync",
+      "processId": "6363d3f8-93fa-4c4d-a399-45bde722ee63",
+      "atomName": "DH Test Atom",
+      "atomId": "8d4d2cca-afc1-4dcc-998a-f3cff7c29b05",
+      "inboundDocumentCount": 1,
+      "inboundErrorDocumentCount": 1,
+      "outboundDocumentCount": 1,
+      "executionDuration": [
+        "Long",
+        3637
+      ],
+      "message": "Failed Loading the class",
+      "inboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "outboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "nodeId": "atom02[execution-de5778f1-17bc-45f4-a3e4-b2123ccb2a21-2026.11.02]",
+      "recordedDate": "2026-11-02T19:21:37Z",
+      "clusterNodeId": "atom02"
+    },
+    {
+      "@type": "ExecutionRecord",
+      "executionId": "execution-130b41e2-2b8b-42f4-98f5-db7a8452e795-2026.11.02",
+      "account": "acme-AB1CD2",
+      "executionTime": "2026-11-02T19:21:35Z",
+      "status": "ERROR",
+      "executionType": "exec_manual",
+      "processName": "DH Test - Posts Fetch",
+      "processId": "161c2360-f2fb-4e20-aba5-db60101ce2b1",
+      "atomName": "DH Test Prod Atom",
+      "atomId": "1d1473aa-4f4e-4db8-bd89-e0e70cf65939",
+      "inboundDocumentCount": 1,
+      "inboundErrorDocumentCount": 1,
+      "outboundDocumentCount": 1,
+      "executionDuration": [
+        "Long",
+        3616
+      ],
+      "message": "Child Synchronous Process Call: DH Test - Orders Extract [execution-130b41e2-2b8b-42f4-98f5-db7a8452e795-2026.11.02(shape4)] call ended in error: com.boomi.connector.ConnectorException: Error retrieving db data: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.; Caused by: Error retrieving db data: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.; Caused by: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.",
+      "inboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "outboundDocumentSize": [
+        "Long",
+        27520
+      ],
+      "nodeId": "atom05[execution-130b41e2-2b8b-42f4-98f5-db7a8452e795-2026.11.02]",
+      "recordedDate": "2026-11-02T19:21:39Z",
+      "clusterNodeId": "atom05"
+    },
+    {
+      "@type": "ExecutionRecord",
+      "executionId": "execution-4ccabd01-8884-47d3-8106-028e4dc8ff1e-2026.11.02",
+      "account": "acme-AB1CD2",
+      "executionTime": "2026-11-02T19:21:38Z",
+      "status": "ERROR",
+      "executionType": "sub_process",
+      "processName": "DH Test - Orders Extract",
+      "processId": "e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc",
+      "atomName": "DH Test Prod Atom",
+      "atomId": "1d1473aa-4f4e-4db8-bd89-e0e70cf65939",
+      "inboundDocumentCount": 1,
+      "inboundErrorDocumentCount": 1,
+      "outboundDocumentCount": 0,
+      "executionDuration": [
+        "Long",
+        649
+      ],
+      "message": "Error retrieving db data: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.; Caused by: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.",
+      "topLevelExecutionId": "execution-130b41e2-2b8b-42f4-98f5-db7a8452e795-2026.11.02",
+      "inboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "outboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "nodeId": "atom05[execution-130b41e2-2b8b-42f4-98f5-db7a8452e795-2026.11.02]",
+      "recordedDate": "2026-11-02T19:21:39Z",
+      "clusterNodeId": "atom05"
+    },
+    {
+      "@type": "ExecutionRecord",
+      "executionId": "execution-fc012985-4ccf-45e0-b74f-b291c4ad6fb1-2026.11.02",
+      "account": "acme-AB1CD2",
+      "executionTime": "2026-11-02T19:22:22Z",
+      "status": "COMPLETE",
+      "executionType": "exec_manual",
+      "processName": "DH Test - Posts Fetch",
+      "processId": "161c2360-f2fb-4e20-aba5-db60101ce2b1",
+      "atomName": "DH Test Prod Atom",
+      "atomId": "1d1473aa-4f4e-4db8-bd89-e0e70cf65939",
+      "inboundDocumentCount": 1,
+      "inboundErrorDocumentCount": 0,
+      "outboundDocumentCount": 1,
+      "executionDuration": [
+        "Long",
+        3850
+      ],
+      "inboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "outboundDocumentSize": [
+        "Long",
+        27520
+      ],
+      "nodeId": "atom03[execution-fc012985-4ccf-45e0-b74f-b291c4ad6fb1-2026.11.02]",
+      "recordedDate": "2026-11-02T19:22:26Z",
+      "clusterNodeId": "atom03"
+    },
+    {
+      "@type": "ExecutionRecord",
+      "executionId": "execution-74065c39-40f9-4e6d-b330-1be473e5d4a7-2026.11.02",
+      "account": "acme-AB1CD2",
+      "executionTime": "2026-11-02T19:22:25Z",
+      "status": "ERROR",
+      "executionType": "sub_process",
+      "processName": "DH Test - Orders Extract",
+      "processId": "e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc",
+      "atomName": "DH Test Prod Atom",
+      "atomId": "1d1473aa-4f4e-4db8-bd89-e0e70cf65939",
+      "inboundDocumentCount": 1,
+      "inboundErrorDocumentCount": 1,
+      "outboundDocumentCount": 0,
+      "executionDuration": [
+        "Long",
+        806
+      ],
+      "message": "Error retrieving db data: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.; Caused by: The authentication type 10 is not supported. Check that you have configured the pg_hba.conf file to include the client's IP address or subnet, and that it is using an authentication scheme supported by the driver.",
+      "topLevelExecutionId": "execution-fc012985-4ccf-45e0-b74f-b291c4ad6fb1-2026.11.02",
+      "inboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "outboundDocumentSize": [
+        "Long",
+        0
+      ],
+      "nodeId": "atom03[execution-fc012985-4ccf-45e0-b74f-b291c4ad6fb1-2026.11.02]",
+      "recordedDate": "2026-11-02T19:22:26Z",
+      "clusterNodeId": "atom03"
+    }
+  ],
+  "numberOfResults": 10
+}

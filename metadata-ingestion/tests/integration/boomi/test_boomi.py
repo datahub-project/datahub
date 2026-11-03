@@ -176,6 +176,79 @@ PROCESSES_PAGE_2 = [
     ),
 ]
 
+EXECUTIONS_PAGE_1 = _records("execution_record_query.json")
+_EXECUTION_TEMPLATE = EXECUTIONS_PAGE_1[-1]
+
+
+def _execution(
+    execution_id: str,
+    process_id: str,
+    time: str,
+    status: str,
+    duration: Optional[int] = 1000,
+    execution_type: str = "exec_sched",
+    top_level_execution_id: Optional[str] = None,
+) -> Dict[str, object]:
+    record = _copy(
+        _EXECUTION_TEMPLATE,
+        executionId=execution_id,
+        processId=process_id,
+        executionTime=time,
+        recordedDate=time,
+        status=status,
+        executionType=execution_type,
+        nodeId=f"atom02[{execution_id}]",
+    )
+    for key in ("message", "processName", "topLevelExecutionId"):
+        record.pop(key, None)
+    if duration is None:
+        record.pop("executionDuration")
+    else:
+        record["executionDuration"] = ["Long", duration]
+    if top_level_execution_id:
+        record["topLevelExecutionId"] = top_level_execution_id
+    return record
+
+
+EXECUTIONS_PAGE_2 = [
+    _execution(
+        "execution-ie-1", INVOICE_EXPORT, "2026-11-02T08:00:00Z", "COMPLETE_WARN"
+    ),
+    _execution("execution-ie-2", INVOICE_EXPORT, "2026-11-02T09:00:00Z", "ABORTED"),
+    _execution(
+        "execution-ie-3", INVOICE_EXPORT, "2026-11-02T10:00:00Z", "discarded", 0
+    ),
+    _execution(
+        "execution-ie-4", INVOICE_EXPORT, "2026-11-02T19:55:00Z", "INPROCESS", None
+    ),
+    _execution(
+        "execution-sn-1", SHIPMENT_NOTIFY, "2026-11-02T19:58:00Z", "STARTED", None
+    ),
+    _execution(
+        "execution-sn-2", SHIPMENT_NOTIFY, "2026-11-02T19:59:00Z", "ENQUEUED", None
+    ),
+    _execution(
+        "execution-sn-3",
+        SHIPMENT_NOTIFY,
+        "2026-11-02T19:00:00Z",
+        "ABORTED_RECOVERING",
+        None,
+    ),
+    _execution("execution-sn-4", SHIPMENT_NOTIFY, "2026-11-01T07:00:00Z", "PAUSED"),
+    # Called by a run that is older than the window, so it has no caller to
+    # link to and keeps its own trigger.
+    _execution(
+        "execution-cs-sub",
+        CATALOG_SYNC,
+        "2026-11-01T06:00:00Z",
+        "COMPLETE",
+        execution_type="sub_process",
+        top_level_execution_id="execution-outside-window",
+    ),
+    # A process that is filtered out.
+    _execution("execution-sp-1", SANDBOX_PROBE, "2026-11-02T08:00:00Z", "COMPLETE"),
+]
+
 COMPONENT_XML: Dict[str, str] = {
     path.stem: path.read_text()
     for path in sorted((FIXTURES_DIR / "components").glob("*.xml"))
@@ -217,6 +290,11 @@ def _register_mocks(
         f"{BASE_URL}/ComponentMetadata/queryMore",
         json=_page(PROCESSES_PAGE_2),
     )
+    mock.post(
+        f"{BASE_URL}/ExecutionRecord/query",
+        json=_page(EXECUTIONS_PAGE_1, token="executions-page-2-token"),
+    )
+    mock.post(f"{BASE_URL}/ExecutionRecord/queryMore", json=_page(EXECUTIONS_PAGE_2))
     for component_id, xml in COMPONENT_XML.items():
         mock.get(f"{BASE_URL}/Component/{component_id}", text=xml)
 
@@ -236,6 +314,7 @@ def _recipe(output_path: Path) -> Dict[str, object]:
                 "environment_pattern": {"deny": [".* Dev Env$"]},
                 "include_undeployed_processes": True,
                 "max_requests_per_second": 10,
+                "max_executions_per_process": 4,
             },
         },
         "sink": {"type": "file", "config": {"filename": str(output_path)}},
@@ -253,9 +332,17 @@ def test_boomi_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
         pipeline.raise_from_status()
 
         query_more = [r for r in mock.request_history if r.path.endswith("/querymore")]
-        assert len(query_more) == 1
-        assert query_more[0].text == "page-2-token"
+        assert [r.text for r in query_more] == [
+            "page-2-token",
+            "executions-page-2-token",
+        ]
         assert query_more[0].headers["Content-Type"] == "text/plain"
+        execution_query = next(
+            r for r in mock.request_history if r.path.endswith("/executionrecord/query")
+        )
+        assert execution_query.json()["QueryFilter"]["expression"]["argument"] == [
+            "2026-10-26T20:00:00Z"
+        ]
 
     report = pipeline.source.get_report()
     assert isinstance(report, BoomiSourceReport)
@@ -268,7 +355,13 @@ def test_boomi_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
         "DH Test - Orders Extract Test",
         "DH Test - Sandbox Probe",
     ]
-    assert not report.warnings
+    # Orders Extract has five runs in the captures; the oldest is over the cap.
+    assert report.executions_scanned == 20
+    assert report.executions_emitted == 18
+    assert report.executions_over_cap == 1
+    assert report.executions_process_not_emitted == 1
+    assert report.executions_unknown_status == 1
+    assert [w.title for w in report.warnings] == ["Unknown Boomi execution status"]
 
     mce_helpers.check_golden_file(
         pytestconfig,

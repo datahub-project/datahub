@@ -1,6 +1,7 @@
 import base64
 import json
 import threading
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Iterator, List, Optional
 
@@ -157,3 +158,52 @@ def test_retries_after_503(throttling_server: ThreadingHTTPServer) -> None:
 
     assert [f.id for f in client.list_folders()] == ["a"]
     assert _ThrottlingHandler.statuses == []
+
+
+def test_execution_query_sends_utc_window_filter() -> None:
+    client = _client()
+    since = datetime(2026, 8, 30, 16, 22, 10, tzinfo=timezone(timedelta(hours=2)))
+    with requests_mock.Mocker() as mock:
+        mock.post(
+            f"{BASE_URL}/ExecutionRecord/query",
+            json=_page(
+                [
+                    {
+                        "@type": "ExecutionRecord",
+                        "executionId": "execution-fc012985-4ccf-45e0-b74f-b291c4ad6fb1-2026.08.30",
+                        "account": ACCOUNT_ID,
+                        "executionTime": "2026-08-30T14:30:00Z",
+                        "status": "COMPLETE",
+                        "executionType": "exec_manual",
+                        "processName": "Orders Sync",
+                        "processId": "p1",
+                        "atomName": "Production Atom",
+                        "atomId": "1d1473aa-4f4e-4db8-bd89-e0e70cf65939",
+                        "inboundDocumentCount": 1,
+                        "inboundErrorDocumentCount": 0,
+                        "outboundDocumentCount": 1,
+                        "executionDuration": ["Long", 1500],
+                        "inboundDocumentSize": ["Long", 0],
+                        "outboundDocumentSize": ["Long", 27520],
+                        "nodeId": "atom03[execution-fc012985-4ccf-45e0-b74f-b291c4ad6fb1-2026.08.30]",
+                        "recordedDate": "2026-08-30T14:30:04Z",
+                        "clusterNodeId": "atom03",
+                    }
+                ]
+            ),
+        )
+        executions = list(client.list_executions(since))
+        body = mock.request_history[0].json()
+
+    assert body == {
+        "QueryFilter": {
+            "expression": {
+                "property": "executionTime",
+                "operator": "GREATER_THAN_OR_EQUAL",
+                "argument": ["2026-08-30T14:22:10Z"],
+            }
+        }
+    }
+    assert [(e.execution_type, e.execution_duration) for e in executions] == [
+        ("exec_manual", 1500)
+    ]

@@ -5,14 +5,23 @@ import pytest
 import requests_mock
 from pydantic import ValidationError
 
+from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.boomi.config import BoomiSourceConfig
-from datahub.ingestion.source.boomi.models import ComponentMetadata
+from datahub.ingestion.source.boomi.models import ComponentMetadata, ExecutionRecord
 from datahub.ingestion.source.boomi.source import (
     BoomiSource,
+    calling_execution,
     dedupe_branch_copies,
+    execution_end_millis,
+    execution_run_type,
+    map_execution_status,
+    select_recent_executions,
+    to_millis,
     ui_host_for_api_url,
 )
+from datahub.metadata.schema_classes import DataProcessInstanceRunEventClass
 from datahub.sdk.dataflow import DataFlow
 
 ACCOUNT_ID = "acme-AB1CD2"
@@ -111,6 +120,43 @@ def _page(records: List[Dict[str, object]]) -> Dict[str, object]:
     }
 
 
+def _execution(
+    execution_id: str,
+    process_id: str = "p1",
+    time: str = "2026-09-30T10:00:00Z",
+    status: str = "COMPLETE",
+    duration: Optional[int] = 1000,
+    execution_type: str = "exec_manual",
+    top_level_execution_id: Optional[str] = None,
+) -> Dict[str, object]:
+    # Shaped like a live ExecutionRecord/query result.
+    record: Dict[str, object] = {
+        "@type": "ExecutionRecord",
+        "executionId": execution_id,
+        "account": ACCOUNT_ID,
+        "executionTime": time,
+        "status": status,
+        "executionType": execution_type,
+        "processName": "Orders Sync",
+        "processId": process_id,
+        "atomName": "Production Atom",
+        "atomId": "1d1473aa-4f4e-4db8-bd89-e0e70cf65939",
+        "inboundDocumentCount": 1,
+        "inboundErrorDocumentCount": 0,
+        "outboundDocumentCount": 1,
+        "inboundDocumentSize": ["Long", 0],
+        "outboundDocumentSize": ["Long", 0],
+        "nodeId": f"atom02[{execution_id}]",
+        "recordedDate": time,
+        "clusterNodeId": "atom02",
+    }
+    if duration is not None:
+        record["executionDuration"] = ["Long", duration]
+    if top_level_execution_id:
+        record["topLevelExecutionId"] = top_level_execution_id
+    return record
+
+
 def _register(
     mock: requests_mock.Mocker,
     processes: List[Dict[str, object]],
@@ -118,6 +164,8 @@ def _register(
     deployed: Optional[List[Dict[str, object]]] = None,
     folder_status: int = 200,
     environment_status: int = 200,
+    executions: Optional[List[Dict[str, object]]] = None,
+    execution_status: int = 200,
 ) -> None:
     mock.post(
         f"{BASE_URL}/Folder/query",
@@ -165,10 +213,25 @@ def _register(
         json=_page(deployed or []),
     )
     mock.post(f"{BASE_URL}/ComponentMetadata/query", json=_page(processes))
+    mock.post(
+        f"{BASE_URL}/ExecutionRecord/query",
+        status_code=execution_status,
+        json=_page(executions or []),
+    )
 
 
 def _flows(source: BoomiSource) -> List[DataFlow]:
     return [e for e in source.get_workunits_internal() if isinstance(e, DataFlow)]
+
+
+def _run_events(source: BoomiSource) -> List[DataProcessInstanceRunEventClass]:
+    events = []
+    for item in source.get_workunits_internal():
+        if isinstance(item, MetadataWorkUnit):
+            aspect = item.get_aspect_of_type(DataProcessInstanceRunEventClass)
+            if aspect is not None:
+                events.append(aspect)
+    return events
 
 
 @pytest.mark.parametrize(
@@ -512,3 +575,189 @@ def test_process_in_denied_folder_is_filtered() -> None:
         assert _flows(source) == []
 
     assert list(source.get_report().processes_filtered) == ["Orders Sync"]
+
+
+@pytest.mark.parametrize(
+    "status, expected",
+    [
+        ("COMPLETE", InstanceRunResult.SUCCESS),
+        ("complete_warn", InstanceRunResult.SUCCESS),
+        ("ERROR", InstanceRunResult.FAILURE),
+        ("Aborted", InstanceRunResult.FAILURE),
+        ("DISCARDED", InstanceRunResult.SKIPPED),
+        ("INPROCESS", None),
+        ("STARTED", None),
+        ("ENQUEUED", None),
+        ("ABORTED_RECOVERING", None),
+        ("SOMETHING_NEW", None),
+    ],
+)
+def test_map_execution_status(
+    status: str, expected: Optional[InstanceRunResult]
+) -> None:
+    assert map_execution_status(status) == expected
+
+
+def test_execution_end_adds_long_duration_in_milliseconds() -> None:
+    execution = ExecutionRecord.model_validate(
+        _execution("e1", time="2026-09-30T10:00:00Z", duration=90500)
+    )
+    start = to_millis(datetime(2026, 9, 30, 10, 0, tzinfo=timezone.utc))
+
+    assert execution_end_millis(execution) == start + 90500
+    assert (
+        execution_end_millis(execution.model_copy(update={"execution_duration": None}))
+        is None
+    )
+
+
+def test_select_recent_executions_caps_per_process_most_recent_first() -> None:
+    records = [
+        ExecutionRecord.model_validate(record)
+        for record in [
+            _execution("old", time="2026-09-28T10:00:00Z"),
+            _execution("newest", time="2026-09-30T10:00:00Z"),
+            _execution("middle", time="2026-09-29T10:00:00Z"),
+            _execution("other", process_id="p2"),
+            _execution("filtered", process_id="p-not-emitted"),
+        ]
+    ]
+
+    selection = select_recent_executions(records, {"p1", "p2"}, max_per_process=2)
+
+    assert {
+        process_id: [e.execution_id for e in executions]
+        for process_id, executions in selection.by_process.items()
+    } == {"p1": ["newest", "middle"], "p2": ["other"]}
+    assert selection.scanned == 5
+    assert selection.over_cap == 1
+    assert selection.process_not_emitted == 1
+
+
+def test_sub_process_run_links_to_caller_and_inherits_its_trigger() -> None:
+    caller = ExecutionRecord.model_validate(_execution("execution-caller"))
+    sub_process = ExecutionRecord.model_validate(
+        _execution(
+            "execution-sub",
+            process_id="p2",
+            execution_type="sub_process",
+            top_level_execution_id="execution-caller",
+        )
+    )
+    orphan = ExecutionRecord.model_validate(
+        _execution(
+            "execution-orphan",
+            process_id="p2",
+            execution_type="sub_process",
+            top_level_execution_id="execution-outside-window",
+        )
+    )
+    emitted = {e.execution_id: e for e in (caller, sub_process, orphan)}
+
+    assert calling_execution(sub_process, emitted) == caller
+    assert execution_run_type(sub_process, emitted) == "BATCH_AD_HOC"
+    assert calling_execution(orphan, emitted) is None
+    assert execution_run_type(orphan, emitted) == "BATCH_SCHEDULED"
+    assert calling_execution(caller, emitted) is None
+
+
+def test_executions_emit_end_event_only_for_terminal_status() -> None:
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(
+            mock,
+            [_process_record("p1", "Orders Sync")],
+            executions=[
+                _execution("done", status="COMPLETE"),
+                _execution("running", status="INPROCESS", duration=None),
+                _execution("new-1", status="PAUSED"),
+                _execution("new-2", status="paused"),
+                _execution("orphan", process_id="p-unknown"),
+            ],
+        )
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        events = _run_events(source)
+
+    report = source.get_report()
+    assert sorted(
+        (e.status, e.result.type if e.result else None) for e in events
+    ) == sorted(
+        [
+            ("STARTED", None),
+            ("STARTED", None),
+            ("STARTED", None),
+            ("STARTED", None),
+            ("COMPLETE", "SUCCESS"),
+        ]
+    )
+    assert report.executions_emitted == 4
+    assert report.executions_process_not_emitted == 1
+    assert report.executions_unknown_status == 2
+    assert [w.title for w in report.warnings] == ["Unknown Boomi execution status"]
+
+
+def test_execution_403_skips_history_with_one_warning() -> None:
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")], execution_status=403)
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        flows = _flows(source)
+
+    report = source.get_report()
+    assert len(flows) == 1
+    assert report.executions_unavailable
+    assert [w.title for w in report.warnings] == ["Cannot read Boomi execution history"]
+    assert not report.failures
+
+
+@pytest.mark.parametrize("status_code", [400, 503])
+def test_execution_listing_error_is_a_warning_and_processes_still_emit(
+    status_code: int,
+) -> None:
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(
+            mock, [_process_record("p1", "Orders Sync")], execution_status=status_code
+        )
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        flows = _flows(source)
+
+    report = source.get_report()
+    assert len(flows) == 1
+    assert report.executions_unavailable
+    # A failure would stand down stale removal of the processes.
+    assert not report.failures
+    assert [w.title for w in report.warnings] == ["Failed to list Boomi executions"]
+
+
+def test_execution_no_runtimes_400_is_not_a_failure() -> None:
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        mock.post(
+            f"{BASE_URL}/ExecutionRecord/query",
+            status_code=400,
+            json={
+                "@type": "Error",
+                "message": "You do not have access to any containers",
+            },
+        )
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        flows = _flows(source)
+
+    report = source.get_report()
+    assert len(flows) == 1
+    assert report.executions_no_runtimes
+    assert not report.executions_unavailable
+    assert not report.failures
+    assert not report.warnings
+
+
+def test_executions_not_queried_when_no_process_emitted() -> None:
+    source = _source()
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        assert _flows(source) == []
+        paths = [r.path for r in mock.request_history]
+
+    assert not any(path.endswith("/executionrecord/query") for path in paths)

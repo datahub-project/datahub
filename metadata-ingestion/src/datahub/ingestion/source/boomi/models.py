@@ -65,6 +65,25 @@ class Environment(BoomiModel):
     classification: Optional[str] = None
 
 
+class ExecutionRecord(BoomiModel):
+    execution_id: str
+    execution_time: datetime
+    execution_duration: Optional[BoomiLong] = None
+    status: str
+    process_id: str
+    process_name: Optional[str] = None
+    atom_id: Optional[str] = None
+    atom_name: Optional[str] = None
+    execution_type: Optional[str] = None
+    parent_execution_id: Optional[str] = None
+    top_level_execution_id: Optional[str] = None
+    inbound_document_count: Optional[BoomiLong] = None
+    outbound_document_count: Optional[BoomiLong] = None
+    inbound_error_document_count: Optional[BoomiLong] = None
+    recorded_date: Optional[datetime] = None
+    message: Optional[str] = None
+
+
 class QueryResponse(BoomiModel):
     response_type: Optional[str] = Field(default=None, alias="@type")
     result: List[Dict[str, object]] = Field(default_factory=list)
