@@ -17,8 +17,12 @@ flag_management:
   individual_flags: # exceptions to the default rules above, stated flag by flag
     - name: frontend
       paths:
-        - "datahub-frontend/**"
         - "datahub-web-react/**"
+    # datahub-frontend's Java (Play) coverage is uploaded from a different CI job than the
+    # Vitest shards; a separate flag keeps carryforward independent if one upload is missing.
+    - name: frontend-java
+      paths:
+        - "datahub-frontend/**"
     - name: backend
       paths:
         - "metadata-models/**"
@@ -65,6 +69,13 @@ flag_management:
 # @Configuration classes, MCL/MCP hooks, the GraphQL engine and datahub-frontend's Guice modules.
 # Regressions here tend to pass unit tests and break at boot, so its patch coverage gets its own
 # status. Informational for now: it is reported on PRs but never fails the check.
+# JaCoCo XML only records package + file name, and datahub-frontend's Play layout uses bare
+# packages under app/. These two prefixes also match backend files by suffix, so pin them.
+# Backend JaCoCo paths all start with com/ or io/, so they are unaffected.
+fixes:
+  - "config/::datahub-frontend/app/config/"
+  - "utils/::datahub-frontend/app/utils/"
+
 component_management:
   individual_components:
     - component_id: wiring
@@ -86,6 +97,7 @@ component_management:
       statuses:
         - type: patch
           target: 75% # same bar as the default patch status
+          only_pulls: true
           informational: true
 
 coverage:
