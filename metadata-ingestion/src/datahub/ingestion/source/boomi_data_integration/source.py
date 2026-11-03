@@ -54,6 +54,7 @@ from datahub.ingestion.source.boomi_data_integration.constants import (
     PROP_STEP_TYPE,
     PROP_TARGET_NAME,
     RIVER_CONSOLE_URL_TEMPLATE,
+    RUN_CONSOLE_URL_TEMPLATE,
     RUN_JOB_ID,
     SCHEDULE_SEPARATOR,
     UNREACHABLE_ENVIRONMENTS_TEMPLATE,
@@ -725,8 +726,29 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
         }
         for river_id in sorted(selections):
             for group in selections[river_id].groups:
-                yield from self._run_workunits(group, templates[river_id], run_groups)
+                yield from self._run_workunits(
+                    group,
+                    templates[river_id],
+                    run_groups,
+                    self._run_url(environment_id, river_id, group),
+                )
                 self.report.runs_emitted += 1
+
+    def _run_url(
+        self, environment_id: str, river_id: str, group: RunGroup
+    ) -> Optional[str]:
+        console_url = self.config.resolved_console_url
+        # The console links runs by run group; rows without one have no
+        # confirmed link format.
+        if console_url is None or group.run_group_id is None:
+            return None
+        return RUN_CONSOLE_URL_TEMPLATE.format(
+            console_url=console_url,
+            account_id=self.config.account_id,
+            environment_id=environment_id,
+            river_id=river_id,
+            run_group_id=group.run_group_id,
+        )
 
     def _report_runs_unavailable(self, environment_id: str, error: Exception) -> None:
         self.report.runs_unavailable_environments.append(environment_id)
@@ -754,6 +776,7 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
         group: RunGroup,
         template: Union[DataFlowUrn, DataJobUrn],
         run_groups: Dict[str, str],
+        url: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         unknown = group.unknown_statuses
         if unknown:
@@ -783,6 +806,7 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             ),
             properties=group.properties(),
             data_platform_instance=self.config.platform_instance,
+            url=url,
         )
         start_millis = group.start_millis
         for mcp in dpi.generate_mcp(

@@ -1,6 +1,6 @@
 import heapq
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.ingestion.source.boomi_data_integration.constants import (
@@ -14,6 +14,7 @@ from datahub.ingestion.source.boomi_data_integration.constants import (
     PROP_TABLE_COUNT,
     PROP_TRIGGER_NAME,
     PROP_UNITS,
+    RUN_GROUP_PRUNE_FACTOR,
     RUN_STATUS_RESULTS,
     RUN_STATUSES_IN_PROGRESS,
     RUN_STATUSES_SKIPPED,
@@ -144,32 +145,44 @@ class RunGroup:
 
 
 def _number(value: Optional[float]) -> Optional[str]:
-    return None if value is None else f"{value:g}"
+    return None if value is None else f"{value:.12g}"
 
 
 @dataclass
 class RunSelection:
     # Most recent first.
     groups: List[RunGroup] = field(default_factory=list)
+    # Both count runs, so a multi-table run counts once.
     scanned: int = 0
     over_cap: int = 0
 
 
+def _group_rank(group: RunGroup) -> Tuple[int, str]:
+    return group.start_millis, group.group_id
+
+
 def select_recent_runs(runs: Iterable[RiverRun], max_runs: int) -> RunSelection:
     # Rows are folded into their group before capping, because the rows of one
-    # multi-table run can be split across pages. Only one small record per
-    # group is kept, so memory stays flat however many tables a river loads.
-    selection = RunSelection()
-    groups: Dict[str, RunGroup] = {}
+    # multi-table run can be split across pages. Only the most recent groups
+    # are kept while folding; a dropped group is remembered by ID so its later
+    # rows are ignored instead of starting a partial run.
+    kept: Dict[str, RunGroup] = {}
+    dropped: Set[str] = set()
+    prune_at = max_runs * RUN_GROUP_PRUNE_FACTOR
     for run in runs:
-        selection.scanned += 1
-        group = groups.get(run.group_id)
-        if group is None:
-            groups[run.group_id] = RunGroup.from_run(run)
-        else:
+        group_id = run.group_id
+        if group_id in dropped:
+            continue
+        group = kept.get(group_id)
+        if group is not None:
             group.add(run)
-    selection.groups = heapq.nlargest(
-        max_runs, groups.values(), key=lambda g: (g.start_millis, g.group_id)
-    )
-    selection.over_cap = len(groups) - len(selection.groups)
-    return selection
+            continue
+        kept[group_id] = RunGroup.from_run(run)
+        if len(kept) > prune_at:
+            survivors = heapq.nlargest(max_runs, kept.values(), key=_group_rank)
+            survivor_ids = {g.group_id for g in survivors}
+            dropped.update(gid for gid in kept if gid not in survivor_ids)
+            kept = {g.group_id: g for g in survivors}
+    groups = heapq.nlargest(max_runs, kept.values(), key=_group_rank)
+    scanned = len(kept) + len(dropped)
+    return RunSelection(groups=groups, scanned=scanned, over_cap=scanned - len(groups))

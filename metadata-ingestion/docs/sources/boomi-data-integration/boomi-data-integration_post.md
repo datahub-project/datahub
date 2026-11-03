@@ -35,11 +35,12 @@ The target platform comes from the river's target type. `connection_type_platfor
 With `include_run_history` (on by default), the source plugin reads the runs of the last `run_history_days` days (7 by default, at most 14, because Data Integration keeps run logs for two weeks) and emits each as a DataProcessInstance. It first reads the environment's activity summary for the window, so runs are only listed for rivers that ran.
 
 - A source-to-target river's runs belong to its `load` job, and an action or connector executor river's runs to its `run` job. A logic river run covers every step, so it belongs to the river's DataFlow.
-- A multi-table river returns one row per table, all with the same `run_group_id`. These rows become one run that starts with the first table and ends with the last. The run fails if any table failed.
-- Each river keeps its `max_runs_per_river` most recent runs (50 by default).
-- A run started by a logic river is linked to that logic run as its parent when both are in the window.
+- A multi-table river returns one row per table, all with the same `run_group_id`. These rows become one run that starts with the first table and ends with the last. The run is marked failed if any table failed, unless a table is still pending or running or has an unknown status, in which case the run gets a start event only.
+- Each river keeps its `max_runs_per_river` most recent runs (50 by default). `runs_scanned` and `runs_over_cap` count runs, so a multi-table run counts once.
+- A run started by a logic river is linked to that logic run as its parent when the API returns the parent run ID and both runs are in the window and within their river's `max_runs_per_river`.
 - Runs triggered by `scheduled` or `rescheduled` are scheduled runs, and other triggers are ad hoc. A run started by a logic river takes the trigger of the run that started the chain.
 - Each run has the properties `status`, `trigger_name`, `units`, `rpu`, `error_description` (first 500 characters), `target_name` (or `table_count` for a multi-table run), `run_group_id` and `sub_river_id` where the API returns them.
+- Each run links to its run in the console when the river link is emitted and the run has a `run_group_id`.
 
 | Data Integration status | DataHub result                                                                |
 | ----------------------- | ----------------------------------------------------------------------------- |
@@ -76,7 +77,7 @@ The rivers listed in `rivers_without_definition_ids` could not be read. They are
 
 #### Warning "Cannot read Boomi Data Integration run history"
 
-The token for the environment named in the warning does not have the `activity:list` scope, so run history was skipped for that environment. Add the scope to the token, or set `include_run_history: false`.
+The token for the environment whose `environment_id` is in the warning's context does not have the `activity:list` scope, so run history was skipped for that environment. Add the scope to the token, or set `include_run_history: false`.
 
 #### Missing target lineage
 

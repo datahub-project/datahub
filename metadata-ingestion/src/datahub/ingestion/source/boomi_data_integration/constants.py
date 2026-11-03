@@ -25,6 +25,10 @@ REGION_API_URLS: Dict[DIRegion, str] = {
 API_CONSOLE_URLS: Dict[str, str] = {
     REGION_API_URLS[DIRegion.US]: "https://console.rivery.io",
 }
+RUN_CONSOLE_URL_TEMPLATE = (
+    "{console_url}/activities/{account_id}/{environment_id}/activities/{river_id}"
+    "?param=run_group_id&run={run_group_id}"
+)
 
 HTTPS_SCHEME = "https"
 HTTP_SCHEME = "http"
@@ -197,6 +201,9 @@ UNREACHABLE_SEPARATOR = "; "
 MAX_RUN_HISTORY_DAYS = 14
 DEFAULT_RUN_HISTORY_DAYS = 7
 DEFAULT_MAX_RUNS_PER_RIVER = 50
+# Run groups are pruned back to the cap once this many times the cap are held,
+# so pruning cost stays linear in the rows scanned.
+RUN_GROUP_PRUNE_FACTOR = 2
 MAX_ERROR_DESCRIPTION_LENGTH = 500
 VALUE_SEPARATOR = ", "
 

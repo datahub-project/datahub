@@ -40,7 +40,7 @@ ACCOUNT_ID = "acct-0001"
 ENV = "env-a"
 BASE_URL = f"https://api.rivery.io/v1/accounts/{ACCOUNT_ID}"
 ENV_URL = f"{BASE_URL}/environments/{ENV}"
-FROZEN_TIME = "2026-11-03 12:00:00"
+FROZEN_TIME = datetime(2026, 11, 3, 12, tzinfo=timezone.utc)
 DAY_MILLIS = 86_400_000
 NOW_MILLIS = int(datetime(2026, 11, 3, 12, tzinfo=timezone.utc).timestamp() * 1000)
 
@@ -107,6 +107,11 @@ def test_rows_sharing_a_run_group_fold_into_one_run() -> None:
         "table_count": "3",
         "run_group_id": "g",
     }
+
+
+def test_large_units_keep_full_precision() -> None:
+    group = _group(_run("r1", units=1_234_567.25, rpu=None))
+    assert group.properties()["units"] == "1234567.25"
 
 
 def test_row_without_run_group_uses_its_run_id() -> None:
@@ -181,8 +186,26 @@ def test_cap_keeps_most_recent_runs_first() -> None:
     selection = select_recent_runs(_rows(*rows), max_runs=3)
 
     assert [g.group_id for g in selection.groups] == ["r4", "r3", "r2"]
-    assert selection.scanned == 7
+    assert selection.scanned == 6
     assert selection.over_cap == 3
+
+
+def test_pruned_run_is_not_rebuilt_from_later_rows() -> None:
+    rows = [
+        _run("keep-a", start=1_000, run_group_id="keep"),
+        _run("drop-a", start=500, run_group_id="drop"),
+        _run("other", start=400),
+        # Arrives after "drop" was pruned; on its own it would outrank "keep".
+        _run("drop-b", start=5_000, run_group_id="drop"),
+        _run("keep-b", start=900, run_group_id="keep"),
+    ]
+
+    selection = select_recent_runs(_rows(*rows), max_runs=1)
+
+    assert [g.group_id for g in selection.groups] == ["keep"]
+    assert selection.groups[0].run_ids == {"keep-a", "keep-b"}
+    assert selection.groups[0].start_millis == 900
+    assert (selection.scanned, selection.over_cap) == (3, 2)
 
 
 def _source(**overrides: object) -> BoomiDataIntegrationSource:
@@ -209,10 +232,10 @@ def _activity(river_id: str, **fields: object) -> Dict[str, object]:
     return {"cross_id": river_id, "river_id": river_id, "failed": 1, **fields}
 
 
-def _register_rivers(mock: requests_mock.Mocker) -> None:
-    mock.get(ENV_URL, json={"cross_id": ENV, "environment_name": "Prod"})
+def _register_rivers(mock: requests_mock.Mocker, env_url: str = ENV_URL) -> None:
+    mock.get(env_url, json={"cross_id": ENV, "environment_name": "Prod"})
     mock.get(
-        f"{ENV_URL}/rivers",
+        f"{env_url}/rivers",
         json=_page(
             [
                 _summary("river-load", "source_to_target"),
@@ -222,7 +245,7 @@ def _register_rivers(mock: requests_mock.Mocker) -> None:
         ),
     )
     mock.get(
-        f"{ENV_URL}/rivers/river-load",
+        f"{env_url}/rivers/river-load",
         json={
             "cross_id": "river-load",
             "name": "Load",
@@ -234,11 +257,11 @@ def _register_rivers(mock: requests_mock.Mocker) -> None:
         },
     )
     mock.get(
-        f"{ENV_URL}/rivers/river-logic",
+        f"{env_url}/rivers/river-logic",
         json={"cross_id": "river-logic", "name": "Logic", "type": "logic"},
     )
     mock.get(
-        f"{ENV_URL}/rivers/river-quiet",
+        f"{env_url}/rivers/river-quiet",
         json={"cross_id": "river-quiet", "name": "Quiet", "type": "actions"},
     )
 
@@ -407,6 +430,48 @@ def test_platform_instance_is_set_on_runs() -> None:
     assert instances == [
         "urn:li:dataPlatformInstance:(urn:li:dataPlatform:boomi-data-integration,eu-prod)"
     ]
+
+
+@pytest.mark.parametrize(
+    "overrides, api_url, expected",
+    [
+        (
+            {},
+            "https://api.rivery.io",
+            "https://console.rivery.io/activities/acct-0001/env-a/activities/river-load?param=run_group_id&run=g1",
+        ),
+        ({"region": "au"}, "https://api.ap-southeast-2.rivery.io", None),
+        (
+            {"region": "au", "console_url": "https://console.example.com"},
+            "https://api.ap-southeast-2.rivery.io",
+            "https://console.example.com/activities/acct-0001/env-a/activities/river-load?param=run_group_id&run=g1",
+        ),
+    ],
+)
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_run_console_url(
+    overrides: Dict[str, object], api_url: str, expected: Optional[str]
+) -> None:
+    source = _source(**overrides)
+    env_url = f"{api_url}/v1/accounts/{ACCOUNT_ID}/environments/{ENV}"
+    with requests_mock.Mocker() as mock:
+        _register_rivers(mock, env_url)
+        mock.get(f"{env_url}/activities", json=_page([_activity("river-load")]))
+        mock.get(
+            f"{env_url}/rivers/river-load/runs",
+            json=_page([_run("r1", run_group_id="g1"), _run("r2", run_group_id=None)]),
+        )
+        by_urn = _aspects(source)
+    urls = sorted(
+        (
+            (aspect.customProperties.get("run_group_id"), aspect.externalUrl)
+            for aspects in by_urn.values()
+            for aspect in _of_type(aspects, DataProcessInstancePropertiesClass)
+        ),
+        key=lambda pair: pair[0] or "",
+    )
+    # A row without a run group has no confirmed console link.
+    assert urls == [(None, None), ("g1", expected)]
 
 
 @pytest.mark.parametrize("endpoint", ["activities", "rivers/river-load/runs"])

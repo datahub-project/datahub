@@ -148,7 +148,7 @@ def test_boomi_data_integration_ingestion(
     assert report.targets_object_storage_skipped == 1
     assert len(report.targets_prefix_skipped) == 1
     assert [w.title for w in report.warnings] == ["River definitions unavailable"]
-    assert report.runs_scanned == 11
+    assert report.runs_scanned == 9
     assert report.runs_emitted == 9
     assert report.runs_river_not_emitted == 2
     assert report.runs_unknown_status == 0
