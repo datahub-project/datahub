@@ -64,6 +64,20 @@ class MessagingSchemaRegistry:
         data_format: str = response.get("DataFormat", "").upper()
         try:
             fields = parse_glue_schema_fields(schema_def, data_format, name)
+        except ImportError as e:
+            self.report.schema_resolution_failures.append(
+                f"{name}: parser not installed ({data_format})"
+            )
+            self.report.warning(
+                title="Glue schema parser not installed",
+                message=(
+                    "PROTOBUF schemas need the kafka-protobuf extra, e.g. "
+                    "pip install 'acryl-datahub[sqs,kafka-protobuf]'; emitting without a schema."
+                ),
+                context=f"{name}: format={data_format}",
+                exc=e,
+            )
+            return None
         except (
             Exception
         ) as e:  # schema parsers raise different exception types per format

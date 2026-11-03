@@ -390,6 +390,20 @@ def test_schema_that_parses_to_no_fields_is_not_attached(
     assert report.warnings
 
 
+def test_missing_protobuf_extra_names_the_extra(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def no_protobuf(*args: Any) -> None:
+        raise ImportError("No module named 'grpc_tools'")
+
+    monkeypatch.setattr(schema_registry, "parse_glue_schema_fields", no_protobuf)
+    source = _queue_with_registry(queue_schema_map={"orders": "order-v1"})
+    register_schema("order-v1")
+    assert schemas(list(source.get_workunits())) == {}
+    report = source.get_report()
+    assert [w.title for w in report.warnings] == ["Glue schema parser not installed"]
+
+
 def test_repeated_raw_subscriptions_add_field_lineage_once(aws: None) -> None:
     source = _subscribe(raw=True)
     queue_arn = f"arn:aws:sqs:{REGION}:{ACCOUNT}:orders"
