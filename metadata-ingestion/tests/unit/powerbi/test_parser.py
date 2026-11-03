@@ -7,6 +7,7 @@ from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     AthenaPlatformOverride,
+    DataPlatformPair,
     OraclePlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -19,11 +20,14 @@ from datahub.ingestion.source.powerbi.m_query import parser as mquery_parser
 from datahub.ingestion.source.powerbi.m_query._bridge import MQueryParseError
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
+    DataPlatformTable,
     IdentifierAccessor,
+    Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     AmazonAthenaLineage,
     MSSqlLineage,
+    OdbcLineage,
     OracleLineage,
     _remap_column_lineage_to_pbi_fields,
 )
@@ -616,11 +620,6 @@ def test_odbc_strip_athena_catalog_from_upstreams(odbc_lineage):
 def test_odbc_strip_athena_catalog_preserves_platform_instance(odbc_lineage):
     """Catalog stripping must not eat the platform_instance prefix that
     make_dataset_urn_with_platform_instance embeds as the leading name segment."""
-    from datahub.ingestion.source.powerbi.config import DataPlatformPair
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
-        DataPlatformTable,
-        Lineage,
-    )
 
     platform_pair = DataPlatformPair(
         datahub_data_platform_name="athena",
@@ -652,11 +651,6 @@ def test_odbc_strip_athena_catalog_preserves_platform_instance(odbc_lineage):
 def test_odbc_strip_athena_catalog_instance_only_two_part_unchanged(odbc_lineage):
     """With an instance prefix and an already-2-part table name, there is no
     catalog to strip; the URN (including instance) must stay intact."""
-    from datahub.ingestion.source.powerbi.config import DataPlatformPair
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
-        DataPlatformTable,
-        Lineage,
-    )
 
     platform_pair = DataPlatformPair(
         datahub_data_platform_name="athena",
@@ -906,20 +900,6 @@ def test_athena_table_platform_override_replaces_platform_instance(
     a platform change (athena -> mysql) hands the entity to the source connector,
     which uses its own instance (the override's platform_instance, or none) —
     never Athena's."""
-    from datahub.ingestion.source.powerbi.config import (
-        AthenaPlatformOverride,
-        DataPlatformPair,
-        PowerBiDashboardSourceConfig,
-    )
-    from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
-        ResolvePlatformInstanceFromDatasetTypeMapping,
-    )
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
-        DataPlatformTable,
-        Lineage,
-    )
-    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
-    from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
     config = PowerBiDashboardSourceConfig(
         tenant_id="test-tenant-id",
