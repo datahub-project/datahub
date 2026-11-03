@@ -1776,6 +1776,32 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testKeyDeleteTombstonesTheAliasWhileItIsFilledInPlace() throws Exception {
+    // An in-place fill creates into the live alias, so the placeholder has to land there. A delete
+    // would let the fill recreate the entity, and nothing replays the hard delete, so the batch
+    // waits for the tombstone.
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    when(targets.activeFillTargetFor(liveAlias())).thenReturn(Optional.of(liveAlias()));
+    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
+    when(mockAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+
+    strategyWithTargets(targets)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    V3SearchDocumentWrite tombstone = v3Write(operationContext, liveAlias(), TOMBSTONE_KIND);
+    JsonNode written = operationContext.getObjectMapper().readTree(tombstone.source());
+    assertTrue(written.get(V3SearchDocumentProjector.REMOVED_FIELD).asBoolean());
+    assertTrue(written.get(V3SearchDocumentProjector.TOMBSTONE_FIELD).asBoolean());
+    assertTrue(v3Writes(null, null, DELETE_KIND).isEmpty());
+    verify(writeDAO).flushAndWait();
+  }
+
+  @Test
   public void testKeyRestoreClearsTheHardDeleteMarker() throws Exception {
     stubTransformedDocument();
     when(mockAspectSpec.getName()).thenReturn("datasetKey");
