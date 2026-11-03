@@ -515,6 +515,18 @@ class AbstractLineage(ABC):
     def get_platform_pair(self) -> DataPlatformPair:
         pass
 
+    def _resolve_platform_detail(
+        self, server: str, platform_pair: Optional[DataPlatformPair] = None
+    ) -> PlatformDetail:
+        # platform_pair is only needed where it is decided at runtime (ODBC picks
+        # it from the connect string); fixed-platform handlers use their own.
+        return self.platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=platform_pair or self.get_platform_pair(),
+                data_platform_server=server,
+            )
+        )
+
     @staticmethod
     def get_db_detail_from_argument(
         arg_list: dict,
@@ -1227,14 +1239,6 @@ class OracleLineage(AbstractLineage):
             value,
         )
         return None, None
-
-    def _resolve_platform_detail(self, server: str) -> PlatformDetail:
-        return self.platform_instance_resolver.get_platform_instance(
-            PowerBIPlatformDetail(
-                data_platform_pair=self.get_platform_pair(),
-                data_platform_server=server,
-            )
-        )
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -2251,11 +2255,20 @@ class OdbcLineage(AbstractLineage):
         elif not server_name:
             server_name = "unknown"
 
+        platform_detail = self._resolve_platform_detail(server_name, platform_pair)
+
         if self.is_sql_query(query, platform_pair.datahub_data_platform_name):
-            return self.query_lineage(query, platform_pair, server_name, dsn)
+            return self.query_lineage(
+                query, platform_pair, server_name, dsn, platform_detail
+            )
         else:
             return self.expression_lineage(
-                data_access_func_detail, data_platform, platform_pair, server_name, dsn
+                data_access_func_detail,
+                data_platform,
+                platform_pair,
+                server_name,
+                dsn,
+                platform_detail,
             )
 
     def _resolve_dsn_database_schema(
@@ -2284,6 +2297,7 @@ class OdbcLineage(AbstractLineage):
         platform_pair: DataPlatformPair,
         server_name: str,
         dsn: str,
+        platform_detail: Optional[PlatformDetail] = None,
     ) -> Lineage:
         if not query:
             # query should never be None as it is checked before calling this function.
@@ -2294,6 +2308,9 @@ class OdbcLineage(AbstractLineage):
                 context=f"table-name={self.table.full_name}",
             )
             return Lineage.empty()
+
+        if platform_detail is None:
+            platform_detail = self._resolve_platform_detail(server_name, platform_pair)
 
         database, schema = self._resolve_dsn_database_schema(dsn)
 
@@ -2306,16 +2323,17 @@ class OdbcLineage(AbstractLineage):
             database=database,
             schema=schema,
             platform_pair=platform_pair,
+            platform_detail=platform_detail,
         )
         logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
 
-        return self._post_process_athena(result, platform_pair, server_name, dsn)
+        return self._post_process_athena(result, platform_pair, platform_detail, dsn)
 
     def _post_process_athena(
         self,
         result: Lineage,
         platform_pair: DataPlatformPair,
-        server_name: str,
+        platform_detail: PlatformDetail,
         dsn: str,
     ) -> Lineage:
         """Athena-specific post-processing for both the query and hierarchical
@@ -2325,14 +2343,8 @@ class OdbcLineage(AbstractLineage):
         if platform_pair.datahub_data_platform_name != ATHENA_PLATFORM:
             return result
         # URNs embed the configured platform_instance as the leading segment of
-        # the dataset name; resolve it so catalog stripping and override matching
-        # operate on the real table portion instead of dropping the instance.
-        platform_detail = self.platform_instance_resolver.get_platform_instance(
-            PowerBIPlatformDetail(
-                data_platform_pair=platform_pair,
-                data_platform_server=server_name,
-            )
-        )
+        # the dataset name; catalog stripping and override matching must operate
+        # on the real table portion instead of dropping the instance.
         platform_instance = platform_detail.platform_instance
         result = self._strip_athena_catalog_from_lineage(result, platform_instance)
         return self._apply_table_platform_override(result, dsn, platform_instance)
@@ -2567,27 +2579,6 @@ class OdbcLineage(AbstractLineage):
 
         return self._transform_lineage_urns(lineage, override_platform_in_urn)
 
-    def _resolve_oracle_default_database(
-        self, platform_pair: DataPlatformPair, server_name: str
-    ) -> Optional[str]:
-        """Oracle over ODBC opts into 3-part database.schema.table URNs only when
-        default_database is configured under server_to_platform_instance (i.e. the
-        Oracle ingestion runs add_database_name_to_urn=true); otherwise it stays
-        2-part."""
-        if platform_pair.datahub_data_platform_name != ORACLE_PLATFORM:
-            return None
-        platform_detail = self.platform_instance_resolver.get_platform_instance(
-            PowerBIPlatformDetail(
-                data_platform_pair=platform_pair,
-                data_platform_server=server_name,
-            )
-        )
-        return (
-            platform_detail.default_database
-            if isinstance(platform_detail, OraclePlatformDetail)
-            else None
-        )
-
     def _qualify_odbc_navigation_table(
         self,
         data_platform: str,
@@ -2707,7 +2698,11 @@ class OdbcLineage(AbstractLineage):
         platform_pair: DataPlatformPair,
         server_name: str,
         dsn: str,
+        platform_detail: Optional[PlatformDetail] = None,
     ) -> Lineage:
+        if platform_detail is None:
+            platform_detail = self._resolve_platform_detail(server_name, platform_pair)
+
         database_name = None
         schema_name = None
         table_name = None
@@ -2737,8 +2732,12 @@ class OdbcLineage(AbstractLineage):
                 break
 
         config_database, config_schema = self._resolve_dsn_database_schema(dsn)
-        oracle_default_database = self._resolve_oracle_default_database(
-            platform_pair, server_name
+        # default_database opts Oracle into database.schema.table URNs (the
+        # standalone connector's add_database_name_to_urn=true).
+        oracle_default_database = (
+            platform_detail.default_database
+            if isinstance(platform_detail, OraclePlatformDetail)
+            else None
         )
 
         qualified_table_name = self._qualify_odbc_navigation_table(
@@ -2765,6 +2764,7 @@ class OdbcLineage(AbstractLineage):
             data_platform_pair=platform_pair,
             server=server_name,
             qualified_table_name=qualified_table_name,
+            platform_detail=platform_detail,
         )
 
         column_lineage = self.create_table_column_lineage(urn)
@@ -2779,7 +2779,7 @@ class OdbcLineage(AbstractLineage):
             column_lineage=column_lineage,
         )
 
-        return self._post_process_athena(result, platform_pair, server_name, dsn)
+        return self._post_process_athena(result, platform_pair, platform_detail, dsn)
 
     @staticmethod
     def create_platform_pair(

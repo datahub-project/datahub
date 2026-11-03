@@ -1407,8 +1407,8 @@ def test_odbc_oracle_nav_database_wins_over_default_database():
 def test_odbc_hive_ignores_oracle_default_database():
     """The server resolver keys only on the server name, so a Hive server that
     happens to map to an OraclePlatformDetail must NOT gain a database tier —
-    Hive stays two-tier schema.table. _resolve_oracle_default_database is gated
-    on the Oracle platform to guarantee this."""
+    Hive stays two-tier schema.table. The default_database opt-in is gated on the
+    Oracle platform to guarantee this."""
     instance = _build_odbc_lineage(
         platform_detail=OraclePlatformDetail(default_database="ORCL")
     )
