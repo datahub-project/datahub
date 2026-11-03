@@ -500,7 +500,7 @@ def test_forbidden_run_history_warns_about_scope(endpoint: str) -> None:
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_server_errors_are_failures() -> None:
+def test_river_run_listing_errors_are_warnings() -> None:
     source = _source()
     with requests_mock.Mocker() as mock:
         _register_rivers(mock)
@@ -516,7 +516,9 @@ def test_server_errors_are_failures() -> None:
         _aspects(source)
 
     report = source.get_report()
-    assert [f.title for f in report.failures] == ["Failed to list river runs"]
+    # A failure would stand down stale removal of the rivers.
+    assert not report.failures
+    assert [w.title for w in report.warnings] == ["Failed to list river runs"]
     assert report.runs_emitted == 1
 
 
@@ -588,7 +590,7 @@ def test_run_history_days_is_bounded_by_retention(days: int, valid: bool) -> Non
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_activities_server_error_is_a_failure() -> None:
+def test_activities_server_error_is_a_warning() -> None:
     source = _source()
     with requests_mock.Mocker() as mock:
         _register_rivers(mock)
@@ -596,7 +598,8 @@ def test_activities_server_error_is_a_failure() -> None:
         _aspects(source)
 
     report = source.get_report()
-    assert [f.title for f in report.failures] == [
+    assert not report.failures
+    assert [w.title for w in report.warnings] == [
         "Failed to list Boomi Data Integration activities"
     ]
     assert list(report.runs_unavailable_environments) == [ENV]

@@ -47,7 +47,9 @@ def _without_river(page: Dict[str, Any], river_id: str) -> Dict[str, Any]:
 
 
 def _register_mocks(
-    mock: requests_mock.Mocker, deleted_river: Optional[str] = None
+    mock: requests_mock.Mocker,
+    deleted_river: Optional[str] = None,
+    activities_status: int = 200,
 ) -> None:
     mock.get(f"{BASE_URL}/environments", json=_load("environments.json"))
     mock.get(
@@ -84,7 +86,9 @@ def _register_mocks(
         (ENV_DEV, "activities_development.json"),
     ]:
         mock.get(
-            f"{BASE_URL}/environments/{environment_id}/activities", json=_load(name)
+            f"{BASE_URL}/environments/{environment_id}/activities",
+            status_code=activities_status,
+            json=_load(name) if activities_status == 200 else {},
         )
 
 
@@ -186,8 +190,10 @@ def _soft_deleted(output_path: Path) -> Set[str]:
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
+# A run history outage in the second run must not stop stale removal.
+@pytest.mark.parametrize("activities_status", [200, 500])
 def test_boomi_data_integration_stateful_removes_deleted_river(
-    tmp_path: Path, mock_datahub_graph: MagicMock
+    tmp_path: Path, mock_datahub_graph: MagicMock, activities_status: int
 ) -> None:
     recipe = _stateful_recipe(tmp_path / "run1.json")
 
@@ -204,7 +210,9 @@ def test_boomi_data_integration_stateful_removes_deleted_river(
         checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
 
         # The actions river is deleted between runs.
-        _register_mocks(mock, deleted_river=ACTIONS_RIVER)
+        _register_mocks(
+            mock, deleted_river=ACTIONS_RIVER, activities_status=activities_status
+        )
         recipe["sink"] = {
             "type": "file",
             "config": {"filename": str(tmp_path / "run2.json")},

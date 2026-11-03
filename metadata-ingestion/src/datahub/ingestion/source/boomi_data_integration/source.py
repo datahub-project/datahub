@@ -705,7 +705,7 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                 if _is_access_denied(e):
                     self._report_runs_unavailable(environment_id, e)
                     return
-                self.report.failure(
+                self.report.warning(
                     title="Failed to list river runs",
                     message="Run history for this river is skipped.",
                     context=f"environment_id={environment_id}, river_cross_id={river_id}",
@@ -764,7 +764,10 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                 exc=error,
             )
         else:
-            self.report.failure(
+            # Runs are supplementary and are not part of stale state, so a
+            # failure here must not stand down stale removal of the rivers
+            # that were emitted correctly.
+            self.report.warning(
                 title="Failed to list Boomi Data Integration activities",
                 message="Run history is skipped for this environment.",
                 context=context,

@@ -79,6 +79,10 @@ The rivers listed in `rivers_without_definition_ids` could not be read. They are
 
 The token for the environment whose `environment_id` is in the warning's context does not have the `activity:list` scope, so run history was skipped for that environment. Add the scope to the token, or set `include_run_history: false`.
 
+#### Warning "Failed to list Boomi Data Integration activities" or "Failed to list river runs"
+
+The API returned an error while listing runs, so run history was skipped for that environment or river. Rivers and jobs are still ingested, and stale entity removal still runs, because runs are not part of stale state. The next run picks the history up again.
+
 #### Missing target lineage
 
 Check `targets_missing_bigquery_project`, `targets_missing_location`, `targets_prefix_skipped` and `targets_unsupported` in the ingestion report.
