@@ -66,26 +66,64 @@ export function bootOutcome({ loginRc, homeRc, loginReport, homeReport }) {
     return { loginError, homeError, warning, exitCode };
 }
 
-function signalProcessGroup(pid, signal) {
-    if (!pid) return;
+let activeChildPid = null;
+
+function childPids(pid) {
     try {
-        // The child is a process-group leader, so this also reaches Chrome.
-        process.kill(-pid, signal);
+        const raw = fs.readFileSync(`/proc/${pid}/task/${pid}/children`, 'utf8');
+        return raw
+            .split(/\s+/)
+            .map((value) => Number(value))
+            .filter((value) => value > 0);
     } catch {
+        return [];
+    }
+}
+
+// Puppeteer launches Chrome with detached: true, so Chrome is its own process
+// group. A signal to the Lighthouse group never reaches it. Walk parent/child
+// pids, then signal each process group so Chrome's own children go too.
+export function killProcessTree(pid, signal) {
+    const seen = new Set();
+    const collect = (current) => {
+        if (!current || seen.has(current)) return [];
+        seen.add(current);
+        return [current, ...childPids(current).flatMap(collect)];
+    };
+    for (const target of collect(pid).reverse()) {
         try {
-            process.kill(pid, signal);
+            process.kill(-target, signal);
         } catch {
-            // already exited
+            try {
+                process.kill(target, signal);
+            } catch {
+                // already exited
+            }
         }
     }
 }
 
+function installStopForwarding() {
+    if (installStopForwarding.installed) return;
+    installStopForwarding.installed = true;
+    const stop = (signal) => {
+        if (activeChildPid) killProcessTree(activeChildPid, 'SIGKILL');
+        process.exit(signal === 'SIGINT' ? 130 : 143);
+    };
+    // The child is detached, so a cancel of this script does not reach it.
+    // SIGTERM is not enough: Puppeteer traps it and waits on Chrome.
+    process.once('SIGTERM', () => stop('SIGTERM'));
+    process.once('SIGINT', () => stop('SIGINT'));
+}
+
 // spawnSync's timeout only sends SIGTERM and then waits forever if the child
-// handles that signal. This starts a new process group, signals it, and SIGKILLs
-// the group if it is still alive after the grace period.
+// handles that signal. This starts a new process group, signals the whole
+// process tree, and SIGKILLs whatever is left after the grace period.
 export function runBoundedProcess(execPath, args, { cwd, timeoutMs, graceMs, stdio = 'inherit' } = {}) {
+    installStopForwarding();
     return new Promise((resolve) => {
         const child = spawn(execPath, args, { cwd, stdio, detached: true });
+        activeChildPid = child.pid;
         let settled = false;
         let timedOut = false;
         let timer;
@@ -95,14 +133,15 @@ export function runBoundedProcess(execPath, args, { cwd, timeoutMs, graceMs, std
             settled = true;
             clearTimeout(timer);
             clearTimeout(killTimer);
+            if (activeChildPid === child.pid) activeChildPid = null;
             resolve({ code: code == null ? 1 : code, timedOut });
         };
         child.on('exit', (code) => finish(code));
         child.on('error', () => finish(1));
         timer = setTimeout(() => {
             timedOut = true;
-            signalProcessGroup(child.pid, 'SIGTERM');
-            killTimer = setTimeout(() => signalProcessGroup(child.pid, 'SIGKILL'), graceMs);
+            killProcessTree(child.pid, 'SIGTERM');
+            killTimer = setTimeout(() => killProcessTree(child.pid, 'SIGKILL'), graceMs);
         }, timeoutMs);
     });
 }
