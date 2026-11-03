@@ -8,7 +8,7 @@ import styled from 'styled-components/macro';
 import DownloadAsCsvButton from '@app/entityV2/shared/components/styled/search/DownloadAsCsvButton';
 import DownloadAsCsvModal from '@app/entityV2/shared/components/styled/search/DownloadAsCsvModal';
 import { MenuItemStyle } from '@app/entityV2/view/menu/item/styledComponent';
-import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 
 import { AndFilterInput } from '@types';
 

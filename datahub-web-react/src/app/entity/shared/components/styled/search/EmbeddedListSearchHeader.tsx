@@ -9,7 +9,7 @@ import { SearchSelectBar } from '@app/entity/shared/components/styled/search/Sea
 import { EntityAndType } from '@app/entity/shared/types';
 import SearchExtendedMenu from '@app/entityV2/shared/components/styled/search/SearchExtendedMenu';
 import { SearchBar } from '@app/search/SearchBar';
-import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { AndFilterInput } from '@types';

@@ -4,8 +4,6 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
-import { ViewBuilderMode } from '@app/entity/view/builder/types';
 import { buildInitialViewState, fromUnionType } from '@app/entity/view/builder/utils';
 import { SEARCH_RESULTS_ADVANCED_SEARCH_ID } from '@app/onboarding/config/SearchOnboardingConfig';
 import { AdvancedSearchFilters } from '@app/search/AdvancedSearchFilters';
@@ -20,6 +18,8 @@ import {
     VERIFIED_FORMS_FILTER_NAME,
 } from '@app/search/utils/constants';
 import { hasAdvancedFilters } from '@app/search/utils/hasAdvancedFilters';
+import { ViewBuilder } from '@app/search/view/builder/ViewBuilder';
+import { ViewBuilderMode } from '@app/search/view/builder/types';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
 

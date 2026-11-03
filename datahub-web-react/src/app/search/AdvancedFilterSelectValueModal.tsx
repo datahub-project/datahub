@@ -1,12 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ContainerSelectModal } from '@app/entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
 import { SetDomainModal } from '@app/entity/shared/containers/profile/sidebar/Domain/SetDomainModal';
 import { EditOwnersModal } from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
-import { SelectPlatformModal } from '@app/entity/shared/containers/profile/sidebar/Platform/SelectPlatformModal';
 import { ChooseEntityTypeModal } from '@app/search/ChooseEntityTypeModal';
+import { ContainerSelectModal } from '@app/search/ContainerSelectModal';
 import { EditTextModal } from '@app/search/EditTextModal';
+import { SelectPlatformModal } from '@app/search/SelectPlatformModal';
 import {
     CONTAINER_FILTER_NAME,
     DESCRIPTION_FILTER_NAME,

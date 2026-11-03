@@ -19,12 +19,12 @@ import {
 import { DEGREE_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { mergeFilterSets } from '@app/search/utils/filterUtils';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
+import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
 import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
-} from '@app/search/utils/types';
-import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
+} from '@app/searchV2/utils/types';
 import { Message } from '@app/sharedV2/Message';
 import { SearchCfg } from '@src/conf';
 
