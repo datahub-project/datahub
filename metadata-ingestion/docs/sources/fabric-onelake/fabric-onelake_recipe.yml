@@ -141,6 +141,26 @@ source:
     #     - ".*"
     #   deny: []
 
+    # Optional: Fabric Eventstream items. Off by default.
+    # Lists GET /v1/workspaces/{workspaceId}/eventstreams.
+    # include_topology also calls GET .../eventstreams/{eventstreamId}/topology
+    # (sources, destinations, operators, streams).
+    # Requires Eventstream.Read.All or Item.Read.All.
+    # https://learn.microsoft.com/en-us/rest/api/fabric/eventstream/topology/get-eventstream-topology
+    # eventstream:
+    #   enabled: false
+    #   eventstream_pattern:
+    #     allow:
+    #       - ".*"
+    #   include_topology: true
+    #   source_type_pattern:
+    #     allow:
+    #       - ".*"          # e.g. AzureEventHub, ApacheKafka, FabricOneLakeEvents
+    #   destination_type_pattern:
+    #     allow:
+    #       - ".*"          # e.g. Lakehouse, Eventhouse, Notebook, Activator
+    #   include_connection_properties: false  # properties can contain secrets
+
     # Optional: Query usage extraction. Reads queryinsights.exec_requests_history
     # on each Lakehouse/Warehouse SQL Analytics Endpoint. Requires sql_endpoint.enabled=true.
     # Fabric retains queryinsights for 30 days.

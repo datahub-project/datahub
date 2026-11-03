@@ -182,6 +182,88 @@ class SqlEndpointConfig(ConfigModel):
     )
 
 
+class EventstreamConfig(ConfigModel):
+    """Ingest Fabric Eventstream items.
+
+    Listing uses ``GET /v1/workspaces/{workspaceId}/eventstreams``. Topology
+    uses ``GET /v1/workspaces/{workspaceId}/eventstreams/{eventstreamId}/topology``,
+    which returns sources, destinations, operators, and streams.
+
+    https://learn.microsoft.com/en-us/rest/api/fabric/eventstream/topology/get-eventstream-topology
+
+    The caller needs ``Eventstream.Read.All`` or ``Item.Read.All``.
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Ingest Eventstream items. Off by default. The caller needs "
+            "Eventstream.Read.All or Item.Read.All in addition to workspace read."
+        ),
+    )
+
+    eventstream_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter eventstreams by display name.",
+    )
+
+    include_topology: bool = Field(
+        default=True,
+        description=(
+            "Fetch each eventstream's topology: sources, destinations, operators, "
+            "and streams. One extra GET per eventstream. Names, types, and status "
+            "are kept. Connection properties are kept only when "
+            "include_connection_properties is true."
+        ),
+    )
+
+    source_type_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for topology source types to keep, such as "
+            "AzureEventHub, ApacheKafka, or FabricOneLakeEvents. "
+            "Requires include_topology."
+        ),
+    )
+
+    destination_type_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for topology destination types to keep, such as "
+            "Lakehouse, Eventhouse, Notebook, or Activator. "
+            "Requires include_topology."
+        ),
+    )
+
+    include_connection_properties: bool = Field(
+        default=False,
+        description=(
+            "Store source and destination connection properties from the topology. "
+            "Leave false: those objects can contain connection strings and keys. "
+            "Requires include_topology."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def topology_options_need_topology(self) -> "EventstreamConfig":
+        if self.include_topology:
+            return self
+        requiring: list[str] = []
+        if self.include_connection_properties:
+            requiring.append("include_connection_properties=True")
+        if not self.source_type_pattern.is_allow_all():
+            requiring.append("source_type_pattern")
+        if not self.destination_type_pattern.is_allow_all():
+            requiring.append("destination_type_pattern")
+        if requiring:
+            raise ValueError(
+                "eventstream.include_topology must be true when "
+                f"{', '.join(requiring)} is set. Those options apply to the "
+                "topology response."
+            )
+        return self
+
+
 class FabricUsageConfig(BaseUsageConfig):
     """Usage tracking configuration for Fabric OneLake.
 
@@ -426,6 +508,18 @@ class FabricOneLakeSourceConfig(
             "with the Microsoft ODBC Driver for SQL Server. Uses the same "
             "profiler and options as the `mssql-odbc` source. Disabled by default. "
             "Requires `sql_endpoint.enabled=True`."
+        ),
+    )
+
+    # Eventstream items. Off unless eventstream.enabled. The source lists
+    # workspaces/{id}/eventstreams and, when include_topology is set, each
+    # item's /topology.
+    eventstream: EventstreamConfig = Field(
+        default_factory=EventstreamConfig,
+        description=(
+            "Eventstream ingestion. Lists eventstreams in each workspace and, "
+            "when include_topology is true, reads each item's topology "
+            "(sources, destinations, operators, and streams)."
         ),
     )
 
