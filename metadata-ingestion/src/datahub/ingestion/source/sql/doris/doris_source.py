@@ -12,13 +12,13 @@ from typing import (
     Sequence,
     Set,
     Union,
-    cast,
 )
 
 from pydantic import Field, field_validator, model_validator
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
@@ -240,13 +240,11 @@ class DorisConfig(MySQLConfig):
         return self
 
 
-def _inspector_connection_lost(inspector: Inspector) -> bool:
+def _lost_connection(inspector: Inspector) -> Optional[Connection]:
     connection = inspector.bind
-    return isinstance(connection, Connection) and connection.invalidated
-
-
-class DorisConnectionLostError(Exception):
-    """The connection dropped mid-reflection, so the table cannot be trusted."""
+    if isinstance(connection, Connection) and connection.invalidated:
+        return connection
+    return None
 
 
 @dataclass
@@ -264,6 +262,9 @@ class DorisSourceReport(SQLSourceReport):
     # Nonzero means the information_schema comment lookup failed for a database, so
     # some or all of its table and column descriptions are missing.
     databases_without_comments: int = 0
+    # Tables and views skipped because the connection dropped and could not be
+    # re-established; the database's failure entry says where it happened.
+    tables_skipped_after_connection_loss: int = 0
 
 
 @platform_name("Apache Doris", id="doris")
@@ -294,8 +295,13 @@ class DorisSource(MySQLSource):
 
         self._session_catalog: Optional[str] = config.catalog
         self._catalog_detection_failed = False
-        # Only the metadata pass reads comments; see DorisDialect.read_comments.
-        self._read_comments = True
+        # The profiling pass reflects every table again. It neither reads comments
+        # (see DorisDialect.read_comments) nor re-reports the reflection
+        # degradations the metadata pass already reported.
+        self._in_metadata_pass = True
+        # Connections that dropped and could not reconnect; the rest of their
+        # database is skipped rather than timing out table by table.
+        self._unreachable_connections: Set[Connection] = set()
         self._qualified_comment_catalogs: Set[str] = set()
 
     @classmethod
@@ -382,7 +388,7 @@ class DorisSource(MySQLSource):
                 db_url = self.config.get_sql_alchemy_url(current_db=qualified_db)
                 db_engine = create_engine(db_url, **self.config.options)
                 if isinstance(db_engine.dialect, DorisDialect):
-                    db_engine.dialect.read_comments = self._read_comments
+                    db_engine.dialect.read_comments = self._in_metadata_pass
                     db_engine.dialect.qualified_comment_catalogs = (
                         self._qualified_comment_catalogs
                     )
@@ -410,7 +416,9 @@ class DorisSource(MySQLSource):
                 # In finally, not after the yield: an early close (pipeline abort, a
                 # fatal error elsewhere) throws GeneratorExit at the yield, and the
                 # degradations this database already recorded would otherwise be lost.
-                self._report_reflection_fallbacks(db_conn)
+                if self._in_metadata_pass:
+                    self._report_reflection_fallbacks(db_conn)
+                self._unreachable_connections.discard(db_conn)
                 db_conn.close()
                 db_engine.dispose()
 
@@ -457,43 +465,31 @@ class DorisSource(MySQLSource):
             if failure.kind == CommentLookupFailureKind.NOT_SERVED:
                 self.report.warning(
                     title="Doris table and column comments not found",
-                    message="information_schema has no comments for this database although its tables are being ingested, so their table and column descriptions are missing. For an external catalog this needs Doris 2.1 or later, where each catalog has its own information_schema.",
+                    message="information_schema has no comments for this database although its tables are being ingested, so some or all of their table and column descriptions are missing. For an external catalog this needs Doris 2.1 or later, where each catalog has its own information_schema.",
                     context=context,
                 )
             else:
                 self.report.warning(
                     title="Doris table and column comments unavailable",
-                    message="Reading comments from information_schema failed, so some or all of this database's tables and columns were ingested without descriptions, which clears the descriptions an earlier run ingested from Doris. Check that the account can read information_schema.TABLES and information_schema.COLUMNS, and that the lookup finishes within the connection's read timeout.",
+                    message="Reading comments from information_schema failed, so some or all of this database's tables and columns were ingested without descriptions, which clears the descriptions an earlier run ingested from Doris. Check that the account can read information_schema.TABLES and information_schema.COLUMNS, and that the lookup finishes within the connection's read timeout and Doris' query_timeout.",
                     context=context,
                 )
 
     def get_profiling_internal(self) -> MetadataWorkUnitIterable:
-        self._read_comments = False
+        self._in_metadata_pass = False
         try:
             yield from super().get_profiling_internal()
         finally:
-            self._read_comments = True
+            self._in_metadata_pass = True
 
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
     ) -> Sequence[Mapping[str, Any]]:
-        try:
-            columns = inspector.get_columns(table, schema)
-        except Exception as e:
-            if _inspector_connection_lost(inspector):
-                # The base class turns any reflection error into an empty column
-                # list, and the table would then be emitted with a field-less schema
-                # that overwrites the good one. Abort the table instead;
-                # _process_table reports it.
-                raise DorisConnectionLostError(f"{dataset_name}: {e}") from e
-            # Not delegated to the base class, which would reflect the table again
-            # only to hit the same error.
-            self.report.warning(
-                message="Unable to get column information",
-                context=dataset_name,
-                exc=e,
-            )
-            return []
+        # Unlike the base class, a reflection error is raised rather than turned
+        # into an empty column list: the table would then be emitted with a
+        # field-less schema that overwrites the good one. loop_tables reports and
+        # skips it instead, or _process_table does when the connection dropped.
+        columns = inspector.get_columns(table, schema)
         if not columns:
             self.report.warning(
                 message="Missing column information", context=dataset_name
@@ -509,6 +505,8 @@ class DorisSource(MySQLSource):
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader],
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        if self._skip_unreachable(inspector):
+            return
         try:
             yield from super()._process_table(
                 dataset_name, inspector, schema, table, sql_config, data_reader
@@ -525,6 +523,8 @@ class DorisSource(MySQLSource):
         view: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        if self._skip_unreachable(inspector):
+            return
         try:
             yield from super()._process_view(
                 dataset_name, inspector, schema, view, sql_config
@@ -532,6 +532,12 @@ class DorisSource(MySQLSource):
         except Exception as e:
             if not self._skip_on_lost_connection(dataset_name, inspector, e):
                 raise
+
+    def _skip_unreachable(self, inspector: Inspector) -> bool:
+        if inspector.bind not in self._unreachable_connections:
+            return False
+        self.report.tables_skipped_after_connection_loss += 1
+        return True
 
     def _skip_on_lost_connection(
         self, dataset_name: str, inspector: Inspector, error: Exception
@@ -541,7 +547,8 @@ class DorisSource(MySQLSource):
         # is right when the connection dropped: the table still exists, it just
         # could not be read. The error is not re-raised, so the loop does not also
         # warn about the same table.
-        if not _inspector_connection_lost(inspector):
+        connection = _lost_connection(inspector)
+        if connection is None:
             return False
         self.report.failure(
             title="Lost the Doris connection while reflecting a table",
@@ -550,9 +557,22 @@ class DorisSource(MySQLSource):
             exc=error,
         )
         # Until it is rolled back, every later statement on the connection raises
-        # PendingRollbackError. Rolling back lets the next table reconnect, to the
-        # same catalog and database since both are in the engine URL.
-        cast(Connection, inspector.bind).rollback()
+        # PendingRollbackError. Rolling back and reconnecting here lets the next
+        # table carry on, in the same catalog and database since both are in the
+        # engine URL.
+        connection.rollback()
+        try:
+            connection.execute(text("SELECT 1"))
+        except SQLAlchemyError as e:
+            # Each remaining table would otherwise wait out its own connect
+            # timeouts before failing the same way.
+            self._unreachable_connections.add(connection)
+            self.report.failure(
+                title="Could not reconnect to Doris",
+                message="Reconnecting after a dropped connection failed, so the rest of this database's tables and views were skipped. See tables_skipped_after_connection_loss for how many.",
+                context=dataset_name,
+                exc=e,
+            )
         return True
 
     def get_platform(self) -> str:

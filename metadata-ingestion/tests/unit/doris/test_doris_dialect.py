@@ -7,8 +7,10 @@ import pytest
 import sqlglot
 from sqlalchemy.dialects.mysql.base import MySQLDialect
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
+from sqlalchemy.engine import Connection
 from sqlalchemy.exc import (
     OperationalError,
+    PendingRollbackError,
     ProgrammingError,
     SQLAlchemyError,
 )
@@ -414,16 +416,26 @@ class TestDorisDialect:
         assert dialect.reflection_fallbacks == {}
 
     @pytest.mark.parametrize("failing_step", ["_setup_parser", "describe"])
-    def test_lost_connection_is_raised_not_recorded(self, failing_step):
+    @pytest.mark.parametrize(
+        "lost",
+        [
+            OperationalError(
+                "SELECT", {}, Exception("Lost connection"), connection_invalidated=True
+            ),
+            PendingRollbackError("Can't reconnect until invalid transaction"),
+            # A failed reconnect (pymysql 2003) is not classed as a disconnect,
+            # but leaves the connection invalidated.
+            OperationalError("SELECT", {}, Exception("Can't connect to server")),
+        ],
+    )
+    def test_lost_connection_is_raised_not_recorded(self, failing_step, lost):
         """A dropped connection is neither a DDL refusal nor missing DESCRIBE
         rights, and the next statement would only hide it behind
         PendingRollbackError."""
         dialect = DorisDialect()
-        mock_connection = Mock()
+        mock_connection = Mock(spec=Connection, invalidated=True)
+        mock_connection.engine = Mock()
         mock_connection.engine.url.database = "my_db"
-        lost = OperationalError(
-            "SELECT", {}, Exception("Lost connection"), connection_invalidated=True
-        )
 
         if failing_step == "_setup_parser":
             reflection = patch.object(
@@ -436,7 +448,7 @@ class TestDorisDialect:
                 "get_columns",
                 return_value=[{"name": "col1", "type": sqltypes.INTEGER()}],
             )
-        with reflection, pytest.raises(OperationalError):
+        with reflection, pytest.raises(type(lost)):
             dialect.get_columns(
                 mock_connection, "my_table", schema="my_db", info_cache={}
             )
@@ -748,6 +760,20 @@ class TestDorisComments:
         assert second_comment == {"text": "Table two"}
         assert _count_queries(mock_connection, "information_schema.COLUMNS") == 1
         assert _count_queries(mock_connection, "information_schema.TABLES") == 1
+
+    def test_information_schema_comment_wins_over_the_parsed_one(self, mock_text):
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        mock_connection.execute.side_effect = _execute_by_query(
+            column_comment_rows=[("my_table", "col_c", "From information_schema")],
+        )
+
+        columns = self._get_columns(
+            dialect, mock_connection, "my_table", schema="my_db", info_cache={}
+        )
+
+        assert columns[2]["comment"] == "From information_schema"
 
     def test_table_comment_keeps_parsed_value_when_information_schema_has_none(
         self, mock_text
