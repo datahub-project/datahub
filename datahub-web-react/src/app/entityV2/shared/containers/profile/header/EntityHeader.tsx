@@ -2,8 +2,8 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { DefaultEntityHeader } from '@app/entityV2/shared/containers/profile/header/DefaultEntityHeader';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';

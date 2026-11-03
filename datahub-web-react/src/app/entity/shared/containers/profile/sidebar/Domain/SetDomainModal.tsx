@@ -6,8 +6,8 @@ import styled, { useTheme } from 'styled-components/macro';
 
 import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
 import { getParentDomains } from '@app/domain/utils';
-import { tagRender } from '@app/entity/shared/containers/profile/sidebar/tagRenderer';
 import { handleBatchError } from '@app/entity/shared/utils';
+import { tagRender } from '@app/entityV2/shared/containers/profile/sidebar/tagRenderer';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import ClickOutside from '@app/sharedV2/ClickOutside';
 import { DomainLabel } from '@app/sharedV2/DomainLabel';

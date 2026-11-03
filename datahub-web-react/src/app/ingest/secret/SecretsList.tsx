@@ -13,8 +13,8 @@ import {
     addSecretToListSecretsCache,
     removeSecretFromListSecretsCache,
     updateSecretInListSecretsCache,
-} from '@app/ingest/secret/cacheUtils';
-import { SecretBuilderState } from '@app/ingest/secret/types';
+} from '@app/ingestV2/secret/cacheUtils';
+import { SecretBuilderState } from '@app/ingestV2/secret/types';
 import { Message } from '@app/sharedV2/Message';
 import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { Pagination, Table } from '@src/alchemy-components';
