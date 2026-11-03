@@ -13,7 +13,6 @@ from datahub.ingestion.source.sql.doris.doris_dialect import (
 )
 from datahub.ingestion.source.sql.doris.doris_source import (
     DorisConfig,
-    DorisConnectionLostError,
     DorisSource,
 )
 from datahub.ingestion.source.sql.mysql import MySQLSource
@@ -543,8 +542,8 @@ class TestDorisSourceMethods:
         assert source.report.databases_without_comments == 2
         assert len(source.report.warnings) == 1
         contexts = " ".join(str(warning) for warning in source.report.warnings)
-        assert contexts.count("db1") == 1
-        assert contexts.count("db2") == 1
+        assert contexts.count("db1: Access denied") == 1
+        assert contexts.count("db2: Access denied") == 1
         assert all(dialect.comment_lookup_failures == {} for dialect in dialects)
 
     def test_only_the_metadata_pass_reads_comments(self):
@@ -610,29 +609,29 @@ class TestDorisSourceMethods:
         return inspector
 
     @pytest.mark.parametrize(
-        "method,error",
+        "method",
         [
             # The base class would emit the table with no columns, overwriting its
             # schema in DataHub.
-            ("get_columns", DorisConnectionLostError),
+            "get_columns",
             # Read after the columns, as a separate round trip.
-            ("get_table_comment", PendingRollbackError),
+            "get_table_comment",
         ],
     )
     def test_lost_connection_fails_the_table_rather_than_emptying_or_deleting_it(
-        self, method, error
+        self, method
     ):
         config = DorisConfig(host_port="localhost:9030")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
         inspector = self._inspector_losing_connection_on(method)
 
-        with pytest.raises(error):
-            list(
-                source._process_table(
-                    "db1.my_table", inspector, "db1", "my_table", source.config, None
-                )
+        workunits = list(
+            source._process_table(
+                "db1.my_table", inspector, "db1", "my_table", source.config, None
             )
+        )
 
+        assert not any(wu.get_aspect_of_type(SchemaMetadataClass) for wu in workunits)
         # loop_tables only warns about a table that raises, which would leave
         # stale-entity removal free to delete it; the failure stops that.
         assert len(source.report.failures) == 1
@@ -647,12 +646,11 @@ class TestDorisSourceMethods:
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
         inspector = self._inspector_losing_connection_on("get_columns")
 
-        with pytest.raises(PendingRollbackError):
-            list(
-                source._process_view(
-                    "db1.my_view", inspector, "db1", "my_view", source.config
-                )
+        list(
+            source._process_view(
+                "db1.my_view", inspector, "db1", "my_view", source.config
             )
+        )
 
         assert len(source.report.failures) == 1
 
@@ -717,6 +715,8 @@ class TestDorisSourceMethods:
         assert field_counts == {"t1": 1, "t3": 1}
         assert len(source.report.failures) == 1
         assert "t2" in str(source.report.failures)
+        # Reported once, as the failure, not again as a loop_tables warning.
+        assert "t2" not in str(source.report.warnings)
 
     def test_column_errors_on_a_live_connection_keep_the_base_behaviour(self):
         config = DorisConfig(host_port="localhost:9030")
@@ -729,6 +729,9 @@ class TestDorisSourceMethods:
 
         assert source._get_columns("db1.my_table", inspector, "db1", "my_table") == []
         assert len(source.report.failures) == 0
+        assert "Access denied" in str(source.report.warnings)
+        # The failed reflection is not repeated just to produce the warning.
+        inspector.get_columns.assert_called_once()
 
     def test_get_inspectors_exception_handling(self):
         config = DorisConfig(host_port="localhost:9030")

@@ -812,6 +812,8 @@ class TestDorisComments:
                     Exception("Lost connection (timed out)"),
                     connection_invalidated=True,
                 )
+            if statement == "SELECT 1":
+                return [(1,)]
             return describe(statement, params)
 
         mock_connection.execute.side_effect = execute
@@ -822,8 +824,40 @@ class TestDorisComments:
 
         assert [col["name"] for col in columns] == ["col_a", "col_b", "col_c"]
         mock_connection.rollback.assert_called_once()
+        # Reconnected straight away, so a later error in the same table is not
+        # mistaken for this drop.
+        assert _count_queries(mock_connection, "SELECT 1") == 1
         assert _count_queries(mock_connection, "information_schema") == 1
         assert list(dialect.comment_lookup_failures) == ["my_db"]
+
+    def test_failed_reconnect_after_lookup_drop_fails_the_table(self, mock_text):
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        describe = _execute_by_query()
+
+        def execute(
+            statement: str, params: Optional[Dict[str, Any]] = None
+        ) -> List[Sequence[Any]]:
+            if "information_schema" in statement:
+                raise OperationalError(
+                    statement,
+                    params,
+                    Exception("Lost connection"),
+                    connection_invalidated=True,
+                )
+            if statement == "SELECT 1":
+                raise OperationalError(
+                    statement, params, Exception("Can't connect to server")
+                )
+            return describe(statement, params)
+
+        mock_connection.execute.side_effect = execute
+
+        with pytest.raises(OperationalError, match="Can't connect"):
+            self._get_columns(
+                dialect, mock_connection, "my_table", schema="my_db", info_cache={}
+            )
 
     def test_malformed_comment_rows_keep_the_columns(self, mock_text):
         """An error building the comment map is raised inside get_columns, where
