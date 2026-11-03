@@ -1798,7 +1798,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 resolver.get_original_field_paths(external_urn) if resolver else None
             ),
         )
-        return cll or None
+        self.report.num_federation_cll_edges_emitted += len(cll.lineages)
+        self.report.num_federation_cll_edges_original_path += cll.num_original_path
+        self.report.num_federation_cll_downstream_unmatched += len(
+            cll.unmatched_downstream_paths
+        )
+        for path in cll.unmatched_downstream_paths:
+            self.report.federation_cll_downstream_unmatched_sample.append(
+                make_schema_field_urn(dataset_urn, path)
+            )
+        return cll.lineages or None
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         if (

@@ -330,7 +330,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             aspect = self.graph.get_aspect(urn, SchemaMetadataClass)
             if aspect:
                 schema_info, original_paths = _schema_info_and_original_paths(
-                    aspect.fields
+                    aspect.fields, urn
                 )
                 if schema_info:
                     self._save_to_cache(urn, schema_info, original_paths)
@@ -343,7 +343,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
         self._save_to_cache(
-            urn, *_schema_info_and_original_paths(schema_metadata.fields)
+            urn, *_schema_info_and_original_paths(schema_metadata.fields, urn)
         )
 
     def add_schema_metadata_from_fetch(
@@ -363,7 +363,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self, urn: str, schema_metadata: GraphQLSchemaMetadata
     ) -> None:
         self._save_to_cache(
-            urn, *_graphql_schema_info_and_original_paths(schema_metadata)
+            urn, *_graphql_schema_info_and_original_paths(schema_metadata, urn)
         )
 
     def with_temp_tables(
@@ -391,8 +391,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self._schema_cache[urn] = schema_info
         if original_field_paths:
             self._original_field_paths[urn] = original_field_paths
-        elif urn in self._original_field_paths:
-            del self._original_field_paths[urn]
+        else:
+            # One DELETE, rather than a lookup followed by a DELETE.
+            with contextlib.suppress(KeyError):
+                del self._original_field_paths[urn]
 
     @classmethod
     def convert_graphql_schema_metadata_to_info(
@@ -445,22 +447,28 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
         )
 
 
-def _type_segment_count(field_path: str) -> int:
-    return field_path.count("[type=")
+def _column_rank(field_path: str) -> Tuple[int, bool, str]:
+    # Lower ranks first: fewest [type=...] segments (the column, not a union
+    # member), then value fields before Kafka key fields, then lexicographic.
+    return (field_path.count("[type="), "[key=True]" in field_path, field_path)
 
 
 def _simple_to_original_paths(
     fields: Iterable[Tuple[str, str]],
+    urn: Optional[str] = None,
 ) -> Tuple[SchemaInfo, Dict[str, str]]:
     """Build the SchemaInfo (simplified path -> native type) and the
     simplified -> original field path map in one pass over (fieldPath, native type).
 
     A union column simplifies to the same path as each of its members (e.g.
     `[type=union].u`, `[type=union].[type=int].u`, `[type=union].[type=string].u`
-    all become `u`). The column itself is the candidate with the fewest `[type=...]`
-    segments; this does not depend on field order, which sources that sort fields
-    by fieldPath change. A plain (v1) path has none and so always wins, and is then
-    dropped from the map because it needs no translation."""
+    all become `u`), and a Kafka key field can share its name with a value field.
+    The candidate with the lowest `_column_rank` wins: fewest `[type=...]`
+    segments (the union column itself), then a value field over a key field,
+    then lexicographic order. This is a total order, so the result does not
+    depend on field order, which sources that sort fields by fieldPath change. A
+    plain (v1) path has no segments and so always wins, and is then dropped from
+    the map because it needs no translation."""
     schema_info: SchemaInfo = {}
     candidates: Dict[str, str] = {}
     for field_path, native_type in fields:
@@ -471,26 +479,34 @@ def _simple_to_original_paths(
         # The actual types are more of a "nice to have".
         schema_info[simple] = native_type or "str"
         current = candidates.get(simple)
-        if current is None or _type_segment_count(field_path) < _type_segment_count(
-            current
-        ):
+        if current is None:
             candidates[simple] = field_path
+            continue
+        if current == field_path:
+            continue
+        winner = min(current, field_path, key=_column_rank)
+        logger.debug(
+            f"Field paths {current!r} and {field_path!r} of {urn} both simplify to "
+            f"{simple!r}; using {winner!r}"
+        )
+        candidates[simple] = winner
     return schema_info, {k: v for k, v in candidates.items() if k != v}
 
 
 def _schema_info_and_original_paths(
-    schema_fields: Iterable[SchemaFieldClass],
+    schema_fields: Iterable[SchemaFieldClass], urn: Optional[str] = None
 ) -> Tuple[SchemaInfo, Dict[str, str]]:
     return _simple_to_original_paths(
-        (col.fieldPath, col.nativeDataType) for col in schema_fields
+        ((col.fieldPath, col.nativeDataType) for col in schema_fields), urn
     )
 
 
 def _graphql_schema_info_and_original_paths(
-    schema: GraphQLSchemaMetadata,
+    schema: GraphQLSchemaMetadata, urn: Optional[str] = None
 ) -> Tuple[SchemaInfo, Dict[str, str]]:
     return _simple_to_original_paths(
-        (field["fieldPath"], field["nativeDataType"]) for field in schema["fields"]
+        ((field["fieldPath"], field["nativeDataType"]) for field in schema["fields"]),
+        urn,
     )
 
 

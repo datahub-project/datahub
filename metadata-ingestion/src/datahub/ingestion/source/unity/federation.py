@@ -7,7 +7,7 @@ database segment is present (two- vs three-tier) and which OPTIONS key carries i
 (database / dataProjectId / catalog). See docs: CREATE FOREIGN CATALOG OPTIONS.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, List, Optional
 
 from databricks.sdk.service.catalog import ConnectionType
@@ -214,13 +214,22 @@ def federation_property_definition_mcps(
     return mcps
 
 
+@dataclass
+class IdentityColumnLineage:
+    lineages: List[FineGrainedLineageClass] = field(default_factory=list)
+    # Edges whose upstream URN uses the external dataset's original (e.g. v2) path.
+    num_original_path: int = 0
+    # Mirror field paths with no external match (no edge emitted).
+    unmatched_downstream_paths: List[str] = field(default_factory=list)
+
+
 def identity_column_lineage(
     dataset_urn: str,
     external_urn: str,
     downstream_field_paths: List[str],
     upstream_field_paths: List[str],
     upstream_original_field_paths: Optional[Dict[str, str]] = None,
-) -> List[FineGrainedLineageClass]:
+) -> IdentityColumnLineage:
     """1:1 identity column-level lineage from an external dataset's fields to a
     foreign-catalog mirror's fields. A foreign catalog is a read-only copy, so
     each column maps to the same-named external column. Matched case-insensitively
@@ -234,18 +243,20 @@ def identity_column_lineage(
     the external source emitted."""
     original = upstream_original_field_paths or {}
     upstream_by_casefold = {p.casefold(): p for p in upstream_field_paths}
-    result: List[FineGrainedLineageClass] = []
+    result = IdentityColumnLineage()
     for downstream_path in downstream_field_paths:
         upstream_path = upstream_by_casefold.get(downstream_path.casefold())
         if upstream_path is None:
+            result.unmatched_downstream_paths.append(downstream_path)
             continue
-        result.append(
+        original_path = original.get(upstream_path)
+        if original_path is not None:
+            result.num_original_path += 1
+        result.lineages.append(
             FineGrainedLineageClass(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                 upstreams=[
-                    make_schema_field_urn(
-                        external_urn, original.get(upstream_path, upstream_path)
-                    )
+                    make_schema_field_urn(external_urn, original_path or upstream_path)
                 ],
                 downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                 downstreams=[make_schema_field_urn(dataset_urn, downstream_path)],

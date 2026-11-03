@@ -988,9 +988,11 @@ def test_identity_column_lineage_matches_case_insensitively():
         downstream_field_paths=["CUSTOMER_ID", "NAME", "ONLY_IN_DBX"],
         upstream_field_paths=["customer_id", "name", "only_in_ext"],
     )
-    assert all(isinstance(x, FineGrainedLineageClass) for x in cll)
-    # 2 matched (case-insensitive); unmatched dbx column dropped
-    pairs = [(x.upstreams, x.downstreams) for x in cll]
+    assert all(isinstance(x, FineGrainedLineageClass) for x in cll.lineages)
+    # 2 matched (case-insensitive); unmatched dbx column dropped and reported
+    assert cll.unmatched_downstream_paths == ["ONLY_IN_DBX"]
+    assert cll.num_original_path == 0
+    pairs = [(x.upstreams, x.downstreams) for x in cll.lineages]
     assert pairs == [
         (
             ["urn:li:schemaField:(%s,customer_id)" % ext],
@@ -1010,7 +1012,7 @@ def test_identity_column_lineage_empty_when_no_overlap():
             external_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,d.s.t,PROD)",
             downstream_field_paths=["a"],
             upstream_field_paths=["x", "y"],
-        )
+        ).lineages
         == []
     )
 
@@ -1374,7 +1376,8 @@ def test_identity_column_lineage_falls_back_to_simple_path_when_original_unknown
         upstream_field_paths=["col_a", "col_b"],
         upstream_original_field_paths={"col_a": "[version=2.0].[type=long].col_a"},
     )
-    assert [x.upstreams for x in cll] == [
+    assert cll.num_original_path == 1
+    assert [x.upstreams for x in cll.lineages] == [
         [f"urn:li:schemaField:({ext},[version=2.0].[type=long].col_a)"],
         [f"urn:li:schemaField:({ext},col_b)"],
     ]
@@ -1391,3 +1394,75 @@ def test_backfill_from_v2_external_schema_emits_simple_field_paths():
     fields = src._resolve_external_schema_fields(_foreign_table(catalog))
 
     assert fields is not None and [f.fieldPath for f in fields] == ["col_a"]
+
+
+def test_federation_cll_report_counters():
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    _seed_external_v2_schema(src, catalog, ["[version=2.0].[type=long].col_a", "col_b"])
+    dbx_schema = _external_schema(
+        [_field("col_a"), _field("col_b"), _field("only_in_dbx")]
+    )
+
+    src._federation_lineage(_DBX_URN, _foreign_table(catalog), catalog, dbx_schema)
+
+    assert src.report.num_federation_cll_edges_emitted == 2
+    assert src.report.num_federation_cll_edges_original_path == 1
+    assert src.report.num_federation_cll_downstream_unmatched == 1
+    assert list(src.report.federation_cll_downstream_unmatched_sample) == [
+        f"urn:li:schemaField:({_DBX_URN},only_in_dbx)"
+    ]
+
+
+def test_federation_cll_through_bulk_schema_fetch_keeps_tables_apart():
+    # Drive the real bulk path: SchemaResolverProvider scroll-fetches the scope's
+    # schemas from the graph (GraphQL shape) for two v2-path tables.
+    from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
+
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    table_t, table_u = _foreign_table(catalog), _foreign_table(catalog)
+    table_u.name, table_u.id = "u", "c.my_schema.u"
+    urn_t = src._external_dataset_urn(catalog, "my_schema", "t")
+    urn_u = src._external_dataset_urn(catalog, "my_schema", "u")
+    graph = MagicMock()
+    graph._bulk_fetch_schema_info_by_filter.return_value = iter(
+        [
+            (
+                urn_t,
+                {
+                    "fields": [
+                        {
+                            "fieldPath": "[version=2.0].[type=long].col_a",
+                            "nativeDataType": "bigint",
+                        }
+                    ]
+                },
+            ),
+            (
+                urn_u,
+                {
+                    "fields": [
+                        {
+                            "fieldPath": "[version=2.0].[type=string].col_a",
+                            "nativeDataType": "string",
+                        }
+                    ]
+                },
+            ),
+        ]
+    )
+    src._schema_resolver_provider = SchemaResolverProvider(graph=graph)
+    dbx_schema = _external_schema([_field("col_a")])
+
+    aspect_t = src._federation_lineage(_DBX_URN, table_t, catalog, dbx_schema)
+    aspect_u = src._federation_lineage(_DBX_URN, table_u, catalog, dbx_schema)
+
+    assert _cll_pairs(aspect_t)[0][0] == [
+        f"urn:li:schemaField:({urn_t},[version=2.0].[type=long].col_a)"
+    ]
+    assert _cll_pairs(aspect_u)[0][0] == [
+        f"urn:li:schemaField:({urn_u},[version=2.0].[type=string].col_a)"
+    ]
+    # One scroll for the whole scope, not one per table.
+    assert graph._bulk_fetch_schema_info_by_filter.call_count == 1

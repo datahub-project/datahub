@@ -1,4 +1,5 @@
 import json
+import pathlib
 from typing import List
 from unittest.mock import MagicMock
 
@@ -234,6 +235,27 @@ class TestResolveTableBatching:
         urns_tried = mock_graph.get_entities.call_args[1]["urns"]
         assert len(urns_tried) >= 2
         assert len(urns_tried) == len(set(urns_tried))
+
+    def test_batch_fetch_keeps_original_field_paths(self, schema_resolver, mock_graph):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        mock_graph.get_entities.return_value = {
+            urn: {
+                "schemaMetadata": (
+                    create_mock_schema([("[version=2.0].[type=long].col_a", "int")]),
+                    {},
+                )
+            }
+        }
+
+        resolved_urn, schema_info = schema_resolver.resolve_table(
+            _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        )
+
+        assert resolved_urn == urn
+        assert schema_info == {"col_a": "int"}
+        assert schema_resolver.get_original_field_paths(urn) == {
+            "col_a": "[version=2.0].[type=long].col_a"
+        }
 
     def test_uses_cache_first(self, schema_resolver, mock_graph):
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
@@ -785,3 +807,61 @@ def test_original_field_path_is_the_column_root(paths, expected, order):
 
     simple = get_simple_field_path_from_v2_field_path(expected)
     assert resolver.get_original_field_paths(_V2_URN) == {simple: expected}
+
+
+@pytest.mark.parametrize(
+    "order",
+    [list, sorted, lambda p: list(reversed(p))],
+    ids=["emitted", "sorted", "reversed"],
+)
+def test_original_field_path_tie_break_is_order_independent(order):
+    # A Kafka-style key and value field share a name and a [type=...] count; the
+    # value field wins regardless of field order.
+    value_path = "[version=2.0].[type=V].[type=long].id"
+    key_path = "[version=2.0].[key=True].[type=K].[type=long].id"
+    other_value_path = "[version=2.0].[type=W].[type=long].id"
+    resolver = SchemaResolver(platform="kafka", env="PROD", graph=None)
+    resolver.add_schema_metadata(
+        _V2_URN,
+        create_mock_schema(
+            [(p, "t") for p in order([key_path, value_path, other_value_path])]
+        ),
+    )
+
+    # Ties between value fields fall back to lexicographic order.
+    assert resolver.get_original_field_paths(_V2_URN) == {"id": value_path}
+
+
+def test_close_releases_the_shared_connection():
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
+    temp_directory = resolver._conn._temp_directory
+    assert temp_directory is not None and pathlib.Path(temp_directory).exists()
+
+    resolver.close()
+
+    assert resolver.closed
+    assert resolver._original_field_paths.closed
+    assert not pathlib.Path(temp_directory).exists()
+
+
+def test_reopened_cache_file_restores_schemas_and_original_field_paths(tmp_path):
+    cache_file = tmp_path / "schema_cache.db"
+    resolver = SchemaResolver(
+        platform="glue", env="PROD", graph=None, _cache_filename=cache_file
+    )
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
+    # Indexes on the schema cache's extra column are created lazily by queries.
+    assert resolver.schema_count() == 1
+    resolver.close()
+
+    reopened = SchemaResolver(
+        platform="glue", env="PROD", graph=None, _cache_filename=cache_file
+    )
+
+    assert reopened.schema_count() == 1
+    assert reopened.resolve_urn(_V2_URN)[1] == {"col_a": "bigint", "Col_B": "string"}
+    assert reopened.get_original_field_paths(_V2_URN) == {
+        "col_a": "[version=2.0].[type=long].col_a",
+        "Col_B": "[version=2.0].[type=string].Col_B",
+    }
