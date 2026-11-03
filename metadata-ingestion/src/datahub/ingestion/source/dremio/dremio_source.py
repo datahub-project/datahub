@@ -127,15 +127,6 @@ def passes_dremio_filters(
     return True
 
 
-# These source types list databases as folders under the source even when the
-# source config names a database, so the database is already the first path
-# component. Snowflake (checked on Dremio 26) shows only the configured database,
-# or every database when none is configured, and the path is
-# `source.DATABASE.SCHEMA.table` either way. Others (Postgres, Redshift,
-# Synapse, ...) connect to the one configured database and list only its schemas.
-_DREMIO_TYPES_WITH_DATABASE_IN_PATH = {"mssql", "mysql", "snowflake"}
-
-
 # The Oracle and SAP HANA connectors read names through SQLAlchemy dialects
 # whose normalize_name lowercases an ALL-UPPERCASE name unless it would then
 # need quoting (a reserved word, or a character such as `#`).
@@ -145,21 +136,19 @@ _NORMALIZING_DIALECT = OracleDialect()
 
 
 def _match_connector_urn_case(
-    platform: str, name: str, convert_urns_to_lowercase: Optional[bool]
-) -> str:
-    """Lowercase the dataset name when asked to, or by default for Snowflake.
-    By default, Oracle's and SAP HANA's ALL-UPPERCASE name parts are lowercased
-    like SQLAlchemy's normalize_name. Every other platform keeps Dremio's case."""
+    platform: str, parts: List[str], convert_urns_to_lowercase: Optional[bool]
+) -> List[str]:
+    """Lowercase the name parts when asked to, or by default for Snowflake.
+    By default, Oracle's and SAP HANA's ALL-UPPERCASE parts are lowercased like
+    SQLAlchemy's normalize_name. Every other platform keeps Dremio's case."""
     platform = platform.lower()
     if convert_urns_to_lowercase is not None:
-        return name.lower() if convert_urns_to_lowercase else name
+        return [p.lower() for p in parts] if convert_urns_to_lowercase else parts
     if platform == "snowflake":  # convert_urns_to_lowercase defaults to True
-        return name.lower()
+        return [p.lower() for p in parts]
     if platform in ("oracle", "hana"):
-        return ".".join(
-            str(_NORMALIZING_DIALECT.normalize_name(p)) for p in name.split(".")
-        )
-    return name
+        return [str(_NORMALIZING_DIALECT.normalize_name(p)) for p in parts]
+    return parts
 
 
 @dataclass
@@ -172,6 +161,55 @@ class DremioSourceMapEntry:
     platform_instance: Optional[str] = None
     env: Optional[str] = None
     convert_urns_to_lowercase: Optional[bool] = None
+    # None: unknown, so skip the database only if the path starts with it.
+    database_in_path: Optional[bool] = None
+
+
+def map_dremio_dataset_to_urn(
+    mapping: Optional[DremioSourceMapEntry],
+    dremio_path: List[str],
+    dremio_dataset: str,
+    default_env: str,
+) -> Optional[str]:
+    """The upstream URN on the mapped platform for a Dremio table."""
+    if not mapping or not mapping.platform:
+        return None
+    platform = mapping.platform
+
+    if is_dremio_platform(platform):
+        # A Dremio-to-Dremio source shows the remote Dremio's catalog.
+        name = dremio_dataset_name([*dremio_path[1:], dremio_dataset])
+    elif mapping.dremio_source_category == "file_object_storage":
+        # Object keys are case-sensitive; a root path of `/` adds nothing.
+        name = "/".join(
+            part
+            for part in [mapping.root_path.strip("/"), *dremio_path[1:], dremio_dataset]
+            if part
+        )
+    else:
+        parts = [*dremio_path[1:], dremio_dataset]
+        database = mapping.database_name
+        if database and (
+            mapping.database_in_path is False
+            or (
+                mapping.database_in_path is None
+                and (len(parts) < 2 or parts[0].lower() != database.lower())
+            )
+        ):
+            # The Db2 connector uppercases the database.
+            parts.insert(0, database.upper() if platform.lower() == "db2" else database)
+        name = ".".join(
+            _match_connector_urn_case(
+                platform, parts, mapping.convert_urns_to_lowercase
+            )
+        )
+
+    return make_dataset_urn_with_platform_instance(
+        platform=platform.lower(),
+        name=name,
+        platform_instance=mapping.platform_instance,
+        env=mapping.env or default_env,
+    )
 
 
 @platform_name("Dremio")
@@ -850,65 +888,11 @@ class DremioSource(StatefulIngestionSourceBase):
         dremio_path: List[str],
         dremio_dataset: str,
     ) -> Optional[str]:
-        """
-        Map a Dremio dataset to a DataHub URN.
-        """
-        mapping = self.source_map.get(dremio_source.lower())
-        if not mapping:
-            return None
-
-        platform = mapping.platform
-        if not platform:
-            return None
-
-        platform_instance = mapping.platform_instance
-        env = mapping.env or self.config.env
-
-        database_name = ""
-
-        if is_dremio_platform(platform):
-            # A Dremio-to-Dremio source shows the remote Dremio's catalog.
-            dremio_dataset = dremio_dataset_name([*dremio_path[1:], dremio_dataset])
-        elif mapping.dremio_source_category == "file_object_storage":
-            # Object keys are case-sensitive; a root path of `/` adds nothing.
-            dremio_dataset = "/".join(
-                part
-                for part in [
-                    mapping.root_path.strip("/"),
-                    *dremio_path[1:],
-                    dremio_dataset,
-                ]
-                if part
-            )
-        else:
-            # A path that already starts with the database (e.g. a custom
-            # source type from source_type_mappings) must not repeat it.
-            if mapping.database_name and not (
-                len(dremio_path) > 1
-                and dremio_path[1].lower() == mapping.database_name.lower()
-            ):
-                database_name = f"{mapping.database_name}."
-                if platform.lower() == "db2":  # the Db2 connector uppercases it
-                    database_name = database_name.upper()
-            dremio_dataset = _match_connector_urn_case(
-                platform,
-                f"{database_name}{'.'.join(dremio_path[1:])}.{dremio_dataset}",
-                mapping.convert_urns_to_lowercase,
-            )
-
-        if platform_instance:
-            return make_dataset_urn_with_platform_instance(
-                platform=platform.lower(),
-                name=dremio_dataset,
-                platform_instance=platform_instance,
-                env=env,
-            )
-
-        return make_dataset_urn_with_platform_instance(
-            platform=platform.lower(),
-            name=dremio_dataset,
-            platform_instance=None,
-            env=env,
+        return map_dremio_dataset_to_urn(
+            self.source_map.get(dremio_source.lower()),
+            dremio_path,
+            dremio_dataset,
+            self.config.env,
         )
 
     def get_report(self) -> SourceReport:
@@ -953,12 +937,8 @@ def build_dremio_source_map(
         source_category = mapper.lookup_category(source_type)
         datahub_platform = mapper.lookup_datahub_platform(source_type)
         root_path = source.root_path or ""
-        database_name = (
-            source.database_name.lower()
-            if source.database_name
-            and source_type not in _DREMIO_TYPES_WITH_DATABASE_IN_PATH
-            else ""
-        )
+        database_name = source.database_name or ""
+        database_in_path = mapper.lookup_database_in_path(source_type)
         source_present = False
 
         for mapping in source_mappings_config:
@@ -972,6 +952,7 @@ def build_dremio_source_map(
                     platform_instance=mapping.platform_instance,
                     env=mapping.env,
                     convert_urns_to_lowercase=mapping.convert_urns_to_lowercase,
+                    database_in_path=database_in_path,
                 )
                 source_present = True
                 break
@@ -985,6 +966,7 @@ def build_dremio_source_map(
                 database_name=database_name,
                 platform_instance=None,
                 env=None,
+                database_in_path=database_in_path,
             )
 
     return source_map
