@@ -1027,6 +1027,38 @@ def test_odbc_databricks_spark_pseudo_catalog_warns_and_skips(
         assert titles == []
 
 
+# Spelled out rather than derived from ODBC_THREE_TIER_PLATFORMS, so dropping a
+# platform from the set fails its case instead of silently removing it.
+@pytest.mark.parametrize(
+    "platform",
+    ["bigquery", "databricks", "db2", "mssql", "postgres", "redshift", "snowflake"],
+)
+def test_odbc_three_tier_database_table_without_schema_warns_and_skips(
+    platform: str,
+) -> None:
+    """Every three-tier platform must skip Database + Table navigation instead of
+    emitting a truncated database.table."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Database", "mydb"), ("Table", "orders")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name=platform, datahub_data_platform_name=platform
+    )
+
+    result = instance.expression_lineage(
+        detail, platform, pair, server_name="dsn", dsn="d"
+    )
+
+    assert result.upstreams == []
+    assert [w.title for w in instance.reporter.warnings] == [
+        "Can not determine qualified table name"
+    ]
+
+
 @pytest.mark.parametrize(
     "navigation",
     [
@@ -1547,10 +1579,13 @@ def test_odbc_athena_nav_applies_table_platform_override():
 
 def test_odbc_athena_nav_override_matches_case_insensitively():
     """make_urn lowercases names by default, while users copy mixed-case names
-    from the Power Query navigator into the override; it must still match."""
+    from the Power Query navigator into the override; it must still match. The
+    override's dsn is compared case-insensitively too (Windows ODBC DSNs are)."""
     instance = _build_odbc_lineage(
         athena_table_platform_override=[
-            AthenaPlatformOverride(database="SalesDb", table="Orders", platform="mysql")
+            AthenaPlatformOverride(
+                database="SalesDb", table="Orders", platform="mysql", dsn="ATHENA_DSN"
+            )
         ],
     )
     detail = DataAccessFunctionDetail(

@@ -2864,6 +2864,19 @@ _ODBC_NAV_SUCCESS_CASES = [
         id="bigquery-project-from-dsn-mapping",
     ),
     pytest.param(
+        _ODBC_BIGQUERY_NAV_MISSING_PROJECT,
+        "events",
+        "analytics.events",
+        {
+            # Windows ODBC DSNs are case-insensitive: a key that differs from the
+            # connection string's dsn=bq_analytics only in case still applies.
+            "dsn_to_platform_name": {"BQ_Analytics": "bigquery"},
+            "dsn_to_database_schema": {"bq_analytics": "my_project"},
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)",
+        id="bigquery-dsn-to-platform-name-matches-case-insensitively",
+    ),
+    pytest.param(
         _ODBC_BIGQUERY_NAV_TABLE_ONLY,
         "events",
         "analytics.events",
