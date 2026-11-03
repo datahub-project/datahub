@@ -1,0 +1,79 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "039eeb6ae0abe893ad6715f74f81facbc5e6645c5177631428d7ded08a964b1a",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt,PROD)",
+                "column": "a",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)",
+                    "column": "x"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"S\".\"X\" AS \"X\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.tgt,PROD)",
+                "column": "b",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)",
+                    "column": "x"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"S2\".\"X\" AS \"X\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)"
+            ],
+            "on_clause": "\"S\".\"Y\" = \"S2\".\"Y\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.src,PROD)",
+                    "column": "Y"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "INSERT INTO my_db.my_schema.tgt (a, b) SELECT s.x, s2.x FROM my_db.my_schema.src AS s JOIN my_db.my_schema.src AS s2 ON s.y = s2.y"
+    }
+}

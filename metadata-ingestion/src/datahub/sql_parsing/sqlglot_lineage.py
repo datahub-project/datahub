@@ -37,6 +37,7 @@ import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
 from pydantic import field_serializer, field_validator
 from sqlglot.dialects.dialect import DialectType
+from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 from sqlglot.optimizer.scope import find_all_in_scope
 from sqlglot.schema import MappingSchema, Schema
 
@@ -1605,6 +1606,69 @@ class _ColumnLineageWithDebugInfo(_ParserBaseModel):
     # TODO: Add column exceptions here.
 
 
+def _get_insert_column_list(
+    statement: sqlglot.exp.Expression,
+) -> Optional[List[sqlglot.exp.Identifier]]:
+    if not (
+        isinstance(statement, sqlglot.exp.Insert)
+        and isinstance(statement.this, sqlglot.exp.Schema)
+        and statement.this.expressions
+    ):
+        return None
+    identifiers = [
+        col.this if isinstance(col, sqlglot.exp.Column) else col
+        for col in statement.this.expressions
+    ]
+    if not all(isinstance(ident, sqlglot.exp.Identifier) for ident in identifiers):
+        return None
+    return identifiers
+
+
+def _alias_projections_to_insert_columns(
+    select_statement: sqlglot.exp.Query,
+    insert_columns: List[sqlglot.exp.Identifier],
+    dialect: sqlglot.Dialect,
+    column_resolver: _ColumnResolver,
+) -> Optional[List[str]]:
+    """Rename the i-th projection to the i-th INSERT target column.
+
+    An INSERT column list binds by position, not by the SELECT's output names. This
+    runs after qualification so a `SELECT *` is already expanded when its schema is
+    known. When the counts differ or a star is left unexpanded the positions can't be
+    matched, so the projections are left as they are.
+    """
+    projections = select_statement.selects
+    if len(projections) != len(insert_columns) or any(
+        projection.alias_or_name == "*" for projection in projections
+    ):
+        logger.debug(
+            "Not mapping INSERT column list positionally: %d target columns, "
+            "projections %s",
+            len(insert_columns),
+            [projection.alias_or_name for projection in projections],
+        )
+        return None
+
+    target_names = []
+    for projection, insert_column in zip(projections, insert_columns, strict=True):
+        # Normalize the target name the way qualification normalized the projections,
+        # so it resolves against the target table's schema like a SELECT alias would.
+        insert_column = insert_column.copy()
+        if column_resolver.use_case_insensitive_cols:
+            insert_column.set("quoted", False)
+        target_name = normalize_identifiers(insert_column, dialect=dialect).name
+        target_names.append(target_name)
+
+        alias = sqlglot.exp.to_identifier(target_name, quoted=True)
+        if isinstance(projection, sqlglot.exp.Alias):
+            projection.set("alias", alias)
+        else:
+            aliased = sqlglot.exp.Alias(this=projection.copy(), alias=alias)
+            aliased.type = projection.type
+            projection.replace(aliased)
+    return target_names
+
+
 def _column_level_lineage(
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
@@ -1616,7 +1680,7 @@ def _column_level_lineage(
 ) -> _ColumnLineageWithDebugInfo:
     # Simplify the input statement for column-level lineage generation.
     try:
-        select_statement = _try_extract_select(statement, dialect=dialect)
+        select_statement = _try_extract_select(statement)
     except Exception as e:
         raise SqlUnderstandingError(
             f"Failed to extract select from statement: {e}"
@@ -1671,6 +1735,17 @@ def _column_level_lineage(
         )
 
     assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
+    insert_columns = _get_insert_column_list(statement)
+    if insert_columns and isinstance(select_statement, sqlglot.exp.Query):
+        target_names = _alias_projections_to_insert_columns(
+            select_statement,
+            insert_columns,
+            dialect=dialect,
+            column_resolver=column_resolver,
+        )
+        if target_names:
+            explicit_synthetic_aliases |= {name.lower() for name in target_names}
+
     try:
         root_scope = sqlglot.optimizer.build_scope(select_statement)
         if root_scope is None:
@@ -2310,7 +2385,6 @@ def _extract_select_from_update(
 
 def _try_extract_select(
     statement: sqlglot.exp.Expression,
-    dialect: Optional[sqlglot.Dialect] = None,
 ) -> sqlglot.exp.Expression:
     # Try to extract the core select logic from a more complex statement.
     # If it fails, just return the original statement.
@@ -2325,54 +2399,9 @@ def _try_extract_select(
     elif isinstance(statement, sqlglot.exp.Insert):
         # Preserve CTEs when extracting the SELECT expression from INSERT
         original_ctes = statement.ctes
-        select_statement = (
-            statement.expression
-        )  # Get the SELECT expression from the INSERT
-
-        # MSSQL-specific: Map INSERT column names to SELECT column names
-        # This fixes column lineage when INSERT columns != SELECT columns
-        # Example: INSERT INTO t (col_a) SELECT col_b FROM src
-        #   Should create: downstream=col_a, upstream=col_b
-        #   Without fix:   downstream=col_b, upstream=col_b (WRONG!)
-        if (
-            dialect
-            and is_dialect_instance(dialect, "tsql")
-            and statement.this
-            and hasattr(statement.this, "expressions")
-            and statement.this.expressions
-            and isinstance(select_statement, sqlglot.exp.Select)
-        ):
-            insert_columns = statement.this.expressions
-            select_expressions = select_statement.expressions
-
-            # Only apply mapping if column counts match
-            if len(insert_columns) == len(select_expressions):
-                # Create new SELECT with INSERT column names as explicit Alias nodes
-                # This ensures the alias survives sqlglot's optimizer
-                new_selects = []
-                for insert_col, select_expr in zip(
-                    insert_columns, select_expressions, strict=False
-                ):
-                    insert_col_name = (
-                        insert_col.alias_or_name
-                        if hasattr(insert_col, "alias_or_name")
-                        else str(insert_col)
-                    )
-                    # Create an explicit Alias node: expr AS insert_col_name
-                    # The Alias node should survive optimization better than just setting alias property
-                    aliased_expr = sqlglot.exp.Alias(
-                        # Defensive copy to preserve the original statement in case the aliased ones need to be mutated
-                        this=select_expr.copy(),
-                        alias=sqlglot.exp.to_identifier(insert_col_name),
-                    )
-                    new_selects.append(aliased_expr)
-
-                # Replace SELECT expressions with aliased versions
-                # Defensive copy to preserve the original statement before mutating it
-                select_statement = select_statement.copy()
-                select_statement.set("expressions", new_selects)
-
-        statement = select_statement
+        # A column list (`INSERT INTO t (a, b) SELECT ...`) is applied once the
+        # projections are qualified; see _alias_projections_to_insert_columns.
+        statement = statement.expression
         if isinstance(statement, sqlglot.exp.Query) and original_ctes:
             for cte in original_ctes:
                 statement = statement.with_(alias=cte.alias, as_=cte.this)
