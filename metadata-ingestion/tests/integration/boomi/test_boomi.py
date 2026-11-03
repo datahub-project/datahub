@@ -594,6 +594,8 @@ def test_boomi_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
         ]
         # Orders Extract and Salesforce Accounts share the Postgres connection.
         assert component_gets.count(POSTGRES_CONNECTION) == 1
+        # Get orders and Query order lines share the Snowflake JDBC connection.
+        assert component_gets.count(SNOWFLAKE_JDBC_CONNECTION) == 1
         # Operations of skipped connectors are never read.
         assert GET_POSTS_OPERATION not in component_gets
         execution_query = next(
