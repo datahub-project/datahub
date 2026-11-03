@@ -125,6 +125,29 @@ def passes_dremio_filters(
     return True
 
 
+# These source types list every database as a folder under the source, even
+# when the source config names a (default) database, so the database is already
+# the first path component. Others (Postgres, Redshift, Vertica, ...) connect to
+# one database and list only its schemas.
+_DREMIO_TYPES_WITH_DATABASE_IN_PATH = {
+    "mssql",
+    "mysql",
+    "snowflake",
+    "synapse",
+    "teradata",
+}
+
+
+def _match_connector_urn_case(platform: str, name: str) -> str:
+    """Apply the target connector's default URN casing so the upstream resolves."""
+    platform = platform.lower()
+    if platform == "snowflake":  # convert_urns_to_lowercase defaults to True
+        return name.lower()
+    if platform == "oracle":  # SQLAlchemy normalize_name lowercases UPPERCASE names
+        return ".".join(p.lower() if p.isupper() else p for p in name.split("."))
+    return name
+
+
 @dataclass
 class DremioSourceMapEntry:
     platform: str
@@ -819,8 +842,9 @@ class DremioSource(StatefulIngestionSourceBase):
         else:
             if mapping.database_name:
                 database_name = f"{mapping.database_name}."
-            dremio_dataset = (
-                f"{database_name}{'.'.join(dremio_path[1:])}.{dremio_dataset}"
+            dremio_dataset = _match_connector_urn_case(
+                platform,
+                f"{database_name}{'.'.join(dremio_path[1:])}.{dremio_dataset}",
             )
 
         if platform_instance:
@@ -880,7 +904,12 @@ def build_dremio_source_map(
         source_category = mapper.lookup_category(source_type)
         datahub_platform = mapper.lookup_datahub_platform(source_type)
         root_path = source.root_path.lower() if source.root_path else ""
-        database_name = source.database_name.lower() if source.database_name else ""
+        database_name = (
+            source.database_name.lower()
+            if source.database_name
+            and source_type not in _DREMIO_TYPES_WITH_DATABASE_IN_PATH
+            else ""
+        )
         source_present = False
 
         for mapping in source_mappings_config:
