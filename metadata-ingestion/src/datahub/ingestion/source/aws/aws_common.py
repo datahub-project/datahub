@@ -346,7 +346,7 @@ class AwsConnectionConfig(ConfigModel):
 
     aws_advanced_config: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Advanced AWS configuration options. These are passed directly to [botocore.config.Config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html).",
+        description="Advanced AWS configuration options. These are passed directly to [botocore.config.Config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html). `max_pool_connections` defaults to 25 rather than botocore's 10; raise it when more threads than that share one client, e.g. dbt `artifact_read_concurrency` above 25.",
     )
 
     def allowed_cred_refresh(self) -> bool:

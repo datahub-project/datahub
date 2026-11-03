@@ -78,7 +78,7 @@ class AzureConnectionConfig(ConfigModel):
             file_system=self.container_name
         )
 
-    def get_blob_service_client(self):
+    def get_blob_service_client(self) -> BlobServiceClient:
         with self._client_lock:
             if self._blob_service_client is None:
                 self._blob_service_client = (

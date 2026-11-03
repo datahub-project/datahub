@@ -2,6 +2,7 @@ import copy
 import json
 import os
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -635,6 +636,37 @@ class TestAwsCommon:
             client2 = config.get_s3_client()
             assert client2 is not client1
             assert config.get_s3_client() is client2
+
+    @mock_aws
+    def test_get_s3_client_uses_new_role_keys_after_glue_refresh(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The same path with real sessions and STS: a refresh triggered by
+        get_glue_client must not leave get_s3_client signing with the old keys."""
+        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+        monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+        # Not on EC2, so ambient-identity detection doesn't call the metadata service.
+        monkeypatch.setattr(
+            "datahub.ingestion.source.aws.aws_common.get_instance_metadata_token",
+            lambda: None,
+        )
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+
+        client1: Any = config.get_s3_client()
+        old_key = client1._request_signer._credentials.access_key
+
+        config._credentials_expiration = datetime.now(timezone.utc) - timedelta(
+            minutes=1
+        )
+        config.get_glue_client()
+
+        client2: Any = config.get_s3_client()
+        assert client2 is not client1
+        assert client2._request_signer._credentials.access_key != old_key
+        assert config.get_s3_client() is client2
 
     def test_get_s3_client_cached_when_role_matches_ambient_identity(self):
         """
