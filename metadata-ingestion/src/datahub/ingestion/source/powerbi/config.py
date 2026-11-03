@@ -440,8 +440,10 @@ class AthenaPlatformOverride(ConfigModel):
     """
     Configuration for overriding the platform of Athena federated tables.
 
-    Use this when Athena queries data from federated sources (e.g., MySQL, PostgreSQL)
-    and you want the lineage to point to the actual source platform instead of Athena.
+    Use this when Athena queries data from federated sources (e.g., MySQL) and you
+    want the lineage to point to the actual source platform instead of Athena. The
+    rewritten URN keeps Athena's database.table name, so it only matches targets whose
+    own source plugin emits two-part names.
     """
 
     database: str = pydantic.Field(
@@ -454,7 +456,10 @@ class AthenaPlatformOverride(ConfigModel):
     )
     platform: str = pydantic.Field(
         min_length=1,
-        description="The target DataHub platform name (e.g., 'mysql', 'postgres').",
+        description="The target DataHub platform name (e.g., 'mysql'). The URN keeps "
+        "Athena's database.table name, so only targets whose source plugin emits "
+        "two-part names match; a three-tier target such as 'postgres' (which emits "
+        "database.schema.table) never joins.",
     )
     dsn: Optional[str] = pydantic.Field(
         default=None,
@@ -663,8 +668,10 @@ class PowerBiDashboardSourceConfig(
         default=[],
         description="List of platform overrides for Athena federated queries. "
         "Use this to override the platform when Athena queries data from federated sources "
-        "(e.g., MySQL, PostgreSQL) via ODBC. The lineage will point to the actual source "
-        "platform instead of Athena. "
+        "(e.g., MySQL) via ODBC. The lineage will point to the actual source "
+        "platform instead of Athena. The rewritten URN keeps the database.table name, "
+        "so only targets whose source plugin emits two-part names (not three-tier "
+        "platforms such as Postgres) match. "
         "This override is applied AFTER catalog stripping, so use 2-part names "
         "(database.table), not 3-part names (catalog.database.table). "
         "Overrides with a DSN specified take precedence over those without.",

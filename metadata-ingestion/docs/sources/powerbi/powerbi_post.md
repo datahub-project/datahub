@@ -228,7 +228,9 @@ and empty resolutions are reported as warnings under `SQL Parsing Failure`.
 
 #### Athena Federated Query Platform Override
 
-When using Amazon Athena via ODBC that queries federated data sources (e.g., Athena querying MySQL or PostgreSQL via federated connectors), the lineage URNs will default to the Athena platform. Use `athena_table_platform_override` to point lineage to the actual source platform instead of Athena.
+When using Amazon Athena via ODBC that queries federated data sources (e.g., Athena querying MySQL via a federated connector), the lineage URNs will default to the Athena platform. Use `athena_table_platform_override` to point lineage to the actual source platform instead of Athena.
+
+The rewritten URN keeps Athena's `database.table` name, so it only matches a target whose own source plugin emits two-part names, such as MySQL. A three-tier target such as Postgres emits `database.schema.table`, so an override to it never connects.
 
 **Configuration:**
 
@@ -249,7 +251,7 @@ source:
       # Global entry (fallback for any DSN)
       - database: reporting
         table: orders
-        platform: postgres
+        platform: mysql
 ```
 
 **Fields:**
