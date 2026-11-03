@@ -141,6 +141,21 @@ XML_ATTR_KEY = "key"
 XML_ATTR_TO_SHAPE = "toShape"
 XML_ELEMENT_DRAGPOINT = "dragpoint"
 SHAPE_TYPE_MAP = "map"
+SHAPE_TYPE_PROCESS_ROUTE = "processroute"
+SHAPE_TYPE_STOP = "stop"
+SHAPE_TYPE_RETURN_DOCUMENTS = "returndocuments"
+SHAPE_TYPE_EXCEPTION = "exception"
+# Shapes that hand documents to another process or end the flow, so the
+# documents after them are not the ones a Map before them produced.
+FLOW_BREAK_SHAPE_TYPES = frozenset(
+    {
+        SHAPE_TYPE_PROCESS_CALL,
+        SHAPE_TYPE_PROCESS_ROUTE,
+        SHAPE_TYPE_STOP,
+        SHAPE_TYPE_RETURN_DOCUMENTS,
+        SHAPE_TYPE_EXCEPTION,
+    }
+)
 XML_ELEMENT_MAP_SHAPE = "map"
 XML_ATTR_MAP_ID = "mapId"
 
@@ -324,6 +339,9 @@ class ColumnSkipReason(StrEnum):
     INSERT_WITHOUT_COLUMN_LIST = "insert_without_column_list"
     # A map field targets a column the write's own SQL fills from a table.
     WRITTEN_BY_SQL = "written_by_sql"
+    # The parser does not tie a MERGE's INSERT and UPDATE branches to the
+    # target table's columns.
+    MERGE_STATEMENT = "merge_statement"
 
 
 class MapSkipReason(StrEnum):

@@ -1177,7 +1177,7 @@
                 "modifiedDate": "2026-11-02T20:39:43+00:00",
                 "folderFullPath": "Test Account/DataHub Test/Orders"
             },
-            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=7d88f56c-bf97-4760-ba61-170b6b0f6e8c",
+            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=7d88f56c-bf97-4760-ba61-170b6b0f6e8c;componentIdOnFocus=7d88f56c-bf97-4760-ba61-170b6b0f6e8c",
             "name": "DH Test - RNA to My Table",
             "description": "Legacy DB Get (rnc_database) -> Map -> DB Send (my_table)",
             "created": {
@@ -1314,7 +1314,7 @@
                 "modifiedDate": "2026-11-02T20:40:35+00:00",
                 "folderFullPath": "Test Account/DataHub Test/Orders"
             },
-            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=c7b70264-535d-423f-9f17-e80bc777dd17",
+            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=c7b70264-535d-423f-9f17-e80bc777dd17;componentIdOnFocus=c7b70264-535d-423f-9f17-e80bc777dd17",
             "name": "DH Test - SF to My Table",
             "description": "Salesforce Account query -> Map -> DB Send (my_table)",
             "created": {

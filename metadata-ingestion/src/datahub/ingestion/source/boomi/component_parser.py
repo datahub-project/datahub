@@ -9,6 +9,7 @@ from datahub.ingestion.source.boomi.constants import (
     FIELD_ID_QUERY,
     FIELD_ID_SCHEMA_NAME,
     FIELD_ID_URL,
+    FLOW_BREAK_SHAPE_TYPES,
     GENERIC_OPERATION_PROFILE_ATTRIBUTES,
     GET_ACTION_SUFFIX,
     JDBC_VALUE_PREFIX,
@@ -173,6 +174,7 @@ def parse_process_component(xml_text: str) -> ProcessComponentInfo:
     process_call_ids: List[str] = []
     map_shapes: List[MapShape] = []
     next_shapes: Dict[str, List[str]] = {}
+    flow_break_shapes: List[str] = []
     for shape in _iter_local(root, XML_ELEMENT_SHAPE):
         shape_type = _attr(shape, XML_ATTR_SHAPE_TYPE)
         shape_name = _attr(shape, XML_ATTR_NAME)
@@ -182,6 +184,8 @@ def parse_process_component(xml_text: str) -> ProcessComponentInfo:
                 for dragpoint in _iter_local(shape, XML_ELEMENT_DRAGPOINT)
             ]
             next_shapes[shape_name] = [target for target in targets if target]
+            if shape_type in FLOW_BREAK_SHAPE_TYPES:
+                flow_break_shapes.append(shape_name)
         if shape_type == SHAPE_TYPE_CONNECTOR_ACTION:
             action = _find_local(shape, XML_ELEMENT_CONNECTOR_ACTION)
             if action is not None:
@@ -211,6 +215,7 @@ def parse_process_component(xml_text: str) -> ProcessComponentInfo:
         process_call_ids=process_call_ids,
         map_shapes=map_shapes,
         next_shapes=next_shapes,
+        flow_break_shapes=flow_break_shapes,
     )
 
 

@@ -127,6 +127,8 @@ class ProcessComponentInfo(BaseModel):
     map_shapes: List[MapShape] = Field(default_factory=list)
     # Shape name -> names of the shapes its dragpoints lead to.
     next_shapes: Dict[str, List[str]] = Field(default_factory=dict)
+    # Names of shapes that a Map's documents cannot be followed through.
+    flow_break_shapes: List[str] = Field(default_factory=list)
 
 
 class ConnectionComponent(BaseModel):

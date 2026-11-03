@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
@@ -473,6 +474,144 @@ def test_insert_select_columns_take_precedence_over_map_edges() -> None:
     assert report.column_lineage_fields_skipped["written_by_sql"] == 1
 
 
+SHAPE4_SEND = 'operationId="a061ed55-80de-4cfe-9fe5-073ca8cb2370" parameter-profile="EMBEDDED|databaseparameterchooser|9edcf033-37ff-409d-8a92-c4382f5d6689|a061ed55-80de-4cfe-9fe5-073ca8cb2370"'
+RNA_SHAPES_END = "</shapes>"
+
+
+def _with_shape(xml: str, shape: str) -> str:
+    assert RNA_SHAPES_END in xml
+    return xml.replace(RNA_SHAPES_END, shape + RNA_SHAPES_END, 1)
+
+
+def test_sql_columns_of_one_write_keep_map_edges_into_another() -> None:
+    # A second write to my_table fills rna_db_id from staging_orders. The map
+    # feeds the first write only, so its edge into rna_db_id is kept.
+    components = _components()
+    components["send-2"] = components[MY_TABLE_SEND].replace(
+        MY_TABLE_PROFILE, "profile-2"
+    )
+    components["profile-2"] = (
+        components[MY_TABLE_PROFILE]
+        .replace(
+            "INSERT INTO my_table (rna_db_id, rna_db_label, loaded_at) VALUES (?, ?, ?)",
+            "INSERT INTO my_table (rna_db_id) SELECT id FROM staging_orders",
+        )
+        .replace('statementType="dynamicinsert"', 'statementType="standardinsert"')
+    )
+    process = components[RNA_PROCESS]
+    shape4_start = process.index('<shape image="connectoraction_icon" name="shape4"')
+    shape4 = process[shape4_start : process.index("</shape>", shape4_start)]
+    shape7 = re.sub(
+        "<dragpoints>.*</dragpoints>",
+        "<dragpoints/>",
+        shape4.replace('name="shape4"', 'name="shape7"').replace(
+            SHAPE4_SEND, 'operationId="send-2"'
+        ),
+    )
+    components[RNA_PROCESS] = _with_shape(process, shape7 + "</shape>")
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    # The SQL edge and the map's direct edge share a transform, so they merge.
+    assert (
+        _edge([(SOURCE, "id"), (RNA_TABLE, "id")], (MY_TABLE, "rna_db_id"), "IDENTITY")
+        in lineage.column_lineage
+    )
+    assert "written_by_sql" not in report.column_lineage_fields_skipped
+
+
+def test_merge_write_gives_table_lineage_only() -> None:
+    components = _components(
+        **{
+            MY_TABLE_PROFILE: {
+                "INSERT INTO my_table (rna_db_id, rna_db_label, loaded_at) VALUES (?, ?, ?)": (
+                    # The parser names the written columns after the USING
+                    # query's outputs (rna_db_id, lbl), not the INSERT list.
+                    "MERGE INTO my_table USING (SELECT id AS rna_db_id, "
+                    "display_name AS lbl FROM staging_orders) s "
+                    "ON my_table.rna_db_id = s.rna_db_id "
+                    "WHEN NOT MATCHED THEN INSERT (rna_db_id, rna_db_label) "
+                    "VALUES (s.rna_db_id, s.lbl)"
+                ),
+                'statementType="dynamicinsert"': 'statementType="standardinsert"',
+            },
+            RNA_PROCESS: {f'mapId="{RNA_MAP}"': 'mapId="missing-map"'},
+        }
+    )
+    components["missing-map"] = components[RNA_MAP].replace(
+        f'toProfile="{MY_TABLE_PROFILE}"', 'toProfile="other"'
+    )
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    assert SOURCE in lineage.input_datasets
+    assert MY_TABLE in lineage.output_datasets
+    assert lineage.column_lineage == []
+    assert report.column_lineage_fields_skipped["merge_statement"] == 2
+
+
+@pytest.mark.parametrize("shape_type", ["processcall", "processroute"])
+def test_map_does_not_reach_a_write_past_a_process_handoff(shape_type: str) -> None:
+    components = _components(
+        **{
+            RNA_PROCESS: {
+                'name="shape3.dragpoint1" toShape="shape4"': 'name="shape3.dragpoint1" toShape="shape6"'
+            }
+        }
+    )
+    components[RNA_PROCESS] = _with_shape(
+        components[RNA_PROCESS],
+        f'<shape image="{shape_type}_icon" name="shape6" shapetype="{shape_type}" '
+        'userlabel="" x="600.0" y="48.0"><configuration><processcall '
+        'processId="child-process" wait="true"/></configuration><dragpoints>'
+        '<dragpoint name="shape6.dragpoint1" toShape="shape4" x="700.0" y="56.0"/>'
+        "</dragpoints></shape>",
+    )
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    assert MY_TABLE in lineage.output_datasets
+    assert lineage.column_lineage == []
+    assert report.column_lineage_maps_skipped["no_matching_write"] == 1
+
+
+def test_unset_dragpoint_is_a_dead_end() -> None:
+    components = _components(
+        **{
+            RNA_PROCESS: {
+                'name="shape3.dragpoint1" toShape="shape4"': 'name="shape3.dragpoint1" toShape="unset"'
+            }
+        }
+    )
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    assert MY_TABLE in lineage.output_datasets
+    assert lineage.column_lineage == []
+    assert not lineage.incomplete
+    assert report.column_lineage_maps_skipped["no_matching_write"] == 1
+
+
+def test_gui_process_with_only_a_start_shape() -> None:
+    xml = (
+        Path(__file__).parent / "fixtures" / "gui_start_only_process.xml"
+    ).read_text()
+    info = parse_process_component(xml)
+    assert info.next_shapes == {"shape1": ["unset"]}
+    assert info.flow_break_shapes == []
+
+    lineage, report = _resolve("gui", {"gui": xml})
+
+    assert lineage == ProcessLineage(
+        input_datasets=[],
+        output_datasets=[],
+        child_process_ids=[],
+        column_lineage=[],
+        incomplete=False,
+    )
+    assert not report.failures and not report.warnings
+
+
 def test_write_sql_fields_must_be_in_insert_column_list() -> None:
     components = _components(
         **{
@@ -706,6 +845,11 @@ def test_graph_schema_sets_column_casing_and_drops_unknown_columns() -> None:
         (
             "INSERT INTO my_table (a, b) SELECT x FROM src",
             InsertColumns(parsed=True, is_insert=True, by_output={}),
+        ),
+        (
+            "MERGE INTO my_table t USING src s ON t.a = s.a "
+            "WHEN NOT MATCHED THEN INSERT (a) VALUES (s.a)",
+            InsertColumns(parsed=True, is_merge=True),
         ),
         # An output name used twice cannot be tied to one column.
         (

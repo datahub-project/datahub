@@ -169,6 +169,7 @@ def _normalize_location(location: JdbcLocation) -> JdbcLocation:
 class InsertColumns:
     parsed: bool
     is_insert: bool = False
+    is_merge: bool = False
     # Lowercased SELECT output name -> target column. None when the INSERT has
     # no column list, so its target columns are not known.
     by_output: Optional[Dict[str, str]] = None
@@ -203,6 +204,8 @@ def insert_columns(sql: str, platform: str) -> InsertColumns:
     statement = _parse_sql(sql, platform)
     if statement is None:
         return InsertColumns(parsed=False)
+    if isinstance(statement, sqlglot.exp.Merge):
+        return InsertColumns(parsed=True, is_merge=True)
     if not isinstance(statement, sqlglot.exp.Insert):
         return InsertColumns(parsed=True)
     if not isinstance(statement.this, sqlglot.exp.Schema):
@@ -295,6 +298,7 @@ class _ShapeDatasets:
 
 @dataclass
 class _ResolvedShape:
+    shape_name: str
     sub_type: str
     target: ConnectionTarget
     operation: OperationComponent
@@ -320,9 +324,9 @@ class _ProcessEdges:
     resolved: Dict[str, _ResolvedShape] = field(default_factory=dict)
     # (downstream field URN, transform) -> upstream field URNs.
     columns: Dict[Tuple[str, str], Set[str]] = field(default_factory=dict)
-    # Downstream field URNs that a write's own SQL fills from the tables it
-    # reads, such as INSERT ... SELECT.
-    sql_columns: Set[str] = field(default_factory=set)
+    # (write shape name, downstream field URN) for the columns a write's own
+    # SQL fills from the tables it reads, such as INSERT ... SELECT.
+    sql_columns: Set[Tuple[str, str]] = field(default_factory=set)
 
     def add_column_edge(
         self, upstreams: Iterable[str], downstream: str, transform: str
@@ -445,6 +449,7 @@ class BoomiLineageResolver:
         )
         if shape.shape_name:
             edges.resolved[shape.shape_name] = _ResolvedShape(
+                shape_name=shape.shape_name,
                 sub_type=sub_type,
                 target=target,
                 operation=operation,
@@ -457,7 +462,12 @@ class BoomiLineageResolver:
             and operation.direction == OperationDirection.WRITE
         ):
             self._add_sql_column_lineage(
-                datasets.sql, datasets.sql_result, sub_type, target, edges
+                shape.shape_name,
+                datasets.sql,
+                datasets.sql_result,
+                sub_type,
+                target,
+                edges,
             )
 
     def _resolve_target(
@@ -659,6 +669,7 @@ class BoomiLineageResolver:
 
     def _add_sql_column_lineage(
         self,
+        shape_name: Optional[str],
         sql: str,
         result: SqlParsingResult,
         sub_type: str,
@@ -673,6 +684,10 @@ class BoomiLineageResolver:
         if not written:
             return
         insert = insert_columns(sql, target.platform)
+        if insert.is_merge:
+            for _ in written:
+                self._skip_column(ColumnSkipReason.MERGE_STATEMENT)
+            return
         for info in written:
             column: Optional[str] = info.downstream.column or None
             if not insert.parsed:
@@ -712,7 +727,8 @@ class BoomiLineageResolver:
                 else TRANSFORM_SQL
             )
             edges.add_column_edge(resolved, downstream, transform)
-            edges.sql_columns.add(downstream)
+            if shape_name:
+                edges.sql_columns.add((shape_name, downstream))
 
     def _resolve_map_shape(
         self, info: ProcessComponentInfo, map_shape: MapShape, edges: _ProcessEdges
@@ -758,24 +774,22 @@ class BoomiLineageResolver:
         if not sources:
             self._skip_map(MapSkipReason.UNSUPPORTED_SOURCE)
             return
-        targets = [
-            columns
-            for columns in (self._target_columns(write, to_profile) for write in writes)
-            if columns is not None
-        ]
+        targets: List[Tuple[str, _FieldColumns]] = []
+        for write in writes:
+            columns = self._target_columns(write, to_profile)
+            if columns is not None:
+                targets.append((write.shape_name, columns))
         if not targets:
             self._skip_map(MapSkipReason.UNSUPPORTED_TARGET)
             return
         self.report.column_lineage_maps_resolved += 1
         field_edges = map_field_edges(component)
         for field_edge in field_edges:
-            downstreams = [
-                columns[0]
-                for columns in (
-                    self._columns_for(target, field_edge.to_key) for target in targets
-                )
-                if columns
-            ]
+            downstreams: List[Tuple[str, str]] = []
+            for write_name, target in targets:
+                target_urns = self._columns_for(target, field_edge.to_key)
+                if target_urns:
+                    downstreams.append((write_name, target_urns[0]))
             if not downstreams:
                 continue
             upstreams = [
@@ -786,11 +800,11 @@ class BoomiLineageResolver:
             ]
             if not upstreams:
                 continue
-            for downstream in downstreams:
+            for write_name, downstream in downstreams:
                 # The write's SQL decides what lands in the columns it fills
                 # from other tables, so a document field mapped to the same
-                # column is not what the table receives.
-                if downstream in edges.sql_columns:
+                # column through that write is not what the table receives.
+                if (write_name, downstream) in edges.sql_columns:
                     self._skip_column(ColumnSkipReason.WRITTEN_BY_SQL)
                     continue
                 edges.add_column_edge(upstreams, downstream, field_edge.transform)
@@ -803,7 +817,9 @@ class BoomiLineageResolver:
         forward: bool,
     ) -> List[_ResolvedShape]:
         # The connector shapes whose documents reach the map, or that the map's
-        # documents reach, without passing another connector or map shape.
+        # documents reach, without passing another connector or map shape or a
+        # shape that hands the documents off. A dragpoint to an unknown shape,
+        # such as "unset" on an unconnected one, is a dead end.
         links: Dict[str, List[str]] = {}
         if forward:
             links = info.next_shapes
@@ -814,7 +830,8 @@ class BoomiLineageResolver:
         connectors = {
             shape.shape_name for shape in info.connector_actions if shape.shape_name
         }
-        maps = {shape.shape_name for shape in info.map_shapes}
+        barriers = {shape.shape_name for shape in info.map_shapes}
+        barriers.update(info.flow_break_shapes)
         seen = {start}
         pending = [start]
         found: List[str] = []
@@ -825,7 +842,7 @@ class BoomiLineageResolver:
                 seen.add(name)
                 if name in connectors:
                     found.append(name)
-                elif name not in maps:
+                elif name not in barriers:
                     pending.append(name)
         return [
             edges.resolved[name] for name in sorted(found) if name in edges.resolved

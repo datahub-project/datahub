@@ -90,7 +90,7 @@ When an operation has no table or SQL cannot be parsed, the edge is skipped rath
 
 With `include_column_lineage: true` (the default) and `include_lineage` enabled, the source plugin adds column lineage to the process DataJob from two places.
 
-**Map shapes.** For each Map shape, the source plugin reads the Map component and looks along the shape's connectors for the nearest Connector shapes before and after it. A read counts when its operation uses the Map's source profile, and a write counts when its operation uses the Map's destination profile, so a map is never tied to a connector by position alone. Within the map:
+**Map shapes.** For each Map shape, the source plugin reads the Map component and looks along the shape's connectors for the nearest Connector shapes before and after it. The search stops at Process Call, Process Route, Stop, Return Documents and Exception shapes, so no column lineage crosses into or out of another process. A read counts when its operation uses the Map's source profile, and a write counts when its operation uses the Map's destination profile, so a map is never tied to a connector by position alone. Within the map:
 
 - A field mapped straight to another field gives an `IDENTITY` edge.
 - A function with fields as inputs gives an edge from every input field to each destination field it feeds. The transform is the function type, for example `StringConcat`.
@@ -107,7 +107,7 @@ Profile fields become columns as follows. Operations of connectors resolved from
 
 Database column names follow the casing of the table name, so they are lowercased unless `convert_urns_to_lowercase` is `false` for the connection. Salesforce field names keep their case. When the source plugin runs with a DataHub graph, for example through the DataHub sink or `datahub_api`, it reads each dataset's schema and uses the stored field path. A column that is not in a stored schema is skipped.
 
-**SQL.** When a database operation writes with `INSERT ... SELECT`, the column lineage of the parsed statement is used. The parser names the written columns after the SELECT's outputs, so they are matched to the INSERT's column list by position. An `INSERT ... SELECT` without a column list gives no column lineage, because its target columns cannot be known without the table's schema. A column the statement fills from a table takes its lineage from the SQL only, so a Map edge into the same column is skipped and counted as `written_by_sql`. A `MERGE` gives table lineage only.
+**SQL.** When a database operation writes with `INSERT ... SELECT`, the column lineage of the parsed statement is used. The parser names the written columns after the SELECT's outputs, so they are matched to the INSERT's column list by position. An `INSERT ... SELECT` without a column list gives no column lineage, because its target columns cannot be known without the table's schema. A column the statement fills from a table takes its lineage from the SQL only, so a Map edge into the same column through the same write is skipped and counted as `written_by_sql`. A `MERGE` gives table lineage only, and its columns are counted as `merge_statement`.
 
 Anything that cannot be tied to a concrete column is skipped rather than guessed. Skipped fields are counted by reason in `column_lineage_fields_skipped`, and maps without a matching read or write, or with a connector that has no column support, in `column_lineage_maps_skipped`. If a Map component or a profile it needs cannot be read, the process's lineage is left out of the run, as for other components.
 
