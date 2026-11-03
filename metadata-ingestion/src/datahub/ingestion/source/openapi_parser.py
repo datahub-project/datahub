@@ -156,7 +156,12 @@ def request_call(
 
 def redact_url(url: str) -> str:
     """Drop userinfo, query and fragment, which may carry credentials or API keys."""
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        # e.g. an unbalanced IPv6 bracket; this runs while reporting a failure,
+        # so it must not raise.
+        return "<unparseable URL>"
     host = parts.netloc.rsplit("@", 1)[-1]
     return urlunsplit((parts.scheme, host, parts.path, "", ""))
 
@@ -1736,6 +1741,12 @@ def get_schema_from_response(
     # $ref with sibling keywords under "items" is not silently dropped.
     if response_schema.get("type") == "array":
         items_schema = response_schema.get("items", {})
+        if isinstance(items_schema, list):
+            # Tuple form: normalization collapses the positions into one anyOf.
+            resolved_array = resolve_schema_references(
+                {"type": "array", "items": items_schema}, sw_dict, max_depth
+            )
+            return resolved_array["items"]
         if not isinstance(items_schema, dict):
             # A bare `true`/`false` "items" schema carries no extractable fields
             # here, same as a bare boolean top-level schema above -- and

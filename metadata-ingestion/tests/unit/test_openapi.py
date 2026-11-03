@@ -33,6 +33,7 @@ from datahub.ingestion.source.openapi_parser import (
     guessing_url_name,
     maybe_theres_simple_id,
     merge_allof_schemas,
+    redact_url,
     request_call,
     resolve_schema_references,
     try_guessing,
@@ -3711,6 +3712,9 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertNotIn("secret", str(ctx.exception))
         self.assertIn("https://api.example.com/openapi.json", str(ctx.exception))
 
+    def test_redact_url_unparseable_does_not_raise(self):
+        self.assertEqual(redact_url("http://[::1/spec"), "<unparseable URL>")
+
     def test_get_swag_json_raises_on_non_dict_document(self):
         # Regression: a valid JSON/YAML document that isn't an object (e.g. a
         # bare list) is not a valid OpenAPI/Swagger spec, but used to be
@@ -5127,3 +5131,11 @@ def test_tuple_items_refs_resolved() -> None:
     }
     resolved = resolve_schema_references(schema, _ITEM_ID_ONLY_SW)
     assert resolved["items"]["anyOf"][0]["properties"] == {"id": {"type": "string"}}
+
+
+def test_tuple_items_top_level_response_extracted() -> None:
+    schema = get_schema_from_response(
+        {"type": "array", "items": [{"$ref": "#/components/schemas/Item"}]},
+        _ITEM_ID_ONLY_SW,
+    )
+    assert schema == {"type": "object", "properties": {"id": {"type": "string"}}}
