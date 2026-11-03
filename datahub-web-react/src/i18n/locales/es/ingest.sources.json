@@ -70,7 +70,7 @@
     "sources.snowflake.description": "Importar Tables, Views, Databases, Schemas, Lineage, Consultas y estadísticas desde Snowflake.",
     "sources.snowplow.description": "Importar Schemas, Event Specifications, Tracking Plans, Pipelines y Enrichments desde Snowplow BDP.",
     "sources.spark.description": "Importar Pipelines, Jobs y Lineage a nivel de columna desde Spark.",
-    "sources.sqs.description": "Importar colas, etiquetas y lineage de colas de mensajes fallidos desde Amazon SQS.",
+    "sources.sqs.description": "Importar colas, etiquetas y Lineage de colas de mensajes fallidos desde Amazon SQS.",
     "sources.starrocks.description": "Importar Tables, Views, Databases, Schemas y estadísticas desde StarRocks.",
     "sources.superset.description": "Importar Charts y Dashboards desde Superset.",
     "sources.tableau.description": "Importar Orígenes de datos, Workbooks, Worksheets, Tags, Dashboards y Lineage desde Tableau.",
