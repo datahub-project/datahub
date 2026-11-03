@@ -57,6 +57,22 @@ public class WiringCoverageTest extends AbstractTestNGSpringContextTests {
     }
   }
 
+  @Configuration
+  public static class ParentConfig {
+    @Bean
+    public RealService inheritedService() {
+      return new RealService();
+    }
+  }
+
+  @Configuration
+  public static class ChildConfig extends ParentConfig {
+    @Bean
+    public static RunnerService staticService() {
+      return new RunnerService();
+    }
+  }
+
   @MockitoBean private MockedService mockedService;
 
   @Autowired private RealService realService;
@@ -82,6 +98,21 @@ public class WiringCoverageTest extends AbstractTestNGSpringContextTests {
     assertTrue(
         recorded().contains("M " + RunnerConfig.class.getName() + "#runnerService"),
         recorded().toString());
+  }
+
+  @Test
+  public void creditsInheritedAndStaticBeanMethodsToTheLoadedClass() throws IOException {
+    new ApplicationContextRunner()
+        .withInitializer(WiringCoverage.initializer())
+        .withUserConfiguration(ChildConfig.class)
+        .run(context -> context.getBean(RunnerService.class));
+    Set<String> lines = recorded();
+    String child = ChildConfig.class.getName();
+    assertTrue(lines.contains("M " + child + "#inheritedService"), lines.toString());
+    assertTrue(lines.contains("M " + child + "#staticService"), lines.toString());
+    assertFalse(
+        lines.stream().anyMatch(l -> l.startsWith("M " + ParentConfig.class.getName() + "#")),
+        lines.toString());
   }
 
   private static Set<String> recorded() throws IOException {

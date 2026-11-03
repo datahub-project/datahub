@@ -42,7 +42,8 @@ import org.objectweb.asm.Opcodes;
  *
  * <p>A <em>configuration class</em> is a concrete class annotated with {@code @Configuration}
  * (directly or through {@code @SpringBootApplication} and friends) or one that declares {@code @Bean}
- * methods. It counts as covered when a test context invoked one of its own {@code @Bean} methods
+ * methods. Annotations meta-annotated with {@code @Configuration} are recognised when they are one
+ * of the well-known Spring ones or are declared in the same module. It counts as covered when a test context invoked one of its own {@code @Bean} methods
  * for real (a {@code @MockitoBean} replacement does not count), or, for classes without {@code
  * @Bean} methods, when a test context instantiated it.
  */
@@ -64,9 +65,12 @@ public abstract class WiringCoverageCheck extends DefaultTask {
   @IgnoreEmptyDirectories
   public abstract ConfigurableFileCollection getClassesDirs();
 
-  /** Files written by the test-side recorder ({@code :wiring-coverage}). */
+  /**
+   * Files written by the test-side recorder ({@code :wiring-coverage}). Their names are random per
+   * test JVM, so only contents are fingerprinted.
+   */
   @InputFiles
-  @PathSensitive(PathSensitivity.RELATIVE)
+  @PathSensitive(PathSensitivity.NONE)
   public abstract ConfigurableFileCollection getRecordings();
 
   /** The checked-in baseline. Read through {@link #getBaselineContents()} so it may be absent. */
@@ -112,7 +116,8 @@ public abstract class WiringCoverageCheck extends DefaultTask {
             beanMethods.stream()
                 .filter(m -> !recorded.contains("M " + cls + "#" + m))
                 .collect(Collectors.toCollection(TreeSet::new));
-        isCovered = uncalled.size() < beanMethods.size();
+        // Any @Bean method run on behalf of this class counts, including inherited ones.
+        isCovered = recorded.stream().anyMatch(l -> l.startsWith("M " + cls + "#"));
         if (isCovered && !uncalled.isEmpty()) {
           uncalledBeanMethods.put(cls, uncalled);
         }

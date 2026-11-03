@@ -7,7 +7,8 @@ import io.datahubproject.wiring.WiringCoverageCheck
 import io.datahubproject.wiring.WiringCoverageRecorderArgs
 
 def recordDir = layout.buildDirectory.dir('wiring-coverage/test')
-def updateBaseline = project.hasProperty('updateWiringBaseline')
+def updateBaselineProp = project.findProperty('updateWiringBaseline')
+def updateBaseline = updateBaselineProp != null && updateBaselineProp.toString() != 'false'
 
 dependencies {
   // testImplementation so hand-built contexts can call WiringCoverage.attach()/initializer().
@@ -43,6 +44,10 @@ def checkTask = tasks.register('checkWiringCoverage', WiringCoverageCheck) {
   // Coverage is only meaningful after the full suite ran (or was restored from cache).
   onlyIf('the test task ran its whole suite successfully') {
     def t = testTask.get()
+    // Run standalone, the recordings would be stale or missing.
+    if (!project.gradle.taskGraph.hasTask(t)) {
+      return false
+    }
     def s = t.state
     def ran = !s.skipped || s.skipMessage in ['UP-TO-DATE', 'FROM-CACHE', 'NO-SOURCE']
     // --tests runs a subset; build-script filters are the module's normal suite and still count.

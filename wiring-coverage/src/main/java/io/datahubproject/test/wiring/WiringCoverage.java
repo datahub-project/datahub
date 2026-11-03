@@ -15,6 +15,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.AbstractBeanFactory;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -71,7 +72,7 @@ public final class WiringCoverage {
       return;
     }
     ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
-    if (beanFactory instanceof org.springframework.beans.factory.support.AbstractBeanFactory abf
+    if (beanFactory instanceof AbstractBeanFactory abf
         && abf.getBeanPostProcessors().stream().anyMatch(Recorder.class::isInstance)) {
       return;
     }
@@ -114,7 +115,9 @@ public final class WiringCoverage {
 
   private static Method mockingDetailsMethod() {
     try {
-      return Class.forName("org.mockito.Mockito").getMethod("mockingDetails", Object.class);
+      // initialize=false: do not run Mockito's static setup just because a context was built.
+      return Class.forName("org.mockito.Mockito", false, WiringCoverage.class.getClassLoader())
+          .getMethod("mockingDetails", Object.class);
     } catch (ReflectiveOperationException | LinkageError e) {
       return null;
     }
@@ -164,10 +167,26 @@ public final class WiringCoverage {
       if (definition instanceof RootBeanDefinition root) {
         Method factoryMethod = root.getResolvedFactoryMethod();
         if (factoryMethod != null && !isMock(bean)) {
-          Class<?> declaring = ClassUtils.getUserClass(factoryMethod.getDeclaringClass());
-          record("M " + declaring.getName() + "#" + factoryMethod.getName());
+          record(
+              "M " + factoryOwner(root, factoryMethod).getName() + "#" + factoryMethod.getName());
         }
       }
+    }
+
+    /**
+     * The configuration class whose bean definition declared the bean, not the method's declaring
+     * class: a {@code @Bean} method inherited from a parent configuration counts for the subclass
+     * that was actually loaded.
+     */
+    private Class<?> factoryOwner(RootBeanDefinition root, Method factoryMethod) {
+      String factoryBeanName = root.getFactoryBeanName();
+      Class<?> owner = null;
+      if (factoryBeanName != null) {
+        owner = beanFactory.getType(factoryBeanName, false);
+      } else if (root.hasBeanClass()) {
+        owner = root.getBeanClass(); // static @Bean method: the bean class is the config class
+      }
+      return ClassUtils.getUserClass(owner != null ? owner : factoryMethod.getDeclaringClass());
     }
   }
 }
