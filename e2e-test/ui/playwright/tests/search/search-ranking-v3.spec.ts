@@ -45,6 +45,7 @@ import { DomainTag } from '../../utils/test-tags';
 import {
   CorpusEntry,
   GUID,
+  SPHYNX_QUERY,
   SearchRankingSeeder,
   Tranche,
   buildRankingCorpus,
@@ -248,6 +249,48 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
       actual[0]?.name,
       `query siberian lounge: siberian lounge should be #1\n  actual:   ${summarize('siberian lounge', actual)}`,
     ).toBe('siberian lounge');
+  });
+
+  test('partial real names rank above other partial matches, including a record ID equal to the search', async ({}, testInfo) => {
+    // Nothing matches "sphynx corner" exactly. Every partial real name (sphynx_corner_daily_NN)
+    // must rank above every partial title ("Sphynx Corner Weekly NN"), including five titled
+    // datasets whose record ID equals the search; no steward-only match ("Sphynx Corner Team NN")
+    // may rank above a partial title; and the record-ID datasets stay in the partial-title group.
+    const { actual } = await searchAndRecord(testInfo, SPHYNX_QUERY, 80);
+    const group = (e: CorpusEntry): string => {
+      if (e.name.startsWith('sphynx_corner_daily_')) return 'REAL_NAME';
+      if (e.name.startsWith('scw_')) return 'TITLE';
+      if (e.name.startsWith('scr_')) return 'TITLE_WITH_RECORD_ID';
+      if (e.name.startsWith('sct_')) return 'STEWARD_ONLY';
+      return `OTHER(${e.name})`;
+    };
+    const runs: string[] = [];
+    actual.forEach((e, i) => {
+      const g = group(e);
+      if (i > 0 && group(actual[i - 1]) === g)
+        runs[runs.length - 1] = runs[runs.length - 1].replace(/x(\d+)$/, (_, c) => `x${Number(c) + 1}`);
+      else runs.push(`${g} x1`);
+    });
+    const order = `query ${SPHYNX_QUERY}: ${runs.join(' > ')}`;
+    const at = (g: string) => actual.map((e, i) => (group(e) === g ? i : -1)).filter((i) => i >= 0);
+    const real = at('REAL_NAME');
+    const titles = [...at('TITLE'), ...at('TITLE_WITH_RECORD_ID')];
+    const steward = at('STEWARD_ONLY');
+    expect(real.length, `partial real names served — ${order}`).toBe(10);
+    expect(
+      Math.max(...real) < Math.min(...titles),
+      `(a) a partial title ranks above a partial real name — ${order}`,
+    ).toBe(true);
+    if (steward.length) {
+      expect(
+        Math.min(...steward) > Math.max(...titles),
+        `(b) a steward-only match ranks above a partial title — ${order}`,
+      ).toBe(true);
+    }
+    const inGroup = actual
+      .slice(Math.min(...titles), Math.max(...titles) + 1)
+      .every((e) => group(e).startsWith('TITLE'));
+    expect(inGroup, `(c) the record-ID datasets leave the partial-title group — ${order}`).toBe(true);
   });
 
   test('a record identifier finds its dataset first, as typed and in upper case', async ({}, testInfo) => {

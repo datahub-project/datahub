@@ -45,6 +45,10 @@ export const PLAIN_TITLE_URN = `urn:li:structuredProperty:${PLAIN_TITLE}`;
 export const TITLE_PROPERTY_URN =
   process.env.RANKING_TITLE_PROPERTY === 'plainTitle' ? PLAIN_TITLE_URN : DISPLAY_TITLE_URN;
 export const RECORD_ID_URN = `urn:li:structuredProperty:${RECORD_ID}`;
+/** Another searchable string property, not copied anywhere. */
+export const STEWARD = 'io.example.steward';
+export const STEWARD_URN = `urn:li:structuredProperty:${STEWARD}`;
+export const SPHYNX_QUERY = 'sphynx corner';
 
 export const CLASS_ORDER_TEMPLATE_URN = 'urn:li:searchTemplate:rankingClassOrder';
 export const CLASS_ORDER_ROUTER_URN = 'urn:li:searchTemplate:rankingClassOrderSearch';
@@ -64,6 +68,7 @@ export interface CorpusEntry {
   name: string;
   title?: string;
   recordId?: string;
+  steward?: string;
 }
 
 const pad = (n: number, width: number): string => String(n).padStart(width, '0');
@@ -186,6 +191,17 @@ export function buildRankingCorpus(): CorpusEntry[] {
       title: `Persian Nook Weekly ${n}`,
     });
   }
+
+  // "sphynx corner" has no exact match. Partial real names, partial titles, partial values of
+  // another searchable property (steward), and titles whose record ID equals the search.
+  for (let i = 0; i < 10; i += 1) {
+    const n = pad(i, 2);
+    entries.push(dataset(`sphynx_corner_daily_${n}`));
+    entries.push(dataset(`scw_${n}`, `Sphynx Corner Weekly ${n}`));
+    entries.push({ ...dataset(`sct_${n}`), steward: `Sphynx Corner Team ${n}` });
+  }
+  for (let i = 0; i < 5; i += 1)
+    entries.push(dataset(`scr_${pad(i, 2)}`, `Sphynx Corner Weekly R${pad(i, 2)}`, SPHYNX_QUERY));
 
   // Record identifiers.
   entries.push(dataset('adoption_register', 'Adoption Register', GUID));
@@ -482,6 +498,13 @@ const PROPERTIES = [
     searchConfiguration: { queryByDefault: true },
   },
   {
+    urn: STEWARD_URN,
+    qualifiedName: STEWARD,
+    displayName: 'Steward',
+    entityTypes: ['dataset'],
+    searchConfiguration: { queryByDefault: true },
+  },
+  {
     urn: RECORD_ID_URN,
     qualifiedName: RECORD_ID,
     displayName: 'Record ID',
@@ -563,6 +586,7 @@ export class SearchRankingSeeder {
       const values = [
         ...(e.title ? [{ propertyUrn: TITLE_PROPERTY_URN, values: [{ string: e.title }] }] : []),
         ...(e.recordId ? [{ propertyUrn: RECORD_ID_URN, values: [{ string: e.recordId }] }] : []),
+        ...(e.steward ? [{ propertyUrn: STEWARD_URN, values: [{ string: e.steward }] }] : []),
       ];
       return values.length ? { structuredProperties: { value: { properties: values } } } : {};
     };
