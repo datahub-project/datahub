@@ -351,6 +351,29 @@ public class ElasticSearchUpgradeUtilsTest {
   }
 
   @Test
+  public void testGetActiveStructuredPropertiesDefinitionsKeepsPropertyWithUnreadableStatus() {
+    AspectDao freshMockAspectDao = mock(AspectDao.class);
+    Urn urn = UrnUtils.getUrn("urn:li:structuredProperty:unreadablestatus");
+    EntityAspect statusAspect = mock(EntityAspect.class);
+    when(statusAspect.getUrn()).thenReturn(urn.toString());
+    when(statusAspect.getMetadata()).thenReturn("not json");
+    StructuredPropertyDefinition definition = new StructuredPropertyDefinition();
+    definition.setQualifiedName("unreadablestatus.property");
+    EntityAspect definitionAspect = mock(EntityAspect.class);
+    when(definitionAspect.getUrn()).thenReturn(urn.toString());
+    when(definitionAspect.getMetadata()).thenReturn(RecordUtils.toJsonString(definition));
+    when(freshMockAspectDao.streamAspects(anyString(), anyString()))
+        .thenReturn(Stream.of(statusAspect))
+        .thenReturn(Stream.of(definitionAspect));
+
+    Set<Pair<Urn, StructuredPropertyDefinition>> result =
+        ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(freshMockAspectDao);
+
+    assertEquals(result.size(), 1);
+    assertEquals(result.iterator().next().getFirst(), urn);
+  }
+
+  @Test
   public void testGetActiveStructuredPropertiesDefinitionsReadsLatestVersionsOnly() {
     AspectDao freshMockAspectDao = mock(AspectDao.class);
     Urn urn = UrnUtils.getUrn("urn:li:structuredProperty:restored");

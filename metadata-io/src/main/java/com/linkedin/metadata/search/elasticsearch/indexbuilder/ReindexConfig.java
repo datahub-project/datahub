@@ -230,8 +230,7 @@ public class ReindexConfig {
   @SuppressWarnings("unchecked")
   static Map<String, Object> mappingsWithoutMappedStructuredPropertyFields(
       @Nonnull Map<String, Object> targetMappings, @Nullable Map<String, Object> currentMappings) {
-    Set<String> mapped =
-        CalculatedBuilder.structuredPropertyFieldMappings(currentMappings).keySet();
+    Set<String> mapped = structuredPropertyFieldIds(currentMappings);
     if (mapped.isEmpty()
         || !(targetMappings.get(PROPERTIES) instanceof Map<?, ?> properties)
         || !(properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> container)) {
@@ -252,6 +251,14 @@ public class ReindexConfig {
     Map<String, Object> putMappings = new HashMap<>(targetMappings);
     putMappings.put(PROPERTIES, putProperties);
     return putMappings;
+  }
+
+  /**
+   * Ids of the structured-property fields {@code mappings} declares, as the mapping diff names
+   * them.
+   */
+  static Set<String> structuredPropertyFieldIds(@Nullable Map<String, Object> mappings) {
+    return CalculatedBuilder.structuredPropertyFieldMappings(mappings).keySet();
   }
 
   public static boolean mappingHasProperties(@Nullable Map<String, Object> mappings) {

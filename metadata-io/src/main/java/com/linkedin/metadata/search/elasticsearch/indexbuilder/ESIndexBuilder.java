@@ -504,6 +504,8 @@ public class ESIndexBuilder {
             .getSourceAsMap();
     builder.currentMappings(currentMappings);
 
+    // A definition-driven target can declare more fields than the index's total-fields limit
+    // allows; a reindex from it then fails to create its destination until the limit is raised.
     final Map<String, Object> targetMappings =
         shouldPreserveStructuredPropertyMappings(copyStructuredPropertyMappings)
             ? mergeStructuredPropertyMappings(mappings, currentMappings)
@@ -876,18 +878,21 @@ public class ESIndexBuilder {
             new PutMappingRequest(indexState.name()).source(mappings),
             requestOptionsLong);
       } catch (IOException | RuntimeException e) {
-        // New structured-property fields can push an index past its total-fields limit. They wait
-        // for the next definition upsert or reindex instead of blocking the index's other changes.
+        // System-update sends new structured-property fields along with the index's other mapping
+        // changes, and they can push the index past its total-fields limit. They then wait for the
+        // next definition upsert or reindex instead of blocking those changes. A definition upsert
+        // (suppressError=false) exists to add them, so its failure propagates.
         // Against itself every structured-property field counts as mapped, so this drops them all.
         Map<String, Object> withoutStructuredPropertyFields =
             ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(mappings, mappings);
-        if (withoutStructuredPropertyFields == mappings) {
+        if (!suppressError || withoutStructuredPropertyFields == mappings) {
           throw e;
         }
         log.error(
-            "Index: {} - Put-mapping with new structured property fields failed, applying the"
+            "Index: {} - Put-mapping with new structured property fields {} failed, applying the"
                 + " other mapping changes without them",
             indexState.name(),
+            ReindexConfig.structuredPropertyFieldIds(mappings),
             e);
         searchClient.putIndexMapping(
             opContext,

@@ -61,7 +61,8 @@ public class ElasticSearchUpgradeUtils {
    * Structured property definitions to build index mapping targets from: the active definitions
    * whenever structured properties are enabled, so a reindex converges each index to them. {@code
    * systemUpdateEnabled} does not gate this; it only decides whether a structured-property
-   * difference may trigger a reindex.
+   * difference may trigger a reindex. On Cassandra each load is a filtering scan of the aspect
+   * table, as it already was when systemUpdateEnabled gated it.
    *
    * @param structuredPropertiesConfiguration structured properties configuration
    * @param aspectDao the aspect DAO for database access
@@ -93,13 +94,8 @@ public class ElasticSearchUpgradeUtils {
       removedStructuredPropertyUrns =
           stream
               .filter(ElasticSearchUpgradeUtils::isLatestVersion)
-              .map(
-                  entityAspect ->
-                      Pair.of(
-                          entityAspect.getUrn(),
-                          RecordUtils.toRecordTemplate(Status.class, entityAspect.getMetadata())))
-              .filter(status -> status.getSecond().isRemoved())
-              .map(Pair::getFirst)
+              .filter(ElasticSearchUpgradeUtils::isRemoved)
+              .map(EntityAspect::getUrn)
               .collect(Collectors.toSet());
     }
 
@@ -120,6 +116,20 @@ public class ElasticSearchUpgradeUtils {
   // Cassandra's streamAspects returns every version of an aspect; only the latest one counts.
   private static boolean isLatestVersion(EntityAspect entityAspect) {
     return entityAspect.getVersion() == ASPECT_LATEST_VERSION;
+  }
+
+  // An unreadable status keeps its property: leaving an active property out of the mappings would
+  // make its values unsearchable, while keeping a removed one's fields is harmless.
+  private static boolean isRemoved(EntityAspect statusAspect) {
+    try {
+      return RecordUtils.toRecordTemplate(Status.class, statusAspect.getMetadata()).isRemoved();
+    } catch (RuntimeException e) {
+      log.error(
+          "Treating structured property {} as active, its status is unreadable: {}",
+          statusAspect.getUrn(),
+          e.getMessage());
+      return false;
+    }
   }
 
   /**

@@ -1320,6 +1320,58 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  void testApplyMappings_DefinitionUpsertPutFailurePropagates() throws IOException {
+    // A definition upsert passes suppressError=false; its put exists to add the new property.
+    ReindexConfig indexState =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .currentMappings(
+                Map.of(
+                    "properties",
+                    Map.of(
+                        STRUCTURED_PROPERTY_MAPPING_FIELD,
+                        Map.of(
+                            "dynamic",
+                            "false",
+                            "properties",
+                            Map.of("propA", Map.of("type", "keyword"))))))
+            .targetMappings(
+                Map.of(
+                    "properties",
+                    Map.of(
+                        STRUCTURED_PROPERTY_MAPPING_FIELD,
+                        Map.of(
+                            "type",
+                            "object",
+                            "dynamic",
+                            false,
+                            "properties",
+                            Map.of(
+                                "propA",
+                                Map.of("type", "keyword"),
+                                "propC",
+                                Map.of("type", "double"))))))
+            .build();
+    assertTrue(indexState.isPureStructuredPropertyAddition());
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(new RuntimeException("Limit of total fields [1000] has been exceeded"));
+
+    assertThrows(
+        RuntimeException.class, () -> indexBuilder.applyMappings(opContext, indexState, false));
+    verify(searchClient, times(1))
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
   void testApplyMappings_PutFailureWithoutNewStructuredPropertiesPropagates() throws IOException {
     ReindexConfig indexState =
         ReindexConfig.builder()

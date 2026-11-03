@@ -50,6 +50,7 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
 
     ElasticSearchConfiguration config = mock(ElasticSearchConfiguration.class, RETURNS_DEEP_STUBS);
     when(config.getBuildIndices().getSlowOperationTimeoutSeconds()).thenReturn(10);
+    when(config.getIndex().isEnableMappingsReindex()).thenReturn(true);
     GitVersion gitVersion = mock(GitVersion.class);
     when(gitVersion.getVersion()).thenReturn("test");
     ESIndexBuilder builder =
@@ -234,7 +235,7 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
    * With structured properties enabled and the system-update reindex gate off (the defaults), the
    * target comes from the definitions: a field the live index holds without a definition is left
    * out, a dynamically mapped field takes its definition's type, and neither difference triggers a
-   * reindex.
+   * reindex, even with mappings reindex on.
    */
   @Test
   @SuppressWarnings("unchecked")
