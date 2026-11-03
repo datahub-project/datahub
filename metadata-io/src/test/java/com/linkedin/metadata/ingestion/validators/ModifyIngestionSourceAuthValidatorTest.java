@@ -560,6 +560,35 @@ public class ModifyIngestionSourceAuthValidatorTest {
             anyCollection());
   }
 
+  // A generic PATCH can create the aspect from scratch; the schedule it carries must still be
+  // checked. Required fields are included so the patch resolves rather than failing as invalid.
+  @Test(dataProvider = "patchItemShapes")
+  public void testPatchCreatingScheduledSourceDeniedWithoutExecute(boolean alternateValidation) {
+    grant("EDIT_ENTITY");
+
+    BatchItem item =
+        patchItem(
+            alternateValidation,
+            true,
+            addOp("/name", "Test Source"),
+            addOp("/type", "mysql"),
+            addOp("/config", Map.of("recipe", "{}")),
+            addOp("/schedule", Map.of("interval", "0 * * * *", "timezone", "UTC")));
+
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY, Set.of(item), mockRetrieverContext, mockSession)
+            .count(),
+        1);
+    // The denial must come from the schedule check, not from failing to resolve the patch.
+    Mockito.verify(mockSession, Mockito.atLeastOnce())
+        .authorize(
+            eq("EXECUTE_ENTITY"),
+            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
+            anyCollection());
+  }
+
   // Changing the recipe of an already scheduled source changes what the scheduler runs.
   @Test(dataProvider = "patchItemShapes")
   public void testPatchOnScheduledSourceDeniedWithoutExecute(boolean alternateValidation) {

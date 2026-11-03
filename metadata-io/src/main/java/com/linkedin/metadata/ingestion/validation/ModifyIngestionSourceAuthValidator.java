@@ -88,6 +88,7 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
             exceptions.addAuthException(
                 item, "Doesn't have permissions to delete this Ingestion source");
           }
+          stored.remove(item.getUrn());
           continue;
         default:
           throw new RuntimeException("Unsupported change type: " + type);
