@@ -178,10 +178,19 @@ async function graphqlOperations(req) {
     } catch {
         parsed = null;
     }
+    const variablesOf = (op) => (op && typeof op.variables === 'object' && op.variables) || {};
     if (Array.isArray(parsed)) {
-        return { batched: true, names: parsed.map((op) => (op && op.operationName) || null) };
+        return {
+            batched: true,
+            names: parsed.map((op) => (op && op.operationName) || null),
+            variables: parsed.map(variablesOf),
+        };
     }
-    return { batched: false, names: [fromQuery || (parsed && parsed.operationName) || null] };
+    return {
+        batched: false,
+        names: [fromQuery || (parsed && parsed.operationName) || null],
+        variables: [variablesOf(parsed)],
+    };
 }
 
 /**
@@ -239,7 +248,7 @@ export function startServer({ distDir, port, targetBase, label, stubApi, graphql
         if (isProxied(pathname)) {
             const method = (req.method || 'GET').toUpperCase();
             if (stub && graphqlFixtures && isGraphqlPath(pathname) && method === 'POST') {
-                const { batched, names } = await graphqlOperations(req);
+                const { batched, names, variables } = await graphqlOperations(req);
                 for (const name of names) {
                     if (hasGraphqlFixture(name)) continue;
                     const key = name || '(unnamed)';
@@ -248,7 +257,7 @@ export function startServer({ distDir, port, targetBase, label, stubApi, graphql
                     }
                     unknownOperations.add(key);
                 }
-                const results = names.map((name) => ({ data: graphqlStubData(name) }));
+                const results = names.map((name, i) => ({ data: graphqlStubData(name, variables[i]) }));
                 const body = JSON.stringify(batched ? results : results[0]);
                 res.writeHead(200, {
                     'content-type': 'application/json; charset=utf-8',

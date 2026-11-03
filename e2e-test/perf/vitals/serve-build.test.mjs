@@ -168,4 +168,16 @@ describe('startServer signed-in GraphQL fixtures', () => {
         assert.equal(body[0].data.me.corpUser.urn, 'urn:li:corpuser:boot');
         assert.equal(body[1].data.appConfig.featureFlags.showHomePageRedesign, true);
     });
+
+    it('passes each operation its own variables', async () => {
+        const stepIds = (ids) => ({ operationName: 'batchGetStepStates', variables: { input: { ids } } });
+        const resp = await fetch(`${loopbackOrigin(server.port)}/api/v2/graphql`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify([stepIds(['a']), stepIds(['b', 'c'])]),
+        });
+        const body = await resp.json();
+        const ids = body.map((result) => result.data.batchGetStepStates.results.map((step) => step.id));
+        assert.deepEqual(ids, [['a'], ['b', 'c']]);
+    });
 });
