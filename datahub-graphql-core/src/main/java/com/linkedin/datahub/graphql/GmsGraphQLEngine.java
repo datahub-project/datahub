@@ -1620,6 +1620,7 @@ public class GmsGraphQLEngine {
                   new AcceptRoleResolver(
                       this.roleService,
                       this.inviteTokenService,
+                      this.entityService,
                       this.systemEntityClient,
                       this.systemOperationContext))
               .dataFetcher("createPost", new CreatePostResolver(this.postService))
