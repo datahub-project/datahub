@@ -161,6 +161,8 @@ class RiverJobSpec:
 class PendingRiver:
     # Jobs are emitted after every river of the environment, so a logic step
     # that calls another river can link to it only when that river is emitted.
+    # The river's cross ID. The flow ID carries the platform instance, if set.
+    river_id: str
     flow: DataFlow
     river_type: str
     owners: Optional[Owners]
@@ -498,22 +500,55 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             pending_rivers.append(pending)
             river_exits[summary.river_cross_id] = pending.exit_job_urns()
             templates[summary.river_cross_id] = self._run_template(pending)
+        built = self._build_river_jobs(pending_rivers, river_exits, templates)
         for pending in pending_rivers:
-            # Jobs are built here rather than in the per-river try above, so
-            # they need their own guard to keep one bad river from ending the
-            # run.
-            try:
-                jobs = list(self._river_jobs(pending, river_exits))
-            except Exception as e:
-                templates.pop(pending.flow.urn.flow_id, None)
-                self.report.warning(
-                    title="Failed to process river jobs",
-                    message="The river's jobs were skipped.",
-                    context=f"river_cross_id={pending.flow.urn.flow_id}, name={pending.flow.display_name}",
-                    exc=e,
-                )
+            jobs = built.get(pending.river_id)
+            if jobs is None:
                 continue
+            for spec in pending.jobs:
+                if spec.called_river_id is None:
+                    continue
+                if self._called_river_jobs(pending, spec, river_exits):
+                    self.report.river_step_links_resolved += 1
+                else:
+                    self.report.river_step_links_unresolved += 1
             yield from jobs
+
+    def _build_river_jobs(
+        self,
+        pending_rivers: List[PendingRiver],
+        river_exits: Dict[str, List[DataJobUrn]],
+        templates: RunTemplates,
+    ) -> Dict[str, List[DataJob]]:
+        # Jobs are built here rather than in the per-river try in
+        # _process_environment, so they need their own guard to keep one bad
+        # river from ending the run. A river whose jobs fail is dropped from
+        # river_exits, and every river is built again so that no step links
+        # to jobs that are never emitted.
+        failed: Set[str] = set()
+        while True:
+            built: Dict[str, List[DataJob]] = {}
+            newly_failed = False
+            for pending in pending_rivers:
+                if pending.river_id in failed:
+                    continue
+                try:
+                    built[pending.river_id] = list(
+                        self._river_jobs(pending, river_exits)
+                    )
+                except Exception as e:
+                    failed.add(pending.river_id)
+                    newly_failed = True
+                    river_exits.pop(pending.river_id, None)
+                    templates.pop(pending.river_id, None)
+                    self.report.warning(
+                        title="Failed to process river jobs",
+                        message="The river's jobs were skipped.",
+                        context=f"river_cross_id={pending.river_id}, name={pending.flow.display_name}",
+                        exc=e,
+                    )
+            if not newly_failed:
+                return built
 
     def _river_url(
         self, environment_id: str, river_id: str, river_type: str
@@ -607,7 +642,13 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                 access.environment.cross_id, summary.river_cross_id, river_type
             ),
         )
-        return PendingRiver(flow=flow, river_type=river_type, owners=owners, jobs=jobs)
+        return PendingRiver(
+            river_id=summary.river_cross_id,
+            flow=flow,
+            river_type=river_type,
+            owners=owners,
+            jobs=jobs,
+        )
 
     @staticmethod
     def _run_template(pending: PendingRiver) -> Union[DataFlowUrn, DataJobUrn]:
@@ -631,10 +672,8 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
         # A river that was filtered out, failed, or lives in another
         # environment has no job here to link to, and a river calling itself
         # would only add a cycle.
-        if not called or spec.called_river_id == pending.flow.urn.flow_id:
-            self.report.river_step_links_unresolved += 1
+        if not called or spec.called_river_id == pending.river_id:
             return []
-        self.report.river_step_links_resolved += 1
         return [str(urn) for urn in called]
 
     def _river_jobs(

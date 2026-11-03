@@ -575,11 +575,22 @@ def _caller_inputs(
     called: List[Dict[str, object]],
     definitions: Dict[str, Dict[str, object]],
     caller_steps: List[Dict[str, object]],
+    failing_river: Optional[str] = None,
     **overrides: object,
 ) -> Tuple[Dict[str, List[str]], BoomiDataIntegrationSourceReport]:
     # Called rivers without a definition come back as HTTP 400, like rivers
     # created in the UI, and fall back to their single load or run job.
     source = _source(**overrides)
+    build_jobs = source._river_jobs
+
+    def river_jobs(
+        pending: PendingRiver, river_exits: Dict[str, List[DataJobUrn]]
+    ) -> Iterable[DataJob]:
+        if pending.river_id == failing_river:
+            raise ValueError("boom")
+        return build_jobs(pending, river_exits)
+
+    source._river_jobs = river_jobs  # type: ignore[method-assign]
     with requests_mock.Mocker() as mock:
         mock.get(
             f"{BASE_URL}/environments", json=_page([_environment("env-a", "Prod")])
@@ -608,9 +619,9 @@ def _caller_inputs(
         entities = _entities(source)
     inputs: Dict[str, List[str]] = {}
     for entity in entities:
-        if isinstance(entity, DataJob) and entity.urn.get_data_flow_urn().flow_id == (
-            "caller"
-        ):
+        if isinstance(
+            entity, DataJob
+        ) and entity.urn.get_data_flow_urn().flow_id.endswith("caller"):
             io = entity._get_aspect(DataJobInputOutputClass)
             inputs[entity.urn.job_id] = list(io.inputDatajobs or []) if io else []
     return inputs, source.get_report()
@@ -688,3 +699,39 @@ def test_river_step_to_filtered_or_missing_river_is_unresolved() -> None:
         report.river_step_links_resolved,
         report.river_step_links_unresolved,
     ) == (0, 2)
+
+
+def test_river_step_calling_its_own_river_is_unresolved_with_platform_instance() -> (
+    None
+):
+    inputs, report = _caller_inputs(
+        called=[],
+        definitions={},
+        caller_steps=[
+            {"type": "logicode", "name": "prep", "step_id": "prep"},
+            _river_step("call", "caller"),
+        ],
+        platform_instance="inst",
+    )
+    caller_flow = "urn:li:dataFlow:(boomi-data-integration,inst.caller,PROD)"
+    assert inputs["call"] == [f"urn:li:dataJob:({caller_flow},prep)"]
+    assert (
+        report.river_step_links_resolved,
+        report.river_step_links_unresolved,
+    ) == (0, 1)
+
+
+def test_river_step_does_not_link_to_a_river_whose_jobs_failed() -> None:
+    # The caller is built before r-load fails, so its link has to be dropped.
+    inputs, report = _caller_inputs(
+        called=[_summary("r-load")],
+        definitions={},
+        caller_steps=[_river_step("call", "r-load")],
+        failing_river="r-load",
+    )
+    assert inputs["call"] == []
+    assert (
+        report.river_step_links_resolved,
+        report.river_step_links_unresolved,
+    ) == (0, 1)
+    assert "Failed to process river jobs" in [w.title for w in report.warnings]
