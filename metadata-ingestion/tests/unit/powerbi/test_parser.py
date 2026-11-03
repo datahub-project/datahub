@@ -617,7 +617,12 @@ def test_odbc_strip_athena_catalog_from_upstreams(odbc_lineage):
     assert "awsdatacatalog" not in stripped_lineage.upstreams[0].urn
 
 
-def test_odbc_strip_athena_catalog_preserves_platform_instance(odbc_lineage):
+# sqlglot lowercases the whole URN (instance included) for Athena, so a
+# mixed-case configured instance must still match its lowercased prefix.
+@pytest.mark.parametrize("platform_instance", ["my_instance", "My_Instance"])
+def test_odbc_strip_athena_catalog_preserves_platform_instance(
+    odbc_lineage, platform_instance: str
+):
     """Catalog stripping must not eat the platform_instance prefix that
     make_dataset_urn_with_platform_instance embeds as the leading name segment."""
 
@@ -638,7 +643,7 @@ def test_odbc_strip_athena_catalog_preserves_platform_instance(odbc_lineage):
     )
 
     stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(
-        original_lineage, platform_instance="my_instance"
+        original_lineage, platform_instance=platform_instance
     )
 
     # Catalog stripped, instance preserved -> instance.database.table
@@ -885,6 +890,7 @@ def test_athena_table_platform_override():
     )
 
 
+@pytest.mark.parametrize("athena_platform_instance", ["my_instance", "My_Instance"])
 @pytest.mark.parametrize(
     "target_platform_instance, expected_name",
     [
@@ -893,7 +899,9 @@ def test_athena_table_platform_override():
     ],
 )
 def test_athena_table_platform_override_replaces_platform_instance(
-    target_platform_instance: Optional[str], expected_name: str
+    target_platform_instance: Optional[str],
+    expected_name: str,
+    athena_platform_instance: str,
 ) -> None:
     """Override matching must skip the embedded Athena platform_instance prefix so
     the 3-part name passes the 2-part check, then drop it from the rewritten URN:
@@ -941,7 +949,7 @@ def test_athena_table_platform_override_replaces_platform_instance(
     )
 
     overridden_lineage = odbc._apply_table_platform_override(
-        original_lineage, dsn="TestDSN", platform_instance="my_instance"
+        original_lineage, dsn="TestDSN", platform_instance=athena_platform_instance
     )
 
     assert (
