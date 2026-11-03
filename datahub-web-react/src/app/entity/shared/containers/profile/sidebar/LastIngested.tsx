@@ -7,8 +7,8 @@ import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
-import { getPlatformName } from '@app/entity/shared/utils';
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { getPlatformName } from '@app/entityV2/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import dayjs from '@utils/dayjs';
@@ -126,7 +126,7 @@ function LastIngested({ lastIngested }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const lastIngestedColor = getLastIngestedColor(lastIngested);
-    const platformName = getPlatformName(entityData);
+    const platformName = getPlatformName(entityData?.platform);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
 
     return (

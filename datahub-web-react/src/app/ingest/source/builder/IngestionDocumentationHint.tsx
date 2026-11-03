@@ -4,7 +4,7 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 
 const Container = styled.div`

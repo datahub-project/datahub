@@ -6,11 +6,11 @@ import styled from 'styled-components/macro';
 import { Editor } from '@components/components/Editor';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { GenericEntityUpdate } from '@app/entity/shared/types';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditorToolbar';
 import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
+import { GenericEntityUpdate } from '@app/entityV2/shared/types';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
 import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';

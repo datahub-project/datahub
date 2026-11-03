@@ -1,11 +1,11 @@
 import { renderHook } from '@testing-library/react-hooks';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import useStructuredProperties, {
     getStructuredPropertyRows,
     identifyAndAddParentRows,
 } from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { PropertyValueInput, StructuredPropertyEntity } from '@types';
 

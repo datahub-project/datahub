@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { handleBatchError } from '@app/entity/shared/utils';
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
+import { handleBatchError } from '@app/entityV2/shared/utils';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useEntityRegistry } from '@app/useEntityRegistry';

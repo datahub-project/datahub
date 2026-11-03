@@ -2,7 +2,7 @@ import { Checkbox, Radio } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { EntityAndType } from '@app/entity/shared/types';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { ListItem, StyledList, ThinDivider } from '@app/recommendations/renderer/component/EntityNameList';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

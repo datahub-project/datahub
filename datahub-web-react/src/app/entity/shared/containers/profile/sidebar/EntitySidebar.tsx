@@ -4,8 +4,8 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import LastIngested from '@app/entity/shared/containers/profile/sidebar/LastIngested';
-import { EntitySidebarSection } from '@app/entity/shared/types';
 import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
+import { EntitySidebarSection } from '@app/entityV2/shared/types';
 
 function sidebarComponentKey(component: { displayName?: string; name: string }) {
     return component.displayName || component.name;
