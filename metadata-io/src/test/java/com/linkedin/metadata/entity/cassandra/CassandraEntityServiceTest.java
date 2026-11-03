@@ -99,7 +99,7 @@ public class CassandraEntityServiceTest
             _aspectDao,
             _mockProducer,
             preProcessHooks,
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false),
             mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     CassandraRetentionService realRetentionService =

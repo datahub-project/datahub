@@ -99,8 +99,7 @@ public class EbeanEntityServiceOptimisticLockingTest {
             preProcessHooks,
             new EntityServiceConfiguration()
                 .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(false)
-                .setEnableBrowseV2(true),
+                .setCdcModeChangeLog(false),
             null);
     entityService.setUpdateIndicesService(mockUpdateIndicesService);
     // Keep only current version so history-insert races are out of scope for EntityService tests.

@@ -52,7 +52,7 @@ public class EntityServiceImplPreprocessEventTest {
             mockAspectDao,
             mockEventProducer,
             mockPreProcessHooks,
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false),
             mock(MetricUtils.class));
     entityService.setUpdateIndicesService(mockUpdateIndicesService);
   }

@@ -75,7 +75,7 @@ public class CassandraTimelineServiceTest extends TimelineServiceTest<CassandraA
             _aspectDao,
             _mockProducer,
             preProcessHooks,
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true),
             mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
   }

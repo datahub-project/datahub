@@ -160,8 +160,7 @@ public class EbeanEntityServiceTest
             preProcessHooks,
             new EntityServiceConfiguration()
                 .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(cdcMode)
-                .setEnableBrowseV2(true),
+                .setCdcModeChangeLog(cdcMode),
             metricUtils);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _realRetentionService =
@@ -326,7 +325,7 @@ public class EbeanEntityServiceTest
             aspectDao,
             _mockProducer,
             preProcessHooks,
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false),
             metricUtils);
 
     // Create the test batch
@@ -913,7 +912,7 @@ public class EbeanEntityServiceTest
             aspectDao,
             _mockProducer,
             new PreProcessHooks(),
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false),
             metricUtils);
     entityService.setUpdateIndicesService(_mockUpdateIndicesService);
 

@@ -131,8 +131,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
             preProcessHooks,
             new EntityServiceConfiguration()
                 .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(false)
-                .setEnableBrowseV2(true),
+                .setCdcModeChangeLog(false),
             null);
     entityService.setUpdateIndicesService(mockUpdateIndicesService);
     // Keep only current version so history-insert races are out of scope.
@@ -358,8 +357,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
             localPreProcessHooks,
             new EntityServiceConfiguration()
                 .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(false)
-                .setEnableBrowseV2(true),
+                .setCdcModeChangeLog(false),
             null);
     localEntityService.setUpdateIndicesService(mock(UpdateIndicesService.class));
 
@@ -438,8 +436,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
             localPreProcessHooks,
             new EntityServiceConfiguration()
                 .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(false)
-                .setEnableBrowseV2(true),
+                .setCdcModeChangeLog(false),
             null);
     localEntityService.setUpdateIndicesService(mock(UpdateIndicesService.class));
 

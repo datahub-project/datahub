@@ -82,8 +82,7 @@ public class AspectResourceTest {
             producer,
             preProcessHooks,
             new EntityServiceConfiguration()
-                .setAlwaysEmitChangeLog(false)
-                .setEnableBrowseV2(true),
+                .setAlwaysEmitChangeLog(false),
             mock(MetricUtils.class));
     entityService.setUpdateIndicesService(updateIndicesService);
     authorizer = mock(Authorizer.class);

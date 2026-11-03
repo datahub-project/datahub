@@ -387,7 +387,7 @@ final class SearchV3MigrationHarness implements AutoCloseable {
             aspectDao,
             producer,
             preProcessHooks,
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false),
             null);
 
     opContext =

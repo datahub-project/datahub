@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-import com.linkedin.common.BrowsePaths;
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -65,10 +65,13 @@ public class DefaultAspectsUtilTest {
             any(), eq(HDFS_PLATFORM_URN), eq(DATA_PLATFORM_INFO_ASPECT_NAME)))
         .thenReturn(new Aspect(platformInfo.data()));
 
-    BrowsePaths browsePaths =
-        DefaultAspectsUtil.buildDefaultBrowsePath(mockOpContext(retriever), HDFS_DATASET_URN);
+    BrowsePathsV2 browsePaths =
+        DefaultAspectsUtil.buildDefaultBrowsePathV2(
+            mockOpContext(retriever), HDFS_DATASET_URN, false);
 
-    Assert.assertEquals(browsePaths.getPaths().get(0), "/prod/hdfs/a/b");
+    Assert.assertEquals(
+        browsePaths.getPath().stream().map(entry -> entry.getId()).collect(Collectors.toList()),
+        List.of("a", "b"));
     verify(retriever)
         .getLatestAspectObject(any(), eq(HDFS_PLATFORM_URN), eq(DATA_PLATFORM_INFO_ASPECT_NAME));
   }
@@ -80,11 +83,12 @@ public class DefaultAspectsUtilTest {
             any(), eq(HDFS_PLATFORM_URN), eq(DATA_PLATFORM_INFO_ASPECT_NAME)))
         .thenReturn(null);
 
-    BrowsePaths browsePaths =
-        DefaultAspectsUtil.buildDefaultBrowsePath(mockOpContext(retriever), HDFS_DATASET_URN);
+    BrowsePathsV2 browsePaths =
+        DefaultAspectsUtil.buildDefaultBrowsePathV2(
+            mockOpContext(retriever), HDFS_DATASET_URN, false);
 
-    // Name has no '.', so default delimiter yields no dataset name path segments.
-    Assert.assertEquals(browsePaths.getPaths().get(0), "/prod/hdfs");
+    // Name has no '.', so the default delimiter yields no segments and the Default folder is used.
+    Assert.assertEquals(browsePaths.getPath().get(0).getId(), "Default");
     verify(retriever)
         .getLatestAspectObject(any(), eq(HDFS_PLATFORM_URN), eq(DATA_PLATFORM_INFO_ASPECT_NAME));
   }
@@ -96,10 +100,11 @@ public class DefaultAspectsUtilTest {
             any(), eq(HDFS_PLATFORM_URN), eq(DATA_PLATFORM_INFO_ASPECT_NAME)))
         .thenThrow(new RuntimeException("cache miss failure"));
 
-    BrowsePaths browsePaths =
-        DefaultAspectsUtil.buildDefaultBrowsePath(mockOpContext(retriever), HDFS_DATASET_URN);
+    BrowsePathsV2 browsePaths =
+        DefaultAspectsUtil.buildDefaultBrowsePathV2(
+            mockOpContext(retriever), HDFS_DATASET_URN, false);
 
-    Assert.assertEquals(browsePaths.getPaths().get(0), "/prod/hdfs");
+    Assert.assertEquals(browsePaths.getPath().get(0).getId(), "Default");
   }
 
   private OperationContext mockOpContext(CachingAspectRetriever retriever) {
@@ -133,7 +138,7 @@ public class DefaultAspectsUtilTest {
             aspectDao,
             mockProducer,
             preProcessHooks,
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(false),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true),
             mock(MetricUtils.class));
 
     MetadataChangeProposal proposal1 =
@@ -157,18 +162,17 @@ public class DefaultAspectsUtilTest {
                         opContext.getRetrieverContext())
                     .build(opContext)
                     .getMCPItems(),
-                entityServiceImpl,
-                false)
+                entityServiceImpl)
             .stream()
             .map(MCPItem::getMetadataChangeProposal)
             .collect(Collectors.toList());
-    // proposals for key aspect, browsePath, browsePathV2, dataPlatformInstance
-    Assert.assertEquals(proposalList.size(), 4);
+    // proposals for key aspect, browsePathV2, dataPlatformInstance
+    Assert.assertEquals(proposalList.size(), 3);
     Assert.assertEquals(
         proposalList.stream()
             .map(MetadataChangeProposal::getChangeType)
             .collect(Collectors.toList()),
-        List.of(ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE));
+        List.of(ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE));
   }
 
   @AfterMethod

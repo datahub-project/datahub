@@ -331,7 +331,7 @@ public class SampleDataFixtureConfiguration {
             mockAspectDao,
             null,
             preProcessHooks,
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true),
             mock(MetricUtils.class)),
         null,
         entitySearchService,

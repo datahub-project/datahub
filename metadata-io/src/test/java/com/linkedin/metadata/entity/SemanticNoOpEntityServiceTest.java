@@ -208,9 +208,7 @@ public class SemanticNoOpEntityServiceTest {
             mock(AspectDao.class),
             mock(com.linkedin.metadata.event.EventProducer.class),
             mock(PreProcessHooks.class),
-            new EntityServiceConfiguration()
-                .setPostCommitRetentionEnabled(true)
-                .setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setPostCommitRetentionEnabled(true),
             null);
     @SuppressWarnings("unchecked")
     RetentionService<com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl> retention =

@@ -157,7 +157,6 @@ public class SystemUpdateConfig {
       @Qualifier("kafkaEventProducer") final EventProducer eventProducer,
       @Qualifier("entityAspectDao") final AspectDao aspectDao,
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
-      @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
       @Value("${EBEAN_MAX_TRANSACTION_RETRY:#{null}}") final Integer ebeanMaxTransactionRetry,
       @Value("${entityService.syncIngestStamping:false}") final boolean syncIngestStamping,
       final List<ThrottleSensor> throttleSensors,
@@ -178,7 +177,6 @@ public class SystemUpdateConfig {
                 .setAlwaysEmitChangeLog(featureFlags.isAlwaysEmitChangeLog())
                 .setCdcModeChangeLog(systemUpdateCDCMode)
                 .setRetry(ebeanMaxTransactionRetry)
-                .setEnableBrowseV2(enableBrowsePathV2)
                 .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled())
                 // Moot in practice — system-update writes carry no request context, so
                 // stampSyncIngest never fires here — but wired so every production

@@ -62,7 +62,7 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
             dao,
             _mockProducer,
             preProcessHooks,
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true),
             mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService =

@@ -2214,7 +2214,6 @@ public class EntityServiceImplTest {
         .setAlwaysEmitChangeLog(alwaysEmitChangeLog)
         .setCdcModeChangeLog(false)
         .setRetry(0)
-        .setEnableBrowseV2(true)
         .setPostCommitRetentionEnabled(postCommitRetentionEnabled);
   }
 

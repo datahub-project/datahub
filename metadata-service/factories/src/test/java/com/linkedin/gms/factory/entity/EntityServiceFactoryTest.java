@@ -44,7 +44,6 @@ public class EntityServiceFactoryTest {
             mock(AspectDao.class),
             provider,
             false,
-            false,
             syncIngestStamping,
             semanticNoOpEnabled,
             rulesJson,

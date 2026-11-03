@@ -19,49 +19,6 @@ public class BrowsePathUtilsTest {
   private final EntityRegistry registry = new TestEntityRegistry();
 
   @Test
-  public void testGetDefaultBrowsePath() throws URISyntaxException {
-
-    // Datasets
-    DatasetKey datasetKey =
-        new DatasetKey()
-            .setName("Test.A.B")
-            .setOrigin(FabricType.PROD)
-            .setPlatform(Urn.createFromString("urn:li:dataPlatform:kafka"));
-    Urn datasetUrn = EntityKeyUtils.convertEntityKeyToUrn(datasetKey, "dataset");
-    String datasetPath = BrowsePathUtils.getDefaultBrowsePath(datasetUrn, this.registry, '.');
-    Assert.assertEquals(datasetPath, "/prod/kafka/test/a");
-
-    // Charts
-    ChartKey chartKey = new ChartKey().setChartId("Test/A/B").setDashboardTool("looker");
-    Urn chartUrn = EntityKeyUtils.convertEntityKeyToUrn(chartKey, "chart");
-    String chartPath = BrowsePathUtils.getDefaultBrowsePath(chartUrn, this.registry, '/');
-    Assert.assertEquals(chartPath, "/looker");
-
-    // Dashboards
-    DashboardKey dashboardKey =
-        new DashboardKey().setDashboardId("Test/A/B").setDashboardTool("looker");
-    Urn dashboardUrn = EntityKeyUtils.convertEntityKeyToUrn(dashboardKey, "dashboard");
-    String dashboardPath = BrowsePathUtils.getDefaultBrowsePath(dashboardUrn, this.registry, '/');
-    Assert.assertEquals(dashboardPath, "/looker");
-
-    // Data Flows
-    DataFlowKey dataFlowKey =
-        new DataFlowKey().setCluster("test").setFlowId("Test/A/B").setOrchestrator("airflow");
-    Urn dataFlowUrn = EntityKeyUtils.convertEntityKeyToUrn(dataFlowKey, "dataFlow");
-    String dataFlowPath = BrowsePathUtils.getDefaultBrowsePath(dataFlowUrn, this.registry, '/');
-    Assert.assertEquals(dataFlowPath, "/airflow/test");
-
-    // Data Jobs
-    DataJobKey dataJobKey =
-        new DataJobKey()
-            .setFlow(Urn.createFromString("urn:li:dataFlow:(airflow,Test/A/B,test)"))
-            .setJobId("Job/A/B");
-    Urn dataJobUrn = EntityKeyUtils.convertEntityKeyToUrn(dataJobKey, "dataJob");
-    String dataJobPath = BrowsePathUtils.getDefaultBrowsePath(dataJobUrn, this.registry, '/');
-    Assert.assertEquals(dataJobPath, "/airflow/test");
-  }
-
-  @Test
   public void testBuildDataPlatformUrn() throws URISyntaxException {
     // Datasets
     DatasetKey datasetKey =

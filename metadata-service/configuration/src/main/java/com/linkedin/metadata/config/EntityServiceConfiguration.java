@@ -10,7 +10,6 @@ public class EntityServiceConfiguration {
   private boolean alwaysEmitChangeLog = false;
   private boolean cdcModeChangeLog = false;
   @Nullable private Integer retry = null;
-  private boolean enableBrowseV2 = false;
   private boolean postCommitRetentionEnabled = false;
 
   // Stamp emitModeMarker=sync (the marker the Python REST emitter's

@@ -109,7 +109,7 @@ public class DeleteEntityServiceTest {
             _aspectDao,
             mock(EventProducer.class),
             preProcessHooks,
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true),
             mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _deleteEntityService =
