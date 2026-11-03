@@ -118,7 +118,8 @@ import org.testng.annotations.BeforeClass;
  * whose copied title merely equals it, and every exact match must rank above every match that is
  * not exact.
  *
- * <p>The tranches, best first: EXACT_NAME, EXACT_COPIED, EXACT_COLUMN, EXACT_COLUMN_COPIED, then
+ * <p>The tranches, best first: EXACT_NAME, EXACT_COPIED, EXACT_PROPERTY (the whole value of another
+ * searchable structured property equals the search), EXACT_COLUMN, EXACT_COLUMN_COPIED, then
  * PARTIAL_NAME (a dataset whose own name shares a substring with the search), PARTIAL_COPIED (only
  * its title does), PARTIAL_COLUMN, PARTIAL_COLUMN_COPIED, then OTHER (stem-only or unrelated).
  * Exact means the whole value equals the search, ignoring case: kennel_booking is exact for
@@ -366,38 +367,35 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   }
 
   /**
-   * For "sphynx corner", which nothing matches exactly: every partial real name
-   * (sphynx_corner_daily_NN) ranks above every partial title ("Sphynx Corner Weekly NN"), including
-   * five titled datasets whose record ID equals the search; no dataset matching only through
-   * another searchable property (steward "Sphynx Corner Team NN") ranks above a partial title; and
-   * the five record-ID datasets stay within the partial-title group.
+   * For "sphynx corner", which no name or title matches exactly: the five titled datasets whose
+   * record ID equals the search are exact matches and rank above every partial real name; every
+   * partial real name (sphynx_corner_daily_NN) ranks above every partial title ("Sphynx Corner
+   * Weekly NN"); and no dataset matching only partially through another searchable property
+   * (steward "Sphynx Corner Team NN") ranks above a partial title.
    */
   protected void assertPartialRealNameAboveOtherPartialMatches(Mode mode) throws Exception {
-    List<Dataset> served = search(mode, SPHYNX_QUERY, 0, 80).served();
+    List<Dataset> served = search(mode, SPHYNX_QUERY, 0, 90).served();
     List<Integer> real = positions(served, "sphynx_corner_daily_");
-    List<Integer> titles = new ArrayList<>(positions(served, "scw_"));
+    List<Integer> titles = positions(served, "scw_");
     List<Integer> recordIdTitles = positions(served, "scr_");
-    titles.addAll(recordIdTitles);
     List<Integer> steward = positions(served, "sct_");
     String order = String.format("%s, query %s: %s", mode, SPHYNX_QUERY, groups(served));
     assertEquals(real.size(), 10, "partial real names served — " + order);
-    assertEquals(titles.size(), 15, "partial titles served — " + order);
+    assertEquals(titles.size(), 10, "partial titles served — " + order);
+    assertEquals(recordIdTitles.size(), 5, "record-ID datasets served — " + order);
+    assertTrue(
+        recordIdTitles.stream().max(Integer::compare).get()
+            < real.stream().min(Integer::compare).get(),
+        "(a) a partial real name ranks above an exact record-ID match — " + order);
     assertTrue(
         real.stream().max(Integer::compare).get() < titles.stream().min(Integer::compare).get(),
-        "(a) a partial title ranks above a partial real name — " + order);
+        "(b) a partial title ranks above a partial real name — " + order);
     if (!steward.isEmpty()) {
       assertTrue(
           steward.stream().min(Integer::compare).get()
               > titles.stream().max(Integer::compare).get(),
-          "(b) a steward-only match ranks above a partial title — " + order);
+          "(c) a partial steward-only match ranks above a partial title — " + order);
     }
-    int titleTop = titles.stream().min(Integer::compare).get();
-    int titleBottom = titles.stream().max(Integer::compare).get();
-    assertTrue(
-        recordIdTitles.stream().allMatch(p -> p >= titleTop && p <= titleBottom)
-            && served.subList(titleTop, titleBottom + 1).stream()
-                .allMatch(d -> d.name().startsWith("scw_") || d.name().startsWith("scr_")),
-        "(c) the record-ID datasets leave the partial-title group — " + order);
   }
 
   private static List<Integer> positions(List<Dataset> served, String prefix) {
@@ -423,8 +421,10 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
               : n.startsWith("scw_")
                   ? "TITLE"
                   : n.startsWith("scr_")
-                      ? "TITLE_WITH_RECORD_ID"
-                      : n.startsWith("sct_") ? "STEWARD_ONLY" : "OTHER(" + n + ")";
+                      ? "EXACT_RECORD_ID"
+                      : n.startsWith("sse_")
+                          ? "EXACT_STEWARD"
+                          : n.startsWith("sct_") ? "STEWARD_ONLY" : "OTHER(" + n + ")";
       if (g.equals(run)) {
         count++;
         continue;
@@ -655,6 +655,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     "IDENTIFIER",
     "EXACT_NAME",
     "EXACT_COPIED",
+    "EXACT_PROPERTY",
     "EXACT_COLUMN",
     "EXACT_COLUMN_COPIED",
     "PARTIAL_NAME",
@@ -664,8 +665,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     "OTHER",
     "SEPARATOR_ONLY"
   };
-  private static final int OTHER = 9;
-  private static final int SEPARATOR_ONLY = 10;
+  private static final int OTHER = 10;
+  private static final int SEPARATOR_ONLY = 11;
 
   /**
    * Separator-delimited substrings: lowercased, accents folded, split on space, underscore, dot and
@@ -718,24 +719,27 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     if (d.recordId() != null && d.recordId().equalsIgnoreCase(typed(query))) {
       return 0;
     }
-    int column = d.column() ? 2 : 0;
     if (exact(query, d.name())) {
-      return 1 + column;
+      return d.column() ? 4 : 1;
     }
     if (separatorOnly(query, d.name())) {
       return SEPARATOR_ONLY;
     }
     if (exact(query, d.title())) {
-      return 2 + column;
+      return d.column() ? 5 : 2;
     }
     if (separatorOnly(query, d.title())) {
       return SEPARATOR_ONLY;
     }
+    // An exact match on another searchable property: below the exact title, above exact columns.
+    if (!d.column() && exact(query, d.steward())) {
+      return 3;
+    }
     if (shares(query, d.name())) {
-      return d.column() ? 7 : 5;
+      return d.column() ? 8 : 6;
     }
     if (shares(query, d.title())) {
-      return d.column() ? 8 : 6;
+      return d.column() ? 9 : 7;
     }
     return OTHER;
   }

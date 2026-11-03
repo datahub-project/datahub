@@ -224,7 +224,8 @@ export function buildRankingCorpus(): CorpusEntry[] {
  * search as typed, without quotes, and does not order results inside a tranche.
  *
  *   Exact: the whole value equals the search, ignoring case. kennel_booking is exact for
- *   kennel_booking, never for kennel_booking_archive or booking.
+ *   kennel_booking, never for kennel_booking_archive or booking. EXACT_PROPERTY is an exact match
+ *   on another searchable structured property (here io.example.steward).
  *   Partial: at least one separator-delimited substring of the search starts one of the value, or
  *   the value starts with the search. A partial real name ranks above a partial title; partial
  *   matches are otherwise not ordered. For "my cat", "my cat frank", "awesome my cat" and "cat" are
@@ -237,6 +238,7 @@ export const TRANCHES = [
   'IDENTIFIER',
   'EXACT_NAME',
   'EXACT_COPIED',
+  'EXACT_PROPERTY',
   'EXACT_COLUMN',
   'EXACT_COLUMN_COPIED',
   'PARTIAL_NAME',
@@ -291,6 +293,8 @@ export function tranche(query: string, entry: CorpusEntry): Tranche {
   if (separatorOnly(query, entry.name)) return 'SEPARATOR_ONLY';
   if (exact(query, entry.title)) return column ? 'EXACT_COLUMN_COPIED' : 'EXACT_COPIED';
   if (separatorOnly(query, entry.title)) return 'SEPARATOR_ONLY';
+  // An exact match on another searchable property: below the exact title, above exact columns.
+  if (!column && exact(query, entry.steward)) return 'EXACT_PROPERTY';
   if (shares(query, entry.name)) return column ? 'PARTIAL_COLUMN' : 'PARTIAL_NAME';
   if (shares(query, entry.title)) return column ? 'PARTIAL_COLUMN_COPIED' : 'PARTIAL_COPIED';
   return 'OTHER';
