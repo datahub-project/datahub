@@ -28,7 +28,10 @@ concurrency:
 
 jobs:
   build-datahub-agent-context:
-    runs-on: ubuntu-24.04
+    # Depot for internal runs (remote Gradle build cache via DEPOT_CACHE_TOKEN);
+    # fork PRs stay GitHub-hosted. Non-PR events have no pull_request, so the
+    # fork check is false there.
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && !github.event.pull_request.head.repo.fork && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
