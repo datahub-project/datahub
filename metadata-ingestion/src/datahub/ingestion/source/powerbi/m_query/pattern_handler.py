@@ -89,6 +89,22 @@ class _ExternalQueryResolution:
     outer_parse_failed: bool = False
 
 
+@dataclass(frozen=True)
+class _DsnDatabaseSchema:
+    """Levels a dsn_to_database_schema value supplies for a DSN."""
+
+    database: Optional[str] = None
+    schema: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class _InstanceSplitName:
+    """A dataset URN name with its leading platform_instance segment split off."""
+
+    instance_prefix: Optional[str]
+    table_name: str
+
+
 def _data_platform_pair_for(platform: str) -> DataPlatformPair:
     """Resolve a DataPlatformPair for a DataHub platform name.
 
@@ -2271,9 +2287,7 @@ class OdbcLineage(AbstractLineage):
                 platform_detail,
             )
 
-    def _resolve_dsn_database_schema(
-        self, dsn: str
-    ) -> Tuple[Optional[str], Optional[str]]:
+    def _resolve_dsn_database_schema(self, dsn: str) -> _DsnDatabaseSchema:
         """Resolve the configured database (and optional schema) for a DSN.
 
         ODBC inline SQL and hierarchical navigation do not always expose every
@@ -2284,12 +2298,12 @@ class OdbcLineage(AbstractLineage):
         """
         value = self.config.dsn_to_database_schema.get(dsn)
         if not value:
-            return None, None
+            return _DsnDatabaseSchema()
         # Config validation already stripped segments and rejected blanks.
         parts = value.split(".")
         if len(parts) == 1:
-            return parts[0], None
-        return parts[0], parts[1]
+            return _DsnDatabaseSchema(database=parts[0])
+        return _DsnDatabaseSchema(database=parts[0], schema=parts[1])
 
     def query_lineage(
         self,
@@ -2312,16 +2326,14 @@ class OdbcLineage(AbstractLineage):
         if platform_detail is None:
             platform_detail = self._resolve_platform_detail(server_name, platform_pair)
 
-        database, schema = self._resolve_dsn_database_schema(dsn)
+        dsn_levels = self._resolve_dsn_database_schema(dsn)
 
-        logger.debug(
-            f"ODBC query processing: dsn={dsn} mapped to database={database}, schema={schema}"
-        )
+        logger.debug(f"ODBC query processing: dsn={dsn} mapped to {dsn_levels}")
         result = self.parse_custom_sql(
             query=query,
             server=server_name,
-            database=database,
-            schema=schema,
+            database=dsn_levels.database,
+            schema=dsn_levels.schema,
             platform_pair=platform_pair,
             platform_detail=platform_detail,
         )
@@ -2352,7 +2364,7 @@ class OdbcLineage(AbstractLineage):
     @staticmethod
     def _split_platform_instance_prefix(
         name: str, platform_instance: Optional[str]
-    ) -> Tuple[Optional[str], str]:
+    ) -> _InstanceSplitName:
         """Separate a leading platform_instance prefix from a dataset URN name.
 
         make_dataset_urn_with_platform_instance embeds the instance as the first
@@ -2369,8 +2381,11 @@ class OdbcLineage(AbstractLineage):
         if platform_instance:
             prefix = f"{platform_instance}."
             if name[: len(prefix)].lower() == prefix.lower():
-                return name[: len(platform_instance)], name[len(prefix) :]
-        return None, name
+                return _InstanceSplitName(
+                    instance_prefix=name[: len(platform_instance)],
+                    table_name=name[len(prefix) :],
+                )
+        return _InstanceSplitName(instance_prefix=None, table_name=name)
 
     @staticmethod
     def _transform_lineage_urns(
@@ -2460,10 +2475,11 @@ class OdbcLineage(AbstractLineage):
                 )
                 return urn
 
-            instance_prefix, table_name = self._split_platform_instance_prefix(
+            split_name = self._split_platform_instance_prefix(
                 parsed.name, platform_instance
             )
-            parts = table_name.split(".")
+            instance_prefix = split_name.instance_prefix
+            parts = split_name.table_name.split(".")
             if len(parts) < 3:
                 return urn
 
@@ -2521,9 +2537,9 @@ class OdbcLineage(AbstractLineage):
             # platform_instance prefix. Athena has no schema level, so the real
             # qualified name must be exactly 2 parts (database.table); skip the
             # override if the format is unexpected (e.g. unstripped catalog prefix).
-            _, table_name = self._split_platform_instance_prefix(
+            table_name = self._split_platform_instance_prefix(
                 parsed.name, platform_instance
-            )
+            ).table_name
             name_parts = table_name.split(".")
             if len(name_parts) != 2:
                 return urn
@@ -2731,7 +2747,7 @@ class OdbcLineage(AbstractLineage):
             else:
                 break
 
-        config_database, config_schema = self._resolve_dsn_database_schema(dsn)
+        dsn_levels = self._resolve_dsn_database_schema(dsn)
         # default_database opts Oracle into database.schema.table URNs (the
         # standalone connector's add_database_name_to_urn=true).
         oracle_default_database = (
@@ -2746,8 +2762,8 @@ class OdbcLineage(AbstractLineage):
             database_name=database_name or None,
             schema_name=schema_name or None,
             table_name=table_name or None,
-            config_database=config_database,
-            config_schema=config_schema,
+            config_database=dsn_levels.database,
+            config_schema=dsn_levels.schema,
             oracle_default_database=oracle_default_database,
         )
 
