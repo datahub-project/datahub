@@ -511,14 +511,11 @@ class _Extractor:
             self._writes_in(stmt.value)
             return
         if isinstance(stmt, ast.If):
-            cond = self._eval_bool(stmt.test)
-            if cond is True:
-                self.walk(stmt.body)
-            elif cond is False:
-                self.walk(stmt.orelse)
-            else:
-                self.walk(stmt.body)
-                self.walk(stmt.orelse)
+            # Walk both branches even when the condition looks constant. A
+            # parameter cell holds only defaults that a pipeline can override per
+            # run, and a write skipped here would drop the plan's edge for it.
+            self.walk(stmt.body)
+            self.walk(stmt.orelse)
             return
         if isinstance(stmt, ast.Return) and stmt.value is not None:
             self._writes_in(stmt.value)

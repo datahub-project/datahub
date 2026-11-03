@@ -89,6 +89,24 @@ def test_commented_write_and_unused_load_are_absent() -> None:
     assert "products" not in used
 
 
+def test_write_behind_a_parameter_default_is_kept() -> None:
+    # A pipeline can override the parameter cell, so either branch may run.
+    source = """
+full_load = False
+df = spark.read.table("bronze_orders")
+if full_load:
+    df.write.mode("overwrite").saveAsTable("silver_orders")
+else:
+    df.write.mode("append").saveAsTable("silver_orders_delta")
+"""
+    lineage = extract_notebook_code_lineage(source)
+    assert lineage is not None
+    assert {target.table for target in lineage} == {
+        "silver_orders",
+        "silver_orders_delta",
+    }
+
+
 def test_intermediate_write_is_a_source_of_the_next_write() -> None:
     source = """
 source = f"{silver_path}/Tables/silver/"
