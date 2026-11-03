@@ -210,8 +210,9 @@ export function buildRankingCorpus(): CorpusEntry[] {
  *   Exact: the whole value equals the search, ignoring case. kennel_booking is exact for
  *   kennel_booking, never for kennel_booking_archive or booking.
  *   Partial: at least one separator-delimited substring of the search starts one of the value, or
- *   the value starts with the search. For "my cat", "my cat frank", "awesome my cat" and "cat" are
- *   all partial matches, in any order. Separators are space, underscore, dot and slash; a hyphen is
+ *   the value starts with the search. A partial real name ranks above a partial title; partial
+ *   matches are otherwise not ordered. For "my cat", "my cat frank", "awesome my cat" and "cat" are
+ *   all partial real names, in any order. Separators are space, underscore, dot and slash; a hyphen is
  *   not one. There is no stemming, so "groomed" does not start "groom_0001", which is OTHER.
  *   SEPARATOR_ONLY: the value differs from the search only in separators ("kennel booking" and
  *   kennel_booking). The rule does not decide where it ranks, so it is left out of comparisons.
@@ -222,8 +223,10 @@ export const TRANCHES = [
   'EXACT_COPIED',
   'EXACT_COLUMN',
   'EXACT_COLUMN_COPIED',
-  'PARTIAL',
+  'PARTIAL_NAME',
+  'PARTIAL_COPIED',
   'PARTIAL_COLUMN',
+  'PARTIAL_COLUMN_COPIED',
   'OTHER',
   'SEPARATOR_ONLY',
 ] as const;
@@ -272,7 +275,8 @@ export function tranche(query: string, entry: CorpusEntry): Tranche {
   if (separatorOnly(query, entry.name)) return 'SEPARATOR_ONLY';
   if (exact(query, entry.title)) return column ? 'EXACT_COLUMN_COPIED' : 'EXACT_COPIED';
   if (separatorOnly(query, entry.title)) return 'SEPARATOR_ONLY';
-  if (shares(query, entry.name) || shares(query, entry.title)) return column ? 'PARTIAL_COLUMN' : 'PARTIAL';
+  if (shares(query, entry.name)) return column ? 'PARTIAL_COLUMN' : 'PARTIAL_NAME';
+  if (shares(query, entry.title)) return column ? 'PARTIAL_COLUMN_COPIED' : 'PARTIAL_COPIED';
   return 'OTHER';
 }
 
@@ -361,7 +365,6 @@ export function classOrderNoCopyTemplateBody(): Record<string, unknown> {
       ],
     },
   });
-  const partialAny = { bool: { should: [partial('name.text'), partial(`${title}.text`)] } };
   const tier = (boost: number, name: string, filter: unknown[]) => ({
     constant_score: { boost, _name: `class:${name}`, filter: { bool: { filter } } },
   });
@@ -371,8 +374,11 @@ export function classOrderNoCopyTemplateBody(): Record<string, unknown> {
     tier(8000, 'EXACT_TITLE', [ds, exactTitle]),
     tier(7000, 'COLUMN_EXACT_NAME', [col, exactName]),
     tier(6000, 'COLUMN_EXACT_TITLE', [col, exactTitle]),
-    tier(5000, 'PARTIAL', [ds, partialAny]),
-    tier(2000, 'COLUMN_PARTIAL', [col, partialAny]),
+    // dis_max keeps the best tier, so a row whose name also matches ranks as a partial name.
+    tier(5000, 'PARTIAL_NAME', [ds, partial('name.text')]),
+    tier(4000, 'PARTIAL_TITLE', [ds, partial(`${title}.text`)]),
+    tier(2000, 'COLUMN_PARTIAL_NAME', [col, partial('name.text')]),
+    tier(1000, 'COLUMN_PARTIAL_TITLE', [col, partial(`${title}.text`)]),
   ];
   return {
     bool: {

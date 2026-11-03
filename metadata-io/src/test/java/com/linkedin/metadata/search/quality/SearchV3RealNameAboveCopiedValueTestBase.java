@@ -118,17 +118,18 @@ import org.testng.annotations.BeforeClass;
  * not exact.
  *
  * <p>The tranches, best first: EXACT_NAME, EXACT_COPIED, EXACT_COLUMN, EXACT_COLUMN_COPIED, then
- * PARTIAL (a dataset sharing a substring with the search, in its name or a copied title), then
- * PARTIAL_COLUMN, then OTHER (stem-only or unrelated). Exact means the whole value equals the
- * search, ignoring case: kennel_booking is exact for kennel_booking, never for
- * kennel_booking_archive or booking. Partial means at least one separator-delimited substring of
- * the search starts one of the value, or the value starts with the search; how partial matches
- * order among themselves is not asserted. For "my cat", the asset named "my cat" ranks first; "my
- * cat frank", "awesome my cat" and "cat" are all partial matches in any order. Separators are
- * space, underscore, dot and slash; a hyphen is not one, and there is no stemming. A value that
- * differs from the search only in separators may rank either way and is left out of the comparison.
- * An asset takes its best tranche, graded on its real name first. A record ID typed as the search
- * is checked on its own: that asset first.
+ * PARTIAL_NAME (a dataset whose own name shares a substring with the search), PARTIAL_COPIED (only
+ * its title does), PARTIAL_COLUMN, PARTIAL_COLUMN_COPIED, then OTHER (stem-only or unrelated).
+ * Exact means the whole value equals the search, ignoring case: kennel_booking is exact for
+ * kennel_booking, never for kennel_booking_archive or booking. Partial means at least one
+ * separator-delimited substring of the search starts one of the value, or the value starts with the
+ * search; a partial real name ranks above a partial title, and partial matches are otherwise not
+ * ordered among themselves. For "my cat", the asset named "my cat" ranks first; "my cat frank",
+ * "awesome my cat" and "cat" are all partial real names in any order. Separators are space,
+ * underscore, dot and slash; a hyphen is not one, and there is no stemming. A value that differs
+ * from the search only in separators may rank either way and is left out of the comparison. An
+ * asset takes its best tranche, graded on its real name first. A record ID typed as the search is
+ * checked on its own: that asset first.
  *
  * <p>Every scenario runs through the class-order router set as the search-box default in
  * configuration, with no per-request selection, as a deployment sets it. It runs on two indices:
@@ -331,7 +332,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
 
   /**
    * For "my cat": the asset named "my cat" first, the title "My Cat" next, then "my cat frank",
-   * "awesome my cat" and "cat", all partial matches, in any order.
+   * "awesome my cat" and "cat", all partial real names, in any order.
    */
   protected void assertCanonicalExampleOrder(Mode mode) throws Exception {
     assertTrancheOrder(mode, "my cat");
@@ -550,13 +551,15 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     "EXACT_COPIED",
     "EXACT_COLUMN",
     "EXACT_COLUMN_COPIED",
-    "PARTIAL",
+    "PARTIAL_NAME",
+    "PARTIAL_COPIED",
     "PARTIAL_COLUMN",
+    "PARTIAL_COLUMN_COPIED",
     "OTHER",
     "SEPARATOR_ONLY"
   };
-  private static final int OTHER = 7;
-  private static final int SEPARATOR_ONLY = 8;
+  private static final int OTHER = 9;
+  private static final int SEPARATOR_ONLY = 10;
 
   /**
    * Separator-delimited substrings: lowercased, accents folded, split on space, underscore, dot and
@@ -622,8 +625,11 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     if (separatorOnly(query, d.title())) {
       return SEPARATOR_ONLY;
     }
-    if (shares(query, d.name()) || shares(query, d.title())) {
-      return d.column() ? 6 : 5;
+    if (shares(query, d.name())) {
+      return d.column() ? 7 : 5;
+    }
+    if (shares(query, d.title())) {
+      return d.column() ? 8 : 6;
     }
     return OTHER;
   }
@@ -740,8 +746,6 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     // The stored value keeps its case; compare the query as typed, ignoring case.
     Map<String, Object> exactTitle =
         Map.of("term", Map.of(title, Map.of("value", "{{raw}}", "case_insensitive", true)));
-    Map<String, Object> partialAny =
-        Map.of("bool", Map.of("should", List.of(partial("name.text"), partial(title + ".text"))));
     List<Object> tiers = new ArrayList<>();
     tiers.add(
         tier(
@@ -757,8 +761,11 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     tiers.add(tier(8000, "EXACT_TITLE", List.of(ds, exactTitle), null));
     tiers.add(tier(7000, "COLUMN_EXACT_NAME", List.of(col, exactName), null));
     tiers.add(tier(6000, "COLUMN_EXACT_TITLE", List.of(col, exactTitle), null));
-    tiers.add(tier(5000, "PARTIAL", List.of(ds, partialAny), null));
-    tiers.add(tier(2000, "COLUMN_PARTIAL", List.of(col, partialAny), null));
+    // dis_max keeps the best tier, so a row whose name also matches ranks as a partial name.
+    tiers.add(tier(5000, "PARTIAL_NAME", List.of(ds, partial("name.text")), null));
+    tiers.add(tier(4000, "PARTIAL_TITLE", List.of(ds, partial(title + ".text")), null));
+    tiers.add(tier(2000, "COLUMN_PARTIAL_NAME", List.of(col, partial("name.text")), null));
+    tiers.add(tier(1000, "COLUMN_PARTIAL_TITLE", List.of(col, partial(title + ".text")), null));
     Map<String, Object> body =
         Map.of(
             "bool",

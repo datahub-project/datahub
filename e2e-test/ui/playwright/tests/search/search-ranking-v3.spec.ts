@@ -8,12 +8,13 @@
  * Every test types the query as a user does, without quotes, reads the results in order and checks
  * them against the tranching rule, graded from the corpus definition:
  *
- *   EXACT_NAME > EXACT_COPIED > EXACT_COLUMN > EXACT_COLUMN_COPIED > PARTIAL > PARTIAL_COLUMN > OTHER
+ *   EXACT_NAME > EXACT_COPIED > EXACT_COLUMN > EXACT_COLUMN_COPIED >
+ *   PARTIAL_NAME > PARTIAL_COPIED > PARTIAL_COLUMN > PARTIAL_COLUMN_COPIED > OTHER
  *
  * Exact is a whole-value match ignoring case; partial is at least one separator-delimited substring
- * of the search starting one of the value (see `tranche` in the seeder). For "my cat", the asset
- * named "my cat" ranks first; "my cat frank", "awesome my cat" and "cat" are all partial matches in
- * any order. A value that differs from the query only in separators is
+ * of the search starting one of the value (see `tranche` in the seeder); a partial real name ranks
+ * above a partial title. For "my cat", the asset named "my cat" ranks first; "my cat frank",
+ * "awesome my cat" and "cat" are all partial real names in any order. A value that differs from the query only in separators is
  * left out of the comparison. A tranche holds ties in any order; a result in the wrong tranche
  * fails the test, and the failure message shows the expected and the actual order. Rows outside the
  * test catalog (other data on a shared stack) are recorded but not graded. Each search attaches its served rows, their
