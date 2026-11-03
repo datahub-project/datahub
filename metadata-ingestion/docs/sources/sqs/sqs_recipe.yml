@@ -35,6 +35,13 @@ source:
       lambda_async_destinations: false
       eventbridge_rules: true
       eventbridge_pipes: true
+      s3_notifications: false
+    # Match the s3 source recipe, for S3 notification lineage.
+    # platform_map:
+    #   s3:
+    #     platform_instance: "data-lake"
+    #     env: "PROD"
+    #     convert_urns_to_lowercase: false
 
     stateful_ingestion:
       enabled: true
