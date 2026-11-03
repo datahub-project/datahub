@@ -492,15 +492,13 @@ class DorisSource(MySQLSource):
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader],
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        if self._skip_unreachable(inspector):
-            return
-        try:
-            yield from super()._process_table(
+        return self._skip_lost_connection_tables(
+            dataset_name,
+            inspector,
+            super()._process_table(
                 dataset_name, inspector, schema, table, sql_config, data_reader
-            )
-        except Exception as e:
-            if not self._skip_on_lost_connection(dataset_name, inspector, e):
-                raise
+            ),
+        )
 
     def _process_view(
         self,
@@ -510,12 +508,23 @@ class DorisSource(MySQLSource):
         view: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        return self._skip_lost_connection_tables(
+            dataset_name,
+            inspector,
+            super()._process_view(dataset_name, inspector, schema, view, sql_config),
+        )
+
+    def _skip_lost_connection_tables(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        workunits: Iterable[Union[SqlWorkUnit, MetadataWorkUnit]],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        # `workunits` is the base class's generator, so nothing has been read yet.
         if self._skip_unreachable(inspector):
             return
         try:
-            yield from super()._process_view(
-                dataset_name, inspector, schema, view, sql_config
-            )
+            yield from workunits
         except Exception as e:
             if not self._skip_on_lost_connection(dataset_name, inspector, e):
                 raise
