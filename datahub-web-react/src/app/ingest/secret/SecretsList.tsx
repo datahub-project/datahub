@@ -7,14 +7,14 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SecretBuilderModal } from '@app/ingest/secret/SecretBuilderModal';
 import {
     addSecretToListSecretsCache,
     removeSecretFromListSecretsCache,
     updateSecretInListSecretsCache,
-} from '@app/ingest/secret/cacheUtils';
-import { SecretBuilderState } from '@app/ingest/secret/types';
+} from '@app/ingestV2/secret/cacheUtils';
+import { SecretBuilderState } from '@app/ingestV2/secret/types';
 import { Message } from '@app/sharedV2/Message';
 import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { Pagination, Table } from '@src/alchemy-components';

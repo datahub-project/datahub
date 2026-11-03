@@ -24,15 +24,16 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
 
 COPY docker/snippets/wait_for_deps.sh /usr/local/lib/datahub/wait_for_deps.sh
 
+RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
+
 FROM base AS prod-install
 # UPGRADE_JAR selects the boot archive: datahub-upgrade.jar (default, slim) or
 # datahub-upgrade-onnx.jar (datahub-upgrade-onnx variant, bundling ONNX/DJL). Destination filename
 # stays datahub-upgrade.jar so start.sh is unchanged.
 ARG UPGRADE_JAR=datahub-upgrade.jar
 COPY datahub-upgrade/build/libs/${UPGRADE_JAR} /datahub/datahub-upgrade/bin/datahub-upgrade.jar
-COPY docker/datahub-upgrade/start.sh /datahub/datahub-upgrade/scripts/start.sh
+COPY --chmod=755 docker/datahub-upgrade/start.sh /datahub/datahub-upgrade/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-upgrade/scripts/prometheus-config.yaml
-RUN chmod +x /datahub/datahub-upgrade/scripts/start.sh
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 
 FROM base AS dev-install
@@ -40,8 +41,6 @@ FROM base AS dev-install
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
 FROM ${APP_ENV}-install AS final
-
-RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 USER datahub
 
 # application-upgrade.yaml holds health checks, the entity client, and cache defaults.

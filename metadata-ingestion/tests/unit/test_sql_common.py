@@ -33,7 +33,6 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.sql_common import (
     PipelineContext,
     SQLAlchemySource,
-    SqlWorkUnit,
     _pool_accepts_sizing_options,
     get_column_type,
     get_schema_metadata,
@@ -434,12 +433,51 @@ def test_add_default_options_sets_max_overflow_when_pooled() -> None:
     assert config.options["max_overflow"] == config.profiling.max_workers
 
 
+class _TestPooledProfilingSource(_TestSQLAlchemySource):
+    _profiling_pool_class = QueuePool
+
+
+def test_profiling_pool_class_sets_poolclass_and_max_overflow() -> None:
+    source = _TestPooledProfilingSource.create(
+        config_dict={}, ctx=PipelineContext(run_id="test")
+    )
+    config = _TestSQLiteConfig.model_validate({"profiling": {"enabled": True}})
+
+    source._add_default_options(config)
+
+    # The declared pool replaces the dialect default (SingletonThreadPool for
+    # in-memory SQLite), and because it is a QueuePool, max_overflow follows.
+    assert config.options["poolclass"] is QueuePool
+    assert config.options["max_overflow"] == config.profiling.max_workers
+    create_engine(config.get_sql_alchemy_url(), **config.options).dispose()
+
+
+def test_profiling_pool_class_does_not_override_user_poolclass() -> None:
+    source = _TestPooledProfilingSource.create(
+        config_dict={}, ctx=PipelineContext(run_id="test")
+    )
+    config = _TestSQLiteConfig.model_validate(
+        {"profiling": {"enabled": True}, "options": {"poolclass": NullPool}}
+    )
+
+    source._add_default_options(config)
+
+    assert config.options["poolclass"] is NullPool
+    assert "max_overflow" not in config.options
+
+
 def test_add_default_options_noop_without_profiling() -> None:
-    source = get_test_sql_alchemy_source()
+    # A source that declares a profiling pool must still leave options alone
+    # when profiling is off; otherwise every non-profiling run of a connector
+    # such as Teradata would be moved onto that pool.
+    source = _TestPooledProfilingSource.create(
+        config_dict={}, ctx=PipelineContext(run_id="test")
+    )
     config = _TestSQLAlchemyConfig.model_validate({})
 
     source._add_default_options(config)
 
+    assert "poolclass" not in config.options
     assert "max_overflow" not in config.options
 
 
@@ -785,9 +823,11 @@ def test_duplicate_table_names_are_emitted_once(sqlite_db: str) -> None:
             workunits = list(source.loop_tables(inspector, "main", source.config))
     engine.dispose()
 
-    assert [wu.id for wu in workunits if isinstance(wu, SqlWorkUnit)] == [
-        "testdb.main.child"
-    ]
+    assert [
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+    ] == ["urn:li:dataset:(urn:li:dataPlatform:sqlite,testdb.main.child,PROD)"]
     assert source.report.tables_scanned == 1
 
 
