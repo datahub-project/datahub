@@ -376,6 +376,86 @@ def test_test_connection(aws: None) -> None:
     assert report.basic_connectivity.capable
 
 
+def test_test_connection_reports_a_denied_listing(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def denied(self: Any, *args: Any, **kwargs: Any) -> Any:
+        raise ClientError(
+            {"Error": {"Code": "AccessDenied", "Message": "x"}}, "ListQueues"
+        )
+
+    monkeypatch.setattr("botocore.client.BaseClient._make_api_call", denied)
+    report = SqsSource.test_connection(base_config())
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert "AccessDenied" in (report.basic_connectivity.failure_reason or "")
+
+
+def test_lineage_patch_is_primary_only_for_an_ingested_queue(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A patch on a queue this run doesn't ingest must stay out of stale-entity
+    # removal, or that queue could be deleted by this recipe.
+    dlq = create_queue("orders-dlq")
+    create_queue("orders", Attributes=redrive(dlq))
+    create_queue("refunds")
+    original = SqsClient.get_attributes
+
+    def cross_account_dlq(self: SqsClient, url: str) -> Optional[Dict[str, str]]:
+        # moto rejects a dead-letter target in another account.
+        attributes = original(self, url)
+        assert attributes is not None
+        if url.endswith("/refunds"):
+            return {
+                **attributes,
+                **redrive("arn:aws:sqs:us-east-1:210987654321:refunds-dlq"),
+            }
+        return attributes
+
+    monkeypatch.setattr(SqsClient, "get_attributes", cross_account_dlq)
+    primary = {
+        wu.get_urn(): wu.is_primary_source
+        for wu in _run().get_workunits_internal()
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "upstreamLineage"
+    }
+    assert primary == {
+        queue_urn("orders-dlq"): True,
+        queue_urn("refunds-dlq", instance="210987654321"): False,
+    }
+
+
+def test_unrecognised_queue_url_without_platform_instance_aborts(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_queue("orders")
+    monkeypatch.setattr(
+        SqsClient, "first_queue_url", lambda self: "https://example.com/not-a-queue"
+    )
+    with pytest.raises(RuntimeError):
+        _run()
+    assert _run(platform_instance="prod").get_report().warnings
+
+
+def test_unreadable_queue_timestamp_is_reported(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_queue("orders")
+    original = SqsClient.get_attributes
+
+    def bad_timestamp(self: SqsClient, url: str) -> Optional[Dict[str, str]]:
+        attributes = original(self, url)
+        assert attributes is not None
+        return {**attributes, "CreatedTimestamp": "not-a-number"}
+
+    monkeypatch.setattr(SqsClient, "get_attributes", bad_timestamp)
+    source = _run()
+    list(source.get_workunits_internal())
+    assert "Unreadable queue timestamp" in [
+        w.title for w in source.get_report().warnings
+    ]
+
+
 def test_unreadable_queue_is_kept_out_of_stale_removal(
     aws: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:

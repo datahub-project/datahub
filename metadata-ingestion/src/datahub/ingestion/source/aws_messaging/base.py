@@ -89,30 +89,42 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         # cross-account role assumption the caller's account is not the one that
         # owns the resources, and this needs no extra permission.
         try:
-            arn = parse_arn(self.first_resource_arn())
+            resource = self.first_resource_arn()
         except (ClientError, BotoCoreError) as e:
-            if not self.base_config.platform_instance:
-                # The account id becomes the platform_instance, so carrying on
-                # without it would move every resource to a URN with no account
-                # and duplicate the catalog. The listing needs the same permission,
-                # so a failure here is transient or a broken setup, not a valid one.
-                raise RuntimeError(
-                    "Could not read a resource ARN to find the AWS account id "
-                    f"({aws_error_code(e)}). Re-run, or set platform_instance so URNs "
-                    "don't depend on it."
-                ) from e
-            self.base_report.warning(
-                title="Account id not resolved",
-                message=(
-                    "Could not read a resource ARN to find the AWS account id; "
-                    "the configured platform_instance is used, and the account is "
-                    "taken from the first resource listed."
-                ),
-                context=aws_error_code(e),
-                exc=e,
-            )
+            self._account_unresolved(aws_error_code(e), e)
             return None
-        return arn.account if arn is not None else None
+        if resource is None:
+            # No resources in this region, so nothing gets a URN either way.
+            return None
+        arn = parse_arn(resource)
+        if arn is None:
+            self._account_unresolved(f"unrecognised resource id {resource}")
+            return None
+        return arn.account
+
+    def _account_unresolved(
+        self, reason: str, exc: Optional[BaseException] = None
+    ) -> None:
+        if not self.base_config.platform_instance:
+            # The account id becomes the platform_instance, so carrying on
+            # without it would move every resource to a URN with no account
+            # and duplicate the catalog. The listing needs the same permission,
+            # so a failure here is transient or a broken setup, not a valid one.
+            raise RuntimeError(
+                "Could not read a resource ARN to find the AWS account id "
+                f"({reason}). Re-run, or set platform_instance so URNs don't "
+                "depend on it."
+            ) from exc
+        self.base_report.warning(
+            title="Account id not resolved",
+            message=(
+                "Could not read a resource ARN to find the AWS account id; "
+                "the configured platform_instance is used, and the account is "
+                "taken from the first resource listed."
+            ),
+            context=reason,
+            exc=exc,
+        )
 
     def region_key(self, platform: Optional[str] = None) -> AwsRegionKey:
         return AwsRegionKey(

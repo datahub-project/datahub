@@ -1,4 +1,5 @@
 import itertools
+from datetime import datetime
 from typing import FrozenSet, Iterable, Iterator, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -91,9 +92,12 @@ class SqsSource(AwsMessagingSourceBase):
         # Depending on GetQueueAttributes would leave the account unresolved
         # whenever that call is denied, and the URNs would change between runs.
         url = self.sqs.first_queue_url()
-        match = QUEUE_URL_PATTERN.search(url) if url else None
-        if match is None:
+        if url is None:
             return None
+        match = QUEUE_URL_PATTERN.search(url)
+        if match is None:
+            # Returned as is, so the caller reports it as unreadable.
+            return url
         return f"arn:aws:sqs:{self.base_config.aws_config.aws_region}:{match.group('account')}:{match.group('name')}"
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -158,15 +162,26 @@ class SqsSource(AwsMessagingSourceBase):
                 parent_container=self.region_key(),
                 external_url=queue_console_url(queue),
                 custom_properties=queue_properties(queue),
-                created=epoch_seconds(
-                    queue.attributes.get(QueueAttribute.CREATED_TIMESTAMP)
-                ),
-                last_modified=epoch_seconds(
-                    queue.attributes.get(QueueAttribute.LAST_MODIFIED_TIMESTAMP)
+                created=self._timestamp(queue, QueueAttribute.CREATED_TIMESTAMP),
+                last_modified=self._timestamp(
+                    queue, QueueAttribute.LAST_MODIFIED_TIMESTAMP
                 ),
                 domain=domain_for(queue.name, self.config.domain),
             ).as_workunits()
             yield from tag_patch_workunits(urn, queue.tags)
+
+    def _timestamp(
+        self, queue: SqsQueue, attribute: QueueAttribute
+    ) -> Optional[datetime]:
+        value = queue.attributes.get(attribute)
+        parsed = epoch_seconds(value)
+        if value and parsed is None:
+            self.report.warning(
+                title="Unreadable queue timestamp",
+                message="A queue timestamp is not epoch seconds; it is left out.",
+                context=f"{queue.name}: {attribute.value}={value}",
+            )
+        return parsed
 
     def _keep_unreadable_queues(self) -> Iterable[MetadataWorkUnit]:
         """A queue whose attributes couldn't be read (throttling, a transient
