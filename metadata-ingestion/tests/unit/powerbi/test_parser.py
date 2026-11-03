@@ -1,3 +1,4 @@
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -890,76 +891,21 @@ def test_athena_table_platform_override():
     )
 
 
-def test_athena_table_platform_override_drops_platform_instance():
+@pytest.mark.parametrize(
+    "target_platform_instance, expected_name",
+    [
+        (None, "my_schema.my_table"),
+        ("mysql_prod", "mysql_prod.my_schema.my_table"),
+    ],
+)
+def test_athena_table_platform_override_replaces_platform_instance(
+    target_platform_instance: Optional[str], expected_name: str
+) -> None:
     """Override matching must skip the embedded Athena platform_instance prefix so
     the 3-part name passes the 2-part check, then drop it from the rewritten URN:
     a platform change (athena -> mysql) hands the entity to the source connector,
-    which uses its own instance (or none) — never Athena's."""
-    from datahub.ingestion.source.powerbi.config import (
-        AthenaPlatformOverride,
-        DataPlatformPair,
-        PowerBiDashboardSourceConfig,
-    )
-    from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
-        ResolvePlatformInstanceFromDatasetTypeMapping,
-    )
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
-        DataPlatformTable,
-        Lineage,
-    )
-    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
-    from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-
-    config = PowerBiDashboardSourceConfig(
-        tenant_id="test-tenant-id",
-        client_id="test-client-id",
-        client_secret="test-client-secret",
-        athena_table_platform_override=[
-            AthenaPlatformOverride(
-                database="my_schema", table="my_table", platform="mysql"
-            ),
-        ],
-    )
-
-    odbc = OdbcLineage(
-        ctx=PipelineContext(run_id="test-run-id"),
-        table=Table(name="test_table", full_name="test_table"),
-        reporter=PowerBiDashboardSourceReport(),
-        config=config,
-        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
-            config
-        ),
-    )
-
-    platform_pair = DataPlatformPair(
-        datahub_data_platform_name="athena",
-        powerbi_data_platform_name="Amazon Athena",
-    )
-
-    original_lineage = Lineage(
-        upstreams=[
-            DataPlatformTable(
-                data_platform_pair=platform_pair,
-                urn="urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.my_schema.my_table,PROD)",
-            )
-        ],
-        column_lineage=[],
-    )
-
-    overridden_lineage = odbc._apply_table_platform_override(
-        original_lineage, dsn="TestDSN", platform_instance="my_instance"
-    )
-
-    assert (
-        overridden_lineage.upstreams[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:mysql,my_schema.my_table,PROD)"
-    )
-
-
-def test_athena_table_platform_override_uses_target_platform_instance():
-    """When the federated source is ingested under a platform_instance, the override
-    carries that target instance (not Athena's) so the URN matches the source
-    connector's entities."""
+    which uses its own instance (the override's platform_instance, or none) —
+    never Athena's."""
     from datahub.ingestion.source.powerbi.config import (
         AthenaPlatformOverride,
         DataPlatformPair,
@@ -984,7 +930,7 @@ def test_athena_table_platform_override_uses_target_platform_instance():
                 database="my_schema",
                 table="my_table",
                 platform="mysql",
-                platform_instance="mysql_prod",
+                platform_instance=target_platform_instance,
             ),
         ],
     )
@@ -1020,7 +966,7 @@ def test_athena_table_platform_override_uses_target_platform_instance():
 
     assert (
         overridden_lineage.upstreams[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:mysql,mysql_prod.my_schema.my_table,PROD)"
+        == f"urn:li:dataset:(urn:li:dataPlatform:mysql,{expected_name},PROD)"
     )
 
 
