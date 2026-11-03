@@ -6,7 +6,7 @@ import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
+import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entityV2/shared/constants';
 import { MenuItemStyle } from '@app/entityV2/view/menu/item/styledComponent';
 import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
 import { Direction } from '@src/app/lineageV3/types';

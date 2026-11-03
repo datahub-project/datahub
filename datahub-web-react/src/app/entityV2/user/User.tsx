@@ -2,9 +2,9 @@ import { User } from '@phosphor-icons/react/dist/csr/User';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { INGESTION_ACTOR_URN } from '@app/entity/shared/constants';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { INGESTION_ACTOR_URN } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { Preview } from '@app/entityV2/user/preview/Preview';

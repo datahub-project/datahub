@@ -3,7 +3,6 @@ import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple'
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
 import EntityMenuActions, { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
@@ -17,6 +16,7 @@ import { getDisplayedEntityType, getEntityPlatforms } from '@app/entityV2/shared
 import { EntityBackButton } from '@app/entityV2/shared/containers/profile/sidebar/EntityBackButton';
 import EntityActions, { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entityV2/shared/types';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';

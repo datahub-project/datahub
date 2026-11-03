@@ -3,7 +3,7 @@ import styled from 'styled-components';
 
 import { EntitySidebar } from '@app/entity/shared/containers/profile/sidebar/EntitySidebar';
 import { ProfileSidebarResizer } from '@app/entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
-import { EntitySidebarSection } from '@app/entity/shared/types';
+import { EntitySidebarSection } from '@app/entityV2/shared/types';
 
 const MAX_SIDEBAR_WIDTH = 800;
 const MIN_SIDEBAR_WIDTH = 200;

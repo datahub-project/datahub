@@ -1,7 +1,7 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entityV2/shared/entityForm/constants';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import {
     FieldFormPromptAssociation,

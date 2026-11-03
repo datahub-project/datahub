@@ -6,10 +6,10 @@ import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { SearchBar } from '@app/search/SearchBar';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';

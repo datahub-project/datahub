@@ -4,7 +4,7 @@ import { Input } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { DataPlatformCard } from '@app/ingest/source/builder/DataPlatformCard';
 import { CUSTOM } from '@app/ingest/source/builder/constants';
 import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingest/source/builder/types';

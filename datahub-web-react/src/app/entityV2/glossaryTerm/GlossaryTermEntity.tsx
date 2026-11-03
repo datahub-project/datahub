@@ -6,7 +6,6 @@ import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/glossaryTerm/preview/Preview';
 import useGlossaryRelatedAssetsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedAssetsTabCount';
@@ -33,7 +32,7 @@ import {
     StatusSection,
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
-import { EntityTab } from '@app/entityV2/shared/types';
+import { EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { FetchedEntity } from '@app/lineageV3/types';
 
