@@ -133,6 +133,7 @@ class BoomiDataIntegrationClient:
         page_size: int,
         model: Type[M],
         params: Optional[QueryParams] = None,
+        truncation_is_failure: bool = True,
     ) -> Iterator[M]:
         for page_number in range(1, MAX_PAGES + 1):
             page = PageResponse.model_validate(
@@ -163,9 +164,13 @@ class BoomiDataIntegrationClient:
             # last page has an empty string, or null when the list is empty.
             if not page.next_page:
                 return
-        # A failure rather than a warning, so that stale entity removal does
-        # not delete what lies beyond the cap.
-        self.report.failure(
+        # A failure for entity listings, so that stale entity removal does not
+        # delete what lies beyond the cap. Run history is not in stale state,
+        # so a truncated run listing is only a warning.
+        report_truncation = (
+            self.report.failure if truncation_is_failure else self.report.warning
+        )
+        report_truncation(
             title="Too many pages",
             message=(
                 "The API kept returning a next page, so listing stopped at the "
@@ -225,6 +230,7 @@ class BoomiDataIntegrationClient:
             ACTIVITIES_PAGE_SIZE,
             Activity,
             _window_params(start, end),
+            truncation_is_failure=False,
         )
 
     def list_river_runs(
@@ -243,6 +249,7 @@ class BoomiDataIntegrationClient:
             RUNS_PAGE_SIZE,
             RiverRun,
             _window_params(start, end),
+            truncation_is_failure=False,
         )
 
 

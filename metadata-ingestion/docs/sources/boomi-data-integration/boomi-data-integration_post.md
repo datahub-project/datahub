@@ -83,6 +83,10 @@ The token for the environment whose `environment_id` is in the warning's context
 
 The API returned an error while listing runs, so run history was skipped for that environment or river. Rivers and jobs are still ingested, and stale entity removal still runs, because runs are not part of stale state. The next run picks the history up again.
 
+#### "Too many pages"
+
+A listing returned a next page past the source plugin's limit of 500 pages, so later records were not ingested. For environments and rivers this is a failure, and stale entity removal does not run. For run history it is a warning, and only the runs past the limit are skipped. Lower `run_history_days` if it keeps happening on run history.
+
 #### Missing target lineage
 
 Check `targets_missing_bigquery_project`, `targets_missing_location`, `targets_prefix_skipped` and `targets_unsupported` in the ingestion report.
