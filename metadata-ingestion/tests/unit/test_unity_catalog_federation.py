@@ -1291,3 +1291,103 @@ def test_with_federation_lineage_degrades_on_error(monkeypatch):
     result = src._with_federation_lineage(base, "urn:li:dataset:(x)", table, None)
     assert result is base
     assert src.report.num_federation_links_failed == 1
+
+
+def _seed_external_v2_schema(
+    src: UnityCatalogSource, catalog: Catalog, field_paths: List[str]
+) -> str:
+    """Seed the external schema the way the bulk fetch does: from the external
+    dataset's real field paths, here v2 paths (as e.g. the Glue source emits)."""
+    urn = _seed_external_schema(src, catalog, "my_schema", "t", {})
+    key = src._external_platform_key(catalog)
+    assert key is not None
+    resolver = src._external_schema_resolvers[key]
+    assert resolver is not None
+    resolver.add_schema_metadata(
+        urn, _external_schema([_field(p) for p in field_paths])
+    )
+    return urn
+
+
+_DBX_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:databricks,datahub_snowflake.my_schema.t,PROD)"
+)
+
+
+def _cll_pairs(aspect: Optional[UpstreamLineageClass]) -> List[tuple]:
+    assert aspect is not None and aspect.fineGrainedLineages
+    return [(x.upstreams, x.downstreams) for x in aspect.fineGrainedLineages]
+
+
+def test_federation_cll_upstream_uses_external_v2_field_path():
+    # The external dataset's schemaField URN must use its own (v2) field path, or
+    # the edge points at a schemaField that doesn't exist and column lineage stops
+    # at the external dataset.
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    ext = _seed_external_v2_schema(
+        src, catalog, ["[version=2.0].[type=long].col_a", "col_b"]
+    )
+    dbx_schema = _external_schema([_field("col_a"), _field("col_b")])
+
+    aspect = src._federation_lineage(
+        _DBX_URN, _foreign_table(catalog), catalog, dbx_schema
+    )
+
+    assert _cll_pairs(aspect) == [
+        (
+            [f"urn:li:schemaField:({ext},[version=2.0].[type=long].col_a)"],
+            [f"urn:li:schemaField:({_DBX_URN},col_a)"],
+        ),
+        # A field whose path is already simple falls back to that path.
+        (
+            [f"urn:li:schemaField:({ext},col_b)"],
+            [f"urn:li:schemaField:({_DBX_URN},col_b)"],
+        ),
+    ]
+
+
+def test_federation_cll_v2_field_path_matched_case_insensitively():
+    src = _lineage_cll_source()
+    catalog = _foreign_catalog()
+    ext = _seed_external_v2_schema(src, catalog, ["[version=2.0].[type=long].col_a"])
+    dbx_schema = _external_schema([_field("COL_A")])
+
+    aspect = src._federation_lineage(
+        _DBX_URN, _foreign_table(catalog), catalog, dbx_schema
+    )
+
+    assert _cll_pairs(aspect) == [
+        (
+            [f"urn:li:schemaField:({ext},[version=2.0].[type=long].col_a)"],
+            [f"urn:li:schemaField:({_DBX_URN},COL_A)"],
+        )
+    ]
+
+
+def test_identity_column_lineage_falls_back_to_simple_path_when_original_unknown():
+    ext = "urn:li:dataset:(urn:li:dataPlatform:glue,my_db.t,PROD)"
+    cll = fed.identity_column_lineage(
+        dataset_urn=_DBX_URN,
+        external_urn=ext,
+        downstream_field_paths=["col_a", "col_b"],
+        upstream_field_paths=["col_a", "col_b"],
+        upstream_original_field_paths={"col_a": "[version=2.0].[type=long].col_a"},
+    )
+    assert [x.upstreams for x in cll] == [
+        [f"urn:li:schemaField:({ext},[version=2.0].[type=long].col_a)"],
+        [f"urn:li:schemaField:({ext},col_b)"],
+    ]
+
+
+def test_backfill_from_v2_external_schema_emits_simple_field_paths():
+    # Backfilled mirror columns are the Databricks table's own fields, so they keep
+    # the simple path (as Unity Catalog's own flat columns do); only the upstream
+    # side of the column lineage uses the external dataset's v2 path.
+    src = _snowflake_conn_source()
+    catalog = _foreign_catalog()
+    _seed_external_v2_schema(src, catalog, ["[version=2.0].[type=long].col_a"])
+
+    fields = src._resolve_external_schema_fields(_foreign_table(catalog))
+
+    assert fields is not None and [f.fieldPath for f in fields] == ["col_a"]

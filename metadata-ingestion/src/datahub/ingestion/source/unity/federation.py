@@ -219,13 +219,20 @@ def identity_column_lineage(
     external_urn: str,
     downstream_field_paths: List[str],
     upstream_field_paths: List[str],
+    upstream_original_field_paths: Optional[Dict[str, str]] = None,
 ) -> List[FineGrainedLineageClass]:
     """1:1 identity column-level lineage from an external dataset's fields to a
     foreign-catalog mirror's fields. A foreign catalog is a read-only copy, so
     each column maps to the same-named external column. Matched case-insensitively
     because the mirror and the external source may differ only in field-name case
     (e.g. Databricks CUSTOMER_ID vs a lowercased Snowflake customer_id). Downstream
-    fields with no external match are skipped."""
+    fields with no external match are skipped.
+
+    `upstream_field_paths` are simplified paths (what SchemaResolver keys on);
+    `upstream_original_field_paths` maps them back to the external dataset's real
+    field paths (e.g. v2 paths) so the upstream schemaField URN matches the field
+    the external source emitted."""
+    original = upstream_original_field_paths or {}
     upstream_by_casefold = {p.casefold(): p for p in upstream_field_paths}
     result: List[FineGrainedLineageClass] = []
     for downstream_path in downstream_field_paths:
@@ -235,7 +242,11 @@ def identity_column_lineage(
         result.append(
             FineGrainedLineageClass(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                upstreams=[make_schema_field_urn(external_urn, upstream_path)],
+                upstreams=[
+                    make_schema_field_urn(
+                        external_urn, original.get(upstream_path, upstream_path)
+                    )
+                ],
                 downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                 downstreams=[make_schema_field_urn(dataset_urn, downstream_path)],
             )

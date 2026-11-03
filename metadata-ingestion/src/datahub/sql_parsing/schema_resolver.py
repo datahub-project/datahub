@@ -3,7 +3,16 @@ import json
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Protocol,
+    Set,
+    Tuple,
+)
 
 from requests.models import HTTPError
 from typing_extensions import TypedDict
@@ -97,6 +106,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
             shared_connection=shared_conn,
             extra_columns={"is_missing": lambda v: v is None},
+        )
+        # {urn: {simplified field path: original field path}}, only for fields whose
+        # paths differ (v2 paths). SchemaInfo keys are simplified for the SQL parser,
+        # but a schemaField URN must use the dataset's real field path to join.
+        self._original_field_paths: FileBackedDict[Dict[str, str]] = FileBackedDict(
+            shared_connection=shared_conn, tablename="original_field_paths"
         )
 
     @property
@@ -286,6 +301,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def _prefers_urn_lower(self) -> bool:
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
+    def get_original_field_paths(self, urn: str) -> Dict[str, str]:
+        """{simplified field path: original field path} for the fields of `urn`
+        whose stored path differs from its simplified form (e.g. v2 paths). Fields
+        absent from the result use the simplified path as-is."""
+        return self._original_field_paths.get(urn) or {}
+
     def has_urn(self, urn: str) -> bool:
         return self._schema_cache.get(urn) is not None
 
@@ -307,9 +328,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         # or _PARTITIONDATE where appropriate.
 
         if self.graph:
-            schema_info = self._fetch_schema_info(self.graph, urn)
-            if schema_info:
-                self._save_to_cache(urn, schema_info)
+            aspect = self.graph.get_aspect(urn, SchemaMetadataClass)
+            schema_info = _convert_schema_aspect_to_info(aspect) if aspect else None
+            if aspect and schema_info:
+                self._save_to_cache(
+                    urn,
+                    schema_info,
+                    _original_field_paths(f.fieldPath for f in aspect.fields),
+                )
                 return schema_info
 
         self._save_to_cache(urn, None)
@@ -318,20 +344,21 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata(
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
-        schema_info = _convert_schema_aspect_to_info(schema_metadata)
-        self._save_to_cache(urn, schema_info)
+        self._save_to_cache(
+            urn,
+            _convert_schema_aspect_to_info(schema_metadata),
+            _original_field_paths(f.fieldPath for f in schema_metadata.fields),
+        )
 
     def add_schema_metadata_from_fetch(
         self, urn: str, schema_metadata: Optional[SchemaMetadataClass]
     ) -> None:
         # Always stores a result (including None) to prevent repeated API calls
         # for schemas not found in DataHub.
-        schema_info = (
-            _convert_schema_aspect_to_info(schema_metadata)
-            if schema_metadata is not None
-            else None
-        )
-        self._save_to_cache(urn, schema_info)
+        if schema_metadata is not None:
+            self.add_schema_metadata(urn, schema_metadata)
+        else:
+            self._save_to_cache(urn, None)
 
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)
@@ -340,7 +367,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self, urn: str, schema_metadata: GraphQLSchemaMetadata
     ) -> None:
         schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
-        self._save_to_cache(urn, schema_info)
+        self._save_to_cache(
+            urn,
+            schema_info,
+            _original_field_paths(f["fieldPath"] for f in schema_metadata["fields"]),
+        )
 
     def with_temp_tables(
         self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
@@ -358,17 +389,17 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             base_resolver=self, extra_schemas=extra_schemas
         )
 
-    def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
+    def _save_to_cache(
+        self,
+        urn: str,
+        schema_info: Optional[SchemaInfo],
+        original_field_paths: Optional[Dict[str, str]] = None,
+    ) -> None:
         self._schema_cache[urn] = schema_info
-
-    def _fetch_schema_info(
-        self, graph: "DataHubGraph", urn: str
-    ) -> Optional[SchemaInfo]:
-        aspect = graph.get_aspect(urn, SchemaMetadataClass)
-        if not aspect:
-            return None
-
-        return _convert_schema_aspect_to_info(aspect)
+        if original_field_paths:
+            self._original_field_paths[urn] = original_field_paths
+        elif urn in self._original_field_paths:
+            del self._original_field_paths[urn]
 
     @classmethod
     def convert_graphql_schema_metadata_to_info(
@@ -386,6 +417,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def close(self) -> None:
         self._schema_cache.close()
+        self._original_field_paths.close()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):
@@ -440,6 +472,17 @@ def _convert_schema_field_list_to_info(
         # TODO: We can't generate lineage to columns nested within structs yet.
         if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
     }
+
+
+def _original_field_paths(field_paths: Iterable[str]) -> Dict[str, str]:
+    # Same keys as _convert_schema_field_list_to_info, restricted to fields whose
+    # path changes when simplified, so v1-path schemas cost nothing.
+    result: Dict[str, str] = {}
+    for field_path in field_paths:
+        simple = get_simple_field_path_from_v2_field_path(field_path)
+        if simple != field_path and "." not in simple:
+            result[simple] = field_path
+    return result
 
 
 def _convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> SchemaInfo:

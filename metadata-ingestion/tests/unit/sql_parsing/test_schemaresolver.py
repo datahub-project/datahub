@@ -8,6 +8,7 @@ from sqlglot.expressions import Table
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.sql_parsing.schema_resolver import (
+    GraphQLSchemaMetadata,
     SchemaInfo,
     SchemaResolver,
     _SchemaResolverWithExtras,
@@ -603,3 +604,80 @@ def test_closed_reflects_the_underlying_cache():
 
     assert resolver.closed
     assert resolver._schema_cache.closed
+
+
+_V2_URN = "urn:li:dataset:(urn:li:dataPlatform:glue,my_db.my_table,PROD)"
+_V2_FIELDS = [
+    ("[version=2.0].[type=long].col_a", "bigint"),
+    ("[version=2.0].[type=string].Col_B", "string"),
+    # Nested fields are dropped from the schema info, so they get no mapping either.
+    ("[version=2.0].[type=struct].col_c.[type=string].inner", "string"),
+]
+
+
+def _v2_graphql_schema() -> GraphQLSchemaMetadata:
+    return {
+        "fields": [
+            {"fieldPath": path, "nativeDataType": native_type}
+            for path, native_type in _V2_FIELDS
+        ]
+    }
+
+
+@pytest.mark.parametrize(
+    "add_schema",
+    [
+        pytest.param(
+            lambda r: r.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS)),
+            id="add_schema_metadata",
+        ),
+        pytest.param(
+            lambda r: r.add_schema_metadata_from_fetch(
+                _V2_URN, create_mock_schema(_V2_FIELDS)
+            ),
+            id="add_schema_metadata_from_fetch",
+        ),
+        pytest.param(
+            lambda r: r.add_graphql_schema_metadata(_V2_URN, _v2_graphql_schema()),
+            id="add_graphql_schema_metadata",
+        ),
+    ],
+)
+def test_original_field_paths_kept_for_v2_schemas(add_schema):
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    add_schema(resolver)
+
+    # resolve_urn keeps returning the simplified paths the SQL parser matches on.
+    assert resolver.resolve_urn(_V2_URN)[1] == {"col_a": "bigint", "Col_B": "string"}
+    assert resolver.get_original_field_paths(_V2_URN) == {
+        "col_a": "[version=2.0].[type=long].col_a",
+        "Col_B": "[version=2.0].[type=string].Col_B",
+    }
+
+
+def test_original_field_paths_kept_when_fetched_from_graph():
+    graph = MagicMock(spec=DataHubGraph)
+    graph.get_aspect.return_value = create_mock_schema(_V2_FIELDS)
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=graph)
+
+    resolver.resolve_urn(_V2_URN)
+
+    assert resolver.get_original_field_paths(_V2_URN)["col_a"] == (
+        "[version=2.0].[type=long].col_a"
+    )
+
+
+def test_original_field_paths_empty_for_v1_and_unknown_schemas():
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema([("col_a", "bigint")]))
+
+    assert resolver.get_original_field_paths(_V2_URN) == {}
+    assert resolver.get_original_field_paths("urn:li:dataset:unknown") == {}
+
+
+def test_original_field_paths_cleared_when_schema_replaced():
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
+    resolver.add_raw_schema_info(_V2_URN, {"col_a": "bigint"})
+
+    assert resolver.get_original_field_paths(_V2_URN) == {}
