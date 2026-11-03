@@ -238,6 +238,18 @@ class TestPowerBiConfig:
         with pytest.raises(ValueError, match="is not a recognized DataHub platform"):
             PowerBiDashboardSourceConfig.model_validate(config_dict)
 
+    @pytest.mark.parametrize(
+        "field", ["dsn_to_platform_name", "dsn_to_database_schema"]
+    )
+    def test_dsn_keys_differing_only_in_case_invalid(self, field: str) -> None:
+        """DSN lookups ignore case, so two such keys would resolve by dict order."""
+        config_dict = {
+            **self.base_config,
+            field: {"BQ_Prod": "mysql", "bq_prod": "mysql"},
+        }
+        with pytest.raises(ValidationError):
+            PowerBiDashboardSourceConfig.model_validate(config_dict)
+
     @pytest.mark.parametrize("platform_instance", ["", "   "])
     def test_athena_override_blank_platform_instance_invalid(
         self, platform_instance: str

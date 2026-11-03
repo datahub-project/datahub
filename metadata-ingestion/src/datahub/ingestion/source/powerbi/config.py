@@ -13,7 +13,7 @@ from typing import (
 )
 
 import pydantic
-from pydantic import field_validator, model_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -994,6 +994,26 @@ class PowerBiDashboardSourceConfig(
                     "match for Oracle TNS aliases)."
                 )
             seen[lower] = key
+        return value
+
+    @field_validator("dsn_to_platform_name", "dsn_to_database_schema", mode="after")
+    @classmethod
+    def _reject_case_insensitive_duplicate_dsn_keys(
+        cls, value: Dict[str, str], info: ValidationInfo
+    ) -> Dict[str, str]:
+        # Windows ODBC DSNs are case-insensitive, so DSN lookups fall back to a
+        # case-insensitive key match; keys differing only in case would be picked
+        # silently by dict order.
+        seen: Dict[str, str] = {}
+        for key in value:
+            folded = key.casefold()
+            if folded in seen:
+                raise ValueError(
+                    f"{info.field_name} has case-insensitive duplicate keys: "
+                    f"{seen[folded]!r} and {key!r}. DSN keys must differ in more "
+                    "than just case."
+                )
+            seen[folded] = key
         return value
 
     @field_validator("dataset_type_mapping", mode="after")
