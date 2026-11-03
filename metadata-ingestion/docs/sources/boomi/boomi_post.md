@@ -40,9 +40,14 @@ Listen shapes, which receive documents pushed to the runtime, are skipped.
 | Database (legacy) | `database`                         | From the driver: SQL Server, Oracle, MySQL, PostgreSQL, DB2, SAP HANA and Snowflake. With a custom driver, from the URL template. | The profile's SQL, parsed with the connection's database as the default. Without SQL, the profile's table. |
 | Database V2       | `officialboomi-X3979C-dbv2da-prod` | From the JDBC URL: `sqlserver`, `mysql`, `mariadb`, `postgresql`, `oracle`, `snowflake`, `redshift` and `db2`.                    | The operation's query, parsed, or else its object type ID. The connection's schema is the default schema.  |
 | Salesforce        | `salesforce`                       | `salesforce`                                                                                                                      | The operation's object name, with its case kept.                                                           |
-| Other, mapped     | Any subType you map                | From `connection_type_platform_map` or `connection_to_platform`.                                                                  | The operation's object type ID. Experimental.                                                              |
+| Other, JDBC URL   | Any other subType                  | From a connection field whose value is a JDBC URL, such as Snowflake (`officialboomi-X3979C-snowfl-prod`).                        | A SQL field in the operation, parsed, or else its object type ID. Experimental.                            |
+| Other, mapped     | Any subType you map                | From `connection_type_platform_map` or `connection_to_platform`.                                                                  | A SQL field in the operation, parsed, or else its object type ID. Experimental.                            |
 
 The database is taken from the driver settings or from the JDBC URL where the URL names one (`databaseName` for SQL Server, the path for MySQL, MariaDB, PostgreSQL, Redshift and DB2, and `db` for Snowflake). A legacy Database connection with a custom driver (`driverId="custom"`) stores its URL as a template, such as `jdbc:postgresql://{0}:{1}/{2}{3}`, and keeps the host, port, database name and additional options as separate settings. The source plugin fills `{0}` to `{3}` from those settings before reading the platform and database from the URL. For MySQL and MariaDB, which have no schema level, the Database V2 `schemaName` is used as the database.
+
+For connectors other than the three above, the source plugin looks at every field of the connection and uses one whose value starts with `jdbc:`, whatever the field is called. The platform, database and schema come from that URL, so a Snowflake connection with `jdbc:snowflake://acct.snowflakecomputing.com/?db=ANALYTICS&schema=PUBLIC` resolves an operation on `ORDERS` to `analytics.public.orders` without any mapping. An object type ID that is already qualified keeps its own database and schema. A connection with more than one different JDBC URL is skipped and counted under `ambiguous_jdbc_url`. In the operation, a field whose ID contains `sql` or `query` and whose value starts with a SQL statement is parsed for tables in place of the object type ID; an operation with more than one such statement is skipped and counted under `ambiguous_sql`.
+
+The order is: `connection_to_platform`, then the connector-specific parsing above, then a JDBC URL in the connection's fields, then `connection_type_platform_map`. If `connection_type_platform_map` names a different platform than the JDBC URL, the mapped platform is used without the URL's database and schema, and a warning is raised.
 
 Unqualified table names in SQL get the connection's database but no schema, because the schema they resolve to depends on the database's search path. For PostgreSQL and SQL Server, set `default_schema` in `connection_to_platform` so the URNs match the ones from the database's own source. Oracle URLs carry a SID or service name, which DataHub's Oracle source does not put in URNs, so Oracle tables get no database unless you set one. Table names are lowercased by default. The source plugin never builds a URN from a host name.
 
@@ -61,11 +66,11 @@ connection_to_platform:
     convert_urns_to_lowercase: true
 ```
 
-Use `connection_type_platform_map` to give every connection of a connector type a platform. This is how connectors without built-in support, such as Snowflake (`officialboomi-X3979C-snowfl-prod`), get lineage. The operation's object type ID becomes the table name, qualified with the database and schema from `connection_to_platform` when the connection has an entry. This generic path is experimental: the object type IDs of these connectors have not been checked against live accounts, so check the URNs it produces before you rely on them.
+Use `connection_type_platform_map` to give every connection of a connector type a platform. This is how connectors without built-in support whose connections hold no JDBC URL get lineage. The operation's object type ID becomes the table name, qualified with the database and schema from `connection_to_platform` when the connection has an entry. This generic path is experimental: the object type IDs of these connectors have not been checked against live accounts, so check the URNs it produces before you rely on them.
 
 ```yaml
 connection_type_platform_map:
-  "officialboomi-X3979C-snowfl-prod": snowflake
+  "officialboomi-X3979C-example-prod": snowflake
 connection_to_platform:
   "1a2b3c4d-0000-0000-0000-000000000002":
     platform: snowflake
@@ -75,7 +80,7 @@ connection_to_platform:
 
 ##### Not supported
 
-SAP (`sapjco`), HTTP (`http`), FTP (`ftp`), SFTP (`officialboomi-X3979C-sftpv2-prod`, `officialboomi-X3979C-sftpvx-prod`), Disk (`disk-sdk`) and mail connectors address function modules, URLs, files and mailboxes rather than tables, so by default they get no lineage and are counted per subType in `lineage_skipped_subtypes`. An entry in `connection_type_platform_map` for the subType, or in `connection_to_platform` for the connection, overrides this and uses the operation's object type ID as the table name. Any other connector that is not mapped is counted under `unsupported_connector` in `lineage_edges_unresolved`, with one warning per subType.
+SAP (`sapjco`), HTTP (`http`), FTP (`ftp`), SFTP (`officialboomi-X3979C-sftpv2-prod`, `officialboomi-X3979C-sftpvx-prod`), Disk (`disk-sdk`) and mail connectors address function modules, URLs, files and mailboxes rather than tables, so by default they get no lineage and are counted per subType in `lineage_skipped_subtypes`. An entry in `connection_type_platform_map` for the subType, or in `connection_to_platform` for the connection, overrides this and uses the operation's object type ID as the table name. Any other connector that is not mapped and has no JDBC URL in its connection is counted under `unsupported_connector` in `lineage_edges_unresolved`, with one warning per subType.
 
 When an operation has no table or SQL cannot be parsed, the edge is skipped rather than guessed, and counted by reason in `lineage_edges_unresolved`. When a connection, operation or profile cannot be read, the process's inputs and outputs are left out of this run altogether, so the lineage stored by an earlier run is kept instead of being replaced by a partial set. These processes are listed in `lineage_processes_incomplete`.
 
@@ -103,7 +108,7 @@ The source plugin makes one request per process to read its component XML, so an
 
 - Lineage is table level only. Column lineage from Map components is not extracted.
 - Lineage is read from the current component versions, not the version deployed to each environment.
-- Snowflake, Amazon S3, NetSuite and other connectors without built-in support only get lineage through the experimental `connection_type_platform_map` path.
+- Connectors without built-in support, such as Amazon S3 and NetSuite, only get lineage when their connection holds a JDBC URL, or through `connection_type_platform_map` or `connection_to_platform`. These generic paths are experimental.
 - Salesforce connections do not name the org, so Salesforce datasets from different orgs only stay apart if you set `platform_instance` in `connection_to_platform`.
 - Execution history is limited to what Boomi still retains, 30 days by default.
 - A process is one DataFlow across all environments. The version deployed to each environment is only shown in the `deployments` property.
@@ -127,7 +132,7 @@ If the account has no runtimes (Atoms) the token can see, Boomi rejects the exec
 
 #### Warning "Unsupported Boomi connector for lineage"
 
-A process uses a connector the source plugin has no lineage support for. The warning names the subType. Add it to `connection_type_platform_map` if its operations have an object type ID that is a table name, or ignore the warning.
+A process uses a connector the source plugin has no lineage support for, and its connection holds no JDBC URL. The warning names the subType. Add it to `connection_type_platform_map` if its operations have an object type ID that is a table name, or ignore the warning.
 
 #### Lineage URNs do not match the ingested tables
 

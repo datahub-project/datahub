@@ -147,6 +147,9 @@ XML_ATTR_URL_FORMAT = "urlFormat"
 XML_ELEMENT_GENERIC_CONNECTION_CONFIG = "GenericConnectionConfig"
 FIELD_ID_URL = "url"
 FIELD_ID_SCHEMA_NAME = "schemaName"
+# Connectors other than Database V2 name their JDBC URL field differently, so
+# a generic connection is matched on the value rather than the field id.
+JDBC_VALUE_PREFIX = "jdbc:"
 
 XML_ELEMENT_GENERIC_OPERATION_CONFIG = "GenericOperationConfig"
 XML_ATTR_OBJECT_TYPE_ID = "objectTypeId"
@@ -154,6 +157,8 @@ XML_ATTR_OBJECT_TYPE_NAME = "objectTypeName"
 XML_ATTR_OPERATION_TYPE = "operationType"
 XML_ATTR_CUSTOM_OPERATION_TYPE = "customOperationType"
 FIELD_ID_QUERY = "query"
+# Lowercase fragments of operation field ids that may hold SQL.
+SQL_FIELD_ID_MARKERS: Tuple[str, ...] = ("sql", "query")
 XML_ELEMENT_DB_GET_ACTION = "DatabaseGetAction"
 XML_ELEMENT_DB_SEND_ACTION = "DatabaseSendAction"
 XML_ELEMENT_SALESFORCE_GET_ACTION = "SalesforceGetAction"
@@ -186,6 +191,11 @@ COMPONENT_TYPE_DB_PROFILE = "profile.db"
 SUBTYPE_DATABASE = "database"
 SUBTYPE_DATABASE_V2 = "officialboomi-X3979C-dbv2da-prod"
 SUBTYPE_SALESFORCE = "salesforce"
+# Connectors with a dedicated parser; every other connector is scanned for a
+# JDBC URL.
+PARSED_CONNECTION_SUBTYPES: FrozenSet[str] = frozenset(
+    {SUBTYPE_DATABASE, SUBTYPE_DATABASE_V2, SUBTYPE_SALESFORCE}
+)
 
 # Connectors whose endpoints are not datasets (RFCs, URLs, file paths,
 # mailboxes). Their shapes are counted per subType rather than reported as
@@ -248,3 +258,5 @@ class UnresolvedReason(StrEnum):
     NO_TABLE = "no_table"
     SQL_PARSE_FAILED = "sql_parse_failed"
     MISSING_OPERATION = "missing_operation"
+    AMBIGUOUS_JDBC_URL = "ambiguous_jdbc_url"
+    AMBIGUOUS_SQL = "ambiguous_sql"

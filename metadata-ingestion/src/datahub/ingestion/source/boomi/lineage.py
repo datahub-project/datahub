@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Set, TypeVar
+from typing import Callable, Dict, List, Optional, Set, TypeVar, Union
 
 import requests
 from defusedxml.common import DefusedXmlException
@@ -19,6 +19,7 @@ from datahub.ingestion.source.boomi.constants import (
     DRIVER_ID_CUSTOM,
     DRIVER_ID_PLATFORM_MAP,
     NON_DATASET_SUBTYPES,
+    PARSED_CONNECTION_SUBTYPES,
     PLATFORMS_WITHOUT_DATABASE,
     SALESFORCE_PLATFORM,
     SUBTYPE_DATABASE,
@@ -110,8 +111,14 @@ def connection_location(connection: ConnectionComponent) -> JdbcLocation:
             location.schema_name = connection.schema_name
     elif connection.sub_type == SUBTYPE_SALESFORCE:
         location = JdbcLocation(platform=SALESFORCE_PLATFORM)
+    elif len(connection.jdbc_urls) == 1:
+        location = _jdbc_location(connection.jdbc_urls[0])
     else:
         location = JdbcLocation()
+    return _normalize_location(location)
+
+
+def _normalize_location(location: JdbcLocation) -> JdbcLocation:
     if location.platform in PLATFORMS_WITHOUT_DATABASE:
         location.database = None
     if location.platform in TWO_TIER_PLATFORMS:
@@ -179,14 +186,15 @@ class BoomiLineageResolver:
             self.report.lineage_skipped_subtypes[sub_type] += 1
             return
         target = self._resolve_target(shape.connection_id, connection, sub_type)
-        if target is None:
-            self._unresolved(UnresolvedReason.UNSUPPORTED_CONNECTOR)
-            self._warn_once(
-                f"unsupported:{sub_type}",
-                title="Unsupported Boomi connector for lineage",
-                message="Connector shapes of this type have no dataset lineage. Map the subType with connection_type_platform_map, or the connection with connection_to_platform.",
-                context=f"subType={sub_type}",
-            )
+        if isinstance(target, UnresolvedReason):
+            self._unresolved(target)
+            if target == UnresolvedReason.UNSUPPORTED_CONNECTOR:
+                self._warn_once(
+                    f"unsupported:{sub_type}",
+                    title="Unsupported Boomi connector for lineage",
+                    message="Connector shapes of this type have no dataset lineage. Map the subType with connection_type_platform_map, or the connection with connection_to_platform.",
+                    context=f"subType={sub_type}",
+                )
             return
         operation = self._get_operation(shape.operation_id)
         if operation is None:
@@ -223,10 +231,21 @@ class BoomiLineageResolver:
 
     def _resolve_target(
         self, connection_id: str, connection: ConnectionComponent, sub_type: str
-    ) -> Optional[ConnectionTarget]:
+    ) -> Union[ConnectionTarget, UnresolvedReason]:
         location = connection_location(connection)
+        generic = connection.sub_type not in PARSED_CONNECTION_SUBTYPES
+        ambiguous = generic and len(connection.jdbc_urls) > 1
+        if ambiguous:
+            self._warn_once(
+                f"jdbc-ambiguous:{connection_id}",
+                title="Ambiguous JDBC URL in Boomi connection",
+                message="The connection holds more than one JDBC URL, so its platform and database are not read from it.",
+                context=f"subType={sub_type}, connectionId={connection_id}, urls={len(connection.jdbc_urls)}",
+            )
         mapping = self.config.connection_to_platform.get(connection_id)
         if mapping is not None:
+            if generic and location.platform not in (None, mapping.platform):
+                location = JdbcLocation()
             return ConnectionTarget(
                 platform=mapping.platform,
                 platform_instance=mapping.platform_instance,
@@ -235,11 +254,31 @@ class BoomiLineageResolver:
                 default_schema=mapping.default_schema or location.schema_name,
                 convert_urns_to_lowercase=mapping.convert_urns_to_lowercase,
             )
-        platform = location.platform or self.config.connection_type_platform_map.get(
-            sub_type
-        )
+        mapped_platform = self.config.connection_type_platform_map.get(sub_type)
+        # A subType mapped in the recipe is an explicit choice, so it wins
+        # over a JDBC URL found in a generic connection's fields.
+        if (
+            generic
+            and mapped_platform is not None
+            and location.platform not in (None, mapped_platform)
+        ):
+            self._warn_once(
+                f"jdbc-mismatch:{connection_id}",
+                title="Boomi JDBC URL disagrees with connection_type_platform_map",
+                message="The platform mapped for the subType is used, without the database or schema from the JDBC URL.",
+                context=(
+                    f"subType={sub_type}, connectionId={connection_id}, "
+                    f"mapped={mapped_platform}, jdbc={location.platform}"
+                ),
+            )
+            location = JdbcLocation()
+        platform = location.platform or mapped_platform
         if platform is None:
-            return None
+            return (
+                UnresolvedReason.AMBIGUOUS_JDBC_URL
+                if ambiguous
+                else UnresolvedReason.UNSUPPORTED_CONNECTOR
+            )
         return ConnectionTarget(
             platform=platform,
             env=self.config.env,
@@ -285,9 +324,22 @@ class BoomiLineageResolver:
                     env=target.env,
                 )
             ]
-        if sub_type == SUBTYPE_DATABASE_V2 and operation.query:
+        if sub_type == SUBTYPE_DATABASE_V2:
+            sql = operation.query
+        elif len(operation.sql_statements) > 1:
+            self._unresolved(UnresolvedReason.AMBIGUOUS_SQL)
+            self._warn_once(
+                f"sql-ambiguous:{operation_id}",
+                title="Ambiguous SQL in Boomi operation",
+                message="The operation holds more than one SQL statement, so its lineage is skipped.",
+                context=f"subType={sub_type}, operationId={operation_id}",
+            )
+            return None
+        else:
+            sql = next(iter(operation.sql_statements), None)
+        if sql:
             return self._datasets_from_sql(
-                operation.query, target, operation.direction, operation_id
+                sql, target, operation.direction, operation_id
             )
         return self._datasets_from_table(operation.object_type_id, target)
 

@@ -1,3 +1,4 @@
+import re
 from typing import Dict, Iterator, List, Optional
 from xml.etree.ElementTree import Element
 
@@ -9,10 +10,12 @@ from datahub.ingestion.source.boomi.constants import (
     FIELD_ID_SCHEMA_NAME,
     FIELD_ID_URL,
     GET_ACTION_SUFFIX,
+    JDBC_VALUE_PREFIX,
     READ_OPERATION_TYPES,
     SEND_ACTION_SUFFIX,
     SHAPE_TYPE_CONNECTOR_ACTION,
     SHAPE_TYPE_PROCESS_CALL,
+    SQL_FIELD_ID_MARKERS,
     WRITE_OPERATION_TYPES,
     XML_ATTR_ACTION_TYPE,
     XML_ATTR_ADDITIONAL,
@@ -60,6 +63,12 @@ from datahub.ingestion.source.boomi.models import (
     ProcessComponentInfo,
 )
 
+# Field ids alone are not enough: settings such as `queryTimeout` also match
+# the id markers, so a value only counts as SQL when it opens with a statement.
+_SQL_STATEMENT_RE = re.compile(
+    r"^\s*(?:select|with|insert|update|delete|merge)\b", re.IGNORECASE
+)
+
 
 def local_name(tag: str) -> str:
     # Real exports mix `bns:`-prefixed elements with `xmlns=""` children, so
@@ -96,6 +105,31 @@ def _field_values(element: Optional[Element]) -> Dict[str, str]:
         if field_id and value:
             values[field_id] = value
     return values
+
+
+def _distinct(values: List[str]) -> List[str]:
+    return list(dict.fromkeys(values))
+
+
+def _jdbc_urls(fields: Dict[str, str]) -> List[str]:
+    return _distinct(
+        [
+            value
+            for value in fields.values()
+            if value.lower().startswith(JDBC_VALUE_PREFIX)
+        ]
+    )
+
+
+def _sql_statements(fields: Dict[str, str]) -> List[str]:
+    return _distinct(
+        [
+            value
+            for field_id, value in fields.items()
+            if any(marker in field_id.lower() for marker in SQL_FIELD_ID_MARKERS)
+            and _SQL_STATEMENT_RE.match(value)
+        ]
+    )
 
 
 def parse_process_component(xml_text: str) -> ProcessComponentInfo:
@@ -148,6 +182,7 @@ def parse_connection_component(xml_text: str) -> ConnectionComponent:
         url_format=_attr(settings, XML_ATTR_URL_FORMAT),
         url=fields.get(FIELD_ID_URL),
         schema_name=fields.get(FIELD_ID_SCHEMA_NAME),
+        jdbc_urls=_jdbc_urls(fields),
     )
 
 
@@ -184,6 +219,7 @@ def parse_operation_component(xml_text: str) -> OperationComponent:
     action = _find_action_element(root)
     action_name = local_name(action.tag) if action is not None else None
     generic = _find_local(root, XML_ELEMENT_GENERIC_OPERATION_CONFIG)
+    fields = _field_values(generic)
     operation_type = _attr(generic, XML_ATTR_OPERATION_TYPE)
     custom_operation_type = _attr(generic, XML_ATTR_CUSTOM_OPERATION_TYPE)
     profile_ids: List[str] = []
@@ -210,7 +246,8 @@ def parse_operation_component(xml_text: str) -> OperationComponent:
         custom_operation_type=custom_operation_type,
         object_type_id=_attr(generic, XML_ATTR_OBJECT_TYPE_ID),
         object_type_name=_attr(generic, XML_ATTR_OBJECT_TYPE_NAME),
-        query=_field_values(generic).get(FIELD_ID_QUERY),
+        query=fields.get(FIELD_ID_QUERY),
+        sql_statements=_sql_statements(fields),
         object_name=_attr(action, XML_ATTR_OBJECT_NAME),
         profile_ids=profile_ids,
     )

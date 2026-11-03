@@ -102,6 +102,45 @@ def _generic_operation(
     )
 
 
+SNOWFLAKE_JDBC_URL = (
+    "jdbc:snowflake://acct.snowflakecomputing.com/"
+    "?db=ANALYTICS&amp;schema=PUBLIC&amp;warehouse=WH"
+)
+
+
+def _generic_connection(sub_type: str, fields: Dict[str, str]) -> str:
+    # Field ids are arbitrary on purpose: only the values are inspected.
+    body = "".join(
+        f'<field id="{field_id}" type="string" value="{value}"/>'
+        for field_id, value in fields.items()
+    )
+    return _component(
+        "connector-settings",
+        sub_type,
+        f'<GenericConnectionConfig xmlns="">{body}'
+        '<field id="password" type="password" value=""/>'
+        "</GenericConnectionConfig>",
+    )
+
+
+def _generic_operation_fields(
+    sub_type: str, object_type_id: str, fields: Dict[str, str]
+) -> str:
+    body = "".join(
+        f'<field id="{field_id}" type="string" value="{value}"/>'
+        for field_id, value in fields.items()
+    )
+    return _component(
+        "connector-action",
+        sub_type,
+        '<Operation xmlns="" returnApplicationErrors="true" trackResponse="false">'
+        "<Configuration>"
+        f'<GenericOperationConfig customOperationType="" objectTypeId="{object_type_id}" '
+        'operationType="QUERY" requestProfileType="json" responseProfileType="json">'
+        f"{body}</GenericOperationConfig></Configuration></Operation>",
+    )
+
+
 def _db_operation(action: str, profile_id: str) -> str:
     # Legacy operations name the profile on a ReadProfile/WriteProfile child.
     profile_element = "ReadProfile" if action.endswith("GetAction") else "WriteProfile"
@@ -670,6 +709,154 @@ def test_type_map_alone_resolves_platform() -> None:
 
     assert lineage.input_datasets == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)"
+    ]
+
+
+def test_parse_generic_jdbc_and_sql_fields() -> None:
+    connection = parse_connection_component(
+        _generic_connection(
+            SNOWFLAKE,
+            {
+                "account": "acct",
+                "connectionString": "JDBC:snowflake://acct.snowflakecomputing.com/",
+            },
+        )
+    )
+    assert connection.jdbc_urls == ["JDBC:snowflake://acct.snowflakecomputing.com/"]
+
+    operation = parse_operation_component(
+        _generic_operation_fields(
+            SNOWFLAKE,
+            "ORDERS",
+            {
+                "queryTimeout": "30",
+                "customSql": "select id from orders",
+                "query": "",
+                "batchSize": "SELECT 1",
+            },
+        )
+    )
+    assert operation.sql_statements == ["select id from orders"]
+
+
+def test_generic_jdbc_url_resolves_platform_and_database() -> None:
+    resolver, _, report = _resolver(
+        {
+            "conn-snow": _generic_connection(
+                SNOWFLAKE, {"account": "acct", "connectionString": SNOWFLAKE_JDBC_URL}
+            ),
+            "op-snow": _generic_operation(SNOWFLAKE, "QUERY", object_type_id="ORDERS"),
+            "op-qualified": _generic_operation(
+                SNOWFLAKE, "UPSERT", object_type_id="RAW.LANDING.ORDERS"
+            ),
+        }
+    )
+
+    lineage = resolver.resolve_process(
+        _info(_shape("conn-snow", "op-snow"), _shape("conn-snow", "op-qualified"))
+    )
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.orders,PROD)"
+    ]
+    assert lineage.output_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,raw.landing.orders,PROD)"
+    ]
+    assert report.lineage_edges_resolved == 2
+
+
+def test_generic_operation_sql_field_is_parsed() -> None:
+    resolver, _, report = _resolver(
+        {
+            "conn-snow": _generic_connection(
+                SNOWFLAKE, {"connectionString": SNOWFLAKE_JDBC_URL}
+            ),
+            "op-sql": _generic_operation(
+                SNOWFLAKE,
+                "QUERY",
+                object_type_id="IGNORED",
+                query="SELECT o.id FROM orders o JOIN sales.customers c ON c.id = o.customer_id",
+            ),
+            "op-two-sql": _generic_operation_fields(
+                SNOWFLAKE,
+                "ORDERS",
+                {
+                    "query": "SELECT id FROM orders",
+                    "customSql": "SELECT id FROM refunds",
+                },
+            ),
+        }
+    )
+
+    lineage = resolver.resolve_process(
+        _info(_shape("conn-snow", "op-sql"), _shape("conn-snow", "op-two-sql"))
+    )
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.sales.customers,PROD)",
+    ]
+    assert dict(report.lineage_edges_unresolved) == {"ambiguous_sql": 1}
+    assert [w.title for w in report.warnings] == ["Ambiguous SQL in Boomi operation"]
+
+
+def test_conflicting_jdbc_fields_are_skipped() -> None:
+    resolver, client, report = _resolver(
+        {
+            "conn-two": _generic_connection(
+                SNOWFLAKE,
+                {
+                    "primaryUrl": SNOWFLAKE_JDBC_URL,
+                    "replicaUrl": "jdbc:postgresql://pg.example.com/app",
+                },
+            ),
+        }
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-two", "op-two")))
+
+    assert lineage.input_datasets == [] and lineage.output_datasets == []
+    assert dict(report.lineage_edges_unresolved) == {"ambiguous_jdbc_url": 1}
+    assert [w.title for w in report.warnings] == [
+        "Ambiguous JDBC URL in Boomi connection"
+    ]
+    fetched = [c.args[0] for c in client.get_component_xml.call_args_list]
+    assert "op-two" not in fetched
+
+
+def test_non_jdbc_value_stays_unresolved() -> None:
+    resolver, _, report = _resolver(
+        {
+            "conn-ns": _generic_connection(
+                "netsuitesdk", {"url": "https://acct.suitetalk.api.example.com"}
+            ),
+        }
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-ns", "op-ns")))
+
+    assert lineage.input_datasets == []
+    assert dict(report.lineage_edges_unresolved) == {"unsupported_connector": 1}
+
+
+def test_type_map_wins_over_disagreeing_jdbc_url() -> None:
+    resolver, _, report = _resolver(
+        {
+            "conn-snow": _generic_connection(
+                SNOWFLAKE, {"connectionString": SNOWFLAKE_JDBC_URL}
+            ),
+            "op-snow": _generic_operation(SNOWFLAKE, "QUERY", object_type_id="ORDERS"),
+        },
+        connection_type_platform_map={SNOWFLAKE: "databricks"},
+    )
+
+    lineage = resolver.resolve_process(_info(_shape("conn-snow", "op-snow")))
+
+    assert lineage.input_datasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,orders,PROD)"
+    ]
+    assert [w.title for w in report.warnings] == [
+        "Boomi JDBC URL disagrees with connection_type_platform_map"
     ]
 
 

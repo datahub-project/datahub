@@ -132,6 +132,8 @@ class ConnectionComponent(BaseModel):
     # Database V2 connector.
     url: Optional[str] = None
     schema_name: Optional[str] = None
+    # Distinct JDBC URLs found in any field of a generic connection.
+    jdbc_urls: List[str] = Field(default_factory=list)
 
 
 class OperationComponent(BaseModel):
@@ -144,6 +146,8 @@ class OperationComponent(BaseModel):
     object_type_id: Optional[str] = None
     object_type_name: Optional[str] = None
     query: Optional[str] = None
+    # Distinct SQL statements from fields whose id mentions sql or query.
+    sql_statements: List[str] = Field(default_factory=list)
     object_name: Optional[str] = None
     profile_ids: List[str] = Field(default_factory=list)
 

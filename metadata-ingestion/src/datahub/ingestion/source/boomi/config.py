@@ -153,8 +153,10 @@ class BoomiSourceConfig(
         description=(
             "Map a connector `subType` to a DataHub platform, for connectors the "
             "source plugin cannot resolve itself, for example "
-            "`{'officialboomi-X3979C-snowfl-prod': 'snowflake'}`. Experimental: "
-            "the operation's object type ID is used as the table name."
+            "`{'officialboomi-X3979C-snowfl-prod': 'snowflake'}` when the "
+            "connection holds no JDBC URL. Wins over the platform of a JDBC URL "
+            "found in the connection's fields. Experimental: the operation's SQL "
+            "field, or else its object type ID, names the table."
         ),
     )
     connection_to_platform: Dict[str, BoomiConnectionMapping] = Field(

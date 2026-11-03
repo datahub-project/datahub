@@ -1566,7 +1566,9 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.invoices,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.dbo.invoices,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.order_lines,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.orders,PROD)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,snow_prod.analytics.finance.invoice_facts,PROD)"

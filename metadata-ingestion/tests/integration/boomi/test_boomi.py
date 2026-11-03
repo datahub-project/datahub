@@ -45,6 +45,9 @@ SNOWFLAKE_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000014"
 INVOICE_FACTS_UPSERT = "5b1e0c2a-6f0d-4c1e-9a43-000000000015"
 NETSUITE_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000016"
 NETSUITE_UPSERT = "5b1e0c2a-6f0d-4c1e-9a43-000000000017"
+SNOWFLAKE_JDBC_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000018"
+ORDERS_GET = "5b1e0c2a-6f0d-4c1e-9a43-000000000019"
+ORDER_LINES_QUERY = "5b1e0c2a-6f0d-4c1e-9a43-000000000020"
 SNOWFLAKE_SUBTYPE = "officialboomi-X3979C-snowfl-prod"
 DB_V2_SUBTYPE = "officialboomi-X3979C-dbv2da-prod"
 # Captured components that synthetic ones are derived from.
@@ -55,6 +58,17 @@ RNA_DATABASES_GET = "b8cb6962-9950-4dfa-9bcb-d5670375ca82"
 RNA_DATABASES_PROFILE = "9b842e54-05ff-435a-a87d-209d92a690cb"
 ENSEMBL_CONNECTION = "64f429a7-f94a-420d-a5d0-03385e9c3fc8"
 COORD_SYSTEM_GET = "60a37dba-4e38-42b2-b451-2fe2dab0109c"
+ENSEMBL_URL_FIELD = (
+    '<field id="url" type="string" '
+    'value="jdbc:mysql://ensembldb.ensembl.org:3306/homo_sapiens_core_116_38"/>'
+)
+COORD_SYSTEM_QUERY_FIELD = (
+    '<field id="query" type="string" value="select * from coord_system"/>'
+)
+SNOWFLAKE_JDBC_URL = (
+    "jdbc:snowflake://acct.snowflakecomputing.com/"
+    "?db=ANALYTICS&amp;schema=PUBLIC&amp;warehouse=WH"
+)
 DEV_ENVIRONMENT = "9c0a7e51-2d4b-4f3e-8a61-000000000001"
 
 START_STOP_SHAPES = (
@@ -319,6 +333,22 @@ INVOICE_EXPORT_SHAPES = START_STOP_SHAPES + "".join(
             INVOICE_FACTS_UPSERT,
         ),
         _connector_shape(
+            "shape8",
+            "Get orders",
+            "Get",
+            SNOWFLAKE_JDBC_CONNECTION,
+            SNOWFLAKE_SUBTYPE,
+            ORDERS_GET,
+        ),
+        _connector_shape(
+            "shape9",
+            "Query order lines",
+            "Get",
+            SNOWFLAKE_JDBC_CONNECTION,
+            SNOWFLAKE_SUBTYPE,
+            ORDER_LINES_QUERY,
+        ),
+        _connector_shape(
             "shape6",
             "Upsert customers",
             "UPSERT",
@@ -367,7 +397,53 @@ SYNTHETIC_COMPONENT_XML: Dict[str, str] = {
         ENSEMBL_CONNECTION,
         SNOWFLAKE_CONNECTION,
         "DH Test - Snowflake",
-        {f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"'},
+        {
+            f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"',
+            ENSEMBL_URL_FIELD: (
+                f'<field id="url" type="string" value="{SNOWFLAKE_JDBC_URL}"/>'
+            ),
+        },
+    ),
+    # Unmapped: the platform, database and schema come from the JDBC URL,
+    # which sits in a field the source plugin has no id for.
+    SNOWFLAKE_JDBC_CONNECTION: _derive_component(
+        ENSEMBL_CONNECTION,
+        SNOWFLAKE_JDBC_CONNECTION,
+        "DH Test - Snowflake JDBC",
+        {
+            f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"',
+            ENSEMBL_URL_FIELD: (
+                '<field id="connectionString" type="string" '
+                f'value="{SNOWFLAKE_JDBC_URL}"/>'
+            ),
+            'value="com.mysql.cj.jdbc.Driver"': (
+                'value="net.snowflake.client.jdbc.SnowflakeDriver"'
+            ),
+            'value="homo_sapiens_core_116_38"': 'value=""',
+        },
+    ),
+    ORDERS_GET: _derive_component(
+        COORD_SYSTEM_GET,
+        ORDERS_GET,
+        "DH Test - Orders Get",
+        {
+            f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"',
+            'objectTypeId="coord_system"': 'objectTypeId="ORDERS"',
+            COORD_SYSTEM_QUERY_FIELD: "",
+        },
+    ),
+    ORDER_LINES_QUERY: _derive_component(
+        COORD_SYSTEM_GET,
+        ORDER_LINES_QUERY,
+        "DH Test - Order Lines Query",
+        {
+            f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"',
+            'objectTypeId="coord_system"': 'objectTypeId="ORDER_LINES"',
+            COORD_SYSTEM_QUERY_FIELD: (
+                '<field id="sqlStatement" type="string" value="SELECT l.order_id, '
+                'l.amount FROM order_lines l JOIN orders o ON o.id = l.order_id"/>'
+            ),
+        },
     ),
     INVOICE_FACTS_UPSERT: _derive_component(
         COORD_SYSTEM_GET,
@@ -378,14 +454,21 @@ SYNTHETIC_COMPONENT_XML: Dict[str, str] = {
             'customOperationType="GET" objectTypeId="coord_system" operationType="EXECUTE"': (
                 'customOperationType="UPSERT" objectTypeId="INVOICE_FACTS" operationType="UPSERT"'
             ),
-            '<field id="query" type="string" value="select * from coord_system"/>': "",
+            COORD_SYSTEM_QUERY_FIELD: "",
         },
     ),
+    # No field holds a JDBC URL, so the connection stays unresolved.
     NETSUITE_CONNECTION: _derive_component(
         ENSEMBL_CONNECTION,
         NETSUITE_CONNECTION,
         "DH Test - NetSuite",
-        {f'subType="{DB_V2_SUBTYPE}"': 'subType="netsuitesdk"'},
+        {
+            f'subType="{DB_V2_SUBTYPE}"': 'subType="netsuitesdk"',
+            ENSEMBL_URL_FIELD: (
+                '<field id="url" type="string" '
+                'value="https://acct.suitetalk.api.example.com"/>'
+            ),
+        },
     ),
     NETSUITE_UPSERT: _derive_component(
         COORD_SYSTEM_GET,
@@ -474,7 +557,6 @@ def _recipe(output_path: Path) -> Dict[str, object]:
                 "include_undeployed_processes": True,
                 "max_requests_per_second": 10,
                 "max_executions_per_process": 4,
-                "connection_type_platform_map": {SNOWFLAKE_SUBTYPE: "snowflake"},
                 "connection_to_platform": {
                     SNOWFLAKE_CONNECTION: {
                         "platform": "snowflake",
@@ -538,7 +620,7 @@ def test_boomi_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
     assert report.executions_over_cap == 1
     assert report.executions_process_not_emitted == 1
     assert report.executions_unknown_status == 1
-    assert report.lineage_edges_resolved == 8
+    assert report.lineage_edges_resolved == 11
     assert dict(report.lineage_edges_unresolved) == {"unsupported_connector": 1}
     assert dict(report.lineage_skipped_subtypes) == {
         "http": 1,
