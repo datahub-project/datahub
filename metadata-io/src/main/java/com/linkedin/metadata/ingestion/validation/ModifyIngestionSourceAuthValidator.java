@@ -1,9 +1,14 @@
 package com.linkedin.metadata.ingestion.validation;
 
+import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
+
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.ingestion.DataHubIngestionSourceInfo;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -12,8 +17,10 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.authorization.ApiOperation;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,6 +50,14 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
       return Stream.empty();
     }
 
+    AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
+    Map<Urn, DataHubIngestionSourceInfo> stored =
+        PatchItemImpl.readStoredForPatches(
+            operationContext,
+            aspectRetriever,
+            mcpItems,
+            INGESTION_INFO_ASPECT_NAME,
+            DataHubIngestionSourceInfo.class);
     for (BatchItem item : mcpItems) {
       ChangeType type = item.getChangeType();
 
@@ -53,6 +68,7 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
               session, ApiOperation.CREATE, List.of(item.getUrn()))) {
             exceptions.addAuthException(
                 item, "Doesn't have permissions to create this Ingestion source");
+            continue;
           }
           break;
         case RESTATE:
@@ -63,6 +79,7 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
               session, ApiOperation.UPDATE, List.of(item.getUrn()))) {
             exceptions.addAuthException(
                 item, "Doesn't have permissions to edit this Ingestion source");
+            continue;
           }
           break;
         case DELETE:
@@ -71,9 +88,31 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
             exceptions.addAuthException(
                 item, "Doesn't have permissions to delete this Ingestion source");
           }
-          break;
+          continue;
         default:
           throw new RuntimeException("Unsupported change type: " + type);
+      }
+
+      // A scheduled source is executed by the scheduler as the system actor, so leaving a schedule
+      // on the source (or editing a scheduled source) requires permission to execute it.
+      final DataHubIngestionSourceInfo proposed;
+      try {
+        proposed =
+            PatchItemImpl.resolveProposedAspect(
+                item, stored.get(item.getUrn()), aspectRetriever, DataHubIngestionSourceInfo.class);
+      } catch (RuntimeException e) {
+        // dataHubIngestionSourceInfo has no patch template; a PATCH that cannot be applied fails
+        // the write too.
+        exceptions.addAuthException(
+            item, "Unable to resolve dataHubIngestionSourceInfo PATCH for authorization");
+        continue;
+      }
+      if (proposed != null
+          && proposed.hasSchedule()
+          && !AuthUtil.isAuthorizedEntityUrns(
+              session, ApiOperation.EXECUTE, List.of(item.getUrn()))) {
+        exceptions.addAuthException(
+            item, "Doesn't have permissions to schedule this Ingestion source");
       }
     }
 
