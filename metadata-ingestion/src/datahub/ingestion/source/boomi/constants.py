@@ -1,6 +1,7 @@
 from typing import Dict, FrozenSet, Tuple
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.utilities.str_enum import StrEnum
 
 PLATFORM = "boomi"
 
@@ -118,3 +119,144 @@ EXECUTION_STATUS_RESULTS: Dict[str, InstanceRunResult] = {
 EXECUTION_STATUSES_IN_PROGRESS: FrozenSet[str] = frozenset(
     {"INPROCESS", "STARTED", "ENQUEUED", "ABORTED_RECOVERING"}
 )
+
+XML_ATTR_TYPE = "type"
+XML_ATTR_SUB_TYPE = "subType"
+XML_ATTR_SHAPE_TYPE = "shapetype"
+XML_ATTR_ID = "id"
+XML_ATTR_VALUE = "value"
+XML_ELEMENT_SHAPE = "shape"
+XML_ELEMENT_FIELD = "field"
+SHAPE_TYPE_CONNECTOR_ACTION = "connectoraction"
+SHAPE_TYPE_PROCESS_CALL = "processcall"
+XML_ELEMENT_CONNECTOR_ACTION = "connectoraction"
+XML_ELEMENT_PROCESS_CALL = "processcall"
+XML_ATTR_CONNECTOR_TYPE = "connectorType"
+XML_ATTR_ACTION_TYPE = "actionType"
+XML_ATTR_CONNECTION_ID = "connectionId"
+XML_ATTR_OPERATION_ID = "operationId"
+XML_ATTR_PROCESS_ID = "processId"
+
+XML_ELEMENT_DB_CONNECTION_SETTINGS = "DatabaseConnectionSettings"
+XML_ATTR_DRIVER_ID = "driverId"
+XML_ATTR_HOST = "host"
+XML_ATTR_PORT = "port"
+XML_ATTR_DB_NAME = "dbname"
+XML_ATTR_ADDITIONAL = "additional"
+XML_ATTR_URL_FORMAT = "urlFormat"
+XML_ELEMENT_GENERIC_CONNECTION_CONFIG = "GenericConnectionConfig"
+FIELD_ID_URL = "url"
+FIELD_ID_SCHEMA_NAME = "schemaName"
+# Connectors other than Database V2 name their JDBC URL field differently, so
+# a generic connection is matched on the value rather than the field id.
+JDBC_VALUE_PREFIX = "jdbc:"
+
+XML_ELEMENT_GENERIC_OPERATION_CONFIG = "GenericOperationConfig"
+XML_ATTR_OBJECT_TYPE_ID = "objectTypeId"
+XML_ATTR_OBJECT_TYPE_NAME = "objectTypeName"
+XML_ATTR_OPERATION_TYPE = "operationType"
+XML_ATTR_CUSTOM_OPERATION_TYPE = "customOperationType"
+FIELD_ID_QUERY = "query"
+# Lowercase fragments of operation field ids that may hold SQL.
+SQL_FIELD_ID_MARKERS: Tuple[str, ...] = ("sql", "query")
+XML_ELEMENT_DB_GET_ACTION = "DatabaseGetAction"
+XML_ELEMENT_DB_SEND_ACTION = "DatabaseSendAction"
+XML_ELEMENT_SALESFORCE_GET_ACTION = "SalesforceGetAction"
+XML_ELEMENT_SALESFORCE_SEND_ACTION = "SalesforceSendAction"
+XML_ATTR_OBJECT_NAME = "objectName"
+XML_ATTR_OBJECT_ACTION = "objectAction"
+GET_ACTION_SUFFIX = "GetAction"
+SEND_ACTION_SUFFIX = "SendAction"
+# Legacy Database operations name their profile on a child element, for
+# example <DatabaseGetAction><ReadProfile profileId=".."/>.
+XML_DB_PROFILE_ELEMENTS: Tuple[str, ...] = ("ReadProfile", "WriteProfile")
+XML_ATTR_PROFILE_ID = "profileId"
+# Attribute forms on the action element itself are kept as a fallback.
+DB_ACTION_PROFILE_ATTRIBUTES: Tuple[str, ...] = (
+    "profileId",
+    "profile",
+    "requestProfile",
+    "responseProfile",
+)
+
+XML_ELEMENT_DB_STATEMENT = "DBStatement"
+XML_ATTR_TABLE_NAME = "tableName"
+XML_ATTR_STATEMENT_TYPE = "statementType"
+XML_ELEMENT_SQL = "sql"
+
+COMPONENT_TYPE_CONNECTION = "connector-settings"
+COMPONENT_TYPE_OPERATION = "connector-action"
+COMPONENT_TYPE_DB_PROFILE = "profile.db"
+
+SUBTYPE_DATABASE = "database"
+SUBTYPE_DATABASE_V2 = "officialboomi-X3979C-dbv2da-prod"
+SUBTYPE_SALESFORCE = "salesforce"
+# Connectors with a dedicated parser; every other connector is scanned for a
+# JDBC URL.
+PARSED_CONNECTION_SUBTYPES: FrozenSet[str] = frozenset(
+    {SUBTYPE_DATABASE, SUBTYPE_DATABASE_V2, SUBTYPE_SALESFORCE}
+)
+
+# Connectors whose endpoints are not datasets (RFCs, URLs, file paths,
+# mailboxes). Their shapes are counted per subType rather than reported as
+# unresolved lineage.
+NON_DATASET_SUBTYPES: FrozenSet[str] = frozenset(
+    {
+        "sapjco",
+        "http",
+        "ftp",
+        "sftp",
+        "officialboomi-X3979C-sftpv2-prod",
+        "officialboomi-X3979C-sftpvx-prod",
+        "disk",
+        "disk-sdk",
+        "mail",
+    }
+)
+
+ACTION_TYPE_LISTEN = "listen"
+
+READ_OPERATION_TYPES: FrozenSet[str] = frozenset({"QUERY", "GET"})
+WRITE_OPERATION_TYPES: FrozenSet[str] = frozenset(
+    {"CREATE", "INSERT", "UPSERT", "UPDATE", "DELETE", "EXECUTE"}
+)
+
+DRIVER_ID_CUSTOM = "custom"
+# A custom driver's urlFormat is a template such as
+# `jdbc:postgresql://{0}:{1}/{2}{3}`, filled from the connection's host, port,
+# dbname and additional attributes, in that order.
+URL_FORMAT_PLACEHOLDER_START = "{"
+DRIVER_ID_PLATFORM_MAP: Dict[str, str] = {
+    "sqlserver": "mssql",
+    "sqlserver-jtds": "mssql",
+    "oracle": "oracle",
+    "mysql": "mysql",
+    "postgresql": "postgres",
+    "db2": "db2",
+    "sap hana": "hana",
+    "snowflake": "snowflake",
+}
+
+# DataHub names MySQL and MariaDB tables `<database>.<table>`, with no schema.
+TWO_TIER_PLATFORMS: FrozenSet[str] = frozenset({"mysql", "mariadb"})
+# The Oracle source leaves the database (SID or service) out of its URNs by
+# default, so a database read from the connection would not join.
+PLATFORMS_WITHOUT_DATABASE: FrozenSet[str] = frozenset({"oracle"})
+SALESFORCE_PLATFORM = "salesforce"
+
+
+class OperationDirection(StrEnum):
+    READ = "read"
+    WRITE = "write"
+    UNKNOWN = "unknown"
+
+
+class UnresolvedReason(StrEnum):
+    COMPONENT_UNREADABLE = "component_unreadable"
+    UNKNOWN_DIRECTION = "unknown_direction"
+    UNSUPPORTED_CONNECTOR = "unsupported_connector"
+    NO_TABLE = "no_table"
+    SQL_PARSE_FAILED = "sql_parse_failed"
+    MISSING_OPERATION = "missing_operation"
+    AMBIGUOUS_JDBC_URL = "ambiguous_jdbc_url"
+    AMBIGUOUS_SQL = "ambiguous_sql"

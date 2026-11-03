@@ -665,11 +665,13 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_sharing_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
+    # sqlglot_lib: lineage parses Database connector SQL with datahub.sql_parsing.
     "boomi": {
         "requests<3.0.0",
         # Safe parsing of Platform API component XML.
         "defusedxml>=0.7.1,<0.8.0",
-    },
+    }
+    | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "cockroachdb": sql_common

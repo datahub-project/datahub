@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?><bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bns="http://api.platform.boomi.com/" folderFullPath="Test Account/DataHub Test/Shared" componentId="201f3bee-f657-4ae3-9e34-e7c6e326f4b6" version="1" name="DH Test - Query Accounts" type="connector-action" subType="salesforce" createdDate="2026-11-02T19:16:22Z" createdBy="svc@example.com" modifiedDate="2026-11-02T19:16:22Z" modifiedBy="svc@example.com" deleted="false" currentVersion="true" folderName="Shared" folderId="Rjo4OTQzNDEy" branchName="main" branchId="Qjo2MDk0Mzg"><bns:encryptedValues/><bns:object><Operation xmlns=""><Archiving directory="" enabled="false"/><Configuration><SalesforceGetAction objectAction="query" objectName="Account"><Options><QueryOptions><Fields><SalesforceObject name="Account"><FieldList><SalesforceField dataType="character" name="Id"/><SalesforceField dataType="character" name="Name"/><SalesforceField dataType="character" name="Industry"/>
+                  </FieldList><Filter><SalesforceFilterLogical logicalOperator="and"/></Filter><Sorts/>
+                </SalesforceObject>
+              </Fields><Inputs/>
+            </QueryOptions>
+          </Options>
+        </SalesforceGetAction>
+      </Configuration><Tracking><TrackedFields/></Tracking><Caching/>
+    </Operation></bns:object></bns:Component>

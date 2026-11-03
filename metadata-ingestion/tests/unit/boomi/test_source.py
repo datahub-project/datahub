@@ -21,8 +21,12 @@ from datahub.ingestion.source.boomi.source import (
     to_millis,
     ui_host_for_api_url,
 )
-from datahub.metadata.schema_classes import DataProcessInstanceRunEventClass
+from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
+    DataProcessInstanceRunEventClass,
+)
 from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
 
 ACCOUNT_ID = "acme-AB1CD2"
 BASE_URL = f"https://api.boomi.com/api/rest/v1/{ACCOUNT_ID}"
@@ -761,3 +765,109 @@ def test_executions_not_queried_when_no_process_emitted() -> None:
         paths = [r.path for r in mock.request_history]
 
     assert not any(path.endswith("/executionrecord/query") for path in paths)
+
+
+def _process_call_xml(*child_ids: str) -> str:
+    shapes = "".join(
+        f'<shape image="processcall_icon" name="shape{i + 2}" shapetype="processcall" userlabel="">'
+        f'<configuration><processcall abort="false" processId="{child_id}" wait="true">'
+        "<parameters/><returnpaths/></processcall></configuration><dragpoints/></shape>"
+        for i, child_id in enumerate(child_ids)
+    )
+    return XML.replace("</shapes>", f"{shapes}</shapes>")
+
+
+def _job_io(source: BoomiSource) -> Dict[str, Optional[DataJobInputOutputClass]]:
+    aspects: Dict[str, Optional[DataJobInputOutputClass]] = {}
+    for entity in source.get_workunits_internal():
+        if not isinstance(entity, DataJob):
+            continue
+        aspects[str(entity.urn)] = None
+        for workunit in entity.as_workunits():
+            aspect = workunit.get_aspect_of_type(DataJobInputOutputClass)
+            if aspect is not None:
+                aspects[str(entity.urn)] = aspect
+    return aspects
+
+
+def test_process_call_edges_only_to_emitted_processes() -> None:
+    source = _source(
+        include_undeployed_processes=True, process_pattern={"deny": ["^Filtered"]}
+    )
+    with requests_mock.Mocker() as mock:
+        # p1 sorts before its child p2, so the edge needs every flow known first.
+        _register(
+            mock,
+            [
+                _process_record("p1", "Parent"),
+                _process_record("p2", "Child"),
+                _process_record("p3", "Filtered Child"),
+            ],
+        )
+        mock.get(
+            f"{BASE_URL}/Component/p1",
+            text=_process_call_xml("p2", "p3", "p-missing", "p1"),
+        )
+        mock.get(f"{BASE_URL}/Component/p2", text=XML)
+        jobs = _job_io(source)
+
+    parent = jobs["urn:li:dataJob:(urn:li:dataFlow:(boomi,p1,PROD),process)"]
+    assert parent is not None
+    assert parent.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:(boomi,p2,PROD),process)"
+    ]
+    report = source.get_report()
+    assert report.process_calls_resolved == 1
+    assert report.process_calls_child_not_emitted == 2
+
+
+def test_lineage_aspect_omitted_when_disabled_or_unreadable() -> None:
+    source = _source(include_undeployed_processes=True, include_lineage=False)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        assert list(_job_io(source).values()) == [None]
+
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        mock.get(f"{BASE_URL}/Component/p1", status_code=500)
+        assert list(_job_io(source).values()) == [None]
+
+
+def test_lineage_aspect_omitted_when_a_component_is_unreadable() -> None:
+    process_xml = (
+        '<bns:Component xmlns:bns="http://api.platform.boomi.com/">'
+        '<bns:object><process xmlns=""><shapes><shape shapetype="connectoraction">'
+        '<configuration><connectoraction connectorType="database" actionType="Get" '
+        'connectionId="conn-1" operationId="op-1"/></configuration></shape>'
+        "</shapes></process></bns:object></bns:Component>"
+    )
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        mock.get(f"{BASE_URL}/Component/p1", text=process_xml)
+        mock.get(f"{BASE_URL}/Component/conn-1", status_code=500)
+        assert list(_job_io(source).values()) == [None]
+
+    assert list(source.get_report().lineage_processes_incomplete) == ["p1"]
+
+
+def test_lineage_error_keeps_process_without_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source(include_undeployed_processes=True)
+    assert source.lineage is not None
+
+    def _raise(info: object) -> None:
+        raise ValueError("unexpected component shape")
+
+    monkeypatch.setattr(source.lineage, "resolve_process", _raise)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        assert list(_job_io(source).values()) == [None]
+
+    assert [w.title for w in source.get_report().warnings] == [
+        "Failed to resolve Boomi process lineage"
+    ]

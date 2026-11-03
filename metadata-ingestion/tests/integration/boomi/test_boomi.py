@@ -1,8 +1,9 @@
+import contextlib
 import copy
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -37,6 +38,37 @@ SHIPMENT_NOTIFY = "5b1e0c2a-6f0d-4c1e-9a43-000000000002"
 SANDBOX_PROBE = "5b1e0c2a-6f0d-4c1e-9a43-000000000003"
 ORDERS_EXTRACT_TEST = "5b1e0c2a-6f0d-4c1e-9a43-000000000004"
 SANDBOX_FOLDER = "Rjo4OTQzNDk5"
+SQLSERVER_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000011"
+INVOICES_GET = "5b1e0c2a-6f0d-4c1e-9a43-000000000012"
+INVOICES_PROFILE = "5b1e0c2a-6f0d-4c1e-9a43-000000000013"
+SNOWFLAKE_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000014"
+INVOICE_FACTS_UPSERT = "5b1e0c2a-6f0d-4c1e-9a43-000000000015"
+NETSUITE_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000016"
+NETSUITE_UPSERT = "5b1e0c2a-6f0d-4c1e-9a43-000000000017"
+SNOWFLAKE_JDBC_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000018"
+ORDERS_GET = "5b1e0c2a-6f0d-4c1e-9a43-000000000019"
+ORDER_LINES_QUERY = "5b1e0c2a-6f0d-4c1e-9a43-000000000020"
+SNOWFLAKE_SUBTYPE = "officialboomi-X3979C-snowfl-prod"
+DB_V2_SUBTYPE = "officialboomi-X3979C-dbv2da-prod"
+# Captured components that synthetic ones are derived from.
+HTTP_CONNECTION = "aff32f06-3c23-4012-8d05-e488bd3490e2"
+GET_POSTS_OPERATION = "d311ffe2-9cb5-42f4-951f-83d07a606d92"
+POSTGRES_CONNECTION = "1a5d3fed-78e7-48d6-83e3-886669a42439"
+RNA_DATABASES_GET = "b8cb6962-9950-4dfa-9bcb-d5670375ca82"
+RNA_DATABASES_PROFILE = "9b842e54-05ff-435a-a87d-209d92a690cb"
+ENSEMBL_CONNECTION = "64f429a7-f94a-420d-a5d0-03385e9c3fc8"
+COORD_SYSTEM_GET = "60a37dba-4e38-42b2-b451-2fe2dab0109c"
+ENSEMBL_URL_FIELD = (
+    '<field id="url" type="string" '
+    'value="jdbc:mysql://ensembldb.ensembl.org:3306/homo_sapiens_core_116_38"/>'
+)
+COORD_SYSTEM_QUERY_FIELD = (
+    '<field id="query" type="string" value="select * from coord_system"/>'
+)
+SNOWFLAKE_JDBC_URL = (
+    "jdbc:snowflake://acct.snowflakecomputing.com/"
+    "?db=ANALYTICS&amp;schema=PUBLIC&amp;warehouse=WH"
+)
 DEV_ENVIRONMENT = "9c0a7e51-2d4b-4f3e-8a61-000000000001"
 
 START_STOP_SHAPES = (
@@ -249,18 +281,228 @@ EXECUTIONS_PAGE_2 = [
     _execution("execution-sp-1", SANDBOX_PROBE, "2026-11-02T08:00:00Z", "COMPLETE"),
 ]
 
+
+def _derive_component(
+    source_id: str, component_id: str, name: str, replacements: Dict[str, str]
+) -> str:
+    xml = _fixture(f"components/{source_id}.xml")
+    xml = xml.replace(f'componentId="{source_id}"', f'componentId="{component_id}"')
+    xml = re.sub(' name="[^"]*" type=', f' name="{name}" type=', xml, count=1)
+    for old, new in replacements.items():
+        assert old in xml, old
+        xml = xml.replace(old, new)
+    return xml
+
+
+def _connector_shape(
+    name: str,
+    label: str,
+    action_type: str,
+    connection_id: str,
+    connector_type: str,
+    operation_id: str = "",
+) -> str:
+    return (
+        f'<shape image="connectoraction_icon" name="{name}" shapetype="connectoraction" userlabel="{label}" x="273.0" y="48.0">'
+        f'<configuration><connectoraction actionType="{action_type}" allowDynamicCredentials="NONE" '
+        f'connectionId="{connection_id}" connectorType="{connector_type}" hideSettings="false" '
+        f'operationId="{operation_id}"><parameters/><dynamicProperties/></connectoraction></configuration>'
+        "<dragpoints/></shape>"
+    )
+
+
+INVOICE_EXPORT_SHAPES = START_STOP_SHAPES + "".join(
+    [
+        _connector_shape(
+            "shape3", "Receive invoices", "Listen", HTTP_CONNECTION, "http"
+        ),
+        _connector_shape(
+            "shape4",
+            "Get invoices",
+            "Get",
+            SQLSERVER_CONNECTION,
+            "database",
+            INVOICES_GET,
+        ),
+        _connector_shape(
+            "shape5",
+            "Upsert invoice facts",
+            "UPSERT",
+            SNOWFLAKE_CONNECTION,
+            SNOWFLAKE_SUBTYPE,
+            INVOICE_FACTS_UPSERT,
+        ),
+        _connector_shape(
+            "shape8",
+            "Get orders",
+            "Get",
+            SNOWFLAKE_JDBC_CONNECTION,
+            SNOWFLAKE_SUBTYPE,
+            ORDERS_GET,
+        ),
+        _connector_shape(
+            "shape9",
+            "Query order lines",
+            "Get",
+            SNOWFLAKE_JDBC_CONNECTION,
+            SNOWFLAKE_SUBTYPE,
+            ORDER_LINES_QUERY,
+        ),
+        _connector_shape(
+            "shape6",
+            "Upsert customers",
+            "UPSERT",
+            NETSUITE_CONNECTION,
+            "netsuitesdk",
+            NETSUITE_UPSERT,
+        ),
+        '<shape image="processcall_icon" name="shape7" shapetype="processcall" userlabel="Call test copy" x="723.0" y="48.0">'
+        f'<configuration><processcall abort="false" processId="{ORDERS_EXTRACT_TEST}" wait="true">'
+        "<parameters/><returnpaths/></processcall></configuration><dragpoints/></shape>",
+    ]
+)
+
+# Connectors the trial account cannot run, derived from captured components.
+SYNTHETIC_COMPONENT_XML: Dict[str, str] = {
+    SQLSERVER_CONNECTION: _derive_component(
+        POSTGRES_CONNECTION,
+        SQLSERVER_CONNECTION,
+        "DH Test - ERP SQL Server",
+        {
+            'className="org.postgresql.Driver"': 'className=""',
+            'dbname="pfmegrnargs"': 'dbname="my_db"',
+            'driverId="custom"': 'driverId="sqlserver"',
+            'host="hh-pgsql-public.ebi.ac.uk"': 'host="db.example.com"',
+            'port="5432"': 'port="1433"',
+            ' urlFormat="jdbc:postgresql://{0}:{1}/{2}{3}"': "",
+        },
+    ),
+    INVOICES_GET: _derive_component(
+        RNA_DATABASES_GET,
+        INVOICES_GET,
+        "DH Test - Invoices Get",
+        {RNA_DATABASES_PROFILE: INVOICES_PROFILE},
+    ),
+    # A profile that names its table but has no SQL.
+    INVOICES_PROFILE: _derive_component(
+        RNA_DATABASES_PROFILE,
+        INVOICES_PROFILE,
+        "DH Test - Invoices Profile",
+        {
+            'tableName=""': 'tableName="dbo.Invoices"',
+            "<sql>SELECT id, descr, display_name FROM rnc_database ORDER BY id</sql>": "",
+        },
+    ),
+    SNOWFLAKE_CONNECTION: _derive_component(
+        ENSEMBL_CONNECTION,
+        SNOWFLAKE_CONNECTION,
+        "DH Test - Snowflake",
+        {
+            f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"',
+            ENSEMBL_URL_FIELD: (
+                f'<field id="url" type="string" value="{SNOWFLAKE_JDBC_URL}"/>'
+            ),
+        },
+    ),
+    # Unmapped: the platform, database and schema come from the JDBC URL,
+    # which sits in a field the source plugin has no id for.
+    SNOWFLAKE_JDBC_CONNECTION: _derive_component(
+        ENSEMBL_CONNECTION,
+        SNOWFLAKE_JDBC_CONNECTION,
+        "DH Test - Snowflake JDBC",
+        {
+            f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"',
+            ENSEMBL_URL_FIELD: (
+                '<field id="connectionString" type="string" '
+                f'value="{SNOWFLAKE_JDBC_URL}"/>'
+            ),
+            'value="com.mysql.cj.jdbc.Driver"': (
+                'value="net.snowflake.client.jdbc.SnowflakeDriver"'
+            ),
+            'value="homo_sapiens_core_116_38"': 'value=""',
+        },
+    ),
+    ORDERS_GET: _derive_component(
+        COORD_SYSTEM_GET,
+        ORDERS_GET,
+        "DH Test - Orders Get",
+        {
+            f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"',
+            'objectTypeId="coord_system"': 'objectTypeId="ORDERS"',
+            COORD_SYSTEM_QUERY_FIELD: "",
+        },
+    ),
+    ORDER_LINES_QUERY: _derive_component(
+        COORD_SYSTEM_GET,
+        ORDER_LINES_QUERY,
+        "DH Test - Order Lines Query",
+        {
+            f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"',
+            'objectTypeId="coord_system"': 'objectTypeId="ORDER_LINES"',
+            COORD_SYSTEM_QUERY_FIELD: (
+                '<field id="sqlStatement" type="string" value="SELECT l.order_id, '
+                'l.amount FROM order_lines l JOIN orders o ON o.id = l.order_id"/>'
+            ),
+        },
+    ),
+    INVOICE_FACTS_UPSERT: _derive_component(
+        COORD_SYSTEM_GET,
+        INVOICE_FACTS_UPSERT,
+        "DH Test - Invoice Facts Upsert",
+        {
+            f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"',
+            'customOperationType="GET" objectTypeId="coord_system" operationType="EXECUTE"': (
+                'customOperationType="UPSERT" objectTypeId="INVOICE_FACTS" operationType="UPSERT"'
+            ),
+            COORD_SYSTEM_QUERY_FIELD: "",
+        },
+    ),
+    # No field holds a JDBC URL, so the connection stays unresolved.
+    NETSUITE_CONNECTION: _derive_component(
+        ENSEMBL_CONNECTION,
+        NETSUITE_CONNECTION,
+        "DH Test - NetSuite",
+        {
+            f'subType="{DB_V2_SUBTYPE}"': 'subType="netsuitesdk"',
+            ENSEMBL_URL_FIELD: (
+                '<field id="url" type="string" '
+                'value="https://acct.suitetalk.api.example.com"/>'
+            ),
+        },
+    ),
+    NETSUITE_UPSERT: _derive_component(
+        COORD_SYSTEM_GET,
+        NETSUITE_UPSERT,
+        "DH Test - NetSuite Customer Upsert",
+        {f'subType="{DB_V2_SUBTYPE}"': 'subType="netsuitesdk"'},
+    ),
+}
+
 COMPONENT_XML: Dict[str, str] = {
     path.stem: path.read_text()
     for path in sorted((FIXTURES_DIR / "components").glob("*.xml"))
 }
+COMPONENT_XML.update(SYNTHETIC_COMPONENT_XML)
 COMPONENT_XML[INVOICE_EXPORT] = _process_xml(
     INVOICE_EXPORT,
     "DH Test - Invoice Export",
     "Exports posted invoices to the finance warehouse.",
+    shapes=INVOICE_EXPORT_SHAPES,
 )
 COMPONENT_XML[SHIPMENT_NOTIFY] = _process_xml(
     SHIPMENT_NOTIFY, "DH Test - Shipment Notify", ""
 )
+
+
+@pytest.fixture(autouse=True)
+def _no_rate_limit() -> Iterator[None]:
+    # The clock is frozen, so the real limiter would sleep a full period for
+    # every request over the cap.
+    with patch(
+        "datahub.ingestion.source.boomi.client.RateLimiter",
+        lambda max_calls: contextlib.nullcontext(),
+    ):
+        yield
 
 
 def _page(
@@ -315,6 +557,14 @@ def _recipe(output_path: Path) -> Dict[str, object]:
                 "include_undeployed_processes": True,
                 "max_requests_per_second": 10,
                 "max_executions_per_process": 4,
+                "connection_to_platform": {
+                    SNOWFLAKE_CONNECTION: {
+                        "platform": "snowflake",
+                        "platform_instance": "snow_prod",
+                        "database": "ANALYTICS",
+                        "default_schema": "FINANCE",
+                    }
+                },
             },
         },
         "sink": {"type": "file", "config": {"filename": str(output_path)}},
@@ -337,6 +587,17 @@ def test_boomi_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
             "executions-page-2-token",
         ]
         assert query_more[0].headers["Content-Type"] == "text/plain"
+        component_gets = [
+            r.path.rsplit("/", 1)[-1]
+            for r in mock.request_history
+            if "/component/" in r.path
+        ]
+        # Orders Extract and Salesforce Accounts share the Postgres connection.
+        assert component_gets.count(POSTGRES_CONNECTION) == 1
+        # Get orders and Query order lines share the Snowflake JDBC connection.
+        assert component_gets.count(SNOWFLAKE_JDBC_CONNECTION) == 1
+        # Operations of skipped connectors are never read.
+        assert GET_POSTS_OPERATION not in component_gets
         execution_query = next(
             r for r in mock.request_history if r.path.endswith("/executionrecord/query")
         )
@@ -361,7 +622,20 @@ def test_boomi_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
     assert report.executions_over_cap == 1
     assert report.executions_process_not_emitted == 1
     assert report.executions_unknown_status == 1
-    assert [w.title for w in report.warnings] == ["Unknown Boomi execution status"]
+    assert report.lineage_edges_resolved == 11
+    assert dict(report.lineage_edges_unresolved) == {"unsupported_connector": 1}
+    assert dict(report.lineage_skipped_subtypes) == {
+        "http": 1,
+        "disk-sdk": 3,
+        "officialboomi-X3979C-sftpvx-prod": 1,
+    }
+    assert report.lineage_listen_shapes_skipped == 1
+    assert report.process_calls_resolved == 1
+    assert report.process_calls_child_not_emitted == 1
+    assert sorted(w.title or "" for w in report.warnings) == [
+        "Unknown Boomi execution status",
+        "Unsupported Boomi connector for lineage",
+    ]
 
     mce_helpers.check_golden_file(
         pytestconfig,

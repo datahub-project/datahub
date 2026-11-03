@@ -16,7 +16,7 @@
     "sources.athena.description": "Импорт схем, таблиц, представлений и lineage к S3 из Athena.",
     "sources.azureAd.description": "Импорт пользователей и групп из Azure Active Directory.",
     "sources.bigquery.description": "Импорт проектов, наборов данных, таблиц, представлений, lineage, запросов и статистики из BigQuery.",
-    "sources.boomi.description": "Импорт папок, процессов, развертываний, владения и истории запусков из Boomi Integration.",
+    "sources.boomi.description": "Импорт папок, процессов, lineage, развертываний, владения и истории запусков из Boomi Integration.",
     "sources.cassandra.description": "Импорт таблиц, keyspace и схем столбцов из Cassandra.",
     "sources.clickhouse.description": "Импорт таблиц, представлений, материализованных представлений, словарей, статистики, запросов и lineage из ClickHouse.",
     "sources.cockroachdb.description": "Импорт баз данных, схем, таблиц, представлений, статистики и lineage из CockroachDB.",

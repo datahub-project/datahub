@@ -305,6 +305,7 @@ bigquery-slim = [
 boomi = [
     { name = "defusedxml" },
     { name = "requests" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 cassandra = [
     { name = "cachetools" },
@@ -2704,6 +2705,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'azure-data-factory'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery-queries'", specifier = "==30.22.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'boomi'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse-usage'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'cockroachdb'", specifier = "==30.22.0" },
