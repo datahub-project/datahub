@@ -339,6 +339,9 @@ class ColumnSkipReason(StrEnum):
     INSERT_WITHOUT_COLUMN_LIST = "insert_without_column_list"
     # A map field targets a column the write's own SQL fills from a table.
     WRITTEN_BY_SQL = "written_by_sql"
+    # A map field targets a write whose SQL reads other tables, but which of
+    # the target's columns it fills is not known.
+    UNMAPPED_SQL_WRITE = "unmapped_sql_write"
     # The parser does not tie a MERGE's INSERT and UPDATE branches to the
     # target table's columns.
     MERGE_STATEMENT = "merge_statement"

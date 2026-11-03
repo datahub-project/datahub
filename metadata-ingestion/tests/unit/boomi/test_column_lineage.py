@@ -474,6 +474,39 @@ def test_insert_select_columns_take_precedence_over_map_edges() -> None:
     assert report.column_lineage_fields_skipped["written_by_sql"] == 1
 
 
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "INSERT INTO my_table (rna_db_id, rna_db_label) SELECT * FROM staging_orders",
+        "INSERT INTO my_table (rna_db_id, rna_db_label) "
+        "SELECT id, display_name FROM staging_orders "
+        "UNION SELECT id, display_name FROM staging_orders",
+        "INSERT INTO my_table (rna_db_id, rna_db_label) SELECT id FROM staging_orders",
+        "INSERT INTO my_table (rna_db_id, rna_db_label) "
+        "SELECT id, id FROM staging_orders",
+    ],
+)
+def test_map_edges_skipped_when_write_sql_columns_are_unknown(sql: str) -> None:
+    # The SQL reads staging_orders but its filled columns cannot be matched
+    # to the INSERT list, so any map edge into the write could be wrong.
+    components = _components(
+        **{
+            MY_TABLE_PROFILE: {
+                "INSERT INTO my_table (rna_db_id, rna_db_label, loaded_at) VALUES (?, ?, ?)": sql,
+                'statementType="dynamicinsert"': 'statementType="standardinsert"',
+            }
+        }
+    )
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    assert SOURCE in lineage.input_datasets
+    assert not [
+        edge for edge in lineage.column_lineage if RNA_TABLE in str(edge.upstreams)
+    ]
+    assert report.column_lineage_fields_skipped["unmapped_sql_write"] >= 1
+
+
 SHAPE4_SEND = 'operationId="a061ed55-80de-4cfe-9fe5-073ca8cb2370" parameter-profile="EMBEDDED|databaseparameterchooser|9edcf033-37ff-409d-8a92-c4382f5d6689|a061ed55-80de-4cfe-9fe5-073ca8cb2370"'
 RNA_SHAPES_END = "</shapes>"
 
@@ -854,7 +887,9 @@ def test_graph_schema_sets_column_casing_and_drops_unknown_columns() -> None:
         # An output name used twice cannot be tied to one column.
         (
             "INSERT INTO my_table (a, b, c) SELECT x, x, y FROM src",
-            InsertColumns(parsed=True, is_insert=True, by_output={"y": "c"}),
+            InsertColumns(
+                parsed=True, is_insert=True, by_output={"y": "c"}, unambiguous=False
+            ),
         ),
     ],
 )

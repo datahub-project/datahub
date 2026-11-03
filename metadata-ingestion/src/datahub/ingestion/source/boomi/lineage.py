@@ -173,6 +173,9 @@ class InsertColumns:
     # Lowercased SELECT output name -> target column. None when the INSERT has
     # no column list, so its target columns are not known.
     by_output: Optional[Dict[str, str]] = None
+    # False when an output names more than one target column, so some of the
+    # columns the SELECT fills are missing from by_output.
+    unambiguous: bool = True
 
 
 def _parse_sql(sql: str, platform: str) -> Optional[sqlglot.exp.Expression]:
@@ -235,6 +238,7 @@ def insert_columns(sql: str, platform: str) -> InsertColumns:
             for output, column in by_output.items()
             if output not in duplicates
         },
+        unambiguous=not duplicates,
     )
 
 
@@ -327,6 +331,10 @@ class _ProcessEdges:
     # (write shape name, downstream field URN) for the columns a write's own
     # SQL fills from the tables it reads, such as INSERT ... SELECT.
     sql_columns: Set[Tuple[str, str]] = field(default_factory=set)
+    # Write shapes whose SQL reads other tables but whose filled columns are
+    # not known, such as INSERT ... SELECT * or a UNION. Any target column may
+    # come from the SQL, so no map edge is drawn into them.
+    sql_owned_writes: Set[str] = field(default_factory=set)
 
     def add_column_edge(
         self, upstreams: Iterable[str], downstream: str, transform: str
@@ -465,6 +473,7 @@ class BoomiLineageResolver:
                 shape.shape_name,
                 datasets.sql,
                 datasets.sql_result,
+                bool(datasets.read_urns),
                 sub_type,
                 target,
                 edges,
@@ -672,6 +681,7 @@ class BoomiLineageResolver:
         shape_name: Optional[str],
         sql: str,
         result: SqlParsingResult,
+        reads_tables: bool,
         sub_type: str,
         target: ConnectionTarget,
         edges: _ProcessEdges,
@@ -681,9 +691,18 @@ class BoomiLineageResolver:
             for info in result.column_lineage or []
             if info.downstream.table is not None
         ]
+        insert = insert_columns(sql, target.platform)
+        columns_known = (
+            bool(written)
+            and insert.parsed
+            and not insert.is_merge
+            and (not insert.is_insert or bool(insert.by_output))
+            and insert.unambiguous
+        )
+        if shape_name and reads_tables and not columns_known:
+            edges.sql_owned_writes.add(shape_name)
         if not written:
             return
-        insert = insert_columns(sql, target.platform)
         if insert.is_merge:
             for _ in written:
                 self._skip_column(ColumnSkipReason.MERGE_STATEMENT)
@@ -801,6 +820,9 @@ class BoomiLineageResolver:
             if not upstreams:
                 continue
             for write_name, downstream in downstreams:
+                if write_name in edges.sql_owned_writes:
+                    self._skip_column(ColumnSkipReason.UNMAPPED_SQL_WRITE)
+                    continue
                 # The write's SQL decides what lands in the columns it fills
                 # from other tables, so a document field mapped to the same
                 # column through that write is not what the table receives.
