@@ -32,6 +32,8 @@ from datahub.metadata.schema_classes import (
     DataContractStatusClass,
     DataProductPropertiesClass,
     DatasetPropertiesClass,
+    DomainPropertiesClass,
+    DomainsClass,
     EdgeClass,
     InstitutionalMemoryClass,
     LogicalParentClass,
@@ -1292,6 +1294,183 @@ def test_unmatched_override_key_warns(tmp_path: pathlib.Path) -> None:
         in str(getattr(w, "title", ""))
         for w in src.report.warnings
     )
+
+
+# ---------------------------------------------------------------------------
+# Domain association
+# ---------------------------------------------------------------------------
+
+_DOMAIN_BODY = _VALID_CONTRACT_BODY.replace(
+    "status: active", "status: active\ndomain: sales"
+)
+
+
+def _graph_with_domains(domains: Dict[str, str]) -> Any:
+    """A graph where `domains` (urn -> display name) are the only Domains."""
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: (
+        urn in domains if urn.startswith("urn:li:domain:") else True
+    )
+    graph.get_urns_by_filter.side_effect = lambda **kwargs: iter(list(domains))
+    graph.get_aspect.side_effect = lambda urn, aspect_cls: (
+        DomainPropertiesClass(name=domains[urn])
+        if aspect_cls is DomainPropertiesClass and urn in domains
+        else None
+    )
+    return graph
+
+
+def _domain_workunits(workunits: List, aspect_cls: type) -> List[MetadataWorkUnit]:
+    return [
+        wu
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), aspect_cls)
+    ]
+
+
+def _dataset_domains(workunits: List) -> Dict[str, List[str]]:
+    """Dataset urn -> the domains written to it."""
+    return {
+        _mcp(wu).entityUrn or "": list(_mcp(wu).aspect.domains)  # type: ignore[union-attr]
+        for wu in _domain_workunits(workunits, DomainsClass)
+    }
+
+
+def _run_domain_source(
+    tmp_path: pathlib.Path, body: str, graph: Optional[Any], **overrides: Any
+) -> Tuple[ODCSSource, List]:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    config: Dict[str, Any] = {"emit_domain_association": True, **overrides}
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file), **config)
+    return src, list(src.get_workunits_internal())
+
+
+def test_domain_association_off_by_default(tmp_path: pathlib.Path) -> None:
+    src, workunits = _run_domain_source(
+        tmp_path, _DOMAIN_BODY, None, emit_domain_association=False
+    )
+    assert _domain_workunits(workunits, DomainsClass) == []
+    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+
+
+def test_domain_resolved_by_id_is_set_on_logical_dataset_only(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _run_domain_source(
+        tmp_path,
+        _DOMAIN_BODY,
+        _graph_with_domains({"urn:li:domain:sales": "Curated Sales"}),
+        emit_logical_parent=True,
+    )
+    logical_urn = _logical_urn_of(workunits)
+    assert _dataset_domains(workunits) == {logical_urn: ["urn:li:domain:sales"]}
+    # The logical dataset is ODCS-owned, so its domain is primary (stateful).
+    assert all(
+        wu.is_primary_source for wu in _domain_workunits(workunits, DomainsClass)
+    )
+    # An existing domain is never rewritten.
+    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert src.report.domains_resolved_by_id == 1
+
+
+def test_domain_resolved_by_display_name(tmp_path: pathlib.Path) -> None:
+    src, workunits = _run_domain_source(
+        tmp_path,
+        _DOMAIN_BODY,
+        _graph_with_domains({"urn:li:domain:abc-123": "Sales"}),
+    )
+    assert _dataset_domains(workunits) == {
+        _logical_urn_of(workunits): ["urn:li:domain:abc-123"]
+    }
+    assert src.report.domains_resolved_by_name == 1
+    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+
+
+def test_missing_domain_is_created_once_and_never_stale_removed(
+    tmp_path: pathlib.Path,
+) -> None:
+    (tmp_path / "a.odcs.yaml").write_text(_DOMAIN_BODY, encoding="utf-8")
+    (tmp_path / "b.odcs.yaml").write_text(
+        _DOMAIN_BODY.replace("id: test-contract-1", "id: test-contract-2"),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_domains({}),
+        path=str(tmp_path),
+        emit_domain_association=True,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    created = _domain_workunits(workunits, DomainPropertiesClass)
+    assert len(created) == 1
+    assert _mcp(created[0]).entityUrn == "urn:li:domain:sales"
+    props = _mcp(created[0]).aspect
+    assert isinstance(props, DomainPropertiesClass)
+    assert props.name == "sales"
+    assert "ODCS" in (props.description or "")
+    status = [
+        wu
+        for wu in _domain_workunits(workunits, StatusClass)
+        if _mcp(wu).entityUrn == "urn:li:domain:sales"
+    ]
+    assert len(status) == 1
+    assert not created[0].is_primary_source and not status[0].is_primary_source
+    dataset_domains = _dataset_domains(workunits)
+    assert len(dataset_domains) == 2
+    assert all(v == ["urn:li:domain:sales"] for v in dataset_domains.values())
+    assert src.report.domains_created == 1
+
+
+def test_domain_name_matching_several_domains_is_skipped(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _run_domain_source(
+        tmp_path,
+        _DOMAIN_BODY,
+        _graph_with_domains({"urn:li:domain:a": "Sales", "urn:li:domain:b": "sales"}),
+    )
+    assert _domain_workunits(workunits, DomainsClass) == []
+    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert src.report.domains_unresolved == 1
+    assert any(
+        "ODCS domain matches several Domains" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_domain_search_failure_neither_creates_nor_clears(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: not urn.startswith("urn:li:domain:")
+    graph.get_urns_by_filter.side_effect = RuntimeError("search backend down")
+    src, workunits = _run_domain_source(tmp_path, _DOMAIN_BODY, graph)
+
+    assert _domain_workunits(workunits, DomainsClass) == []
+    assert _domain_workunits(workunits, DomainPropertiesClass) == []
+    assert src.report.domains_unresolved == 1
+
+
+def test_contract_without_domain_clears_logical_dataset_domain(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _run_domain_source(
+        tmp_path, _VALID_CONTRACT_BODY, _graph_with_domains({})
+    )
+    assert _dataset_domains(workunits) == {_logical_urn_of(workunits): []}
+
+
+def test_domain_without_graph_is_associated_unverified(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _run_domain_source(tmp_path, _DOMAIN_BODY, None)
+    assert _dataset_domains(workunits) == {
+        _logical_urn_of(workunits): ["urn:li:domain:sales"]
+    }
+    # Without a graph nothing proves the domain is missing, so none is created.
+    assert _domain_workunits(workunits, DomainPropertiesClass) == []
 
 
 # ---------------------------------------------------------------------------

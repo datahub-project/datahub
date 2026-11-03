@@ -8,7 +8,7 @@ import re
 import tempfile
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Dict, Generator, Iterable, List, Optional, Set
+from typing import Dict, Generator, Iterable, List, Optional, Set, Type, TypeVar
 from urllib.parse import urlparse
 
 import jsonschema
@@ -50,6 +50,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_data_contract_mcps,
     odcs_to_data_product_output_port_mcps,
     odcs_to_data_product_urn,
+    odcs_to_domain_urn,
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_dataset_name,
     odcs_to_logical_parent_mcp,
@@ -104,11 +105,13 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
 from datahub.metadata.schema_classes import (
     AiContextClass,
     DataProductPropertiesClass,
+    DomainPropertiesClass,
+    DomainsClass,
     LogicalParentClass,
     OwnershipClass,
     StatusClass,
 )
-from datahub.metadata.urns import DataProductUrn
+from datahub.metadata.urns import DataProductUrn, DomainUrn
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import guess_entity_type
@@ -253,12 +256,23 @@ class _DataProductMembership:
             self.asset_urns.append(asset_urn)
 
 
-@dataclass
-class _ProductResolution:
-    """Outcome of resolving a contract's `dataProduct` value to a product urn.
+# Properties aspects resolved by display name; both carry a `name`.
+_NamedProperties = TypeVar(
+    "_NamedProperties", DataProductPropertiesClass, DomainPropertiesClass
+)
 
-    `urn` is None when the value resolves to no product (reported, skipped).
-    `created_name` is set only when this run should create the product.
+# Written only on a domain ODCS creates, so curators can tell where it came from.
+_CREATED_DOMAIN_DESCRIPTION = (
+    "Created by the DataHub ODCS connector from a data contract's `domain` field."
+)
+
+
+@dataclass
+class _EntityResolution:
+    """Outcome of resolving a contract's `dataProduct` or `domain` value to a urn.
+
+    `urn` is None when the value resolves to no entity (reported, skipped).
+    `created_name` is set only when this run should create the entity.
     """
 
     urn: Optional[str] = None
@@ -282,6 +296,10 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     data_products_resolved_by_name: int = 0
     data_products_created: int = 0
     data_products_unresolved: int = 0
+    domains_resolved_by_id: int = 0
+    domains_resolved_by_name: int = 0
+    domains_created: int = 0
+    domains_unresolved: int = 0
     unknown_fields_count: int = 0
     validation_errors: int = 0
     unmappable_servers: int = 0
@@ -387,7 +405,10 @@ class ODCSSource(StatefulIngestionSourceBase):
         # contracts resolves and warns once. Whether the product is new is folded
         # into the resolution (and then the membership), so there is no parallel
         # created-products dict to keep in sync.
-        self._data_product_urns: Dict[str, _ProductResolution] = {}
+        self._data_product_urns: Dict[str, _EntityResolution] = {}
+        # `domain` value -> resolution, cached like `_data_product_urns`.
+        self._domain_urns: Dict[str, _EntityResolution] = {}
+        self._created_domains_emitted: Set[str] = set()
 
         if self.config.http_connection and not self.config.http_connection.verify_ssl:
             self.report.warning(
@@ -1114,6 +1135,9 @@ class ODCSSource(StatefulIngestionSourceBase):
                     assertion_urns,
                 )
             self._record_data_product_asset(contract, binding, source_uri)
+            yield from self._emit_domain_association(
+                contract, binding.logical_urn, source_uri
+            )
 
     def _emit_logical_dataset(
         self,
@@ -1635,7 +1659,7 @@ class ODCSSource(StatefulIngestionSourceBase):
 
     def _resolve_data_product(
         self, raw: str, contract: ODCSContract, source_uri: str
-    ) -> _ProductResolution:
+    ) -> _EntityResolution:
         """Resolve a `dataProduct` value to a product urn, if resolvable.
 
         Tried as an id first, then matched against product display names. A value
@@ -1652,18 +1676,20 @@ class ODCSSource(StatefulIngestionSourceBase):
         # id-derived urn is emitted unverified.
         if by_id is not None and self._urn_exists_in_graph(by_id) is not False:
             self.report.data_products_resolved_by_id += 1
-            return _ProductResolution(urn=by_id)
+            return _EntityResolution(urn=by_id)
 
-        by_name = self._data_products_named(raw)
+        by_name = self._entities_named(
+            raw, DataProductUrn.ENTITY_TYPE, DataProductPropertiesClass, "Data Product"
+        )
         if by_name is None:
             # The name search failed rather than coming back empty. A failure is
             # not proof the product is absent, so leave the contract unresolved
             # instead of seeding a duplicate at the id-derived urn. The failure
-            # was already warned about in `_data_products_named`.
-            return _ProductResolution()
+            # was already warned about in `_entities_named`.
+            return _EntityResolution()
         if len(by_name) == 1:
             self.report.data_products_resolved_by_name += 1
-            return _ProductResolution(urn=by_name[0])
+            return _EntityResolution(urn=by_name[0])
         if len(by_name) > 1:
             self.report.warning(
                 title="ODCS dataProduct matches several Data Products",
@@ -1675,7 +1701,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 ),
                 context=f"{context} matches={', '.join(sorted(by_name))}",
             )
-            return _ProductResolution()
+            return _EntityResolution()
 
         if not self.config.verify_data_product_exists and by_id is not None:
             # The graph was definitive that no product exists at this id (a
@@ -1692,7 +1718,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 ),
                 context=f"{context} created={by_id}",
             )
-            return _ProductResolution(urn=by_id, created_name=created_name)
+            return _EntityResolution(urn=by_id, created_name=created_name)
 
         no_id_message = (
             "No Data Product matches this value by id or by name, so the "
@@ -1709,10 +1735,16 @@ class ODCSSource(StatefulIngestionSourceBase):
             message=no_id_message,
             context=context,
         )
-        return _ProductResolution()
+        return _EntityResolution()
 
-    def _data_products_named(self, name: str) -> Optional[List[str]]:
-        """Urns of every Data Product whose display name equals `name`.
+    def _entities_named(
+        self,
+        name: str,
+        entity_type: str,
+        properties_cls: Type[_NamedProperties],
+        label: str,
+    ) -> Optional[List[str]]:
+        """Urns of every `entity_type` entity whose display name equals `name`.
 
         Returns None whenever the result is uncertain rather than definitive, so
         the caller can distinguish that from a genuine empty result and never
@@ -1722,7 +1754,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         same-named duplicate, so the partial view is neither a trustworthy miss
         nor a trustworthy unique match. The server-side filter is a prefilter;
         each candidate is confirmed against the persisted
-        `dataProductProperties.name`.
+        `name` of its `properties_cls` aspect.
         """
         graph = self.ctx.graph
         if graph is None:
@@ -1739,7 +1771,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             # loop below.
             candidates = list(
                 graph.get_urns_by_filter(
-                    entity_types=[DataProductUrn.ENTITY_TYPE],
+                    entity_types=[entity_type],
                     extraFilters=[
                         {"field": "name", "condition": "IEQUAL", "values": [name]}
                     ],
@@ -1747,12 +1779,12 @@ class ODCSSource(StatefulIngestionSourceBase):
             )
         except Exception as e:
             self.report.warning(
-                title="Could not search Data Products by name",
+                title=f"Could not search {label}s by name",
                 message=(
-                    "Graph lookup failed, so a `dataProduct` value that names a "
-                    "product rather than identifying it could not be resolved."
+                    f"Graph lookup failed, so a value that names a {label} rather "
+                    "than identifying it could not be resolved."
                 ),
-                context=f"dataProduct={name}",
+                context=f"{label}={name}",
                 exc=e,
             )
             return None
@@ -1760,18 +1792,18 @@ class ODCSSource(StatefulIngestionSourceBase):
         had_read_error = False
         for urn in candidates:
             try:
-                props = graph.get_aspect(urn, DataProductPropertiesClass)
+                props = graph.get_aspect(urn, properties_cls)
             except Exception as e:
                 # A single unreadable candidate must not abort the loop; keep
                 # confirming the rest, but remember the view is now incomplete.
                 had_read_error = True
                 self.report.warning(
-                    title="Could not read a Data Product while matching by name",
+                    title=f"Could not read a {label} while matching by name",
                     message=(
-                        "A candidate product's properties could not be read, so "
-                        "it was skipped while matching this `dataProduct` name."
+                        f"A candidate {label}'s properties could not be read, so "
+                        "it was skipped while matching by name."
                     ),
-                    context=f"dataProduct={name} candidate={urn}",
+                    context=f"{label}={name} candidate={urn}",
                     exc=e,
                 )
                 continue
@@ -1824,6 +1856,117 @@ class ODCSSource(StatefulIngestionSourceBase):
                 is_primary_source=False,
             )
         self.report.data_product_output_ports_emitted += len(membership.asset_urns)
+
+    def _emit_domain_association(
+        self, contract: ODCSContract, logical_urn: str, source_uri: str
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.emit_domain_association:
+            return
+        raw = (contract.domain or "").strip()
+        domains: List[str] = []
+        if raw:
+            if raw not in self._domain_urns:
+                resolution = self._resolve_domain(raw, contract, source_uri)
+                self._domain_urns[raw] = resolution
+                if resolution.urn is None:
+                    self.report.domains_unresolved += 1
+            resolution = self._domain_urns[raw]
+            if resolution.urn is None:
+                # Leave the dataset's current domain alone: an unresolved value
+                # (often a transient lookup failure) is not a request to clear it.
+                return
+            if (
+                resolution.created_name is not None
+                and resolution.urn not in self._created_domains_emitted
+            ):
+                self._created_domains_emitted.add(resolution.urn)
+                yield from self._created_domain_workunits(
+                    resolution.urn, resolution.created_name
+                )
+            domains = [resolution.urn]
+        # The logical dataset is ODCS-owned, so the contract decides its domain:
+        # a contract without `domain` clears it.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=logical_urn, aspect=DomainsClass(domains=domains)
+        ).as_workunit()
+
+    def _created_domain_workunits(
+        self, domain_urn: str, name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Non-primary: a domain outlives the contracts that named it, so ODCS
+        # must never stale-remove it. Status is spelled out because
+        # AutoStatusAspectProcessor only covers primary-source workunits.
+        for aspect in (
+            DomainPropertiesClass(name=name, description=_CREATED_DOMAIN_DESCRIPTION),
+            StatusClass(removed=False),
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=domain_urn, aspect=aspect
+            ).as_workunit(is_primary_source=False)
+
+    def _resolve_domain(
+        self, raw: str, contract: ODCSContract, source_uri: str
+    ) -> _EntityResolution:
+        """Resolve a `domain` value to a Domain urn, creating the domain if needed.
+
+        Tried as an id first, then matched against domain names. A value matching
+        neither is created at its id-derived urn, but only once the graph has
+        definitively shown it is absent.
+        """
+        context = f"file={source_uri} contract={contract.id} domain={raw}"
+        try:
+            by_id: Optional[str] = odcs_to_domain_urn(raw)
+        except InvalidUrnError:
+            by_id = None
+        # `is not False` also covers the no-graph case (file sink), where the
+        # id-derived urn is used unverified and nothing is created.
+        if by_id is not None and self._urn_exists_in_graph(by_id) is not False:
+            self.report.domains_resolved_by_id += 1
+            return _EntityResolution(urn=by_id)
+
+        by_name = self._entities_named(
+            raw, DomainUrn.ENTITY_TYPE, DomainPropertiesClass, "Domain"
+        )
+        if by_name is None:
+            # Uncertain, not empty: creating here could duplicate an existing
+            # domain. Already warned about in `_entities_named`.
+            return _EntityResolution()
+        if len(by_name) == 1:
+            self.report.domains_resolved_by_name += 1
+            return _EntityResolution(urn=by_name[0])
+        if len(by_name) > 1:
+            self.report.warning(
+                title="ODCS domain matches several Domains",
+                message=(
+                    "More than one Domain carries this name, so none was set on "
+                    "the contract's datasets. Set `domain` to the id of the "
+                    "intended domain, or to its full urn."
+                ),
+                context=f"{context} matches={', '.join(sorted(by_name))}",
+            )
+            return _EntityResolution()
+
+        if by_id is None:
+            self.report.warning(
+                title="ODCS domain not found in DataHub",
+                message=(
+                    "No Domain matches this value by name, and the value cannot "
+                    "be an id, so no domain could be created for it. Rename the "
+                    "domain to match, or set `domain` to the domain's id or urn."
+                ),
+                context=context,
+            )
+            return _EntityResolution()
+        # Name the new domain after the urn's id, never the raw value, which may
+        # be a full `urn:li:domain:...` string.
+        created_name = DomainUrn.from_string(by_id).id
+        self.report.domains_created += 1
+        self.report.info(
+            title="Created new Domain",
+            message="No Domain matched this `domain` value, so a new one was created.",
+            context=f"{context} created={by_id}",
+        )
+        return _EntityResolution(urn=by_id, created_name=created_name)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with contextlib.ExitStack() as stack:

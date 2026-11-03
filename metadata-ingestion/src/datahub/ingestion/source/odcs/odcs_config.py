@@ -338,6 +338,16 @@ class ODCSSourceConfig(
         "product at `urn:li:dataProduct:<value>` — the same urn `datahub dataproduct upsert` "
         "derives from a product id — named after the value.",
     )
+    emit_domain_association: bool = Field(
+        default=False,
+        description="Whether to set the DataHub Domain named by the contract's `domain` field "
+        "on the contract's logical `odcs` datasets. Physical datasets are never touched. The "
+        "value is resolved against existing domains (full URN, then `urn:li:domain:<value>`, "
+        "then an exact, case-insensitive match on domain name); when nothing matches, ODCS "
+        "creates the domain at `urn:li:domain:<value>`. With this on, the contract owns the "
+        "logical dataset's domain: a contract without `domain` clears it. Off by default: the "
+        "ODCS field is free text.",
+    )
     physical_urn_overrides: Dict[str, Dict[str, str]] = Field(
         default_factory=dict,
         description="Map of ODCS contract `id` to a map of `schema[]` entry NAME to an explicit "
