@@ -172,6 +172,18 @@ function main(argv = process.argv.slice(2)) {
     const decision = [eagerClass, pageClass].sort((a, b) => order[b] - order[a])[0] || 'ok';
 
     const { eagerMeasured, pageMeasured } = measuredFromFindings(eagerFindings, pageFindings);
+    // stderr keeps the stdout JSON parseable for the workflow.
+    const unmeasured = [
+        hasUnderBaselineFieldFinding(eagerFindings.soft, 'Eager JS') && eagerMeasured == null && 'eager totalGzip',
+        hasUnderBaselineFieldFinding(pageFindings.soft, 'shell') && pageMeasured.shell == null && 'page shell',
+        hasUnderBaselineFieldFinding(pageFindings.soft, 'search') && pageMeasured.search == null && 'page search',
+    ].filter(Boolean);
+    if (unmeasured.length) {
+        console.error(
+            `Findings have no measured gzip for ${unmeasured.join(', ')}; leaving those ceilings unchanged. ` +
+                'Regenerate the findings with the current eager-budget.mjs / page-bundle-size.mjs.',
+        );
+    }
     const summary = {
         decision,
         eagerClass,
