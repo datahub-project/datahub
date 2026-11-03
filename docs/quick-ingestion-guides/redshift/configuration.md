@@ -43,7 +43,7 @@ This will securely store your Redshift User's password within DataHub
 4. Navigate to the **Sources** tab and click **Create Source**
 
 <p align="center">
-  <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_click_create_new_source_button.png"/>
+  <img width="75%" alt="Click &quot;Create Source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_click_create_new_source_button.png"/>
 </p>
 
 5. Select Redshift

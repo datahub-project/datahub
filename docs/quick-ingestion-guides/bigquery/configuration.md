@@ -56,7 +56,7 @@ This will securely store your BigQuery Service Account Private Key ID within Dat
 5. Navigate to the **Sources** tab and click **Create Source**
 
 <p align="center">
-  <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_click_create_new_source_button.png"/>
+  <img width="75%" alt="Click &quot;Create Source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_click_create_new_source_button.png"/>
 </p>
 
 6. Select BigQuery

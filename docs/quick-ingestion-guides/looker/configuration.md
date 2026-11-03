@@ -48,7 +48,7 @@ Then, create a secret for the **Client Secret**. The value should be the **Clien
 Navigate to the **Sources** tab and click **Create Source**.
 
   <p align="center">
-    <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
+    <img width="75%" alt="Click &quot;Create Source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
   </p>
 
 Choose `Looker`.
@@ -115,7 +115,7 @@ Now that you have created a DataHub-specific API key and Deploy Key with the rel
 Navigate to the **Sources** tab and click **Create Source**.
 
   <p align="center">
-    <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
+    <img width="75%" alt="Click &quot;Create Source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
   </p>
 
 Choose `LooML`.
