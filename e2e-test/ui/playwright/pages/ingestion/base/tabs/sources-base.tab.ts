@@ -234,18 +234,22 @@ export abstract class SourcesBaseTab extends BaseTab {
   }
 
   async search(sourceName: string): Promise<void> {
-    this.logger?.step('search', { sourceName });
-    await expect(this.sourcesSearchInput).toBeVisible();
-    if ((await this.sourcesSearchInput.inputValue()) !== sourceName) {
-      await this.sourcesSearchInput.fill(sourceName);
-      // The search is debounced and the matching row may already be visible in the
-      // unfiltered list. Wait for the debounce to apply the query (it writes it to
-      // the URL) so the table does not re-render under the next interaction.
-      await expect(this.page).toHaveURL((url) => url.searchParams.get('query') === sourceName);
-    }
+    await this.typeSearchQuery(sourceName);
     // The list query is debounced and may be served from the Apollo cache, so a
     // network wait for this exact query does not always see a response.
     await this.expectSourceVisible(sourceName);
+  }
+
+  async typeSearchQuery(query: string): Promise<void> {
+    this.logger?.step('search', { query });
+    await expect(this.sourcesSearchInput).toBeVisible();
+    if ((await this.sourcesSearchInput.inputValue()) !== query) {
+      await this.sourcesSearchInput.fill(query);
+      // The search is debounced and the matching row may already be visible in the
+      // unfiltered list. Wait for the debounce to apply the query (it writes it to
+      // the URL) so the table does not re-render under the next interaction.
+      await expect(this.page).toHaveURL((url) => url.searchParams.get('query') === query);
+    }
   }
 
   async expectSchedule(sourceName: string, scheduleText: string): Promise<void> {

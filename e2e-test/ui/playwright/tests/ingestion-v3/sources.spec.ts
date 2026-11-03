@@ -12,6 +12,8 @@ const RUN_DETAILS_SOURCE = 'playwright v3 run details source';
 const SEARCH_SOURCE_1 = 'playwright v3 sources search apple';
 const SEARCH_SOURCE_2 = 'playwright v3 sources search banana';
 const FILTER_SOURCE = 'playwright v3 filter source';
+const FILTER_CLI_SOURCE = 'playwright v3 filter cli source';
+const FILTER_SEARCH = 'playwright v3 filter';
 
 test.use({ featureName: 'ingestion-v3' });
 
@@ -115,16 +117,15 @@ test.describe('ingestion sources', () => {
   });
 
   test('filter ingestion sources by UI', async () => {
-    await ingestionPage.sourcesTab.search(FILTER_SOURCE);
+    await ingestionPage.sourcesTab.typeSearchQuery(FILTER_SEARCH);
     await ingestionPage.sourcesTab.expectSourceVisible(FILTER_SOURCE);
+    await ingestionPage.sourcesTab.expectSourceVisible(FILTER_CLI_SOURCE);
+    await ingestionPage.sourcesTab.expectCliPillVisible();
 
-    // Filter to UI sources only
     await ingestionPage.sourcesTab.selectTypeFilter('UI');
 
-    // After filtering to UI only, CLI pill should not appear
+    await ingestionPage.sourcesTab.expectSourceNotVisible(FILTER_CLI_SOURCE);
     await ingestionPage.sourcesTab.expectCliPillNotVisible();
-
-    // The pre-seeded UI source should still be visible
     await expect(ingestionPage.sourcesTab.getSourceCell(FILTER_SOURCE)).toBeVisible();
   });
 
