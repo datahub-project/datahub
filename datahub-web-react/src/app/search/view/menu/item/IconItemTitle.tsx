@@ -2,7 +2,7 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const TitleContainer = styled.span`
     display: flex;

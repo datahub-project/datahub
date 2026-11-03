@@ -3,7 +3,7 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { EntityAndType } from '@app/entity/shared/types';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     SEARCH_RESULTS_BROWSE_SIDEBAR_ID,

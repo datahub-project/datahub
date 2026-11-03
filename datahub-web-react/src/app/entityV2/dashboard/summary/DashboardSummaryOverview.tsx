@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from '@app/entityV2/chart/summary/styledComponents';
 import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SummaryColumns } from '@app/entityV2/shared/summary/ListComponents';
 import SummaryCreatedBySection from '@app/entityV2/shared/summary/SummaryCreatedBySection';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import Loading from '@app/sharedV2/Loading';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';

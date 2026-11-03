@@ -1,5 +1,5 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { getStructuredPropertyValue } from '@app/entity/shared/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
+import { getStructuredPropertyValue } from '@app/entityV2/shared/utils';
 
 import { Entity, FormPrompt, PropertyValue, SchemaField, StructuredPropertiesEntry } from '@types';
 

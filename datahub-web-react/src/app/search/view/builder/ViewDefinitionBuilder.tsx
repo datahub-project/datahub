@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     buildEntityCache,
     extractEntityTypesFilterValues,
@@ -10,6 +9,7 @@ import {
     toUnionType,
 } from '@app/entity/view/builder/utils';
 import { ViewBuilderState } from '@app/entity/view/types';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AdvancedSearchFilters, LayoutDirection } from '@app/search/AdvancedSearchFilters';
 import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
 import { ViewBuilderMode } from '@app/search/view/builder/types';

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SearchSelectActions } from '@app/entity/shared/components/styled/search/SearchSelectActions';
-import { EntityAndType } from '@app/entity/shared/types';
+import { EntityAndType } from '@app/entityV2/shared/types';
 
 const CheckboxContainer = styled.div`
     display: flex;

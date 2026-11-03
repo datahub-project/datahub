@@ -6,7 +6,7 @@ import { Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ConnectionCapabilityView from '@app/ingest/source/builder/RecipeForm/TestConnection/ConnectionCapabilityView';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';

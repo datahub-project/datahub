@@ -2,11 +2,11 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import ColoredBackgroundPlatformIconGroup, {
     PlatformContentWrapper,
 } from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
