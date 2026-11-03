@@ -128,10 +128,13 @@ def passes_dremio_filters(
 
 
 # These source types list databases as folders under the source even when the
-# source config names a database, which is then only the JDBC default (Snowflake
-# builds `?db=<database>` and lists catalogs as folders). The database is thus
-# already the first path component. Others (Postgres, Redshift, Synapse, ...)
-# connect to the one configured database and list only its schemas.
+# source config names a database, so the database is already the first path
+# component. For Snowflake, deployed sources show `source.DATABASE.SCHEMA.table`,
+# and Dremio's SnowflakeConf passes the configured database only as the JDBC
+# default (`?db=`) to the generic JDBC schema fetcher, which lists databases as
+# folders and has no "show only this database" option. Others (Postgres,
+# Redshift, Synapse, ...) connect to the one configured database and list only
+# its schemas.
 _DREMIO_TYPES_WITH_DATABASE_IN_PATH = {"mssql", "mysql", "snowflake"}
 
 
