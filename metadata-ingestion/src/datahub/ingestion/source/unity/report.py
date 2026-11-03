@@ -90,6 +90,9 @@ class UnityCatalogReport(SQLSourceReport):
     num_federation_cll_edges_original_path: int = 0
     # Mirror columns with no matching external column, so no column edge.
     num_federation_cll_downstream_unmatched: int = 0
+    # Tables whose external schema was cached without its original field paths, so
+    # the upstream URNs fall back to simplified paths.
+    num_federation_cll_original_paths_unknown: int = 0
     federation_cll_downstream_unmatched_sample: LossyList[str] = field(
         default_factory=LossyList
     )
