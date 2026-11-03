@@ -607,6 +607,11 @@ class DorisDialect(MySQLDialect_pymysql):
                 # roll back to let the next statement reconnect rather than fail
                 # this table and every one after it.
                 connection.rollback()
+                # Reconnect now rather than on the next statement: until then the
+                # connection still reads as invalidated, and the source would blame
+                # a later, unrelated error in this table on the drop. If the server
+                # is really gone this raises, and the table fails as it should.
+                connection.execute(text("SELECT 1"))
             # Comments are lost but the tables are not. The empty result is what gets
             # memoised, so a database whose lookup fails costs one failed query
             # rather than one per table. A raised query is not a miss, so the other
