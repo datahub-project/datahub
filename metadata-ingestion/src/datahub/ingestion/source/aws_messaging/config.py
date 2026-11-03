@@ -9,7 +9,10 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.aws_messaging.constants import AwsService
+from datahub.ingestion.source.aws_messaging.constants import (
+    EVENT_DATA_STORE_PATTERN,
+    AwsService,
+)
 from datahub.ingestion.source.kinesis.kinesis_config import DestinationPlatformDetail
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -152,6 +155,49 @@ class AwsMessagingLineageConfig(ConfigModel):
         return self
 
 
+class CloudTrailProducersConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Find producers from CloudTrail Lake: who called SendMessage or Publish "
+            "on this source's queues or topics. Needs data-event logging for SQS/SNS "
+            "into an event data store. Lake queries are billed per GB scanned."
+        ),
+    )
+    event_data_store: Optional[str] = Field(
+        default=None,
+        description=(
+            "ARN or id of the CloudTrail Lake event data store to query. With an ARN "
+            "the query runs in the store's region; with a bare id, in this recipe's "
+            "region. A store in another account must be shared with this role through "
+            "its resource policy."
+        ),
+    )
+    lookback_days: int = Field(
+        default=7,
+        ge=1,
+        description="How many days of events the producer query covers.",
+    )
+    query_timeout_seconds: int = Field(
+        default=300,
+        ge=10,
+        description="How long to wait for the CloudTrail Lake query before giving up.",
+    )
+
+    @pydantic.model_validator(mode="after")
+    def require_event_data_store(self) -> "CloudTrailProducersConfig":
+        if self.enabled and not self.event_data_store:
+            raise ValueError("cloudtrail_producers.enabled needs event_data_store.")
+        if self.event_data_store and not EVENT_DATA_STORE_PATTERN.match(
+            self.event_data_store
+        ):
+            raise ValueError(
+                "cloudtrail_producers.event_data_store must be an event data store id "
+                "or an arn:aws:cloudtrail:<region>:<account>:eventdatastore/<id> ARN."
+            )
+        return self
+
+
 class AwsMessagingConfigBase(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -202,6 +248,10 @@ class AwsMessagingConfigBase(
             "platform_instance, this recipe's env and no lowercasing."
         ),
     )
+    cloudtrail_producers: CloudTrailProducersConfig = Field(
+        default_factory=CloudTrailProducersConfig,
+        description="Producer lineage from CloudTrail Lake (off by default).",
+    )
     lineage: AwsMessagingLineageConfig = Field(
         default_factory=AwsMessagingLineageConfig,
         description="Lineage through Lambda and EventBridge.",
@@ -246,10 +296,13 @@ class AwsMessagingConfigBase(
             self.include_column_lineage = self.glue_schema_registry.enabled
         return self
 
-    def make_client(self, session: Any, service: AwsService) -> Any:
+    def make_client(
+        self, session: Any, service: AwsService, region: Optional[str] = None
+    ) -> Any:
         # boto3 clients have no common static type; callers annotate the result.
         return session.client(
             service.value,
+            region_name=region,
             endpoint_url=(
                 self.aws_config.aws_endpoint_url
                 if service == self.endpoint_service

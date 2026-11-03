@@ -77,6 +77,12 @@ SNS topics are ingested by the separate `sns` source. Run both with the same `en
       "Resource": "*"
     },
     {
+      "Sid": "CloudTrailLakeQuery",
+      "Effect": "Allow",
+      "Action": ["cloudtrail:StartQuery", "cloudtrail:GetQueryResults"],
+      "Resource": "*"
+    },
+    {
       "Sid": "TagsRead",
       "Effect": "Allow",
       "Action": ["tag:GetResources"],
@@ -97,3 +103,5 @@ Credentials come from `aws_config` or the standard boto3 chain: environment vari
 `LambdaRead` is used with `lineage.lambda_functions`, and `LambdaAsyncDestinationsRead` only with `lineage.lambda_async_destinations` too; leave it out otherwise. `EventBridgeList` is used with `lineage.eventbridge_rules` or `lineage.eventbridge_pipes`, `EventBridgeRead` with `lineage.eventbridge_rules`, and `PipesRead` with `lineage.eventbridge_pipes`. The `ListEventBuses`, `ListRules` and `ListPipes` actions don't support resource-level scoping, so they need `*`. `pipes:DescribePipe` is only called for a pipe that could get column lineage. `lineage.lambda_async_destinations` is off by default because it makes one `lambda:ListFunctionEventInvokeConfigs` call per function in the region, from both sources; it stops at the first `AccessDenied`, and so does the `events:ListTargetsByRule` loop.
 
 `S3NotificationsRead` is used only with `lineage.s3_notifications`, which is off by default because it makes one `s3:GetBucketNotification` call per bucket in the recipe's region. `s3:ListAllMyBuckets` only returns buckets the calling account owns, so buckets in other accounts are not read.
+
+`CloudTrailLakeQuery` is used only with `cloudtrail_producers.enabled`.
