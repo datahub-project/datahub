@@ -598,6 +598,44 @@ public class ModifyIngestionSourceAuthValidatorTest {
   }
 
   @Test(dataProvider = "patchItemShapes")
+  public void testPatchRemovingScheduleAllowedWithEditOnly(boolean alternateValidation) {
+    grant("EDIT_ENTITY");
+    stubStored(sourceInfo(true));
+
+    GenericJsonPatch.PatchOp remove = new GenericJsonPatch.PatchOp();
+    remove.setOp("remove");
+    remove.setPath("/schedule");
+    BatchItem item = patchItem(alternateValidation, true, remove);
+
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY, Set.of(item), mockRetrieverContext, mockSession)
+            .count(),
+        0);
+  }
+
+  // A PATCH applies on top of earlier items in the same batch, not the stored aspect: removing the
+  // schedule and then renaming in one batch leaves the source unscheduled.
+  @Test(dataProvider = "patchItemShapes")
+  public void testPatchResolvesAgainstEarlierItemInBatch(boolean alternateValidation) {
+    grant("EDIT_ENTITY");
+    stubStored(sourceInfo(true));
+
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    infoItem(ChangeType.UPSERT, sourceInfo(false)),
+                    patchItem(alternateValidation, true, addOp("/name", "renamed"))),
+                mockRetrieverContext,
+                mockSession)
+            .count(),
+        0);
+  }
+
+  @Test(dataProvider = "patchItemShapes")
   public void testUnresolvablePatchDenied(boolean alternateValidation) {
     grant("EDIT_ENTITY", "EXECUTE_ENTITY");
 

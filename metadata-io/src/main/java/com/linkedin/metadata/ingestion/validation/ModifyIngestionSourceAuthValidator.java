@@ -93,8 +93,11 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
           throw new RuntimeException("Unsupported change type: " + type);
       }
 
-      // A scheduled source is executed by the scheduler as the system actor, so leaving a schedule
-      // on the source (or editing a scheduled source) requires permission to execute it.
+      // A scheduled source is executed by the scheduler as the system actor, so a user who can only
+      // edit it would otherwise get recurring execution. Leaving a schedule on the source (or
+      // editing a scheduled source) requires permission to execute it. A PATCH is resolved against
+      // the aspect read here; a schedule added concurrently by another writer is not seen, the same
+      // as in ExecuteIngestionAuthValidator.
       final DataHubIngestionSourceInfo proposed;
       try {
         proposed =
@@ -103,6 +106,7 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
       } catch (RuntimeException e) {
         // dataHubIngestionSourceInfo has no patch template; a PATCH that cannot be applied fails
         // the write too.
+        log.debug("Unable to resolve dataHubIngestionSourceInfo PATCH for {}", item.getUrn(), e);
         exceptions.addAuthException(
             item, "Unable to resolve dataHubIngestionSourceInfo PATCH for authorization");
         continue;
@@ -113,6 +117,10 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
               session, ApiOperation.EXECUTE, List.of(item.getUrn()))) {
         exceptions.addAuthException(
             item, "Doesn't have permissions to schedule this Ingestion source");
+      }
+      // Items are applied in order, so a later PATCH to the same source applies on top of this one.
+      if (proposed != null) {
+        stored.put(item.getUrn(), proposed);
       }
     }
 
