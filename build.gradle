@@ -536,9 +536,11 @@ allprojects {
     //  1. NO-SOURCE: no test classes (e.g. a custom Test task that lost its testClassesDirs
     //     wiring, or an include pattern matching nothing). Gradle skips the task before test
     //     discovery, so nothing below fires; the onlyIf check runs after test compilation instead.
-    //  2. Executes but discovers no tests (wrong framework). failOnNoDiscoveredTests catches it.
-    //  3. Discovers classes but runs zero tests (a TestNG suite XML or group selecting nothing).
-    //     Gradle passes this; the doLast count check fails it.
+    //  2. Executes but discovers no tests (wrong framework). failOnNoDiscoveredTests catches it,
+    //     but only when the task has no filters configured.
+    //  3. Executes zero tests overall: a TestNG suite XML or group selecting nothing, or case 2 on
+    //     a filtered task. Gradle passes this; the doLast count check fails it. The count is per
+    //     task, so one dead <test> block inside a suite XML that otherwise runs is not caught.
     // Opt a task out only via deadSuiteGuardOptOut (top of this file), with a reason.
     def deadSuiteOptOutReason = rootProject.ext.deadSuiteGuardOptOut[task.path]
     failOnNoDiscoveredTests = deadSuiteOptOutReason == null
