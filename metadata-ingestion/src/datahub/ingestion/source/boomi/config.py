@@ -115,11 +115,13 @@ class BoomiSourceConfig(
         if (
             parsed.scheme not in (SCHEME_HTTP, SCHEME_HTTPS)
             or not parsed.hostname
+            or parsed.username
+            or parsed.password
             or parsed.query
             or parsed.fragment
         ):
             raise ValueError(
-                f"api_url must be a base URL such as https://api.boomi.com, without a query or fragment, got {value!r}"
+                f"api_url must be a base URL such as https://api.boomi.com, without credentials, a query or a fragment, got {value!r}"
             )
         # The client appends /api/rest/v1/<account_id>, so a full Platform API
         # URL here would double the prefix.

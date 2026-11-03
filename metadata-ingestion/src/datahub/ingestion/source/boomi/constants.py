@@ -63,7 +63,8 @@ API_HOST_TO_UI_HOST: Dict[str, str] = {
     "api.platform.gb.boomi.com": "platform.gb.boomi.com",
 }
 PROCESS_URL_TEMPLATE = (
-    "https://{ui_host}/AtomSphere.html#build;accountId={account_id};components={id}"
+    "https://{ui_host}/AtomSphere.html#build;accountId={account_id};components={id};"
+    "componentIdOnFocus={id}"
 )
 
 XML_ATTR_FOLDER_FULL_PATH = "folderFullPath"

@@ -635,7 +635,7 @@
                 "folderFullPath": "Test Account/DataHub Test/Orders",
                 "deployments": "DH Test Env=1.0"
             },
-            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc",
+            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc;componentIdOnFocus=e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc",
             "name": "DH Test - Orders Extract",
             "description": "Legacy DB read from RNAcentral, written to disk",
             "created": {
@@ -892,7 +892,7 @@
                 "folderFullPath": "Test Account/DataHub Test/Orders",
                 "deployments": "DH Test Prod Env=1.1"
             },
-            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=161c2360-f2fb-4e20-aba5-db60101ce2b1",
+            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=161c2360-f2fb-4e20-aba5-db60101ce2b1;componentIdOnFocus=161c2360-f2fb-4e20-aba5-db60101ce2b1",
             "name": "DH Test - Posts Fetch",
             "description": "HTTP GET posts then call Orders Extract",
             "created": {
@@ -1146,7 +1146,7 @@
                 "folderFullPath": "Test Account/DataHub Test/Orders",
                 "deployments": "DH Test Prod Env=2.0"
             },
-            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=5b1e0c2a-6f0d-4c1e-9a43-000000000001",
+            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=5b1e0c2a-6f0d-4c1e-9a43-000000000001;componentIdOnFocus=5b1e0c2a-6f0d-4c1e-9a43-000000000001",
             "name": "DH Test - Invoice Export",
             "description": "Exports posted invoices to the finance warehouse.",
             "created": {
@@ -1425,7 +1425,7 @@
                 "modifiedDate": "2026-11-02T19:17:12+00:00",
                 "folderFullPath": "Test Account/DataHub Test/Orders"
             },
-            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=5b1e0c2a-6f0d-4c1e-9a43-000000000002",
+            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=5b1e0c2a-6f0d-4c1e-9a43-000000000002;componentIdOnFocus=5b1e0c2a-6f0d-4c1e-9a43-000000000002",
             "name": "DH Test - Shipment Notify",
             "created": {
                 "time": 1793647032000
@@ -1501,7 +1501,7 @@
                 "folderFullPath": "Test Account/DataHub Test/Orders",
                 "deployments": "DH Test Env=1.1"
             },
-            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=6363d3f8-93fa-4c4d-a399-45bde722ee63",
+            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=6363d3f8-93fa-4c4d-a399-45bde722ee63;componentIdOnFocus=6363d3f8-93fa-4c4d-a399-45bde722ee63",
             "name": "DH Test - Catalog Sync",
             "description": "Database V2 reads from Ensembl, written to disk",
             "created": {
@@ -1725,7 +1725,7 @@
                 "modifiedDate": "2026-11-02T19:17:15+00:00",
                 "folderFullPath": "Test Account/DataHub Test/Orders"
             },
-            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=f58d0126-87ab-4f1a-bed9-2849688c8e99",
+            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=f58d0126-87ab-4f1a-bed9-2849688c8e99;componentIdOnFocus=f58d0126-87ab-4f1a-bed9-2849688c8e99",
             "name": "DH Test - Salesforce Accounts",
             "description": "Never deployed. Salesforce Account query then legacy DB insert into my_table",
             "created": {
@@ -2071,7 +2071,7 @@
                 "modifiedDate": "2026-11-02T19:20:48+00:00",
                 "folderFullPath": "Test Account/DataHub Test/Orders"
             },
-            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=72a4e14f-b0aa-45c1-850c-5306d99b5855",
+            "externalUrl": "https://platform.boomi.com/AtomSphere.html#build;accountId=acme-AB1CD2;components=72a4e14f-b0aa-45c1-850c-5306d99b5855;componentIdOnFocus=72a4e14f-b0aa-45c1-850c-5306d99b5855",
             "name": "DH Test - SFTP Pickup",
             "description": "SFTP read from test.rebex.net, written to disk (v2)",
             "created": {

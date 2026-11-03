@@ -337,7 +337,7 @@ def test_deployment_without_package_version_lists_environment_only() -> None:
 
 
 def test_xml_failure_still_emits_process() -> None:
-    source = _source(include_undeployed_processes=True, extract_owners=False)
+    source = _source(include_undeployed_processes=True)
     with requests_mock.Mocker() as mock:
         _register(mock, [_process_record("p1", "Orders Sync")])
         mock.get(f"{BASE_URL}/Component/p1", text="<not-closed")
@@ -345,7 +345,8 @@ def test_xml_failure_still_emits_process() -> None:
 
     assert len(flows) == 1
     assert flows[0].description is None
-    assert flows[0].owners is None
+    # Owners come from the listing record, not the component XML.
+    assert flows[0].owners
     assert list(source.get_report().process_xml_failures) == ["p1"]
 
 
@@ -357,6 +358,8 @@ def test_xml_failure_still_emits_process() -> None:
         "https://api.boomi.com?region=us",
         "https://api.boomi.com#build",
         "https://api.boomi.com/api/rest/v1/acct",
+        "https://user:secret@api.boomi.com",
+        "https://user@api.boomi.com",
     ],
 )
 def test_config_rejects_invalid_api_url(api_url: str) -> None:
@@ -418,6 +421,42 @@ def test_test_connection_reports_auth_failure() -> None:
                 "account_id": ACCOUNT_ID,
                 "username": "svc@example.com",
                 "api_token": "wrong",
+            }
+        )
+
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+
+
+def test_test_connection_succeeds() -> None:
+    with requests_mock.Mocker() as mock:
+        mock.post(
+            f"{BASE_URL}/ComponentMetadata/query",
+            json=_page([_process_record("p1", "Orders Sync")]),
+        )
+        report = BoomiSource.test_connection(
+            {
+                "account_id": ACCOUNT_ID,
+                "username": "svc@example.com",
+                "api_token": "secret-token",
+            }
+        )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+
+
+def test_test_connection_reports_malformed_response() -> None:
+    with requests_mock.Mocker() as mock:
+        mock.post(
+            f"{BASE_URL}/ComponentMetadata/query",
+            json={"numberOfResults": "many", "result": "not-a-list"},
+        )
+        report = BoomiSource.test_connection(
+            {
+                "account_id": ACCOUNT_ID,
+                "username": "svc@example.com",
+                "api_token": "secret-token",
             }
         )
 

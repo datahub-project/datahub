@@ -161,7 +161,7 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(capable=True)
             )
-        except (BoomiApiError, requests.RequestException) as e:
+        except (BoomiApiError, requests.RequestException, ValidationError) as e:
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(
                     capable=False, failure_reason=str(e)
