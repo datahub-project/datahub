@@ -27,6 +27,8 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.domain.DomainAssociation;
+import com.linkedin.domain.DomainAssociationArray;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -210,29 +212,63 @@ public class DomainWriteAuthorizationUtilsTest {
 
   @Test
   public void testIsAuthorizedEntityWrite_dataProductAllowsManageDataProductsOnDomain() {
-    AuthorizationSession session =
-        sessionAllowing(PoliciesConfig.MANAGE_DATA_PRODUCTS_PRIVILEGE.getType());
-    Domains proposed = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    AuthorizationSession session = dataProductManagerSession(Set.of(DOMAIN_X));
     // Establishing the domain of a new product and changing it on an existing one.
     assertTrue(
         DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-            session, DATA_PRODUCT_URN, ApiOperation.CREATE, true, proposed));
+            session, DATA_PRODUCT_URN, ApiOperation.CREATE, true, domains(DOMAIN_X)));
     assertTrue(
         DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-            session, DATA_PRODUCT_URN, ApiOperation.UPDATE, true, proposed));
-    // The data product privilege says nothing about other entity types.
+            session, DATA_PRODUCT_URN, ApiOperation.UPDATE, true, domains(DOMAIN_X)));
+    // A domain the actor does not manage is denied, as is a product without domains.
     assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-            session, DATASET_URN, ApiOperation.UPDATE, true, proposed));
-  }
-
-  @Test
-  public void testIsAuthorizedEntityWrite_dataProductWithoutDomainsNeedsEntityPrivileges() {
-    AuthorizationSession session =
-        sessionAllowing(PoliciesConfig.MANAGE_DATA_PRODUCTS_PRIVILEGE.getType());
+            session, DATA_PRODUCT_URN, ApiOperation.UPDATE, true, domains(DOMAIN_Y)));
     assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
             session, DATA_PRODUCT_URN, ApiOperation.UPDATE, true, new Domains()));
+    // The data product privilege says nothing about other entity types.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATASET_URN, ApiOperation.UPDATE, true, domains(DOMAIN_X)));
+  }
+
+  @Test
+  public void testIsAuthorizedDomainsEdit_dataProductMoveNeedsManageOnBothDomains() {
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            dataProductManagerSession(Set.of(DOMAIN_Y)),
+            DATA_PRODUCT_URN,
+            domains(DOMAIN_X),
+            domains(DOMAIN_Y)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            dataProductManagerSession(Set.of(DOMAIN_X)),
+            DATA_PRODUCT_URN,
+            domains(DOMAIN_X),
+            domains(DOMAIN_Y)));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            dataProductManagerSession(Set.of(DOMAIN_X, DOMAIN_Y)),
+            DATA_PRODUCT_URN,
+            domains(DOMAIN_X),
+            domains(DOMAIN_Y)));
+  }
+
+  @Test
+  public void testIsAuthorizedDomainsEdit_associationOnlyBeforeDomainsAreEvaluated() {
+    Domains associationBacked =
+        new Domains()
+            .setDomainAssociations(
+                new DomainAssociationArray(List.of(new DomainAssociation().setDomain(DOMAIN_X))));
+    assertTrue(DomainWriteAuthorizationUtils.hasDomainMembership(associationBacked));
+    // Managing only the proposed domain must not move a product out of its current one.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            dataProductManagerSession(Set.of(DOMAIN_Y)),
+            DATA_PRODUCT_URN,
+            associationBacked,
+            domains(DOMAIN_Y)));
   }
 
   @Test
@@ -563,6 +599,28 @@ public class DomainWriteAuthorizationUtilsTest {
       Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges,
       PoliciesConfig.Privilege privilege) {
     return privileges.stream().anyMatch(conjunct -> conjunct.contains(privilege));
+  }
+
+  /** Grants {@code MANAGE_DATA_PRODUCTS} on the given domains only, and nothing else. */
+  private static AuthorizationSession dataProductManagerSession(Set<Urn> managedDomains) {
+    Set<String> managed =
+        managedDomains.stream().map(Urn::toString).collect(java.util.stream.Collectors.toSet());
+    AuthorizationSession session = mock(AuthorizationSession.class);
+    when(session.authorize(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              String privilege = invocation.getArgument(0);
+              com.datahub.authorization.EntitySpec resource = invocation.getArgument(1);
+              boolean allowed =
+                  PoliciesConfig.MANAGE_DATA_PRODUCTS_PRIVILEGE.getType().equals(privilege)
+                      && resource != null
+                      && managed.contains(resource.getEntity());
+              return new AuthorizationResult(
+                  null,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  null);
+            });
+    return session;
   }
 
   private static AuthorizationSession sessionAllowing(String privilegeType) {

@@ -219,9 +219,13 @@ public final class DomainWriteAuthorizationUtils {
     }
   }
 
-  /** Whether {@code domains} carries at least one domain URN. */
+  /**
+   * Whether {@code domains} carries at least one domain URN, in {@code domains} or in {@code
+   * domainAssociations}. An association-only aspect must count as membership, otherwise a move away
+   * from it would be authorized against the proposed domain alone.
+   */
   public static boolean hasDomainMembership(@Nullable Domains domains) {
-    return domains != null && domains.hasDomains() && !domains.getDomains().isEmpty();
+    return !EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(domains).isEmpty();
   }
 
   /**
@@ -521,7 +525,9 @@ public final class DomainWriteAuthorizationUtils {
    * match.
    *
    * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient; Create still
-   * requires Create/Edit Entity.
+   * requires Create/Edit Entity. For a data product, {@code MANAGE_DATA_PRODUCTS} on every domain
+   * in {@code proposedDomains} is sufficient for both operations; callers that reconcile a move
+   * pass the current and the proposed domains in separate calls, so both sides are checked.
    */
   public static boolean isAuthorizedEntityWrite(
       @Nonnull AuthorizationSession session,
