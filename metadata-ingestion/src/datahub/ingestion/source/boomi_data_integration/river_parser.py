@@ -27,6 +27,8 @@ class LogicStepJob:
 @dataclass
 class FlattenedLogic:
     jobs: List[LogicStepJob] = field(default_factory=list)
+    # The steps that run last, which a caller of this river waits for.
+    exit_step_ids: List[str] = field(default_factory=list)
     disabled: int = 0
     invalid: int = 0
 
@@ -53,7 +55,7 @@ class _LogicFlattener:
         self.result = FlattenedLogic()
 
     def flatten(self, steps: List[RawNode]) -> FlattenedLogic:
-        self._sequence(steps, upstream=[], parallel=False)
+        self.result.exit_step_ids = self._sequence(steps, upstream=[], parallel=False)
         return self.result
 
     def _parse(self, raw: RawNode) -> Optional[LogicNode]:

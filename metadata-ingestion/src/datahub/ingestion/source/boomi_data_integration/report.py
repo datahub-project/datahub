@@ -30,6 +30,8 @@ class BoomiDataIntegrationSourceReport(StaleEntityRemovalSourceReport):
     logic_steps_emitted: int = 0
     logic_steps_disabled: int = 0
     logic_steps_invalid: int = 0
+    river_step_links_resolved: int = 0
+    river_step_links_unresolved: int = 0
 
     target_tables_emitted: int = 0
     targets_object_storage_skipped: int = 0

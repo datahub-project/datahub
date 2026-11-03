@@ -8,7 +8,8 @@ A logic river's DataFlow links to the river in the Data Integration console. Oth
 
 - A source-to-target river gets one `load` DataJob whose inputs are the source tables and whose outputs are the target tables.
 - An action or connector executor river gets one `run` DataJob with subtype `Run`.
-- A logic river gets one DataJob per step, named by the step ID. Containers (`run_once`, `loop`, `condition`) are flattened. Inside a sequential container each step depends on the previous one; steps in a parallel container and the branches of a condition all depend on whatever ran before the container. A condition branch that runs no step passes its predecessors through. A `river` step records the river it runs in the `river_id` property. Disabled steps are skipped.
+- A logic river gets one DataJob per step, named by the step ID. Containers (`run_once`, `loop`, `condition`) are flattened. Inside a sequential container each step depends on the previous one; steps in a parallel container and the branches of a condition all depend on whatever ran before the container. A condition branch that runs no step passes its predecessors through. Disabled steps are skipped.
+- A `river` step records the river it runs in the `river_id` property and also depends on that river's job: the `load` job of a source-to-target river, the `run` job of an action or connector executor river, or the steps that can run last in a logic river, such as every branch of a final parallel container or condition. The link is only made when the called river is ingested in the same run and environment. Calls to rivers that were filtered out, failed or are in another environment are counted in `river_step_links_unresolved`.
 
 #### Target lineage
 
@@ -129,6 +130,10 @@ A multi-table river reads from a platform whose URNs need a database, and its so
 #### Warning "SQL table not fully qualified" or "Failed to parse SQL"
 
 A custom query or logic SQL step names a table without its database or schema, or its SQL could not be parsed. Set `database` and `default_schema` on the connection in `connection_to_platform`. Affected rivers and steps are listed in `sql_parse_failures`, and skips are counted in `source_lineage_skipped`.
+
+#### River step not linked to the river it runs
+
+The called river was not ingested in the same run and environment, for example because `river_pattern` or `group_pattern` filtered it out or its definition failed. Check `river_step_links_unresolved` in the ingestion report and the filters.
 
 #### Warning "Users list not readable"
 

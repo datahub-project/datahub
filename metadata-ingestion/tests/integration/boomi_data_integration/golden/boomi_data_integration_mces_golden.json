@@ -300,141 +300,6 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.rna,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.rnc_database,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.rnacentral.rna,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.rnacentral.rnc_database_copy,PROD)"
-            ],
-            "inputDatajobs": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:boomi-data-integration"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "DH Test - PG to Snowflake multi",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD)",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Load"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:svc@example.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:fada2222a23533675679aff533f598ce",
-                    "urn": "urn:li:container:fada2222a23533675679aff533f598ce"
-                },
-                {
-                    "id": "urn:li:container:a20c55a406d7436e52c03b452a0c24a7",
-                    "urn": "urn:li:container:a20c55a406d7436e52c03b452a0c24a7"
-                },
-                {
-                    "id": "urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD)",
-                    "urn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:42e6fb63556ca93a9c41d8d6f45b2868",
     "changeType": "UPSERT",
@@ -662,138 +527,6 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.rnc_database,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.xref,PROD)"
-            ],
-            "outputDatasets": [],
-            "inputDatajobs": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:boomi-data-integration"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "DH Test - PG to Snowflake prefixed",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD)",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Load"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:svc@example.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:fada2222a23533675679aff533f598ce",
-                    "urn": "urn:li:container:fada2222a23533675679aff533f598ce"
-                },
-                {
-                    "id": "urn:li:container:42e6fb63556ca93a9c41d8d6f45b2868",
-                    "urn": "urn:li:container:42e6fb63556ca93a9c41d8d6f45b2868"
-                },
-                {
-                    "id": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD)",
-                    "urn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4b1de83529098c6db5,PROD)",
     "changeType": "UPSERT",
@@ -917,6 +650,404 @@
                 {
                     "id": "urn:li:container:42e6fb63556ca93a9c41d8d6f45b2868",
                     "urn": "urn:li:container:42e6fb63556ca93a9c41d8d6f45b2868"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:boomi-data-integration"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "river_type": "logic",
+                "river_status": "active",
+                "datasource_id": "logic"
+            },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000001/6ae8ef6f61a8be2df8f864ca",
+            "name": "DH Test - Logic orchestration",
+            "description": "Created by DataHub connector validation",
+            "created": {
+                "time": 1793650543013
+            },
+            "lastModified": {
+                "time": 1793650543013
+            },
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "River"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a20c55a406d7436e52c03b452a0c24a7"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:fada2222a23533675679aff533f598ce",
+                    "urn": "urn:li:container:fada2222a23533675679aff533f598ce"
+                },
+                {
+                    "id": "urn:li:container:a20c55a406d7436e52c03b452a0c24a7",
+                    "urn": "urn:li:container:a20c55a406d7436e52c03b452a0c24a7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.rna,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.rnc_database,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.rnacentral.rna,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,dh_test_db.rnacentral.rnc_database_copy,PROD)"
+            ],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:boomi-data-integration"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "DH Test - PG to Snowflake multi",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Load"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:fada2222a23533675679aff533f598ce",
+                    "urn": "urn:li:container:fada2222a23533675679aff533f598ce"
+                },
+                {
+                    "id": "urn:li:container:a20c55a406d7436e52c03b452a0c24a7",
+                    "urn": "urn:li:container:a20c55a406d7436e52c03b452a0c24a7"
+                },
+                {
+                    "id": "urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD)",
+                    "urn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.rnc_database,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pfmegrnargs.rnacen.xref,PROD)"
+            ],
+            "outputDatasets": [],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:boomi-data-integration"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "DH Test - PG to Snowflake prefixed",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Load"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:fada2222a23533675679aff533f598ce",
+                    "urn": "urn:li:container:fada2222a23533675679aff533f598ce"
+                },
+                {
+                    "id": "urn:li:container:42e6fb63556ca93a9c41d8d6f45b2868",
+                    "urn": "urn:li:container:42e6fb63556ca93a9c41d8d6f45b2868"
+                },
+                {
+                    "id": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD)",
+                    "urn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef4a4921540c5370cd42,PROD)"
                 }
             ]
         }
@@ -1087,137 +1218,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:boomi-data-integration"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "river_type": "logic",
-                "river_status": "active",
-                "datasource_id": "logic"
-            },
-            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000001/6ae8ef6f61a8be2df8f864ca",
-            "name": "DH Test - Logic orchestration",
-            "description": "Created by DataHub connector validation",
-            "created": {
-                "time": 1793650543013
-            },
-            "lastModified": {
-                "time": 1793650543013
-            },
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "River"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:svc@example.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:a20c55a406d7436e52c03b452a0c24a7"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:fada2222a23533675679aff533f598ce",
-                    "urn": "urn:li:container:fada2222a23533675679aff533f598ce"
-                },
-                {
-                    "id": "urn:li:container:a20c55a406d7436e52c03b452a0c24a7",
-                    "urn": "urn:li:container:a20c55a406d7436e52c03b452a0c24a7"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),96542bd28b184cc9b1aa2ba3b92a3fbb)",
     "changeType": "UPSERT",
@@ -1362,7 +1362,8 @@
             "inputDatasets": [],
             "outputDatasets": [],
             "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),96542bd28b184cc9b1aa2ba3b92a3fbb)"
+                "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),96542bd28b184cc9b1aa2ba3b92a3fbb)",
+                "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef3fa9fd03374b44b3bd,PROD),load)"
             ]
         }
     },
@@ -1496,7 +1497,8 @@
             "inputDatasets": [],
             "outputDatasets": [],
             "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),1d306f8dbb0d4284bf72028a8fdccaae)"
+                "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef6f61a8be2df8f864ca,PROD),1d306f8dbb0d4284bf72028a8fdccaae)",
+                "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,6ae8ef4b1de83529098c6db5,PROD),load)"
             ]
         }
     },
@@ -2210,137 +2212,6 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,dw.warehouse.crm.Leads,PROD)"
-            ],
-            "inputDatajobs": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:boomi-data-integration"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "Leads to Postgres",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD)",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Load"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:svc@example.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:35c718d34d17dd42498233ab566c47cc",
-                    "urn": "urn:li:container:35c718d34d17dd42498233ab566c47cc"
-                },
-                {
-                    "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
-                    "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
-                },
-                {
-                    "id": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD)",
-                    "urn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000002,PROD)",
     "changeType": "UPSERT",
@@ -2463,6 +2334,636 @@
                 {
                     "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
                     "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:boomi-data-integration"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "river_type": "source_to_target",
+                "river_status": "active",
+                "datasource_id": "mysql",
+                "run_type": "multi_tables",
+                "source": "mysql",
+                "target": "s3"
+            },
+            "name": "Archive to S3",
+            "description": "Synthetic Archive to S3 river.",
+            "created": {
+                "time": 1793650495701
+            },
+            "lastModified": {
+                "time": 1793650495701
+            },
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "River"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:35c718d34d17dd42498233ab566c47cc",
+                    "urn": "urn:li:container:35c718d34d17dd42498233ab566c47cc"
+                },
+                {
+                    "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
+                    "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:boomi-data-integration"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "river_type": "actions",
+                "river_status": "active",
+                "datasource_id": "actions"
+            },
+            "name": "Call Payments API",
+            "description": "Synthetic Call Payments API river.",
+            "created": {
+                "time": 1793650495701
+            },
+            "lastModified": {
+                "time": 1793650495701
+            },
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "River"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:35c718d34d17dd42498233ab566c47cc",
+                    "urn": "urn:li:container:35c718d34d17dd42498233ab566c47cc"
+                },
+                {
+                    "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
+                    "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:boomi-data-integration"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "river_type": "source_to_target",
+                "river_status": "active",
+                "schedule": "0 6 * * *",
+                "datasource_id": "salesforce"
+            },
+            "name": "UI Made Salesforce Load",
+            "description": "Synthetic UI Made Salesforce Load river.",
+            "created": {
+                "time": 1793650495701
+            },
+            "lastModified": {
+                "time": 1793650495701
+            },
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "River"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:35c718d34d17dd42498233ab566c47cc",
+                    "urn": "urn:li:container:35c718d34d17dd42498233ab566c47cc"
+                },
+                {
+                    "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
+                    "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:boomi-data-integration"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "river_type": "logic",
+                "river_status": "active",
+                "datasource_id": "logic"
+            },
+            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000002/a00000000000000000000006",
+            "name": "Regional Rollups",
+            "description": "Synthetic Regional Rollups river.",
+            "created": {
+                "time": 1793650495701
+            },
+            "lastModified": {
+                "time": 1793650495701
+            },
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "River"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:35c718d34d17dd42498233ab566c47cc",
+                    "urn": "urn:li:container:35c718d34d17dd42498233ab566c47cc"
+                },
+                {
+                    "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
+                    "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,dw.warehouse.crm.Leads,PROD)"
+            ],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:boomi-data-integration"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Leads to Postgres",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Load"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:svc@example.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793707200000,
+        "runId": "boomi-di-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD),load)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:35c718d34d17dd42498233ab566c47cc",
+                    "urn": "urn:li:container:35c718d34d17dd42498233ab566c47cc"
+                },
+                {
+                    "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
+                    "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
+                },
+                {
+                    "id": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD)",
+                    "urn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000001,PROD)"
                 }
             ]
         }
@@ -2635,139 +3136,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:boomi-data-integration"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "river_type": "source_to_target",
-                "river_status": "active",
-                "datasource_id": "mysql",
-                "run_type": "multi_tables",
-                "source": "mysql",
-                "target": "s3"
-            },
-            "name": "Archive to S3",
-            "description": "Synthetic Archive to S3 river.",
-            "created": {
-                "time": 1793650495701
-            },
-            "lastModified": {
-                "time": 1793650495701
-            },
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "River"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:svc@example.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:35c718d34d17dd42498233ab566c47cc",
-                    "urn": "urn:li:container:35c718d34d17dd42498233ab566c47cc"
-                },
-                {
-                    "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
-                    "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000003,PROD),load)",
     "changeType": "UPSERT",
@@ -2899,136 +3267,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:boomi-data-integration"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "river_type": "actions",
-                "river_status": "active",
-                "datasource_id": "actions"
-            },
-            "name": "Call Payments API",
-            "description": "Synthetic Call Payments API river.",
-            "created": {
-                "time": 1793650495701
-            },
-            "lastModified": {
-                "time": 1793650495701
-            },
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "River"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:svc@example.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:35c718d34d17dd42498233ab566c47cc",
-                    "urn": "urn:li:container:35c718d34d17dd42498233ab566c47cc"
-                },
-                {
-                    "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
-                    "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000004,PROD),run)",
     "changeType": "UPSERT",
@@ -3140,111 +3378,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:boomi-data-integration"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "river_type": "source_to_target",
-                "river_status": "active",
-                "schedule": "0 6 * * *",
-                "datasource_id": "salesforce"
-            },
-            "name": "UI Made Salesforce Load",
-            "description": "Synthetic UI Made Salesforce Load river.",
-            "created": {
-                "time": 1793650495701
-            },
-            "lastModified": {
-                "time": 1793650495701
-            },
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "River"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:35c718d34d17dd42498233ab566c47cc",
-                    "urn": "urn:li:container:35c718d34d17dd42498233ab566c47cc"
-                },
-                {
-                    "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
-                    "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD),load)",
     "changeType": "UPSERT",
@@ -3319,137 +3452,6 @@
                 {
                     "id": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)",
                     "urn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000005,PROD)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:boomi-data-integration"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "river_type": "logic",
-                "river_status": "active",
-                "datasource_id": "logic"
-            },
-            "externalUrl": "https://console.rivery.io/rivers/acct000000000000000000001/e00000000000000000000002/a00000000000000000000006",
-            "name": "Regional Rollups",
-            "description": "Synthetic Regional Rollups river.",
-            "created": {
-                "time": 1793650495701
-            },
-            "lastModified": {
-                "time": 1793650495701
-            },
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "River"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:svc@example.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793707200000,
-        "runId": "boomi-di-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(boomi-data-integration,a00000000000000000000006,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:35c718d34d17dd42498233ab566c47cc",
-                    "urn": "urn:li:container:35c718d34d17dd42498233ab566c47cc"
-                },
-                {
-                    "id": "urn:li:container:572452269649c6688bedc2c72b4f55ba",
-                    "urn": "urn:li:container:572452269649c6688bedc2c72b4f55ba"
                 }
             ]
         }

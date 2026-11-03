@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import pytest
 import requests_mock
@@ -10,6 +10,9 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.boomi_data_integration.config import (
     BoomiDataIntegrationSourceConfig,
+)
+from datahub.ingestion.source.boomi_data_integration.report import (
+    BoomiDataIntegrationSourceReport,
 )
 from datahub.ingestion.source.boomi_data_integration.source import (
     BoomiDataIntegrationSource,
@@ -522,3 +525,126 @@ def test_owners_are_opt_in() -> None:
         assert [str(owner.owner) for owner in entity.owners] == [
             "urn:li:corpuser:svc@example.com"
         ]
+
+
+def _river_step(step_id: str, river_id: str) -> Dict[str, object]:
+    return {"type": "river", "name": step_id, "step_id": step_id, "river_id": river_id}
+
+
+def _caller_inputs(
+    called: List[Dict[str, object]],
+    definitions: Dict[str, Dict[str, object]],
+    caller_steps: List[Dict[str, object]],
+    **overrides: object,
+) -> Tuple[Dict[str, List[str]], BoomiDataIntegrationSourceReport]:
+    # Called rivers without a definition come back as HTTP 400, like rivers
+    # created in the UI, and fall back to their single load or run job.
+    source = _source(**overrides)
+    with requests_mock.Mocker() as mock:
+        mock.get(
+            f"{BASE_URL}/environments", json=_page([_environment("env-a", "Prod")])
+        )
+        mock.get(
+            f"{BASE_URL}/environments/env-a/rivers",
+            json=_page([_summary("caller", river_type="logic"), *called]),
+        )
+        mock.get(
+            f"{BASE_URL}/environments/env-a/rivers/caller",
+            json=_logic_river("caller", caller_steps),
+        )
+        for summary in called:
+            river_id = str(summary["river_cross_id"])
+            definition = definitions.get(river_id)
+            if definition is None:
+                mock.get(
+                    f"{BASE_URL}/environments/env-a/rivers/{river_id}",
+                    status_code=400,
+                )
+            else:
+                mock.get(
+                    f"{BASE_URL}/environments/env-a/rivers/{river_id}",
+                    json=definition,
+                )
+        entities = _entities(source)
+    inputs: Dict[str, List[str]] = {}
+    for entity in entities:
+        if isinstance(entity, DataJob) and entity.urn.get_data_flow_urn().flow_id == (
+            "caller"
+        ):
+            io = entity._get_aspect(DataJobInputOutputClass)
+            inputs[entity.urn.job_id] = list(io.inputDatajobs or []) if io else []
+    return inputs, source.get_report()
+
+
+def _job_urn(river_id: str, job_id: str) -> str:
+    return (
+        f"urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,{river_id},PROD),"
+        f"{job_id})"
+    )
+
+
+def test_river_step_links_to_called_source_to_target_load_job() -> None:
+    inputs, report = _caller_inputs(
+        called=[_summary("r-load")],
+        definitions={},
+        caller_steps=[
+            {"type": "logicode", "name": "prep", "step_id": "prep"},
+            _river_step("call", "r-load"),
+        ],
+    )
+    # The sequential predecessor stays first, then the called river's job.
+    assert inputs["call"] == [_job_urn("caller", "prep"), _job_urn("r-load", "load")]
+    assert (
+        report.river_step_links_resolved,
+        report.river_step_links_unresolved,
+    ) == (1, 0)
+
+
+def test_river_step_links_to_called_actions_run_job() -> None:
+    inputs, _ = _caller_inputs(
+        called=[_summary("r-act", river_type="actions")],
+        definitions={},
+        caller_steps=[_river_step("call", "r-act")],
+    )
+    assert inputs["call"] == [_job_urn("r-act", "run")]
+
+
+def test_river_step_links_to_exit_steps_of_called_logic_river() -> None:
+    sub_steps: List[Dict[str, object]] = [
+        {"type": "logicode", "name": "a", "step_id": "a"},
+        {
+            "type": "run_once",
+            "name": "fan out",
+            "container_id": "c",
+            "is_parallel": True,
+            "steps": [
+                {"type": "logicode", "name": "b", "step_id": "b"},
+                {"type": "logicode", "name": "c", "step_id": "c"},
+            ],
+        },
+    ]
+    inputs, _ = _caller_inputs(
+        called=[_summary("r-sub", river_type="logic")],
+        definitions={"r-sub": _logic_river("r-sub", sub_steps)},
+        caller_steps=[_river_step("call", "r-sub")],
+    )
+    # Only the steps that finish the called river, not its first step.
+    assert inputs["call"] == [_job_urn("r-sub", "b"), _job_urn("r-sub", "c")]
+
+
+def test_river_step_to_filtered_or_missing_river_is_unresolved() -> None:
+    inputs, report = _caller_inputs(
+        called=[_summary("r-load")],
+        definitions={},
+        caller_steps=[
+            _river_step("filtered", "r-load"),
+            _river_step("missing", "r-elsewhere"),
+        ],
+        river_pattern={"deny": ["River r-load"]},
+    )
+    assert inputs["filtered"] == []
+    assert inputs["missing"] == [_job_urn("caller", "filtered")]
+    assert (
+        report.river_step_links_resolved,
+        report.river_step_links_unresolved,
+    ) == (0, 2)
