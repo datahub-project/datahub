@@ -1,10 +1,12 @@
 from types import SimpleNamespace
-from typing import List, Optional
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.dremio.dremio_config import (
+    DremioSourceConfig,
     DremioSourceMapping,
     DremioSourceTypeOverride,
 )
@@ -12,11 +14,13 @@ from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
 )
 from datahub.ingestion.source.dremio.dremio_entities import DremioSourceContainer
+from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
 from datahub.ingestion.source.dremio.dremio_source import (
     DremioSource,
     DremioSourceMapEntry,
     build_dremio_source_map,
 )
+from datahub.metadata.schema_classes import UpstreamLineageClass
 
 
 def test_build_source_map_simple():
@@ -225,15 +229,16 @@ def test_build_source_map_default_mapper_marks_unknown_arp_types():
     assert source_map["custom_db"].platform == "mynewconnector"
 
 
-def _map_to_urn(
+def _source_map(
     dremio_source_type: str,
     database_name: Optional[str],
-    path: List[str],
-    dataset: str,
+    source_name: str,
     root_path: str = "/",
-) -> Optional[str]:
+    mappings: Optional[List[DremioSourceMapping]] = None,
+    mapper: Optional[DremioToDataHubSourceTypeMapping] = None,
+) -> Dict[str, DremioSourceMapEntry]:
     source = DremioSourceContainer(
-        container_name=path[0],
+        container_name=source_name,
         location_id="xxx",
         path=[],
         api_operations=MagicMock(),  # type:ignore
@@ -241,8 +246,22 @@ def _map_to_urn(
         root_path=root_path,
         database_name=database_name,
     )
+    return build_dremio_source_map([source], mappings or [], mapper)
+
+
+def _map_to_urn(
+    dremio_source_type: str,
+    database_name: Optional[str],
+    path: List[str],
+    dataset: str,
+    root_path: str = "/",
+    mappings: Optional[List[DremioSourceMapping]] = None,
+    mapper: Optional[DremioToDataHubSourceTypeMapping] = None,
+) -> Optional[str]:
     stub = SimpleNamespace(
-        source_map=build_dremio_source_map([source], []),
+        source_map=_source_map(
+            dremio_source_type, database_name, path[0], root_path, mappings, mapper
+        ),
         config=SimpleNamespace(env="DEV"),
     )
     return DremioSource._map_dremio_dataset_to_urn(
@@ -261,36 +280,114 @@ def _map_to_urn(
     ],
 )
 @pytest.mark.parametrize(
-    "path,expected_name",
+    "source_type,platform,path,expected_name",
     [
         pytest.param(
-            ["MY_SQLSERVER", "MY_DB", "dbo"],
+            "MSSQL",
+            "mssql",
+            ["MY_SRC", "MY_DB", "dbo"],
             "MY_DB.dbo.my_Table",
-            id="configured_database",
+            id="mssql_configured_database",
         ),
         pytest.param(
-            ["MY_SQLSERVER", "other_db", "dbo"],
+            "MSSQL",
+            "mssql",
+            ["MY_SRC", "other_db", "dbo"],
             "other_db.dbo.my_Table",
-            id="other_database",
+            id="mssql_other_database",
+        ),
+        pytest.param(
+            "MYSQL",
+            "mysql",
+            ["MY_SRC", "my_db"],
+            "my_db.my_Table",
+            id="mysql_configured_database",
+        ),
+        pytest.param(
+            "MYSQL",
+            "mysql",
+            ["MY_SRC", "other_db"],
+            "other_db.my_Table",
+            id="mysql_other_database",
+        ),
+        pytest.param(
+            "SNOWFLAKE",
+            "snowflake",
+            ["MY_SRC", "MY_DB", "PUBLIC"],
+            "my_db.public.my_table",
+            id="snowflake_configured_database",
+        ),
+        pytest.param(
+            "SNOWFLAKE",
+            "snowflake",
+            ["MY_SRC", "OTHER_DB", "PUBLIC"],
+            "other_db.public.my_table",
+            id="snowflake_other_database",
         ),
     ],
 )
 def test_map_urn_does_not_prepend_database_already_in_path(
-    database_name: Optional[str], path: List[str], expected_name: str
+    database_name: Optional[str],
+    source_type: str,
+    platform: str,
+    path: List[str],
+    expected_name: str,
 ) -> None:
-    # SQL Server lists every database as a folder under the source, whether or
-    # not the Dremio source config names one.
+    # These sources list every database as a folder under the source, whether
+    # or not the Dremio source config names one.
     assert (
-        _map_to_urn("MSSQL", database_name, path, "my_Table")
-        == f"urn:li:dataset:(urn:li:dataPlatform:mssql,{expected_name},DEV)"
+        _map_to_urn(source_type, database_name, path, "my_Table")
+        == f"urn:li:dataset:(urn:li:dataPlatform:{platform},{expected_name},DEV)"
     )
 
 
-def test_map_urn_prepends_database_missing_from_path() -> None:
-    # Postgres connects to one database and lists only its schemas.
+@pytest.mark.parametrize(
+    "source_type,platform",
+    [
+        pytest.param("POSTGRES", "postgres", id="postgres"),
+        pytest.param("REDSHIFT", "redshift", id="redshift"),
+        pytest.param("SYNAPSE", "mssql", id="synapse"),
+    ],
+)
+def test_map_urn_prepends_database_missing_from_path(
+    source_type: str, platform: str
+) -> None:
+    # These sources connect to the one configured database and list only its
+    # schemas.
     assert (
-        _map_to_urn("POSTGRES", "my_db", ["my_postgres", "public"], "my_table")
-        == "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.public.my_table,DEV)"
+        _map_to_urn(source_type, "my_db", ["my_src", "my_schema"], "my_table")
+        == f"urn:li:dataset:(urn:li:dataPlatform:{platform},my_db.my_schema.my_table,DEV)"
+    )
+
+
+@pytest.mark.parametrize(
+    "path,expected_name",
+    [
+        pytest.param(
+            ["my_src", "MY_DB", "my_schema"],
+            "MY_DB.my_schema.my_table",
+            id="path_starts_with_database",
+        ),
+        pytest.param(
+            ["my_src", "my_schema"],
+            "my_db.my_schema.my_table",
+            id="path_without_database",
+        ),
+    ],
+)
+def test_map_urn_custom_source_type_skips_database_already_in_path(
+    path: List[str], expected_name: str
+) -> None:
+    mapper = DremioToDataHubSourceTypeMapping(
+        extra_mappings={
+            "MYARPDB": DremioSourceTypeOverride(
+                platform="myplatform", category="database"
+            )
+        }
+    )
+    assert (
+        _map_to_urn("MYARPDB", "my_db", path, "my_table", mapper=mapper)
+        == f"urn:li:dataset:(urn:li:dataPlatform:myplatform,{expected_name},DEV)"
     )
 
 
@@ -340,8 +437,109 @@ def test_map_urn_matches_target_connector_default_casing(
     )
 
 
+@pytest.mark.parametrize(
+    "source_type,platform,convert,expected_name",
+    [
+        pytest.param(
+            "MSSQL", "mssql", True, "my_db.dbo.my_table", id="mssql_force_lowercase"
+        ),
+        pytest.param(
+            "SNOWFLAKE",
+            "snowflake",
+            False,
+            "MY_DB.dbo.My_Table",
+            id="snowflake_keep_case",
+        ),
+    ],
+)
+def test_map_urn_convert_urns_to_lowercase_override(
+    source_type: str, platform: str, convert: bool, expected_name: str
+) -> None:
+    mappings = [
+        DremioSourceMapping(
+            source_name="my_src",
+            platform=platform,
+            env="DEV",
+            convert_urns_to_lowercase=convert,
+        )
+    ]
+    assert (
+        _map_to_urn(
+            source_type,
+            "my_db",
+            ["my_src", "MY_DB", "dbo"],
+            "My_Table",
+            mappings=mappings,
+        )
+        == f"urn:li:dataset:(urn:li:dataPlatform:{platform},{expected_name},DEV)"
+    )
+
+
+def test_map_urn_source_mapping_platform_instance_and_env() -> None:
+    mappings = [
+        DremioSourceMapping(
+            source_name="MY_SRC",
+            platform="Snowflake",
+            platform_instance="my_instance",
+            env="PROD",
+        )
+    ]
+    assert (
+        _map_to_urn(
+            "SNOWFLAKE",
+            "my_db",
+            ["my_src", "MY_DB", "PUBLIC"],
+            "My_Table",
+            mappings=mappings,
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.public.my_table,PROD)"
+    )
+
+
 def test_map_urn_file_object_storage_unchanged() -> None:
     assert (
         _map_to_urn("S3", None, ["my_s3", "My_Folder"], "data.parquet", "/my_bucket")
         == "urn:li:dataset:(urn:li:dataPlatform:s3,my_bucket/My_Folder/data.parquet,DEV)"
+    )
+
+
+def test_process_dataset_emits_mapped_copy_upstream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock_session = MagicMock()
+    monkeypatch.setattr("requests.Session", MagicMock(return_value=mock_session))
+    mock_session.post.return_value.json.return_value = {"token": "dummy-token"}
+    mock_session.post.return_value.status_code = 200
+    ctx = MagicMock(run_id="test-run-id", graph=None)
+    source = DremioSource(
+        DremioSourceConfig(
+            hostname="test-host", port=9047, username="u", password="p", env="DEV"
+        ),
+        ctx,
+    )
+    source.source_map = _source_map("MSSQL", "my_db", "MY_SRC")
+    source.dremio_aspects = MagicMock()
+    source.dremio_aspects.populate_dataset_mcp.return_value = []
+    source.sql_parsing_aggregator = MagicMock()
+    dataset = MagicMock(
+        path=["MY_SRC", "MY_DB", "dbo"],
+        resource_name="my_Table",
+        dataset_type=DremioDatasetType.TABLE,
+    )
+
+    workunits = list(source.process_dataset(dataset))
+
+    expected = "urn:li:dataset:(urn:li:dataPlatform:mssql,MY_DB.dbo.my_Table,DEV)"
+    lineage = [
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+    ]
+    assert [u.dataset for la in lineage for u in la.upstreams] == [expected]
+    source.sql_parsing_aggregator.add_known_lineage_mapping.assert_called_once()
+    kwargs = source.sql_parsing_aggregator.add_known_lineage_mapping.call_args.kwargs
+    assert kwargs["upstream_urn"] == expected
+    assert kwargs["downstream_urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.my_src.my_db.dbo.my_table,DEV)"
     )

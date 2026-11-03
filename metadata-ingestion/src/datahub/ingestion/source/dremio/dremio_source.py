@@ -125,25 +125,26 @@ def passes_dremio_filters(
     return True
 
 
-# These source types list every database as a folder under the source, even
-# when the source config names a (default) database, so the database is already
-# the first path component. Others (Postgres, Redshift, Vertica, ...) connect to
-# one database and list only its schemas.
-_DREMIO_TYPES_WITH_DATABASE_IN_PATH = {
-    "mssql",
-    "mysql",
-    "snowflake",
-    "synapse",
-    "teradata",
-}
+# These source types list databases as folders under the source even when the
+# source config names a database, which is then only the JDBC default (Snowflake
+# builds `?db=<database>` and lists catalogs as folders). The database is thus
+# already the first path component. Others (Postgres, Redshift, Synapse, ...)
+# connect to the one configured database and list only its schemas.
+_DREMIO_TYPES_WITH_DATABASE_IN_PATH = {"mssql", "mysql", "snowflake"}
 
 
-def _match_connector_urn_case(platform: str, name: str) -> str:
-    """Apply the target connector's default URN casing so the upstream resolves."""
+def _match_connector_urn_case(
+    platform: str, name: str, convert_urns_to_lowercase: Optional[bool]
+) -> str:
+    """Lowercase the dataset name when asked to, or by default for Snowflake.
+    By default, Oracle's ALL-UPPERCASE name parts are lowercased like SQLAlchemy's
+    normalize_name. Every other platform keeps Dremio's case."""
     platform = platform.lower()
+    if convert_urns_to_lowercase is not None:
+        return name.lower() if convert_urns_to_lowercase else name
     if platform == "snowflake":  # convert_urns_to_lowercase defaults to True
         return name.lower()
-    if platform == "oracle":  # SQLAlchemy normalize_name lowercases UPPERCASE names
+    if platform == "oracle":
         return ".".join(p.lower() if p.isupper() else p for p in name.split("."))
     return name
 
@@ -157,6 +158,7 @@ class DremioSourceMapEntry:
     database_name: str = ""
     platform_instance: Optional[str] = None
     env: Optional[str] = None
+    convert_urns_to_lowercase: Optional[bool] = None
 
 
 @platform_name("Dremio")
@@ -840,11 +842,17 @@ class DremioSource(StatefulIngestionSourceBase):
                 root_path = f"{mapping.root_path[1:]}/"
             dremio_dataset = f"{root_path}{'/'.join(dremio_path[1:])}/{dremio_dataset}"
         else:
-            if mapping.database_name:
+            # A path that already starts with the database (e.g. a custom
+            # source type from source_type_mappings) must not repeat it.
+            if mapping.database_name and not (
+                len(dremio_path) > 1
+                and dremio_path[1].lower() == mapping.database_name.lower()
+            ):
                 database_name = f"{mapping.database_name}."
             dremio_dataset = _match_connector_urn_case(
                 platform,
                 f"{database_name}{'.'.join(dremio_path[1:])}.{dremio_dataset}",
+                mapping.convert_urns_to_lowercase,
             )
 
         if platform_instance:
@@ -922,6 +930,7 @@ def build_dremio_source_map(
                     database_name=database_name,
                     platform_instance=mapping.platform_instance,
                     env=mapping.env,
+                    convert_urns_to_lowercase=mapping.convert_urns_to_lowercase,
                 )
                 source_present = True
                 break

@@ -128,6 +128,15 @@ class DremioSourceMapping(EnvConfigMixin, PlatformInstanceConfigMixin, ConfigMod
     source_name: str = Field(
         description="Alias of platform in Dremio connection",
     )
+    convert_urns_to_lowercase: Optional[bool] = Field(
+        default=None,
+        description="Lowercase the upstream dataset name so it matches the target "
+        "connector's URNs. Unset keeps the target platform's default: lowercase for "
+        "Snowflake, lowercase ALL-UPPERCASE names for Oracle, Dremio's case otherwise. "
+        "Set `true` for a SQL Server source ingested with `convert_urns_to_lowercase: "
+        "true` (which that connector recommends for lineage); set `false` for a "
+        "Snowflake source ingested with `convert_urns_to_lowercase: false`.",
+    )
 
 
 class DremioSourceTypeOverride(ConfigModel):
