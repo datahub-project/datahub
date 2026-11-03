@@ -217,6 +217,43 @@ public class ReindexConfig {
     return copy;
   }
 
+  /**
+   * Copy of {@code targetMappings} for a put-mapping onto an index whose live mappings are {@code
+   * currentMappings}, without the structured-property fields the index already maps. Put-mapping
+   * cannot change a mapped field's type or analyzer, and an index can hold a field dynamically
+   * mapped as text, float or long where its definition maps keyword or double, so sending the
+   * definition mapping would fail the request. A left-out field keeps its live mapping until a
+   * reindex rebuilds the index from the target, so only new structured-property fields are added in
+   * place. Fields match by id: a versioned field the target names with one dotted key matches the
+   * nested objects the index reports for it.
+   */
+  @SuppressWarnings("unchecked")
+  static Map<String, Object> mappingsWithoutMappedStructuredPropertyFields(
+      @Nonnull Map<String, Object> targetMappings, @Nullable Map<String, Object> currentMappings) {
+    Set<String> mapped =
+        CalculatedBuilder.structuredPropertyFieldMappings(currentMappings).keySet();
+    if (mapped.isEmpty()
+        || !(targetMappings.get(PROPERTIES) instanceof Map<?, ?> properties)
+        || !(properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> container)) {
+      return targetMappings;
+    }
+    Map<String, Object> newFields = new HashMap<>();
+    CalculatedBuilder.structuredPropertyFieldMappings(targetMappings)
+        .forEach(
+            (field, mapping) -> {
+              if (!mapped.contains(field)) {
+                newFields.put(field, mapping);
+              }
+            });
+    Map<String, Object> structuredProperties = new HashMap<>((Map<String, Object>) container);
+    structuredProperties.put(PROPERTIES, newFields);
+    Map<String, Object> putProperties = new HashMap<>((Map<String, Object>) properties);
+    putProperties.put(STRUCTURED_PROPERTY_MAPPING_FIELD, structuredProperties);
+    Map<String, Object> putMappings = new HashMap<>(targetMappings);
+    putMappings.put(PROPERTIES, putProperties);
+    return putMappings;
+  }
+
   public static boolean mappingHasProperties(@Nullable Map<String, Object> mappings) {
     if (mappings == null) {
       return false;
@@ -1000,10 +1037,15 @@ public class ReindexConfig {
      * index is rebuilt each time, and type and copy_to mismatches are never detected for it.
      */
     private static Map<String, Object> structuredPropertyFieldMappings(
-        Map<String, Object> mappings) {
+        @Nullable Map<String, Object> mappings) {
       Map<String, Object> fields = new LinkedHashMap<>();
-      getOrDefault(mappings, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
-          .forEach((key, value) -> collectStructuredPropertyFields(key, value, fields));
+      if (mappings != null
+          && mappings.get(PROPERTIES) instanceof Map<?, ?> properties
+          && properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> container
+          && container.get(PROPERTIES) instanceof Map<?, ?> structuredProperties) {
+        structuredProperties.forEach(
+            (key, value) -> collectStructuredPropertyFields(String.valueOf(key), value, fields));
+      }
       return fields;
     }
 

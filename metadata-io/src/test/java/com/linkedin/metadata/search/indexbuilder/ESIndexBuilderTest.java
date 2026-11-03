@@ -186,27 +186,29 @@ public class ESIndexBuilderTest {
 
   @Test
   void testShouldPreserveStructuredPropertyMappings() {
-    // Explicit copy request always preserves (the definition-driven mapping-update path).
+    // A definition upsert adds one property and keeps the rest.
     Assert.assertTrue(indexBuilder.shouldPreserveStructuredPropertyMappings(true));
-    // With the structured-property system-update machinery disabled (the default), the current
-    // index's SP mappings must be carried into the reindex target: the container is mapped
-    // dynamic:false, so a target without them would leave every pre-existing SP value unindexed.
+    // With structured properties disabled no definitions are loaded, so the current index's SP
+    // mappings must be carried into the target: the container is mapped dynamic:false, so a
+    // reindex from a target without them would leave every existing SP value unindexed.
     Assert.assertTrue(indexBuilder.shouldPreserveStructuredPropertyMappings(false));
 
-    ESIndexBuilder systemUpdateEnabledBuilder =
-        new ESIndexBuilder(
-            searchClient,
-            elasticSearchConfiguration,
-            StructuredPropertiesConfiguration.builder()
-                .enabled(true)
-                .systemUpdateEnabled(true)
-                .build(),
-            Map.of(),
-            gitVersion);
-    // When the system-update machinery owns the SP mapping diff (including removals), current
-    // mappings must not be merged into the target.
-    Assert.assertFalse(systemUpdateEnabledBuilder.shouldPreserveStructuredPropertyMappings(false));
-    Assert.assertTrue(systemUpdateEnabledBuilder.shouldPreserveStructuredPropertyMappings(true));
+    // With structured properties enabled the target comes from the definitions, whether or not
+    // system-update may reindex for structured-property differences.
+    for (boolean systemUpdateEnabled : new boolean[] {false, true}) {
+      ESIndexBuilder enabledBuilder =
+          new ESIndexBuilder(
+              searchClient,
+              elasticSearchConfiguration,
+              StructuredPropertiesConfiguration.builder()
+                  .enabled(true)
+                  .systemUpdateEnabled(systemUpdateEnabled)
+                  .build(),
+              Map.of(),
+              gitVersion);
+      Assert.assertFalse(enabledBuilder.shouldPreserveStructuredPropertyMappings(false));
+      Assert.assertTrue(enabledBuilder.shouldPreserveStructuredPropertyMappings(true));
+    }
   }
 
   @Test
@@ -1151,6 +1153,100 @@ public class ESIndexBuilderTest {
     assertTrue(
         targetMappings.toString().contains(ReindexConfig.KNN_VECTOR_TYPE),
         "targetMappings must still include knn_vector for createIndex/reindex");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testApplyMappings_LeavesMappedStructuredPropertiesOutOfThePut() throws IOException {
+    // The live index mapped an unversioned and a versioned property dynamically as text, which the
+    // engine reports as nested objects; their definitions map keyword, a type change put-mapping
+    // rejects. The target also adds a regular field and a new property.
+    Map<String, Object> current =
+        Map.of(
+            "properties",
+            Map.of(
+                "field1",
+                Map.of("type", "text"),
+                STRUCTURED_PROPERTY_MAPPING_FIELD,
+                Map.of(
+                    "dynamic",
+                    "false",
+                    "properties",
+                    Map.of(
+                        "propA",
+                        Map.of("type", "text"),
+                        "_versioned",
+                        Map.of(
+                            "properties",
+                            Map.of(
+                                "propB",
+                                Map.of(
+                                    "properties",
+                                    Map.of(
+                                        "v1",
+                                        Map.of(
+                                            "properties",
+                                            Map.of("string", Map.of("type", "text")))))))))));
+    Map<String, Object> target =
+        Map.of(
+            "properties",
+            Map.of(
+                "field1",
+                Map.of("type", "text"),
+                "field3",
+                Map.of("type", "keyword"),
+                STRUCTURED_PROPERTY_MAPPING_FIELD,
+                Map.of(
+                    "type",
+                    "object",
+                    "dynamic",
+                    false,
+                    "properties",
+                    Map.of(
+                        "propA",
+                        Map.of("type", "keyword"),
+                        "_versioned.propB.v1.string",
+                        Map.of("type", "keyword"),
+                        "propC",
+                        Map.of("type", "double")))));
+    ReindexConfig indexState =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .currentMappings(current)
+            .targetMappings(target)
+            .build();
+    assertTrue(indexState.isPureMappingsAddition());
+    assertTrue(indexState.hasStructuredPropertyTypeMismatch());
+    assertFalse(indexState.requiresReindex());
+
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(AcknowledgedResponse.class));
+
+    indexBuilder.applyMappings(opContext, indexState, true);
+
+    ArgumentCaptor<PutMappingRequest> captor = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    Map<String, Object> putProperties =
+        (Map<String, Object>)
+            ReindexConfig.OBJECT_MAPPER
+                .readValue(captor.getValue().source().utf8ToString(), Map.class)
+                .get("properties");
+    assertTrue(putProperties.containsKey("field3"));
+    Map<String, Object> putStructuredProperties =
+        (Map<String, Object>) putProperties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    assertEquals(
+        ((Map<String, Object>) putStructuredProperties.get("properties")).keySet(),
+        Set.of("propC"));
+    // A reindex still builds the index from the definitions.
+    assertTrue(indexState.targetMappings().toString().contains("propA={type=keyword}"));
   }
 
   @Test

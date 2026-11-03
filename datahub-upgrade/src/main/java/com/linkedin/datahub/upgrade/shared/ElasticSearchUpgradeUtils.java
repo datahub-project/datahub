@@ -9,6 +9,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
+import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -49,6 +50,25 @@ public class ElasticSearchUpgradeUtils {
         .filter(service -> service instanceof ElasticSearchIndexed)
         .map(service -> (ElasticSearchIndexed) service)
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Structured property definitions to build index mapping targets from: the active definitions
+   * whenever structured properties are enabled, so a reindex converges each index to them. {@code
+   * systemUpdateEnabled} does not gate this; it only decides whether a structured-property
+   * difference may trigger a reindex.
+   *
+   * @param structuredPropertiesConfiguration structured properties configuration
+   * @param aspectDao the aspect DAO for database access
+   * @return active structured property definitions, or none when structured properties are disabled
+   */
+  public static Set<Pair<Urn, StructuredPropertyDefinition>>
+      getStructuredPropertiesForIndexMappings(
+          StructuredPropertiesConfiguration structuredPropertiesConfiguration,
+          AspectDao aspectDao) {
+    return structuredPropertiesConfiguration.isEnabled()
+        ? getActiveStructuredPropertiesDefinitions(aspectDao)
+        : Set.of();
   }
 
   /**

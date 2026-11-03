@@ -11,13 +11,20 @@ import lombok.NoArgsConstructor;
 @Builder(toBuilder = true)
 public class StructuredPropertiesConfiguration {
 
-  /** Whether structured properties mappings are applied */
+  /**
+   * Whether structured properties mappings are applied. When true, system-update also builds index
+   * mapping targets from the active structured property definitions.
+   */
   private boolean enabled;
 
   /** Whether structured property values can be written */
   private boolean writeEnabled;
 
-  /** Whether structured property mappings are applied in system update job */
+  /**
+   * Whether system-update may reindex an entity search index because its structured-property
+   * mappings differ from the definitions: a removed property, or a type or {@code copy_to}
+   * mismatch. Without it those differences wait for an explicit reindex.
+   */
   private boolean systemUpdateEnabled;
 
   /**

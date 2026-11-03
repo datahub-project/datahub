@@ -38,13 +38,9 @@ public class CleanIndices implements NonBlockingSystemUpgrade {
       final GitVersion gitVersion,
       final String revision) {
 
-    final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
-    if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
-      structuredProperties =
-          ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(aspectDao);
-    } else {
-      structuredProperties = Set.of();
-    }
+    final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
+        ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
+            configurationProvider.getStructuredProperties(), aspectDao);
 
     List<ElasticSearchIndexed> indexedServices =
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(

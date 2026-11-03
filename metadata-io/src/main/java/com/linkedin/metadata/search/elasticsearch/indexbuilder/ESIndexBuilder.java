@@ -532,18 +532,17 @@ public class ESIndexBuilder {
 
   /**
    * Whether the current index's structured-property field mappings should be carried into the
-   * target mappings. Always true when the caller explicitly asks for it (the definition-driven
-   * mapping-update path). Also true when the structured-property system-update machinery is not
-   * managing SP mappings (disabled, the default): the target then contains an empty
-   * structuredProperties container, and since the container is mapped dynamic:false, a reindex from
-   * such a target would leave every pre-existing SP value unindexed and invisible to search with no
-   * later convergence. When the system-update machinery IS enabled it owns the SP mapping diff
-   * (including removals), so the current mappings must not be merged into the target there.
+   * target mappings. True when the caller explicitly asks for it: a definition upsert adds one
+   * property and keeps the rest. Also true when structured properties are disabled: no definitions
+   * are loaded then, so the target holds an empty dynamic:false structuredProperties container, and
+   * a reindex from it would leave every existing value unindexed. When structured properties are
+   * enabled, system-update builds the target from the active definitions, so a reindex converges
+   * the index to them; systemUpdateEnabled only decides whether a structured-property difference
+   * may trigger that reindex.
    */
   @VisibleForTesting
   public boolean shouldPreserveStructuredPropertyMappings(boolean copyStructuredPropertyMappings) {
-    return copyStructuredPropertyMappings
-        || !(structPropConfig.isEnabled() && structPropConfig.isSystemUpdateEnabled());
+    return copyStructuredPropertyMappings || !structPropConfig.isEnabled();
   }
 
   private static boolean isKnnEnabled(Map<String, Object> baseSettings) {
@@ -556,8 +555,6 @@ public class ESIndexBuilder {
    * current index has none to merge. The copy (rather than an in-place merge) keeps caller-supplied
    * maps untouched: V2SemanticSearchMappingsBuilder supplies the semantic index target as
    * ImmutableMaps, where an in-place merge throws a message-less UnsupportedOperationException.
-   * Merging from the live index at all — rather than building targets from structured-property
-   * definitions — is a separate issue: https://github.com/datahub-project/datahub/issues/19588.
    */
   @SuppressWarnings("unchecked")
   private Map<String, Object> mergeStructuredPropertyMappings(
@@ -849,7 +846,9 @@ public class ESIndexBuilder {
     if (indexState.isPureMappingsAddition()
         || indexState.isPureStructuredPropertyAddition()
         || indexState.isInPlaceMappingParameterUpdate()) {
-      Map<String, Object> mappingsToPut = indexState.targetMappings();
+      Map<String, Object> mappingsToPut =
+          ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(
+              indexState.targetMappings(), indexState.currentMappings());
       if (indexState.cannotApplyKnnVectorMappingInPlace()) {
         log.error(
             "Index: {} - Skipping knn_vector mapping update because index.knn is false and"

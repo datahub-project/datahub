@@ -60,13 +60,11 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
 
   /**
    * Regression for the AI-smoke system-update failure: target mappings supplied by
-   * V2SemanticSearchMappingsBuilder are ImmutableMaps at every level, and buildReindexState
-   * currently falls back to merging the current index's structured-property mappings into the
-   * target when it has no definition-driven target to preserve (see
-   * shouldPreserveStructuredPropertyMappings; making targets definition-driven whenever structured
-   * properties are enabled is tracked in https://github.com/datahub-project/datahub/issues/19588).
-   * Merging into the caller's maps threw a message-less UnsupportedOperationException, which
-   * BuildIndicesIncrementalStep swallowed into "No index builder found". Drives the real
+   * V2SemanticSearchMappingsBuilder are ImmutableMaps at every level, and buildReindexState merges
+   * the current index's structured-property mappings into the target when structured properties are
+   * disabled (see shouldPreserveStructuredPropertyMappings; the mock configuration reports them
+   * disabled). Merging into the caller's maps threw a message-less UnsupportedOperationException,
+   * which BuildIndicesIncrementalStep swallowed into "No index builder found". Drives the real
    * buildReindexState path with an immutable target against an existing index whose mappings carry
    * structured properties.
    */

@@ -50,13 +50,9 @@ public class IncrementalReindex implements NonBlockingSystemUpgrade {
       @Nullable AspectIndexLoader aspectIndexLoader,
       UpdateIndicesService updateIndicesService) {
 
-    Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
-    if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
-      structuredProperties =
-          ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(aspectDao);
-    } else {
-      structuredProperties = Set.of();
-    }
+    Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
+        ElasticSearchUpgradeUtils.getStructuredPropertiesForIndexMappings(
+            configurationProvider.getStructuredProperties(), aspectDao);
 
     BuildIndicesConfiguration buildIndicesConfig =
         configurationProvider.getElasticSearch().getBuildIndices();
