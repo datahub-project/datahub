@@ -23,6 +23,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
@@ -664,6 +665,108 @@ public class ModifyIngestionSourceAuthValidatorTest {
         0);
   }
 
+  // The security direction of in-batch chaining: a PATCH that puts the schedule back after an
+  // earlier item removed it must still need EXECUTE.
+  @Test(dataProvider = "patchItemShapes")
+  public void testPatchReschedulingAfterEarlierItemInBatchDenied(boolean alternateValidation) {
+    grant("EDIT_ENTITY");
+    stubStored(sourceInfo(true));
+
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    infoItem(ChangeType.UPSERT, sourceInfo(false)),
+                    patchItem(
+                        alternateValidation,
+                        true,
+                        addOp("/schedule", Map.of("interval", "0 * * * *", "timezone", "UTC")))),
+                mockRetrieverContext,
+                mockSession)
+            .count(),
+        1);
+  }
+
+  // A denied item is not written, so it must not become the base for later PATCHes.
+  @Test(dataProvider = "patchItemShapes")
+  public void testDeniedItemNotUsedAsBatchBase(boolean alternateValidation) {
+    grant("EDIT_ENTITY");
+    stubStored(sourceInfo(false));
+
+    List<String> denied =
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    infoItem(ChangeType.UPSERT, sourceInfo(true)),
+                    patchItem(alternateValidation, true, addOp("/name", "renamed"))),
+                mockRetrieverContext,
+                mockSession)
+            .map(e -> e.getChangeType().toString())
+            .toList();
+
+    assertEquals(denied, List.of(ChangeType.UPSERT.toString()));
+  }
+
+  // The proposal check reads the stored aspect before the write lock; pre-commit checks the aspect
+  // actually being written, which may carry a schedule another writer added in between.
+  @Test
+  public void testPreCommitScheduledDeniedWithoutExecute() {
+    grant("EDIT_ENTITY");
+
+    assertEquals(
+        validator
+            .validatePreCommit(
+                OperationFingerprint.EMPTY,
+                List.<ChangeMCP>of(infoItem(ChangeType.UPSERT, sourceInfo(true))),
+                mockRetrieverContext,
+                mockSession)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testPreCommitScheduledAllowedWithExecute() {
+    grant("EDIT_ENTITY", "EXECUTE_ENTITY");
+
+    assertEquals(
+        validator
+            .validatePreCommit(
+                OperationFingerprint.EMPTY,
+                List.<ChangeMCP>of(infoItem(ChangeType.UPSERT, sourceInfo(true))),
+                mockRetrieverContext,
+                mockSession)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testPreCommitSkipsUnscheduledDeleteAndNullSession() {
+    grant("EDIT_ENTITY");
+
+    assertEquals(
+        validator
+            .validatePreCommit(
+                OperationFingerprint.EMPTY,
+                List.<ChangeMCP>of(
+                    infoItem(ChangeType.UPSERT, sourceInfo(false)),
+                    infoItem(ChangeType.DELETE, sourceInfo(true))),
+                mockRetrieverContext,
+                mockSession)
+            .count(),
+        0);
+    assertEquals(
+        validator
+            .validatePreCommit(
+                OperationFingerprint.EMPTY,
+                List.<ChangeMCP>of(infoItem(ChangeType.UPSERT, sourceInfo(true))),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0);
+  }
+
   @Test(dataProvider = "patchItemShapes")
   public void testUnresolvablePatchDenied(boolean alternateValidation) {
     grant("EDIT_ENTITY", "EXECUTE_ENTITY");
@@ -715,11 +818,11 @@ public class ModifyIngestionSourceAuthValidatorTest {
     return info;
   }
 
-  private BatchItem infoItem(ChangeType changeType, DataHubIngestionSourceInfo info) {
+  private TestMCP infoItem(ChangeType changeType, DataHubIngestionSourceInfo info) {
     return infoItem(INGESTION_SOURCE_URN, changeType, info);
   }
 
-  private BatchItem infoItem(Urn urn, ChangeType changeType, DataHubIngestionSourceInfo info) {
+  private TestMCP infoItem(Urn urn, ChangeType changeType, DataHubIngestionSourceInfo info) {
     return TestMCP.builder()
         .changeType(changeType)
         .urn(urn)

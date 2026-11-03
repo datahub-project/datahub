@@ -34,6 +34,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Accessors(chain = true)
 public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
+  private static final String SCHEDULE_DENIED_MESSAGE =
+      "Doesn't have permissions to schedule this Ingestion source";
+
   @Nonnull private AspectPluginConfig config;
 
   @Override
@@ -96,9 +99,8 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
 
       // A scheduled source is executed by the scheduler as the system actor, so a user who can only
       // edit it would otherwise get recurring execution. Leaving a schedule on the source (or
-      // editing a scheduled source) requires permission to execute it. A PATCH is resolved against
-      // the aspect read here; a schedule added concurrently by another writer is not seen, the same
-      // as in ExecuteIngestionAuthValidator.
+      // editing a scheduled source) requires permission to execute it. This is a fast fail on the
+      // aspect read here; validatePreCommitAspectsWithAuth repeats it on the aspect being written.
       final DataHubIngestionSourceInfo proposed;
       try {
         proposed =
@@ -107,17 +109,13 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
       } catch (RuntimeException e) {
         // dataHubIngestionSourceInfo has no patch template; a PATCH that cannot be applied fails
         // the write too.
-        log.debug("Unable to resolve dataHubIngestionSourceInfo PATCH for {}", item.getUrn(), e);
-        exceptions.addAuthException(
-            item, "Unable to resolve dataHubIngestionSourceInfo PATCH for authorization");
+        log.warn("Unable to resolve dataHubIngestionSourceInfo PATCH for {}", item.getUrn(), e);
+        exceptions.addException(item, "Unable to apply dataHubIngestionSourceInfo PATCH", e);
         continue;
       }
-      if (proposed != null
-          && proposed.hasSchedule()
-          && !AuthUtil.isAuthorizedEntityUrns(
-              session, ApiOperation.EXECUTE, List.of(item.getUrn()))) {
-        exceptions.addAuthException(
-            item, "Doesn't have permissions to schedule this Ingestion source");
+      if (proposed != null && proposed.hasSchedule() && !canExecute(session, item.getUrn())) {
+        exceptions.addAuthException(item, SCHEDULE_DENIED_MESSAGE);
+        continue;
       }
       // Items are applied in order, so a later PATCH to the same source applies on top of this one.
       if (proposed != null) {
@@ -142,5 +140,37 @@ public class ModifyIngestionSourceAuthValidator extends AspectPayloadValidator {
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
+  }
+
+  /**
+   * Repeats the schedule check on the aspect about to be written. A PATCH is applied again to the
+   * latest stored aspect inside the transaction, which may carry a schedule written after the
+   * proposal was validated.
+   */
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspectsWithAuth(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
+    if (session == null) {
+      return Stream.empty();
+    }
+
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+    for (ChangeMCP item : changeMCPs) {
+      if (ChangeType.DELETE.equals(item.getChangeType())) {
+        continue;
+      }
+      DataHubIngestionSourceInfo info = item.getAspect(DataHubIngestionSourceInfo.class);
+      if (info != null && info.hasSchedule() && !canExecute(session, item.getUrn())) {
+        exceptions.addAuthException(item, SCHEDULE_DENIED_MESSAGE);
+      }
+    }
+    return exceptions.streamAllExceptions();
+  }
+
+  private static boolean canExecute(@Nonnull AuthorizationSession session, @Nonnull Urn urn) {
+    return AuthUtil.isAuthorizedEntityUrns(session, ApiOperation.EXECUTE, List.of(urn));
   }
 }
