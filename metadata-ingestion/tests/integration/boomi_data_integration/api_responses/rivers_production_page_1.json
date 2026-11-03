@@ -1,0 +1,43 @@
+{
+  "next_page": "https://api.rivery.io/v1/accounts/acct000000000000000000001/environments/e00000000000000000000001/rivers?items_per_page=2&page=2",
+  "previous_page": null,
+  "page": 1,
+  "current_page_size": 2,
+  "total_items": 4,
+  "account_id": "acct000000000000000000001",
+  "environment_id": "e00000000000000000000001",
+  "items": [
+    {
+      "name": "DH Test - MySQL to BigQuery custom query",
+      "river_status": "disabled",
+      "group_name": "DH Test - Group B",
+      "group_id": "6ae8ef3f29efd511dc74a702",
+      "river_schedulers": [
+        "0 3 1 1 *"
+      ],
+      "datasource_id": "mysql",
+      "last_user_name_modified": "Example User",
+      "river_cross_id": "6ae8ef4b1de83529098c6db5",
+      "last_updated_at": "2026-11-02T20:19:53.450000Z",
+      "description": "Created by DataHub connector validation",
+      "is_api_v2": true,
+      "river_type": "source_to_target",
+      "created_at": "2026-11-02T20:15:07.670000Z"
+    },
+    {
+      "name": "DH Test - Logic orchestration",
+      "river_status": "active",
+      "group_name": "DH Test - Group A",
+      "group_id": "6ae8ef37ec3547181e1dd4d6",
+      "river_schedulers": [],
+      "datasource_id": "logic",
+      "last_user_name_modified": "Example User",
+      "river_cross_id": "6ae8ef6f61a8be2df8f864ca",
+      "last_updated_at": "2026-11-02T20:15:43.013000Z",
+      "description": "Created by DataHub connector validation",
+      "is_api_v2": true,
+      "river_type": "logic",
+      "created_at": "2026-11-02T20:15:43.013000Z"
+    }
+  ]
+}

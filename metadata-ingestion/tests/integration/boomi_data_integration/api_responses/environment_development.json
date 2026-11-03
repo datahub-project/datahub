@@ -1,0 +1,25 @@
+{
+  "_id": "e00000000000000000000002",
+  "account": "acct000000000000000000001",
+  "user_created": "f00000000000000000000001",
+  "created_at": "2026-11-02T19:00:39.059000",
+  "cross_id": "e00000000000000000000002",
+  "updated_at": "2026-11-02 19:00:39.059000",
+  "environment_name": "Development",
+  "color": "cBlues",
+  "description": null,
+  "variables": {
+    "gcs_file_zone": "Example User-rivery",
+    "aws_file_zone": "Example User-rivery",
+    "azure_file_zone": "Example User-rivery",
+    "Mail_Alert_Group": "svc@example.com",
+    "hours_offset": "0",
+    "days_ago": "0"
+  },
+  "is_deleted": false,
+  "deleted_by": null,
+  "deleted_at": null,
+  "is_default": false,
+  "updated_by": null,
+  "is_delete_lock": false
+}

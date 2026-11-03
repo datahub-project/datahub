@@ -16,6 +16,7 @@
     "sources.athena.description": "Importer les Schemas, Tables, Views et le lineage vers S3 depuis Athena.",
     "sources.azureAd.description": "Importer les Users et Groups depuis Azure Active Directory.",
     "sources.bigquery.description": "Importer les Projects, Datasets, Tables, Views, le lineage, les requêtes et les statistiques depuis BigQuery.",
+    "sources.boomiDataIntegration.description": "Importer les environnements, groupes, rivers, étapes logiques et le lineage vers les cibles depuis Boomi Data Integration.",
     "sources.cassandra.description": "Importer les Tables, Keyspaces et les schémas de colonnes depuis Cassandra.",
     "sources.clickhouse.description": "Importer les Tables, Views, Materialized Views, Dictionaries, les statistiques, les requêtes et le lineage depuis ClickHouse.",
     "sources.cockroachdb.description": "Importer les Databases, Schemas, Tables, Views, les statistiques et le lineage depuis CockroachDB.",

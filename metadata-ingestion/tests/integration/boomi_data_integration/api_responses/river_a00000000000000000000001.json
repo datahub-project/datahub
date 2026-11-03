@@ -1,0 +1,86 @@
+{
+  "cross_id": "a00000000000000000000001",
+  "account_id": "acct000000000000000000001",
+  "kind": "main_river",
+  "type": "source_to_target",
+  "name": "Leads to Postgres",
+  "environment_id": "e00000000000000000000002",
+  "environment_name": "Development",
+  "group_id": "a00000000000000000000010",
+  "group_name": "Sandbox",
+  "metadata": {
+    "description": "Synthetic Leads to Postgres river.",
+    "river_status": "active",
+    "current_version_id": "6ae8ef3f616e536a6130b419",
+    "created_by": "Example User",
+    "last_updated_by": "Example User",
+    "created_at": "2026-11-02T20:14:55.701000Z",
+    "last_updated_at": "2026-11-02T20:14:55.701000Z",
+    "is_deleted": false,
+    "suspended": null,
+    "last_activated": null,
+    "last_disabled": null
+  },
+  "properties": {
+    "properties_type": "source_to_target",
+    "source": {
+      "name": "hubspot",
+      "connection_id": "a00000000000000000000091",
+      "connection_name": "HubSpot",
+      "run_type": "predefined_report",
+      "cdc_settings": null,
+      "additional_settings": {
+        "extract_method": "all",
+        "source_type": "postgresql"
+      }
+    },
+    "target": {
+      "name": "postgres_rds",
+      "connection_id": "a00000000000000000000092",
+      "connection_name": "Warehouse",
+      "single_table_settings": null,
+      "table_name": "Leads",
+      "target_prefix": "",
+      "is_ordered_merge_key": null,
+      "order_expression": null,
+      "loading_method": "overwrite",
+      "merge_method": null,
+      "file_zone_settings": {
+        "path": "DH_Test_-_PG_to_Snowflake_multi_6ae8ef3fa9fd03374b44b3bd",
+        "bucket_name": "",
+        "partitioned_kind": "by_day",
+        "fz_loading_mode": "auto-period"
+      },
+      "file_path_destination": null,
+      "additional_settings": {},
+      "schema_name": "crm"
+    },
+    "schemas": []
+  },
+  "settings": {
+    "run_timeout_seconds": null,
+    "notification": {
+      "warning": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      },
+      "failure": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      },
+      "run_threshold": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      }
+    },
+    "schedule_retry_config": {
+      "enable_scheduler_retry": false,
+      "retry_count": null,
+      "delay_between_retries": null
+    }
+  },
+  "schedulers": []
+}

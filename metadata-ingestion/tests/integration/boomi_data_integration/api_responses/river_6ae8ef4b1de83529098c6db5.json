@@ -1,0 +1,138 @@
+{
+  "cross_id": "6ae8ef4b1de83529098c6db5",
+  "account_id": "acct000000000000000000001",
+  "kind": "main_river",
+  "type": "source_to_target",
+  "name": "DH Test - MySQL to BigQuery custom query",
+  "environment_id": "e00000000000000000000001",
+  "environment_name": "Production",
+  "group_id": "6ae8ef3f29efd511dc74a702",
+  "group_name": "DH Test - Group B",
+  "metadata": {
+    "description": "Created by DataHub connector validation",
+    "river_status": "disabled",
+    "current_version_id": "6ae8f069d581f61f77cded7b",
+    "created_by": "Example User",
+    "last_updated_by": "Example User",
+    "created_at": "2026-11-02T20:15:07.670000Z",
+    "last_updated_at": "2026-11-02T20:19:53.450000Z",
+    "is_deleted": false,
+    "suspended": null,
+    "last_activated": null,
+    "last_disabled": null
+  },
+  "properties": {
+    "properties_type": "source_to_target",
+    "source": {
+      "name": "mysql",
+      "connection_id": "6ae8eee66e1b69aeb4e8069e",
+      "connection_name": "DH Test - Ensembl MySQL",
+      "run_type": "custom_query",
+      "cdc_settings": null,
+      "additional_settings": {
+        "run_type": "custom_query",
+        "datasource_id": "mysql",
+        "connection_type": "mysql",
+        "quote": "\"",
+        "fz_partition": "d",
+        "fz_batched": true,
+        "delimiter": ",",
+        "source_format": "CSV",
+        "filters": [
+          {
+            "file_type": "csv",
+            "csv_details": {
+              "quotechar": "\"",
+              "delimiter": ","
+            },
+            "has_headers": true,
+            "required_tabs": 1,
+            "header_row": 1
+          }
+        ],
+        "fz_path": "DH_Test_-_MySQL_to_BigQuery_custom_query_6ae8ef4b1de83529098c6db5"
+      },
+      "custom_query_source_settings": {
+        "query": "SELECT stable_id, biotype FROM homo_sapiens_core_110_38.gene LIMIT 100",
+        "array_size": null,
+        "exporter_chunk_size": null,
+        "incremental_type": null,
+        "incremental_field": null,
+        "date_range": null,
+        "running_number": null,
+        "epoch": null,
+        "row_version": null,
+        "extract_method": "all"
+      }
+    },
+    "target": {
+      "name": "bigquery",
+      "connection_id": "6ae8eee7c23a3443ebd7abe4",
+      "connection_name": "DH Test - BigQuery Dummy",
+      "single_table_settings": {
+        "escape_character": null,
+        "match_keys": null,
+        "mapping": null,
+        "sql_dialect": "standard",
+        "split_tables": null,
+        "split_data": null,
+        "split_interval": null,
+        "partition_type": null,
+        "partition_granularity": null,
+        "distribution_method": null
+      },
+      "table_name": "ensembl_genes",
+      "target_prefix": "",
+      "is_ordered_merge_key": null,
+      "order_expression": null,
+      "loading_method": "overwrite",
+      "merge_method": null,
+      "file_zone_settings": {
+        "path": "DH_Test_-_MySQL_to_BigQuery_custom_query_6ae8ef4b1de83529098c6db5",
+        "bucket_name": "",
+        "partitioned_kind": "by_day",
+        "fz_loading_mode": "auto-period"
+      },
+      "file_path_destination": null,
+      "additional_settings": {
+        "use_rivery_metadata": false,
+        "use_standard_sql": true
+      },
+      "dataset_id": "dh_test_ensembl",
+      "sql_dialect": "standard",
+      "auto_detect_datatype_changes": null
+    },
+    "schemas": []
+  },
+  "settings": {
+    "run_timeout_seconds": null,
+    "notification": {
+      "warning": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      },
+      "failure": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      },
+      "run_threshold": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": 0
+      }
+    },
+    "schedule_retry_config": {
+      "enable_scheduler_retry": false,
+      "retry_count": null,
+      "delay_between_retries": null
+    }
+  },
+  "schedulers": [
+    {
+      "cron_expression": "0 3 1 1 *",
+      "is_enabled": true
+    }
+  ]
+}

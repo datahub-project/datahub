@@ -1,0 +1,203 @@
+{
+  "cross_id": "6ae8ef6f61a8be2df8f864ca",
+  "account_id": "acct000000000000000000001",
+  "kind": "main_river",
+  "type": "logic",
+  "name": "DH Test - Logic orchestration",
+  "environment_id": "e00000000000000000000001",
+  "environment_name": "Production",
+  "group_id": "6ae8ef37ec3547181e1dd4d6",
+  "group_name": "DH Test - Group A",
+  "metadata": {
+    "description": "Created by DataHub connector validation",
+    "river_status": "active",
+    "current_version_id": "6ae8ef6e57ba0d1b78abd285",
+    "created_by": "Example User",
+    "last_updated_by": "Example User",
+    "created_at": "2026-11-02T20:15:43.013000Z",
+    "last_updated_at": "2026-11-02T20:15:43.013000Z",
+    "is_deleted": false,
+    "suspended": null,
+    "last_activated": null,
+    "last_disabled": null
+  },
+  "properties": {
+    "logic_steps": [
+      {
+        "name": "DH Test - Main container",
+        "is_enabled": true,
+        "container_id": "dbd11f17a652417ab73aeb48feb835a2",
+        "disable_errors": false,
+        "type": "run_once",
+        "is_parallel": false,
+        "steps": [
+          {
+            "name": "DH Test - Insert RNA summary",
+            "is_enabled": true,
+            "step_id": "96542bd28b184cc9b1aa2ba3b92a3fbb",
+            "disable_errors": false,
+            "connection_id": "6ae8eee7c44e11a9bf520505",
+            "type": "snowflake_sql_query",
+            "sql_query": "INSERT INTO DH_TEST_DB.ANALYTICS.RNA_SUMMARY SELECT DESCR, COUNT(*) FROM DH_TEST_DB.RNACENTRAL.RNC_DATABASE_COPY GROUP BY DESCR",
+            "target_settings": {
+              "target_type": "table",
+              "table_name": "RNA_SUMMARY",
+              "drop_after": false,
+              "database_name": "DH_TEST_DB",
+              "schema_name": "ANALYTICS",
+              "enforce_masking_policy": false,
+              "loading_mode": "append_only",
+              "fields": [],
+              "mapping_order": [],
+              "merge_settings": null
+            }
+          },
+          {
+            "name": "DH Test - Run multi-table river",
+            "is_enabled": true,
+            "step_id": "1d306f8dbb0d4284bf72028a8fdccaae",
+            "type": "river",
+            "river_id": "6ae8ef3fa9fd03374b44b3bd",
+            "input_variables": {},
+            "disable_errors": false
+          },
+          {
+            "name": "DH Test - Parallel container",
+            "is_enabled": true,
+            "container_id": "36c7c8f9768247be91b51da171b6ee44",
+            "disable_errors": false,
+            "type": "run_once",
+            "is_parallel": true,
+            "steps": [
+              {
+                "name": "DH Test - Run custom query river",
+                "is_enabled": true,
+                "step_id": "735f9f564b8640819f8a31cf0f2990e2",
+                "type": "river",
+                "river_id": "6ae8ef4b1de83529098c6db5",
+                "input_variables": {},
+                "disable_errors": false
+              },
+              {
+                "name": "DH Test - Build xref rollup",
+                "is_enabled": true,
+                "step_id": "97e1c551d9a9456a9932712efc968c7d",
+                "disable_errors": false,
+                "connection_id": "6ae8eee7c44e11a9bf520505",
+                "type": "snowflake_sql_query",
+                "sql_query": "SELECT DBID, COUNT(*) AS N FROM DH_TEST_DB.RNACENTRAL.RNA GROUP BY DBID",
+                "target_settings": {
+                  "target_type": "table",
+                  "table_name": "XREF_ROLLUP",
+                  "drop_after": false,
+                  "database_name": "DH_TEST_DB",
+                  "schema_name": "ANALYTICS",
+                  "enforce_masking_policy": false,
+                  "loading_mode": "append_only",
+                  "fields": [],
+                  "mapping_order": [],
+                  "merge_settings": null
+                }
+              }
+            ]
+          },
+          {
+            "name": "DH Test - Disabled step",
+            "is_enabled": false,
+            "step_id": "a6448ef298614b65893887af54df59fd",
+            "disable_errors": false,
+            "connection_id": "6ae8eee7c44e11a9bf520505",
+            "type": "snowflake_sql_query",
+            "sql_query": "SELECT 1",
+            "target_settings": {
+              "target_type": "table",
+              "table_name": "DISABLED_TARGET",
+              "drop_after": false,
+              "database_name": "DH_TEST_DB",
+              "schema_name": "ANALYTICS",
+              "enforce_masking_policy": false,
+              "loading_mode": "append_only",
+              "fields": [],
+              "mapping_order": [],
+              "merge_settings": null
+            }
+          }
+        ]
+      },
+      {
+        "name": "DH Test - Condition container",
+        "is_enabled": true,
+        "container_id": "cbc12cad4c694ede9cea29fb0bbd5816",
+        "disable_errors": false,
+        "type": "condition",
+        "steps": [
+          {
+            "condition": {
+              "operator": ">",
+              "operand_1": "{row_count}",
+              "operand_2": "0"
+            },
+            "action": "run_step",
+            "is_else": false,
+            "condition_name": "Has rows",
+            "step": {
+              "name": "DH Test - Final rollup",
+              "is_enabled": true,
+              "step_id": "d00c1958b9a649efbcb3b2d493164c15",
+              "disable_errors": false,
+              "connection_id": "6ae8eee7c44e11a9bf520505",
+              "type": "snowflake_sql_query",
+              "sql_query": "SELECT * FROM DH_TEST_DB.ANALYTICS.XREF_ROLLUP",
+              "target_settings": {
+                "target_type": "table",
+                "table_name": "FINAL_ROLLUP",
+                "drop_after": false,
+                "database_name": "DH_TEST_DB",
+                "schema_name": "ANALYTICS",
+                "enforce_masking_policy": false,
+                "loading_mode": "append_only",
+                "fields": [],
+                "mapping_order": [],
+                "merge_settings": null
+              }
+            }
+          },
+          {
+            "condition": null,
+            "action": "skip_container",
+            "is_else": true,
+            "condition_name": "Else",
+            "step": null
+          }
+        ]
+      }
+    ],
+    "properties_type": "logic"
+  },
+  "settings": {
+    "run_timeout_seconds": null,
+    "notification": {
+      "warning": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      },
+      "failure": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      },
+      "run_threshold": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      }
+    },
+    "schedule_retry_config": {
+      "enable_scheduler_retry": false,
+      "retry_count": null,
+      "delay_between_retries": null
+    }
+  },
+  "schedulers": []
+}

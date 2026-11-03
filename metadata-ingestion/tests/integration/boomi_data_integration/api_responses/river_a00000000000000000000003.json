@@ -1,0 +1,131 @@
+{
+  "cross_id": "a00000000000000000000003",
+  "account_id": "acct000000000000000000001",
+  "kind": "main_river",
+  "type": "source_to_target",
+  "name": "Archive to S3",
+  "environment_id": "e00000000000000000000002",
+  "environment_name": "Development",
+  "group_id": "a00000000000000000000010",
+  "group_name": "Sandbox",
+  "metadata": {
+    "description": "Synthetic Archive to S3 river.",
+    "river_status": "active",
+    "current_version_id": "6ae8ef3f616e536a6130b419",
+    "created_by": "Example User",
+    "last_updated_by": "Example User",
+    "created_at": "2026-11-02T20:14:55.701000Z",
+    "last_updated_at": "2026-11-02T20:14:55.701000Z",
+    "is_deleted": false,
+    "suspended": null,
+    "last_activated": null,
+    "last_disabled": null
+  },
+  "properties": {
+    "properties_type": "source_to_target",
+    "source": {
+      "name": "mysql",
+      "connection_id": "6ae8eee66e1b69aeb4e8069e",
+      "connection_name": "DH Test - Ensembl MySQL",
+      "run_type": "multi_tables",
+      "cdc_settings": null,
+      "additional_settings": {
+        "extract_method": "all",
+        "source_type": "postgresql"
+      }
+    },
+    "target": {
+      "name": "s3",
+      "connection_id": "a00000000000000000000095",
+      "connection_name": "Archive bucket",
+      "single_table_settings": null,
+      "table_name": "",
+      "target_prefix": "",
+      "is_ordered_merge_key": null,
+      "order_expression": null,
+      "loading_method": "append",
+      "merge_method": null,
+      "file_zone_settings": {
+        "path": "DH_Test_-_PG_to_Snowflake_multi_6ae8ef3fa9fd03374b44b3bd",
+        "bucket_name": "",
+        "partitioned_kind": "by_day",
+        "fz_loading_mode": "auto-period"
+      },
+      "file_path_destination": "mysql/",
+      "additional_settings": {}
+    },
+    "schemas": [
+      {
+        "name": "core",
+        "tables": [
+          {
+            "run_type_and_datasource": "multi_tables",
+            "details": {
+              "is_selected": true,
+              "target_table": "gene",
+              "modified_columns": [],
+              "additional_target_settings": {
+                "is_ordered_merge_key": false,
+                "order_expression": null,
+                "target_loading": null,
+                "target_type": "snowflake",
+                "merge_method": null,
+                "enforce_masking_policy": false,
+                "recreate_keys": false,
+                "escape_character": null,
+                "remove_deleted_rows": null
+              },
+              "extract_method": null,
+              "name": "gene",
+              "incremental_field": null,
+              "date_range": null,
+              "running_number": null,
+              "epoch": null,
+              "exporter_chunk_size": 30000,
+              "table_status": "tracked",
+              "cdc_settings": {
+                "initiate_table": null,
+                "overwrite_table_in_migration": null
+              },
+              "change_tracking_settings": null,
+              "system_versioning_settings": null,
+              "additional_source_settings": {
+                "filter_expression": "",
+                "source_type": "postgresql",
+                "include_timezone": null,
+                "timezone_offset": 0
+              },
+              "is_custom_incremental": false
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "settings": {
+    "run_timeout_seconds": null,
+    "notification": {
+      "warning": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      },
+      "failure": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      },
+      "run_threshold": {
+        "email": "{DEFAULT_EMAIL_GROUP}",
+        "is_enabled": false,
+        "execution_time_limit_seconds": null
+      }
+    },
+    "schedule_retry_config": {
+      "enable_scheduler_retry": false,
+      "retry_count": null,
+      "delay_between_retries": null
+    }
+  },
+  "schedulers": []
+}

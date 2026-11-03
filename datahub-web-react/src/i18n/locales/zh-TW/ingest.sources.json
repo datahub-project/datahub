@@ -16,6 +16,7 @@
     "sources.athena.description": "從 Athena 匯入結構描述、資料表、檢視表，以及連往 S3 的資料血緣。",
     "sources.azureAd.description": "從 Azure Active Directory 匯入使用者與群組。",
     "sources.bigquery.description": "從 BigQuery 匯入專案、資料集、資料表、檢視表、資料血緣、查詢與統計資料。",
+    "sources.boomiDataIntegration.description": "從 Boomi Data Integration 匯入環境、群組、River、邏輯步驟以及到目標表的資料血緣。",
     "sources.cassandra.description": "從 Cassandra 匯入資料表、Keyspace 與欄位結構描述。",
     "sources.clickhouse.description": "從 ClickHouse 匯入資料表、檢視表、具體化檢視表、字典、統計資料、查詢與資料血緣。",
     "sources.cockroachdb.description": "從 CockroachDB 匯入資料庫、結構描述、資料表、檢視表、統計資料與資料血緣。",
