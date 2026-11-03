@@ -302,7 +302,7 @@ jobs:
             exit 0
           fi
 
-          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ] || [ "$TEAM_KEY" = "OSS" ] || [ "$TEAM_KEY" = "CAT" ]; then
+          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ] || [ "$TEAM_KEY" = "OSS" ]; then
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
@@ -522,7 +522,7 @@ jobs:
             exit 0
           fi
 
-          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ] || [ "$TEAM_KEY" = "OSS" ] || [ "$TEAM_KEY" = "CAT" ]; then
+          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ] || [ "$TEAM_KEY" = "OSS" ]; then
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
