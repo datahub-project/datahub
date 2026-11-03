@@ -1308,6 +1308,10 @@ def _promote_pattern_properties_to_additional(
     # type is left alone as already malformed input.
     if "type" not in promoted_schema:
         promoted_schema["type"] = "object"
+    # Same pure-map rule as _finalize_oneof_anyof_contributions: json_schema_util
+    # checks unions before maps and would drop the promoted value type.
+    for union_key in ("oneOf", "anyOf", "allOf"):
+        promoted_schema.pop(union_key, None)
     return promoted_schema
 
 
@@ -1390,7 +1394,17 @@ def _normalize_map_schemas(schema: object) -> object:
 
     if "items" in schema:
         items_value = schema["items"]
-        if not isinstance(items_value, dict):
+        if isinstance(items_value, list):
+            # Tuple form (draft-04 / Swagger 2.0): one schema per position.
+            # json_schema_util only takes a single element schema, so collapse the
+            # positions into an anyOf to keep their types.
+            positions, _ = _normalize_map_schemas_list(items_value)
+            if len(positions) == 1:
+                new_schema["items"] = positions[0]
+            else:
+                new_schema["items"] = {"anyOf": positions} if positions else {}
+            changed = True
+        elif not isinstance(items_value, dict):
             # true, false, None (a hand-written "items:" with no value), or a
             # scalar all collapse to an empty schema rather than being dropped.
             # Unlike properties/patternProperties, a *missing* "items" is not

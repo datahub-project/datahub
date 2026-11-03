@@ -5014,6 +5014,20 @@ def test_merge_allof_bool_subschema_collision(
             {"type": "array", "items": {}},
             id="items_none",
         ),
+        # Tuple items (draft-04 / Swagger 2.0) keep their position types.
+        pytest.param(
+            {"type": "array", "items": [{"type": "string"}, {"type": "integer"}]},
+            {
+                "type": "array",
+                "items": {"anyOf": [{"type": "string"}, {"type": "integer"}]},
+            },
+            id="items_tuple",
+        ),
+        pytest.param(
+            {"type": "array", "items": [{"type": "string"}]},
+            {"type": "array", "items": {"type": "string"}},
+            id="items_tuple_single",
+        ),
         pytest.param(
             {
                 "oneOf": [
@@ -5048,3 +5062,35 @@ def test_normalize_non_dict_subschema(
         json_schema=resolved,
         swallow_exceptions=False,
     )
+
+
+@pytest.mark.parametrize(
+    "union",
+    [
+        pytest.param({"oneOf": [{"required": ["x"]}, {"required": ["y"]}]}, id="oneof"),
+        pytest.param(
+            {
+                "allOf": [
+                    {"anyOf": [{"required": ["x"]}]},
+                    {"anyOf": [{"required": ["y"]}]},
+                ]
+            },
+            id="allof_anyof_collision",
+        ),
+    ],
+)
+def test_promoted_pattern_map_keeps_value_type_beside_union(
+    union: Dict[str, Any],
+) -> None:
+    # json_schema_util checks unions before maps, so a union keyword left on the
+    # promoted map would drop the map value type.
+    schema = {
+        "type": "object",
+        "patternProperties": {"^a": {"$ref": "#/components/schemas/Item"}},
+        **union,
+    }
+    resolved = resolve_schema_references(schema, _ITEM_ID_ONLY_SW)
+    metadata = get_schema_metadata(
+        platform="openapi", name="pattern-union", json_schema=resolved
+    )
+    assert any(f.fieldPath.endswith(".id") for f in metadata.fields)
