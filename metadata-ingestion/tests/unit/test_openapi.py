@@ -1,6 +1,7 @@
 import json
+import logging
 import unittest
-from typing import Any, Counter, Dict, List
+from typing import Any, Counter, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -680,234 +681,6 @@ paths:
         endpoints = get_endpoints(sw_dict)
         self.assertIn("/pets", endpoints)
 
-    def test_get_endpoints_malformed_path_item_does_not_abort_other_endpoints(
-        self,
-    ) -> None:
-        # Regression: a single malformed "paths" entry (e.g. a null value from a
-        # broken generator) used to raise AttributeError from p_o.get(method),
-        # aborting extraction for every other endpoint in the spec too.
-        sw_dict = {
-            "openapi": "3.0.0",
-            "paths": {
-                "/broken": None,
-                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
-            },
-        }
-        endpoints = get_endpoints(sw_dict)
-        self.assertIn("/pets", endpoints)
-        self.assertNotIn("/broken", endpoints)
-
-    def test_get_endpoints_malformed_method_spec_does_not_abort_other_endpoints(
-        self,
-    ) -> None:
-        # Same regression as above, for a malformed method spec (non-object value)
-        # instead of a malformed path item.
-        sw_dict = {
-            "openapi": "3.0.0",
-            "paths": {
-                "/broken": {"get": "oops"},
-                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
-            },
-        }
-        endpoints = get_endpoints(sw_dict)
-        self.assertIn("/pets", endpoints)
-        self.assertNotIn("/broken", endpoints)
-
-    def test_get_endpoints_malformed_responses_does_not_abort_other_endpoints(
-        self,
-    ) -> None:
-        # Regression: the malformed-path/method guards above still let a malformed
-        # "responses" value (one key deeper) raise AttributeError from
-        # responses.get("200"), aborting the whole spec rather than just /broken.
-        sw_dict = {
-            "openapi": "3.0.0",
-            "paths": {
-                "/broken": {"get": {"responses": None}},
-                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
-            },
-        }
-        endpoints = get_endpoints(sw_dict)
-        self.assertIn("/pets", endpoints)
-        self.assertNotIn("/broken", endpoints)
-
-    def test_get_endpoints_malformed_200_response_does_not_abort_other_endpoints(
-        self,
-    ) -> None:
-        # Same regression as above, for a non-object "200" response value (which
-        # would otherwise reach check_for_api_example_data's `"content" in base_res`
-        # and crash on a non-dict/non-iterable base_res).
-        sw_dict = {
-            "openapi": "3.0.0",
-            "paths": {
-                "/broken": {"get": {"responses": {"200": 42}}},
-                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
-            },
-        }
-        endpoints = get_endpoints(sw_dict)
-        self.assertIn("/pets", endpoints)
-        self.assertNotIn("/broken", endpoints)
-
-    def test_get_endpoints_malformed_tags_warns_and_falls_back_to_empty_list(
-        self,
-    ) -> None:
-        # Regression: a malformed non-list "tags" (e.g. a bare string) used to
-        # be stored as-is and later iterated character-by-character by the
-        # caller, silently emitting one bogus single-letter tag per character
-        # instead of failing loudly.
-        sw_dict = {
-            "openapi": "3.0.0",
-            "paths": {
-                "/pets": {
-                    "get": {
-                        "tags": "not-a-list",
-                        "responses": {"200": {"description": "ok"}},
-                    }
-                },
-            },
-        }
-        with self.assertLogs(
-            "datahub.ingestion.source.openapi_parser", level="WARNING"
-        ) as cm:
-            endpoints = get_endpoints(sw_dict)
-        self.assertEqual(endpoints["/pets"]["tags"], [])
-        self.assertTrue(any("malformed 'tags'" in msg for msg in cm.output))
-
-    def test_get_endpoints_malformed_description_warns_and_falls_back_to_empty_string(
-        self,
-    ) -> None:
-        # Regression: a non-string description/summary flowed straight into
-        # DatasetPropertiesClass with no validation or warning.
-        sw_dict = {
-            "openapi": "3.0.0",
-            "paths": {
-                "/pets": {
-                    "get": {
-                        "description": {"not": "a string"},
-                        "responses": {"200": {"description": "ok"}},
-                    }
-                },
-            },
-        }
-        with self.assertLogs(
-            "datahub.ingestion.source.openapi_parser", level="WARNING"
-        ) as cm:
-            endpoints = get_endpoints(sw_dict)
-        self.assertEqual(endpoints["/pets"]["description"], "")
-        self.assertTrue(any("malformed 'description'" in msg for msg in cm.output))
-
-    def test_get_endpoints_malformed_content_does_not_abort_other_endpoints(
-        self,
-    ) -> None:
-        # Regression: check_for_api_example_data indexed base_res["content"] with
-        # "application/json" without checking it was a dict first. get_endpoints
-        # calls it once, globally, before the per-endpoint try/except in
-        # APISource.get_workunits_internal exists -- so this crash used to abort
-        # extraction for the whole spec, not just /broken.
-        sw_dict = {
-            "openapi": "3.0.0",
-            "paths": {
-                "/broken": {
-                    "get": {"responses": {"200": {"content": ["application/json"]}}}
-                },
-                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
-            },
-        }
-        endpoints = get_endpoints(sw_dict)
-        self.assertIn("/pets", endpoints)
-        self.assertIn("/broken", endpoints)
-
-    def test_get_endpoints_malformed_json_content_does_not_abort_other_endpoints(
-        self,
-    ) -> None:
-        # Same regression, one level deeper: base_res["content"]["application/json"]
-        # not being a dict used to crash on `"example" in json_content` giving a
-        # false-positive substring match followed by a TypeError on indexing.
-        sw_dict = {
-            "openapi": "3.0.0",
-            "paths": {
-                "/broken": {
-                    "get": {
-                        "responses": {
-                            "200": {
-                                "content": {
-                                    "application/json": "text mentioning example"
-                                }
-                            }
-                        }
-                    }
-                },
-                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
-            },
-        }
-        endpoints = get_endpoints(sw_dict)
-        self.assertIn("/pets", endpoints)
-        self.assertIn("/broken", endpoints)
-
-    def test_get_endpoints_malformed_examples_entry_does_not_abort_other_endpoints(
-        self,
-    ) -> None:
-        # Regression: a non-dict value under "examples" (malformed Example Object)
-        # used to crash on examples[name].get("value", {}).
-        sw_dict = {
-            "openapi": "3.0.0",
-            "paths": {
-                "/broken": {
-                    "get": {
-                        "responses": {
-                            "200": {
-                                "content": {
-                                    "application/json": {
-                                        "examples": {"ex1": "not-a-dict"}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
-            },
-        }
-        endpoints = get_endpoints(sw_dict)
-        self.assertIn("/pets", endpoints)
-        self.assertEqual(endpoints["/broken"]["data"], {"ex1": "not-a-dict"})
-
-    def test_get_endpoints_malformed_v2_examples_does_not_abort_other_endpoints(
-        self,
-    ) -> None:
-        # Regression: OpenAPI v2 "examples" not being a dict used to crash on
-        # base_res["examples"]["application/json"].
-        sw_dict = {
-            "swagger": "2.0",
-            "paths": {
-                "/broken": {"get": {"responses": {"200": {"examples": "oops"}}}},
-                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
-            },
-        }
-        endpoints = get_endpoints(sw_dict)
-        self.assertIn("/pets", endpoints)
-        self.assertIn("/broken", endpoints)
-
-    def test_get_endpoints_malformed_csv_content_does_not_abort_other_endpoints(
-        self,
-    ) -> None:
-        # Regression: check_for_api_example_data indexed
-        # res_cont["text/csv"]["schema"] without checking "text/csv"'s value was
-        # a dict first, crashing on e.g. a bare string there.
-        sw_dict = {
-            "openapi": "3.0.0",
-            "paths": {
-                "/broken": {
-                    "get": {
-                        "responses": {"200": {"content": {"text/csv": "not-a-dict"}}}
-                    }
-                },
-                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
-            },
-        }
-        endpoints = get_endpoints(sw_dict)
-        self.assertIn("/pets", endpoints)
-        self.assertIn("/broken", endpoints)
-
     def test_resolve_schema_references_null_ref_value_does_not_crash(self):
         # Regression: a non-string $ref value (e.g. an empty "$ref:" line, which
         # parses as None in YAML) crashed on ref_path.startswith(...) instead of
@@ -921,50 +694,107 @@ paths:
         # AttributeError from .get("url", "") instead of degrading to "".
         self.assertEqual(get_url_basepath({"servers": ["not-a-dict"]}), "")
 
-    def test_check_sw_version_missing_version_logs_warning(self) -> None:
-        with self.assertLogs(
-            "datahub.ingestion.source.openapi_parser", level="WARNING"
-        ) as cm:
-            check_sw_version({"paths": {}})
-        self.assertTrue(
-            any("no swagger or openapi version key" in msg for msg in cm.output)
-        )
-
-    def test_check_sw_version_strips_prerelease_and_build_suffixes(self) -> None:
-        # "3.0.1-rc1" and "3.1.0+SNAPSHOT" must compare on major.minor only,
-        # not raise or misparse because of the suffix.
-        with self.assertNoLogs(
-            "datahub.ingestion.source.openapi_parser", level="WARNING"
-        ):
-            check_sw_version({"openapi": "3.0.1-rc1"})
-        # INFO, not WARNING: every valid 3.1+ spec hits this, so it's purely
-        # informational, not something an operator needs to act on.
-        with self.assertLogs(
-            "datahub.ingestion.source.openapi_parser", level="INFO"
-        ) as cm:
-            check_sw_version({"openapi": "3.1.0+SNAPSHOT"})
-        self.assertTrue(any("not been fully tested" in msg for msg in cm.output))
-
-    def test_check_sw_version_malformed_version_logs_warning(self) -> None:
-        with self.assertLogs(
-            "datahub.ingestion.source.openapi_parser", level="WARNING"
-        ) as cm:
-            check_sw_version({"openapi": "abc.def"})
-        self.assertTrue(
-            any("Unable to parse OpenAPI/Swagger version" in msg for msg in cm.output)
-        )
-
-    def test_check_sw_version_non_string_version_logs_warning(self) -> None:
-        with self.assertLogs(
-            "datahub.ingestion.source.openapi_parser", level="WARNING"
-        ) as cm:
-            check_sw_version({"openapi": 3})
-        self.assertTrue(
-            any("no swagger or openapi version key" in msg for msg in cm.output)
-        )
-
 
 _OK_GET: Dict[str, Any] = {"get": {"responses": {"200": {"description": "ok"}}}}
+
+
+def _response_200(response: Any) -> Dict[str, Any]:
+    return {"get": {"responses": {"200": response}}}
+
+
+@pytest.mark.parametrize(
+    "broken_path_item, fragment, broken_details",
+    [
+        # A null path item (e.g. from a broken generator) used to raise
+        # AttributeError from p_o.get(method).
+        pytest.param(None, SpecFragment.PATH_ITEM, None, id="path_item"),
+        pytest.param({"get": "oops"}, SpecFragment.METHOD_SPEC, None, id="method_spec"),
+        pytest.param(
+            {"get": {"responses": None}}, SpecFragment.RESPONSES, None, id="responses"
+        ),
+        # Would otherwise reach check_for_api_example_data's `"content" in base_res`.
+        pytest.param(_response_200(42), SpecFragment.RESPONSE_200, None, id="200"),
+        # A bare-string "tags" used to be iterated character-by-character
+        # downstream, emitting one bogus single-letter tag per character.
+        pytest.param(
+            {"get": {"tags": "not-a-list", **_OK_GET["get"]}},
+            SpecFragment.TAGS,
+            {"tags": []},
+            id="tags",
+        ),
+        pytest.param(
+            {"get": {"description": {"not": "a string"}, **_OK_GET["get"]}},
+            SpecFragment.DESCRIPTION,
+            {"description": ""},
+            id="description",
+        ),
+        # The example-data fragments below are parsed by get_endpoints once for the
+        # whole spec, outside the per-endpoint try/except in the source, so a crash
+        # in any of them used to abort every endpoint.
+        pytest.param(
+            _response_200({"content": ["application/json"]}),
+            SpecFragment.CONTENT,
+            {"method": "get"},
+            id="content",
+        ),
+        # "example" in a str is a substring match, then indexing it raised TypeError.
+        pytest.param(
+            _response_200({"content": {"application/json": "text mentioning example"}}),
+            SpecFragment.JSON_CONTENT,
+            {"method": "get"},
+            id="json_content",
+        ),
+        pytest.param(
+            _response_200({"content": {"text/csv": "not-a-dict"}}),
+            SpecFragment.CSV_CONTENT,
+            {"method": "get"},
+            id="csv_content",
+        ),
+        pytest.param(
+            _response_200({"examples": "oops"}),
+            SpecFragment.V2_EXAMPLES,
+            {"method": "get"},
+            id="v2_examples",
+        ),
+        # A non-dict Example Object is tolerated as the raw example value, not
+        # skipped, so nothing is counted.
+        pytest.param(
+            _response_200(
+                {"content": {"application/json": {"examples": {"ex1": "not-a-dict"}}}}
+            ),
+            None,
+            {"data": {"ex1": "not-a-dict"}},
+            id="examples_entry",
+        ),
+    ],
+)
+def test_get_endpoints_malformed_fragment_does_not_abort_other_endpoints(
+    caplog: pytest.LogCaptureFixture,
+    broken_path_item: Any,
+    fragment: Optional[SpecFragment],
+    broken_details: Optional[Dict[str, Any]],
+) -> None:
+    sw_dict = {
+        "openapi": "3.0.0",
+        "paths": {"/broken": broken_path_item, "/pets": _OK_GET},
+    }
+    skipped: Counter[SpecFragment] = Counter()
+    with caplog.at_level(
+        logging.WARNING, logger="datahub.ingestion.source.openapi_parser"
+    ):
+        endpoints = get_endpoints(sw_dict, skipped)
+
+    assert "/pets" in endpoints
+    if broken_details is None:
+        assert "/broken" not in endpoints
+    else:
+        for key, value in broken_details.items():
+            assert endpoints["/broken"][key] == value
+    if fragment is None:
+        assert not skipped
+    else:
+        assert skipped == Counter({fragment: 1})
+        assert caplog.records
 
 
 def test_get_endpoints_counts_each_malformed_fragment() -> None:
@@ -981,6 +811,58 @@ def test_get_endpoints_counts_each_malformed_fragment() -> None:
     get_endpoints(sw_dict, skipped)
     assert skipped == Counter(
         {SpecFragment.PATH_ITEM: 2, SpecFragment.TAGS: 1, SpecFragment.V2_EXAMPLES: 1}
+    )
+
+
+@pytest.mark.parametrize(
+    "sw_dict, level, expected_message",
+    [
+        pytest.param(
+            {"paths": {}},
+            logging.WARNING,
+            "no swagger or openapi version key",
+            id="missing",
+        ),
+        pytest.param(
+            {"openapi": 3},
+            logging.WARNING,
+            "no swagger or openapi version key",
+            id="non_string",
+        ),
+        pytest.param(
+            {"openapi": "abc.def"},
+            logging.WARNING,
+            "Unable to parse OpenAPI/Swagger version",
+            id="unparseable",
+        ),
+        # Prerelease/build suffixes compare on major.minor only. 3.1+ logs at
+        # INFO, not WARNING: every valid 3.1 spec hits it.
+        pytest.param({"openapi": "3.0.1-rc1"}, None, None, id="prerelease_3_0"),
+        pytest.param(
+            {"openapi": "3.1.0+SNAPSHOT"},
+            logging.INFO,
+            "not been fully tested",
+            id="build_suffix_3_1",
+        ),
+    ],
+)
+def test_check_sw_version(
+    caplog: pytest.LogCaptureFixture,
+    sw_dict: Dict[str, Any],
+    level: Optional[int],
+    expected_message: Optional[str],
+) -> None:
+    with caplog.at_level(
+        logging.INFO, logger="datahub.ingestion.source.openapi_parser"
+    ):
+        check_sw_version(sw_dict)
+    if level is None:
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+        return
+    assert expected_message is not None
+    assert any(
+        r.levelno == level and expected_message in r.getMessage()
+        for r in caplog.records
     )
 
 
@@ -4648,248 +4530,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         )
         self.assertEqual(merged["patternProperties"]["^x"], {"type": "string"})
 
-    def test_merge_allof_pattern_properties_false_wins_collision(self):
-        # JSON Schema "false" matches nothing -- it's the most restrictive
-        # possible value schema, so it must win any collision outright
-        # (order-independent), not be silently discarded by whichever side
-        # happens to be a dict.
-        merged_false_first = merge_allof_schemas(
-            {
-                "allOf": [
-                    {"patternProperties": {"^x": False}},
-                    {"patternProperties": {"^x": {"type": "string"}}},
-                ]
-            },
-            _EMPTY_OPENAPI_SW,
-            max_depth=10,
-        )
-        self.assertIs(merged_false_first["patternProperties"]["^x"], False)
-
-        merged_false_second = merge_allof_schemas(
-            {
-                "allOf": [
-                    {"patternProperties": {"^x": {"type": "string"}}},
-                    {"patternProperties": {"^x": False}},
-                ]
-            },
-            _EMPTY_OPENAPI_SW,
-            max_depth=10,
-        )
-        self.assertIs(merged_false_second["patternProperties"]["^x"], False)
-
-    def test_merge_allof_pattern_properties_true_is_noop_against_real_schema(self):
-        # JSON Schema "true" matches anything -- colliding with it must not
-        # clobber a real schema on the other side.
-        merged = merge_allof_schemas(
-            {
-                "allOf": [
-                    {"patternProperties": {"^x": {"type": "string"}}},
-                    {"patternProperties": {"^x": True}},
-                ]
-            },
-            _EMPTY_OPENAPI_SW,
-            max_depth=10,
-        )
-        self.assertEqual(merged["patternProperties"]["^x"], {"type": "string"})
-
-    def test_merge_allof_additional_properties_false_wins_collision(self):
-        # Regression: unlike the sibling patternProperties merge, a
-        # bool/dict collision on additionalProperties fell through both
-        # isinstance checks and silently did nothing -- "false" (no extra
-        # properties allowed) must win over a dict schema from another
-        # allOf member, not be silently dropped.
-        merged = merge_allof_schemas(
-            {
-                "allOf": [
-                    {"additionalProperties": {"type": "string"}},
-                    {"additionalProperties": False},
-                ]
-            },
-            _EMPTY_OPENAPI_SW,
-            max_depth=10,
-        )
-        self.assertIs(merged["additionalProperties"], False)
-
-    def test_merge_allof_additional_properties_true_is_noop_against_real_schema(self):
-        # "true" colliding with a real schema must not clobber it.
-        merged = merge_allof_schemas(
-            {
-                "allOf": [
-                    {"additionalProperties": {"type": "string"}},
-                    {"additionalProperties": True},
-                ]
-            },
-            _EMPTY_OPENAPI_SW,
-            max_depth=10,
-        )
-        self.assertEqual(merged["additionalProperties"], {"type": "string"})
-
-    def test_merge_allof_property_names_false_wins_collision(self):
-        # Regression: unlike its two siblings, propertyNames previously had
-        # NO false/true handling at all -- a "propertyNames: false" colliding
-        # with a dict schema was silently first-wins instead of correctly
-        # winning the intersection.
-        merged = merge_allof_schemas(
-            {
-                "allOf": [
-                    {"propertyNames": {"minLength": 1}},
-                    {"propertyNames": False},
-                ]
-            },
-            _EMPTY_OPENAPI_SW,
-            max_depth=10,
-        )
-        self.assertIs(merged["propertyNames"], False)
-
-    def test_merge_allof_property_names_true_is_noop_against_real_schema(self):
-        # "true" colliding with a real schema must not clobber it.
-        merged = merge_allof_schemas(
-            {
-                "allOf": [
-                    {"propertyNames": {"minLength": 1}},
-                    {"propertyNames": True},
-                ]
-            },
-            _EMPTY_OPENAPI_SW,
-            max_depth=10,
-        )
-        self.assertEqual(merged["propertyNames"], {"minLength": 1})
-
-    def test_merge_allof_property_true_does_not_clobber_real_schema(self):
-        # Regression: unlike additionalProperties/patternProperties/
-        # propertyNames, a colliding "properties" entry took the bare
-        # assignment path and let a later allOf member's bare "true" (a
-        # no-op JSON Schema constraint) clobber an earlier member's real
-        # schema -- order-dependent, and a surviving boolean here crashes
-        # get_schema_metadata (TypeError: argument of type 'bool' is not
-        # iterable).
-        merged_a = merge_allof_schemas(
-            {
-                "allOf": [
-                    {"properties": {"a": {"type": "string"}}},
-                    {"properties": {"a": True}},
-                ]
-            },
-            _EMPTY_OPENAPI_SW,
-            max_depth=10,
-        )
-        self.assertEqual(merged_a["properties"]["a"], {"type": "string"})
-
-        merged_b = merge_allof_schemas(
-            {
-                "allOf": [
-                    {"properties": {"a": True}},
-                    {"properties": {"a": {"type": "string"}}},
-                ]
-            },
-            _EMPTY_OPENAPI_SW,
-            max_depth=10,
-        )
-        self.assertEqual(merged_b["properties"]["a"], {"type": "string"})
-
-    def test_normalize_bare_boolean_property_survives_schema_metadata(self):
-        # Regression: a lone "properties": {"a": true} (no allOf collision
-        # involved) reached get_schema_metadata as a raw bool and crashed it.
-        # "true" (matches anything) normalizes to an empty schema.
-        resolved = resolve_schema_references(
-            {"type": "object", "properties": {"a": True}}, _EMPTY_OPENAPI_SW
-        )
-        self.assertEqual(resolved["properties"]["a"], {})
-        get_schema_metadata(
-            platform="openapi",
-            name="bool-property",
-            json_schema=resolved,
-            swallow_exceptions=False,
-        )
-
-    def test_normalize_bare_boolean_property_false_is_dropped(self):
-        # "false" (matches nothing) can't be represented as a field schema --
-        # drop it rather than let it reach get_schema_metadata.
-        resolved = resolve_schema_references(
-            {"type": "object", "properties": {"a": False, "b": {"type": "string"}}},
-            _EMPTY_OPENAPI_SW,
-        )
-        self.assertNotIn("a", resolved["properties"])
-        self.assertIn("b", resolved["properties"])
-
-    def test_normalize_bare_boolean_items_survives_schema_metadata(self):
-        # Regression: a lone "items": true (no allOf collision) reached
-        # get_schema_metadata as a raw bool and crashed it.
-        resolved = resolve_schema_references(
-            {"type": "array", "items": True}, _EMPTY_OPENAPI_SW
-        )
-        self.assertEqual(resolved["items"], {})
-
-    def test_normalize_bare_boolean_items_false_becomes_empty_schema(self):
-        # `items: false` normalizes to an empty schema {}, not dropped: a
-        # missing `items` is treated as `true` by JSON Schema and would then
-        # default the array to a string element type, silently mistyping it.
-        resolved = resolve_schema_references(
-            {"type": "array", "items": False}, _EMPTY_OPENAPI_SW
-        )
-        self.assertEqual(resolved.get("items"), {})
-
-    def test_normalize_bare_boolean_oneof_member_survives_schema_metadata(self):
-        # Regression: a bare boolean member of oneOf/anyOf/allOf is the same
-        # crash class as properties/items -- get_schema_metadata raises
-        # TypeError on a non-dict schema value, destroying the endpoint's
-        # entire spec-derived schema for a legal JSON Schema construct.
-        resolved = resolve_schema_references(
-            {
-                "oneOf": [
-                    True,
-                    {"type": "object", "properties": {"a": {"type": "string"}}},
-                ]
-            },
-            _EMPTY_OPENAPI_SW,
-        )
-        self.assertEqual(resolved["oneOf"][0], {})
-        get_schema_metadata(
-            platform="openapi",
-            name="bool-oneof",
-            json_schema=resolved,
-            swallow_exceptions=False,
-        )
-
-    def test_normalize_bare_boolean_oneof_all_false_drops_keyword(self):
-        # Every member being unrepresentable ("false") leaves nothing to
-        # constrain against -- drop the keyword entirely rather than leave
-        # a dangling empty list.
-        resolved = resolve_schema_references(
-            {"type": "object", "oneOf": [False]}, _EMPTY_OPENAPI_SW
-        )
-        self.assertNotIn("oneOf", resolved)
-
-    def test_normalize_none_property_value_is_dropped_not_just_bare_bool(self):
-        # Regression: the original fix keyed on `is True`/`is False`
-        # identity, but ANY non-dict subschema (not just a bare bool)
-        # crashes get_schema_metadata identically -- e.g. a hand-written
-        # "foo:" with no value parses to None in YAML/JSON.
-        resolved = resolve_schema_references(
-            {
-                "type": "object",
-                "properties": {"a": None, "b": {"type": "string"}},
-            },
-            _EMPTY_OPENAPI_SW,
-        )
-        self.assertNotIn("a", resolved["properties"])
-        self.assertIn("b", resolved["properties"])
-        get_schema_metadata(
-            platform="openapi",
-            name="none-property",
-            json_schema=resolved,
-            swallow_exceptions=False,
-        )
-
-    def test_normalize_none_items_value_becomes_empty_schema(self):
-        # A non-dict `items` (here None, e.g. a hand-written "items:" with no
-        # value) normalizes to an empty schema {} rather than being dropped --
-        # dropping would let the array default to a string element type.
-        resolved = resolve_schema_references(
-            {"type": "array", "items": None}, _EMPTY_OPENAPI_SW
-        )
-        self.assertEqual(resolved.get("items"), {})
-
     def test_merge_allof_root_required_cleaned_even_with_boolean_member(self):
         # Regression: the required-sanitization ran only inside the dict-only
         # branch, so a boolean allOf member (a valid draft-6+ member that
@@ -5270,3 +4910,127 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         assert result is not None
         self.assertEqual(self.source.schema_extraction_stats.from_openapi_spec, 1)
         self.assertTrue(len(result.fields) > 0)
+
+
+def _with_bool_subschema(slot: str, value: Any) -> Dict[str, Any]:
+    if slot == "patternProperties":
+        return {slot: {"^x": value}}
+    if slot == "properties":
+        return {slot: {"a": value}}
+    return {slot: value}
+
+
+def _bool_subschema_slot(slot: str, merged: Dict[str, Any]) -> Any:
+    if slot == "patternProperties":
+        return merged[slot]["^x"]
+    if slot == "properties":
+        return merged[slot]["a"]
+    return merged[slot]
+
+
+@pytest.mark.parametrize(
+    "slot, real_schema",
+    [
+        ("patternProperties", {"type": "string"}),
+        ("additionalProperties", {"type": "string"}),
+        # propertyNames previously had no true/false handling at all.
+        ("propertyNames", {"minLength": 1}),
+        # A surviving bool under "properties" crashes get_schema_metadata.
+        ("properties", {"type": "string"}),
+    ],
+)
+@pytest.mark.parametrize("bool_first", [True, False])
+@pytest.mark.parametrize("bool_value", [True, False])
+def test_merge_allof_bool_subschema_collision(
+    slot: str, real_schema: Dict[str, Any], bool_first: bool, bool_value: bool
+) -> None:
+    # JSON Schema "false" matches nothing, so it wins any collision; "true"
+    # matches anything, so it must not clobber a real schema. Both must hold
+    # regardless of allOf member order.
+    members = [
+        _with_bool_subschema(slot, bool_value),
+        _with_bool_subschema(slot, real_schema),
+    ]
+    if not bool_first:
+        members.reverse()
+    merged = merge_allof_schemas({"allOf": members}, _EMPTY_OPENAPI_SW, max_depth=10)
+    result = _bool_subschema_slot(slot, merged)
+    if bool_value:
+        assert result == real_schema
+    else:
+        assert result is False
+
+
+@pytest.mark.parametrize(
+    "schema, expected",
+    [
+        # "true" (matches anything) becomes an empty schema.
+        pytest.param(
+            {"type": "object", "properties": {"a": True}},
+            {"type": "object", "properties": {"a": {}}},
+            id="property_true",
+        ),
+        # "false" (matches nothing) can't be represented as a field: dropped.
+        pytest.param(
+            {"type": "object", "properties": {"a": False, "b": {"type": "string"}}},
+            {"type": "object", "properties": {"b": {"type": "string"}}},
+            id="property_false",
+        ),
+        # Any non-dict subschema crashes get_schema_metadata, not just bools --
+        # e.g. a hand-written "a:" with no value parses to None.
+        pytest.param(
+            {"type": "object", "properties": {"a": None, "b": {"type": "string"}}},
+            {"type": "object", "properties": {"b": {"type": "string"}}},
+            id="property_none",
+        ),
+        # Non-dict items become {} rather than being dropped: a missing "items"
+        # would default the array to a string element type.
+        pytest.param(
+            {"type": "array", "items": True},
+            {"type": "array", "items": {}},
+            id="items_true",
+        ),
+        pytest.param(
+            {"type": "array", "items": False},
+            {"type": "array", "items": {}},
+            id="items_false",
+        ),
+        pytest.param(
+            {"type": "array", "items": None},
+            {"type": "array", "items": {}},
+            id="items_none",
+        ),
+        pytest.param(
+            {
+                "oneOf": [
+                    True,
+                    {"type": "object", "properties": {"a": {"type": "string"}}},
+                ]
+            },
+            {
+                "oneOf": [
+                    {},
+                    {"type": "object", "properties": {"a": {"type": "string"}}},
+                ]
+            },
+            id="oneof_member_true",
+        ),
+        # Nothing left to constrain against: the keyword is dropped entirely.
+        pytest.param(
+            {"type": "object", "oneOf": [False]},
+            {"type": "object"},
+            id="oneof_all_false",
+        ),
+    ],
+)
+def test_normalize_non_dict_subschema(
+    schema: Dict[str, Any], expected: Dict[str, Any]
+) -> None:
+    resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+    assert resolved == expected
+    get_schema_metadata(
+        platform="openapi",
+        name="normalized",
+        json_schema=resolved,
+        swallow_exceptions=False,
+    )
