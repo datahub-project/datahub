@@ -2033,10 +2033,15 @@ def _merge_assignments(
         value = value.copy()
         if qualify_with_source and source_identifier is not None:
             # Only the USING source is visible to a NOT MATCHED ... INSERT, so its
-            # bare column names cannot refer to the target table.
+            # bare column names cannot refer to the target table. Columns inside a
+            # nested query (e.g. a scalar subquery) belong to that query's own
+            # scope and are left for the optimizer to qualify.
             for ref in value.find_all(sqlglot.exp.Column):
-                if not ref.args.get("table"):
-                    ref.set("table", source_identifier.copy())
+                if ref.args.get("table"):
+                    continue
+                if ref.find_ancestor(sqlglot.exp.Query) is not None:
+                    continue
+                ref.set("table", source_identifier.copy())
         _, values = assignments.setdefault(identifier.name, (identifier, {}))
         values.setdefault(value.sql(), value)
 

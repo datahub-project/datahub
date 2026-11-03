@@ -676,6 +676,42 @@ WHEN NOT MATCHED THEN INSERT VALUES (s.x, s.y)
     assert result.debug_info.error is None
     assert result.column_lineage is not None
     assert [cl.downstream.column for cl in result.column_lineage] == ["x", "y"]
+    src_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.src,PROD)"
+    assert [
+        [(u.table, u.column) for u in cl.upstreams] for cl in result.column_lineage
+    ] == [[(src_urn, "x")], [(src_urn, "y")]]
+
+
+def test_snowflake_merge_scalar_subquery_in_values() -> None:
+    # Bare column names in INSERT VALUES are qualified with the USING alias, but a
+    # column inside a nested subquery belongs to that subquery's own scope: `c`
+    # and `o.id` come from db.sch.other, not from the source.
+    assert_sql_result(
+        """\
+MERGE INTO db.sch.tgt t USING db.sch.src s ON t.id = s.id
+WHEN MATCHED THEN UPDATE SET
+    t.x = (SELECT MAX(c) FROM db.sch.other o WHERE o.id = s.id)
+WHEN NOT MATCHED THEN INSERT (id, x)
+    VALUES (id, (SELECT MAX(c) FROM db.sch.other o WHERE o.id = s.id))
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_merge_scalar_subquery_in_values.json",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.src,PROD)": {
+                "id": "NUMBER",
+                "amount": "NUMBER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.other,PROD)": {
+                "id": "NUMBER",
+                "c": "NUMBER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tgt,PROD)": {
+                "id": "NUMBER",
+                "x": "NUMBER",
+            },
+        },
+    )
 
 
 def test_expand_select_star_basic() -> None:
