@@ -56,9 +56,6 @@ import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.ListServiceAccountsResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.UpdateServiceAccountDefaultViewResolver;
-import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
-import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
-import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.AddBusinessAttributeResolver;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.CreateBusinessAttributeResolver;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.DeleteBusinessAttributeResolver;
@@ -305,7 +302,6 @@ import com.linkedin.datahub.graphql.resolvers.view.DeleteViewResolver;
 import com.linkedin.datahub.graphql.resolvers.view.ListGlobalViewsResolver;
 import com.linkedin.datahub.graphql.resolvers.view.ListMyViewsResolver;
 import com.linkedin.datahub.graphql.resolvers.view.UpdateViewResolver;
-import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
@@ -599,9 +595,6 @@ public class GmsGraphQLEngine {
   /** Configures the graph objects that can be searched. */
   public final List<SearchableEntityType<?, ?>> searchableTypes;
 
-  /** Configures the graph objects that can be browsed. */
-  public final List<BrowsableEntityType<?, ?>> browsableTypes;
-
   public GmsGraphQLEngine(final GmsGraphQLEngineArgs args) {
     this.graphQLPlugins = List.of(new SemanticSearchPlugin());
 
@@ -811,11 +804,6 @@ public class GmsGraphQLEngine {
         loadableTypes.stream()
             .filter(type -> (type instanceof SearchableEntityType<?, ?>))
             .map(type -> (SearchableEntityType<?, ?>) type)
-            .collect(Collectors.toList());
-    this.browsableTypes =
-        loadableTypes.stream()
-            .filter(type -> (type instanceof BrowsableEntityType<?, ?>))
-            .map(type -> (BrowsableEntityType<?, ?>) type)
             .collect(Collectors.toList());
   }
 
@@ -1208,8 +1196,6 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "autoCompleteForMultiple",
                     new AutoCompleteForMultipleResolver(searchableTypes, this.viewService))
-                .dataFetcher("browse", new BrowseResolver(browsableTypes))
-                .dataFetcher("browsePaths", new BrowsePathsResolver(browsableTypes))
                 .dataFetcher("dataset", getResolver(datasetType))
                 .dataFetcher("role", getResolver(roleType))
                 .dataFetcher(
@@ -1831,13 +1817,6 @@ public class GmsGraphQLEngine {
                         entityTypes,
                         (env) -> ((RecommendationContent) env.getSource()).getEntity())))
         .type(
-            "BrowseResults",
-            typeWiring ->
-                typeWiring.dataFetcher(
-                    "entities",
-                    new EntityTypeBatchResolver(
-                        entityTypes, (env) -> ((BrowseResults) env.getSource()).getEntities())))
-        .type(
             "ParentDomainsResult",
             typeWiring ->
                 typeWiring.dataFetcher(
@@ -2088,7 +2067,6 @@ public class GmsGraphQLEngine {
                         "relatedDocuments",
                         new com.linkedin.datahub.graphql.resolvers.knowledge
                             .RelatedDocumentsResolver(documentService, entityClient))
-                    .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.datasetType))
                     .dataFetcher(
                         "lineage",
                         new EntityLineageResultResolver(
@@ -2578,7 +2556,6 @@ public class GmsGraphQLEngine {
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.notebookType))
                 .dataFetcher(
                     "platform",
                     new LoadableTypeResolver<>(
@@ -2611,7 +2588,6 @@ public class GmsGraphQLEngine {
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
                         documentService, entityClient))
-                .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.dashboardType))
                 .dataFetcher(
                     "lineage",
                     new EntityLineageResultResolver(
@@ -2771,7 +2747,6 @@ public class GmsGraphQLEngine {
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
                         documentService, entityClient))
-                .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.chartType))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                 .dataFetcher(
                     "lineage",
@@ -2852,14 +2827,6 @@ public class GmsGraphQLEngine {
                     new EntityInterfaceTypeResolver(
                         loadableTypes.stream()
                             .filter(graphType -> graphType instanceof EntityType)
-                            .map(graphType -> (EntityType<?, ?>) graphType)
-                            .collect(Collectors.toList()))))
-        .type(
-            "BrowsableEntity",
-            typeWiring ->
-                typeWiring.typeResolver(
-                    new EntityInterfaceTypeResolver(
-                        browsableTypes.stream()
                             .map(graphType -> (EntityType<?, ?>) graphType)
                             .collect(Collectors.toList()))))
         .type(
@@ -2988,7 +2955,6 @@ public class GmsGraphQLEngine {
                         "relatedDocuments",
                         new com.linkedin.datahub.graphql.resolvers.knowledge
                             .RelatedDocumentsResolver(documentService, entityClient))
-                    .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.dataJobType))
                     .dataFetcher(
                         "lineage",
                         new EntityLineageResultResolver(
@@ -3098,7 +3064,6 @@ public class GmsGraphQLEngine {
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
                         documentService, entityClient))
-                .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.dataFlowType))
                 .dataFetcher(
                     "lineage",
                     new EntityLineageResultResolver(
@@ -3163,8 +3128,6 @@ public class GmsGraphQLEngine {
                         "relatedDocuments",
                         new com.linkedin.datahub.graphql.resolvers.knowledge
                             .RelatedDocumentsResolver(documentService, entityClient))
-                    .dataFetcher(
-                        "browsePaths", new EntityBrowsePathsResolver(this.mlFeatureTableType))
                     .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                     .dataFetcher(
                         "lineage",
@@ -3259,7 +3222,6 @@ public class GmsGraphQLEngine {
                         "relatedDocuments",
                         new com.linkedin.datahub.graphql.resolvers.knowledge
                             .RelatedDocumentsResolver(documentService, entityClient))
-                    .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.mlModelType))
                     .dataFetcher(
                         "lineage",
                         new EntityLineageResultResolver(
@@ -3311,8 +3273,6 @@ public class GmsGraphQLEngine {
                         "relatedDocuments",
                         new com.linkedin.datahub.graphql.resolvers.knowledge
                             .RelatedDocumentsResolver(documentService, entityClient))
-                    .dataFetcher(
-                        "browsePaths", new EntityBrowsePathsResolver(this.mlModelGroupType))
                     .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                     .dataFetcher(
                         "lineage",

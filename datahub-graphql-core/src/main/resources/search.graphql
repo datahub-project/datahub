@@ -48,17 +48,6 @@ extend type Query {
   ): AutoCompleteMultipleResults
 
   """
-  Hierarchically browse a specific type of DataHub Entity by path
-  Used by explore in the UI
-  """
-  browse(input: BrowseInput!): BrowseResults
-
-  """
-  Retrieve the browse paths corresponding to an entity
-  """
-  browsePaths(input: BrowsePathsInput!): [BrowsePath!]
-
-  """
   Aggregate across DataHub entities
   """
   aggregateAcrossEntities(
@@ -1326,78 +1315,6 @@ type AutoCompleteResults {
 }
 
 """
-Input required for browse queries
-"""
-input BrowseInput {
-  """
-  The browse entity type
-  """
-  type: EntityType!
-
-  """
-  The browse path
-  """
-  path: [String!]
-
-  """
-  The starting point of paginated results
-  """
-  start: Int
-
-  """
-  The number of elements included in the results
-  """
-  count: Int
-
-  """
-  Deprecated in favor of the more expressive orFilters field
-  Facet filters to apply to search results. These will be 'AND'-ed together.
-  """
-  filters: [FacetFilterInput!]
-    @deprecated(reason: "Use `orFilters`- they are more expressive")
-
-  """
-  A list of disjunctive criterion for the filter. (or operation to combine filters)
-  """
-  orFilters: [AndFilterInput!]
-}
-
-"""
-The results of a browse path traversal query
-"""
-type BrowseResults {
-  """
-  The browse results
-  """
-  entities: [Entity!]!
-
-  """
-  The groups present at the provided browse path
-  """
-  groups: [BrowseResultGroup!]!
-
-  """
-  The starting point of paginated results
-  """
-  start: Int!
-
-  """
-  The number of elements included in the results
-  """
-  count: Int!
-
-  """
-  The total number of browse results under the path with filters applied
-  """
-  total: Int!
-
-  """
-  Metadata containing resulting browse groups
-  """
-  metadata: BrowseResultMetadata!
-}
-
-"""
 Metadata about the Browse Paths response
 """
 type BrowseResultMetadata {
@@ -1410,46 +1327,6 @@ type BrowseResultMetadata {
   The total number of entities under the provided browse path
   """
   totalNumEntities: Long!
-}
-
-"""
-A group of Entities under a given browse path
-"""
-type BrowseResultGroup {
-  """
-  The path name of a group of browse results
-  """
-  name: String!
-
-  """
-  The number of entities within the group
-  """
-  count: Long!
-}
-
-"""
-Inputs for fetching the browse paths for a Metadata Entity
-"""
-input BrowsePathsInput {
-  """
-  The browse entity type
-  """
-  type: EntityType!
-
-  """
-  The entity urn
-  """
-  urn: String!
-}
-
-"""
-A hierarchical entity path
-"""
-type BrowsePath {
-  """
-  The components of the browse path
-  """
-  path: [String!]!
 }
 
 """

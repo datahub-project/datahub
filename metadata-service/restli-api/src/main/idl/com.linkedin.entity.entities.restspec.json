@@ -100,31 +100,6 @@
         "optional" : true
       } ]
     }, {
-      "name" : "browse",
-      "javaMethodName" : "browse",
-      "parameters" : [ {
-        "name" : "entity",
-        "type" : "string"
-      }, {
-        "name" : "path",
-        "type" : "string"
-      }, {
-        "name" : "filter",
-        "type" : "com.linkedin.metadata.query.filter.Filter",
-        "optional" : true
-      }, {
-        "name" : "start",
-        "type" : "int"
-      }, {
-        "name" : "limit",
-        "type" : "int"
-      }, {
-        "name" : "searchFlags",
-        "type" : "com.linkedin.metadata.query.SearchFlags",
-        "optional" : true
-      } ],
-      "returns" : "com.linkedin.metadata.browse.BrowseResult"
-    }, {
       "name" : "delete",
       "javaMethodName" : "deleteEntity",
       "doc" : "Deletes all data related to an individual urn(entity).\nService Returns: - a DeleteEntityResponse object.",
@@ -217,14 +192,6 @@
       "parameters" : [ {
         "name" : "request",
         "type" : "com.linkedin.entity.FilterExistingUrnsRequest"
-      } ],
-      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
-    }, {
-      "name" : "getBrowsePaths",
-      "javaMethodName" : "getBrowsePaths",
-      "parameters" : [ {
-        "name" : "urn",
-        "type" : "com.linkedin.common.Urn"
       } ],
       "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
     }, {

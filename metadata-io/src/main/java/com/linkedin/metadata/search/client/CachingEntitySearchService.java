@@ -4,7 +4,6 @@ import static com.datahub.util.RecordUtils.toJsonString;
 import static com.datahub.util.RecordUtils.toRecordTemplate;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.CACHE_HIT_ATTR;
 
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -54,7 +53,6 @@ public class CachingEntitySearchService {
   public static final String ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME = "entitySearchServiceSearch";
   public static final String ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME =
       "entitySearchServiceAutoComplete";
-  public static final String ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME = "entitySearchServiceBrowse";
   public static final String ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME = "entitySearchServiceScroll";
 
   private final CacheManager cacheManager;
@@ -115,27 +113,6 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       @Nullable Integer limit) {
     return getCachedAutoCompleteResults(opContext, entityName, input, field, filters, limit);
-  }
-
-  /**
-   * Retrieves cached auto complete results
-   *
-   * @param opContext the operation's context
-   * @param entityName type of entity to query
-   * @param path the path to be browsed
-   * @param filters the request map with fields and values as filters
-   * @param from index of the first entity located in path
-   * @param size the max number of entities contained in the response
-   * @return a {@link SearchResult} containing the requested batch of search results
-   */
-  public BrowseResult browse(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityName,
-      @Nonnull String path,
-      @Nullable Filter filters,
-      int from,
-      @Nullable Integer size) {
-    return getCachedBrowseResults(opContext, entityName, path, filters, from, size);
   }
 
   /**
@@ -258,54 +235,6 @@ public class CachingEntitySearchService {
         },
         MetricUtils.DROPWIZARD_NAME,
         MetricUtils.name(this.getClass(), "getCachedAutoCompleteResults"));
-  }
-
-  /** Returns cached browse results. */
-  public BrowseResult getCachedBrowseResults(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityName,
-      @Nonnull String path,
-      @Nullable Filter filters,
-      int from,
-      @Nullable Integer size) {
-
-    return opContext.withSpan(
-        "getBrowseResults",
-        () -> {
-          Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME);
-          BrowseResult result;
-          if (enableCache(opContext.getSearchContext().getSearchFlags())) {
-            Object cacheKey =
-                Sextet.with(
-                    opContext.getSearchContextId(),
-                    entityName,
-                    path,
-                    filters != null ? toJsonString(filters) : null,
-                    from,
-                    size);
-            String json = cache.get(cacheKey, String.class);
-            result = json != null ? toRecordTemplate(BrowseResult.class, json) : null;
-
-            if (result == null) {
-              result = getRawBrowseResults(opContext, entityName, path, filters, from, size);
-              cache.put(cacheKey, toJsonString(result));
-              Span.current().setAttribute(CACHE_HIT_ATTR, false);
-              opContext
-                  .getMetricUtils()
-                  .ifPresent(
-                      metricUtils ->
-                          metricUtils.increment(this.getClass(), "browse_cache_miss_count", 1));
-            } else {
-              Span.current().setAttribute(CACHE_HIT_ATTR, true);
-            }
-          } else {
-            Span.current().setAttribute(CACHE_HIT_ATTR, false);
-            result = getRawBrowseResults(opContext, entityName, path, filters, from, size);
-          }
-          return result;
-        },
-        MetricUtils.DROPWIZARD_NAME,
-        MetricUtils.name(this.getClass(), "getCachedBrowseResults"));
   }
 
   /** Returns cached scroll results. */
@@ -543,17 +472,6 @@ public class CachingEntitySearchService {
       final Filter filters,
       @Nullable Integer limit) {
     return entitySearchService.autoComplete(opContext, entityName, input, field, filters, limit);
-  }
-
-  /** Executes the expensive autocomplete query using the {@link EntitySearchService} */
-  private BrowseResult getRawBrowseResults(
-      @Nonnull OperationContext opContext,
-      final String entityName,
-      final String input,
-      final Filter filters,
-      final int start,
-      @Nullable Integer limit) {
-    return entitySearchService.browse(opContext, entityName, input, filters, start, limit);
   }
 
   /** Executes the expensive search query using the {@link EntitySearchService} */

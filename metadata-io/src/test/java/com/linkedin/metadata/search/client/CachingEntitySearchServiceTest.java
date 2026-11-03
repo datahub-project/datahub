@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -47,8 +46,6 @@ public class CachingEntitySearchServiceTest {
 
   @Mock private Cache autoCompleteCache;
 
-  @Mock private Cache browseCache;
-
   @Mock private Cache scrollCache;
 
   @Mock private MetricUtils metricUtils;
@@ -76,8 +73,6 @@ public class CachingEntitySearchServiceTest {
     when(cacheManager.getCache(
             CachingEntitySearchService.ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME))
         .thenReturn(autoCompleteCache);
-    when(cacheManager.getCache(CachingEntitySearchService.ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME))
-        .thenReturn(browseCache);
     when(cacheManager.getCache(CachingEntitySearchService.ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME))
         .thenReturn(scrollCache);
 
@@ -243,53 +238,6 @@ public class CachingEntitySearchServiceTest {
   }
 
   @Test
-  public void testBrowseWithCacheHit() {
-    // Arrange
-    String entityName = "dataset";
-    String path = "/prod/data";
-    Filter filter = new Filter();
-    int from = 0;
-    Integer size = 20;
-
-    BrowseResult cachedResult = new BrowseResult();
-    when(browseCache.get(any(), eq(String.class))).thenReturn("{\"entities\":[]}");
-
-    // Act
-    BrowseResult result = cachingService.browse(opContext, entityName, path, filter, from, size);
-
-    // Assert
-    assertNotNull(result);
-    verify(entitySearchService, never()).browse(any(), any(), any(), any(), anyInt(), any());
-  }
-
-  @Test
-  public void testBrowseWithCacheMiss() {
-    // Arrange
-    String entityName = "dataset";
-    String path = "/prod";
-    Filter filter = null;
-    int from = 10;
-    Integer size = 50;
-
-    BrowseResult expectedResult = new BrowseResult();
-    when(browseCache.get(any(), eq(String.class))).thenReturn(null);
-    when(entitySearchService.browse(any(), any(), any(), any(), anyInt(), any()))
-        .thenReturn(expectedResult);
-
-    // Act
-    BrowseResult result = cachingService.browse(opContext, entityName, path, filter, from, size);
-
-    // Assert
-    assertNotNull(result);
-    assertEquals(result, expectedResult);
-    verify(entitySearchService)
-        .browse(eq(opContext), eq(entityName), eq(path), eq(filter), eq(from), eq(size));
-    verify(browseCache).put(any(), anyString());
-    verify(metricUtils)
-        .increment(eq(CachingEntitySearchService.class), eq("browse_cache_miss_count"), eq(1d));
-  }
-
-  @Test
   public void testScrollWithCacheHit() {
     // Arrange
     List<String> entities = Arrays.asList("dataset", "dataflow");
@@ -424,28 +372,6 @@ public class CachingEntitySearchServiceTest {
     verify(autoCompleteCache, never()).get(any(), (Class<String>) any());
     verify(autoCompleteCache, never()).put(any(), any());
     verify(entitySearchService).autoComplete(any(), any(), any(), any(), any(), any());
-  }
-
-  @Test
-  public void testNullSearchFlags() {
-    // Arrange
-    when(searchContext.getSearchFlags()).thenReturn(null);
-
-    String entityName = "dataset";
-    String path = "/test";
-    BrowseResult expectedResult = new BrowseResult();
-
-    when(browseCache.get(any(), eq(String.class))).thenReturn(null);
-    when(entitySearchService.browse(any(), any(), any(), any(), anyInt(), any()))
-        .thenReturn(expectedResult);
-
-    // Act
-    BrowseResult result = cachingService.browse(opContext, entityName, path, null, 0, 10);
-
-    // Assert
-    assertNotNull(result);
-    verify(browseCache).get(any(), eq(String.class));
-    verify(browseCache).put(any(), anyString());
   }
 
   @Test

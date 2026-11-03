@@ -2,7 +2,6 @@ package com.linkedin.metadata.search;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.batch.BatchItem;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.entity.IngestResult;
@@ -223,25 +222,6 @@ public interface EntitySearchService {
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns);
 
   /**
-   * Gets a list of groups/entities that match given browse request.
-   *
-   * @param entityName type of entity to query
-   * @param path the path to be browsed
-   * @param requestParams the request map with fields and values as filters
-   * @param from index of the first entity located in path
-   * @param size the max number of entities contained in the response
-   * @return a {@link BrowseResult} that contains a list of groups/entities
-   */
-  @Nonnull
-  BrowseResult browse(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityName,
-      @Nonnull String path,
-      @Nullable Filter requestParams,
-      int from,
-      @Nullable Integer size);
-
-  /**
    * Gets browse snapshot of a given path
    *
    * @param entityName entity being browsed
@@ -280,17 +260,6 @@ public interface EntitySearchService {
       @Nonnull String input,
       int start,
       @Nullable Integer count);
-
-  /**
-   * Gets a list of paths for a given urn.
-   *
-   * @param entityName type of entity to query
-   * @param urn urn of the entity
-   * @return all paths related to a given urn
-   */
-  @Nonnull
-  List<String> getBrowsePaths(
-      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull Urn urn);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and

@@ -568,11 +568,6 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     assertEquals(filtered.getNumEntities().intValue(), 1);
     assertEquals(filtered.getEntities().get(0).getEntity(), tableUrn);
 
-    // Browse v1 follows the same rule: unfiltered it counts only the primary, and a platform
-    // filter that only the table matches still finds it.
-    assertEquals(browseSiblingCount(hidingElasticSearchService, null), 1);
-    assertEquals(browseSiblingCount(hidingElasticSearchService, platformFilter), 1);
-
     // The default service leaves hiding off, so both members appear.
     assertEquals(searchSiblings(searchService, null).getNumEntities().intValue(), 2);
     clearCache();
@@ -591,19 +586,6 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document.set("siblingsPrimary", JsonNodeFactory.instance.booleanNode(primary));
     elasticSearchService.upsertDocument(
         operationContext, ENTITY_NAME, document.toString(), urn.toString());
-  }
-
-  private long browseSiblingCount(ElasticSearchService service, Filter filter) {
-    return service
-        .browse(
-            operationContext.withSearchFlags(flags -> flags.setSkipCache(true)),
-            ENTITY_NAME,
-            "",
-            filter,
-            0,
-            10)
-        .getMetadata()
-        .getTotalNumEntities();
   }
 
   private SearchResult searchSiblings(SearchService service, Filter filter) {

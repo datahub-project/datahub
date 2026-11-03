@@ -20,8 +20,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.BatchItem;
-import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -351,14 +349,6 @@ public final class EntityAuthorizationUtils {
         opContext,
         READ,
         result.getEntities().stream().map(AutoCompleteEntity::getUrn).collect(Collectors.toList()));
-  }
-
-  public static boolean isAPIAuthorizedResult(
-      @Nonnull OperationContext opContext, @Nonnull BrowseResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
-        result.getEntities().stream().map(BrowseResultEntity::getUrn).collect(Collectors.toList()));
   }
 
   public static boolean isAPIAuthorizedResult(

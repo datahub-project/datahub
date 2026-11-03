@@ -38,13 +38,9 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.FilterExistingUrnsRequest;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.browse.BrowseResultEntity;
-import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.HardDeleteService;
@@ -920,83 +916,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                       .collect(Collectors.toList())));
           return result; },
         MetricRegistry.name(this.getClass(), "autocomplete"));
-  }
-
-  @Action(name = ACTION_BROWSE)
-  @Nonnull
-  @WithSpan
-  public Task<BrowseResult> browse(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_PATH) @Nonnull String path,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_LIMIT) @Nullable Integer limit,
-      @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
-
-    final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = RestliUtils.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            ACTION_BROWSE, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true)
-            .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
-
-    if (!EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
-        opContext, List.of(entityName))) {
-      throw new RestLiServiceException(
-              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
-    }
-
-    log.debug("GET BROWSE RESULTS for {} at path {}", entityName, path);
-    return RestliUtils.toTask(opContext,
-        () -> {
-          BrowseResult result = entitySearchService.browse(opContext, entityName, path, filter, start, limit);
-          Set<Urn> authorizedUrns =
-              authorizedResultUrns(
-                  opContext,
-                  result.getEntities().stream()
-                      .map(BrowseResultEntity::getUrn)
-                      .collect(Collectors.toList()));
-          result.setEntities(
-              new BrowseResultEntityArray(
-                  result.getEntities().stream()
-                      .filter(e -> authorizedUrns.contains(e.getUrn()))
-                      .collect(Collectors.toList())));
-          // Known limitation, accepted and documented rather than implemented: result.getGroups()
-          // (and its numGroups/numElements) is a path-hierarchy aggregation computed by the search
-          // backend over the raw, unfiltered candidate set — unlike the entity list filtered above,
-          // there's no per-item authorized subset to slice these bucket counts down to without
-          // either backend support for authorization-aware aggregation or reimplementing the
-          // bucketing logic here in application code. Out of scope; group counts can include
-          // entities the actor can't see in the returned entity list.
-          return validateBrowseResult(opContext,
-                result,
-                  entityService);
-            },
-        MetricRegistry.name(this.getClass(), "browse"));
-  }
-
-  @Action(name = ACTION_GET_BROWSE_PATHS)
-  @Nonnull
-  @WithSpan
-  public Task<StringArray> getBrowsePaths(
-      @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
-
-    final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = RestliUtils.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    ACTION_GET_BROWSE_PATHS, urn.getEntityType()).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true);
-
-    if (!isAPIAuthorizedEntityUrns(
-            opContext,
-             READ,
-            List.of(urn))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity: " + urn);
-    }
-    log.debug("GET BROWSE PATHS for {}", urn);
-
-    return RestliUtils.toTask(opContext,
-        () -> new StringArray(entitySearchService.getBrowsePaths(opContext, urnToEntityName(urn), urn)),
-        MetricRegistry.name(this.getClass(), "getBrowsePaths"));
   }
 
   private String stringifyRowCount(int size) {
