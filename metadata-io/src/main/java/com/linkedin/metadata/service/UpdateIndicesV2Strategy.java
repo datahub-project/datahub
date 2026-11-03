@@ -516,6 +516,15 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     if (shouldWriteToSemanticIndex(opContext, entityName)) {
       writeToSemanticIndex(
           opContext, urn, entityName, aspectSpec.getName(), finalDocumentNode, docId);
+      orderedUpdate.ifPresent(
+          update ->
+              elasticSearchService.applyScriptUpdateByIndexName(
+                  opContext,
+                  indexConvention.getEntityIndexNameSemantic(opContext, entityName),
+                  docId,
+                  update.script(),
+                  update.params(),
+                  update.upsert()));
     }
 
     // Append runId to search document so rollback/list runs can find touched URNs (MAE path)

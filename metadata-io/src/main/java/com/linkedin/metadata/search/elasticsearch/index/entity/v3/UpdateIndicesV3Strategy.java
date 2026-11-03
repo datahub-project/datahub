@@ -424,9 +424,16 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     }
 
     // Build the combined V3 document with _aspect structure
+    Set<String> throttledAspects = new HashSet<>();
     ObjectNode combinedDocument =
         buildV3SearchDocument(
-            opContext, urn, events, removedAspects, indexedFields, throttleSummary);
+            opContext,
+            urn,
+            events,
+            removedAspects,
+            indexedFields,
+            throttleSummary,
+            throttledAspects);
 
     // As on V2, the structured property mapping hook runs even when no aspect changed
     if (structuredPropertiesHookEnabled) {
@@ -463,7 +470,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     }
 
     List<OrderedSearchFields.Update> orderedUpdates =
-        orderedUpdates(opContext, events, combinedDocument);
+        orderedUpdates(opContext, urn, events, combinedDocument, throttledAspects);
     String finalDocument = combinedDocument.toString();
 
     if (fillTarget != null) {
@@ -532,21 +539,28 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   /**
    * Script updates for the batch's aspects whose fields only move forward, one per event in batch
    * order. The combined document holds only the batch's last event for an aspect, which may be the
-   * older one, so those fields are removed from it and written by the scripts instead.
+   * older one, so those fields are removed from it and written by the scripts instead. Aspects the
+   * timeseries throttle suppressed get no update, as they get no combined-document fields.
    */
   @Nonnull
   private List<OrderedSearchFields.Update> orderedUpdates(
       @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
       @Nonnull List<MCLItem> events,
-      @Nonnull ObjectNode combinedDocument) {
+      @Nonnull ObjectNode combinedDocument,
+      @Nonnull Set<String> throttledAspects) {
     List<OrderedSearchFields.Update> updates = new ArrayList<>();
     for (MCLItem event : events) {
       String aspectName = event.getAspectSpec().getName();
       if (!OrderedSearchFields.isOrdered(aspectName)
-          || event.getChangeType() == ChangeType.DELETE) {
+          || event.getChangeType() == ChangeType.DELETE
+          || throttledAspects.contains(aspectName)) {
         continue;
       }
-      ObjectNode eventDocument = JsonNodeFactory.instance.objectNode();
+      // The identity fields go into the script's upsert, so it never creates a bare document.
+      ObjectNode eventDocument =
+          searchDocumentProjector.newEntityDocument(
+              urn, event.getEntitySpec(), opContext.getEntityRegistry());
       searchDocumentProjector
           .projectAspect(opContext, event, null)
           .ifPresent(
@@ -685,7 +699,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull List<MCLItem> events,
       @Nonnull Map<String, Set<String>> removedAspects,
       @Nonnull Map<String, Set<String>> indexedFields,
-      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary,
+      @Nonnull Set<String> throttledAspects) {
 
     EntitySpec entitySpec = events.get(0).getEntitySpec();
     String entityType = entitySpec.getName();
@@ -727,6 +742,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                 throttleSummary.recordSuppressed(
                     TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
               }
+              throttledAspects.add(aspectName);
               continue;
             }
             if (timeseriesThrottleCache.isObserveEnabled() && throttleSummary != null) {

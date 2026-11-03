@@ -15,16 +15,21 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregations;
@@ -152,6 +157,16 @@ public class ESSearchDAOLatestIngestionRunsTest {
     ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
     Mockito.verify(mockClient, Mockito.times(2))
         .search(Mockito.any(), captor.capture(), Mockito.eq(RequestOptions.DEFAULT));
+    List<String> requested = new ArrayList<>();
+    for (SearchRequest request : captor.getAllValues()) {
+      TermsQueryBuilder terms =
+          (TermsQueryBuilder) ((BoolQueryBuilder) request.source().query()).filter().get(0);
+      assertTrue(terms.values().size() <= batchSize);
+      terms.values().forEach(value -> requested.add(value.toString()));
+    }
+    assertEquals(requested.size(), sources.size());
+    assertEquals(
+        new HashSet<>(requested), sources.stream().map(Urn::toString).collect(Collectors.toSet()));
   }
 
   @Test

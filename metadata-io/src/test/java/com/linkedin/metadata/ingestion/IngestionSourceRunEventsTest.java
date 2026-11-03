@@ -75,6 +75,29 @@ public class IngestionSourceRunEventsTest {
   }
 
   @Test
+  public void testOlderOutcomeKeepsNewerCarriedTimes() {
+    // A run processed late must not move the carried success or failure time back.
+    DataHubIngestionSourceRunEvent previous =
+        new DataHubIngestionSourceRunEvent()
+            .setTimestampMillis(1L)
+            .setExecutionRequest(RUN)
+            .setRequestedAtMillis(130L)
+            .setStatus("FAILURE")
+            .setSuccessfulRunRequestedAtMillis(120L)
+            .setFailedRunRequestedAtMillis(130L);
+
+    DataHubIngestionSourceRunEvent success =
+        IngestionSourceRunEvents.buildEvent(
+            RUN, INPUT, new ExecutionRequestResult().setStatus("SUCCESS"), 5L, previous);
+    DataHubIngestionSourceRunEvent failure =
+        IngestionSourceRunEvents.buildEvent(
+            RUN, INPUT, new ExecutionRequestResult().setStatus("FAILURE"), 5L, previous);
+
+    assertEquals(success.getSuccessfulRunRequestedAtMillis(), Long.valueOf(120L));
+    assertEquals(failure.getFailedRunRequestedAtMillis(), Long.valueOf(130L));
+  }
+
+  @Test
   public void testPendingPreviousEventCarriesNothing() {
     DataHubIngestionSourceRunEvent pending =
         IngestionSourceRunEvents.buildEvent(RUN, INPUT, null, 1L, null);

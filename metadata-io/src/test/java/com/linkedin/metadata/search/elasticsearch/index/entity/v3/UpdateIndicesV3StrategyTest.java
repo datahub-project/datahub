@@ -2512,6 +2512,95 @@ public class UpdateIndicesV3StrategyTest {
             eq(operationContext), eq(next), eq(expectedDocId), any(), any(), any());
   }
 
+  private MCLItem runEvent(RecordTemplate aspect) {
+    AspectSpec runEventSpec = mock(AspectSpec.class);
+    when(runEventSpec.getName()).thenReturn(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+    when(runEventSpec.isTimeseries()).thenReturn(true);
+    MCLItem runEvent = mock(MCLItem.class);
+    when(runEvent.getUrn()).thenReturn(testUrn);
+    when(runEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(runEvent.getAspectSpec()).thenReturn(runEventSpec);
+    when(runEvent.getAspectName()).thenReturn(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+    when(runEvent.getRecordTemplate()).thenReturn(aspect);
+    when(runEvent.getSystemMetadata()).thenReturn(mockSystemMetadata);
+    when(runEvent.getAuditStamp()).thenReturn(mockAuditStamp);
+    when(runEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    return runEvent;
+  }
+
+  @Test
+  public void testEachRunEventInABatchGetsItsOwnScriptInOrder() throws Exception {
+    // The combined document keeps only the batch's last event, which may be the older run.
+    RecordTemplate newer = mock(RecordTemplate.class);
+    RecordTemplate older = mock(RecordTemplate.class);
+    Map<RecordTemplate, Long> requestedAt = Map.of(newer, 200L, older, 100L);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenAnswer(
+            invocation -> {
+              ObjectNode document = JsonNodeFactory.instance.objectNode();
+              document.put("lastRunRequestedAtMillis", requestedAt.get(invocation.getArgument(2)));
+              return Optional.of(document);
+            });
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(runEvent(newer), runEvent(older))),
+        true);
+
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    ArgumentCaptor<Map<String, Object>> params = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<Map<String, Object>> upserts = ArgumentCaptor.forClass(Map.class);
+    verify(elasticSearchService, times(2))
+        .applyScriptUpdateBySearchGroup(
+            eq(operationContext),
+            eq("dataset"),
+            eq(expectedDocId),
+            any(),
+            params.capture(),
+            upserts.capture());
+    assertEquals(
+        params.getAllValues().stream()
+            .map(p -> ((Number) p.get("orderValue")).longValue())
+            .toList(),
+        List.of(200L, 100L));
+    // A script that runs before the document exists creates it with its identity.
+    assertEquals(upserts.getValue().get("urn"), testUrn.toString());
+  }
+
+  @Test
+  public void testThrottledRunEventGetsNoScript() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, false);
+    UpdateIndicesV3Strategy throttledStrategy =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .timeseriesThrottleCache(cache)
+            .build();
+    mockSearchDocument.put("lastRunRequestedAtMillis", 200L);
+    stubTransformedDocument();
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    cache.recordWrite(testUrn.toString(), INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, 1_000_000_000L);
+
+    // Another aspect in the batch still writes the document.
+    throttledStrategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(mockEvent, runEvent(mockAspect))),
+        true);
+
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    verify(elasticSearchService, never())
+        .applyScriptUpdateBySearchGroup(any(), anyString(), anyString(), any(), any(), any());
+  }
+
   @Test
   public void testRestateWithoutPreviousNullsMappedStructuredPropertiesTheAspectOmits()
       throws Exception {

@@ -108,41 +108,70 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
 
   @Test
   public void testOrderedSearchFieldsOnlyMoveForward() throws Exception {
-    // Writes are only allowed to entity indices, so use the ingestion source index.
-    String indexName =
-        getOperationContext()
-            .getSearchContext()
-            .getIndexConvention()
-            .getIndexName(
-                getOperationContext(),
-                getOperationContext()
-                    .getEntityRegistry()
-                    .getEntitySpec(INGESTION_SOURCE_ENTITY_NAME));
+    String indexName = ingestionSourceIndexName();
     String docId = "ordered-search-fields-" + UUID.randomUUID();
-    // As in the index strategies, the rest of the document is written before the script runs.
-    getEsWriteDAO()
-        .upsertDocument(
+    try {
+      // As in the index strategies, the rest of the document is written before the script runs.
+      getEsWriteDAO()
+          .upsertDocument(
+              getOperationContext(),
+              INGESTION_SOURCE_ENTITY_NAME,
+              "{\"urn\":\"urn:li:dataHubIngestionSource:" + docId + "\"}",
+              docId);
+
+      applyRunEvent(indexName, docId, 200L, "RUNNING", 150L, 160L);
+      // An older run finishing later keeps the newer run's status, and its older success and
+      // failure times do not replace the newer ones.
+      applyRunEvent(indexName, docId, 100L, "SUCCESS", 100L, 120L);
+      Map<String, Object> afterOlder = document(indexName, docId);
+      assertEquals(((Number) afterOlder.get("lastRunRequestedAtMillis")).longValue(), 200L);
+      assertEquals(afterOlder.get("lastRunStatus"), "RUNNING");
+      assertEquals(
+          ((Number) afterOlder.get("lastSuccessfulRunRequestedAtMillis")).longValue(), 150L);
+      assertEquals(((Number) afterOlder.get("lastFailedRunRequestedAtMillis")).longValue(), 160L);
+      assertEquals(aspect(afterOlder).get("status"), "RUNNING");
+
+      // A later status of the same run replaces it, and a newer failure time moves forward.
+      applyRunEvent(indexName, docId, 200L, "FAILURE", 150L, 200L);
+      Map<String, Object> afterSameRun = document(indexName, docId);
+      assertEquals(afterSameRun.get("lastRunStatus"), "FAILURE");
+      assertEquals(
+          ((Number) afterSameRun.get("lastSuccessfulRunRequestedAtMillis")).longValue(), 150L);
+      assertEquals(((Number) afterSameRun.get("lastFailedRunRequestedAtMillis")).longValue(), 200L);
+      assertEquals(aspect(afterSameRun).get("status"), "FAILURE");
+    } finally {
+      deleteDocument(docId);
+    }
+  }
+
+  @Test
+  public void testOrderedSearchFieldsScriptCreatesADocumentWithItsUrn() throws Exception {
+    String indexName = ingestionSourceIndexName();
+    String docId = "ordered-search-fields-" + UUID.randomUUID();
+    try {
+      // No base upsert: the script's upsert alone creates the document.
+      applyRunEvent(indexName, docId, 200L, "SUCCESS", 200L, null);
+      Map<String, Object> created = document(indexName, docId);
+      assertEquals(created.get("urn"), "urn:li:dataHubIngestionSource:" + docId);
+      assertEquals(created.get("lastRunStatus"), "SUCCESS");
+    } finally {
+      deleteDocument(docId);
+    }
+  }
+
+  private String ingestionSourceIndexName() {
+    // Writes are only allowed to entity indices, so use the ingestion source index.
+    return getOperationContext()
+        .getSearchContext()
+        .getIndexConvention()
+        .getIndexName(
             getOperationContext(),
-            INGESTION_SOURCE_ENTITY_NAME,
-            "{\"urn\":\"urn:li:dataHubIngestionSource:" + docId + "\"}",
-            docId);
+            getOperationContext().getEntityRegistry().getEntitySpec(INGESTION_SOURCE_ENTITY_NAME));
+  }
 
-    applyRunEvent(indexName, docId, 200L, "RUNNING", null, Map.of("status", "RUNNING"));
-    // An older run finishing later keeps the newer run's status but records its success.
-    applyRunEvent(indexName, docId, 100L, "SUCCESS", 100L, Map.of("status", "SUCCESS"));
-    Map<String, Object> afterOlder = document(indexName, docId);
-    assertEquals(((Number) afterOlder.get("lastRunRequestedAtMillis")).longValue(), 200L);
-    assertEquals(afterOlder.get("lastRunStatus"), "RUNNING");
-    assertEquals(((Number) afterOlder.get("lastSuccessfulRunRequestedAtMillis")).longValue(), 100L);
-    assertEquals(aspect(afterOlder).get("status"), "RUNNING");
-
-    // A later status of the same run replaces it.
-    applyRunEvent(indexName, docId, 200L, "FAILURE", null, Map.of("status", "FAILURE"));
-    Map<String, Object> afterSameRun = document(indexName, docId);
-    assertEquals(afterSameRun.get("lastRunStatus"), "FAILURE");
-    assertEquals(
-        ((Number) afterSameRun.get("lastSuccessfulRunRequestedAtMillis")).longValue(), 100L);
-    assertEquals(aspect(afterSameRun).get("status"), "FAILURE");
+  private void deleteDocument(String docId) throws Exception {
+    getEsWriteDAO().deleteDocument(getOperationContext(), INGESTION_SOURCE_ENTITY_NAME, docId);
+    bulkProcessor.flushAndWait(Duration.ofSeconds(30));
   }
 
   private void applyRunEvent(
@@ -151,17 +180,23 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
       long requestedAt,
       String status,
       Long successfulRequestedAt,
-      Map<String, Object> aspectFields)
+      Long failedRequestedAt)
       throws Exception {
     ObjectNode document = new ObjectMapper().createObjectNode();
+    document.put("urn", "urn:li:dataHubIngestionSource:" + docId);
     document.put("lastRunRequestedAtMillis", requestedAt);
     document.put("lastRunStatus", status);
     if (successfulRequestedAt != null) {
       document.put("lastSuccessfulRunRequestedAtMillis", successfulRequestedAt);
     }
+    if (failedRequestedAt != null) {
+      document.put("lastFailedRunRequestedAtMillis", failedRequestedAt);
+    }
     document
         .putObject("_aspects")
-        .set(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, new ObjectMapper().valueToTree(aspectFields));
+        .set(
+            INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
+            new ObjectMapper().valueToTree(Map.of("status", status)));
     OrderedSearchFields.Update update =
         OrderedSearchFields.split(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, document).orElseThrow();
     getEsWriteDAO()

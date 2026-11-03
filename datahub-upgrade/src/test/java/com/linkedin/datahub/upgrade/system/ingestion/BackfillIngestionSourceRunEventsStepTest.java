@@ -258,10 +258,18 @@ public class BackfillIngestionSourceRunEventsStepTest {
 
   @Test
   public void testReprocessRewritesRecordedSources() {
-    stubScroll(page(null));
+    // A source recorded from an older run is scrolled again and gets the newer run.
+    source(SOURCE_A);
+    run(LATEST_RUN, SOURCE_A, 300, "SUCCESS");
+    latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, LATEST_RUN, null));
+    recorded.put(SOURCE_A, recordedEvent(SUCCESS_RUN, 100));
+    stubScroll(page(null, SOURCE_A));
 
     assertEquals(step(true).executable().apply(context).result(), DataHubUpgradeState.SUCCEEDED);
 
+    DataHubIngestionSourceRunEvent event = eventOf(capturedItems(1).get(0));
+    assertEquals(event.getExecutionRequest(), LATEST_RUN);
+    assertEquals(event.getRequestedAtMillis(), 300L);
     verify(searchService)
         .scrollAcrossEntities(
             any(OperationContext.class),
