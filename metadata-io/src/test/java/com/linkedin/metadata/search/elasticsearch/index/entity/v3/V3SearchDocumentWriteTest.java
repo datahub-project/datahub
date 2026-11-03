@@ -12,13 +12,13 @@ public class V3SearchDocumentWriteTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
 
   @Test
-  public void testFillCopyOfAMergeOnlyUpdatesAnExistingDocument() {
+  public void testFillCopyOfAMergeKeepsTheWriteKind() {
     V3SearchDocumentWrite merge = write(V3SearchDocumentWrite.Kind.MERGE);
 
     V3SearchDocumentWrite copy = merge.redirectedToFill("test_groupindex_v3_next");
 
     assertEquals(copy.indexName(), "test_groupindex_v3_next");
-    assertEquals(copy.kind(), V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+    assertEquals(copy.kind(), V3SearchDocumentWrite.Kind.MERGE);
   }
 
   @Test

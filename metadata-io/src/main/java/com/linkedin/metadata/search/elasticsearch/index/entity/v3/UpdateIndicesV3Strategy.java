@@ -66,10 +66,9 @@ import lombok.extern.slf4j.Slf4j;
  * <p>No write carries an external version. Live and catch-up events for one URN share a change-log
  * partition, so they reach the index in order and the later one wins. The baseline fill reads
  * primary storage outside that order, so it only creates documents that are absent: a live write or
- * tombstone already in the index is never overwritten by an older snapshot. While a fill builds an
- * index, live writes there update only existing documents, so the fill is never blocked by a
- * partial one. A fill-read race that leaves a stale document is repaired by catch-up, whose window
- * starts when the fill is planned.
+ * tombstone already in the index is never overwritten by an older snapshot. A fill-read race that
+ * leaves a stale or partial document is repaired by catch-up, whose window starts when the fill is
+ * planned.
  */
 @Slf4j
 public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
@@ -513,7 +512,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         log.debug("V3 baseline fill skips URN {}, whose key aspect is deleted", urn);
         return List.of();
       }
-      return writeTombstone(opContext, urn, entitySpec, indexName, docId, events);
+      return writeHardDelete(opContext, urn, entitySpec, indexName, docId, events);
     }
 
     // Build the combined V3 document with _aspect structure
@@ -563,7 +562,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
               docId,
               urn,
               combinedDocument.toString(),
-              V3SearchDocumentWrite.Kind.CREATE),
+              fillTarget != null
+                  ? V3SearchDocumentWrite.Kind.CREATE
+                  : V3SearchDocumentWrite.Kind.REPLACE),
           false);
       log.debug(
           "V3 created baseline document for URN: {} in index: {} with {} aspects",
@@ -579,11 +580,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       clearHardDeleteMarker(combinedDocument);
     }
     boolean carriesDelete = carriesDelete(events);
-    // A fill of this alias creates only absent documents. A partial one written here would block
-    // it, so leave an entity the fill has not reached yet to the fill, or to catch-up after it.
-    boolean filledInPlace =
-        incrementalReindexWriteTargets != null
-            && incrementalReindexWriteTargets.isFilledInPlace(indexName);
     Optional<Runnable> mirrored =
         writeV3Document(
             opContext,
@@ -592,16 +588,14 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                 docId,
                 urn,
                 combinedDocument.toString(),
-                filledInPlace
-                    ? V3SearchDocumentWrite.Kind.MERGE_EXISTING
-                    : V3SearchDocumentWrite.Kind.MERGE),
+                V3SearchDocumentWrite.Kind.MERGE),
             carriesDelete);
     log.debug(
         "V3 merged combined document for URN: {} into index: {} with {} aspects",
         urn,
         indexName,
         events.size());
-    appendRunIds(opContext, indexKey, indexName, docId, runIds, carriesDelete);
+    appendRunIds(opContext, indexKey, indexName, docId, urn, runIds, carriesDelete);
     return mirrored.map(List::of).orElse(List.of());
   }
 
@@ -611,7 +605,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * present, so the create-only fill skips it, and {@code removed=true} keeps it out of search.
    */
   @Nonnull
-  private List<Runnable> writeTombstone(
+  private List<Runnable> writeHardDelete(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull EntitySpec entitySpec,
@@ -621,17 +615,39 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     ObjectNode tombstone = searchDocumentProjector.newTombstoneDocument(urn, entitySpec);
     putRunIds(tombstone, distinctRunIds(events));
     applyDocumentContributors(opContext, urn, tombstone);
-    Optional<Runnable> mirrored =
-        writeV3Document(
-            opContext,
-            new V3SearchDocumentWrite(
-                indexName, docId, urn, tombstone.toString(), V3SearchDocumentWrite.Kind.TOMBSTONE),
-            true);
-    log.debug(
-        "V3 wrote tombstone document for URN: {} to index: {} due to key aspect deletion",
-        urn,
-        indexName);
-    return mirrored.map(List::of).orElse(List.of());
+
+    Optional<String> activeFillTarget =
+        incrementalReindexWriteTargets == null
+            ? Optional.empty()
+            : incrementalReindexWriteTargets.activeFillTargetFor(indexName);
+    if (activeFillTarget.filter(indexName::equals).isPresent()) {
+      V3SearchDocumentWrite write =
+          new V3SearchDocumentWrite(
+              indexName, docId, urn, tombstone.toString(), V3SearchDocumentWrite.Kind.TOMBSTONE);
+      elasticSearchService.writeV3SearchDocument(opContext, write);
+      return List.of(() -> elasticSearchService.writeV3SearchDocument(opContext, write));
+    }
+
+    writeV3Document(
+        opContext,
+        new V3SearchDocumentWrite(indexName, docId, urn, "", V3SearchDocumentWrite.Kind.DELETE),
+        false);
+    return activeFillTarget
+        .filter(target -> !target.equals(indexName))
+        .map(
+            target -> {
+              V3SearchDocumentWrite write =
+                  new V3SearchDocumentWrite(
+                      target,
+                      docId,
+                      urn,
+                      tombstone.toString(),
+                      V3SearchDocumentWrite.Kind.TOMBSTONE);
+              Runnable mirror = () -> elasticSearchService.writeV3SearchDocument(opContext, write);
+              mirror.run();
+              return List.of(mirror);
+            })
+        .orElse(List.of());
   }
 
   /**
@@ -668,32 +684,32 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   /**
    * Appends this batch's run ids on every index the merge just wrote, so rollback and list-runs can
    * find the entities a run touched. Same document-id routing as the merge, and queued after it, so
-   * the append sees that document. An append never creates a document, so where the merge created
-   * none it does nothing.
+   * the append sees that document.
    */
   private void appendRunIds(
       @Nonnull OperationContext opContext,
       @Nonnull String indexKey,
       @Nonnull String indexName,
       @Nonnull String docId,
+      @Nonnull Urn urn,
       @Nonnull List<String> runIds,
       boolean carriesDelete) {
     if (runIds.isEmpty()) {
       return;
     }
     for (String runId : runIds) {
-      elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, runId);
+      elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
     }
     if (incrementalReindexWriteTargets == null) {
       return;
     }
     incrementalReindexWriteTargets
         .oldBackingIndexFor(indexName)
-        .ifPresent(index -> appendRunIdsOnIndex(opContext, index, docId, runIds));
+        .ifPresent(index -> appendRunIdsOnIndex(opContext, index, docId, urn, runIds));
     if (carriesDelete) {
       incrementalReindexWriteTargets
           .fillTargetFor(indexName)
-          .ifPresent(index -> appendRunIdsOnIndex(opContext, index, docId, runIds));
+          .ifPresent(index -> appendRunIdsOnIndex(opContext, index, docId, urn, runIds));
     }
   }
 
@@ -701,9 +717,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull String docId,
+      @Nonnull Urn urn,
       @Nonnull List<String> runIds) {
     for (String runId : runIds) {
-      elasticSearchService.appendRunIdByIndexName(opContext, indexName, docId, runId);
+      elasticSearchService.appendRunIdByIndexName(opContext, indexName, docId, urn, runId);
     }
   }
 
@@ -734,10 +751,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * alias, while that fill is in flight: the alias still serves the old index, and catch-up
    * re-derives its window from primary storage, which holds nothing for a removed entity or aspect.
    * The fill creates only absent documents, so a mirrored tombstone keeps the entity deleted. A
-   * mirrored merge only updates a document the fill already wrote, so it cannot leave a partial one
-   * for the fill to skip. Returns the mirrored write, so the batch can issue it again if its drain
-   * fails, and lets a failure to hand it to the bulk processor propagate: nothing replays a hard
-   * delete, so a mirror that does not land leaves the entity in the next index across the swap.
+   * mirrored merge can create a partial document, which catch-up repairs after the fill. Returns
+   * the mirrored write, so the batch can issue it again if its drain fails, and lets a failure to
+   * hand it to the bulk processor propagate: nothing replays a hard delete, so a mirror that does
+   * not land leaves the entity in the next index across the swap.
    */
   @Nonnull
   private Optional<Runnable> writeV3Document(
@@ -800,7 +817,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private static String fillTarget(@Nonnull List<MCLItem> events) {
     String target = null;
     for (MCLItem event : events) {
-      if (!BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(backfillMode(event))) {
+      String mode = backfillMode(event);
+      if (mode == null) {
+        continue;
+      }
+      if (!BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(mode)) {
         return null;
       }
       String named =
@@ -818,9 +839,18 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   private static boolean isBaselineBatch(@Nonnull List<MCLItem> events) {
-    return !events.isEmpty()
-        && events.stream()
-            .allMatch(event -> BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(backfillMode(event)));
+    boolean sawBackfill = false;
+    for (MCLItem event : events) {
+      String mode = backfillMode(event);
+      if (mode == null) {
+        continue;
+      }
+      sawBackfill = true;
+      if (!BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(mode)) {
+        return false;
+      }
+    }
+    return sawBackfill;
   }
 
   private static boolean carriesDelete(@Nonnull List<MCLItem> events) {

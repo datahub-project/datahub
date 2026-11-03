@@ -17,6 +17,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentProjector;
 import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
@@ -38,6 +39,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.index.query.QueryBuilders;
 
 @Slf4j
 public class UpdateIndicesService implements SearchIndicesService {
@@ -158,6 +160,17 @@ public class UpdateIndicesService implements SearchIndicesService {
         strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
       }
     }
+  }
+
+  /** Removes temporary V3 fill guards after the corresponding catch-up window has converged. */
+  public void deleteV3Tombstones(@Nonnull OperationContext opContext, @Nonnull String indexName) {
+    elasticSearchService
+        .getEsWriteDAO()
+        .deleteByQuerySync(
+            opContext,
+            indexName,
+            QueryBuilders.termQuery(V3SearchDocumentProjector.TOMBSTONE_FIELD, true),
+            null);
   }
 
   /**

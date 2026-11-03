@@ -39,6 +39,7 @@ public final class MappingConstants {
           URN_NAME_FIELD,
           ENTITY_TYPE_FIELD,
           ASPECTS_FIELD_NAME,
+          V3SearchDocumentProjector.TOMBSTONE_FIELD,
           "_system",
           RUN_ID_FIELD,
           "structuredProperties",

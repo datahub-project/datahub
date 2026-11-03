@@ -340,10 +340,10 @@ public class ESWriteDAO {
     // upsertDocumentBySearchGroup above.
     final DocWriteRequest<?> request =
         switch (write.kind()) {
-          case MERGE, MERGE_EXISTING ->
+          case MERGE ->
               new UpdateRequest(write.indexName(), write.docId())
                   .doc(write.source(), XContentType.JSON)
-                  .docAsUpsert(write.kind() == V3SearchDocumentWrite.Kind.MERGE)
+                  .docAsUpsert(true)
                   .detectNoop(false)
                   .retryOnConflict(config.getBulkProcessor().getNumRetries());
           case CREATE ->
@@ -355,6 +355,7 @@ public class ESWriteDAO {
               new IndexRequest(write.indexName())
                   .id(write.docId())
                   .source(write.source(), XContentType.JSON);
+          case DELETE -> new DeleteRequest(write.indexName()).id(write.docId());
         };
     bulkProcessorFor(opContext, SearchComponent.SEARCH_V3).add(opContext, write.docId(), request);
   }

@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -311,11 +310,11 @@ public class ElasticSearchServiceTest {
   }
 
   @Test
-  public void testAppendRunIdBySearchGroupUpdatesOnlyAnExistingDocument() {
+  public void testAppendRunIdBySearchGroupUpsertsTheDocument() {
     String searchGroup = "dataset";
     String runId = "run-v3-123";
 
-    testInstance.appendRunIdBySearchGroup(opContext, searchGroup, TEST_DOC_ID, runId);
+    testInstance.appendRunIdBySearchGroup(opContext, searchGroup, TEST_DOC_ID, TEST_URN, runId);
 
     ArgumentCaptor<Map<String, Object>> scriptParamsCaptor = ArgumentCaptor.forClass(Map.class);
 
@@ -326,7 +325,7 @@ public class ElasticSearchServiceTest {
             eq(TEST_DOC_ID),
             eq(ElasticSearchService.SCRIPT_SOURCE),
             scriptParamsCaptor.capture(),
-            isNull());
+            any(Map.class));
 
     assertEquals(runId, scriptParamsCaptor.getValue().get("runId"));
     assertEquals(MAX_RUN_IDS_INDEXED, scriptParamsCaptor.getValue().get("maxRunIds"));

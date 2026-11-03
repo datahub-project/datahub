@@ -569,6 +569,14 @@ abstract class SearchV3MigrationScenarios {
         harness.count(harness.v3Client, nextIndex, liveCopyOf(deletedDataset)),
         0L,
         "catch-up re-derives its window from storage, where the entity no longer exists");
+    assertEquals(
+        harness.count(harness.v3Client, nextIndex, tombstoneOf(deletedDataset)),
+        0L,
+        "the completed catch-up retires the fill's tombstone");
+    assertEquals(
+        harness.count(harness.v3Client, nextIndex),
+        expected,
+        "the completed index contains no temporary tombstone documents");
   }
 
   @Test(dependsOnMethods = "indexBuiltBeforeIdHashingIsRebuiltIntoANextIndex")
@@ -895,7 +903,8 @@ abstract class SearchV3MigrationScenarios {
         List.of(harness.searchService),
         Set.of(),
         deployVersion,
-        harness.buildIndicesConfig);
+        harness.buildIndicesConfig,
+        harness.updateIndicesService);
   }
 
   private UpgradeStepResult run(UpgradeStep step) {
@@ -910,8 +919,8 @@ abstract class SearchV3MigrationScenarios {
   }
 
   /**
-   * Documents for {@code urn} that reads would serve. A tombstone's {@code _v3Tombstone} marker is
-   * unmapped, so it is excluded by the {@code removed} flag it also carries, as reads exclude it.
+   * Documents for {@code urn} that reads would serve. A tombstone carries {@code removed=true}, as
+   * reads exclude it.
    */
   private static QueryBuilder liveCopyOf(Urn urn) {
     return QueryBuilders.boolQuery()

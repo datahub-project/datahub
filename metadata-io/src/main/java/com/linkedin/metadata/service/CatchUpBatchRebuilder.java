@@ -145,9 +145,13 @@ public final class CatchUpBatchRebuilder {
    * overwrites it, so the partial batch would otherwise become the whole document.
    */
   private static boolean isIncompleteBaseline(@Nonnull List<MCLItem> events) {
-    return !events.isEmpty()
-        && events.stream().allMatch(CatchUpBatchRebuilder::isBaselineEvent)
-        && !events.stream().allMatch(CatchUpBatchRebuilder::isCompleteEntityEvent);
+    List<MCLItem> backfillEvents =
+        events.stream()
+            .filter(event -> header(event, BackfillHeaders.MODE_HEADER_NAME) != null)
+            .collect(Collectors.toList());
+    return !backfillEvents.isEmpty()
+        && backfillEvents.stream().allMatch(CatchUpBatchRebuilder::isBaselineEvent)
+        && !backfillEvents.stream().allMatch(CatchUpBatchRebuilder::isCompleteEntityEvent);
   }
 
   /**

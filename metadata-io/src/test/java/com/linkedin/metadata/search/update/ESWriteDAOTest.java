@@ -297,15 +297,13 @@ public class ESWriteDAOTest {
   }
 
   @Test
-  public void testWriteV3SearchDocumentMergeExistingNeverCreatesADocument() {
-    esWriteDAO.writeV3SearchDocument(
-        opContext, v3Write("{\"description\":\"updated\"}", Kind.MERGE_EXISTING));
+  public void testWriteV3SearchDocumentDeleteUsesDeleteRequest() {
+    esWriteDAO.writeV3SearchDocument(opContext, v3Write("", Kind.DELETE));
 
-    ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
+    ArgumentCaptor<DeleteRequest> requestCaptor = ArgumentCaptor.forClass(DeleteRequest.class);
     verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
-    assertFalse(requestCaptor.getValue().docAsUpsert());
-    assertNull(requestCaptor.getValue().upsertRequest());
-    assertFalse(requestCaptor.getValue().detectNoop());
+    assertEquals(requestCaptor.getValue().index(), V3_INDEX);
+    assertEquals(requestCaptor.getValue().id(), TEST_DOC_ID);
   }
 
   @Test

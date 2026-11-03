@@ -227,7 +227,7 @@ public class IncrementalReindexWriteTargetsTest {
   }
 
   @Test
-  public void testAFillInPlaceIsNotMirroredButIsReportedAsFilledInPlace() {
+  public void testAFillInPlaceIsNotMirroredButIsReportedAsAnActiveTarget() {
     IncrementalReindexWriteTargets targets =
         new IncrementalReindexWriteTargets(
             Map.of(),
@@ -238,9 +238,9 @@ public class IncrementalReindexWriteTargetsTest {
 
     // A live write already reaches the alias, so a fill in place has no copy to mirror into.
     assertEquals(targets.fillTargetFor("tagindex_v3"), Optional.empty());
-    assertTrue(targets.isFilledInPlace("tagindex_v3"));
+    assertEquals(targets.activeFillTargetFor("tagindex_v3"), Optional.of("tagindex_v3"));
     assertEquals(targets.fillTargetFor(V3_INDEX), Optional.of(V3_INDEX + "_next"));
-    assertFalse(targets.isFilledInPlace(V3_INDEX));
+    assertEquals(targets.activeFillTargetFor(V3_INDEX), Optional.of(V3_INDEX + "_next"));
   }
 
   @Test

@@ -44,11 +44,8 @@ import lombok.extern.slf4j.Slf4j;
  * applied to the index the fill is building; otherwise the deleted entity would come back with the
  * swap. Fill targets are tracked whether or not rollback dual-write is enabled.
  *
- * <p><b>Fills in place.</b> A fill of a new or empty index writes the alias itself, alongside live
- * writes. The fill creates only absent documents, so while it is in flight a live write must not
- * create one either: a partial document would block the fill, and only catch-up would repair it.
- * Such an index is tracked as a fill target that is the alias, and reported by {@link
- * #isFilledInPlace} rather than {@link #fillTargetFor}.
+ * <p><b>Fills in place.</b> A fill of a new or empty index writes the alias itself. It is retained
+ * as a fill target so a hard delete can leave a temporary tombstone until catch-up converges.
  *
  * <p>Loaded once at startup and kept current by polling the persisted upgrade state for the life of
  * the process: an index swapped after startup (a fill rebuilt in the non-blocking phase) is added,
@@ -240,9 +237,10 @@ public class IncrementalReindexWriteTargets implements AutoCloseable {
         .filter(target -> !target.equals(indexName));
   }
 
-  /** A fill in flight is writing the alias {@code indexName} itself. */
-  public boolean isFilledInPlace(@Nonnull final String indexName) {
-    return indexName.equals(fillTargets.get(indexName));
+  /** Index a fill in flight writes for the alias {@code indexName}, including the alias itself. */
+  @Nonnull
+  public Optional<String> activeFillTargetFor(@Nonnull final String indexName) {
+    return Optional.ofNullable(fillTargets.get(indexName));
   }
 
   /**
@@ -321,9 +319,7 @@ public class IncrementalReindexWriteTargets implements AutoCloseable {
         (indexName, target) -> {
           if (!target.equals(fillTargets.put(indexName, target))) {
             if (target.equals(indexName)) {
-              log.info(
-                  "Index '{}' is being filled in place; live writes update only existing documents",
-                  indexName);
+              log.info("Index '{}' is being filled in place", indexName);
             } else {
               log.info(
                   "Mirroring live deletes for index '{}' into the index its fill is building ('{}')",

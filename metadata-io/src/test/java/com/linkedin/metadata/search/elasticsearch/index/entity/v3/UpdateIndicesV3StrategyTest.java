@@ -225,7 +225,7 @@ public class UpdateIndicesV3StrategyTest {
         expectedDocId);
     verify(elasticSearchService)
         .appendRunIdBySearchGroup(
-            eq(operationContext), eq("dataset"), eq(expectedDocId), eq("run-456"));
+            eq(operationContext), eq("dataset"), eq(expectedDocId), eq(testUrn), eq("run-456"));
   }
 
   @Test
@@ -707,8 +707,7 @@ public class UpdateIndicesV3StrategyTest {
       // Execute
       strategy.processBatch(operationContext, groupedEvents, true);
 
-      // Verify that the document was tombstoned
-      v3Write(operationContext, groupIndex(operationContext, "dataset"), TOMBSTONE_KIND);
+      v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND);
     }
   }
 
@@ -733,7 +732,7 @@ public class UpdateIndicesV3StrategyTest {
       strategy.processBatch(operationContext, groupedEvents, true);
 
       // Unset searchGroup uses the entity type as the V3 index key
-      v3Write(operationContext, groupIndex(operationContext, "dataset"), TOMBSTONE_KIND);
+      v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND);
     }
   }
 
@@ -1576,11 +1575,12 @@ public class UpdateIndicesV3StrategyTest {
   private static final Set<V3SearchDocumentWrite.Kind> DOCUMENT_KINDS =
       Set.of(
           V3SearchDocumentWrite.Kind.MERGE,
-          V3SearchDocumentWrite.Kind.MERGE_EXISTING,
           V3SearchDocumentWrite.Kind.CREATE,
           V3SearchDocumentWrite.Kind.REPLACE);
   private static final Set<V3SearchDocumentWrite.Kind> TOMBSTONE_KIND =
       Set.of(V3SearchDocumentWrite.Kind.TOMBSTONE);
+  private static final Set<V3SearchDocumentWrite.Kind> DELETE_KIND =
+      Set.of(V3SearchDocumentWrite.Kind.DELETE);
 
   /**
    * The V3 writes issued under {@code context} to {@code indexName} with one of {@code kinds}, in
@@ -1662,18 +1662,31 @@ public class UpdateIndicesV3StrategyTest {
     JsonNode written = operationContext.getObjectMapper().readTree(write.source());
     assertEquals(written.get(MappingConstants.RUN_ID_FIELD).get(0).asText(), "run-fill");
     verify(elasticSearchService, never())
-        .appendRunIdByIndexName(any(), anyString(), anyString(), anyString());
+        .appendRunIdByIndexName(any(), anyString(), anyString(), any(Urn.class), anyString());
     assertEquals(v3Writes(null, null, DOCUMENT_KINDS).size(), 1, "nothing reaches the alias");
     // A backfill checkpoints what it has written once the batch returns, so the batch is drained.
     verify(writeDAO).flushAndWait();
   }
 
   @Test
-  public void testLiveWriteMergesOnlyIntoExistingDocumentsWhileTheAliasIsFilledInPlace()
-      throws Exception {
+  public void testBaselineMaintenanceRunReplacesTheAliasDocument() throws Exception {
+    stubTransformedDocument();
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_BASELINE, null));
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    assertEquals(
+        v3Write(operationContext, liveAlias(), DOCUMENT_KINDS).kind(),
+        V3SearchDocumentWrite.Kind.REPLACE);
+  }
+
+  @Test
+  public void testLiveWriteUpsertsWhileTheAliasIsFilledInPlace() throws Exception {
     stubTransformedDocument();
     IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
-    when(targets.isFilledInPlace(liveAlias())).thenReturn(true);
 
     strategyWithTargets(targets)
         .processBatch(
@@ -1681,7 +1694,7 @@ public class UpdateIndicesV3StrategyTest {
 
     assertEquals(
         v3Write(operationContext, liveAlias(), DOCUMENT_KINDS).kind(),
-        V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+        V3SearchDocumentWrite.Kind.MERGE);
   }
 
   @Test
@@ -1697,11 +1710,23 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testSteadyStateLiveWriteDoesNotHydrateEntityAspectsOrTimeseries() throws Exception {
+    stubTransformedDocument();
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    verify(timeseriesAspectService, never())
+        .getLatestTimeseriesAspectValues(any(), any(), any(), any());
+    verify(elasticSearchService, never()).aspectFieldNamesBySearchGroup(any(), anyString(), any());
+  }
+
+  @Test
   public void testKeyDeleteTombstonesTheDocumentAndMirrorsTheTombstoneIntoTheFillTarget()
       throws Exception {
     IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
     String next = liveAlias() + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(liveAlias())).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(liveAlias())).thenReturn(Optional.of(next));
     when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
     when(mockAspectSpec.getName()).thenReturn("datasetKey");
     when(mockEvent.getAspectName()).thenReturn("datasetKey");
@@ -1712,14 +1737,15 @@ public class UpdateIndicesV3StrategyTest {
         .processBatch(
             operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
-    V3SearchDocumentWrite tombstone = v3Write(operationContext, liveAlias(), TOMBSTONE_KIND);
+    V3SearchDocumentWrite delete = v3Write(operationContext, liveAlias(), DELETE_KIND);
+    assertEquals(delete.source(), "");
+    V3SearchDocumentWrite tombstone = v3Write(operationContext, next, TOMBSTONE_KIND);
     JsonNode written = operationContext.getObjectMapper().readTree(tombstone.source());
     assertTrue(written.get(V3SearchDocumentProjector.REMOVED_FIELD).asBoolean());
     assertTrue(written.get(V3SearchDocumentProjector.TOMBSTONE_FIELD).asBoolean());
     assertEquals(written.get("urn").asText(), testUrn.toString());
-    // The fill may not have created the document yet; the mirror keeps it from coming back.
-    V3SearchDocumentWrite mirrored = v3Write(operationContext, next, TOMBSTONE_KIND);
-    assertEquals(mirrored.source(), tombstone.source());
+    // The fill may not have created the document yet; the target tombstone keeps it from coming
+    // back.
     assertTrue(v3Writes(operationContext, null, DOCUMENT_KINDS).isEmpty());
   }
 
@@ -1918,7 +1944,7 @@ public class UpdateIndicesV3StrategyTest {
         replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
     assertEquals(
-        v3Write(replayContext, groupIndex(replayContext, "dataset"), TOMBSTONE_KIND).docId(),
+        v3Write(replayContext, groupIndex(replayContext, "dataset"), DELETE_KIND).docId(),
         DigestUtils.sha256Hex(testUrn.toString()));
     assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
   }
@@ -2168,7 +2194,7 @@ public class UpdateIndicesV3StrategyTest {
             .getIndexConvention()
             .getEntityIndexNameV3(operationContext, "dataset");
     String next = alias + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(alias)).thenReturn(Optional.of(next));
     when(mockAspectSpec.getName()).thenReturn("datasetKey");
     when(mockEvent.getAspectName()).thenReturn("datasetKey");
     when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
@@ -2187,7 +2213,7 @@ public class UpdateIndicesV3StrategyTest {
 
     String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
     assertEquals(
-        v3Write(operationContext, groupIndex(operationContext, "dataset"), TOMBSTONE_KIND).docId(),
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND).docId(),
         expectedDocId);
     assertEquals(v3Write(operationContext, next, TOMBSTONE_KIND).docId(), expectedDocId);
   }
@@ -2203,7 +2229,7 @@ public class UpdateIndicesV3StrategyTest {
             .getIndexConvention()
             .getEntityIndexNameV3(operationContext, "dataset");
     String next = alias + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(alias)).thenReturn(Optional.of(next));
     ESWriteDAO writeDAO = mock(ESWriteDAO.class);
     when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
     doThrow(new RuntimeException("Bulk transfer failed")).doNothing().when(writeDAO).flushAndWait();
@@ -2227,7 +2253,7 @@ public class UpdateIndicesV3StrategyTest {
     verify(writeDAO, times(2)).flushAndWait();
     assertEquals(v3Writes(operationContext, next, TOMBSTONE_KIND).size(), 2);
     assertEquals(
-        v3Write(operationContext, groupIndex(operationContext, "dataset"), TOMBSTONE_KIND).docId(),
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND).docId(),
         expectedDocId);
   }
 
@@ -2242,7 +2268,7 @@ public class UpdateIndicesV3StrategyTest {
             .getIndexConvention()
             .getEntityIndexNameV3(operationContext, "dataset");
     String next = alias + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(alias)).thenReturn(Optional.of(next));
     ESWriteDAO writeDAO = mock(ESWriteDAO.class);
     when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
     doThrow(new RuntimeException("Timed out waiting for bulk transfer", new TimeoutException()))
@@ -2277,7 +2303,7 @@ public class UpdateIndicesV3StrategyTest {
             .getIndexConvention()
             .getEntityIndexNameV3(operationContext, "dataset");
     String next = alias + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(alias)).thenReturn(Optional.of(next));
     ESWriteDAO writeDAO = mock(ESWriteDAO.class);
     when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
     doThrow(new RuntimeException("Bulk transfer failed")).when(writeDAO).flushAndWait();
@@ -2320,7 +2346,7 @@ public class UpdateIndicesV3StrategyTest {
         operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
     assertEquals(
-        v3Write(operationContext, groupIndex(operationContext, "dataset"), TOMBSTONE_KIND).docId(),
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND).docId(),
         DigestUtils.sha256Hex(testUrn.toString()));
     verify(writeDAO, never()).flushAndWait();
   }
@@ -2337,7 +2363,7 @@ public class UpdateIndicesV3StrategyTest {
             .getIndexConvention()
             .getEntityIndexNameV3(operationContext, "dataset");
     String next = alias + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(alias)).thenReturn(Optional.of(next));
     when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
     doThrow(new IllegalStateException("processor closed"))
         .when(elasticSearchService)
@@ -2360,7 +2386,7 @@ public class UpdateIndicesV3StrategyTest {
         operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
     assertEquals(
-        v3Write(operationContext, groupIndex(operationContext, "dataset"), TOMBSTONE_KIND).docId(),
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND).docId(),
         DigestUtils.sha256Hex(testUrn.toString()));
     v3Write(null, next, TOMBSTONE_KIND);
   }
