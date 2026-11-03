@@ -419,6 +419,40 @@ FROM source_db.dbo.source_table
     )
 
 
+@pytest.mark.parametrize(
+    "platform", ["snowflake", "postgres", "bigquery", "redshift", "duckdb"]
+)
+def test_insert_column_list_mapping_applies_to_all_dialects(platform: str) -> None:
+    # The INSERT column list names the downstream columns in every dialect,
+    # not just T-SQL: each SELECT expression is paired positionally with the
+    # target column at the same position. This covers a plain column, a
+    # computed expression, and an expression that already carries an alias
+    # (the alias is replaced by the target column name, not wrapped).
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.order_totals (order_id, total_amount, region_code)
+SELECT id, amount * 1.1, region AS rgn FROM my_db.my_schema.orders
+""",
+        platform=platform,
+        schemas={
+            "my_db.my_schema.orders": {
+                "id": "NUMBER",
+                "amount": "NUMBER",
+                "region": "STRING",
+            },
+            "my_db.my_schema.order_totals": {
+                "order_id": "NUMBER",
+                "total_amount": "NUMBER",
+                "region_code": "STRING",
+            },
+        },
+    ) == {
+        "order_id": ["my_db.my_schema.orders.id"],
+        "total_amount": ["my_db.my_schema.orders.amount"],
+        "region_code": ["my_db.my_schema.orders.region"],
+    }
+
+
 def test_select_with_full_col_name() -> None:
     # In this case, `widget` is a struct column.
     # This also tests the `default_db` functionality.
