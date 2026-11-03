@@ -25,9 +25,9 @@ import org.testng.annotations.Test;
  * <p>{@code consumes} only narrows which requests match by their {@code Content-Type}. On a handler
  * that never reads a body it turns a client that sends no body (and so no {@code Content-Type})
  * into a 415, while MockMvc tests that always set the header stay green. Either take the body
- * ({@code @RequestBody}, {@code @RequestPart}, {@code HttpEntity}) or drop {@code consumes}. Form
- * and multipart mappings may read their body through {@code @RequestParam} or
- * {@code @ModelAttribute}.
+ * ({@code @RequestBody}, {@code @RequestPart}, {@code HttpEntity}, an {@code InputStream}) or drop
+ * {@code consumes}. Form and multipart mappings may read their body through {@code @RequestParam}
+ * or {@code @ModelAttribute}.
  */
 public class ConsumesRequiresBodyArchTest {
 
@@ -41,7 +41,12 @@ public class ConsumesRequiresBodyArchTest {
       Set.of(
           "org.springframework.web.bind.annotation.RequestParam",
           "org.springframework.web.bind.annotation.ModelAttribute");
-  private static final String HTTP_ENTITY = "org.springframework.http.HttpEntity";
+
+  /** Parameter types Spring fills from the request body without an annotation. */
+  private static final List<String> RAW_BODY_TYPES =
+      List.of("org.springframework.http.HttpEntity", "java.io.InputStream", "java.io.Reader");
+
+  private static final String MULTIPART_FILE = "org.springframework.web.multipart.MultipartFile";
 
   /**
    * Existing mappings that declare {@code consumes} without reading a body, as {@code
@@ -146,7 +151,8 @@ public class ConsumesRequiresBodyArchTest {
                     t.startsWith("multipart/")
                         || t.startsWith("application/x-www-form-urlencoded"));
     for (JavaParameter p : method.getParameters()) {
-      if (p.getRawType().isAssignableTo(HTTP_ENTITY)) {
+      if (RAW_BODY_TYPES.stream().anyMatch(p.getRawType()::isAssignableTo)
+          || (form && p.getRawType().isAssignableTo(MULTIPART_FILE))) {
         return true;
       }
       for (JavaAnnotation<?> a : p.getAnnotations()) {
