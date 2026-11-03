@@ -420,6 +420,71 @@ def test_custom_query_outputs_are_not_counted() -> None:
     assert resolver.report.sql_tables_emitted == 1
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "INSERT INTO appdb.public.audit (order_id) SELECT id FROM appdb.public.orders",
+        "CREATE TABLE appdb.public.audit AS SELECT id FROM appdb.public.orders",
+    ],
+)
+def test_custom_query_writing_tables_has_no_column_lineage(query: str) -> None:
+    # The river loads the query's result into its own target, so columns of a
+    # table the SQL writes must not become column edges.
+    resolver = _resolver(connection_to_platform=PG_SOURCE)
+    props = _custom_query("postgresql", query, {**SF_TARGET, "table_name": "orders"})
+
+    lineage = resolver.river_lineage(props, "r")
+
+    assert lineage.inputs == {
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.orders,PROD)"
+    }
+    assert lineage.outputs == {_sf("dw.raw.orders")}
+    assert lineage.columns == {}
+    assert resolver.report.column_lineage_skipped["custom_query_not_select"] == 1
+
+
+def test_custom_query_columns_follow_target_aliases() -> None:
+    resolver = _resolver(connection_to_platform=PG_SOURCE)
+    props = SourceToTargetProperties.model_validate(
+        {
+            "source": {
+                "name": "postgresql",
+                "connection_id": "conn-pg",
+                "run_type": "custom_query",
+                "custom_query_source_settings": {
+                    "query": "SELECT id, status, note FROM appdb.public.orders"
+                },
+            },
+            "target": SF_TARGET,
+            "schemas": [
+                {
+                    "name": "public",
+                    "tables": [
+                        _table(
+                            "orders",
+                            target_table="orders",
+                            columns=[
+                                {"name": "id", "alias": "order_id"},
+                                {"name": "note", "is_selected": False},
+                            ],
+                        )
+                    ],
+                }
+            ],
+        }
+    )
+
+    lineage = resolver.river_lineage(props, "r")
+
+    assert lineage.outputs == {_sf("dw.raw.orders")}
+    assert _edges(lineage) == {"order_id": ["id"], "status": ["status"]}
+    assert all(
+        d.startswith("urn:li:schemaField:(" + _sf("dw.raw.orders"))
+        for d in lineage.columns
+    )
+    assert resolver.report.column_lineage_skipped["unmapped_sql_column"] == 1
+
+
 def test_logic_select_step_reads_tables_and_maps_columns_to_target() -> None:
     resolver = _resolver()
     node = _step(

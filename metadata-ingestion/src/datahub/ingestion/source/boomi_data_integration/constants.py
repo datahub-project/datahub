@@ -237,6 +237,7 @@ class ColumnSkipReason(StrEnum):
     NOT_IN_SCHEMA = "not_in_schema"
     MISSING_TARGET = "missing_target"
     INVALID_COLUMN = "invalid_column"
+    CUSTOM_QUERY_NOT_SELECT = "custom_query_not_select"
 
 
 TRANSFORM_IDENTITY = "IDENTITY"

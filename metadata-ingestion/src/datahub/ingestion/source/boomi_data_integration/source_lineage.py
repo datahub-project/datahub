@@ -107,6 +107,9 @@ class SqlStatement:
     has_field_mapping: bool = False
     # A custom query's own output tables are not where the river loads.
     keep_outputs: bool = True
+    # Lowercased output column -> target column, or None when the river does
+    # not load it. Output columns not listed keep their name.
+    select_renames: Dict[str, Optional[str]] = field(default_factory=dict)
 
 
 def _join(*parts: Optional[str]) -> Optional[str]:
@@ -326,24 +329,47 @@ class SourceLineageResolver:
         if settings is None or not settings.query:
             self._skip(LineageSkipReason.MISSING_QUERY)
             return
-        target = tables[0].urn if len(tables) == 1 else None
+        target = tables[0] if len(tables) == 1 else None
         query_lineage = JobLineage()
         self._sql(
             SqlStatement(
                 sql=settings.query,
                 scope=scope,
                 context=context,
-                select_target=target,
+                select_target=target.urn if target else None,
                 select_target_scope=self.targets.target_scope(
                     props.target.name, props.target.connection_id
                 ),
                 has_field_mapping=bool(settings.fields),
                 keep_outputs=False,
+                select_renames=self._column_renames(target.details if target else None),
             ),
             query_lineage,
         )
         lineage.inputs.update(query_lineage.inputs)
         lineage.columns.update(query_lineage.columns)
+
+    def _column_renames(
+        self, details: Optional[TableDetails]
+    ) -> Dict[str, Optional[str]]:
+        renames: Dict[str, Optional[str]] = {}
+        for raw in (details.modified_columns if details else None) or []:
+            try:
+                column = ModifiedColumn.model_validate(raw)
+            except ValidationError:
+                self._skip_column(ColumnSkipReason.INVALID_COLUMN)
+                continue
+            if not column.name:
+                continue
+            loaded = (
+                column.is_selected
+                and not column.is_rivery_metadata
+                and not column.expression
+            )
+            renames[column.name.lower()] = (
+                (column.alias or column.name) if loaded else None
+            )
+        return renames
 
     def _parse(self, statement: SqlStatement) -> SqlParsingResult:
         scope = statement.scope
@@ -463,6 +489,12 @@ class SourceLineageResolver:
             self._skip_column(ColumnSkipReason.MULTI_STATEMENT_SCRIPT)
             return
         outputs = output_columns(statement.sql, scope.platform)
+        if not statement.keep_outputs and (not outputs.is_select or result.out_tables):
+            # A custom query's result loads into the river target, so only a
+            # plain SELECT has columns to map there. Tables the SQL writes
+            # itself are not the target and get no column edges.
+            self._skip_column(ColumnSkipReason.CUSTOM_QUERY_NOT_SELECT)
+            return
         for info in written:
             downstream_table: Optional[str] = None
             downstream_scope: Optional[DatasetScope] = scope
@@ -485,6 +517,12 @@ class SourceLineageResolver:
                     self._skip_column(ColumnSkipReason.INSERT_WITHOUT_COLUMN_LIST)
                     continue
                 column = outputs.by_output.get(info.downstream.column.lower())
+                if (
+                    column is not None
+                    and downstream_table == statement.select_target
+                    and column.lower() in statement.select_renames
+                ):
+                    column = statement.select_renames[column.lower()]
             if column is None or downstream_table is None or downstream_scope is None:
                 self._skip_column(ColumnSkipReason.UNMAPPED_SQL_COLUMN)
                 continue
