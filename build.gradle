@@ -544,25 +544,46 @@ allprojects {
     // Opt a task out only via deadSuiteGuardOptOut (top of this file), with a reason.
     def deadSuiteOptOutReason = rootProject.ext.deadSuiteGuardOptOut[task.path]
     failOnNoDiscoveredTests = deadSuiteOptOutReason == null
-    def testSourceSet = task.project.extensions.findByName('sourceSets')?.findByName('test')
-    if (deadSuiteOptOutReason == null && testSourceSet != null) {
+    def projectSourceSets = task.project.extensions.findByName('sourceSets')
+    if (deadSuiteOptOutReason == null && projectSourceSets != null) {
       def deadSuiteHint = "Fix the task's wiring, or add '${task.path}' to deadSuiteGuardOptOut " +
           "in the root build.gradle with a reason."
-      def testSources = testSourceSet.allSource.matching {
-        include '**/*.java', '**/*.kt', '**/*.groovy', '**/*.scala'
-      }
       task.onlyIf('dead-suite guard: test sources must produce test classes') {
+        def classesDirs = task.testClassesDirs.files
+        if (classesDirs.isEmpty()) {
+          // Gradle 9 no longer wires conventions onto custom Test tasks: an unwired one has no
+          // classes dirs at all and can never run anything.
+          def msg = "${task.path} has no testClassesDirs (it would be NO-SOURCE and pass). " +
+              deadSuiteHint
+          // Gradle hides the cause of an onlyIf failure unless run with --stacktrace.
+          task.logger.error(msg)
+          throw new GradleException(msg)
+        }
         // Mirrors Test#getCandidateClassFiles, the input whose emptiness makes the task NO-SOURCE.
         def candidates = task.testClassesDirs.asFileTree.matching {
           include task.includes
           exclude task.excludes
         }
-        if (candidates.isEmpty() && !testSources.isEmpty()) {
-          def msg = "${task.path} has no test classes to run (it would be NO-SOURCE and pass) " +
-              "although ${task.project.path} has test sources. ${deadSuiteHint}"
-          // Gradle hides the cause of an onlyIf failure unless run with --stacktrace.
-          task.logger.error(msg)
-          throw new GradleException(msg)
+        if (candidates.isEmpty()) {
+          // Check the source sets the task actually runs (e.g. a custom integration-test source
+          // set), falling back to `test` when its dirs don't belong to any source set.
+          def backing = projectSourceSets.findAll { ss ->
+            ss.output.classesDirs.files.any { classesDirs.contains(it) }
+          }
+          if (backing.isEmpty()) {
+            backing = [projectSourceSets.findByName('test')].findAll { it != null }
+          }
+          def withSources = backing.findAll { ss ->
+            !ss.allSource.matching {
+              include '**/*.java', '**/*.kt', '**/*.groovy', '**/*.scala'
+            }.isEmpty()
+          }
+          if (!withSources.isEmpty()) {
+            def msg = "${task.path} has no test classes to run (it would be NO-SOURCE and pass) " +
+                "although source set(s) ${withSources*.name} have test sources. ${deadSuiteHint}"
+            task.logger.error(msg)
+            throw new GradleException(msg)
+          }
         }
         true
       }
