@@ -1789,15 +1789,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 f"found for {external_urn}"
             )
             return None
+        original_paths = (
+            resolver.get_original_field_paths(external_urn) if resolver else None
+        )
         cll = federation.identity_column_lineage(
             dataset_urn=dataset_urn,
             external_urn=external_urn,
             downstream_field_paths=[f.fieldPath for f in schema_metadata.fields],
             upstream_field_paths=list(schema_info.keys()),
-            upstream_original_field_paths=(
-                resolver.get_original_field_paths(external_urn) if resolver else None
-            ),
+            upstream_original_field_paths=original_paths,
         )
+        if original_paths is None and cll.lineages:
+            self.report.num_federation_cll_original_paths_unknown += 1
         self.report.num_federation_cll_edges_emitted += len(cll.lineages)
         self.report.num_federation_cll_edges_original_path += cll.num_original_path
         self.report.num_federation_cll_downstream_unmatched += len(

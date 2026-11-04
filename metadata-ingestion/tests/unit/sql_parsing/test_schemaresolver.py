@@ -689,42 +689,51 @@ def test_original_field_paths_kept_when_fetched_from_graph():
 
     resolver.resolve_urn(_V2_URN)
 
-    assert resolver.get_original_field_paths(_V2_URN)["col_a"] == (
+    assert (resolver.get_original_field_paths(_V2_URN) or {}).get("col_a") == (
         "[version=2.0].[type=long].col_a"
     )
 
 
-def test_original_field_paths_empty_for_v1_and_unknown_schemas():
+def test_original_field_paths_known_empty_for_v1_and_unknown_otherwise():
     resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
     resolver.add_schema_metadata(_V2_URN, create_mock_schema([("col_a", "bigint")]))
+    raw_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,my_db.raw_table,PROD)"
+    resolver.add_raw_schema_info(raw_urn, {"col_a": "bigint"})
 
+    # {}: originals known, nothing to translate. None: originals unknown.
     assert resolver.get_original_field_paths(_V2_URN) == {}
-    assert resolver.get_original_field_paths("urn:li:dataset:unknown") == {}
+    assert resolver.get_original_field_paths(raw_urn) is None
+    assert resolver.get_original_field_paths("urn:li:dataset:unknown") is None
 
 
 @pytest.mark.parametrize(
-    "replace",
+    "replace, expected",
     [
         pytest.param(
-            lambda r: r.add_raw_schema_info(_V2_URN, {"col_a": "bigint"}), id="raw"
+            lambda r: r.add_raw_schema_info(_V2_URN, {"col_a": "bigint"}),
+            None,
+            id="raw",
         ),
         pytest.param(
             lambda r: r.add_schema_metadata(
                 _V2_URN, create_mock_schema([("col_a", "bigint")])
             ),
+            {},
             id="v1_schema",
         ),
         pytest.param(
-            lambda r: r.add_schema_metadata_from_fetch(_V2_URN, None), id="fetch_miss"
+            lambda r: r.add_schema_metadata_from_fetch(_V2_URN, None),
+            None,
+            id="fetch_miss",
         ),
     ],
 )
-def test_original_field_paths_cleared_when_schema_replaced(replace):
+def test_original_field_paths_cleared_when_schema_replaced(replace, expected):
     resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
     resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
     replace(resolver)
 
-    assert resolver.get_original_field_paths(_V2_URN) == {}
+    assert resolver.get_original_field_paths(_V2_URN) == expected
 
 
 def test_original_field_paths_for_mixed_v1_and_v2_schema():
