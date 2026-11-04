@@ -29,7 +29,8 @@ def checkTask = tasks.register('checkWiringCoverage', WiringCoverageCheck) {
   group = 'verification'
   description = 'Fails when a Spring configuration class is neither loaded by a real-context test nor baselined.'
   classesDirs.from(sourceSets.main.output.classesDirs)
-  recordings.from(recordDir)
+  // A NO-SOURCE test task never runs its doFirst cleanup, so ignore whatever an earlier run left.
+  recordings.from({ testTask.get().state.noSource ? [] : recordDir })
   baseline.set(layout.projectDirectory.file('wiring-baseline.txt'))
   projectPath.set(project.path)
   rootDirectory.set(rootProject.layout.projectDirectory)
@@ -49,7 +50,12 @@ def checkTask = tasks.register('checkWiringCoverage', WiringCoverageCheck) {
       return false
     }
     def s = t.state
-    def ran = !s.skipped || s.skipMessage in ['UP-TO-DATE', 'FROM-CACHE', 'NO-SOURCE']
+    // Executed, UP-TO-DATE / FROM-CACHE (upToDate), or NO-SOURCE. Anything else (disabled, onlyIf
+    // false) means no suite ran: say so instead of skipping silently.
+    def ran = !s.skipped || s.upToDate || s.noSource
+    if (!ran) {
+      logger.warn("checkWiringCoverage skipped for ${project.path}: test was ${s.skipMessage}")
+    }
     // --tests runs a subset; build-script filters are the module's normal suite and still count.
     def filtered = !t.filter.commandLineIncludePatterns.isEmpty()
     ran && s.failure == null && !filtered
