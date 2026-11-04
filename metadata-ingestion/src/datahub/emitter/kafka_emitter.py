@@ -15,6 +15,7 @@ from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolv
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
@@ -93,11 +94,6 @@ class KafkaEmitterConfig(ConfigModel):
     @classmethod
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:
         assert MCP_KEY in v, f"topic_routes must contain a route for {MCP_KEY}"
-        if MCE_KEY not in v:
-            logger.warning(
-                f"MCE topic not configured in topic_routes. MCE emissions will fail. "
-                f"To enable MCE emission, add '{MCE_KEY}' to topic_routes."
-            )
         return v
 
 
@@ -271,24 +267,10 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         mce: MetadataChangeEvent,
         callback: KafkaOnDelivery,
     ) -> None:
-        if MCE_KEY not in self.config.topic_routes:
-            error = Exception(
-                f"Cannot emit MetadataChangeEvent: {MCE_KEY} topic not configured in topic_routes"
-            )
-            callback(error, "MCE emission failed - topic not configured")
-            return
-        # Call poll to trigger any callbacks on success / failure of previous writes
-        producer: SerializingProducer = self.producers[MCE_KEY]
-        producer.poll(0)
-        blocked = self._produce_with_backpressure(
-            producer,
-            max_block_seconds=self.config.max_queue_full_block_seconds,
-            topic=self.config.topic_routes[MCE_KEY],
-            key=mce.proposedSnapshot.urn,
-            value=mce,
-            on_delivery=callback,
-        )
-        self._record_backpressure(blocked)
+        """Emit an MCE as one MCP per aspect to the MCP topic; ``callback`` fires once per MCP."""
+        # GMS is removing its MCE topic consumer; the MCP topic is always consumed.
+        for mcp in mcps_from_mce(mce):
+            self.emit_mcp_async(mcp, callback)
 
     def emit_mcp_async(
         self,

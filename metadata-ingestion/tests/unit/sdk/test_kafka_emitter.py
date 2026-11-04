@@ -12,11 +12,16 @@ from datahub.emitter.kafka_emitter import (
     DatahubKafkaEmitter,
     KafkaEmitterConfig,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import DatasetSnapshotClass, StatusClass
+from datahub.metadata.schema_classes import (
+    DatasetSnapshotClass,
+    OwnershipClass,
+    StatusClass,
+)
 
 
 class KafkaEmitterTest(unittest.TestCase):
@@ -75,76 +80,53 @@ class KafkaEmitterTest(unittest.TestCase):
         assert MCP_KEY in emitter.producers
 
     @patch("datahub.emitter.kafka_emitter.SerializingProducer")
-    def test_emit_mce_without_mce_key(self, mock_producer):
-        """Emitting an MCE when MCE_KEY is missing should report error via callback."""
-        emitter_config = KafkaEmitterConfig.parse_obj(
+    def test_emit_mce_produces_mcp_per_aspect(self, mock_producer):
+        """An MCE is published as one MCP per aspect to the MCP topic, even without an MCE route."""
+        emitter_config = KafkaEmitterConfig.model_validate(
             {
                 "connection": {"bootstrap": "foobar:9092"},
                 "topic_routes": {MCP_KEY: "MCP_Topic"},
             }
         )
         emitter = DatahubKafkaEmitter(config=emitter_config)
-
-        # Track callback invocations
-        callback_errors = []
-
-        def test_callback(err, msg):
-            if err:
-                callback_errors.append((err, msg))
-
-        # Attempt to emit an MCE should call callback with error
+        status = StatusClass(removed=False)
+        ownership = OwnershipClass(owners=[])
         mce = MetadataChangeEvent(
             proposedSnapshot=DatasetSnapshotClass(
-                urn="urn:li:dataset:123", aspects=[StatusClass(False)]
+                urn="urn:li:dataset:123", aspects=[status, ownership]
             )
         )
-        emitter.emit_mce_async(mce, callback=test_callback)
 
-        # Verify callback was called with the error
-        assert len(callback_errors) == 1
-        error, msg = callback_errors[0]
-        assert isinstance(error, Exception)
-        assert (
-            f"Cannot emit MetadataChangeEvent: {MCE_KEY} topic not configured in topic_routes"
-            == str(error)
-        )
-        assert msg == "MCE emission failed - topic not configured"
+        emitter.emit(mce, callback=lambda err, msg: None)
 
-        # Verify produce was not called since MCE topic is not configured
-        mock_producer.return_value.produce.assert_not_called()
+        produce_calls = mock_producer.return_value.produce.call_args_list
+        assert [c.kwargs["topic"] for c in produce_calls] == ["MCP_Topic"] * 2
+        values = [c.kwargs["value"] for c in produce_calls]
+        assert all(isinstance(v, MetadataChangeProposalWrapper) for v in values)
+        assert [v.aspect for v in values] == [status, ownership]
+        assert {c.kwargs["key"] for c in produce_calls} == {"urn:li:dataset:123"}
 
     @patch("datahub.emitter.kafka_emitter.SerializingProducer")
-    def test_emit_mce_and_mcp(self, mock_producer):
-        """Emitting both MCE and MCP when both keys are present."""
-        emitter_config = KafkaEmitterConfig.parse_obj(
+    def test_emit_mcp(self, mock_producer):
+        emitter_config = KafkaEmitterConfig.model_validate(
             {
                 "connection": {"bootstrap": "foobar:9092"},
                 "topic_routes": {MCE_KEY: "MCE_Topic", MCP_KEY: "MCP_Topic"},
             }
         )
         emitter = DatahubKafkaEmitter(config=emitter_config)
-
-        # Ensure producers are created for both keys
-        assert MCE_KEY in emitter.producers
-        assert MCP_KEY in emitter.producers
-
-        # Emit an MCE
-        mce = MetadataChangeEvent(
-            proposedSnapshot=DatasetSnapshotClass(
-                urn="urn:li:dataset:123", aspects=[StatusClass(False)]
-            )
-        )  # Mock MCE object
-        emitter.emit_mce_async(mce, callback=lambda err, msg: None)
-        mock_producer.return_value.produce.assert_called()
-
-        # Emit an MCP
         mcp = MetadataChangeProposal(
             entityUrn="urn:li:entity:123",
             entityType="dataset",
             changeType="UPSERT",
-        )  # Mock MCP object
+        )
+
         emitter.emit_mcp_async(mcp, callback=lambda err, msg: None)
-        mock_producer.return_value.produce.assert_called()
+
+        mock_producer.return_value.produce.assert_called_once()
+        assert (
+            mock_producer.return_value.produce.call_args.kwargs["topic"] == "MCP_Topic"
+        )
 
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
     @patch(
