@@ -129,7 +129,10 @@ describe('home page fixtures', () => {
             }).listPosts;
         assert.equal(since(0).total, all.length);
         assert.equal(since(newest).total, 0);
-        assert.ok(since(newest - 1).posts.every((post) => post.lastModified.time === newest));
+        const latest = since(newest - 1);
+        assert.equal(latest.total, all.filter((post) => post.lastModified.time === newest).length);
+        assert.ok(latest.total > 0);
+        assert.ok(latest.posts.every((post) => post.lastModified.time === newest));
         assert.equal(since(0, [all[0].urn]).total, all.length - 1);
     });
 
