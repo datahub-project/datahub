@@ -12,6 +12,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -81,16 +82,28 @@ public class CleanIndicesStep implements UpgradeStep {
               protectedPhysicalIndices);
         }
 
-        IndexUtils.getAllReindexConfigs(
-                context.opContext(), indexedServices, structuredProperties.get())
-            .forEach(
-                reindexConfig ->
-                    ESIndexBuilder.cleanOrphanedIndices(
-                        IndexUtils.requireIndexBuilder(reindexConfig.name()).getSearchClient(),
-                        context.opContext(),
-                        esConfig,
-                        reindexConfig,
-                        protectedPhysicalIndices));
+        List<ReindexConfig> reindexConfigs;
+        try {
+          reindexConfigs =
+              IndexUtils.getAllReindexConfigs(
+                  context.opContext(), indexedServices, structuredProperties);
+        } catch (RuntimeException e) {
+          // Orphan cleanup only needs index names. A failed read of the structured property
+          // definitions, a filtering scan on Cassandra, skips it for this run instead of failing
+          // the non-blocking upgrades that follow.
+          log.warn(
+              "Skipping orphaned index cleanup for this run: its index configs could not be built",
+              e);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+        }
+        reindexConfigs.forEach(
+            reindexConfig ->
+                ESIndexBuilder.cleanOrphanedIndices(
+                    IndexUtils.requireIndexBuilder(reindexConfig.name()).getSearchClient(),
+                    context.opContext(),
+                    esConfig,
+                    reindexConfig,
+                    protectedPhysicalIndices));
       } catch (Exception e) {
         log.error("CleanUpIndicesStep failed.", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);

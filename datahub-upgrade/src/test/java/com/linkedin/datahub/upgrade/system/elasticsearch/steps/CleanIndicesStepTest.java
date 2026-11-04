@@ -86,6 +86,33 @@ public class CleanIndicesStepTest {
   }
 
   @Test
+  public void testFailedDefinitionsReadSkipsCleanupWithoutFailing() {
+    // Orphan cleanup needs only index names; failing it would end the non-blocking run.
+    UpgradeContext upgradeContext = mock(UpgradeContext.class);
+    when(upgradeContext.opContext()).thenReturn(TestOperationContexts.systemContextNoValidate());
+    when(upgradeContext.upgrade()).thenReturn(mock(Upgrade.class));
+    BuildIndicesConfiguration buildIndicesConfig = new BuildIndicesConfiguration();
+    buildIndicesConfig.setIncrementalReindexEnabled(false);
+    CleanIndicesStep step =
+        new CleanIndicesStep(
+            mock(SearchClientShim.class),
+            mock(ElasticSearchConfiguration.class),
+            List.of(mock(ElasticSearchIndexed.class)),
+            () -> {
+              throw new IllegalStateException("database unavailable");
+            },
+            mock(EntityService.class),
+            UPGRADE_VERSION,
+            buildIndicesConfig);
+
+    try (MockedStatic<ESIndexBuilder> esIndexBuilder = Mockito.mockStatic(ESIndexBuilder.class)) {
+      UpgradeStepResult result = step.executable().apply(upgradeContext);
+      assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+      esIndexBuilder.verifyNoInteractions();
+    }
+  }
+
+  @Test
   public void testIncrementalReindexEnabledLoadsProtectedIndices() throws Exception {
     OperationContext opContext = TestOperationContexts.systemContextNoValidate();
     SearchClientShim<?> searchClient = mock(SearchClientShim.class);

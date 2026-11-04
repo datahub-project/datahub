@@ -163,7 +163,7 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
         validatePageSize();
         // Records each index's builder alongside its config; both are needed below.
         List<ReindexConfig> configs =
-            IndexUtils.getAllReindexConfigs(opContext, indexedServices, structuredProperties.get());
+            IndexUtils.getAllReindexConfigs(opContext, indexedServices, structuredProperties);
         Long deadlineEpochMs = deadlineEpochMs();
         for (String indexName : pending) {
           phase1State = fillIndex(context, phase1State, configs, indexName, deadlineEpochMs);

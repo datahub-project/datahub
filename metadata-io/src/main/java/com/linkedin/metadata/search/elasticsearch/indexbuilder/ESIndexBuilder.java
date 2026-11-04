@@ -1011,9 +1011,10 @@ public class ESIndexBuilder {
           e);
       return false;
     }
-    if (suppressError) {
+    if (suppressError && !mapsStructuredPropertiesDynamically(indexState.currentMappings())) {
       // System-update adds fields the index was missing, possibly while values for them were
-      // written; put-mapping does not index what documents already hold.
+      // written; put-mapping does not index what documents already hold. Under a dynamic
+      // container a written value would have mapped its field, so none can be unindexed there.
       log.warn(
           "Index: {} - Added structured property fields {}. Values that documents already held"
               + " for them stay unsearchable until RestoreIndices rewrites those documents.",
@@ -1023,6 +1024,18 @@ public class ESIndexBuilder {
       log.info("Index: {} - Added structured property fields {}", indexState.name(), newFields);
     }
     return true;
+  }
+
+  /** Whether the live structured property container maps new values dynamically. */
+  private static boolean mapsStructuredPropertiesDynamically(
+      @Nullable Map<String, Object> currentMappings) {
+    if (currentMappings == null
+        || !(currentMappings.get(PROPERTIES) instanceof Map<?, ?> properties)
+        || !(properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> container)) {
+      return false;
+    }
+    Object dynamic = container.get("dynamic");
+    return Boolean.TRUE.equals(dynamic) || "true".equals(dynamic);
   }
 
   /**

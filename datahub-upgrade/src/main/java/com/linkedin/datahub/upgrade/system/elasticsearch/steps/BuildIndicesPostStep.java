@@ -54,7 +54,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
       try {
 
         List<ReindexConfig> indexConfigs =
-            getAllReindexConfigs(opContext, services, structuredProperties.get()).stream()
+            getAllReindexConfigs(opContext, services, structuredProperties).stream()
                 .filter(ReindexConfig::requiresReindex)
                 .collect(Collectors.toList());
 
