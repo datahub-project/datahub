@@ -286,6 +286,39 @@ def test_config_redaction_2():
     }
 
 
+def test_config_redaction_kafka_client_properties():
+    obj = {
+        "connection": {
+            "consumer_config": {
+                "security.protocol": "SASL_SSL",
+                "sasl.username": "my-api-key",
+                "sasl.password": "my-api-secret",
+                "ssl.key.password": "my-key-password",
+                "sasl.oauthbearer.client.secret": "my-client-secret",
+            },
+            "schema_registry_config": {
+                "basic.auth.user.info": "registry-key:registry-secret",
+            },
+        },
+    }
+
+    redacted = redact_raw_config(obj)
+    assert redacted == {
+        "connection": {
+            "consumer_config": {
+                "security.protocol": "SASL_SSL",
+                "sasl.username": "my-api-key",
+                "sasl.password": "********",
+                "ssl.key.password": "********",
+                "sasl.oauthbearer.client.secret": "********",
+            },
+            "schema_registry_config": {
+                "basic.auth.user.info": "********",
+            },
+        },
+    }
+
+
 def test_shared_defaults():
     class SourceConfig(ConfigModel):
         token: str
