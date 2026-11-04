@@ -99,7 +99,7 @@ When a table navigates an ODBC source (`Odbc.DataSource(..., [HierarchicalNaviga
 | MySQL, Teradata                                                           | `database.table`               |
 | Other platforms (Sybase, Firebird, ...)                                   | every level navigation exposes |
 
-If navigation does not expose every level, for example a BigQuery DSN that surfaces the dataset and table but not the project, supply the missing levels per DSN with `dsn_to_database_schema`. Navigation always wins: the mapping only fills levels that navigation did not supply. DSN names are matched case-insensitively.
+If navigation does not expose every level, for example a BigQuery DSN that surfaces the dataset and table but not the project, supply the missing levels per DSN with `dsn_to_database_schema`. Navigation always wins: the mapping only fills levels that navigation did not supply.
 
 ```yaml
 source:
@@ -124,6 +124,12 @@ source:
       oracle_dsn:
         default_database: ORCL # emits orcl.hr.employees instead of hr.employees
 ```
+
+Databricks navigation through the constant `SPARK` catalog of the Simba Spark driver is skipped with a warning, because `spark.<schema>.<table>` never matches a Databricks catalog.
+
+DSN names in `dsn_to_platform_name` and `dsn_to_database_schema` are matched case-insensitively. A recipe may list the same DSN under keys that differ only in case, but they must map to the same target (the same platform, or the same database and schema); conflicting values fail config validation.
+
+ODBC SQL queries (`Odbc.Query`) are parsed as SQL and keep their own URN shapes: the per-platform rules above apply only to hierarchical navigation. Both paths match DSN names case-insensitively, and for Athena both strip the leading catalog while keeping the server's `platform_instance`, then apply `athena_table_platform_override`.
 
 #### Oracle TNS Aliases and Inline Native Queries
 
