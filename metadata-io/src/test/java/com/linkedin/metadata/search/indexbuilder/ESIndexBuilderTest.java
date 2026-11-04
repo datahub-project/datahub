@@ -1425,6 +1425,21 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  void testAddUnmappedStructuredPropertyFields_RejectionPropagates() throws IOException {
+    // Before a fill, a rejected put fails instead of leaving the filled values unsearchable.
+    ReindexConfig indexState = structuredPropertyAdditionState(Settings.EMPTY, new HashMap<>());
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(mappingRejection("Limit of total fields [1000] has been exceeded"));
+
+    assertThrows(
+        OpenSearchStatusException.class,
+        () -> indexBuilder.addUnmappedStructuredPropertyFields(opContext, indexState));
+  }
+
+  @Test
   @SuppressWarnings("unchecked")
   void testBuildIndex_AddsNewStructuredPropertiesWhenNothingElseChanges() throws IOException {
     ReindexConfig indexState = structuredPropertyAdditionState(Settings.EMPTY, new HashMap<>());

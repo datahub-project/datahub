@@ -792,9 +792,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       case IN_PLACE -> {
         physicalIndex = config.name();
         fillTarget = config.name();
-        // The index matches its target apart from structured property fields it may lack, so
-        // this only adds those, before the fill writes their values.
-        indexBuilder.buildIndex(opContext, config);
+        // The index matches its target apart from structured property fields it may lack. They go
+        // in before the fill writes their values, and a rejected put fails the step, as creating
+        // an index with them does for the other fills.
+        indexBuilder.addUnmappedStructuredPropertyFields(opContext, config);
         indexBuilder.markMigrationIncomplete(opContext, config.name());
       }
       default -> throw new IllegalStateException("Unhandled fill " + fill);

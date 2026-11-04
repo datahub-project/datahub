@@ -1104,7 +1104,9 @@ public class BuildIndicesIncrementalStepTest {
         .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
     // Structured property fields the index lacks go in before the fill writes their values.
     InOrder fillOrder = inOrder(indexBuilder);
-    fillOrder.verify(indexBuilder).buildIndex(any(OperationContext.class), eq(v3Config));
+    fillOrder
+        .verify(indexBuilder)
+        .addUnmappedStructuredPropertyFields(any(OperationContext.class), eq(v3Config));
     fillOrder
         .verify(indexBuilder)
         .markMigrationIncomplete(any(OperationContext.class), eq(V3_INDEX_NAME));
@@ -1116,6 +1118,22 @@ public class BuildIndicesIncrementalStepTest {
         IncrementalReindexState.get(
             state, V3_INDEX_NAME, IncrementalReindexState.BACKFILL_TARGET_INDEX),
         Optional.of(V3_INDEX_NAME));
+  }
+
+  @Test
+  public void testRejectedStructuredPropertyFieldsFailAFillInPlace() throws Throwable {
+    // Filled without those fields, the index would hold their values unsearchable.
+    ReindexConfig v3Config = currentSchemeV3Config(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    when(indexBuilder.getCount(any(OperationContext.class), eq(V3_INDEX_NAME))).thenReturn(0L);
+    doThrow(new IOException("Limit of total fields [1000] has been exceeded"))
+        .when(indexBuilder)
+        .addUnmappedStructuredPropertyFields(any(OperationContext.class), eq(v3Config));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    verify(indexBuilder, never()).markMigrationIncomplete(any(OperationContext.class), anyString());
   }
 
   @Test

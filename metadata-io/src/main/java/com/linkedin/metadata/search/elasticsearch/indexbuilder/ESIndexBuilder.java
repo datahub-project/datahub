@@ -1018,6 +1018,16 @@ public class ESIndexBuilder {
     return true;
   }
 
+  /**
+   * Adds the structured property fields the index does not map yet, before a fill writes into it.
+   * Values written without their field would stay unsearchable, so a rejected put fails here
+   * instead of only being logged.
+   */
+  public void addUnmappedStructuredPropertyFields(
+      @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState) throws IOException {
+    putUnmappedStructuredPropertyFields(opContext, indexState, false);
+  }
+
   private static void logAddedStructuredPropertyFields(
       @Nonnull ReindexConfig indexState, @Nonnull Set<String> fields, boolean suppressError) {
     if (suppressError && !mapsStructuredPropertiesDynamically(indexState.currentMappings())) {
