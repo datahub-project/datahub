@@ -914,6 +914,7 @@ public class GmsGraphQLEngine {
     configureMetadataAttributionResolver(builder);
     configureVersionPropertiesResolvers(builder);
     configureVersionSetResolvers(builder);
+    configureGenericRelationshipsResolvers(builder);
     configureGlobalHomePageSettingsResolvers(builder);
     configurePageTemplateResolvers(builder);
     configureDataHubFileResolvers(builder);
@@ -2454,7 +2455,11 @@ public class GmsGraphQLEngine {
                         siblingGraphService,
                         restrictedService,
                         this.authorizationConfiguration,
-                        this.featureFlags)));
+                        this.featureFlags))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient)));
   }
 
   private void configureEntityPathResolvers(final RuntimeWiring.Builder builder) {
@@ -3009,7 +3014,14 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
-                        "relationships", new EntityRelationshipsResultResolver(graphClient)))
+                        "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "lineage",
+                        new EntityLineageResultResolver(
+                            siblingGraphService,
+                            restrictedService,
+                            this.authorizationConfiguration,
+                            this.featureFlags)))
         .type(
             "ERModelRelationshipProperties",
             typeWiring ->
@@ -3849,7 +3861,14 @@ public class GmsGraphQLEngine {
                               : null;
                         }))
                 .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient))
-                .dataFetcher("aspects", new WeaklyTypedAspectsResolver()));
+                .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService,
+                        restrictedService,
+                        this.authorizationConfiguration,
+                        this.featureFlags)));
   }
 
   private void configureContractResolvers(final RuntimeWiring.Builder builder) {
@@ -3950,8 +3969,9 @@ public class GmsGraphQLEngine {
     builder.type(
         "DataHubRole",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "relationships", new EntityRelationshipsResultResolver(graphClient)));
+            typeWiring
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher("aspects", new WeaklyTypedAspectsResolver()));
   }
 
   private void configureViewResolvers(final RuntimeWiring.Builder builder) {
@@ -4466,6 +4486,41 @@ public class GmsGraphQLEngine {
                           ? versionProperties.getVersionSet().getUrn()
                           : null;
                     })));
+  }
+
+  /**
+   * Entity types that declare {@code relationships} in the schema but whose own wiring doesn't
+   * register it. They resolve it from the graph like every other entity type.
+   */
+  static final List<String> GENERIC_RELATIONSHIPS_TYPES =
+      List.of(
+          "AccessTokenMetadata",
+          "BusinessAttribute",
+          "DataContract",
+          "DataHubConnection",
+          "DataHubPageModule",
+          "DataHubPageTemplate",
+          "DataHubPolicy",
+          "DataPlatform",
+          "DataPlatformInstance",
+          "DataTypeEntity",
+          "EntityTypeEntity",
+          "ExecutionRequest",
+          "Form",
+          "Post",
+          "StructuredPropertyEntity",
+          "Test",
+          "VersionSet");
+
+  /** Adds {@code relationships} to the types' other data fetchers; the wiring merges per type. */
+  private void configureGenericRelationshipsResolvers(final RuntimeWiring.Builder builder) {
+    GENERIC_RELATIONSHIPS_TYPES.forEach(
+        type ->
+            builder.type(
+                type,
+                typeWiring ->
+                    typeWiring.dataFetcher(
+                        "relationships", new EntityRelationshipsResultResolver(graphClient))));
   }
 
   private void configureVersionSetResolvers(final RuntimeWiring.Builder builder) {
