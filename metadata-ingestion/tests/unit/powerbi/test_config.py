@@ -257,6 +257,8 @@ class TestPowerBiConfig:
         "field, first, second",
         [
             ("dsn_to_platform_name", "mysql", "MySQL"),
+            # Both spellings normalise to the redshift platform.
+            ("dsn_to_platform_name", "Amazon Redshift", "AmazonRedshift"),
             ("dsn_to_database_schema", "sales.dbo", " sales . dbo "),
         ],
     )

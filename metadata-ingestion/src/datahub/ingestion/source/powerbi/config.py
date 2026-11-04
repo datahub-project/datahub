@@ -35,6 +35,7 @@ from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
 )
+from datahub.ingestion.source.powerbi.m_query.odbc import normalize_platform_name
 from datahub.ingestion.source.powerbi.powerbi_selection import (
     ACTIVE_WORKSPACE_STATE,
     probe_workspace_verdict,
@@ -1013,13 +1014,16 @@ class PowerBiDashboardSourceConfig(
         # case-insensitive key match. Keys differing only in case are allowed when
         # they map to the same value (recipes written before that fallback had to
         # list every spelling), but conflicting values would be picked by dict
-        # order. Values are compared ignoring whitespace around segments (this runs
-        # before dsn_to_database_schema is normalised) and, for platform names,
-        # case, which normalize_platform_name ignores too.
+        # order. Values are compared the way they are consumed: database/schema
+        # ignoring whitespace around segments (this runs before
+        # dsn_to_database_schema is normalised), platform names by the platform
+        # normalize_platform_name resolves them to (e.g. "Amazon Redshift" and
+        # "AmazonRedshift" are both redshift).
         def comparable(mapped: str) -> str:
             normalised = ".".join(part.strip() for part in mapped.split("."))
             if info.field_name == "dsn_to_platform_name":
-                return normalised.casefold()
+                platform, _ = normalize_platform_name(normalised)
+                return platform or normalised.casefold()
             return normalised
 
         seen: Dict[str, str] = {}
