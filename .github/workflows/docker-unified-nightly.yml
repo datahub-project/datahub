@@ -231,7 +231,6 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - name: Detect workflow retry
         id: retry-detection
@@ -354,6 +353,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Login to registry
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0

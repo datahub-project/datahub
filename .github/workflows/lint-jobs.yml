@@ -67,6 +67,8 @@ jobs:
           distribution: "temurin"
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       # mdPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
       # Restore ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
       # Restore-only: ci-cache-warmup.yml warm-web-yarn-cache writes this key on
@@ -94,6 +96,8 @@ jobs:
           distribution: "temurin"
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       # githubActionsPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
       # Restore ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
       # Restore-only: ci-cache-warmup.yml warm-web-yarn-cache writes this key on
@@ -121,6 +125,8 @@ jobs:
           distribution: "temurin"
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - name: Check product-update JSONs match the latest release notes and UI locales
         run: ./gradlew :metadata-service:configuration:productUpdateReleaseSyncCheck
       - name: Probe product-update CTA URLs
@@ -138,6 +144,8 @@ jobs:
           distribution: "temurin"
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The master-scoped entry is written
       # by ci-cache-warmup.yml warm-docs-website-yarn-cache. Prefix keeps this
@@ -165,6 +173,8 @@ jobs:
           distribution: "temurin"
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - name: Run Spotless check
         run: ./gradlew spotlessCheck
 
@@ -296,7 +306,6 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
-          cache: "pip"
 
       # Ahead of the uv/gradle steps on purpose: the check is stdlib-only, so it
       # still runs when the venv install breaks, and it fails in seconds rather
@@ -305,6 +314,8 @@ jobs:
         run: python ./.github/scripts/check_p0_dependencies.py
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The entry is written by
       # ci-cache-warmup.yml (push to master) on both cache backends under this exact key.
@@ -344,6 +355,8 @@ jobs:
           distribution: "temurin"
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
@@ -456,6 +469,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - name: Run lint
         env:
           ANTD_IMPORT_BASELINE_REF: origin/${{ github.base_ref }}
