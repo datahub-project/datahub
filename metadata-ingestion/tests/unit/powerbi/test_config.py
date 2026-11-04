@@ -239,16 +239,34 @@ class TestPowerBiConfig:
             PowerBiDashboardSourceConfig.model_validate(config_dict)
 
     @pytest.mark.parametrize(
-        "field", ["dsn_to_platform_name", "dsn_to_database_schema"]
+        "field, first, second",
+        [
+            ("dsn_to_platform_name", "mysql", "postgres"),
+            ("dsn_to_database_schema", "sales.dbo", "other.dbo"),
+        ],
     )
-    def test_dsn_keys_differing_only_in_case_invalid(self, field: str) -> None:
-        """DSN lookups ignore case, so two such keys would resolve by dict order."""
-        config_dict = {
-            **self.base_config,
-            field: {"BQ_Prod": "mysql", "bq_prod": "mysql"},
-        }
+    def test_dsn_keys_differing_only_in_case_with_conflicting_values_invalid(
+        self, field: str, first: str, second: str
+    ) -> None:
+        """DSN lookups ignore case, so conflicting values would resolve by dict order."""
+        config_dict = {**self.base_config, field: {"Prod": first, "PROD": second}}
         with pytest.raises(ValidationError):
             PowerBiDashboardSourceConfig.model_validate(config_dict)
+
+    @pytest.mark.parametrize(
+        "field, first, second",
+        [
+            ("dsn_to_platform_name", "mysql", "MySQL"),
+            ("dsn_to_database_schema", "sales.dbo", " sales . dbo "),
+        ],
+    )
+    def test_dsn_keys_differing_only_in_case_with_same_value_allowed(
+        self, field: str, first: str, second: str
+    ) -> None:
+        """Recipes written for exact-case lookup listed each DSN spelling with the
+        same value; those must keep loading."""
+        config_dict = {**self.base_config, field: {"Prod": first, "PROD": second}}
+        PowerBiDashboardSourceConfig.model_validate(config_dict)
 
     @pytest.mark.parametrize("platform_instance", ["", "   "])
     def test_athena_override_blank_platform_instance_invalid(

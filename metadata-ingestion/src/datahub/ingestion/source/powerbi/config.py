@@ -1009,18 +1009,28 @@ class PowerBiDashboardSourceConfig(
         cls, value: Dict[str, str], info: ValidationInfo
     ) -> Dict[str, str]:
         # Windows ODBC DSNs are case-insensitive, so DSN lookups fall back to a
-        # case-insensitive key match; keys differing only in case would be picked
-        # silently by dict order.
+        # case-insensitive key match. Keys differing only in case are allowed when
+        # they map to the same value (recipes written before that fallback had to
+        # list every spelling), but conflicting values would be picked by dict
+        # order. Values are compared ignoring whitespace around segments (this runs
+        # before dsn_to_database_schema is normalised) and, for platform names,
+        # case, which normalize_platform_name ignores too.
+        def comparable(mapped: str) -> str:
+            normalised = ".".join(part.strip() for part in mapped.split("."))
+            if info.field_name == "dsn_to_platform_name":
+                return normalised.casefold()
+            return normalised
+
         seen: Dict[str, str] = {}
-        for key in value:
+        for key, mapped in value.items():
             folded = key.casefold()
-            if folded in seen:
+            if folded in seen and comparable(value[seen[folded]]) != comparable(mapped):
                 raise ValueError(
-                    f"{info.field_name} has case-insensitive duplicate keys: "
-                    f"{seen[folded]!r} and {key!r}. DSN keys must differ in more "
-                    "than just case."
+                    f"{info.field_name} maps keys that differ only in case to "
+                    f"different values: {seen[folded]!r} and {key!r}. DSN names are "
+                    "case-insensitive, so give each DSN a single value."
                 )
-            seen[folded] = key
+            seen.setdefault(folded, key)
         return value
 
     @field_validator("dataset_type_mapping", mode="after")
