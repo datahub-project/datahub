@@ -140,7 +140,6 @@ sink:
   type: "datahub-kafka"
   config:
     topic_routes:
-      MetadataChangeEvent: "custom_mce_topic_name" # Optional override
       MetadataChangeProposal: "custom_mcp_topic_name" # Optional override
     connection:
       bootstrap: "b-1.your-msk-cluster.region.amazonaws.com:9098"
@@ -165,7 +164,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `connection.producer_config.oauth_cb`        |          |                        | OAuth callback function for authentication (e.g., `datahub_actions.utils.kafka_msk_iam:oauth_cb` for MSK IAM)                                            |
 | `connection.schema_registry_url`             | ✅       |                        | URL of schema registry being used.                                                                                                                       |
 | `connection.schema_registry_config.<option>` |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient |
-| `topic_routes.MetadataChangeEvent`           |          | MetadataChangeEvent    | Overridden Kafka topic name for the MetadataChangeEvent                                                                                                  |
+| `topic_routes.MetadataChangeEvent`           |          | MetadataChangeEvent    | Deprecated and ignored: MetadataChangeEvents are published to the MetadataChangeProposal topic.                                                          |
 | `topic_routes.MetadataChangeProposal`        |          | MetadataChangeProposal | Overridden Kafka topic name for the MetadataChangeProposal                                                                                               |
 
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.

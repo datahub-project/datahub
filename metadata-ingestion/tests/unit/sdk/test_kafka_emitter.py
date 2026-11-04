@@ -11,6 +11,7 @@ from datahub.emitter.kafka_emitter import (
     MCP_KEY,
     DatahubKafkaEmitter,
     KafkaEmitterConfig,
+    _warn_mce_deprecated,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -100,7 +101,10 @@ class KafkaEmitterTest(unittest.TestCase):
             )
         )
 
-        emitter.emit(mce, callback=lambda err, msg: None)
+        def callback(err, msg):
+            pass
+
+        emitter.emit(mce, callback=callback)
 
         produce_calls = mock_producer.return_value.produce.call_args_list
         assert [c.kwargs["topic"] for c in produce_calls] == ["MCP_Topic"] * 2
@@ -108,6 +112,24 @@ class KafkaEmitterTest(unittest.TestCase):
         assert all(isinstance(v, MetadataChangeProposalWrapper) for v in values)
         assert [v.aspect for v in values] == [status, ownership]
         assert {c.kwargs["key"] for c in produce_calls} == {"urn:li:dataset:123"}
+        assert all(c.kwargs["on_delivery"] is callback for c in produce_calls)
+
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer")
+    def test_emit_mce_without_aspects_still_calls_back(self, mock_producer):
+        emitter = DatahubKafkaEmitter(
+            config=KafkaEmitterConfig.model_validate(
+                {"connection": {"bootstrap": "foobar:9092"}}
+            )
+        )
+        mce = MetadataChangeEvent(
+            proposedSnapshot=DatasetSnapshotClass(urn="urn:li:dataset:123", aspects=[])
+        )
+        results = []
+
+        emitter.emit(mce, callback=lambda err, msg: results.append(err))
+
+        assert results == [None]
+        mock_producer.return_value.produce.assert_not_called()
 
     @patch("datahub.emitter.kafka_emitter.SerializingProducer")
     def test_emit_mce_is_deprecated(self, mock_producer):
@@ -122,6 +144,7 @@ class KafkaEmitterTest(unittest.TestCase):
             )
         )
 
+        _warn_mce_deprecated.cache_clear()
         with (
             self.assertWarns(DeprecationWarning),
             self.assertLogs("datahub.emitter.kafka_emitter", "WARNING") as logs,

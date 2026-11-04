@@ -1,3 +1,4 @@
+import functools
 import logging
 import time
 from typing import Any, Callable, Dict, Optional, Union
@@ -136,7 +137,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         }
 
         self.backpressure_engagements = 0
-        self._warned_mce_deprecated = False
         self.backpressure_blocked_seconds = 0.0
 
         # If OAuth callback is configured, call poll() to trigger OAuth callback execution
@@ -254,16 +254,18 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         mce: MetadataChangeEvent,
         callback: KafkaOnDelivery,
     ) -> None:
-        """Emit an MCE as one MCP per aspect to the MCP topic; ``callback`` fires once per MCP."""
-        if not self._warned_mce_deprecated:
-            logger.warning(
-                "Emitting MetadataChangeEvents is deprecated and will be removed in a "
-                "future release. They are converted to MCPs; emit "
-                "MetadataChangeProposalWrapper instead."
-            )
-            self._warned_mce_deprecated = True
+        """Emit an MCE as one MCP per aspect to the MCP topic; ``callback`` fires once per MCP.
+
+        Not atomic: if producing one aspect raises, the aspects before it are already queued.
+        """
+        _warn_mce_deprecated()
         # GMS is removing its MCE topic consumer; the MCP topic is always consumed.
-        for mcp in mcps_from_mce(mce):
+        mcps = list(mcps_from_mce(mce))
+        if not mcps:
+            logger.warning(f"MCE for {mce.proposedSnapshot.urn} has no aspects to emit")
+            callback(None, "MCE had zero aspects")
+            return
+        for mcp in mcps:
             self.emit_mcp_async(mcp, callback)
 
     def emit_mcp_async(
@@ -310,6 +312,16 @@ class DatahubKafkaEmitter(Closeable, Emitter):
 
     def close(self) -> None:
         self.flush()
+
+
+# Cached so the warning prints once per process: the Airflow hook builds a new emitter per call.
+@functools.lru_cache(maxsize=None)
+def _warn_mce_deprecated() -> None:
+    logger.warning(
+        "Emitting MetadataChangeEvents is deprecated and will be removed in a "
+        "future release. They are converted to MCPs; emit "
+        "MetadataChangeProposalWrapper instead."
+    )
 
 
 def _error_reporting_callback(err: Any, msg: Any) -> None:
