@@ -11,6 +11,7 @@ from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     DATABRICKS_PLATFORM,
     DB2_PLATFORM,
     HIVE_PLATFORM,
+    ODBC_DATABASE_TABLE_PLATFORMS,
     ODBC_THREE_TIER_PLATFORMS,
     ODBC_TWO_TIER_PLATFORMS,
     ORACLE_PLATFORM,
@@ -157,11 +158,12 @@ def test_hive_platform_has_valid_sqlglot_dialect():
 def test_odbc_tier_platforms_match_odbc_platform_names():
     """The URN-shape tier sets are built from SupportedDataPlatform, but ODBC
     lineage compares them against the platform names odbc.py returns. Renaming a
-    key on either side would silently move that platform to the database.table
-    fallback, so pin them together."""
+    key on either side would silently move that platform to the generic fallback,
+    so pin them together."""
     tier_platforms = {
         *ODBC_TWO_TIER_PLATFORMS,
         *ODBC_THREE_TIER_PLATFORMS,
+        *ODBC_DATABASE_TABLE_PLATFORMS,
         ATHENA_PLATFORM,
         DATABRICKS_PLATFORM,
         DB2_PLATFORM,

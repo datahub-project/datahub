@@ -1319,7 +1319,7 @@ def test_odbc_unknown_platform_keeps_schema_so_tables_do_not_merge() -> None:
     pair = DataPlatformPair(
         powerbi_data_platform_name="SAP Sybase", datahub_data_platform_name="sybase"
     )
-    urns = []
+    urns: List[str] = []
     for schema in ("dbo", "sales"):
         instance = _build_odbc_lineage()
         detail = DataAccessFunctionDetail(

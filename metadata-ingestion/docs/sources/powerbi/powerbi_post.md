@@ -91,12 +91,13 @@ Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracl
 
 When a table navigates an ODBC source (`Odbc.DataSource(..., [HierarchicalNavigation=true])`), the upstream URN is built from the navigation levels in the shape that platform's own source plugin emits:
 
-| Platform                                                        | URN shape               |
-| --------------------------------------------------------------- | ----------------------- |
-| Oracle, Hive                                                    | `schema.table`          |
-| BigQuery, Snowflake, Postgres, MSSQL, Redshift, Databricks, Db2 | `database.schema.table` |
-| Athena                                                          | `database.table`        |
-| MySQL, Teradata and other platforms                             | `database.table`        |
+| Platform                                                                  | URN shape                      |
+| ------------------------------------------------------------------------- | ------------------------------ |
+| Oracle, Hive                                                              | `schema.table`                 |
+| BigQuery, Snowflake, Postgres, MSSQL, Redshift, Databricks, Db2, Informix | `database.schema.table`        |
+| Athena                                                                    | `database.table`               |
+| MySQL, Teradata                                                           | `database.table`               |
+| Other platforms (Sybase, Firebird, ...)                                   | every level navigation exposes |
 
 If navigation does not expose every level, for example a BigQuery DSN that surfaces the dataset and table but not the project, supply the missing levels per DSN with `dsn_to_database_schema`. Navigation always wins: the mapping only fills levels that navigation did not supply. DSN names are matched case-insensitively.
 
