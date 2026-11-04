@@ -621,8 +621,8 @@ def test_odbc_strip_athena_catalog_from_upstreams(odbc_lineage):
 # mixed-case configured instance must still match its lowercased prefix.
 @pytest.mark.parametrize("platform_instance", ["my_instance", "My_Instance"])
 def test_odbc_strip_athena_catalog_preserves_platform_instance(
-    odbc_lineage, platform_instance: str
-):
+    odbc_lineage: OdbcLineage, platform_instance: str
+) -> None:
     """Catalog stripping must not eat the platform_instance prefix that
     make_dataset_urn_with_platform_instance embeds as the leading name segment."""
 
