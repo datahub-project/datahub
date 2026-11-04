@@ -129,7 +129,17 @@ def test_get_column_descriptions_from_type_json_map_and_invalid_inputs():
             "name": "attributes",
             "type": {
                 "type": "map",
-                "keyType": "string",
+                "keyType": {
+                    "type": "struct",
+                    "fields": [
+                        {
+                            "name": "code",
+                            "type": "string",
+                            "nullable": True,
+                            "metadata": {"comment": "Key code"},
+                        }
+                    ],
+                },
                 "valueType": {
                     "type": "struct",
                     "fields": [
@@ -138,7 +148,13 @@ def test_get_column_descriptions_from_type_json_map_and_invalid_inputs():
                             "type": "string",
                             "nullable": True,
                             "metadata": {"comment": "Attribute label"},
-                        }
+                        },
+                        {
+                            "name": "code",
+                            "type": "string",
+                            "nullable": True,
+                            "metadata": {},
+                        },
                     ],
                 },
                 "valueContainsNull": True,

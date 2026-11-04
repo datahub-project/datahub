@@ -340,7 +340,8 @@ def _extract_type_json_descriptions(
     elif kind == "array":
         _extract_type_json_descriptions(type_obj.get("elementType"), prefix, result)
     elif kind == "map":
-        _extract_type_json_descriptions(type_obj.get("keyType"), prefix, result)
+        # Map keys get no schema fields, and their comments would otherwise land on
+        # same-named value fields.
         _extract_type_json_descriptions(type_obj.get("valueType"), prefix, result)
 
 
