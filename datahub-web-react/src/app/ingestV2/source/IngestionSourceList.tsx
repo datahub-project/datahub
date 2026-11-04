@@ -383,8 +383,8 @@ export const IngestionSourceList = ({
     const onEdit = useCallback(
         (urn: string) => {
             history.push(PageRoutes.INGESTION_UPDATE.replace(':urn', urn), {
-                queryInputs, // The current queryInputs to update apollo cache
-                backUrl: `${location.pathname}${location.search}`, // The url to come back on cancel or update
+                queryInputs,
+                backUrl: `${location.pathname}${location.search}`,
             });
         },
         [history, queryInputs, location],

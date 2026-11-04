@@ -79,7 +79,6 @@ export abstract class SourcesBaseTab extends BaseTab {
   readonly sourceTypeSearchInput: Locator;
   readonly passwordInput: Locator;
   readonly cronHoursSelect: Locator;
-  readonly cancelModalCloseButton: Locator;
   readonly secretDropdown: Locator;
   abstract readonly sourceNameInput: Locator;
   abstract readonly saveButton: Locator;
@@ -127,7 +126,6 @@ export abstract class SourcesBaseTab extends BaseTab {
     this.passwordInput = page.locator('#password');
     // eslint-disable-next-line playwright/no-raw-locators -- cron builder Ant Design select; no data-testid or ARIA role
     this.cronHoursSelect = page.locator('.cron-builder-hours .ant-select');
-    this.cancelModalCloseButton = page.getByTestId('connect-data-source-modal').getByTestId('modal-close-icon');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select dropdown portal; no data-testid or ARIA role
     this.secretDropdown = page.locator('.ant-select-dropdown').and(page.locator(':visible'));
   }
@@ -456,11 +454,6 @@ export abstract class SourcesBaseTab extends BaseTab {
 
   async expectSourceStatusPending(sourceName: string): Promise<void> {
     await this.expectSourceStatusContains(sourceName, SOURCE_STATUS_PENDING);
-  }
-
-  async cancelCreateSourceModal(): Promise<void> {
-    this.logger?.step('cancel create source modal');
-    await this.cancelModalCloseButton.click();
   }
 
   async expectCliPillVisible(): Promise<void> {

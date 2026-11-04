@@ -817,7 +817,7 @@ type FeatureFlagsConfig {
   showIntroducePage: Boolean!
 
   """
-  Deprecated, always true. The re-designed Ingestions page is the only Ingestions page.
+  If turned on, show the re-designed Ingestions page
   """
   showIngestionPageRedesign: Boolean!
     @deprecated(reason: "Always true. Will be removed in a future release.")
@@ -881,7 +881,7 @@ type FeatureFlagsConfig {
   metricsEnabled: Boolean!
 
   """
-  Deprecated, always true. The ingestion onboarding redesign is the only ingestion onboarding experience.
+  Enables displaying the ingestion onboarding redesign
   """
   ingestionOnboardingRedesignV1: Boolean!
     @deprecated(reason: "Always true. Will be removed in a future release.")

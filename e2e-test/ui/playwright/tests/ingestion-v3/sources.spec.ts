@@ -126,7 +126,7 @@ test.describe('ingestion sources', () => {
 
     await ingestionPage.sourcesTab.expectSourceNotVisible(FILTER_CLI_SOURCE);
     await ingestionPage.sourcesTab.expectCliPillNotVisible();
-    await expect(ingestionPage.sourcesTab.getSourceCell(FILTER_SOURCE)).toBeVisible();
+    await ingestionPage.sourcesTab.expectSourceVisible(FILTER_SOURCE);
   });
 
   test('view run details page', async ({ page }) => {
