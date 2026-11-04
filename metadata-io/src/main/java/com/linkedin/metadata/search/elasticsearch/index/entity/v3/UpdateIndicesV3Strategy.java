@@ -1,21 +1,23 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
-import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -26,6 +28,9 @@ import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -43,7 +48,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,6 +57,18 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * V3 update indices strategy implementation for UpdateIndicesService. This handles the new v3
  * mapping approach with multi-entity indices.
+ *
+ * <p>Live and catch-up writes project the aspects their batch carries and merge that patch into the
+ * existing document; catch-up first rebuilds its batch from primary storage and nulls what the
+ * index holds that storage no longer has. The baseline fill writes the whole document, and only
+ * when the index holds none. A hard delete replaces the document with a tombstone.
+ *
+ * <p>No write carries an external version. Live and catch-up events for one URN share a change-log
+ * partition, so they reach the index in order and the later one wins. The baseline fill reads
+ * primary storage outside that order, so it only creates documents that are absent: a live write or
+ * tombstone already in the index is never overwritten by an older snapshot. A fill-read race that
+ * leaves a stale or partial document is repaired by catch-up, whose window starts when the fill is
+ * planned.
  */
 @Slf4j
 public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
@@ -143,11 +159,15 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     CatchUpBatchRebuilder.RebuiltBatches rebuilt =
         catchUpBatchRebuilder.rebuild(opContext, groupedEvents);
+    Map<Urn, List<MCLItem>> batches = withLatestTimeseriesAspects(opContext, rebuilt.batches());
     List<Runnable> mirroredDeletes = new ArrayList<>();
     // Process each group of events for the same URN
-    for (Map.Entry<Urn, List<MCLItem>> entry : rebuilt.batches().entrySet()) {
+    for (Map.Entry<Urn, List<MCLItem>> entry : batches.entrySet()) {
       Urn urn = entry.getKey();
       List<MCLItem> urnEvents = entry.getValue();
+      if (urnEvents.isEmpty()) {
+        continue;
+      }
 
       log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
 
@@ -183,13 +203,106 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   /**
+   * Adds the latest value of each searchable timeseries aspect to the baseline fill batches.
+   * Timeseries aspects are not in the primary storage the fill reads, the fill creates each
+   * document once, and a live timeseries write does not create a document while that fill is in
+   * place on the alias, so the created document has to carry them. A failed read propagates: the
+   * fill is the only pass over the entity.
+   */
+  @Nonnull
+  private Map<Urn, List<MCLItem>> withLatestTimeseriesAspects(
+      @Nonnull OperationContext opContext, @Nonnull Map<Urn, List<MCLItem>> batches) {
+    Map<String, Set<Urn>> urnsByEntityType = new LinkedHashMap<>();
+    for (Map.Entry<Urn, List<MCLItem>> entry : batches.entrySet()) {
+      List<MCLItem> events = entry.getValue();
+      if (!events.isEmpty()
+          && isBaselineBatch(events)
+          && !searchableTimeseriesAspectSpecs(events.get(0).getEntitySpec()).isEmpty()) {
+        urnsByEntityType
+            .computeIfAbsent(events.get(0).getEntitySpec().getName(), ignored -> new HashSet<>())
+            .add(entry.getKey());
+      }
+    }
+    if (urnsByEntityType.isEmpty()) {
+      return batches;
+    }
+    Map<Urn, List<MCLItem>> hydrated = new LinkedHashMap<>(batches);
+    for (Set<Urn> urns : urnsByEntityType.values()) {
+      EntitySpec entitySpec = batches.get(urns.iterator().next()).get(0).getEntitySpec();
+      Map<String, AspectSpec> aspectSpecs = searchableTimeseriesAspectSpecs(entitySpec);
+      Map<Urn, Map<String, EnvelopedAspect>> latest =
+          Optional.ofNullable(
+                  timeseriesAspectService.getLatestTimeseriesAspectValues(
+                      opContext, urns, aspectSpecs.keySet(), null))
+              .orElse(Map.of());
+      latest.forEach(
+          (urn, aspects) -> {
+            List<MCLItem> events = new ArrayList<>(hydrated.get(urn));
+            Set<String> carried =
+                events.stream().map(MCLItem::getAspectName).collect(Collectors.toSet());
+            aspects.forEach(
+                (aspectName, aspect) -> {
+                  AspectSpec aspectSpec = aspectSpecs.get(aspectName);
+                  if (aspectSpec != null && !carried.contains(aspectName)) {
+                    events.add(
+                        timeseriesRestate(opContext, urn, events.get(0), aspectSpec, aspect));
+                  }
+                });
+            hydrated.put(urn, events);
+          });
+    }
+    return hydrated;
+  }
+
+  /** A RESTATE of a timeseries aspect's latest value, marked like the fill event it joins. */
+  @Nonnull
+  private static MCLItem timeseriesRestate(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull MCLItem fillEvent,
+      @Nonnull AspectSpec aspectSpec,
+      @Nonnull EnvelopedAspect aspect) {
+    RecordTemplate value =
+        GenericRecordUtils.deserializeAspect(
+            aspect.getAspect().getValue(), aspect.getAspect().getContentType(), aspectSpec);
+    MetadataChangeLog restate =
+        PegasusUtils.constructMCL(
+            null,
+            fillEvent.getEntitySpec().getName(),
+            urn,
+            ChangeType.RESTATE,
+            aspectSpec.getName(),
+            fillEvent.getAuditStamp(),
+            value,
+            aspect.getSystemMetadata(),
+            null,
+            null);
+    restate.setHeaders(fillEvent.getMetadataChangeLog().getHeaders());
+    return MCLItemImpl.builder().build(restate, opContext.getAspectRetriever());
+  }
+
+  @Nonnull
+  private static Map<String, AspectSpec> searchableTimeseriesAspectSpecs(
+      @Nonnull EntitySpec entitySpec) {
+    return entitySpec.getAspectSpecs().stream()
+        .filter(AspectSpec::isTimeseries)
+        .filter(aspectSpec -> !aspectSpec.getSearchableFieldSpecs().isEmpty())
+        .collect(
+            Collectors.toMap(
+                AspectSpec::getName,
+                aspectSpec -> aspectSpec,
+                (first, ignored) -> first,
+                LinkedHashMap::new));
+  }
+
+  /**
    * Waits for a batch that mirrored deletes into an index a rebuild is filling to land. A drain
    * that reports failed writes has the mirrored deletes issued again and is repeated, a bounded
-   * number of times; deleting a document that is already gone is a no-op, so the repeats are safe.
-   * The last failure then propagates: the consumer records it and moves on, and the entity may
-   * return when the fill swaps. A drain that merely runs out of time is not a failure: the bulk
-   * processor is shared by every consumer thread and idles only when all of them pause, so the
-   * mirrors are left queued with the processor's own retries behind them.
+   * number of times; each mirror rewrites the same document, so the repeats are safe. The last
+   * failure then propagates: the consumer records it and moves on, and the entity may return when
+   * the fill swaps. A drain that merely runs out of time is not a failure: the bulk processor is
+   * shared by every consumer thread and idles only when all of them pause, so the mirrors are left
+   * queued with the processor's own retries behind them.
    */
   private void drainMirroredDeletes(@Nonnull List<Runnable> mirroredDeletes) {
     RuntimeException last = null;
@@ -304,14 +417,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   /**
-   * Processes all events for a single URN in V3 optimized fashion. Either deletes the entire entity
-   * or performs a single upsert.
-   *
-   * @param opContext the operation context
-   * @param urn the URN of the entity
-   * @param events the events for this URN
+   * Processes all events for a single URN in V3 optimized fashion: one tombstone, create, or merge.
+   * Returns the deletes the batch mirrored into an index a rebuild is filling, re-issuable.
    */
-  /** Returns the deletes the batch mirrored into an index a rebuild is filling, re-issuable. */
   @Nonnull
   private List<Runnable> processUrnBatch(
       @Nonnull OperationContext opContext,
@@ -391,35 +499,20 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                   }
                 });
 
+    EntitySpec entitySpec = events.get(0).getEntitySpec();
     String docId = entityDocumentIdHasher.documentId(opContext, urn);
-    String indexKey = v3IndexKey(events.get(0).getEntitySpec());
+    String indexKey = v3IndexKey(entitySpec);
+    boolean baseline = isBaselineBatch(events);
     // A baseline fill rebuilding into a next physical index names it on every event; the alias
     // keeps serving the old index until the fill swaps it.
     String fillTarget = fillTarget(events);
+    String indexName = fillTarget != null ? fillTarget : v3IndexName(opContext, indexKey);
     if (hasKeyAspectDeletion) {
-      if (fillTarget != null) {
-        elasticSearchService.deleteDocumentByIndexName(opContext, fillTarget, docId);
-      } else {
-        elasticSearchService.deleteDocumentBySearchGroup(opContext, indexKey, docId);
+      if (baseline) {
+        log.debug("V3 baseline fill skips URN {}, whose key aspect is deleted", urn);
+        return List.of();
       }
-      log.debug(
-          "V3 deleted entire document for URN: {} from index key: {} due to key aspect deletion",
-          urn,
-          indexKey);
-      rollbackCopy(
-          opContext,
-          indexKey,
-          oldBackingIndex ->
-              elasticSearchService.deleteDocumentByIndexName(opContext, oldBackingIndex, docId));
-      if (fillTarget == null) {
-        return mirrorIntoFillTarget(
-                opContext,
-                indexKey,
-                target -> elasticSearchService.deleteDocumentByIndexName(opContext, target, docId))
-            .map(List::of)
-            .orElse(List.of());
-      }
-      return List.of();
+      return writeHardDelete(opContext, urn, entitySpec, indexName, docId, events);
     }
 
     // Build the combined V3 document with _aspect structure
@@ -431,13 +524,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     if (structuredPropertiesHookEnabled) {
       for (MCLItem event : events) {
         try {
-          EntitySpec entitySpec = event.getEntitySpec();
-          AspectSpec aspectSpec = event.getAspectSpec();
           updateIndexMappings(
               opContext,
               event.getUrn(),
-              entitySpec,
-              aspectSpec,
+              event.getEntitySpec(),
+              event.getAspectSpec(),
               event.getRecordTemplate(),
               event.getPreviousRecordTemplate());
         } catch (RuntimeException e) {
@@ -450,130 +541,300 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       }
     }
 
+    final boolean restoresKey = !baseline && restoresKey(events, entitySpec);
     if (combinedDocument == null) {
-      log.debug("V3 combined document is empty for URN: {}, skipping update", urn);
-      return List.of();
-    }
-
-    // Write the combined document to Elasticsearch
-    if (events.isEmpty()) {
-      log.warn("V3 upsert attempted but no events available for URN: {}", urn);
-      return List.of();
-    }
-
-    String finalDocument = combinedDocument.toString();
-
-    if (fillTarget != null) {
-      elasticSearchService.upsertDocumentByIndexName(opContext, fillTarget, finalDocument, docId);
-    } else {
-      elasticSearchService.upsertDocumentBySearchGroup(opContext, indexKey, finalDocument, docId);
-    }
-    log.debug(
-        "V3 upserted combined document for URN: {} to index key: {} with {} aspects",
-        urn,
-        indexKey,
-        events.size());
-
-    // Append runIds to search document so rollback/list runs can find touched URNs (MAE path)
-    List<String> distinctRunIds =
-        events.stream()
-            .filter(e -> e.getSystemMetadata() != null && e.getSystemMetadata().hasRunId())
-            .map(e -> e.getSystemMetadata().getRunId())
-            .distinct()
-            .collect(Collectors.toList());
-    for (String runId : distinctRunIds) {
-      if (fillTarget != null) {
-        elasticSearchService.appendRunIdByIndexName(opContext, fillTarget, docId, urn, runId);
-      } else {
-        elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
+      if (!restoresKey) {
+        log.debug("V3 combined document is empty for URN: {}, skipping update", urn);
+        return List.of();
       }
+      combinedDocument =
+          searchDocumentProjector.newEntityDocument(urn, entitySpec, opContext.getEntityRegistry());
+    }
+    List<String> runIds = distinctRunIds(events);
+
+    if (baseline) {
+      // The fill writes the document once, so its runs go in with it rather than as appends.
+      putRunIds(combinedDocument, runIds);
+      writeV3Document(
+          opContext,
+          new V3SearchDocumentWrite(
+              indexName,
+              docId,
+              urn,
+              combinedDocument.toString(),
+              fillTarget != null
+                  ? V3SearchDocumentWrite.Kind.CREATE
+                  : V3SearchDocumentWrite.Kind.REPLACE),
+          false);
+      log.debug(
+          "V3 created baseline document for URN: {} in index: {} with {} aspects",
+          urn,
+          indexName,
+          events.size());
+      return List.of();
     }
 
-    // A removed aspect reaches the index a rebuild is filling the same way a removed entity does:
-    // the fill may already have written the aspect, and nothing replays its removal.
+    // The hard-delete placeholder stays in the index with removed=true. A merge leaves any field
+    // it omits, so the key write that recreates the entity has to clear it.
+    if (restoresKey) {
+      clearHardDeleteMarker(combinedDocument);
+    }
+    boolean carriesDelete = carriesDelete(events);
+    // An in-place fill creates into this same alias. A timeseries-only batch is not in SQL, so
+    // catch-up cannot rebuild the entity, and a document created here would make the fill skip it.
+    boolean updateOnly = timeseriesOnlyDuringInPlaceFill(indexName, events);
     Optional<Runnable> mirrored =
-        fillTarget == null && carriesDelete(events)
-            ? mirrorIntoFillTarget(
-                opContext,
-                indexKey,
-                target ->
-                    elasticSearchService.upsertDocumentByIndexName(
-                        opContext, target, finalDocument, docId))
-            : Optional.empty();
-
-    rollbackCopy(
-        opContext,
-        indexKey,
-        oldBackingIndex -> {
-          elasticSearchService.upsertDocumentByIndexName(
-              opContext, oldBackingIndex, finalDocument, docId);
-          for (String runId : distinctRunIds) {
-            elasticSearchService.appendRunIdByIndexName(
-                opContext, oldBackingIndex, docId, urn, runId);
-          }
-        });
+        writeV3Document(
+            opContext,
+            new V3SearchDocumentWrite(
+                indexName,
+                docId,
+                urn,
+                combinedDocument.toString(),
+                updateOnly
+                    ? V3SearchDocumentWrite.Kind.MERGE_EXISTING
+                    : V3SearchDocumentWrite.Kind.MERGE),
+            carriesDelete);
+    log.debug(
+        "V3 merged combined document for URN: {} into index: {} with {} aspects",
+        urn,
+        indexName,
+        events.size());
+    appendRunIds(opContext, indexKey, indexName, docId, urn, runIds, carriesDelete, updateOnly);
     return mirrored.map(List::of).orElse(List.of());
   }
 
   /**
-   * Repeats a write on the swapped-out backing index of {@code indexKey}'s alias while one awaits
-   * rollback: same document, same hashed id, so the alias can be swapped back to a faithful copy.
-   * The copy never fails the live write; a missed copy only degrades rollback fidelity.
+   * Replaces the entity's document with the hard-delete placeholder. A delete would let a fill that
+   * read the entity before it was deleted create it again; the placeholder keeps the document
+   * present, so the create-only fill skips it, and {@code removed=true} keeps it out of search.
    */
-  private void rollbackCopy(
+  @Nonnull
+  private List<Runnable> writeHardDelete(
       @Nonnull OperationContext opContext,
-      @Nonnull String indexKey,
-      @Nonnull Consumer<String> write) {
-    if (incrementalReindexWriteTargets == null) {
-      return;
+      @Nonnull Urn urn,
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull List<MCLItem> events) {
+    ObjectNode tombstone = searchDocumentProjector.newTombstoneDocument(urn, entitySpec);
+    putRunIds(tombstone, distinctRunIds(events));
+    applyDocumentContributors(opContext, urn, tombstone);
+
+    Optional<String> activeFillTarget =
+        incrementalReindexWriteTargets == null
+            ? Optional.empty()
+            : incrementalReindexWriteTargets.activeFillTargetFor(indexName);
+    if (activeFillTarget.filter(indexName::equals).isPresent()) {
+      V3SearchDocumentWrite write =
+          new V3SearchDocumentWrite(
+              indexName, docId, urn, tombstone.toString(), V3SearchDocumentWrite.Kind.TOMBSTONE);
+      elasticSearchService.writeV3SearchDocument(opContext, write);
+      return List.of(() -> elasticSearchService.writeV3SearchDocument(opContext, write));
     }
-    String alias =
-        opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(opContext, indexKey);
-    incrementalReindexWriteTargets
-        .oldBackingIndexFor(alias)
-        .ifPresent(
-            oldBackingIndex -> {
-              try {
-                write.accept(oldBackingIndex);
-                incrementalReindexWriteTargets.recordDualWriteStarted(alias);
-              } catch (RuntimeException e) {
-                log.error(
-                    "Rollback dual-write to '{}' failed for index '{}'", oldBackingIndex, alias, e);
-              }
-            });
+
+    writeV3Document(
+        opContext,
+        new V3SearchDocumentWrite(indexName, docId, urn, "", V3SearchDocumentWrite.Kind.DELETE),
+        false);
+    return activeFillTarget
+        .filter(target -> !target.equals(indexName))
+        .map(
+            target -> {
+              V3SearchDocumentWrite write =
+                  new V3SearchDocumentWrite(
+                      target,
+                      docId,
+                      urn,
+                      tombstone.toString(),
+                      V3SearchDocumentWrite.Kind.TOMBSTONE);
+              Runnable mirror = () -> elasticSearchService.writeV3SearchDocument(opContext, write);
+              mirror.run();
+              return List.of(mirror);
+            })
+        .orElse(List.of());
   }
 
   /**
-   * Repeats a delete on the index a rebuild is filling for {@code indexKey}'s alias while that fill
-   * is in flight: the alias still serves the old index, and catch-up re-derives its window from
-   * primary storage, which holds nothing for a removed entity or aspect. Returns the mirrored
-   * write, so the batch can issue it again if its drain fails, and lets a failure to hand it to the
-   * bulk processor propagate: nothing replays a hard delete, so a mirror that does not land leaves
-   * the entity in the next index across the swap.
-   *
-   * <p>Known limitation: a page the fill read before the delete and writes after this mirror puts
-   * the entity, or the removed aspect's fields, back, since fill writes merge into the index and
-   * nothing orders the two. The window is one page drain per entity; the next write to the entity,
-   * or the orphan consistency check, repairs it.
+   * The batch's surviving key event creates the entity rather than deleting it or restating an
+   * existing one: a key with no previous value. A re-emitted key of a live entity must not clear
+   * {@code removed}, which a soft delete also sets.
    */
-  @Nonnull
-  private Optional<Runnable> mirrorIntoFillTarget(
+  private static boolean restoresKey(
+      @Nonnull List<MCLItem> events, @Nonnull EntitySpec entitySpec) {
+    String keyAspectName = entitySpec.getKeyAspectName();
+    MCLItem lastKeyEvent = null;
+    for (MCLItem event : events) {
+      if (keyAspectName.equals(event.getAspectName())) {
+        lastKeyEvent = event;
+      }
+    }
+    return lastKeyEvent != null
+        && lastKeyEvent.getChangeType() != ChangeType.DELETE
+        && lastKeyEvent.getPreviousRecordTemplate() == null;
+  }
+
+  /**
+   * Clears the hard-delete placeholder. A status aspect in this batch already wrote {@code removed}
+   * (a soft delete or an undelete), so that value is left as projected.
+   */
+  private static void clearHardDeleteMarker(@Nonnull ObjectNode document) {
+    if (!document.has(V3SearchDocumentProjector.REMOVED_FIELD)) {
+      document.put(V3SearchDocumentProjector.REMOVED_FIELD, false);
+    }
+    // A null in the partial document removes the field. Absent would leave the old true in place.
+    document.putNull(V3SearchDocumentProjector.TOMBSTONE_FIELD);
+  }
+
+  /**
+   * Appends this batch's run ids on every index the merge just wrote, so rollback and list-runs can
+   * find the entities a run touched. Same document-id routing as the merge, and queued after it, so
+   * the append sees that document. In a next index a fill is building, the append only updates a
+   * document the fill already wrote, like the mirrored merge.
+   */
+  private void appendRunIds(
       @Nonnull OperationContext opContext,
       @Nonnull String indexKey,
-      @Nonnull Consumer<String> write) {
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull Urn urn,
+      @Nonnull List<String> runIds,
+      boolean carriesDelete,
+      boolean updateOnly) {
+    if (runIds.isEmpty()) {
+      return;
+    }
+    if (updateOnly) {
+      appendRunIdsToExistingDocument(opContext, indexName, docId, runIds);
+    } else {
+      for (String runId : runIds) {
+        elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
+      }
+    }
+    if (incrementalReindexWriteTargets == null) {
+      return;
+    }
+    incrementalReindexWriteTargets
+        .oldBackingIndexFor(indexName)
+        .ifPresent(
+            index -> {
+              if (updateOnly) {
+                appendRunIdsToExistingDocument(opContext, index, docId, runIds);
+              } else {
+                appendRunIdsOnIndex(opContext, index, docId, urn, runIds);
+              }
+            });
+    if (carriesDelete) {
+      incrementalReindexWriteTargets
+          .fillTargetFor(indexName)
+          .ifPresent(index -> appendRunIdsToExistingDocument(opContext, index, docId, runIds));
+    }
+  }
+
+  private void appendRunIdsToExistingDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull List<String> runIds) {
+    for (String runId : runIds) {
+      elasticSearchService.appendRunIdToExistingDocument(opContext, indexName, docId, runId);
+    }
+  }
+
+  private void appendRunIdsOnIndex(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull Urn urn,
+      @Nonnull List<String> runIds) {
+    for (String runId : runIds) {
+      elasticSearchService.appendRunIdByIndexName(opContext, indexName, docId, urn, runId);
+    }
+  }
+
+  @Nonnull
+  private static List<String> distinctRunIds(@Nonnull List<MCLItem> events) {
+    return events.stream()
+        .filter(e -> e.getSystemMetadata() != null && e.getSystemMetadata().hasRunId())
+        .map(e -> e.getSystemMetadata().getRunId())
+        .distinct()
+        .collect(Collectors.toList());
+  }
+
+  private static void putRunIds(@Nonnull ObjectNode document, @Nonnull List<String> runIds) {
+    if (runIds.isEmpty()) {
+      return;
+    }
+    ArrayNode runIdArray = document.putArray(MappingConstants.RUN_ID_FIELD);
+    runIds.forEach(runIdArray::add);
+  }
+
+  /**
+   * Writes to the index and, while the index's alias has a swapped-out backing index awaiting
+   * rollback, repeats the identical write there, so the old backing index stays a faithful copy the
+   * alias can be swapped back to. The rollback copy never fails the write; a missed copy only
+   * degrades rollback fidelity.
+   *
+   * <p>A write that carries a delete is also repeated on the index a rebuild is filling for the
+   * alias, while that fill is in flight: the alias still serves the old index, and catch-up
+   * re-derives its window from primary storage, which holds nothing for a removed entity or aspect.
+   * The fill creates only absent documents, so a mirrored tombstone keeps the entity deleted. A
+   * mirrored merge only updates a document the fill already wrote, so it cannot leave a partial one
+   * for the fill to skip. Returns the mirrored write, so the batch can issue it again if its drain
+   * fails, and lets a failure to hand it to the bulk processor propagate: nothing replays a hard
+   * delete, so a mirror that does not land leaves the entity in the next index across the swap.
+   */
+  @Nonnull
+  private Optional<Runnable> writeV3Document(
+      @Nonnull OperationContext opContext,
+      @Nonnull V3SearchDocumentWrite write,
+      boolean carriesDelete) {
+    elasticSearchService.writeV3SearchDocument(opContext, write);
     if (incrementalReindexWriteTargets == null) {
       return Optional.empty();
     }
-    String alias =
-        opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(opContext, indexKey);
+    incrementalReindexWriteTargets
+        .oldBackingIndexFor(write.indexName())
+        .ifPresent(oldBackingIndex -> writeRollbackCopy(opContext, write, oldBackingIndex));
+    if (!carriesDelete) {
+      return Optional.empty();
+    }
     return incrementalReindexWriteTargets
-        .fillTargetFor(alias)
+        .fillTargetFor(write.indexName())
         .map(
-            target -> {
-              Runnable mirror = () -> write.accept(target);
+            fillTarget -> {
+              Runnable mirror =
+                  () ->
+                      elasticSearchService.writeV3SearchDocument(
+                          opContext, write.redirectedToFill(fillTarget));
               mirror.run();
               return mirror;
             });
+  }
+
+  private void writeRollbackCopy(
+      @Nonnull OperationContext opContext,
+      @Nonnull V3SearchDocumentWrite write,
+      @Nonnull String oldBackingIndex) {
+    try {
+      elasticSearchService.writeV3SearchDocument(opContext, write.redirectedTo(oldBackingIndex));
+      incrementalReindexWriteTargets.recordDualWriteStarted(write.indexName());
+    } catch (RuntimeException e) {
+      log.error(
+          "Rollback dual-write to '{}' failed for index '{}', urn '{}'",
+          oldBackingIndex,
+          write.indexName(),
+          write.urn(),
+          e);
+    }
+  }
+
+  @Nonnull
+  private static String v3IndexName(@Nonnull OperationContext opContext, @Nonnull String indexKey) {
+    return opContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getEntityIndexNameV3(opContext, indexKey);
   }
 
   /**
@@ -584,7 +845,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private static String fillTarget(@Nonnull List<MCLItem> events) {
     String target = null;
     for (MCLItem event : events) {
-      if (!BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(backfillMode(event))) {
+      String mode = backfillMode(event);
+      if (mode == null) {
+        continue;
+      }
+      if (!BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(mode)) {
         return null;
       }
       String named =
@@ -601,8 +866,42 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     return backfillMode(event) != null;
   }
 
+  private static boolean isBaselineBatch(@Nonnull List<MCLItem> events) {
+    boolean sawBackfill = false;
+    for (MCLItem event : events) {
+      String mode = backfillMode(event);
+      if (mode == null) {
+        continue;
+      }
+      sawBackfill = true;
+      if (!BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(mode)) {
+        return false;
+      }
+    }
+    return sawBackfill;
+  }
+
   private static boolean carriesDelete(@Nonnull List<MCLItem> events) {
     return events.stream().anyMatch(event -> event.getChangeType() == ChangeType.DELETE);
+  }
+
+  /**
+   * True when this alias is the index an in-place fill is creating and the batch holds only
+   * timeseries aspects. Creating a document here would block that fill, and catch-up never sees the
+   * batch.
+   */
+  private boolean timeseriesOnlyDuringInPlaceFill(
+      @Nonnull String indexName, @Nonnull List<MCLItem> events) {
+    if (incrementalReindexWriteTargets == null
+        || events.isEmpty()
+        || incrementalReindexWriteTargets
+            .activeFillTargetFor(indexName)
+            .filter(indexName::equals)
+            .isEmpty()) {
+      return false;
+    }
+    return events.stream()
+        .allMatch(event -> event.getAspectSpec() != null && event.getAspectSpec().isTimeseries());
   }
 
   /** The backfill mode stamped on a replayed event, or null for a live write. */
@@ -661,8 +960,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         AspectSpec aspectSpec = event.getAspectSpec();
         String aspectName = aspectSpec.getName();
 
-        // Throttle timeseries aspects for entity index writes
-        if (aspectSpec.isTimeseries() && timeseriesThrottleCache != null) {
+        // Throttle live timeseries writes; a fill carries only the latest value, once
+        if (aspectSpec.isTimeseries()
+            && timeseriesThrottleCache != null
+            && !isBackfillEvent(event)) {
           long eventTimeMs =
               event.getAuditStamp() != null
                   ? event.getAuditStamp().getTime()
@@ -737,15 +1038,15 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     Set<String> timeseriesRootFields = timeseriesRootFields(entitySpec, indexedFields);
     removeAspects(combinedDocument, removedAspects, timeseriesRootFields);
-    liftSemanticEmbeddingsToRoot(opContext, urn, entityType, events, combinedDocument);
+    liftSemanticEmbeddingsToRoot(entityType, combinedDocument);
 
     applyDocumentContributors(opContext, urn, combinedDocument);
     if (isCatchUpBatch(events)) {
       clearStaleCatchUpFields(combinedDocument, events, indexedFields, timeseriesRootFields);
-    } else {
+    } else if (!isBaselineBatch(events)) {
       // A SQL restate has no previous aspect, so the partial upsert would keep structured-property
       // fields the aspect no longer sets. Null the mapped ones. Catch-up already clears from the
-      // document it read; a baseline fill uses the index it is writing, not the live alias.
+      // document it read; a baseline fill creates the whole document, so there is nothing to null.
       nullRemovedStructuredProperties(opContext, events, combinedDocument);
     }
     return combinedDocument;
@@ -1136,11 +1437,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   private void liftSemanticEmbeddingsToRoot(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull String entityType,
-      @Nonnull List<MCLItem> events,
-      @Nonnull ObjectNode combinedDocument) {
+      @Nonnull String entityType, @Nonnull ObjectNode combinedDocument) {
     if (!SemanticEmbeddingMappings.isEnabledForEntity(semanticSearchConfiguration, entityType)) {
       return;
     }
@@ -1160,17 +1457,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         }
       }
     }
-    boolean shouldStamp =
-        events.stream()
-            .map(MCLItem::getAspectName)
-            .anyMatch(SemanticDocumentProvenance::isStampEligibleAspect);
-    if (!shouldStamp) {
-      return;
-    }
-    // Combined V3 docs keep embed text under _aspects, so stamp as semanticContent (fetch both
-    // sides) regardless of which content aspect arrived first in the batch.
-    SemanticDocumentProvenance.stampResolvedTextSha256(
-        opContext, urn, entityType, "semanticContent", combinedDocument);
   }
 
   private void applyDocumentContributors(

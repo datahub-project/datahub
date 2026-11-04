@@ -23,6 +23,7 @@ public class Es8BulkListener
   private static final String METRIC_ITEM_REQUEUE = "bulk_item_requeue";
   private static final String METRIC_LWW_EXHAUSTED = "bulk_item_lww_exhausted";
   private static final String METRIC_TRANSFER_FAILURE = "bulk_item_transfer_failure";
+  private static final String METRIC_CREATE_EXISTS = "bulk_item_create_exists";
 
   private final MetricUtils metricUtils;
   @Nullable private final BulkWriteResultTracker tracker;
@@ -169,6 +170,20 @@ public class Es8BulkListener
         if (tracker != null) {
           tracker.recordCompleted(1);
         }
+        continue;
+      }
+
+      // A create-only write that finds the document already present lost to a newer write.
+      if (BulkItemFailureClassifier.isCreateConflict(writeRequest, status, failureMessage)) {
+        log.debug(
+            "Skipping create for existing document in index [{}] id [{}]", item.index(), item.id());
+        if (requeueSupport != null && writeRequest != null) {
+          requeueSupport.clearAttempts(writeRequest);
+        }
+        if (tracker != null) {
+          tracker.recordCompleted(1);
+        }
+        incrementMetric(METRIC_CREATE_EXISTS);
         continue;
       }
 
