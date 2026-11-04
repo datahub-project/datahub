@@ -58,10 +58,10 @@ _ODBC_MYSQL_NAV_DATABASE_TABLE = (
 )
 
 
-# BigQuery ODBC hierarchical navigation that surfaces only dataset.table (the
-# Simba driver often omits the project/catalog level). The platform resolves via
-# dsn_to_platform_name, but a 3-tier project.dataset.table URN cannot be built
-# from navigation alone.
+# BigQuery ODBC hierarchical navigation that surfaces only dataset.table. The
+# Simba driver maps projects to catalogs, so its navigation normally starts at
+# Kind="Database"; this covers a driver that reports no catalog. A 3-tier
+# project.dataset.table URN cannot be built from navigation alone.
 _ODBC_BIGQUERY_NAV_MISSING_PROJECT = (
     'let\n    Source = Odbc.DataSource("driver={Simba ODBC Driver};dsn=bq_analytics", '
     "[HierarchicalNavigation=true]),\n"

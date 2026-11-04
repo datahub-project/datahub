@@ -2321,8 +2321,8 @@ class OdbcLineage(AbstractLineage):
         """Resolve the configured database (and optional schema) for a DSN.
 
         ODBC inline SQL and hierarchical navigation do not always expose every
-        level of a table's qualified name (e.g. a BigQuery ODBC source commonly
-        surfaces dataset.table but omits the project). dsn_to_database_schema
+        level of a table's qualified name (e.g. a driver that reports no catalog,
+        so navigation starts at the schema). dsn_to_database_schema
         supplies those missing high-order levels so a fully-qualified upstream
         URN can still be built.
         """
