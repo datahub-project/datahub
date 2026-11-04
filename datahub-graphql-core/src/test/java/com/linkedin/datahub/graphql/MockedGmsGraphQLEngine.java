@@ -13,6 +13,7 @@ import com.linkedin.metadata.config.graphql.GraphQLMetricsConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import graphql.ExecutionResult;
+import graphql.schema.GraphQLSchema;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.lang.reflect.Modifier;
 import java.util.Map;
@@ -32,6 +33,15 @@ final class MockedGmsGraphQLEngine {
         .builder()
         .build()
         .execute(query, null, Map.of(), context);
+  }
+
+  /** The real schema and wiring, with every service a mock. */
+  static GraphQLSchema schema(EntityRegistry registry) throws IllegalAccessException {
+    return new GmsGraphQLEngine(args(registry, mock(EntityClient.class)))
+        .builder()
+        .build()
+        .getGraphQL()
+        .getGraphQLSchema();
   }
 
   /**

@@ -732,14 +732,6 @@ type Mutation {
   ): Boolean
 
   """
-  Delete a ERModelRelationship
-  """
-  deleteERModelRelationship(
-    "The urn of the ERModelRelationship to delete"
-    urn: String!
-  ): Boolean
-
-  """
   Sets the Deprecation status for a Metadata Entity. Requires the Edit Deprecation status privilege for an entity.
   """
   updateDeprecation(
@@ -995,16 +987,6 @@ type Mutation {
   createApplication(
     "Inputs required to create a new Application."
     input: CreateApplicationInput!
-  ): Application
-
-  """
-  Update a Application
-  """
-  updateApplication(
-    "The urn identifier for the Application to update."
-    urn: String!
-    "Inputs required to create a new Application."
-    input: UpdateApplicationInput!
   ): Application
 
   """
@@ -14298,21 +14280,6 @@ input CreateApplicationPropertiesInput {
   A display name for the Application
   """
   name: String!
-
-  """
-  An optional description for the Application
-  """
-  description: String
-}
-
-"""
-Input properties required for update a Application
-"""
-input UpdateApplicationInput {
-  """
-  A display name for the Application
-  """
-  name: String
 
   """
   An optional description for the Application
