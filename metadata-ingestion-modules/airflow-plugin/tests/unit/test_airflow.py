@@ -180,6 +180,21 @@ def test_datahub_emitter_operator_mces_is_deprecated_alias(mock_emit):
         assert [c.args[0] for c in mock_emit.call_args_list] == [mcps, mcps]
 
 
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit")
+def test_datahub_emitter_operator_emits_a_generator(mock_emit):
+    mcps = list(mcps_from_mce(lineage_mce))
+    with patch_airflow_connection(datahub_rest_connection_config) as config:
+        assert config.conn_id
+        task = DatahubEmitterOperator(
+            task_id="gen",
+            datahub_conn_id=config.conn_id,
+            mcps=(mcp for mcp in mcps),  # type: ignore[arg-type]
+        )
+        task.execute({"ds": "2023-01-01"})
+
+    assert mock_emit.call_args.args[0] == mcps
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [

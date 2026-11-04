@@ -66,6 +66,7 @@ class DatahubEmitterOperator(DatahubBaseOperator):
             datahub_conn_id=datahub_conn_id,
             **kwargs,
         )
+        # Copied to a list because execute() iterates it twice (render, then emit).
         self.metadata: Sequence[
             Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
         ]
@@ -77,9 +78,9 @@ class DatahubEmitterOperator(DatahubBaseOperator):
                 DataHubDeprecationWarning,
                 stacklevel=2,
             )
-            self.metadata = mces
+            self.metadata = list(mces)
         elif mcps is not None:
-            self.metadata = mcps
+            self.metadata = list(mcps)
         else:
             raise ValueError("mcps= is required")
 
