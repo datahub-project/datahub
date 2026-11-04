@@ -26,9 +26,10 @@ from datahub.metadata.schema_classes import (
 
 class KafkaEmitterTest(unittest.TestCase):
     def test_kafka_emitter_config(self):
-        emitter_config = KafkaEmitterConfig.model_validate(
-            {"connection": {"bootstrap": "foobar:9092"}}
-        )
+        with self.assertNoLogs("datahub.emitter.kafka_emitter", "WARNING"):
+            emitter_config = KafkaEmitterConfig.model_validate(
+                {"connection": {"bootstrap": "foobar:9092"}}
+            )
         assert emitter_config.topic_routes[MCE_KEY] == DEFAULT_MCE_KAFKA_TOPIC
         assert emitter_config.topic_routes[MCP_KEY] == DEFAULT_MCP_KAFKA_TOPIC
 
@@ -45,9 +46,11 @@ class KafkaEmitterTest(unittest.TestCase):
 
     def test_kafka_emitter_config_topic_upgrade(self):
         """Old topic config provided should get auto-upgraded to new topic_routes."""
-        emitter_config = KafkaEmitterConfig.model_validate(
-            {"connection": {"bootstrap": "foobar:9092"}, "topic": "NewTopic"}
-        )
+        with self.assertLogs("datahub.emitter.kafka_emitter", "WARNING") as logs:
+            emitter_config = KafkaEmitterConfig.model_validate(
+                {"connection": {"bootstrap": "foobar:9092"}, "topic": "NewTopic"}
+            )
+        assert any("route is ignored" in r.getMessage() for r in logs.records)
         assert emitter_config.topic_routes[MCE_KEY] == "NewTopic"  # MCE topic upgraded
         assert (
             emitter_config.topic_routes[MCP_KEY] == DEFAULT_MCP_KAFKA_TOPIC
@@ -174,11 +177,8 @@ class KafkaEmitterTest(unittest.TestCase):
         mock_producer_instance = mock_producer.return_value
         DatahubKafkaEmitter(config)
 
-        # Verify poll(0) was called during initialization for OAuth
-        # Should be called twice (once for MCE producer, once for MCP producer)
-        assert mock_producer_instance.poll.call_count == 2, (
-            "poll() should be called twice for OAuth initialization (MCE + MCP producers)"
-        )
+        # Verify poll(0) was called during initialization for OAuth, once for the MCP producer
+        assert mock_producer_instance.poll.call_count == 1
         mock_producer_instance.poll.assert_called_with(
             0
         )  # Verify it's called with timeout=0

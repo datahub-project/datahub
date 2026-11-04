@@ -22,10 +22,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
     MetadataChangeProposalClass as MetadataChangeProposal,
 )
-from datahub.metadata.schemas import (
-    getMetadataChangeEventSchema,
-    getMetadataChangeProposalSchema,
-)
+from datahub.metadata.schemas import getMetadataChangeProposalSchema
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +92,10 @@ class KafkaEmitterConfig(ConfigModel):
     @classmethod
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:
         assert MCP_KEY in v, f"topic_routes must contain a route for {MCP_KEY}"
+        if MCE_KEY in v:
+            logger.warning(
+                f"{MCE_KEY} route is ignored; MCEs are published to the {MCP_KEY} topic."
+            )
         return v
 
 
@@ -106,17 +107,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             **self.config.connection.schema_registry_config,
         }
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
-
-        def convert_mce_to_dict(
-            mce: MetadataChangeEvent, ctx: SerializationContext
-        ) -> dict:
-            return mce.to_obj(tuples=True)
-
-        mce_avro_serializer = AvroSerializer(
-            schema_str=getMetadataChangeEventSchema(),
-            schema_registry_client=schema_registry_client,
-            to_dict=convert_mce_to_dict,
-        )
 
         def convert_mcp_to_dict(
             mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
@@ -131,12 +121,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         )
 
         producers_config = {
-            MCE_KEY: {
-                "bootstrap.servers": self.config.connection.bootstrap,
-                "key.serializer": StringSerializer("utf_8"),
-                "value.serializer": mce_avro_serializer,
-                **self.config.connection.producer_config,
-            },
             MCP_KEY: {
                 "bootstrap.servers": self.config.connection.bootstrap,
                 "key.serializer": StringSerializer("utf_8"),

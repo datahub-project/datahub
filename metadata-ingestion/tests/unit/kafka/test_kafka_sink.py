@@ -4,7 +4,7 @@
 import threading
 import unittest
 from typing import Union
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pydantic
 import pytest
@@ -39,9 +39,7 @@ class KafkaSinkTest(unittest.TestCase):
             {"connection": {"bootstrap": "foobar:9092"}}, mock_context
         )
         kafka_sink.close()
-        assert (
-            mock_producer.call_count == 2
-        )  # constructor should be called twice (once each for mce,mcp)
+        assert mock_producer.call_count == 1  # MCP producer only
 
     @patch("datahub.ingestion.sink.datahub_kafka._KafkaCallback", autospec=True)
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
@@ -64,7 +62,7 @@ class KafkaSinkTest(unittest.TestCase):
             RecordEnvelope(record=mcp, metadata={}), mock_callback
         )
         kafka_sink.close()
-        assert mock_producer.call_count == 2  # constructor should be called
+        assert mock_producer.call_count == 1  # MCP producer only
 
     @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
@@ -272,7 +270,7 @@ class KafkaSinkTest(unittest.TestCase):
         kafka_sink.close()
         # flush is now bounded by a timeout (max_queue_full_block_seconds).
         timeout = kafka_sink.config.max_queue_full_block_seconds
-        mock_producer_instance.flush.assert_has_calls([call(timeout), call(timeout)])
+        mock_producer_instance.flush.assert_called_once_with(timeout)
 
     @patch("datahub.ingestion.sink.datahub_kafka.RecordEnvelope", autospec=True)
     @patch("datahub.ingestion.sink.datahub_kafka.WriteCallback", autospec=True)
