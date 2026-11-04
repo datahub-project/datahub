@@ -52,15 +52,19 @@ Each Dremio table in a mapped source gets a COPY upstream on the source platform
   ...), the database from the Dremio source config is prepended, in the case it is configured. A
   custom type from `source_type_mappings` can declare `database_in_path: true` or `false`;
   otherwise the database is prepended unless the path already starts with it.
-- Casing follows the target connector's default: lowercase for Snowflake, ALL-UPPERCASE names
+- Casing follows the target connector's default: lowercase for Snowflake and Redshift, ALL-UPPERCASE names
   lowercased for Oracle and SAP HANA, an uppercased database for Db2, Dremio's case otherwise.
   Object storage keys keep their case. A Dremio-to-Dremio source maps to `dremio.<path>`,
   lowercased. If you ingested the target with non-default
   casing, set `convert_urns_to_lowercase` on the mapping, for example `true` for SQL Server
   ingested with `convert_urns_to_lowercase: true` (which that connector recommends for lineage),
   or `false` for Snowflake ingested with `convert_urns_to_lowercase: false`. The option applies to
-  database sources only; object storage and Dremio-to-Dremio mappings ignore it.
+  database sources only; object storage and Dremio-to-Dremio mappings ignore it. Changing it
+  later changes the upstream URNs; with `incremental_lineage: true` the old edges stay, so run
+  once with `incremental_lineage: false` or remove the old edges.
 - Set `platform_instance` and `env` on the mapping to the values the target connector uses.
+  For a Dremio-to-Dremio source, set `platform_instance` on the mapping or on this source, or
+  remote and local datasets with the same path share a URN.
 - `schema_pattern` must allow the source itself, not only paths below it. Otherwise the source
   is filtered out and its tables get no upstream. Use, for example, `^my_src$` together with
   `^my_src\.my_db(\..*)?$`, or `^my_src($|\..*)`. A `source_mappings` entry that matches no
