@@ -1668,23 +1668,28 @@ public class ESIndexBuilder {
       String reindexTaskId = "";
       boolean reindexTaskCompleted = false;
 
-      // Guard against falsely resuming a reindex whose target mappings are now stale: a prior run
-      // may have been building into an index created from an older mapping version, or the task may
-      // have run amok. Resuming such a task would silently complete into a wrong-mapping index, so
-      // cancel it (with confirmation) and fall through to a fresh reindex instead of adopting it.
+      // Guard against falsely resuming a reindex whose target is missing or has stale mappings: a
+      // prior run may have been building into an index created from an older mapping version, the
+      // index may have been deleted while the task kept running, or the task may have run amok.
+      // Resuming such a task would fail or complete into a wrong-mapping index, so cancel it (with
+      // confirmation) and fall through to a fresh reindex instead of adopting it.
       if (previousTaskInfo.isPresent()
           && !resumedReindexMatchesTarget(opContext, indexState, previousTaskInfo.get())) {
         String staleTemp =
             ESUtils.extractTargetIndex(
                 previousTaskInfo.get().getHeaders().get(ESUtils.OPAQUE_ID_HEADER));
         log.warn(
-            "Index: {} - resumed reindex into {} no longer matches target mappings; cancelling task"
-                + " and restarting.",
+            "Index: {} - resumed reindex into {} is missing or no longer matches target mappings;"
+                + " cancelling task and restarting.",
             indexState.name(),
             staleTemp);
         // Must confirm the runaway task is actually stopped before deleting its target and
         // submitting a replacement - otherwise two reindexes would write the same index.
-        cancelReindexTaskAndConfirm(opContext, previousTaskInfo.get());
+        cancelReindexTaskAndConfirm(
+            opContext,
+            reindexTaskIdToCancel(previousTaskInfo.get()),
+            REINDEX_CANCEL_CONFIRM_TIMEOUT_MS,
+            REINDEX_CANCEL_CONFIRM_POLL_MS);
         deleteActionWithRetry(searchClient, opContext, staleTemp, requestOptionsLong);
         previousTaskInfo = Optional.empty(); // force the fresh-reindex path below
       }
@@ -2706,95 +2711,25 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Max time to wait for a cancelled reindex task to actually stop before giving up (and failing).
+   * The task to cancel for a reindex found on resume. A sliced reindex's header-matched task may be
+   * a child slice; cancelling the parent cancels every slice. Without a parent it is the reindex.
    */
-  private static final long REINDEX_CANCEL_CONFIRM_TIMEOUT_MS = 120_000L;
-
-  /** Interval between task-status checks while confirming a cancellation. */
-  private static final long REINDEX_CANCEL_CONFIRM_POLL_MS = 2_000L;
-
-  /**
-   * Cancel a reindex task and confirm it has actually stopped.
-   *
-   * <p>Unlike {@link #rethrottleTask}, failure here is fatal and must never be swallowed: callers
-   * cancel a task precisely because they are about to submit a replacement reindex into the same
-   * target, and proceeding while the old task is still running would corrupt that target with two
-   * concurrent writers (and the stale task could be re-discovered on a later resume). A 200 from
-   * the cancel API only means cancellation was *requested*, so we poll until the task is
-   * gone/completed and throw if it has not stopped within the grace window.
-   *
-   * @param opContext operation context
-   * @param taskInfo the reindex task discovered via the opaque-id header
-   * @throws Exception if the task cannot be confirmed stopped within {@link
-   *     #REINDEX_CANCEL_CONFIRM_TIMEOUT_MS}
-   */
-  public void cancelReindexTaskAndConfirm(
-      @Nonnull OperationContext opContext, @Nonnull TaskInfo taskInfo) throws Exception {
-    cancelReindexTaskAndConfirm(
-        opContext, taskInfo, REINDEX_CANCEL_CONFIRM_TIMEOUT_MS, REINDEX_CANCEL_CONFIRM_POLL_MS);
-  }
-
   @VisibleForTesting
-  public void cancelReindexTaskAndConfirm(
-      @Nonnull OperationContext opContext, @Nonnull TaskInfo taskInfo, long timeoutMs, long pollMs)
-      throws Exception {
-    // For a sliced reindex the header-matched task may be a child slice; cancelling the parent
-    // cancels the whole reindex (and all slices). If there is no parent, it IS the reindex task.
-    String taskId =
-        taskInfo.getParentTaskId() != null && taskInfo.getParentTaskId().isSet()
-            ? taskInfo.getParentTaskId().toString()
-            : taskInfo.getTaskId().toString();
-
-    // Issue the cancel. Best-effort, but logged (never silently dropped) - the confirmation poll
-    // below is the source of truth, and it also handles the benign "already gone" race without a
-    // false failure.
-    try {
-      Request request = new Request("POST", String.format("/_tasks/%s/_cancel", taskId));
-      settingsUpdateRetry.executeRunnable(
-          () -> {
-            try {
-              searchClient.performLowLevelRequest(opContext, request);
-            } catch (IOException e) {
-              throw new RuntimeException(e);
-            }
-          });
-      log.info("Requested cancellation of reindex task {}", taskId);
-    } catch (RuntimeException e) {
-      log.warn(
-          "Cancel request for reindex task {} failed; verifying task state before deciding.",
-          taskId,
-          e);
-    }
-
-    final long deadline = System.currentTimeMillis() + timeoutMs;
-    while (System.currentTimeMillis() < deadline) {
-      try {
-        Optional<GetTaskResponse> status = getTaskStatus(opContext, taskId);
-        if (status.isEmpty() || status.get().isCompleted()) {
-          log.info("Confirmed reindex task {} is stopped.", taskId);
-          return;
-        }
-      } catch (IOException e) {
-        // Transient communication error - keep polling within the window rather than assume
-        // stopped.
-        log.warn("Transient error confirming cancellation of task {}; retrying.", taskId, e);
-      }
-      Thread.sleep(pollMs);
-    }
-    throw new IllegalStateException(
-        String.format(
-            "Failed to confirm cancellation of reindex task %s within %d ms; aborting to avoid "
-                + "concurrent reindexes into the same target.",
-            taskId, timeoutMs));
+  public static String reindexTaskIdToCancel(@Nonnull TaskInfo taskInfo) {
+    return taskInfo.getParentTaskId() != null && taskInfo.getParentTaskId().isSet()
+        ? taskInfo.getParentTaskId().toString()
+        : taskInfo.getTaskId().toString();
   }
 
   /**
-   * Whether a resumable in-flight reindex is building into an index whose mappings still match what
-   * we would build today. Settings are intentionally ignored: a reindex target temporarily runs
-   * with reindex-optimal settings (e.g. 0 replicas, refresh disabled), so only the mappings are
-   * compared (reusing the same {@link ReindexConfig} comparison used to decide reindexing in the
-   * first place). Any failure to validate is treated as "does not match" so the caller restarts
-   * cleanly.
+   * Whether a resumable in-flight reindex is building into an index that still exists and whose
+   * mappings still match what we would build today. A missing destination does not match: the task
+   * outlived its index (deleted by cleanup or by a failed run), and resuming it would fail on the
+   * missing index while the task recreates it with dynamic mappings on its next write. Settings are
+   * intentionally ignored: a reindex target temporarily runs with reindex-optimal settings (e.g. 0
+   * replicas, refresh disabled), so only the mappings are compared (reusing the same {@link
+   * ReindexConfig} comparison used to decide reindexing in the first place). Any failure to
+   * validate is treated as "does not match" so the caller restarts cleanly.
    */
   @VisibleForTesting
   public boolean resumedReindexMatchesTarget(
@@ -2805,8 +2740,18 @@ public class ESIndexBuilder {
       ReindexConfig tempState =
           buildReindexState(
               opContext, adoptedTemp, indexState.targetMappings(), Collections.emptyMap());
-      // requiresApplyMappings() is false only when the temp index's mappings already equal the
-      // current target - i.e. it was built from the same mapping version we would build now.
+      // buildReindexState skips the mapping comparison for a missing index, so
+      // requiresApplyMappings
+      // alone would report a deleted destination as a match.
+      if (!tempState.exists()) {
+        log.warn(
+            "Index: {} - resumed reindex target {} no longer exists.",
+            indexState.name(),
+            adoptedTemp);
+        return false;
+      }
+      // requiresApplyMappings() is false when the temp index already has every current target
+      // mapping, the same test used to decide whether to reindex at all.
       return !tempState.requiresApplyMappings();
     } catch (Exception e) {
       log.warn(
