@@ -2,10 +2,10 @@ package com.linkedin.gms.factory.context;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.test.TestHazelcastInstanceFactory;
 import com.linkedin.gms.factory.ProductionConfigContextRunner;
+import com.linkedin.gms.factory.common.ObjectMapperFactory;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.graph.cache.KnownEntityGraph;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefinition;
@@ -51,8 +51,7 @@ public class EntityGraphCacheFactoryTest {
   private ApplicationContextRunner withoutHazelcast() {
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
     return ProductionConfigContextRunner.create()
-        .withUserConfiguration(EntityGraphCacheFactory.class)
-        .withBean(ObjectMapper.class, ObjectMapper::new)
+        .withUserConfiguration(EntityGraphCacheFactory.class, ObjectMapperFactory.class)
         .withBean("entityRegistry", EntityRegistry.class, () -> entityRegistry)
         .withBean(
             "systemOperationContext",
