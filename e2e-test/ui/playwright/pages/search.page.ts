@@ -208,6 +208,7 @@ export class SearchPage extends BasePage {
         const moreFilterVisible = await moreFilterOption.isVisible();
         if (moreFilterVisible) {
           await moreFilterOption.click();
+          await this.waitForFilterOptions();
           // After clicking the more-filter option, select the option within
           // the sub-dropdown that appears. Fall through to the selection logic.
           await this.selectFilterValue(optionLabel);
@@ -221,9 +222,16 @@ export class SearchPage extends BasePage {
     }
 
     await filterDropdown.click({ force: true });
+    await this.waitForFilterOptions();
 
-    // Wait for the dropdown menu to render its options; the facet query behind it can take a few
-    // seconds on a loaded backend.
+    await this.selectFilterValue(optionLabel);
+  }
+
+  /**
+   * Wait for an open filter dropdown to render its options; the facet query behind it can take a
+   * few seconds on a loaded backend.
+   */
+  private async waitForFilterOptions(): Promise<void> {
     await this.filterDropdownMenu
       .getByRole('checkbox')
       .or(this.filterDropdownMenu.getByTestId('search-input'))
@@ -232,8 +240,6 @@ export class SearchPage extends BasePage {
       .catch(() => {
         // Some filter types render neither; selectFilterValue has its own fallbacks.
       });
-
-    await this.selectFilterValue(optionLabel);
   }
 
   /**

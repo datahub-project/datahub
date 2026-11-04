@@ -48,6 +48,7 @@ const TIMESTAMP_MILLIS_NOW = getTimestampMillisNumDaysAgo(0);
 
 // UI text constants
 const UI_TEXT = {
+  NO_RESULTS: 'No results found',
   IMPACT_ANALYSIS: 'Impact Analysis',
   USER_CREATIONS: 'User Creations',
   USER_DELETIONS: 'User Deletions',
@@ -171,6 +172,9 @@ test.describe('impact analysis', () => {
 
     await lineagePage.clickImpactAnalysis();
     await lineageLoaded;
+    // The list's empty state only renders once it has loaded with no results (an error shows a
+    // different message), so the absence checks below can't pass on a list that hasn't painted.
+    await lineagePage.expectResultTextVisible(UI_TEXT.NO_RESULTS, TIMEOUTS.LONG);
 
     // No lineage edges should exist for the 2021 time window
     await lineagePage.expectResultTextHidden(UI_TEXT.HDFS_DATASET);

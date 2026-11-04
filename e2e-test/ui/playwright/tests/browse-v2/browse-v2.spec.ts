@@ -238,11 +238,14 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
       expect(url).toContain(BROWSE_PATHS.SCHEMA);
 
       logger?.step('verify result count decreased');
-      // The count text can lag the filtered response by a render.
-      await expect.poll(() => searchPage.getResultCount()).toBeLessThan(baselineCount);
-      const filteredCount = await searchPage.getResultCount();
-      logger?.step(`filtered: ${filteredCount} results`);
-      expect(filteredCount).toBeGreaterThan(0);
+      // The count text can lag the filtered response by a render, and can briefly read 0.
+      await expect
+        .poll(async () => {
+          const count = await searchPage.getResultCount();
+          return count > 0 && count < baselineCount;
+        })
+        .toBe(true);
+      logger?.step(`filtered: ${await searchPage.getResultCount()} results`);
     },
   );
 
