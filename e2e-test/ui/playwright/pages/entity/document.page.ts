@@ -6,7 +6,7 @@
 
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
-import { GraphQLHelper } from '../../helpers/graphql-helper';
+import { GraphQLHelper, GraphQLResponse } from '../../helpers/graphql-helper';
 import type { DataHubLogger } from '../../utils/logger';
 import { TIMEOUTS, LOAD_STATES, KEYS, DELAYS } from '../../utils/constants';
 
@@ -149,7 +149,7 @@ export class DocumentPage extends BasePage {
     );
     // Press Enter to save the title (triggers blur/save handler)
     await this.page.keyboard.press(KEYS.ENTER);
-    await saved;
+    await this.expectMutationSucceeded(saved, 'updateDocumentContents');
   }
 
   async expectTitleInput(title: string): Promise<void> {
@@ -162,7 +162,7 @@ export class DocumentPage extends BasePage {
   }
 
   async expectSidebarVisible(): Promise<void> {
-    await expect(this.documentSidebar).toBeVisible();
+    await expect(this.documentSidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   async expectCreateButtonEnabled(): Promise<void> {
@@ -196,7 +196,7 @@ export class DocumentPage extends BasePage {
       (variables) => (variables.input as { contents?: unknown } | undefined)?.contents !== undefined,
     );
     await editor.fill(text);
-    await saved;
+    await this.expectMutationSucceeded(saved, 'updateDocumentContents');
   }
 
   async expectEditorContains(text: string): Promise<void> {
@@ -223,7 +223,7 @@ export class DocumentPage extends BasePage {
     await expect(this.statusSelect).toContainText(new RegExp(status, 'i'));
 
     // Callers reload next, so the change must be persisted first
-    await saved;
+    await this.expectMutationSucceeded(saved, 'updateDocumentStatus');
   }
 
   async expectStatusContains(text: string): Promise<void> {
@@ -246,7 +246,7 @@ export class DocumentPage extends BasePage {
     await expect(this.typeSelect).toContainText(new RegExp(type, 'i'));
 
     // Callers reload next, so the change must be persisted first
-    await saved;
+    await this.expectMutationSucceeded(saved, 'updateDocumentSubType');
   }
 
   async expectTypeContains(text: string): Promise<void> {
@@ -347,19 +347,33 @@ export class DocumentPage extends BasePage {
     await expect(deleteButton).toBeVisible();
     const deleted = this.graphql.waitForGraphQLResponse('deleteDocument');
     await deleteButton.click();
-    await deleted;
+    await this.expectMutationSucceeded(deleted, 'deleteDocument');
+  }
+
+  /** Await a mutation's response and fail on GraphQL errors or a false result. */
+  private async expectMutationSucceeded(response: Promise<GraphQLResponse>, mutation: string): Promise<void> {
+    const json = await response;
+    expect(json.errors, `${mutation} returned errors`).toBeUndefined();
+    expect((json.data as Record<string, unknown> | undefined)?.[mutation], `${mutation} result`).toBe(true);
   }
 
   /**
-   * The sidebar tree is search-backed, so a deleted document can linger until the
-   * index catches up. Reload the documents page until none of `urns` are in the tree.
+   * The sidebar tree is search-backed, so a deleted document can linger until the index catches
+   * up. Reload the documents page until none of `removedUrns` are in the tree. `keptUrn` is a
+   * document the test did not delete: once it renders, the tree has loaded, so the absence checks
+   * can't pass on a tree that is still empty.
    */
-  async expectDocumentsRemovedFromTree(urns: string[]): Promise<void> {
+  async expectDocumentsRemovedFromTree(removedUrns: string[], keptUrn: string): Promise<void> {
     await expect(async () => {
       // Not navigateToDocuments(): its networkidle wait has no timeout and can hang right after a
       // delete, which toPass cannot interrupt. Wait for the tree's search request instead.
-      await Promise.all([this.graphql.waitForGraphQLResponse('searchDocuments'), this.page.goto('/context/documents')]);
-      for (const urn of urns) {
+      const [treeSearch] = await Promise.all([
+        this.graphql.waitForGraphQLResponse('searchDocuments'),
+        this.page.goto('/context/documents'),
+      ]);
+      expect(treeSearch.errors, 'searchDocuments returned errors').toBeUndefined();
+      await expect(this.getTreeItem(keptUrn)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      for (const urn of removedUrns) {
         await expect(this.getTreeItem(urn)).not.toBeAttached({ timeout: TIMEOUTS.SHORT });
       }
     }).toPass({ timeout: TIMEOUTS.EXTRA_LONG * 2 });

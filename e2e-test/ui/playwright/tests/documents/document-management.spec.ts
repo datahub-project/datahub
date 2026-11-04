@@ -196,21 +196,26 @@ test.describe('Document Management', () => {
 
   // ── Deletion Operations ────────────────────────────────────────────────────
 
-  test('should create and delete a document', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
+  test('should create and delete a document', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ cleanup }) => {
     const docTitle = withRandomSuffix('delete-test');
+    const keptUrn = await documentPage.createDocumentWithTitle(`${docTitle}_kept`);
+    cleanup.track(keptUrn);
     const docUrn = await documentPage.createDocumentWithTitle(docTitle);
 
     await documentPage.clickActionsMenu();
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
 
-    await documentPage.expectDocumentsRemovedFromTree([docUrn]);
+    await documentPage.expectDocumentsRemovedFromTree([docUrn], keptUrn);
   });
 
   test('should delete parent document and cascade to children', async ({ cleanup }) => {
     const base = withRandomSuffix('doc');
     const parentTitle = `${base}_parent`;
     const childTitle = `${base}_child`;
+
+    const keptUrn = await documentPage.createDocumentWithTitle(`${base}_kept`);
+    cleanup.track(keptUrn);
 
     const { parentUrn, childUrn } = await documentPage.createAndMoveChildToParent(parentTitle, childTitle);
     cleanup.track(parentUrn);
@@ -226,6 +231,6 @@ test.describe('Document Management', () => {
     await documentPage.confirmDelete();
 
     // Verify cascade deletion: both parent and child should be removed from tree
-    await documentPage.expectDocumentsRemovedFromTree([parentUrn, childUrn]);
+    await documentPage.expectDocumentsRemovedFromTree([parentUrn, childUrn], keptUrn);
   });
 });
