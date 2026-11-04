@@ -63,9 +63,9 @@ import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
+import { FeatureFlags } from '@src/appConfigContext';
 
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
-import { FeatureFlags } from '@src/appConfigContext';
 import { Dataset, DatasetProperties, EntityType, SearchResult } from '@types';
 
 const OperationsTab = lazyProfileComponent('OperationsTab', () =>
@@ -412,10 +412,7 @@ export class DatasetEntity implements Entity<Dataset> {
         );
     }
 
-    getOverridePropertiesFromEntity = (
-        dataset?: Dataset | null,
-        flags?: FeatureFlags,
-    ): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (dataset?: Dataset | null, flags?: FeatureFlags): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         const subTypes = dataset?.subTypes;
 

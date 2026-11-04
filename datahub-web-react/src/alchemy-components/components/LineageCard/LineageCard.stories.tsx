@@ -13,9 +13,9 @@ import { DeprecationIcon } from '@app/entityV2/shared/components/styled/Deprecat
 import NodeWrapper from '@app/lineageV3/NodeWrapper';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import HealthIcon from '@app/previewV2/HealthIcon';
+import { FeatureFlags } from '@src/appConfigContext';
 import { EntityRegistryContext } from '@src/entityRegistryContext';
 
-import { FeatureFlags } from '@src/appConfigContext';
 import { Dataset, Entity, EntityType, HealthStatus, HealthStatusType } from '@types';
 
 const StyledMenuIcon = styled(Icon)`

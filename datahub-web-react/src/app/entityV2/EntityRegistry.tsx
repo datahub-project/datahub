@@ -16,9 +16,9 @@ import {
 } from '@app/lineageV3/types';
 import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
+import { FeatureFlags } from '@src/appConfigContext';
 
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
-import { FeatureFlags } from '@src/appConfigContext';
 import { DataPlatform, Entity as EntityInterface, EntityType, Exact, SearchResult } from '@types';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>, def: V): V {
@@ -330,11 +330,7 @@ export default class EntityRegistry {
         return entity.getSidebarSections ? entity.getSidebarSections() : [];
     }
 
-    getGenericEntityProperties<T>(
-        type: EntityType,
-        data: T,
-        flags?: FeatureFlags,
-    ): GenericEntityProperties | null {
+    getGenericEntityProperties<T>(type: EntityType, data: T, flags?: FeatureFlags): GenericEntityProperties | null {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getGenericEntityProperties(data, flags);
     }

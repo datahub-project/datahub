@@ -2,8 +2,8 @@ import { QueryHookOptions, QueryResult } from '@apollo/client';
 
 import { EntitySidebarSection, EntitySidebarTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { FetchedEntity } from '@app/lineageV3/types';
-
 import { FeatureFlags } from '@src/appConfigContext';
+
 import { DataPlatform, EntityType, Exact, SearchResult } from '@types';
 
 export enum PreviewType {

@@ -4,9 +4,9 @@ import { useLocation } from 'react-router';
 import { getSchemaFieldParentLink } from '@app/entityV2/schemaField/utils';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { FeatureFlags } from '@src/appConfigContext';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
-import { FeatureFlags } from '@src/appConfigContext';
 import { EntityType } from '@types';
 
 /**
