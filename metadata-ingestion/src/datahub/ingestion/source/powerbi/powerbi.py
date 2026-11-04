@@ -3420,7 +3420,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             )
             report_phase2(
                 title="Failed to Fetch Workspace Metadata",
-                message="Phase 2 metadata fetch failed for this workspace; it will be skipped.",
+                message="Phase 2 metadata fetch failed for this workspace; only its container and dataflows are emitted.",
                 context=f"workspace={workspace.name} id={workspace.id}",
                 exc=e,
             )
