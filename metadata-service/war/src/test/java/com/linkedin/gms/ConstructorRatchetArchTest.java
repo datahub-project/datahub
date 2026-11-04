@@ -1,5 +1,6 @@
 package com.linkedin.gms;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -26,6 +27,8 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 import org.springframework.asm.ClassReader;
 import org.springframework.asm.ClassVisitor;
+import org.springframework.asm.Handle;
+import org.springframework.asm.Label;
 import org.springframework.asm.MethodVisitor;
 import org.springframework.asm.Opcodes;
 import org.testng.annotations.Test;
@@ -121,6 +124,50 @@ public class ConstructorRatchetArchTest {
     fail(msg.toString());
   }
 
+  @Test
+  public void nullForwardingDetectionCountsOnlyNullsPassedStraightThrough() {
+    assertEquals(nullForwardingFixture(DirectNull.class).size(), 1);
+    assertEquals(nullForwardingFixture(CastNull.class).size(), 1);
+    assertTrue(nullForwardingFixture(NullInsideNestedCall.class).isEmpty());
+    assertTrue(nullForwardingFixture(NullInsideNewObject.class).isEmpty());
+  }
+
+  private static Set<String> nullForwardingFixture(Class<?> fixture) {
+    return nullForwardingConstructors(new ClassFileImporter().importClass(fixture));
+  }
+
+  static class DirectNull {
+    DirectNull(String a, String b) {}
+
+    DirectNull(String a) {
+      this(a, null);
+    }
+  }
+
+  static class CastNull {
+    CastNull(Object a) {}
+
+    CastNull() {
+      this((String) null);
+    }
+  }
+
+  static class NullInsideNestedCall {
+    NullInsideNestedCall(String a) {}
+
+    NullInsideNestedCall() {
+      this(String.valueOf((Object) null));
+    }
+  }
+
+  static class NullInsideNewObject {
+    NullInsideNewObject(StringBuilder a) {}
+
+    NullInsideNewObject() {
+      this(new StringBuilder((CharSequence) null));
+    }
+  }
+
   /** Class name to reason, for every in-scope class that violates the rule. */
   private static SortedMap<String, String> violations() {
     Set<JavaClass> beanBuilt = beanBuiltClasses();
@@ -186,8 +233,8 @@ public class ConstructorRatchetArchTest {
         clazz.getConstructors().stream()
             .filter(c -> c.getModifiers().contains(JavaModifier.PUBLIC))
             .toList();
-    if (publicCtors.stream().allMatch(c -> c.isAnnotatedWith(LOMBOK_GENERATED))) {
-      publicCtors = publicCtors.subList(0, Math.min(1, publicCtors.size()));
+    if (isLombokNoArgsAllArgsPair(clazz, publicCtors)) {
+      publicCtors = publicCtors.subList(0, 1);
     }
     Set<String> nullForwarding = nullForwardingConstructors(clazz);
     if (publicCtors.size() > 1 && !nullForwarding.isEmpty()) {
@@ -203,9 +250,28 @@ public class ConstructorRatchetArchTest {
   }
 
   /**
-   * Descriptors of the constructors that pass a {@code null} literal to another constructor of the
-   * same class. Arguments are evaluated before the {@code this(...)} call, so an {@code
-   * ACONST_NULL} ahead of it is (nearly always) one of its arguments.
+   * Exactly a Lombok {@code @NoArgsConstructor} + {@code @AllArgsConstructor} pair: two generated
+   * public constructors, one empty and one taking every instance field. Any other generated
+   * combination (e.g. {@code @RequiredArgsConstructor} + {@code @AllArgsConstructor}) still counts.
+   */
+  private static boolean isLombokNoArgsAllArgsPair(JavaClass clazz, List<JavaConstructor> ctors) {
+    if (ctors.size() != 2 || !ctors.stream().allMatch(c -> c.isAnnotatedWith(LOMBOK_GENERATED))) {
+      return false;
+    }
+    long instanceFields =
+        clazz.getFields().stream()
+            .filter(f -> !f.getModifiers().contains(JavaModifier.STATIC))
+            .filter(f -> !f.getModifiers().contains(JavaModifier.SYNTHETIC))
+            .count();
+    Set<Integer> arities =
+        ctors.stream().map(c -> c.getRawParameterTypes().size()).collect(Collectors.toSet());
+    return arities.size() == 2 && arities.contains(0) && arities.contains((int) instanceFields);
+  }
+
+  /**
+   * Descriptors of the constructors that pass a {@code null} literal straight to another
+   * constructor of the same class. A null consumed inside an argument expression (for example
+   * {@code this(Objects.requireNonNull(null))} or {@code this(new Foo(null))}) does not count.
    */
   private static Set<String> nullForwardingConstructors(JavaClass clazz) {
     String internalName = clazz.getName().replace('.', '/');
@@ -226,25 +292,103 @@ public class ConstructorRatchetArchTest {
                     return null;
                   }
                   return new MethodVisitor(Opcodes.ASM9) {
-                    private boolean sawNull;
+                    // A null literal pushed and not yet consumed by another instruction.
+                    private boolean pendingNull;
+                    // A null literal left on the stack for this(...) as one of its arguments.
+                    private boolean forwardsNull;
                     private boolean delegated;
+
+                    /**
+                     * Settles a pending null at the next instruction: it was consumed (an argument
+                     * of a nested call, stored, compared, ...) unless that instruction just pushes
+                     * another value or branches, in which case it stays an argument of this(...).
+                     */
+                    private void next(boolean consumesNull) {
+                      if (pendingNull && !consumesNull) {
+                        forwardsNull = true;
+                      }
+                      pendingNull = false;
+                    }
 
                     @Override
                     public void visitInsn(int opcode) {
-                      if (opcode == Opcodes.ACONST_NULL && !delegated) {
-                        sawNull = true;
+                      if (delegated) {
+                        return;
+                      }
+                      next(
+                          opcode == Opcodes.AASTORE
+                              || opcode == Opcodes.ARETURN
+                              || opcode == Opcodes.ATHROW
+                              || opcode == Opcodes.POP
+                              || opcode == Opcodes.MONITORENTER);
+                      pendingNull = opcode == Opcodes.ACONST_NULL;
+                    }
+
+                    @Override
+                    public void visitVarInsn(int opcode, int varIndex) {
+                      if (!delegated) {
+                        next(opcode == Opcodes.ASTORE);
+                      }
+                    }
+
+                    @Override
+                    public void visitIntInsn(int opcode, int operand) {
+                      if (!delegated) {
+                        next(false);
+                      }
+                    }
+
+                    @Override
+                    public void visitLdcInsn(Object value) {
+                      if (!delegated) {
+                        next(false);
+                      }
+                    }
+
+                    @Override
+                    public void visitTypeInsn(int opcode, String type) {
+                      // A cast keeps a null literal a null literal; anything else consumes it.
+                      if (!delegated && opcode != Opcodes.CHECKCAST) {
+                        next(true);
+                      }
+                    }
+
+                    @Override
+                    public void visitFieldInsn(int opcode, String owner, String name, String d) {
+                      if (!delegated) {
+                        next(opcode == Opcodes.PUTFIELD || opcode == Opcodes.PUTSTATIC);
+                      }
+                    }
+
+                    @Override
+                    public void visitJumpInsn(int opcode, Label label) {
+                      if (!delegated) {
+                        next(opcode != Opcodes.GOTO);
+                      }
+                    }
+
+                    @Override
+                    public void visitInvokeDynamicInsn(
+                        String name, String d, Handle handle, Object... args) {
+                      if (!delegated) {
+                        next(true);
                       }
                     }
 
                     @Override
                     public void visitMethodInsn(
                         int opcode, String owner, String method, String d, boolean itf) {
-                      if (!delegated
-                          && opcode == Opcodes.INVOKESPECIAL
-                          && method.equals("<init>")
-                          && owner.equals(internalName)) {
+                      if (delegated) {
+                        return;
+                      }
+                      boolean ownDelegation =
+                          opcode == Opcodes.INVOKESPECIAL
+                              && method.equals("<init>")
+                              && owner.equals(internalName);
+                      next(!ownDelegation);
+                      if (ownDelegation) {
                         delegated = true;
-                        if (sawNull) {
+                        if (forwardsNull) {
                           result.add(desc);
                         }
                       }
