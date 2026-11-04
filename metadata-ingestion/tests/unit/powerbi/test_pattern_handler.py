@@ -1345,27 +1345,31 @@ def test_odbc_unknown_platform_keeps_schema_so_tables_do_not_merge() -> None:
 
 
 @pytest.mark.parametrize(
-    "navigation, dsn_mapping, expected_urns",
+    "navigation, expected_urns, expected_warnings",
     [
         (
             (("Database", "stores"), ("Schema", "informix"), ("Table", "customer")),
-            {},
             [
                 "urn:li:dataset:(urn:li:dataPlatform:informix,stores.informix.customer,PROD)"
             ],
+            [],
         ),
         # Without an owner level a database.table URN never matches standalone
         # Informix, so it is skipped rather than emitted.
-        ((("Database", "stores"), ("Table", "customer")), {}, []),
+        (
+            (("Database", "stores"), ("Table", "customer")),
+            [],
+            ["Can not determine qualified table name"],
+        ),
     ],
     ids=["full-navigation", "missing-owner-skips"],
 )
 def test_odbc_informix_is_three_tier(
     navigation: Tuple[Tuple[str, str], ...],
-    dsn_mapping: Dict[str, str],
     expected_urns: List[str],
+    expected_warnings: List[str],
 ) -> None:
-    instance = _build_odbc_lineage(dsn_to_database_schema=dsn_mapping)
+    instance = _build_odbc_lineage()
     detail = DataAccessFunctionDetail(
         arg_list={},
         data_access_function_name="Odbc.DataSource",
@@ -1382,6 +1386,7 @@ def test_odbc_informix_is_three_tier(
     )
 
     assert [u.urn for u in result.upstreams] == expected_urns
+    assert [w.title for w in instance.reporter.warnings] == expected_warnings
 
 
 def test_odbc_oracle_dsn_backfill_does_not_force_three_part_urn():

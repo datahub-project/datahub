@@ -67,11 +67,13 @@ Requirements:
 
 - [#18670](https://github.com/datahub-project/datahub/pull/18670) **(Ingestion / Power BI)** Lineage from ODBC sources that use hierarchical navigation now uses the table names each platform's own DataHub source produces, so some upstream links change or are no longer emitted:
 
-  - **BigQuery, Snowflake, Postgres, MSSQL, Redshift, Databricks, Db2, Informix:** a table whose navigation has no schema level is skipped with a warning instead of getting an incomplete name.
-  - **Athena:** `database.table` instead of `catalog.database.table`; `athena_table_platform_override` now applies here too.
+  - **BigQuery, Snowflake, Postgres, MSSQL, Redshift, Databricks, Db2, Informix:** a table whose navigation has no schema level, and no `dsn_to_database_schema` entry to supply one, is skipped with a warning instead of getting an incomplete name.
+  - **Athena:** `database.table` instead of `catalog.database.table`; `athena_table_platform_override` now applies here too. Navigation with no database level and no `dsn_to_database_schema` entry is skipped with a warning.
   - **Oracle:** `schema.table`, or `database.schema.table` when `default_database` is set for the server.
-  - **MySQL, Teradata:** `database.table` instead of `database.schema.table`.
-  - **Other platforms:** unchanged.
+  - **MySQL, Teradata:** `database.table` instead of `database.schema.table`. `Schema + Table` navigation, previously skipped, now emits `schema.table`.
+  - **Other platforms:** URN shape unchanged.
+
+  `dsn_to_database_schema`, previously read only for ODBC SQL queries, now also fills levels that navigation leaves out, so navigation that was skipped for a missing level (for example Hive `Database + Table`) can now produce lineage.
 
   DSN names now match case-insensitively, and keys that differ only in case but map to different values now fail config validation. See [ODBC hierarchical navigation](https://docs.datahub.com/docs/generated/ingestion/sources/powerbi#odbc-hierarchical-navigation) for the full rules, including DSN mappings and ODBC SQL queries. With stateful ingestion, the old links may be removed as stale. **Action:** for each DSN named in a "Can not determine qualified table name" or "Cannot build two-tier ODBC table name" warning, add the missing level with `dsn_to_database_schema`, for example `dsn_to_database_schema: { my_dsn: analytics.public }`.
 
