@@ -64,6 +64,8 @@ public class EntityAuthorizationUtilsAssertionTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,facade,PROD)");
   private static final Urn OTHER_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,other_table,PROD)");
+  private static final Urn DEV_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,facade,DEV)");
   private static final DisjunctivePrivilegeGroup EDIT_ASSERTIONS_PRIVILEGES =
       new DisjunctivePrivilegeGroup(
           ImmutableList.of(
@@ -232,6 +234,27 @@ public class EntityAuthorizationUtilsAssertionTest {
     grantEditAssertionsOn(DATASET_URN);
 
     assertEquals(ingest(proposal), List.of(Pair.of(proposal, 403)));
+  }
+
+  @Test
+  public void testRunEventForMismatchedAsseteeAllowedWithPrivilegeOnBoth() {
+    mockPersisted(freshnessOn(DATASET_URN));
+    MetadataChangeProposal proposal = runEvent(DEV_DATASET_URN);
+    denyOnAssertion(true);
+    grantEditAssertionsOn(DATASET_URN);
+    grantEditAssertionsOn(DEV_DATASET_URN);
+
+    assertEquals(ingest(proposal), List.of(Pair.of(proposal, 200)));
+  }
+
+  @Test
+  public void testRunEventSchemaFieldAsserteeCheckedOnParentDataset() {
+    MetadataChangeProposal proposal =
+        runEvent(UrnUtils.getUrn("urn:li:schemaField:(" + DATASET_URN + ",col_a)"));
+    denyOnAssertion(false);
+    grantEditAssertionsOn(DATASET_URN);
+
+    assertEquals(ingest(proposal), List.of(Pair.of(proposal, 200)));
   }
 
   @Test
