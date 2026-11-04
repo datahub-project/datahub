@@ -21,7 +21,6 @@ import { EntityType } from '@types';
 
 const AnalyticsPageV2 = lazyNamed(() => import('@app/analyticsDashboardV2/components/AnalyticsPage'), 'AnalyticsPage');
 const ManageApplications = lazyNamed(() => import('@app/applications/ManageApplications'), 'ManageApplications');
-const BrowseResultsPage = lazyNamed(() => import('@app/browse/BrowseResultsPage'), 'BrowseResultsPage');
 const BusinessAttributes = lazyNamed(() => import('@app/businessAttribute/BusinessAttributes'), 'BusinessAttributes');
 const ContextRoutes = lazyDefault(() => import('@app/context/ContextRoutes'));
 const DomainRoutesV2 = lazyDefault(() => import('@app/domainV2/DomainRoutes'));
@@ -122,7 +121,6 @@ export const SearchRoutes = (): JSX.Element => {
                             render={() => <MarketplaceRoutes />}
                         />
                         <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPageV2 />} />
-                        <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                         {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                         <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
                         <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
