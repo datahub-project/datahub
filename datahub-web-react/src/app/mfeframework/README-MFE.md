@@ -116,6 +116,35 @@ As described in the [DataHub Quickstart Guide](https://docs.datahub.com/docs/qui
 Navigate to [http://localhost:9002](http://localhost:9002).  
 You should see a waving hand menu item in the left navigation bar.
 
+## Telemetry
+
+DataHub records product analytics events for MFEs through the same pipeline as every other UI
+event (see [`src/app/analytics/README.md`](../analytics/README.md)). Events are sent to GMS and
+indexed in the `datahub_usage_event` index, and to any configured third-party provider (Mixpanel,
+Amplitude, Google Analytics). Every event carries the standard base fields, including `actorUrn`,
+`timestamp`, and `browserId`, so you can answer "who uses this MFE" and "how often" by filtering on
+the fields below.
+
+| Event              | When it fires                                                                    | MFE-specific fields                                                         |
+| ------------------ | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `MfePageViewEvent` | An `/mfe/<path>` route renders, whether reached from the nav bar or a direct URL | `mfeId`, `mfeLabel`, `mfePath`                                              |
+| `MfeLoadEvent`     | The remote module load settles, successfully or not                              | `mfeId`, `mfeLabel`, `outcome`, `durationMs`, `loadTimeoutMs`               |
+| `NavBarItemClick`  | The MFE's nav bar entry is clicked                                               | `label` (the MFE label, or the menu title with `subLabel` in dropdown mode) |
+| `PageViewEvent`    | Any route change, including `/mfe/<path>`                                        | none (filter on the page path)                                              |
+
+`outcome` on `MfeLoadEvent` is one of:
+
+- `success`: the remote's `mount` function was called.
+- `timeout`: the remote did not load within `loadTimeoutMs`.
+- `load_error`: fetching or unwrapping the remote module failed (for example, `remoteEntry.js` returned an error).
+- `invalid_mount`: the remote loaded but exposed no `mount` function.
+- `container_missing`: the host container element was not in the DOM.
+- `disabled`: the MFE has `flags.enabled: false`, so it was not mounted.
+- `abandoned`: the user left the page before the remote finished loading.
+
+A visit that produces an `MfePageViewEvent` with no matching `MfeLoadEvent` means the user navigated
+away before the load settled and the page unmounted before the remote responded.
+
 ## Deploying to Kubernetes
 
 Suppose HelloWorld is deployed at `https://mydomain-dev.com/helloworld/remoteEntry.js`.
