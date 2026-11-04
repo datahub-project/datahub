@@ -10,6 +10,7 @@ import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -73,6 +74,15 @@ public class WiringCoverageTest extends AbstractTestNGSpringContextTests {
     }
   }
 
+  /** A real @Bean method that hands out a mock: the method ran, so it counts. */
+  @Configuration
+  public static class MockReturningConfig {
+    @Bean
+    public MockedService mockReturningService() {
+      return Mockito.mock(MockedService.class);
+    }
+  }
+
   @MockitoBean private MockedService mockedService;
 
   @Autowired private RealService realService;
@@ -113,6 +123,17 @@ public class WiringCoverageTest extends AbstractTestNGSpringContextTests {
     assertFalse(
         lines.stream().anyMatch(l -> l.startsWith("M " + ParentConfig.class.getName() + "#")),
         lines.toString());
+  }
+
+  @Test
+  public void recordsRealBeanMethodsThatReturnAMock() throws IOException {
+    new ApplicationContextRunner()
+        .withInitializer(WiringCoverage.initializer())
+        .withUserConfiguration(MockReturningConfig.class)
+        .run(context -> context.getBean(MockedService.class));
+    assertTrue(
+        recorded().contains("M " + MockReturningConfig.class.getName() + "#mockReturningService"),
+        recorded().toString());
   }
 
   private static Set<String> recorded() throws IOException {
