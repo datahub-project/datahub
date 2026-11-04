@@ -4,7 +4,6 @@ com.linkedin.datahub.upgrade.UpgradeConfigurationSelector$CleanupConfiguration
 com.linkedin.datahub.upgrade.UpgradeConfigurationSelector$SqlSetupConfiguration
 com.linkedin.datahub.upgrade.cleanup.CleanupUpgradeConfig
 com.linkedin.datahub.upgrade.config.IncrementalReindexConfig
-com.linkedin.datahub.upgrade.config.SystemUpdateKafkaMessagingConfig
 com.linkedin.datahub.upgrade.sqlsetup.SqlSetupUpgradeConfig
 com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupConfig
 com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupEbeanFactory

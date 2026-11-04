@@ -42,9 +42,8 @@ import org.springframework.util.ClassUtils;
  *
  * <ul>
  *   <li>{@code C <class>}: a configuration class (full or lite) was instantiated as a bean.
- *   <li>{@code M <class>#<method>}: a {@code @Bean} factory method was invoked and produced a bean
- *       that is not a Mockito mock. Beans replaced with {@code @MockitoBean} never reach the
- *       factory method, so they are not recorded.
+ *   <li>{@code M <class>#<method>}: a {@code @Bean} factory method was invoked. Beans replaced with
+ *       {@code @MockitoBean} never reach the factory method, so they are not recorded.
  * </ul>
  *
  * <p>Without the system property (e.g. a test run from an IDE) everything here is a no-op.
@@ -111,30 +110,6 @@ public final class WiringCoverage {
     }
   }
 
-  private static final Method MOCKING_DETAILS = mockingDetailsMethod();
-
-  private static Method mockingDetailsMethod() {
-    try {
-      // initialize=false: do not run Mockito's static setup just because a context was built.
-      return Class.forName("org.mockito.Mockito", false, WiringCoverage.class.getClassLoader())
-          .getMethod("mockingDetails", Object.class);
-    } catch (ReflectiveOperationException | LinkageError e) {
-      return null;
-    }
-  }
-
-  private static boolean isMock(Object bean) {
-    if (MOCKING_DETAILS == null) {
-      return false;
-    }
-    try {
-      Object details = MOCKING_DETAILS.invoke(null, bean);
-      return (boolean) details.getClass().getMethod("isMock").invoke(details);
-    } catch (ReflectiveOperationException | RuntimeException e) {
-      return false;
-    }
-  }
-
   /** Sees every bean the context creates after it is registered. */
   static final class Recorder implements BeanPostProcessor {
     private final ConfigurableListableBeanFactory beanFactory;
@@ -166,7 +141,7 @@ public final class WiringCoverage {
       }
       if (definition instanceof RootBeanDefinition root) {
         Method factoryMethod = root.getResolvedFactoryMethod();
-        if (factoryMethod != null && !isMock(bean)) {
+        if (factoryMethod != null) {
           record(
               "M " + factoryOwner(root, factoryMethod).getName() + "#" + factoryMethod.getName());
         }
