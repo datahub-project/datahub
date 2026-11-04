@@ -781,9 +781,15 @@ class SQLAlchemyQueryCombiner:
             self._execute_futures_serially([left[0][1]])
             left_failed = left[0][1].exc is not None
         else:
-            left_failed = not self._try_combine(left)
-            if left_failed:
+            left_combined = self._try_combine(left)
+            if not left_combined:
                 self._bisect(left, known_to_fail=True)
+            # A left half that timed out was settled one query at a time, so
+            # it may hold the failing query even though _try_combine returned
+            # True; in that case the right half is not known to fail.
+            left_failed = not left_combined or any(
+                fut.exc is not None for _, fut in left
+            )
         # If the left half went through, whatever sank the parent is on the
         # right, so testing the right half whole would be a wasted statement.
         self._bisect(right, known_to_fail=not left_failed)

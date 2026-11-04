@@ -10,6 +10,7 @@ a remote warehouse; it is the median of several runs.
 """
 
 import argparse
+import hashlib
 import statistics
 import tempfile
 import time
@@ -131,7 +132,7 @@ def main() -> None:
             n, elapsed, counters, fields = run(s, args.latency_ms / 1000)
             times.append(elapsed)
         # Same digest before and after a change means the same field profiles.
-        digest = sum(len(f) * (i + 1) for i, f in enumerate(fields)) % 10**6
+        digest = int(hashlib.sha256(repr(fields).encode()).hexdigest(), 16) % 10**6
         print(
             f"{s.name:42} {n:>10} {statistics.median(times) * 1000:>10.1f}"
             f"  {digest:06d} {counters}"

@@ -1172,6 +1172,38 @@ class TestBisection:
         assert [c.result.scalar() for c in good] == [3 + i for i in range(17)]
         assert combiner.report.uncombined_queries_issued < len(queries)
 
+    def test_timeout_inside_bisection_settles_that_half_serially(
+        self, engine, test_table
+    ):
+        # The window fails for an ordinary reason, then the bisection step
+        # covering the bad query times out. That half goes serial (a timed-out
+        # statement is not split again), the other half still combines, and
+        # every timeout is counted.
+        queries: List[Any] = self._numbered(test_table, 7)
+        queries.insert(0, self._bad().select_from(test_table))
+
+        def bisection_step_times_out(e: Exception) -> bool:
+            # Only a statement covering part of the window (more than one
+            # query, fewer than all eight) counts as a timeout.
+            members = str(getattr(e, "statement", "")).lower().count("count(")
+            return 1 < members < len(queries)
+
+        combiner = _make_combiner(is_query_timeout=bisection_step_times_out)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q, flattenable=False) for q in queries]
+            qc.flush()
+
+        bad = caps.pop(0)
+        assert bad.exc is not None
+        assert [c.exc for c in caps] == [None] * 7
+        assert [c.result.scalar() for c in caps] == [3 + i for i in range(7)]
+        assert combiner.report.failed_windows_bisected == 1
+        assert combiner.report.query_timeouts == 1
+        # Only the timed-out half (4 queries) ran one at a time. It held the
+        # bad query, so the right half was combined whole, not split again.
+        assert combiner.report.uncombined_queries_issued == 4
+        assert combiner.report.bisect_statements_issued == 2
+
     def test_every_query_failing_is_bounded(self, engine, test_table):
         # The worst case for bisection: every internal node of the tree fails.
         # It must still resolve every future and stay within 2n statements.

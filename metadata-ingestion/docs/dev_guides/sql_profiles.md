@@ -130,7 +130,7 @@ Flattening trades round trips for scans, so `combined_queries_issued` can rise w
 | `flatten_singletons`          | queries alone in their table group, sent to the CTE path because flattening one saves nothing      |
 | `flat_group_failures`         | flat statements that failed and fell back                                                          |
 | `flat_group_cte_recoveries`   | of those, how many the CTE path recovered in one round trip                                        |
-| `flat_group_serial_fallbacks` | of those, how many the CTE path could not recover, so they were bisected or (on a timeout) serial  |
+| `flat_group_serial_fallbacks` | of those, how many the CTE path did not recover: bisected, or run serially after a flat timeout    |
 
 If `scans_avoided` is low, `flatten_singletons` through `flat_group_serial_fallbacks` say why. High `flatten_singletons` means the workload has little to merge; a non-zero `flat_group_serial_fallbacks` means flattening is costing round trips rather than saving scans, and the flag is better off.
 
@@ -145,7 +145,7 @@ Two are about recovering a failed batch, flattening on or off:
 
 | counter                    | meaning                                                                                      |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| `failed_windows_bisected`  | failed batches narrowed down by bisection rather than retried one query at a time            |
+| `failed_windows_bisected`  | failed batches sent down the bisection path (a one-query window is just retried on its own)  |
 | `bisect_statements_issued` | merged statements those bisections cost; single queries count in `uncombined_queries_issued` |
 
 One more is about `query_timeout_seconds` rather than flattening:
