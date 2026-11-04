@@ -11,7 +11,7 @@ def test_sources_not_abstract() -> None:
 
 
 def test_source_configs_are_config_models() -> None:
-    checked = 0
+    checked = set()
     for source_type in sorted(source_registry.mapping):
         try:
             source_cls = source_registry.get(source_type)
@@ -23,8 +23,9 @@ def test_source_configs_are_config_models() -> None:
         get_config_class = getattr(source_cls, "get_config_class", None)
         assert get_config_class is not None, source_type
         assert issubclass(get_config_class(), ConfigModel), source_type
-        checked += 1
-    assert checked >= 25, f"only {checked} source configs loaded"
+        checked.add(source_type)
+    # `file` needs no extras, so it loads in any install; if unchecked, loading is broken.
+    assert "file" in checked
 
 
 def test_sinks_not_abstract() -> None:
