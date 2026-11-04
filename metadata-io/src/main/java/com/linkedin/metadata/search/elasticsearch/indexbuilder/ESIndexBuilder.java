@@ -1001,6 +1001,8 @@ public class ESIndexBuilder {
       searchClient.putIndexMapping(
           opContext, new PutMappingRequest(indexState.name()).source(mappings), requestOptionsLong);
     } catch (IOException | RuntimeException e) {
+      // As with the other in-place puts, only a rejection is logged and left for later. Any other
+      // failure, such as a timeout, fails the step, and the next run sends the put again.
       if (!suppressError || !isMappingRejection(e)) {
         throw e;
       }
