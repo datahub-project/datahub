@@ -158,6 +158,78 @@ jobs:
           path: ${{ env.UV_CACHE_DIR }}
           key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml', './metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml') }}"
 
+  # Writer for the shared metadata-ingestion uv cache on both backends. Restored by
+  # metadata-ingestion.yml, documentation.yml, check-datahub-jars.yml,
+  # python-build-pages.yml, build-and-test.yml and the four ingestion plugin
+  # workflows. Those jobs used to save it themselves from master, but every one of
+  # them is path-filtered, so an evicted entry stayed missing until a push touched
+  # the same paths, and the only Depot-side writer was a success-only save at the
+  # end of the testQuick leg.
+  warm-metadata-ingestion-uv-cache:
+    name: Warm metadata-ingestion uv cache (${{ matrix.runner }})
+    if: |
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/heads/releases/') ||
+      startsWith(github.ref, 'refs/heads/hotfixes/')
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, depot-ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    env:
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key and path must stay byte-identical with the restore steps in the consuming
+      # workflows: uv's default cache dir (no UV_CACHE_DIR override here) and the
+      # save key at the bottom of this job.
+      - name: Check for existing cache entry
+        id: uv-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
+          lookup-only: true
+      - name: Set up JDK 25
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "temurin"
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        with:
+          python-version: "3.11"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.uv-cache.outputs.cache-hit != 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
+      - name: Install system dependencies
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      # installDevTest ([dev,integration-tests]) is the widest extras set among the
+      # consumers; the testQuick, lint and plugin installs pull subsets of it.
+      - name: Install metadata-ingestion dev environment
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: ./gradlew :metadata-ingestion:installDevTest
+      # Drops pre-built wheels and unpacked sdists, which re-download in seconds, and
+      # keeps the wheels uv built from source, the slow part. What uv recommends for
+      # CI caches. Nothing puts uv on PATH here; environmentSetup installs it into the
+      # venv.
+      - name: Prune uv cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        run: metadata-ingestion/venv/bin/uv cache prune --ci
+      # No `always()`: a partial cache from a failed install would occupy the exact key
+      # until the manifests next change. On failure, the next master push retries.
+      - name: Save uv cache
+        if: steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
+
   # Writer for the shared datahub-web-react yarn cache on both backends. Restored by
   # lint-jobs.yml (datahub-web-react-lint, markdown-format, github-actions-format)
   # and by build-and-test.yml's frontend jobs.

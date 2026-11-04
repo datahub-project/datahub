@@ -115,11 +115,8 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
-      # Restore-only: this job barely populates the uv cache (~20MB observed), and its
-      # save used to race the dependency-heavy jobs for the shared key and poison it.
-      # GitHub-hosted master copies are written by documentation.yml /
-      # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
-      # but usually to the Depot cache backend (it runs on Depot runners there).
+      # Restore-only: ci-cache-warmup.yml warm-metadata-ingestion-uv-cache writes this
+      # key on both cache backends from every default-branch push.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -275,11 +272,8 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
-      # Restore-only: this job barely populates the uv cache (~20MB observed), and its
-      # save used to race the dependency-heavy jobs for the shared key and poison it.
-      # GitHub-hosted master copies are written by documentation.yml /
-      # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
-      # but usually to the Depot cache backend (it runs on Depot runners there).
+      # Restore-only: ci-cache-warmup.yml warm-metadata-ingestion-uv-cache writes this
+      # key on both cache backends from every default-branch push.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |

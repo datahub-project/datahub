@@ -65,8 +65,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
-      # Restore-only: the writers are metadata-ingestion.yml (Depot, master) and
-      # documentation.yml / check-datahub-jars.yml (GitHub, master). The plugin venv
+      # Restore-only: ci-cache-warmup.yml warm-metadata-ingestion-uv-cache writes this
+      # key on both cache backends from every default-branch push. The plugin venv
       # installs '-e ../../metadata-ingestion[...]', so the shared metadata-ingestion
       # entry covers most of the install.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

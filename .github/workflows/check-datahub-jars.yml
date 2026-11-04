@@ -32,13 +32,9 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
-      # Restore always; save only from master (below) so PR runs stop minting per-PR
-      # copies of this shared key. Key hashes the manifests that actually determine the
-      # uv cache contents — the old '**/requirements.txt' matched 13 unrelated files and
-      # none of them. With max-parallel: 1, the first matrix leg saves and later legs
-      # exact-hit, so the cache-hit guard on the save prevents duplicate writes.
+      # Restore-only: ci-cache-warmup.yml warm-metadata-ingestion-uv-cache writes this
+      # key on both cache backends from every default-branch push.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: uv-cache
         with:
           path: |
             ~/.cache/uv
@@ -61,12 +57,3 @@ jobs:
           ./gradlew :metadata-integration:java:${{ matrix.command }}:build --info
           ./gradlew :metadata-integration:java:${{ matrix.command }}:checkShadowJar
           ./gradlew :metadata-integration:java:${{ matrix.command }}:javadoc
-      # Success-only: a partial cache from a failed run would occupy the exact key
-      # until the manifests next change; the next push retries instead.
-      - name: Save uv cache (default branch only)
-        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
