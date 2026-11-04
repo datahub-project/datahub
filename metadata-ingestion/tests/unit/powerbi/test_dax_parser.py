@@ -110,6 +110,12 @@ def test_quoted_identifiers_survive_the_stripper() -> None:
     assert _tables(expression) == ['My "Quoted" Table', "Sales // Returns"]
 
 
+def test_apostrophe_in_bracketed_name_does_not_open_a_quoted_table() -> None:
+    expression = "CALCULATE([Bob's Total], 'Sales'[x]) + COUNTROWS('Claims')"
+    assert _fields(expression) == [(None, "Bob's Total"), ("Sales", "x")]
+    assert _tables(expression) == ["Sales", "Claims"]
+
+
 def test_row_context_iterators_are_flagged() -> None:
     assert not extract_dax_references(
         "[Premium] * 2 + RELATED(Policies[State])"
