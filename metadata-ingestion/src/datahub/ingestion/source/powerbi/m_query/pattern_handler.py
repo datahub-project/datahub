@@ -44,6 +44,9 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     ReferencedTable,
 )
 from datahub.ingestion.source.powerbi.m_query.odbc import (
+    DB2_PLATFORM,
+    INFORMIX_PLATFORM,
+    TERADATA_PLATFORM,
     extract_dsn,
     extract_platform,
     extract_server,
@@ -2190,16 +2193,8 @@ ODBC_TWO_TIER_PLATFORMS: FrozenSet[str] = frozenset(
 # Platforms whose standalone connectors emit database.schema.table (or the
 # BigQuery equivalent project.dataset.table). When ODBC navigation (+ optional
 # dsn_to_database_schema backfill) yields database + table but no schema, these
-# must warn-and-skip rather than emit a truncated database.table URN.
-# db2 has no SupportedDataPlatform member because it is only reachable over ODBC
-# (odbc.py sniffs it from the driver / dsn_to_platform_name); its datahub platform
-# name is the literal "db2" that the standalone Db2Source registers. Its standalone
-# connector emits database.schema.object, so it is three-tier here.
-DB2_PLATFORM: str = "db2"
-# Like db2, only reachable over ODBC. The standalone InformixSource emits
-# database.owner.table, so it is three-tier.
-INFORMIX_PLATFORM: str = "informix"
-TERADATA_PLATFORM: str = "teradata"
+# must warn-and-skip rather than emit a truncated database.table URN. Db2Source
+# emits database.schema.object and InformixSource database.owner.table.
 
 ODBC_THREE_TIER_PLATFORMS: FrozenSet[str] = frozenset(
     {
@@ -2215,9 +2210,7 @@ ODBC_THREE_TIER_PLATFORMS: FrozenSet[str] = frozenset(
 )
 
 # Platforms whose standalone connectors (TwoTierSQLAlchemySource) emit
-# database.table. Only these may drop a navigation Schema level; on any other
-# platform dropping it could merge distinct tables (db.s1.t and db.s2.t) into one
-# upstream.
+# database.table. Other platforms keep every level navigation exposes.
 ODBC_DATABASE_TABLE_PLATFORMS: FrozenSet[str] = frozenset(
     {
         SupportedDataPlatform.MYSQL.value.datahub_data_platform_name,
@@ -2441,10 +2434,18 @@ class OdbcLineage(AbstractLineage):
         Returns:
             New Lineage object with transformed URNs
         """
-        # Transform upstream table URNs
+        # Column refs repeat their table's URN; transform each URN once so its
+        # warnings and override matches are reported once.
+        transformed: Dict[str, str] = {}
+
+        def transform_once(urn: str) -> str:
+            if urn not in transformed:
+                transformed[urn] = transform_fn(urn)
+            return transformed[urn]
+
         updated_upstreams: List[DataPlatformTable] = []
         for upstream in lineage.upstreams:
-            transformed_urn = transform_fn(upstream.urn)
+            transformed_urn = transform_once(upstream.urn)
             updated_upstreams.append(
                 DataPlatformTable(
                     data_platform_pair=upstream.data_platform_pair,
@@ -2457,7 +2458,7 @@ class OdbcLineage(AbstractLineage):
         for col_info in lineage.column_lineage:
             updated_col_upstreams: List[ColumnRef] = []
             for col_ref in col_info.upstreams:
-                transformed_table_urn = transform_fn(col_ref.table)
+                transformed_table_urn = transform_once(col_ref.table)
                 updated_col_upstreams.append(
                     ColumnRef(table=transformed_table_urn, column=col_ref.column)
                 )
@@ -2694,16 +2695,18 @@ class OdbcLineage(AbstractLineage):
             if schema is None and data_platform == HIVE_PLATFORM:
                 schema = config_database
             if schema is None:
+                mapping_example = (
+                    "<database>.<schema>"
+                    if data_platform == ORACLE_PLATFORM
+                    else "<schema>"
+                )
                 self.reporter.warning(
                     title="Cannot build two-tier ODBC table name",
                     message=(
-                        "Two-tier ODBC navigation exposed no schema level, and no "
-                        "mapping supplied one; skipping lineage. Supply the schema "
-                        "via 'dsn_to_database_schema: {<dsn>: <schema>}' (Oracle: "
-                        "'<database>.<schema>'; the database segment only appears in "
-                        "the URN when default_database is set for the server) in your "
-                        "PowerBI recipe — hierarchical navigation reads "
-                        "dsn_to_database_schema, not the Oracle default_schema knob."
+                        "ODBC navigation exposed no schema level, and no mapping "
+                        "supplied one; skipping lineage. Add "
+                        f"'dsn_to_database_schema: {{<dsn>: {mapping_example}}}' "
+                        "to your PowerBI recipe."
                     ),
                     context=context,
                 )
@@ -2764,14 +2767,23 @@ class OdbcLineage(AbstractLineage):
             if database is None:
                 skip_missing_level()
                 return None
-            if schema_name is not None:
+            if (
+                schema_name is not None
+                and schema_name.casefold() != database.casefold()
+            ):
+                # database.table cannot hold a second level, and dropping it
+                # would merge db.s1.t and db.s2.t into one upstream.
                 self.reporter.warning(
-                    title="Dropped ODBC navigation schema level",
-                    message="ODBC navigation supplied a schema level that this "
-                    "platform's database.table URN shape does not use; emitting "
-                    "database.table without it.",
+                    title="Cannot map ODBC navigation schema level",
+                    message=(
+                        "ODBC navigation exposed both a database and a different "
+                        "schema level, but this platform's URNs are database.table; "
+                        "skipping lineage rather than merging tables from different "
+                        "schemas."
+                    ),
                     context=context,
                 )
+                return None
             return f"{database}.{table_name}"
 
         # No standalone connector pins the URN shape (Sybase, Firebird, Hadoop,
@@ -2811,17 +2823,38 @@ class OdbcLineage(AbstractLineage):
             logger.debug(
                 f"identifier = {temp_accessor.identifier} items = {temp_accessor.items}"
             )
-            navigation_items.append(temp_accessor.items)
-            if temp_accessor.items.get("Kind") == "Database":
-                database_name = temp_accessor.items["Name"]
+            items = temp_accessor.items
+            navigation_items.append(items)
+            kind = items.get("Kind")
+            if kind in ("Database", "Schema", "Table", "View") and not isinstance(
+                items.get("Name"), str
+            ):
+                # get_record_field_values leaves out a Name it cannot resolve (a
+                # parameter or an expression); guessing that level could point
+                # lineage at the wrong table.
+                self.reporter.warning(
+                    title="ODBC navigation name not resolved",
+                    message=(
+                        "An ODBC navigation step's Name could not be resolved to a "
+                        "literal; skipping lineage."
+                    ),
+                    context=f"table-name={self.table.full_name}, navigation-step={items}",
+                )
+                return Lineage.empty()
+            name = items.get("Name")
+            if isinstance(name, str) and not name.strip():
+                # A blank name is a missing level, never an empty URN segment.
+                name = None
+            if kind == "Database":
+                database_name = name
 
-            if temp_accessor.items.get("Kind") == "Schema":
-                schema_name = temp_accessor.items["Name"]
+            if kind == "Schema":
+                schema_name = name
 
             # A view leaf uses Kind="View"; treat it as a table leaf
             # (cf. create_reference_table).
-            if temp_accessor.items.get("Kind") in ("Table", "View"):
-                table_name = temp_accessor.items["Name"]
+            if kind in ("Table", "View"):
+                table_name = name
 
             if temp_accessor.next is not None:
                 temp_accessor = temp_accessor.next
@@ -2840,9 +2873,9 @@ class OdbcLineage(AbstractLineage):
         qualified_table_name = self._qualify_odbc_navigation_table(
             data_platform=data_platform,
             dsn=dsn,
-            database_name=database_name or None,
-            schema_name=schema_name or None,
-            table_name=table_name or None,
+            database_name=database_name,
+            schema_name=schema_name,
+            table_name=table_name,
             config_database=dsn_levels.database,
             config_schema=dsn_levels.schema,
             oracle_default_database=oracle_default_database,

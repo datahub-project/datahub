@@ -9,7 +9,7 @@ Covers the branches added to support cross-workspace scanning:
   invariant that enables cross-workspace reference resolution).
 """
 
-from typing import Any, Dict, List, Optional, Set, cast
+from typing import Any, Callable, Dict, List, Optional, Set, cast
 from unittest import mock
 
 import pytest
@@ -1932,11 +1932,17 @@ def test_fill_dashboards_wires_tile_dataset_via_registry_and_report_via_workspac
     assert "Missing Report Lineage For Tile" in info_titles
 
 
+def _make_scanned_workspace(ws_id: str) -> Workspace:
+    workspace = _make_workspace(ws_id)
+    workspace.scan_result = {Constant.ID: ws_id}
+    return workspace
+
+
 def test_get_workunits_internal_warns_once_per_unmatched_athena_override():
     """Overrides that never rewrote a URN during the run each get one warning, so a
     typo in database/table/dsn is visible; applied overrides stay silent."""
     source = _make_source(
-        workspaces_to_return=[_make_workspace("WS-A")],
+        workspaces_to_return=[_make_scanned_workspace("WS-A")],
         excluded_ids=set(),
         athena_table_platform_override=[
             {"database": "sales", "table": "orders", "platform": "mysql"},
@@ -1957,40 +1963,72 @@ def test_get_workunits_internal_warns_once_per_unmatched_athena_override():
     assert len(unmatched) == 1
     assert "table=ordres" in str(unmatched[0].context)
     assert "table=orders" not in str(unmatched[0].context)
+    assert "Athena table platform override never matched" not in [
+        i.title for i in source.reporter.infos
+    ]
+
+
+def _run_with_modified_since(source: PowerBiDashboardSource) -> None:
+    source.stale_entity_removal_handler = mock.MagicMock()  # type: ignore[assignment]
+    source.state_provider = mock.MagicMock()  # type: ignore[assignment]
+    source._apply_workunit_processors = mock.MagicMock(return_value=iter([]))  # type: ignore[method-assign]
+
+
+def _fail_scan(source: PowerBiDashboardSource) -> None:
+    source.powerbi_client.fill_metadata_from_scan_result = mock.MagicMock(  # type: ignore[method-assign]
+        side_effect=RuntimeError("scan down")
+    )
+
+
+def _fail_phase_2(source: PowerBiDashboardSource) -> None:
+    source.powerbi_client.fill_regular_metadata_detail = mock.MagicMock(  # type: ignore[method-assign]
+        side_effect=RuntimeError("pages endpoint down")
+    )
+
+
+def _fail_m_query_parse(source: PowerBiDashboardSource) -> None:
+    source.reporter.m_query_parse_timeouts = 1
 
 
 @pytest.mark.parametrize(
-    "partial_run", ["modified_since", "phase1_failure", "phase2_failure"]
+    "config_overrides, workspace, make_partial",
+    [
+        pytest.param(
+            {"modified_since": "2024-01-01T00:00:00"},
+            _make_scanned_workspace("WS-A"),
+            _run_with_modified_since,
+            id="modified_since",
+        ),
+        pytest.param(
+            {}, _make_scanned_workspace("WS-A"), _fail_scan, id="phase1_failure"
+        ),
+        pytest.param(
+            {}, _make_scanned_workspace("WS-A"), _fail_phase_2, id="phase2_failure"
+        ),
+        # The scan returned no metadata for the workspace without raising.
+        pytest.param({}, _make_workspace("WS-A"), None, id="empty_scan_result"),
+        pytest.param(
+            {}, _make_scanned_workspace("WS-A"), _fail_m_query_parse, id="parse_failure"
+        ),
+    ],
 )
 def test_get_workunits_internal_reports_unmatched_override_as_info_on_partial_run(
-    partial_run: str,
+    config_overrides: Dict[str, Any],
+    workspace: Workspace,
+    make_partial: Optional[Callable[[PowerBiDashboardSource], None]],
 ) -> None:
-    """When some workspaces weren't processed, an override's table may just not
-    have been seen, so the unmatched override is info, not a recurring warning."""
+    """When some tables weren't processed, an override's table may just not have
+    been seen, so the unmatched override is info, not a recurring warning."""
     source = _make_source(
-        workspaces_to_return=[_make_workspace("WS-A")],
+        workspaces_to_return=[workspace],
         excluded_ids=set(),
         athena_table_platform_override=[
             {"database": "sales", "table": "orders", "platform": "mysql"},
         ],
-        **(
-            {"modified_since": "2024-01-01T00:00:00"}
-            if partial_run == "modified_since"
-            else {}
-        ),
+        **config_overrides,
     )
-    if partial_run == "modified_since":
-        source.stale_entity_removal_handler = mock.MagicMock()  # type: ignore[assignment]
-        source.state_provider = mock.MagicMock()  # type: ignore[assignment]
-        source._apply_workunit_processors = mock.MagicMock(return_value=iter([]))  # type: ignore[method-assign]
-    elif partial_run == "phase1_failure":
-        source.powerbi_client.fill_metadata_from_scan_result = mock.MagicMock(  # type: ignore[method-assign]
-            side_effect=RuntimeError("scan down")
-        )
-    else:
-        source.powerbi_client.fill_regular_metadata_detail = mock.MagicMock(  # type: ignore[method-assign]
-            side_effect=RuntimeError("pages endpoint down")
-        )
+    if make_partial is not None:
+        make_partial(source)
 
     list(source.get_workunits_internal())
 

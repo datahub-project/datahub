@@ -8,7 +8,7 @@ end-to-end coverage lives in ``tests/integration/powerbi/test_m_parser.py``.
 """
 
 from contextlib import AbstractContextManager
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -977,10 +977,10 @@ def test_odbc_dsn_mapping_matches_dsn_case_insensitively():
     ]
 
 
-def test_lookup_dsn_prefers_exact_key_over_case_only_match():
-    mapping = {"bq_prod": "project_a", "BQ_Prod": "project_b"}
+def test_lookup_dsn_matches_case_insensitively():
+    mapping = {"BQ_Prod": "project_b"}
 
-    assert _lookup_dsn(mapping, "BQ_Prod") == "project_b"
+    assert _lookup_dsn(mapping, "bq_prod") == "project_b"
     assert _lookup_dsn(mapping, "other") is None
 
 
@@ -1278,38 +1278,120 @@ def test_odbc_teradata_schema_nav_is_database_and_wins_over_dsn_mapping(
     )
 
 
-def test_odbc_two_part_full_nav_drops_schema_and_warns():
-    """A two-part platform whose navigation exposes Database + Schema + Table
-    must emit database.table (schema dropped, matching its two-part entities).
-    Pre-PR this shape emitted database.schema.table; keep the corrected two-part
-    URN but surface a warning so the dropped nav Schema is never silent."""
+@pytest.mark.parametrize("platform", ["mysql", "teradata"])
+@pytest.mark.parametrize(
+    "schema, expected_urns, expected_warnings",
+    [
+        # database.table cannot hold a second level, and dropping it would merge
+        # finance.s1.accounts and finance.s2.accounts into one upstream.
+        ("reporting", [], ["Cannot map ODBC navigation schema level"]),
+        # A schema level that repeats the database adds nothing.
+        ("FINANCE", ["finance.accounts"], []),
+    ],
+    ids=["different-schema-skips", "schema-repeats-database"],
+)
+def test_odbc_database_table_platform_with_database_and_schema(
+    platform: str,
+    schema: str,
+    expected_urns: List[str],
+    expected_warnings: List[str],
+) -> None:
     instance = _build_odbc_lineage()
     detail = DataAccessFunctionDetail(
         arg_list={},
         data_access_function_name="Odbc.DataSource",
         identifier_accessor=_nav_accessor(
             ("Database", "finance"),
-            ("Schema", "reporting"),
+            ("Schema", schema),
             ("Table", "accounts"),
         ),
         node_map={},
     )
     pair = DataPlatformPair(
-        powerbi_data_platform_name="Teradata",
-        datahub_data_platform_name="teradata",
+        powerbi_data_platform_name=platform, datahub_data_platform_name=platform
     )
 
     result = instance.expression_lineage(
-        detail, "teradata", pair, server_name="dsn", dsn=""
+        detail, platform, pair, server_name="dsn", dsn=""
     )
 
     assert [u.urn for u in result.upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:teradata,finance.accounts,PROD)"
+        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},PROD)"
+        for name in expected_urns
     ]
-    assert any(
-        (w.title or "") == "Dropped ODBC navigation schema level"
-        for w in instance.reporter.warnings
+    assert [w.title for w in instance.reporter.warnings] == expected_warnings
+
+
+@pytest.mark.parametrize(
+    "navigation, dsn_mapping, expected_names, expected_warnings",
+    [
+        ((("Database", "db"), ("Table", "orders")), {}, ["db.orders"], []),
+        # The mapping backfills the database but never splices in its schema.
+        ((("Table", "orders"),), {"d": "db.sch"}, ["db.orders"], []),
+        (
+            (("Table", "orders"),),
+            {},
+            [],
+            ["Can not determine qualified table name"],
+        ),
+    ],
+    ids=["database-table", "mapping-database-only", "no-database-skips"],
+)
+def test_odbc_unknown_platform_backfills_only_the_database(
+    navigation: Tuple[Tuple[str, str], ...],
+    dsn_mapping: Dict[str, str],
+    expected_names: List[str],
+    expected_warnings: List[str],
+) -> None:
+    instance = _build_odbc_lineage(dsn_to_database_schema=dsn_mapping)
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(*navigation),
+        node_map={},
     )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="SAP Sybase", datahub_data_platform_name="sybase"
+    )
+
+    result = instance.expression_lineage(
+        detail, "sybase", pair, server_name="dsn", dsn="d"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:sybase,{name},PROD)"
+        for name in expected_names
+    ]
+    assert [w.title for w in instance.reporter.warnings] == expected_warnings
+
+
+def test_odbc_navigation_unresolved_name_skips_with_warning() -> None:
+    """A Name built from a parameter or expression is left out of the navigation
+    items; that level must not be guessed from the mapping."""
+    instance = _build_odbc_lineage(dsn_to_database_schema={"d": "db"})
+    table_step = IdentifierAccessor(
+        identifier="orders", items={"Kind": "Table", "Name": "orders"}, next=None
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=IdentifierAccessor(
+            identifier="db_param", items={"Kind": "Database"}, next=table_step
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="MySQL", datahub_data_platform_name="mysql"
+    )
+
+    result = instance.expression_lineage(
+        detail, "mysql", pair, server_name="dsn", dsn="d"
+    )
+
+    assert result.upstreams == []
+    assert [w.title for w in instance.reporter.warnings] == [
+        "ODBC navigation name not resolved"
+    ]
 
 
 def test_odbc_unknown_platform_keeps_schema_so_tables_do_not_merge() -> None:
@@ -1389,11 +1471,22 @@ def test_odbc_informix_is_three_tier(
     assert [w.title for w in instance.reporter.warnings] == expected_warnings
 
 
-def test_odbc_oracle_dsn_backfill_does_not_force_three_part_urn():
-    """dsn_to_database_schema must not prepend a database onto Oracle
-    Schema+Table navigation — that would emit database.schema.table and
-    mismatch the default Oracle connector's two-part URNs."""
+@pytest.mark.parametrize(
+    "platform_detail, expected_name",
+    [
+        # Without default_database Oracle URNs are schema.table, so the mapping's
+        # database is unused.
+        (PlatformDetail(), "hr.employees"),
+        # Within the default_database opt-in a one-part mapping value is the
+        # database and wins over the per-server default.
+        (OraclePlatformDetail(default_database="DEFAULTDB"), "orcl.hr.employees"),
+    ],
+)
+def test_odbc_oracle_one_part_dsn_value_with_schema_navigation(
+    platform_detail: PlatformDetail, expected_name: str
+) -> None:
     instance = _build_odbc_lineage(
+        platform_detail=platform_detail,
         dsn_to_database_schema={"oracle_dsn": "ORCL"},
     )
     detail = DataAccessFunctionDetail(
@@ -1414,9 +1507,8 @@ def test_odbc_oracle_dsn_backfill_does_not_force_three_part_urn():
     )
 
     assert [u.urn for u in result.upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+        f"urn:li:dataset:(urn:li:dataPlatform:oracle,{expected_name},PROD)"
     ]
-    assert "orcl" not in result.upstreams[0].urn
 
 
 def test_odbc_oracle_one_part_dsn_value_is_not_promoted_to_schema():
@@ -1733,7 +1825,7 @@ def test_odbc_athena_nav_applies_table_platform_override():
 
 
 @pytest.mark.parametrize(
-    "overrides, expected_platform, expected_matched",
+    "overrides, expected_platform, expected_unmatched",
     [
         # A DSN-scoped entry wins over a global one listed before it.
         (
@@ -1747,7 +1839,7 @@ def test_odbc_athena_nav_applies_table_platform_override():
                 },
             ],
             "mysql",
-            {0, 1},
+            [],
         ),
         # ...and over one listed after it.
         (
@@ -1761,7 +1853,7 @@ def test_odbc_athena_nav_applies_table_platform_override():
                 {"database": "mydb", "table": "orders", "platform": "hive"},
             ],
             "mysql",
-            {0, 1},
+            [],
         ),
         # Among global entries for the same table, the first one wins.
         (
@@ -1770,7 +1862,7 @@ def test_odbc_athena_nav_applies_table_platform_override():
                 {"database": "mydb", "table": "orders", "platform": "hive"},
             ],
             "mysql",
-            {0, 1},
+            [],
         ),
         # An entry scoped to another DSN did not match this upstream.
         (
@@ -1784,7 +1876,7 @@ def test_odbc_athena_nav_applies_table_platform_override():
                 {"database": "mydb", "table": "orders", "platform": "mysql"},
             ],
             "mysql",
-            {1},
+            [0],
         ),
     ],
     ids=[
@@ -1797,7 +1889,7 @@ def test_odbc_athena_nav_applies_table_platform_override():
 def test_odbc_athena_override_priority(
     overrides: List[Dict[str, str]],
     expected_platform: str,
-    expected_matched: Set[int],
+    expected_unmatched: List[int],
 ) -> None:
     """Also pins which entries count as matched: a global entry outranked by a
     DSN-scoped one still matched, so it must not get the "never matched" warning."""
@@ -1824,9 +1916,7 @@ def test_odbc_athena_override_priority(
     ]
     configured = instance.config.athena_table_platform_override
     assert instance.reporter.unmatched_athena_overrides(configured) == [
-        override
-        for index, override in enumerate(configured)
-        if index not in expected_matched
+        configured[index] for index in expected_unmatched
     ]
 
 

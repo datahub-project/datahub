@@ -2115,6 +2115,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 workspace = workspaces[workspace_id]
                 logger.info(f"Processing workspace id: {workspace.id}")
+                if not workspace.scan_result:
+                    # The scan failed or omitted this workspace without raising,
+                    # so its expressions (and their lineage) are missing.
+                    any_workspace_incomplete = True
                 try:
                     self.powerbi_client.fill_regular_metadata_detail(
                         workspace=workspace
@@ -2162,6 +2166,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         self._report_unmatched_athena_table_platform_overrides(
             partial_run=bool(self.source_config.modified_since)
             or any_workspace_incomplete
+            or self.reporter.m_query_lineage_incomplete()
         )
 
     def _report_unmatched_athena_table_platform_overrides(
@@ -2170,9 +2175,8 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         # A typo in an override silently leaves lineage on Athena, so surface every
         # configured override that never matched an upstream during the run.
         # Without lineage extraction no override can ever match, so stay silent.
-        # When the run skipped workspaces (modified_since, or a workspace failed to
-        # load), an override's table may simply not have been processed, so report
-        # it as info rather than a warning that would recur on every such run.
+        # When the run skipped workspaces or failed to parse some expressions, an
+        # override's table may not have been processed, so report info instead.
         if not self.source_config.extract_lineage:
             return
         report = self.reporter.info if partial_run else self.reporter.warning
