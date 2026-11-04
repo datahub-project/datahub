@@ -211,12 +211,15 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
-      - uses: ./.github/actions/restore-dependency-caches
+      - id: dep-caches
+        uses: ./.github/actions/restore-dependency-caches
         with:
           uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+          # No yarn install runs in this job; skip the ~1.7 GB yarn restore.
+          restore_yarn: "false"
 
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
@@ -538,19 +541,31 @@ jobs:
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' }}
+      # actions/cache/save archives the path before it reserves the key, and a
+      # primary-key hit cannot be overwritten, so after an exact restore this step
+      # spent its time compressing the cache and then failed with "Unable to
+      # reserve cache". Save only when the restore reports a primary-key miss
+      # ('false' also skips the save when nothing was restored). The yarn save is
+      # gone: nothing in this job writes ~/.cache/yarn, so it never saved anything
+      # and the nightly yarn restore has never had an entry to find.
+      - name: Prune uv cache
+        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' && steps.dep-caches.outputs.uv-cache-hit == 'false' }}
+        run: |
+          if command -v uv >/dev/null 2>&1; then
+            uv cache prune --ci
+          elif [[ -x smoke-test/venv/bin/uv ]]; then
+            smoke-test/venv/bin/uv cache prune --ci
+          else
+            echo "uv not found; saving the uv cache without pruning"
+          fi
+
+      - name: Save uv cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' && steps.dep-caches.outputs.uv-cache-hit == 'false' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
-
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' }}
-        with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
 
   # Tag and push head images as nightly after smoke tests pass
   tag_and_push_images:
