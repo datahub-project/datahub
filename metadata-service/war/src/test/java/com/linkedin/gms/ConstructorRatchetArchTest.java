@@ -66,13 +66,14 @@ public class ConstructorRatchetArchTest {
   private static final JavaClasses CLASSES =
       new ClassFileImporter()
           .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-          // Project code only; generated Pegasus models have their own constructor conventions.
+          // Project code only; generated Pegasus models and GraphQL types have their own
+          // constructor conventions.
           .withImportOption(
               location ->
                   location.contains("/build/")
                       && !location.contains("/generated/")
                       && !location.contains("metadata-models")
-                      && !location.contains("DataTemplate"))
+                      && !location.contains("data-template"))
           .importPackages(
               "com.linkedin.metadata",
               "com.linkedin.datahub",
