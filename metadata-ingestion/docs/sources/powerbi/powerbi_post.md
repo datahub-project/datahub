@@ -99,9 +99,9 @@ When a table navigates an ODBC source (`Odbc.DataSource(..., [HierarchicalNaviga
 | MySQL, Teradata                                                           | `database.table`               |
 | Other platforms (Sybase, Firebird, ...)                                   | every level navigation exposes |
 
-For MySQL and Teradata, navigation with a Schema but no Database level emits `schema.table`: the schema is the database.
+For MySQL and Teradata, navigation with a Schema but no Database level emits `schema.table`: the schema is the database. Navigation with both levels is skipped with a warning unless the two names match, since `database.table` cannot keep a second level without merging tables from different schemas.
 
-If navigation does not expose every level, for example a BigQuery DSN that surfaces the dataset and table but not the project, supply the missing levels per DSN with `dsn_to_database_schema`. Navigation always wins: the mapping only fills levels that navigation did not supply.
+If navigation does not expose every level, for example a BigQuery DSN that surfaces the dataset and table but not the project, supply the missing levels per DSN with `dsn_to_database_schema`. Navigation always wins: the mapping only fills levels that navigation did not supply, and only levels the platform's URN shape uses. For MySQL, Teradata and other platforms only the database part of the value is used; for Oracle a one-part value is not used as the schema.
 
 ```yaml
 source:
@@ -114,7 +114,7 @@ source:
       oracle_dsn: ORCL.HR # Oracle: database.schema; the database is used only with default_database (below)
 ```
 
-If a required level still cannot be resolved, lineage for that table is skipped with a `Can not determine qualified table name` warning (`Cannot build two-tier ODBC table name` for Oracle and Hive) that names the DSN.
+If a required level still cannot be resolved (for other platforms, the database), lineage for that table is skipped with a `Can not determine qualified table name` warning (`Cannot build two-tier ODBC table name` for Oracle and Hive) that names the DSN.
 
 Oracle over ODBC emits `schema.table` by default. If your Oracle ingestion uses `add_database_name_to_urn: true`, set `default_database` under `server_to_platform_instance`. For a DSN-only connection string the key is the DSN name, not a TNS alias. The database then comes from navigation, then the `dsn_to_database_schema` value, then `default_database`:
 
@@ -131,7 +131,7 @@ Databricks navigation through the constant `SPARK` catalog of the Simba Spark dr
 
 DSN names in `dsn_to_platform_name` and `dsn_to_database_schema` are matched case-insensitively. A recipe may list the same DSN under keys that differ only in case, but they must map to the same target (the same platform, or the same database and schema, compared case-sensitively); conflicting values fail config validation.
 
-ODBC SQL queries (`Odbc.Query`) are parsed as SQL and keep their own URN shapes: the per-platform rules above apply only to hierarchical navigation. Both paths match DSN names case-insensitively, and for Athena both strip the leading catalog while keeping the server's `platform_instance`, then apply `athena_table_platform_override`.
+ODBC SQL queries (`Odbc.Query`) are parsed as SQL and keep their own URN shapes: the per-platform rules above apply only to hierarchical navigation. For Athena both paths drop the leading catalog, keep the server's `platform_instance`, and apply `athena_table_platform_override`.
 
 #### Oracle TNS Aliases and Inline Native Queries
 
