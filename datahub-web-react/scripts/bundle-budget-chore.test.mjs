@@ -173,14 +173,55 @@ function stageArtifactOnly() {
     return { root, dist };
 }
 
-function runChore(root, dist, extra = []) {
-    const result = spawnSync(process.execPath, [chorePath, ...extra, '--budget-dir', root, '--dist', dist], {
+function spawnChore(root, dist, extra = []) {
+    return spawnSync(process.execPath, [chorePath, ...extra, '--budget-dir', root, '--dist', dist], {
         encoding: 'utf8',
         env: { ...process.env, BUNDLE_EAGER_BUDGET: '', BUNDLE_PAGE_BUDGET: '', BUNDLE_BUDGET_DIST: '' },
     });
+}
+
+function runChore(root, dist, extra = []) {
+    const result = spawnChore(root, dist, extra);
     assert.equal(result.status, 0, result.stderr);
     return JSON.parse(result.stdout);
 }
+
+test('a hard finding exits non-zero with a parseable decision and --apply leaves budgets untouched', () => {
+    const { root, dist } = stageArtifactOnly();
+    try {
+        writeBudgetFindings(
+            dist,
+            { soft: [eagerShrink], hard: ['Eager JS grew past the 10% cliff.'] },
+            { totalGzip: 280_000 },
+        );
+        const before = ['eager-budget.json', 'page-budget.json'].map((f) => fs.readFileSync(path.join(root, f)));
+        const result = spawnChore(root, dist, ['--apply']);
+        assert.notEqual(result.status, 0);
+        const summary = JSON.parse(result.stdout);
+        assert.equal(summary.decision, 'hard');
+        assert.equal(summary.applied, undefined);
+        const after = ['eager-budget.json', 'page-budget.json'].map((f) => fs.readFileSync(path.join(root, f)));
+        assert.deepEqual(after, before);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('applyRatchet reports no change when a shrink finding meets a measurement at or above baseline', () => {
+    const eager = { totalGzip: 300_000, maxPhosphorModules: 100 };
+    const page = { shell: 1_000_000, search: 1_100_000 };
+    const result = applyRatchet({
+        eager,
+        page,
+        eagerMeasured: 310_000,
+        pageMeasured: { shell: 1_000_000, search: 1_100_000 },
+        eagerSoft: [eagerShrink],
+        pageSoft: [shellShrink, searchShrink],
+    });
+    assert.equal(result.changed, false);
+    assert.equal(result.eager.totalGzip, 300_000);
+    assert.deepEqual(result.page, page);
+});
 
 test('classify and --apply run from artifact JSON alone (no dist/assets)', () => {
     const { root, dist } = stageArtifactOnly();

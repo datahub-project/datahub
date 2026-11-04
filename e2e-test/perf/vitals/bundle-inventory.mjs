@@ -19,6 +19,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
     APP_SOURCE,
@@ -27,6 +28,7 @@ import {
     classifyReachability,
     inventoryDist,
     inventoryOrigin,
+    isSecureForToken,
 } from './bundle-inventory-core.mjs';
 import {
     diffAgainstBaseline,
@@ -42,6 +44,7 @@ export {
     bearerFor,
     classifyReachability,
     collapseChain,
+    decodeBody,
     eagerJsRefs,
     gzipSize,
     inventoryDist,
@@ -122,7 +125,7 @@ async function main() {
                 '',
                 'Build with source maps and the module-graph dump first:',
                 '  cd datahub-web-react && DATAHUB_BUNDLE_GRAPH_OUT=../e2e-test/perf/vitals/results/bundle-graph.json \\',
-                "    yarn run buildWithSourceMap-only",
+                '    yarn run buildWithSourceMap',
                 '',
             ].join('\n'),
         );
@@ -144,6 +147,11 @@ async function main() {
     let report;
     if (args.origin) {
         const token = process.env.DATAHUB_GMS_TOKEN || process.env.DATAHUB_ACCESS_TOKEN;
+        if (token && !isSecureForToken(args.origin)) {
+            process.stderr.write(
+                `warning: ${args.origin} is not HTTPS; not sending DATAHUB_GMS_TOKEN / DATAHUB_ACCESS_TOKEN to it.\n`,
+            );
+        }
         report = { meta, inventory: await inventoryOrigin(args.origin, { token }) };
     } else {
         const distDir = path.resolve(args.dist);
@@ -215,7 +223,7 @@ async function main() {
     process.stdout.write(args.mdOut || args.out ? `${md}\n` : json);
 }
 
-const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === new URL(import.meta.url).pathname;
+const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invokedDirectly) {
     main().catch((err) => {
         process.stderr.write(`${err.stack || err}\n`);

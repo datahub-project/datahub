@@ -52,8 +52,12 @@ export function takeBudgetPathArgs(argv) {
     for (let i = 0; i < argv.length; i += 1) {
         const arg = argv[i];
         const next = () => {
+            const value = argv[i + 1];
+            if (value === undefined || value.startsWith('--')) {
+                throw new Error(`${arg} requires a path value`);
+            }
             i += 1;
-            return argv[i];
+            return value;
         };
         if (arg === '--budget-dir') paths.budgetDir = next();
         else if (arg === '--eager-budget') paths.eagerBudget = next();

@@ -16,8 +16,8 @@ function main(argv = process.argv.slice(2)) {
     const inventory = JSON.parse(fs.readFileSync(paths.inventoryBaseline, 'utf8'));
     const budgetGzip = budget.totalGzip;
     const inventoryGzip = inventory.eager_whole_file_gzip_bytes;
-    if (typeof budgetGzip !== 'number' || typeof inventoryGzip !== 'number') {
-        console.error('eager-budget.json totalGzip and inventory eager_whole_file_gzip_bytes must be numbers.');
+    if (!Number.isFinite(budgetGzip) || !Number.isFinite(inventoryGzip)) {
+        console.error('eager-budget.json totalGzip and inventory eager_whole_file_gzip_bytes must be finite numbers.');
         process.exit(1);
     }
     const slack = toleranceBytes(budgetGzip);

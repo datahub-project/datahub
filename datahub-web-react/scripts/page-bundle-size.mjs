@@ -386,6 +386,8 @@ function main() {
     });
     const baseline = JSON.parse(fs.readFileSync(paths.pageBudget, 'utf8'));
     const findings = evaluatePageBudget(measured, baseline);
+    // Annotate first so a failed write cannot hide hard findings.
+    printBudgetFindings(findings);
     // Write next to the measured dist (honours --dist), not a hard-coded package dist/.
     fs.mkdirSync(paths.dist, { recursive: true });
     fs.writeFileSync(
@@ -400,7 +402,6 @@ function main() {
             2,
         )}\n`,
     );
-    printBudgetFindings(findings);
     const exitCode = budgetExitCode(false, findings);
     if (exitCode !== 0) {
         process.exit(exitCode);

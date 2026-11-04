@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
+import zlib from 'node:zlib';
 import {
     APP_SOURCE,
     appAreaOf,
@@ -12,6 +13,7 @@ import {
     chunkRole,
     classifyReachability,
     collapseChain,
+    decodeBody,
     diffAgainstBaseline,
     eagerJsRefs,
     notableDeltas,
@@ -111,11 +113,25 @@ describe('eagerJsRefs / resolveAssetUrl / chunkRole / bearerFor', () => {
         assert.equal(bearerFor('https://idp.example/authorize', 'https://deploy-test.example', 'tok'), null);
         assert.equal(bearerFor('https://deploy-test.example/login', 'https://deploy-test.example', null), null);
     });
+
+    it('never sends the bearer token over plain HTTP except to loopback', () => {
+        assert.equal(bearerFor('http://deploy-test.example/login', 'http://deploy-test.example', 'tok'), null);
+        assert.equal(bearerFor('http://localhost:9002/login', 'http://localhost:9002', 'tok'), 'Bearer tok');
+    });
+});
+
+describe('decodeBody', () => {
+    it('decodes gzip and rejects a corrupt encoded body with an error instead of crashing', () => {
+        assert.equal(decodeBody(zlib.gzipSync('hello'), 'gzip').toString(), 'hello');
+        assert.throws(() => decodeBody(Buffer.from('not gzip'), 'gzip'));
+        assert.equal(decodeBody(Buffer.from('raw'), null).toString(), 'raw');
+    });
 });
 
 describe('attributeEager', () => {
-    it('counts an eager file with no source map in the total and warns', () => {
+    it('counts an eager file with no source map in the total and warns', (t) => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-attr-'));
+        t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
         fs.mkdirSync(path.join(dir, 'assets'));
         fs.writeFileSync(path.join(dir, 'assets', 'vendor-12345678.js'), 'x'.repeat(100));
         const warnings = [];
@@ -252,8 +268,9 @@ describe('collapseChain', () => {
 });
 
 describe('inventoryDist + renderMarkdown', () => {
-    it('splits eager from async by index.html and renders a report', () => {
+    it('splits eager from async by index.html and renders a report', (t) => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-inv-'));
+        t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
         fs.mkdirSync(path.join(dir, 'assets'));
         fs.writeFileSync(
             path.join(dir, 'index.html'),

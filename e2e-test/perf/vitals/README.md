@@ -37,9 +37,10 @@ it also uploads a `bundle-budget-artifacts` snapshot (findings + measured
 inventory — not the whole `dist/`). When repo variable `BUNDLE_BUDGET_REASSESS`
 is `true`, `Bundle budget reassessment` consumes that artifact via
 `workflow_run` (no second frontend build) and opens a PR only to **lower**
-baselines. Budget file paths are overridable for downstream forks via
-`BUNDLE_BUDGET_DIR` / `--eager-budget` / `--page-budget` /
-`--inventory-baseline` (see `datahub-web-react/AGENTS.md`).
+baselines. The budget scripts in `datahub-web-react/scripts/` take path
+overrides for downstream forks via `BUNDLE_BUDGET_DIR` / `--eager-budget` /
+`--page-budget` / `--inventory-baseline` (see `datahub-web-react/AGENTS.md`).
+`bundle-inventory.mjs` itself takes the inventory baseline as `--baseline`.
 
 When you change `eager-budget.json`, refresh the inventory from the same build:
 

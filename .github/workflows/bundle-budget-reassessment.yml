@@ -84,7 +84,7 @@ jobs:
           fi
 
       - name: Check out default branch
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ steps.token.outputs.value }}
@@ -176,24 +176,30 @@ jobs:
         if: steps.skip.outputs.skip != 'true'
         id: budgets
         run: |
-          if ! node datahub-web-react/scripts/bundle-budget-chore.mjs \
+          # The chore prints its decision and then exits 1 on purpose for `hard`, so a
+          # non-zero exit alone is not a crash. Keep going to write the summary, and
+          # only treat it as a crash when there is no decision or it is not `hard`.
+          set +e
+          node datahub-web-react/scripts/bundle-budget-chore.mjs \
             --budget-dir "$BUNDLE_BUDGET_DIR" \
             ${BUNDLE_EAGER_BUDGET:+--eager-budget "$BUNDLE_EAGER_BUDGET"} \
             ${BUNDLE_PAGE_BUDGET:+--page-budget "$BUNDLE_PAGE_BUDGET"} \
             --dist "$DIST" \
-            > "$RUNNER_TEMP/chore.json"; then
-            echo "bundle-budget-chore.mjs failed before writing a decision."
-            cat "$RUNNER_TEMP/chore.json" 2>/dev/null || true
-            exit 1
-          fi
+            > "$RUNNER_TEMP/chore.json"
+          chore_exit=$?
+          set -e
           if [ ! -s "$RUNNER_TEMP/chore.json" ]; then
-            echo "bundle-budget-chore.mjs produced an empty decision file."
+            echo "bundle-budget-chore.mjs exited $chore_exit without writing a decision."
             exit 1
           fi
           cat "$RUNNER_TEMP/chore.json"
           if ! decision=$(node -e "const s=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); if(!s.decision) throw new Error('missing decision'); process.stdout.write(s.decision)" "$RUNNER_TEMP/chore.json"); then
             echo "Could not parse decision from chore.json:"
             cat "$RUNNER_TEMP/chore.json"
+            exit 1
+          fi
+          if [ "$chore_exit" -ne 0 ] && [ "$decision" != "hard" ]; then
+            echo "bundle-budget-chore.mjs exited $chore_exit with decision '$decision'."
             exit 1
           fi
           echo "decision=$decision" >> "$GITHUB_OUTPUT"

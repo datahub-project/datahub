@@ -87,7 +87,8 @@ export function evaluateEagerBudget(report, baseline) {
             ratchetHint: `Update datahub-web-react/eager-budget.json totalGzip to ${report.totalGzip} so the lower size becomes the new ceiling.`,
             overageDetail:
                 ' This is the sum of <script> and modulepreload JS in dist/index.html.' +
-                ' CI diffs packages against datahub-web-react/eager-budget-inventory.json.',
+                ' CI diffs packages against the committed inventory baseline' +
+                ' (eager-budget-inventory.json next to the eager budget unless overridden).',
             findings,
         });
     }

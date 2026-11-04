@@ -37,7 +37,19 @@ export function resolveAssetUrl(pageUrl, html, ref) {
     return new URL(ref.replace(/^\.\//, ''), new URL(base, pageUrl)).href;
 }
 
-/** Bearer token only when the request stays on the measured origin. */
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/** True when a bearer token may be sent to this URL: HTTPS, or plain HTTP to loopback. */
+export function isSecureForToken(url) {
+    try {
+        const u = new URL(url);
+        return u.protocol === 'https:' || (u.protocol === 'http:' && LOOPBACK_HOSTS.has(u.hostname));
+    } catch {
+        return false;
+    }
+}
+
+/** Bearer token only when the request stays on the measured origin over a secure transport. */
 export function bearerFor(url, tokenOrigin, token) {
     if (!token || !tokenOrigin) return null;
     try {
@@ -45,6 +57,7 @@ export function bearerFor(url, tokenOrigin, token) {
     } catch {
         return null;
     }
+    if (!isSecureForToken(url)) return null;
     return `Bearer ${token}`;
 }
 
@@ -365,7 +378,9 @@ export function attributeEager(distDir, eagerFiles) {
     }
 
     const packages = rankCombined(perChunkPkg, eagerGzip);
-    const appAreas = rankCombined(perChunkArea, eagerGzip).filter((r) => r.package !== '[node_modules]');
+    const appAreas = rankCombined(perChunkArea, eagerGzip).filter(
+        (r) => r.package !== '[node_modules]' && r.package !== UNMAPPED,
+    );
 
     const perChunk = {};
     for (const [file, { rows }] of perChunkPkg) {
@@ -606,6 +621,16 @@ export function classifyReachability(graph, eagerChunkFiles) {
  * when the server streams with chunked transfer encoding (no Content-Length).
  * `fetch` decompresses transparently and hides that number.
  */
+const FETCH_TIMEOUT_MS = 30_000;
+
+/** Decode a response body by its Content-Encoding. Throws on a corrupt body. */
+export function decodeBody(encoded, encoding) {
+    if (encoding === 'gzip') return zlib.gunzipSync(encoded);
+    if (encoding === 'br') return zlib.brotliDecompressSync(encoded);
+    if (encoding === 'deflate') return zlib.inflateSync(encoded);
+    return encoded;
+}
+
 function fetchBytes(url, { token, tokenOrigin, redirects = 5 } = {}) {
     return new Promise((resolve, reject) => {
         const headers = { 'accept-encoding': 'gzip', 'user-agent': 'datahub-bundle-inventory' };
@@ -635,10 +660,13 @@ function fetchBytes(url, { token, tokenOrigin, redirects = 5 } = {}) {
             res.on('end', () => {
                 const encoded = Buffer.concat(parts);
                 const encoding = res.headers['content-encoding'] ?? null;
-                let body = encoded;
-                if (encoding === 'gzip') body = zlib.gunzipSync(encoded);
-                else if (encoding === 'br') body = zlib.brotliDecompressSync(encoded);
-                else if (encoding === 'deflate') body = zlib.inflateSync(encoded);
+                let body;
+                try {
+                    body = decodeBody(encoded, encoding);
+                } catch (err) {
+                    reject(new Error(`${url}: could not decode ${encoding} body: ${err.message}`));
+                    return;
+                }
                 resolve({
                     body,
                     finalUrl: url,
@@ -648,6 +676,9 @@ function fetchBytes(url, { token, tokenOrigin, redirects = 5 } = {}) {
                     last_modified: res.headers['last-modified'] ?? null,
                 });
             });
+        });
+        req.setTimeout(FETCH_TIMEOUT_MS, () => {
+            req.destroy(new Error(`${url}: no response activity for ${FETCH_TIMEOUT_MS} ms`));
         });
         req.on('error', reject);
     });
@@ -692,11 +723,11 @@ export async function inventoryOrigin(origin, { token } = {}) {
             count: files.length,
             raw_bytes: sum(files, 'raw_bytes'),
             gzip_bytes: sum(files, 'gzip_bytes'),
-            transfer_bytes: files.every((f) => f.transfer_bytes !== null) ? sum(files, 'transfer_bytes') : null,
+            transfer_bytes: sum(files, 'transfer_bytes'),
         },
         note:
             'gzip_bytes is Node zlib level 9 of the decoded body (comparable to local builds); transfer_bytes is the ' +
-            "server's Content-Length for the encoded response (what the browser downloads).",
+            'measured length of the encoded response body as received (what the browser downloads).',
     };
 }
 

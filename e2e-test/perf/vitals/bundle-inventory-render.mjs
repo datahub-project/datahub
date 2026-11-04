@@ -4,7 +4,6 @@
 import { shortId } from './bundle-inventory-core.mjs';
 
 const fmt = (n) => (n === null || n === undefined ? '—' : n.toLocaleString('en-US'));
-const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
 const pct = (n) => `${(n * 100).toFixed(2)}%`;
 
 function table(headers, rows) {
@@ -53,7 +52,7 @@ export function renderMarkdown(report, { top = 30 } = {}) {
     out.push(table([':Set', 'Files', 'Raw bytes', 'Gzip bytes'], setRows));
     out.push('');
     if (isLive && inv.eager_js.transfer_bytes !== null) {
-        out.push(`Server transfer (Content-Length of encoded responses): **${fmt(inv.eager_js.transfer_bytes)}** bytes.`);
+        out.push(`Server transfer (encoded response bytes): **${fmt(inv.eager_js.transfer_bytes)}** bytes.`);
         out.push('');
     }
     out.push('Eager JS files:');

@@ -350,8 +350,9 @@ jobs:
           code=$?
           FINDINGS="${{ steps.budget-paths.outputs.dist }}/eager-budget-findings.json"
           if [ -f "$FINDINGS" ]; then
-            soft=$(node -e "const f=require(process.argv[1]); process.stdout.write(String(f.soft.length))" "$FINDINGS")
-            hard=$(node -e "const f=require(process.argv[1]); process.stdout.write(String(f.hard.length))" "$FINDINGS")
+            # Read with fs: require() treats a relative path without ./ as a package name.
+            soft=$(node -e "const f=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); process.stdout.write(String(f.soft.length))" "$FINDINGS")
+            hard=$(node -e "const f=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); process.stdout.write(String(f.hard.length))" "$FINDINGS")
             echo "soft=$soft" >> "$GITHUB_OUTPUT"
             echo "hard=$hard" >> "$GITHUB_OUTPUT"
             if [ "$soft" != "0" ] || [ "$hard" != "0" ]; then
