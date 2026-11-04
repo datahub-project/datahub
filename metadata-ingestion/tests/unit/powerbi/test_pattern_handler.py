@@ -1817,9 +1817,12 @@ def test_odbc_athena_override_priority(
     assert [u.urn for u in result.upstreams] == [
         f"urn:li:dataset:(urn:li:dataPlatform:{expected_platform},mydb.orders,PROD)"
     ]
-    assert instance.reporter._athena_table_platform_overrides_matched == (
-        expected_matched
-    )
+    configured = instance.config.athena_table_platform_override
+    assert instance.reporter.unmatched_athena_overrides(configured) == [
+        override
+        for index, override in enumerate(configured)
+        if index not in expected_matched
+    ]
 
 
 def test_odbc_athena_post_processing_keeps_unparseable_urn_and_warns() -> None:
@@ -1884,7 +1887,12 @@ def test_odbc_athena_nav_override_matches_case_insensitively():
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:mysql,salesdb.orders,PROD)"
     ]
-    assert instance.reporter._athena_table_platform_overrides_matched == {0}
+    assert (
+        instance.reporter.unmatched_athena_overrides(
+            instance.config.athena_table_platform_override
+        )
+        == []
+    )
     assert "athena_table_platform_overrides_matched" not in str(
         instance.reporter.as_obj()
     )

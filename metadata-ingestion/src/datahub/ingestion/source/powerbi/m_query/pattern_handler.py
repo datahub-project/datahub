@@ -2609,7 +2609,7 @@ class OdbcLineage(AbstractLineage):
                 return urn
             # Every candidate matched this upstream, including a global entry that
             # a DSN-scoped one outranks, so none of them is a typo to warn about.
-            self.reporter._athena_table_platform_overrides_matched.update(candidates)
+            self.reporter.report_athena_overrides_matched(candidates)
             matched_override = self.config.athena_table_platform_override[candidates[0]]
             target_platform = matched_override.platform
             target_platform_instance = matched_override.platform_instance

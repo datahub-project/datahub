@@ -2176,12 +2176,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         if not self.source_config.extract_lineage:
             return
         report = self.reporter.info if partial_run else self.reporter.warning
-        matched = self.reporter._athena_table_platform_overrides_matched
-        for index, override in enumerate(
+        for override in self.reporter.unmatched_athena_overrides(
             self.source_config.athena_table_platform_override
         ):
-            if index in matched:
-                continue
             report(
                 title="Athena table platform override never matched",
                 message=(

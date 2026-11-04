@@ -1943,7 +1943,7 @@ def test_get_workunits_internal_warns_once_per_unmatched_athena_override():
             {"database": "sales", "table": "ordres", "platform": "mysql"},
         ],
     )
-    source.reporter._athena_table_platform_overrides_matched.add(0)
+    source.reporter.report_athena_overrides_matched([0])
 
     list(source.get_workunits_internal())
 

@@ -4,6 +4,7 @@ from enum import Enum
 from typing import (
     Annotated,
     Dict,
+    Iterable,
     List,
     Literal,
     Optional,
@@ -317,6 +318,18 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
+
+    def report_athena_overrides_matched(self, indexes: Iterable[int]) -> None:
+        self._athena_table_platform_overrides_matched.update(indexes)
+
+    def unmatched_athena_overrides(
+        self, overrides: Sequence["AthenaPlatformOverride"]
+    ) -> List["AthenaPlatformOverride"]:
+        return [
+            override
+            for index, override in enumerate(overrides)
+            if index not in self._athena_table_platform_overrides_matched
+        ]
 
 
 # Lookup of PowerBI datasourceType -> DataPlatformPair; safe to share globally.
