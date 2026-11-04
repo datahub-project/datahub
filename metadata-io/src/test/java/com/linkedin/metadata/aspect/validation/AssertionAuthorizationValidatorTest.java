@@ -43,6 +43,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
@@ -70,6 +71,10 @@ public class AssertionAuthorizationValidatorTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.table_a,PROD)");
   private static final Urn DATASET_B =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.table_b,PROD)");
+  private static final Urn DATASET_A_DEV =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.table_a,DEV)");
+  private static final Urn DATASET_A_UPPER =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,MY_DB.TABLE_A,PROD)");
   private static final DisjunctivePrivilegeGroup EDIT_ASSERTIONS_PRIVILEGES =
       new DisjunctivePrivilegeGroup(
           ImmutableList.of(
@@ -311,13 +316,51 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
-  public void testRunEventMustNameAssertionTarget() {
+  public void testRunEventForMismatchedAsseteeAllowedWithPrivilegeOnBoth() {
+    // dbt can report results whose assertee differs from the target by environment or URN case.
     mockPersisted(freshnessOn(DATASET_A));
     grantEditAssertionsOn(DATASET_A);
+    grantEditAssertionsOn(DATASET_A_DEV);
+    grantEditAssertionsOn(DATASET_A_UPPER);
+
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_A_DEV)).isEmpty());
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_A_UPPER)).isEmpty());
+  }
+
+  @Test
+  public void testRunEventDeniedWithPrivilegeOnAsseteeOnly() {
+    mockPersisted(freshnessOn(DATASET_A));
     grantEditAssertionsOn(DATASET_B);
 
-    Assert.assertFalse(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_B)).isEmpty());
-    Assert.assertTrue(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_A)).isEmpty());
+    List<AspectValidationException> failures =
+        validate(OperationFingerprint.EMPTY, runEventOn(DATASET_B));
+
+    Assert.assertEquals(failures.size(), 1);
+    Assert.assertEquals(failures.get(0).getSubType(), ValidationSubType.AUTHORIZATION);
+  }
+
+  @Test
+  public void testRunEventDeniedWithPrivilegeOnTargetOnly() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+
+    List<AspectValidationException> failures =
+        validate(OperationFingerprint.EMPTY, runEventOn(DATASET_B));
+
+    Assert.assertEquals(failures.size(), 1);
+    Assert.assertEquals(failures.get(0).getSubType(), ValidationSubType.AUTHORIZATION);
+  }
+
+  @Test
+  public void testRunEventSchemaFieldAsserteeCheckedOnParentDataset() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+    Urn field = UrnUtils.getUrn("urn:li:schemaField:(" + DATASET_B + ",col_a)");
+
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, runEventOn(field)).isEmpty());
+
+    grantEditAssertionsOn(DATASET_B);
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, runEventOn(field)).isEmpty());
   }
 
   @Test
@@ -330,15 +373,17 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
-  public void testSameBatchRunEventForOtherAssertee() {
-    grantEditAssertionsOn(DATASET_A);
+  public void testSameBatchRunEventNeedsPrivilegeOnNewTarget() {
+    // The run event is checked against the target the upsert before it sets, not the stored one.
+    mockPersisted(freshnessOn(DATASET_B));
     grantEditAssertionsOn(DATASET_B);
 
     List<AspectValidationException> failures =
         validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_A)), runEventOn(DATASET_B));
 
-    Assert.assertEquals(failures.size(), 1);
-    Assert.assertEquals(failures.get(0).getAspectName(), ASSERTION_RUN_EVENT_ASPECT_NAME);
+    Assert.assertEquals(
+        failures.stream().map(AspectValidationException::getAspectName).toList(),
+        List.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_RUN_EVENT_ASPECT_NAME));
   }
 
   @Test
@@ -365,7 +410,7 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
-  public void testRunEventWithoutTargetRequiresPrivilegeOnAssertee() {
+  public void testRunEventWithoutTargetRequiresPrivilegeOnAsseteeOnly() {
     Assert.assertFalse(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_A)).isEmpty());
 
     grantEditAssertionsOn(DATASET_A);

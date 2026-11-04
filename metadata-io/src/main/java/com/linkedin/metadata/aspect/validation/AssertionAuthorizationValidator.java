@@ -50,11 +50,15 @@ import lombok.extern.slf4j.Slf4j;
  * {@code assertionInfo} is left to the API-level gate. This lives here rather than in the API gate
  * so OpenAPI, Rest.li and MCP {@code DELETE} all reach it.
  *
- * <p>Run events must name an entity the assertion targets, and the actor needs the privilege on
- * that entity, matching {@code ReportAssertionResultResolver}: notifications are addressed to the
- * run event's {@code asserteeUrn}. An assertion with no {@code assertionInfo} yet accepts run
- * events for any entity the actor may edit assertions on, so clients that report results before the
- * definition keep working; those results stay in the assertion's run history once it is defined.
+ * <p>Run events need the privilege on the run event's {@code asserteeUrn}, matching {@code
+ * ReportAssertionResultResolver} (notifications are addressed to it), and on every entity the
+ * assertion targets, so a result cannot mark an assertion the actor may not edit as failing. The
+ * assertee does not have to be one of the targets: clients such as dbt report results whose
+ * assertee differs from the target by URN case, environment or project. A schema field assertee is
+ * checked on its parent asset, as targets are. A run event without an assertee is rejected once the
+ * assertion has targets. An assertion with no {@code assertionInfo} yet accepts run events for any
+ * entity the actor may edit assertions on, so clients that report results before the definition
+ * keep working; those results stay in the assertion's run history once it is defined.
  *
  * <p>Targets are read from the stored value when the batch is validated. With async ingestion an
  * earlier request may not have landed yet, so a write is checked against the value before that
@@ -145,8 +149,10 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
       }
     }
 
-    // Run events are checked against the assertion as this batch leaves it.
-    Map<Urn, Boolean> asserteeAuthorized = new HashMap<>();
+    // Run events are checked against the assertion as this batch leaves it. The API gate accepts
+    // the generic privilege on the assertion itself, which covers neither the assertee that
+    // receives the notifications nor the assets the assertion checks.
+    Map<Urn, Boolean> authorizedEntities = new HashMap<>();
     for (BatchItem item : runEvents) {
       Set<Urn> targets =
           AssertionAuthorizationUtils.resolveAssertedEntityUrns(
@@ -154,25 +160,28 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
       AssertionRunEvent runEvent = item.getAspect(AssertionRunEvent.class);
       Urn assertee =
           runEvent == null || !runEvent.hasAsserteeUrn() ? null : runEvent.getAsserteeUrn();
-      if (!targets.isEmpty() && (assertee == null || !targets.contains(assertee))) {
-        failures.add(
-            authFailure(
-                item,
-                "Run event for assertion "
-                    + item.getUrn()
-                    + " names "
-                    + assertee
-                    + ", which is not an entity the assertion targets."));
+      if (assertee == null) {
+        if (!targets.isEmpty()) {
+          failures.add(
+              authFailure(
+                  item,
+                  "Run event for assertion " + item.getUrn() + " does not name an assertee."));
+        }
         continue;
       }
-      // The API gate accepts the generic privilege on the assertion itself, which does not cover
-      // the assertee that receives the notifications.
-      if (assertee != null
-          && !asserteeAuthorized.computeIfAbsent(
-              assertee,
-              urn ->
-                  AssertionAuthorizationUtils.isAuthorizedToEditAssertionsOnEntities(
-                      session, Set.of(urn)))) {
+      Set<Urn> required = new HashSet<>(targets);
+      required.add(AssertionAuthorizationUtils.toAsset(assertee));
+      Set<Urn> denied =
+          required.stream()
+              .filter(
+                  urn ->
+                      !authorizedEntities.computeIfAbsent(
+                          urn,
+                          u ->
+                              AssertionAuthorizationUtils.isAuthorizedToEditAssertionsOnEntities(
+                                  session, Set.of(u))))
+              .collect(Collectors.toSet());
+      if (!denied.isEmpty()) {
         failures.add(
             authFailure(
                 item,
@@ -180,7 +189,9 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
                     + item.getUrn()
                     + " on "
                     + assertee
-                    + ". Requires the Edit Assertions privilege on the asserted entity."));
+                    + ". Requires the Edit Assertions privilege on "
+                    + denied
+                    + "."));
       }
     }
     return failures;

@@ -145,8 +145,9 @@ public final class AssertionAuthorizationUtils {
     }
   }
 
+  /** Maps a schema field to its parent asset, where assertion privileges are granted. */
   @Nonnull
-  private static Urn toAsset(@Nonnull final Urn urn) {
+  public static Urn toAsset(@Nonnull final Urn urn) {
     return SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType())
         ? UrnUtils.getUrn(urn.getEntityKey().get(0))
         : urn;
@@ -203,8 +204,10 @@ public final class AssertionAuthorizationUtils {
    * events and the actor may edit assertions on every entity they name: clients such as dbt and
    * Great Expectations can send results before (or, in async emit modes, ahead of the persisting
    * of) {@code assertionInfo}. Other aspects, such as {@code status}, need {@code assertionInfo}
-   * first or in the same request. {@code AssertionAuthorizationValidator} checks that a run event
-   * names the assertion's target once it has one.
+   * first or in the same request. Run event assertees need not be targets; each is checked on its
+   * asset (a schema field maps to its parent), alongside the targets. {@code
+   * AssertionAuthorizationValidator} applies the same rule to writes that pass on the assertion
+   * itself.
    */
   @Nonnull
   static Set<Urn> filterAuthorizedViaAssertedEntities(
@@ -261,7 +264,7 @@ public final class AssertionAuthorizationUtils {
       } else {
         assertees
             .computeIfAbsent(write.urn(), k -> new HashSet<>())
-            .add(write.runEvent().getAsserteeUrn());
+            .add(toAsset(write.runEvent().getAsserteeUrn()));
       }
       if (ASSERTION_INFO_ASPECT_NAME.equals(write.aspectName())) {
         infoWrites.computeIfAbsent(write.urn(), k -> new ArrayList<>()).add(write);
