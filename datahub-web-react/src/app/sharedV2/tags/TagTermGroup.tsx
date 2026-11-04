@@ -164,13 +164,6 @@ export default function TagTermGroup({
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
-    const tagsEmpty = !directTags?.tags?.length && !editableTags?.tags?.length && !uneditableTags?.tags?.length;
-
-    const termsEmpty =
-        !directGlossaryTerms?.terms?.length &&
-        !editableGlossaryTerms?.terms?.length &&
-        !uneditableGlossaryTerms?.terms?.length;
-
     // Maintain order of uneditable -> direct -> editable
     const orderedTerms: OrderedTerm[] = [
         ...(uneditableGlossaryTerms?.terms ?? []).map((term) => ({
@@ -222,6 +215,9 @@ export default function TagTermGroup({
     // Collapse to a single item (showOneAndCount) or cap at maxShow, otherwise render everything. Slicing here
     // keeps the "+N" overflow indicator out of the map and avoids walking the full list when collapsed.
     const visibleLimit = showOneAndCount ? 1 : maxShow;
+    const tagsEmpty = !dedupedTags.length;
+    const termsEmpty = !dedupedTerms.length;
+
     const visibleTerms = visibleLimit ? dedupedTerms.slice(0, visibleLimit) : dedupedTerms;
     const visibleTags = visibleLimit ? dedupedTags.slice(0, visibleLimit) : dedupedTags;
 

@@ -2,6 +2,7 @@ import { MockedProvider } from '@apollo/client/testing';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
@@ -135,6 +136,16 @@ describe('TagTermGroup soft-delete filtering', () => {
             } as GlossaryTerms,
         });
         expect(renderedUrns()).toEqual(['urn:li:glossaryTerm:live']);
+    });
+
+    it('shows the empty-state message when every attached tag is soft-deleted', () => {
+        renderGroup({
+            editableTags: { tags: [removedTag('urn:li:tag:gone')] } as GlobalTags,
+            canAddTag: true,
+            showEmptyMessage: true,
+        });
+        expect(renderedUrns()).toEqual([]);
+        expect(screen.getByText(`${EMPTY_MESSAGES.tags.title}.`)).toBeInTheDocument();
     });
 });
 

@@ -1992,6 +1992,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
                 tags {
                     tag {
                         urn
+                        status {
+                            removed
+                        }
                         name
                         properties {
                             name
@@ -2004,6 +2007,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
                 terms {
                     term {
                         urn
+                        status {
+                            removed
+                        }
                         type
                         properties {
                             name
