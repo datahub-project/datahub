@@ -12,8 +12,6 @@ export enum PageRoutes {
     RESET_CREDENTIALS = '/reset',
     SEARCH_RESULTS = '/search/:type?',
     SEARCH = '/search',
-    BROWSE = '/browse',
-    BROWSE_RESULTS = '/browse/:type',
     ANALYTICS = '/analytics',
     POLICIES = '/policies',
     SETTINGS_POLICIES = '/settings/policies',

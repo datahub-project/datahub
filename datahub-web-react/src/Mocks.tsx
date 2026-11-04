@@ -7,7 +7,6 @@ import { ViewBuilderState } from '@app/entityV2/view/types';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
-import { GetBrowseResultsDocument } from '@graphql/browse.generated';
 import { GetDataFlowDocument } from '@graphql/dataFlow.generated';
 import { GetDataJobDocument } from '@graphql/dataJob.generated';
 import {
@@ -1823,110 +1822,6 @@ export const mocks = [
             data: {
                 corpUser: {
                     ...user1,
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: GetBrowseResultsDocument,
-            variables: {
-                input: {
-                    type: 'DATASET',
-                    path: [],
-                    start: 0,
-                    count: 20,
-                    filters: [],
-                    orFilters: [],
-                },
-            },
-        },
-        result: {
-            data: {
-                browse: {
-                    entities: [],
-                    start: 0,
-                    count: 0,
-                    total: 0,
-                    metadata: {
-                        path: [],
-                        groups: [
-                            {
-                                name: 'prod',
-                                count: 1,
-                            },
-                        ],
-                        totalNumEntities: 1,
-                    },
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: GetBrowseResultsDocument,
-            variables: {
-                input: {
-                    type: 'DATASET',
-                    path: ['prod', 'hdfs'],
-                    start: 0,
-                    count: 20,
-                    filters: [],
-                    orFilters: [],
-                },
-            },
-        },
-        result: {
-            data: {
-                browse: {
-                    entities: [
-                        {
-                            ...dataset1,
-                        },
-                    ],
-                    start: 0,
-                    count: 1,
-                    total: 1,
-                    metadata: {
-                        path: ['prod', 'hdfs'],
-                        groups: [],
-                        totalNumEntities: 0,
-                    },
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: GetBrowseResultsDocument,
-            variables: {
-                input: {
-                    type: 'DATASET',
-                    path: ['prod'],
-                    start: 0,
-                    count: 20,
-                    filters: [],
-                    orFilters: [],
-                },
-            },
-        },
-        result: {
-            data: {
-                browse: {
-                    entities: [],
-                    start: 0,
-                    count: 0,
-                    total: 0,
-                    metadata: {
-                        path: ['prod'],
-                        groups: [
-                            {
-                                name: 'hdfs',
-                                count: 1,
-                            },
-                        ],
-                        totalNumEntities: 1,
-                    },
                 },
             },
         },
