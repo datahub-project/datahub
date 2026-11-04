@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.ConfigurableFileCollection;
@@ -43,9 +42,11 @@ import org.objectweb.asm.Opcodes;
  * <p>A <em>configuration class</em> is a concrete class annotated with {@code @Configuration}
  * (directly or through {@code @SpringBootApplication} and friends) or one that declares {@code @Bean}
  * methods. Annotations meta-annotated with {@code @Configuration} are recognised when they are one
- * of the well-known Spring ones or are declared in the same module. It counts as covered when a test context invoked one of its own {@code @Bean} methods
- * for real (a {@code @MockitoBean} replacement does not count), or, for classes without {@code
- * @Bean} methods, when a test context instantiated it.
+ * of the well-known Spring ones or are declared in the same module.
+ *
+ * <p>It counts as covered when a test context invoked one of its own (not inherited) {@code @Bean}
+ * methods for real (a {@code @MockitoBean} replacement does not count), or, for classes without
+ * {@code @Bean} methods, when a test context instantiated it. See {@link WiringCoverageEvaluator}.
  */
 @CacheableTask
 public abstract class WiringCoverageCheck extends DefaultTask {
@@ -102,55 +103,26 @@ public abstract class WiringCoverageCheck extends DefaultTask {
     Map<String, Set<String>> targets = scanConfigurationClasses();
     Set<String> recorded = readRecordings();
 
-    Set<String> covered = new TreeSet<>();
-    Set<String> uncovered = new TreeSet<>();
-    Map<String, Set<String>> uncalledBeanMethods = new TreeMap<>();
-    for (Map.Entry<String, Set<String>> e : targets.entrySet()) {
-      String cls = e.getKey();
-      Set<String> beanMethods = e.getValue();
-      boolean isCovered;
-      if (beanMethods.isEmpty()) {
-        isCovered = recorded.contains("C " + cls);
-      } else {
-        Set<String> uncalled =
-            beanMethods.stream()
-                .filter(m -> !recorded.contains("M " + cls + "#" + m))
-                .collect(Collectors.toCollection(TreeSet::new));
-        // Any @Bean method run on behalf of this class counts, including inherited ones.
-        isCovered = recorded.stream().anyMatch(l -> l.startsWith("M " + cls + "#"));
-        if (isCovered && !uncalled.isEmpty()) {
-          uncalledBeanMethods.put(cls, uncalled);
-        }
-      }
-      (isCovered ? covered : uncovered).add(cls);
-    }
-
     File baselineFile = getBaseline().get().getAsFile();
     List<String> baselineLines =
         baselineFile.isFile()
             ? Files.readAllLines(baselineFile.toPath(), StandardCharsets.UTF_8)
             : List.of();
-    Set<String> baseline = new TreeSet<>();
-    for (String line : baselineLines) {
-      String t = line.trim();
-      if (!t.isEmpty() && !t.startsWith("#")) {
-        baseline.add(t);
-      }
-    }
+    WiringCoverageEvaluator.Result result =
+        WiringCoverageEvaluator.evaluate(
+            targets, recorded, WiringCoverageEvaluator.parseBaseline(baselineLines));
+    Set<String> covered = result.covered();
+    Set<String> uncovered = result.uncovered();
+    Set<String> newUncovered = result.newUncovered();
+    Set<String> stale = new TreeSet<>(result.stale());
 
-    Set<String> newUncovered = new TreeSet<>(uncovered);
-    newUncovered.removeAll(baseline);
-    Set<String> stale = new TreeSet<>(baseline);
-    stale.removeAll(uncovered);
-
-    writeReport(targets.size(), covered, uncovered, uncalledBeanMethods);
+    writeReport(targets.size(), covered, uncovered, result.uncalledBeanMethods());
 
     if (getUpdateBaseline().get() && !stale.isEmpty()) {
-      List<String> pruned =
-          baselineLines.stream()
-              .filter(l -> !stale.contains(l.trim()))
-              .collect(Collectors.toList());
-      Files.write(baselineFile.toPath(), pruned, StandardCharsets.UTF_8);
+      Files.write(
+          baselineFile.toPath(),
+          WiringCoverageEvaluator.prune(baselineLines, stale),
+          StandardCharsets.UTF_8);
       getLogger()
           .lifecycle(
               "Wiring baseline {}: removed {} entries no longer needed.",
@@ -186,7 +158,7 @@ public abstract class WiringCoverageCheck extends DefaultTask {
               + " @MockitoBean. Mock its dependencies instead.\n"
               + "Adding the class to "
               + rootRelative(baselineFile)
-              + " is a last resort; that file is meant to shrink only.\n");
+              + " is a last resort for reviewers to judge; that file is meant to shrink only.\n");
     }
     if (!stale.isEmpty()) {
       msg.append(
