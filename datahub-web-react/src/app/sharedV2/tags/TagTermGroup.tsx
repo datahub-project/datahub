@@ -10,6 +10,7 @@ import { isPropagated } from '@app/entityV2/shared/propagation/utils';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import Tag from '@app/sharedV2/tags/tag/Tag';
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 import Term from '@app/sharedV2/tags/term/Term';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Tooltip } from '@src/alchemy-components';
@@ -190,10 +191,7 @@ export default function TagTermGroup({
             entitySubresource,
             managed: false,
         })),
-        // Soft-deleting a term/tag sets Status.removed on the entity but doesn't detach the
-        // associations already stored on assets, and the read path doesn't drop them — so filter
-        // stale edges to removed entities out here.
-    ].filter((item) => !item.term.term.status?.removed);
+    ].filter((item) => !isRemovedAssociation(item.term));
     const dedupedTerms = dedupeByUrn(
         orderedTerms,
         (item) => item.term.term.urn,
@@ -214,7 +212,7 @@ export default function TagTermGroup({
             managed: false,
         })),
         ...(editableTags?.tags ?? []).map((tag) => ({ tag, canRemove, entitySubresource, managed: false })),
-    ].filter((item) => !item.tag.tag.status?.removed);
+    ].filter((item) => !isRemovedAssociation(item.tag));
     const dedupedTags = dedupeByUrn(
         orderedTags,
         (item) => item.tag.tag.urn,
