@@ -4512,7 +4512,10 @@ public class GmsGraphQLEngine {
           "Test",
           "VersionSet");
 
-  /** Adds {@code relationships} to the types' other data fetchers; the wiring merges per type. */
+  /**
+   * Adds {@code relationships} to the types' other data fetchers; the wiring merges per type. The
+   * entity service lets the resolver drop deleted neighbors unless the caller asks for them.
+   */
   private void configureGenericRelationshipsResolvers(final RuntimeWiring.Builder builder) {
     GENERIC_RELATIONSHIPS_TYPES.forEach(
         type ->
@@ -4520,7 +4523,8 @@ public class GmsGraphQLEngine {
                 type,
                 typeWiring ->
                     typeWiring.dataFetcher(
-                        "relationships", new EntityRelationshipsResultResolver(graphClient))));
+                        "relationships",
+                        new EntityRelationshipsResultResolver(graphClient, entityService))));
   }
 
   private void configureVersionSetResolvers(final RuntimeWiring.Builder builder) {
