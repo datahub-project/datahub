@@ -172,6 +172,100 @@ def test_openai_provider_passes_timeout_to_post_json():
 
 
 # ---------------------------------------------------------------------------
+# AI Gateway
+# ---------------------------------------------------------------------------
+
+
+def test_ai_gateway_provider_posts_to_correct_url_and_auth():
+    from datahub.ingestion.source.unstructured.embedding_providers.ai_gateway import (
+        AiGatewayEmbeddingProvider,
+    )
+
+    provider = AiGatewayEmbeddingProvider(
+        model="gemini-embedding-001",
+        platform="google-vertex",
+        base_url="https://api.gateway.example.com",
+        token_url="https://auth.example.com/token",
+        client_id="client-id",
+        client_secret="client-secret",
+    )
+
+    with (
+        patch.object(
+            provider._session,
+            "post",
+            side_effect=[
+                _ok_response({"access_token": "mock-token", "expires_in": 3600}),
+                _ok_response({"embeddings": [[0.1, 0.2, 0.3]]}),
+            ],
+        ) as mock_post,
+    ):
+        result = provider.embed(["hello"])
+
+    assert result.embeddings == [[0.1, 0.2, 0.3]]
+
+    # First call should be to token_url
+    token_args, token_kwargs = mock_post.call_args_list[0]
+    assert token_args[0] == "https://auth.example.com/token"
+    assert token_kwargs["data"]["grant_type"] == "client_credentials"
+
+    # Second call should be to embedding endpoint with token
+    embed_args, embed_kwargs = mock_post.call_args_list[1]
+    assert (
+        embed_args[0]
+        == "https://api.gateway.example.com/platform/google-vertex/model/gemini-embedding-001/embedding"
+    )
+    assert embed_kwargs["json"] == {"data": "hello"}
+    assert embed_kwargs["headers"]["Authorization"] == "Bearer mock-token"
+    assert (
+        embed_kwargs["headers"]["Content-Type"]
+        == "application/vnd.ai.gateway.text.embedding.v1+json"
+    )
+
+
+def test_ai_gateway_provider_retries_auth_on_401():
+    from datahub.ingestion.source.unstructured.embedding_providers.ai_gateway import (
+        AiGatewayEmbeddingProvider,
+    )
+
+    provider = AiGatewayEmbeddingProvider(
+        model="test-model",
+        platform="test-platform",
+        base_url="https://api.gateway.example.com",
+        token_url="https://auth.example.com/token",
+        client_id="client-id",
+        client_secret="client-secret",
+    )
+
+    # Pre-seed a cached token that gets a 401
+    provider._cached_token = "stale-token"
+    provider._token_expires_at = 9999999999.0
+
+    with (
+        patch.object(
+            provider._session,
+            "post",
+            side_effect=[
+                # Embed call with stale token -> 401
+                _err_response(401, "Unauthorized"),
+                # Token refresh call -> 200
+                _ok_response({"access_token": "fresh-token", "expires_in": 3600}),
+                # Retry embed call with fresh token -> 200
+                _ok_response({"embeddings": [[0.1, 0.2]]}),
+            ],
+        ) as mock_post,
+    ):
+        result = provider.embed(["hello"])
+
+    assert result.embeddings == [[0.1, 0.2]]
+    assert mock_post.call_count == 3
+
+    # Check that the retry call used the fresh token
+    retry_kwargs = mock_post.call_args_list[2][1]
+    assert retry_kwargs["headers"]["Authorization"] == "Bearer fresh-token"
+
+
+# ---------------------------------------------------------------------------
 # base.post_json — JSON / error handling
 # ---------------------------------------------------------------------------
 

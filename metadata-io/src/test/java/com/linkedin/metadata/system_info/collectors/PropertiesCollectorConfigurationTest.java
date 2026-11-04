@@ -70,6 +70,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Embedding provider API keys
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.openai.apiKey",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.cohere.apiKey",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.aiGateway.clientSecret",
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
