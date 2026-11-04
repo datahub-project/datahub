@@ -28,15 +28,11 @@ With data lineage, you can
 You can view lineage under the **Lineage** tab, in an _Explorer_ visualization or the _Impact Analysis_ tool.
 You can also survey an asset's impact analysis in a snap on the entity sidebar.
 
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-tab-v3.png" />
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/lineage-tab-v3.png)
 
 By default, the UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
 
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-view-v3.png" />
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/lineage-view-v3.png)
 
 In this example, data flows from between different Snowflake tables orchestrated by dbt into Looker views and explores.
 
@@ -45,20 +41,113 @@ In this example, data flows from between different Snowflake tables orchestrated
 Column-level lineage **tracks changes and movements for each specific data column.** This approach is often contrasted with table-level lineage, which specifies lineage at the table level. Column lineage can be visualized while viewing table-level
 lineage by expanding the columns of tables and hovering or clicking on columns with lineage.
 
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/column-level-lineage-v3.png" />
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/column-level-lineage-v3.png)
 
 If there is column-level lineage to hidden assets or the table-level view is getting too busy,
 you can visualize lineage focused on a single column by clicking on the breadcrumb on a column:
 
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/schema-field-level-lineage-link.png" />
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/schema-field-level-lineage-link.png)
 
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/schema-field-level-lineage.png" />
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/schema-field-level-lineage.png)
+
+### Grouping Lineage with Group By
+
+<FeatureAvailability stage="public-beta" />
+
+Large lineage graphs are hard to read when every table is its own node. **Group by** collapses assets that share an attribute into a single group node, so you can see how data flows between platforms, domains, or glossary terms instead of between individual assets.
+
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/lineage-groupby.png)
+
+#### Choose a Grouping
+
+Open the lineage view for an asset and choose an option from the **Group by** control. DataHub includes three built-in options, called lenses:
+
+| Lens          | Groups assets by                                                 |
+| ------------- | ---------------------------------------------------------------- |
+| Platform      | The data platform the asset comes from, such as Snowflake or dbt |
+| Domain        | The domain assigned to the asset                                 |
+| Glossary Term | The glossary terms applied to the asset                          |
+
+Admins can add their own lenses. See [Managing Lenses](#managing-lenses-admins).
+
+#### Read the Grouped Graph
+
+- **Group nodes** show the name of the value they represent, a color and icon for that value, and the number of member assets.
+- **Groups next to the root** (the asset you started from) open automatically, so you can see the first hop of lineage right away.
+- **Other groups stay collapsed** until you expand them. Expanding a group reveals the groups that connect to it.
+- **Counts can rise while the graph loads.** For a group that is still loading, the count is the number of members found so far. If the walk reaches a server limit, the count becomes a minimum and stops changing.
+- **Assets without a value** for the lens are placed in one group that is named after the lens's unmatched name, for example "No domain". Admins set this name when they configure the lens.
+- **Schema fields** (columns) are grouped by their parent dataset.
+
+Grouping only changes how the graph is drawn. It does not change the lineage itself.
+
+#### Browse Group Members
+
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/lineage-groupby-assetsidebar.png)
+
+Select a group to open the group sidebar. The sidebar lists the assets in that group and lets you:
+
+- Page through the members.
+- Search for members by name. Partial-name search needs at least three characters.
+
+Use the sidebar to find a specific asset inside a large group without expanding the whole graph.
+
+#### Filter the Graph
+
+The **Filters** panel narrows the graph to the assets you care about. You can add a condition on any searchable field, such as platform, domain, owner, or tag.
+
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/lineage-groupby-filter.png)
+
+Each condition uses one of these operators:
+
+- **is** / **is not**: match or exclude one or more values. Each value in the list shows how many assets it matches.
+- **exists** / **does not exist**: match assets that have or lack a value for the field.
+
+Combine conditions with **match all** (every condition must hold) or **match any** (at least one must hold).
+
+Assets that do not match your filters are hopped over. Lineage continues through them, but they are not counted, grouped, or shown as group boundaries. Group counts and members therefore cover only the assets that match your filters.
+
+Filters are saved in the page URL, so you can share a filtered view by copying the link.
+
+##### Pass-Through Filters
+
+A pass-through filter treats matching assets as if they were not there. The graph hops over them, but they are not counted, grouped, or used to split groups. Use pass-through to skip intermediate assets, such as staging tables in a domain, so that the groups show only the assets you want to compare.
+
+Pass-through is available for domain and glossary term filters. Assets with no value for the lens are always passed through.
+
+#### Restricted Groups
+
+If you do not have permission to see the values of a group, the group still appears, but its value and members are hidden. Lineage continues past a restricted group, so you can still see what lies beyond it.
+
+#### Managing Lenses (Admins)
+
+Each **Group by** option is a lens, which you can create, edit, and delete. Only admins can manage lenses. Each lens has these settings:
+
+- **Attribute:** The asset attribute to group by: platform, domain, or glossary term.
+- **Values:** Limit the lens to specific values. Use this to group by only the domains or terms you care about.
+- **Unmatched name:** The label for the group of assets that have no value for this lens, such as "No domain".
+- **Multi-value grouping** (glossary terms only): Decides how an asset with several terms is grouped. See the table below.
+
+##### Grouping Assets with Several Glossary Terms
+
+An asset can have more than one glossary term. Multi-value grouping controls where it appears:
+
+| Option        | Behavior                                                              | Example: an asset tagged `Finance` and `PII`               |
+| ------------- | --------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `EACH_VALUE`  | The asset appears in one group per term. It is counted in each group. | Counted in the `Finance` group and in the `PII` group.     |
+| `COMBINATION` | The asset appears in one group keyed by its full set of terms.        | Counted once, in a `Finance + PII` group.                  |
+| `PRIORITY`    | The asset appears only in the group of its highest-ranked term.       | Counted once, in the group of whichever term ranks higher. |
+
+##### Changing a Lens
+
+- **Renaming** a lens is safe. Open views keep working.
+- **Changing the attribute, values, or grouping** of a lens affects views that are already open. Those views stop with a "not found" error. Reload the page to start a new view with the updated lens.
+
+#### Use Group By in the API
+
+The grouped lineage view is also available through GraphQL, with the `lineageGroups` query to walk the graph and the `lineageGroupMembers` query to page through a group's members. Both are described in the [GraphQL reference](../../api/graphql/overview.md).
+
+Walks are kept on the server for a short time. If you leave a grouped view idle for a while, start a new walk instead of continuing the old one.
 
 ### Data Pipeline Lineage
 
@@ -67,23 +156,17 @@ entity page, go to the **Lineage** tab to open the visualization. At its center 
 represented as a box containing all of its composite tasks. You can click and drag to move each task within the box,
 as well as click and drag the data pipeline box itself.
 
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/dataflow-lineage-tab.png" />
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/dataflow-lineage-tab.png)
 
 Further, you can leverage DataHub's cross-platform lineage to view the upstreams and downstreams of each task.
 The number on the expand lineage button represents how many data-dependence upstreams / downstreams the task has.
 After expanding, you can keep expanding lineage further like the standard lineage explorer.
 
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/dataflow-lineage-expand.png" />
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/dataflow-lineage-expand.png)
 
 Note that you can only expand one task's upstreams and one task's downstreams at a time, to keep the visualization simple.
 
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/dataflow-lineage-expand-2.png" />
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/dataflow-lineage-expand-2.png)
 
 ## Adding Lineage
 
