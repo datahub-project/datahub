@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.test.context.bean.override.mockito.MockReset;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -69,8 +70,9 @@ public class SpringAuthorizerChainTest extends AbstractGmsSpringContextTest {
   private static final EntitySpec DATASET =
       new EntitySpec("dataset", "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
 
-  // Spy, not mock: everything except the policy fetch stays on the production client.
-  @MockitoSpyBean(name = "systemEntityClient")
+  // Spy, not mock: everything except the policy fetch stays on the production client. No reset:
+  // the authorizer refreshes its policy cache on a timer, which must keep seeing the test policy.
+  @MockitoSpyBean(name = "systemEntityClient", reset = MockReset.NONE)
   private SystemEntityClient systemEntityClient;
 
   @Autowired
