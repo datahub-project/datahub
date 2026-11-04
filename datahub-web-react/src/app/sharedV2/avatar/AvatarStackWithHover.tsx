@@ -9,6 +9,7 @@ import { StructuredPopover } from '@components/components/StructuredPopover';
 import { Text } from '@components/components/Text';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { mapRoleIcon } from '@app/identity/user/UserUtils';
 import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
 import HoverSectionContent from '@app/sharedV2/avatar/HoverSectionContent';
 
@@ -32,9 +33,12 @@ const AvatarStackWithHover = ({
 }: Props) => {
     const { t: tc } = useTranslation('common.labels');
     const resolvedTitle = title ?? tc('owners');
-    const users = avatars?.filter((avatar) => avatar.type === AvatarType.user) || [];
-    const groups = avatars?.filter((avatar) => avatar.type === AvatarType.group) || [];
-    const roles = avatars?.filter((avatar) => avatar.type === AvatarType.role) || [];
+    const avatarsWithIcons = avatars?.map((avatar) =>
+        avatar.type === AvatarType.role ? { ...avatar, icon: avatar.icon ?? mapRoleIcon(avatar.name) } : avatar,
+    );
+    const users = avatarsWithIcons?.filter((avatar) => avatar.type === AvatarType.user) || [];
+    const groups = avatarsWithIcons?.filter((avatar) => avatar.type === AvatarType.group) || [];
+    const roles = avatarsWithIcons?.filter((avatar) => avatar.type === AvatarType.role) || [];
 
     const renderTitle = (headerText, count) => (
         <HeaderContainer>
@@ -99,7 +103,7 @@ const AvatarStackWithHover = ({
             >
                 <div>
                     <AvatarStack
-                        avatars={avatars}
+                        avatars={avatarsWithIcons}
                         showRemainingNumber={showRemainingNumber}
                         maxToShow={maxToShow}
                         totalCount={totalCount}

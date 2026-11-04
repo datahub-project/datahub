@@ -14,4 +14,6 @@ export interface AvatarProps {
     type?: AvatarType;
     /** Custom avatar node (e.g. AgentAvatar). Replaces the built-in circular image/initials/icon. */
     avatar?: ReactNode;
+    /** Icon shown inside the built-in circle instead of the default placeholder (initials, group or role icon) when there is no image. */
+    icon?: ReactNode;
 }
