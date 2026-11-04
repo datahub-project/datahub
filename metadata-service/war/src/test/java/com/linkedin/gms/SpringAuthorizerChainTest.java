@@ -61,6 +61,8 @@ public class SpringAuthorizerChainTest extends AbstractGmsSpringContextTest {
   private static final String OTHER_USER = "urn:li:corpuser:other";
   private static final String VIEW_PRIVILEGE = PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType();
 
+  private static final DataHubPolicyInfo VIEW_POLICY = viewPolicy();
+
   private static final EntitySpec CONTAINER =
       new EntitySpec("container", "urn:li:container:view-test");
   private static final EntitySpec SCHEMA_FIELD =
@@ -104,7 +106,7 @@ public class SpringAuthorizerChainTest extends AbstractGmsSpringContextTest {
     EnvelopedAspectMap aspects = new EnvelopedAspectMap();
     aspects.put(
         DATAHUB_POLICY_INFO_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(viewPolicy().data())));
+        new EnvelopedAspect().setValue(new Aspect(VIEW_POLICY.data())));
     doReturn(Map.of(POLICY_URN, new EntityResponse().setUrn(POLICY_URN).setAspects(aspects)))
         .when(systemEntityClient)
         .batchGetV2(any(OperationContext.class), eq(POLICY_ENTITY_NAME), anySet(), anySet());
@@ -136,7 +138,8 @@ public class SpringAuthorizerChainTest extends AbstractGmsSpringContextTest {
   /** The policy cache refreshes on the authorizer's executor; wait for it to see the policy. */
   private void awaitPolicyLoaded() throws InterruptedException {
     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
-    while (dataHubAuthorizer.getActorPolicies(UrnUtils.getUrn(VIEWER)).isEmpty()) {
+    // getActorPolicies always includes built-in defaults (e.g. view self), so look for ours.
+    while (!dataHubAuthorizer.getActorPolicies(UrnUtils.getUrn(VIEWER)).contains(VIEW_POLICY)) {
       if (System.nanoTime() > deadline) {
         throw new AssertionError("policy cache never loaded the test policy");
       }

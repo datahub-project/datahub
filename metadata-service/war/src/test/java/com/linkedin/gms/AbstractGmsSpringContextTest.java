@@ -31,9 +31,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 
 /**
- * Boots the GMS Spring context from the production {@code application.yaml}, stubbing only external
- * infrastructure (database, search engine, bootstrap). Subclasses add one targeted
- * {@code @TestPropertySource} override each; Spring caches a context per distinct override.
+ * Boots the GMS Spring context from the production {@code application.yaml}. Not production wiring:
+ * the database, bootstrap manager, {@code Clock}, {@code MetricUtils} and the semantic search
+ * factories are mocks; the search client is a mock OpenSearch shim (with matching cluster registry
+ * and shims beans); and {@code systemOperationContext}, {@code entityRegistry} and {@code
+ * meterRegistry} are test instances. Subclasses add one targeted override each; Spring caches a
+ * context per distinct override.
  *
  * <p>Subclasses must declare their own {@code @Test} methods: Gradle only detects a test class that
  * carries {@code @Test} itself.

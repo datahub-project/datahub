@@ -6,6 +6,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -19,7 +20,8 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.TestPropertySource;
@@ -44,6 +46,10 @@ public class SpringSearchV3MappingsTest extends AbstractGmsSpringContextTest {
   @Qualifier("mappingsBuilder")
   private MappingsBuilder mappingsBuilder;
 
+  @Autowired
+  @Qualifier("multiEntityMappingsBuilder")
+  private MappingsBuilder multiEntityMappingsBuilder;
+
   @Test
   public void testStructuredPropertyCopyToReachesV3IndexMappings() {
     StructuredPropertyDefinition definition =
@@ -57,18 +63,30 @@ public class SpringSearchV3MappingsTest extends AbstractGmsSpringContextTest {
                     .setCopyTo(new StringArray(List.of("name"))));
     String fieldName = StructuredPropertyUtils.toElasticsearchFieldName(PROPERTY_URN, definition);
 
-    List<Object> copyTos =
+    // V2 never emits copy_to, so only the V3 indices of the delegating builder must carry it.
+    Set<String> v3IndexNames =
+        multiEntityMappingsBuilder.getIndexMappings(systemOperationContext).stream()
+            .map(MappingsBuilder.IndexMapping::getIndexName)
+            .collect(Collectors.toSet());
+    assertFalse(v3IndexNames.isEmpty(), "V3 is enabled but no V3 index mapping was generated");
+
+    List<MappingsBuilder.IndexMapping> v3Mappings =
         mappingsBuilder
             .getIndexMappings(systemOperationContext, List.of(Pair.of(PROPERTY_URN, definition)))
             .stream()
-            .map(indexMapping -> structuredPropertyField(indexMapping.getMappings(), fieldName))
-            .filter(Objects::nonNull)
-            .map(field -> field.get(COPY_TO))
-            .filter(Objects::nonNull)
+            .filter(indexMapping -> v3IndexNames.contains(indexMapping.getIndexName()))
             .toList();
+    assertEquals(
+        v3Mappings.stream()
+            .map(MappingsBuilder.IndexMapping::getIndexName)
+            .collect(Collectors.toSet()),
+        v3IndexNames);
 
-    assertFalse(copyTos.isEmpty(), "no generated index mapping carries copy_to for " + fieldName);
-    copyTos.forEach(copyTo -> assertEquals(copyTo, List.of("name")));
+    for (MappingsBuilder.IndexMapping indexMapping : v3Mappings) {
+      Map<String, Object> field = structuredPropertyField(indexMapping.getMappings(), fieldName);
+      assertNotNull(field, indexMapping.getIndexName() + " has no mapping for " + fieldName);
+      assertEquals(field.get(COPY_TO), List.of("name"), indexMapping.getIndexName());
+    }
   }
 
   @SuppressWarnings("unchecked")
