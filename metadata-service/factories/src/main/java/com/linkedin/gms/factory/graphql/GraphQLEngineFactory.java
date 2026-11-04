@@ -57,7 +57,6 @@ import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
@@ -90,10 +89,6 @@ import org.springframework.context.annotation.Import;
   DocumentImportServiceFactory.class,
 })
 public class GraphQLEngineFactory {
-
-  @Autowired
-  @Qualifier("searchClientShim")
-  private SearchClientShim<?> elasticClient;
 
   @Autowired
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
@@ -279,10 +274,7 @@ public class GraphQLEngineFactory {
     if (isAnalyticsEnabled) {
       args.setAnalyticsService(
           new AnalyticsService(
-              elasticClient,
-              indexConvention,
-              entityRegistry,
-              configProvider.getElasticSearch().getEntityIndex()));
+              indexConvention, entityRegistry, configProvider.getElasticSearch().getEntityIndex()));
     }
     args.setEntityService(entityService);
     args.setRecommendationsService(recommendationsService);
@@ -340,6 +332,9 @@ public class GraphQLEngineFactory {
     args.setSemanticSearchService(semanticSearchService);
     args.setSemanticSearchConfiguration(
         configProvider.getElasticSearch().getEntityIndex().getSemanticSearch());
+    args.setEntityIndexV3Enabled(
+        configProvider.getElasticSearch().getEntityIndex().getV3() != null
+            && configProvider.getElasticSearch().getEntityIndex().getV3().isEnabled());
 
     // Create the GmsGraphQLEngine and build the GraphQL schema
     GmsGraphQLEngine gmsGraphQLEngine = new GmsGraphQLEngine(args);

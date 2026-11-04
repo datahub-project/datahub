@@ -15,11 +15,15 @@ import {
     NO_FILTER_SELECTION,
     filterDocumentNodes,
 } from '@app/document/utils/documentTreeFilters';
-import { DocumentSourceGroup, partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
+import {
+    DocumentSourceGroup,
+    partitionRootNodesByLayer,
+    resolveDocumentSourceSection,
+} from '@app/document/utils/documentTreeGrouping';
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
 import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
 
 // Section id for the built-in "DataHub" (native docs) group. Platform groups use
@@ -55,7 +59,7 @@ const EmptyStateWrap = styled.div`
 interface DocumentTreeProps {
     onCreateChild: (parentUrn: string | null) => void;
     selectedUrn?: string; // For selection mode (e.g., in move dialog)
-    onSelectDocument?: (urn: string) => void; // Callback when document is selected
+    onSelectDocument?: (urn: string, title?: string) => void; // Callback when document is selected
     hideActions?: boolean; // Hide action buttons (e.g., in move dialog)
     hideActionsMenu?: boolean; // Hide move/delete menu actions
     hideCreate?: boolean; // Hide create/add button
@@ -210,8 +214,9 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         const rootNode = getNode(rootUrn);
         if (!rootNode) return;
 
-        if (rootNode.isExternal && rootNode.platform?.urn) {
-            const platformUrn = rootNode.platform.urn;
+        const section = resolveDocumentSourceSection(rootNode);
+        if (section.kind === 'platform') {
+            const { platformUrn } = section;
             setCollapsedPlatformUrns((prev) => {
                 if (!prev.has(platformUrn)) return prev;
                 const next = new Set(prev);
@@ -252,7 +257,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                         isExternal={node.isExternal}
                         platform={node.platform}
                         onToggleExpand={() => handleToggleExpand(node.urn)}
-                        onClick={() => handleDocumentClick(node.urn)}
+                        onClick={() => handleDocumentClick(node.urn, node.title)}
                         onCreateChild={onCreateChild}
                         hideActions={hideActions}
                         hideActionsMenu={hideActionsMenu}
@@ -346,7 +351,10 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     );
 
     if (loading) {
-        return <Loading height={16} />;
+        // marginTop defaults to 25% of the container's *width* (a CSS percentage-margin quirk),
+        // which reads as an oddly low-positioned spinner in a narrow, short popover. Pin it near
+        // the top instead, matching how other compact/inline Loading usages in the app do this.
+        return <Loading height={16} marginTop={0} />;
     }
 
     const isTreeEmpty =
@@ -388,7 +396,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             )}
             {sourcesByPlatform.map(renderPlatformGroup)}
             {hasMoreRoots && <RootObserver ref={rootObserverRef} />}
-            {loadingMoreRoots && <Loading height={12} />}
+            {loadingMoreRoots && <Loading height={12} marginTop={0} />}
         </TreeContainer>
     );
 };

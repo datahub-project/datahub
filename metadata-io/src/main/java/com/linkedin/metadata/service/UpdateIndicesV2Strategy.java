@@ -11,7 +11,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -22,6 +21,8 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -33,9 +34,6 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -69,18 +67,6 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   /** Cache TTL for semantic index existence checks (5 minutes) */
   private static final long SEMANTIC_INDEX_CACHE_TTL_MINUTES = 5;
 
-  /** Searchable field carrying the document body ({@code documentInfo.contents.text}). */
-  private static final String BODY_TEXT_FIELD = "text";
-
-  /** Searchable field carrying the curated embed-text override ({@code semanticText.text}). */
-  private static final String SEMANTIC_TEXT_FIELD = "semanticText";
-
-  /**
-   * Semantic-index-only field: SHA-256 hex of the current resolved embed text. See {@link
-   * #withResolvedTextSha256}.
-   */
-  private static final String RESOLVED_TEXT_SHA256_FIELD = "resolvedTextSha256";
-
   private final EntityIndexVersionConfiguration v2Config;
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
@@ -98,6 +84,12 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
 
   // Throttle cache for timeseries aspect writes
   @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
+
+  /**
+   * Mapped structured-property fields to null on a restate that has no previous aspect. Null keeps
+   * today's write, which leaves fields the aspect no longer sets.
+   */
+  @Nullable private final StructuredPropertyMappingCache structuredPropertyMappingCache;
 
   /**
    * Creates an UpdateIndicesV2Strategy with optional semantic search support.
@@ -130,6 +122,32 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       boolean coalesceBatchUpdates,
       @Nonnull V2MappingsBuilder mappingsBuilder,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
+    this(
+        v2Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        idHashAlgo,
+        semanticSearchConfig,
+        indexConvention,
+        coalesceBatchUpdates,
+        mappingsBuilder,
+        timeseriesThrottleCache,
+        null);
+  }
+
+  public UpdateIndicesV2Strategy(
+      @Nonnull EntityIndexVersionConfiguration v2Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull String idHashAlgo,
+      @Nullable SemanticSearchConfiguration semanticSearchConfig,
+      @Nonnull IndexConvention indexConvention,
+      boolean coalesceBatchUpdates,
+      @Nonnull V2MappingsBuilder mappingsBuilder,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
+      @Nullable StructuredPropertyMappingCache structuredPropertyMappingCache) {
     this.v2Config = v2Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -140,6 +158,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     this.coalesceBatchUpdates = coalesceBatchUpdates;
     this.mappingsBuilder = mappingsBuilder;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
+    this.structuredPropertyMappingCache = structuredPropertyMappingCache;
     this.semanticIndexExistsCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(SEMANTIC_INDEX_CACHE_TTL_MINUTES, TimeUnit.MINUTES)
@@ -470,9 +489,15 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       }
     }
 
+    ObjectNode searchDocumentNode = searchDocument.get();
+    // A SQL restate carries no previous aspect, so handleRemoveFields cannot see fields the aspect
+    // dropped. Null the mapped ones before that diff; the same document is what V2.5 searches and
+    // what the semantic index receives.
+    nullRemovedStructuredProperties(
+        opContext, event, aspectSpec, previousAspect, searchDocumentNode);
     ObjectNode finalDocumentNode =
         SearchDocumentTransformer.handleRemoveFields(
-            searchDocument.get(), previousSearchDocument.orElse(null));
+            searchDocumentNode, previousSearchDocument.orElse(null));
     // Serialized before any semantic-only augmentation below, so the base V2 index never sees
     // semantic-only fields such as resolvedTextSha256.
     String finalDocument = finalDocumentNode.toString();
@@ -480,20 +505,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     // Write to V2 index
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
 
-    // #region agent debug log - dual-write decision point
-    log.debug(
-        "[DEBUG-DUALWRITE] About to check shouldWriteToSemanticIndex for entity='{}', docId='{}'",
-        entityName,
-        docId);
-    boolean shouldWrite = shouldWriteToSemanticIndex(opContext, entityName);
-    log.debug(
-        "[DEBUG-DUALWRITE] shouldWriteToSemanticIndex returned: {} for entity='{}'",
-        shouldWrite,
-        entityName);
-    // #endregion
-
     // Dual-write to semantic index if enabled for this entity
-    if (shouldWrite) {
+    if (shouldWriteToSemanticIndex(opContext, entityName)) {
       writeToSemanticIndex(
           opContext, urn, entityName, aspectSpec.getName(), finalDocumentNode, docId);
     }
@@ -502,6 +515,59 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     if (systemMetadata != null && systemMetadata.hasRunId()) {
       elasticSearchService.appendRunId(opContext, urn, systemMetadata.getRunId());
     }
+  }
+
+  /**
+   * Nulls mapped structured-property fields the restated aspect does not set. A restate that has a
+   * previous aspect is left to {@code handleRemoveFields}. When the semantic index is written, the
+   * null set is the union of the two mappings so a field present on only one of them is cleared in
+   * the document both receive. A mapping read that fails leaves the document unchanged.
+   */
+  private void nullRemovedStructuredProperties(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem event,
+      @Nonnull AspectSpec aspectSpec,
+      @Nullable RecordTemplate previousAspect,
+      @Nonnull ObjectNode document) {
+    if (structuredPropertyMappingCache == null
+        || !structuredPropertyMappingCache.isEnabled()
+        || indexConvention == null
+        || previousAspect != null
+        || event.getChangeType() != ChangeType.RESTATE
+        || !Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
+      return;
+    }
+    String entityName = event.getEntitySpec().getName();
+    Set<String> fields = new LinkedHashSet<>();
+    if (!addCatalogFields(
+        opContext, indexConvention.getEntityIndexName(opContext, entityName), fields)) {
+      return;
+    }
+    if (shouldWriteToSemanticIndex(opContext, entityName)
+        && !addCatalogFields(
+            opContext, indexConvention.getEntityIndexNameSemantic(opContext, entityName), fields)) {
+      return;
+    }
+    for (String field : fields) {
+      if (field.startsWith(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME + ".")
+          && !document.hasNonNull(field)) {
+        document.putNull(field);
+      }
+    }
+  }
+
+  /** Adds one index's mapped fields. False when that mapping could not be read. */
+  private boolean addCatalogFields(
+      @Nonnull OperationContext opContext, @Nullable String indexName, @Nonnull Set<String> into) {
+    if (indexName == null || indexName.isEmpty()) {
+      return true;
+    }
+    Optional<Set<String>> fields = structuredPropertyMappingCache.fields(opContext, indexName);
+    if (fields.isEmpty()) {
+      return false;
+    }
+    into.addAll(fields.get());
+    return true;
   }
 
   void deleteSearchData(
@@ -654,7 +720,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
                           newDefinition,
                           reindexState.name());
                       elasticSearchService
-                          .getIndexBuilder()
+                          .getIndexBuilder(reindexState.name())
                           .applyMappings(opContext, reindexState, false);
                     } catch (Exception e) {
                       log.error(
@@ -828,105 +894,14 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nonnull ObjectNode document) {
-    if (!Constants.DOCUMENT_ENTITY_NAME.equals(entityName)) {
-      return;
-    }
-    boolean hasOverrideField = document.has(SEMANTIC_TEXT_FIELD);
-    boolean hasBodyField = document.has(BODY_TEXT_FIELD);
-    // semanticContent projections (the embedding pipeline's own writes) also stamp, so a re-embed
-    // or force_reprocess run refreshes the field for documents indexed before this change.
-    boolean isSemanticContentAspect =
-        SearchDocumentTransformer.SEMANTIC_DATA_ASPECTS.contains(aspectName);
-    if (!hasOverrideField && !hasBodyField && !isSemanticContentAspect) {
-      return;
-    }
-    try {
-      String override =
-          hasOverrideField
-              ? textValue(document.get(SEMANTIC_TEXT_FIELD))
-              : fetchSemanticTextOverride(opContext, urn);
-      final String resolved;
-      if (override != null && !override.isEmpty()) {
-        resolved = override;
-      } else if (hasBodyField) {
-        String body = textValue(document.get(BODY_TEXT_FIELD));
-        resolved = body != null ? body : "";
-      } else {
-        String body = fetchDocumentBodyText(opContext, urn);
-        resolved = body != null ? body : "";
-      }
-      document.put(RESOLVED_TEXT_SHA256_FIELD, sha256Hex(resolved));
-    } catch (Exception e) {
-      // Explicit null (not absent): index updates merge via doc_as_upsert, so leaving the field
-      // out would preserve a previously stamped value -- a stale stamp could misreport a changed
-      // document as current, while null reads as unknown.
-      log.warn(
-          "Failed to resolve embed text for {}; clearing {} (reads as unknown, never stale)",
-          urn,
-          RESOLVED_TEXT_SHA256_FIELD,
-          e);
-      document.set(
-          RESOLVED_TEXT_SHA256_FIELD,
-          com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.nullNode());
-    }
+    SemanticDocumentProvenance.stampResolvedTextSha256(
+        opContext, urn, entityName, aspectName, document);
   }
 
-  @Nullable
-  private String fetchSemanticTextOverride(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
-    com.linkedin.entity.Aspect aspect =
-        opContext
-            .getAspectRetriever()
-            .getLatestAspectObject(opContext, urn, Constants.SEMANTIC_TEXT_ASPECT_NAME);
-    if (aspect == null) {
-      return null;
-    }
-    Object text = aspect.data().get("text");
-    return text != null ? text.toString() : null;
-  }
-
-  @Nullable
-  private String fetchDocumentBodyText(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
-    com.linkedin.entity.Aspect aspect =
-        opContext
-            .getAspectRetriever()
-            .getLatestAspectObject(opContext, urn, Constants.DOCUMENT_INFO_ASPECT_NAME);
-    if (aspect == null) {
-      return null;
-    }
-    Object contents = aspect.data().get("contents");
-    if (!(contents instanceof DataMap)) {
-      return null;
-    }
-    Object text = ((DataMap) contents).get("text");
-    return text != null ? text.toString() : null;
-  }
-
-  @Nullable
-  private static String textValue(@Nullable JsonNode node) {
-    return node != null && node.isTextual() ? node.asText() : null;
-  }
-
-  /**
-   * SHA-256 hex (lowercase) over the UTF-8 bytes of the text -- byte-for-byte identical to Python's
-   * {@code hashlib.sha256(text.encode("utf-8")).hexdigest()} used by the embedding pipeline, so the
-   * two sides of the staleness comparison agree.
-   */
   @Nonnull
   @VisibleForTesting
   static String sha256Hex(@Nonnull String text) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hash = digest.digest(text.getBytes(StandardCharsets.UTF_8));
-      StringBuilder sb = new StringBuilder(hash.length * 2);
-      for (byte b : hash) {
-        sb.append(Character.forDigit((b >> 4) & 0xF, 16));
-        sb.append(Character.forDigit(b & 0xF, 16));
-      }
-      return sb.toString();
-    } catch (NoSuchAlgorithmException e) {
-      // SHA-256 is a mandatory JCA algorithm; this cannot happen on a compliant JVM.
-      throw new IllegalStateException("SHA-256 unavailable", e);
-    }
+    return SemanticDocumentProvenance.sha256Hex(text);
   }
 
   /**

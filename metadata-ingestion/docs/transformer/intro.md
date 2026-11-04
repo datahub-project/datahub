@@ -30,6 +30,10 @@ DataHub provided universal transformers (for datasets, containers, charts, dashb
 - [Simple Add Ownership](./universal_transformers.md#simple-add-ownership)
 - [Pattern Add Ownership](./universal_transformers.md#pattern-add-ownership)
 
+DataHub provided transformers for metadata attribution:
+
+- [Set Attribution](./set_attribution.md)
+
 DataHub provided transformers for datasets only:
 
 - [Simple Add Dataset ownership](./dataset_transformer.md#simple-add-dataset-ownership)

@@ -89,6 +89,12 @@ For example, below file represents a property `io.acryl.privacy.retentionTime`. 
       description: Use this for datasets that drive monthly reporting but contain pii
     - value: 365
       description: Use this for non-sensitive data that can be retained for longer
+  structured_property_settings:
+    is_hidden: false
+    show_as_asset_badge: true
+    show_in_asset_summary: true
+    show_in_columns_table: false
+    show_in_search_filters: true
 ```
 
 Use the CLI to create your properties:
@@ -1043,7 +1049,7 @@ Example Response:
 ```
 
 This command will attach one of each of the two properties to our test dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`
-Specically, this will set `io.acryl.privacy.retentionTime` as `60.0` and `io.acryl.privacy.retentionTime02` as `bar2`.
+Specifically, this will set `io.acryl.privacy.retentionTime` as `60.0` and `io.acryl.privacy.retentionTime02` as `bar2`.
 
 ```shell
 curl -X 'POST' -v \
@@ -1806,6 +1812,8 @@ Example Response:
 ## Structured Properties - Search & Aggregation
 
 Currently Structured Properties can be used to filter search results. This currently excludes fulltext search.
+
+A numeric property can also change rank. A Search V3 template turns that on by naming the property in `fieldValueScores`. The shipped templates do not set it. Omitted `inputMin`, `inputMax`, and `maxMultiplier` come from the definition's `score`. See [Numeric property scores](../../developers/search-v3-design.md#numeric-property-scores).
 
 The following examples re-use the two previously defined Structured Properties.
 

@@ -172,6 +172,38 @@ class TestDataplexEntriesProcessorDesign:
         )
         assert processor.entry_data[0].dataplex_location == "us-west2"
 
+    def test_container_entry_registered_for_term_association(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        """A BigQuery dataset maps to a Container, which must be reachable by the
+        glossary term-association stage but must stay out of the lineage index --
+        lineage only applies to Dataset entries."""
+        entry = _make_entry(
+            short_name="bigquery-dataset", fqn="bigquery:my-project.my_dataset"
+        )
+
+        processor._build_entities_for_entry(entry, "us")
+
+        assert processor._ctx.entry_name_to_urn[entry.name].startswith(
+            "urn:li:container:"
+        )
+        assert processor.entry_data == []
+
+    def test_dataset_entry_registered_for_term_association(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        entry = _make_entry(
+            short_name="bigquery-table",
+            fqn="bigquery:my-project.my_dataset.my_table",
+        )
+
+        processor._build_entities_for_entry(entry, "us")
+
+        assert processor._ctx.entry_name_to_urn[entry.name] == (
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+            "my-project.my_dataset.my_table,PROD)"
+        )
+
     def test_build_entities_dedups_project_container_across_entries(
         self, processor: DataplexEntriesProcessor
     ) -> None:

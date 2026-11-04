@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -37,9 +37,9 @@ export const useUpdateDocPropagationSettings = () => {
                 },
             });
             refetch();
-            message.success(t('docPropagation.updateSuccess'));
+            toast.success(t('docPropagation.updateSuccess'));
         } catch (e) {
-            message.error(t('docPropagation.updateError'));
+            toast.error(t('docPropagation.updateError'));
             refetch();
         }
     };

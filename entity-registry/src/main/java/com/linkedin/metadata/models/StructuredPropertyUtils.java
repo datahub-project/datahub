@@ -191,6 +191,11 @@ public class StructuredPropertyUtils {
     }
   }
 
+  /** A root structured-property field, including an analyzed subfield such as {@code .text}. */
+  public static boolean isStructuredPropertyField(@Nullable String fieldName) {
+    return fieldName != null && fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX);
+  }
+
   /**
    * Given a structured property input field or facet name, return a valid structured property facet
    * name
@@ -229,7 +234,7 @@ public class StructuredPropertyUtils {
           @Nullable OperationFingerprint opContext,
           @Nonnull String fieldOrFacetName,
           @Nullable AspectRetriever aspectRetriever) {
-    if (fieldOrFacetName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
+    if (isStructuredPropertyField(fieldOrFacetName)) {
       // Coming in from the UI this is structuredProperties.<FQN> + any particular specifier for
       // subfield (.keyword etc)
       String fqn = fieldOrFacetToFQN(fieldOrFacetName);
@@ -424,7 +429,7 @@ public class StructuredPropertyUtils {
 
     if (filter.getCriteria() != null) {
       for (Criterion c : filter.getCriteria()) {
-        if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+        if (isStructuredPropertyField(c.getField())) {
           String fqn = fieldOrFacetToFQN(c.getField());
           fqns.add(fqn);
         }
@@ -434,7 +439,7 @@ public class StructuredPropertyUtils {
     if (filter.getOr() != null) {
       for (ConjunctiveCriterion cc : filter.getOr()) {
         for (Criterion c : cc.getAnd()) {
-          if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+          if (isStructuredPropertyField(c.getField())) {
             String fqn = fieldOrFacetToFQN(c.getField());
             fqns.add(fqn);
           }

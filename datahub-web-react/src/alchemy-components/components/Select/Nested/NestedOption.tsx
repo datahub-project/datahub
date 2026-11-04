@@ -1,10 +1,10 @@
-import { Icon } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { Checkbox } from '@components/components/Checkbox';
+import { Icon } from '@components/components/Icon';
 import { NestedSelectOption } from '@components/components/Select/Nested/types';
 import useNestedSelectOptionChildren from '@components/components/Select/Nested/useNestedSelectOptionChildren';
 import useNestedOption from '@components/components/Select/Nested/useSelectOption';
@@ -133,7 +133,6 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             isLoadingParentChildList && loadingParentUrns.includes(option.value) ? 'wait' : 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: hideParentCheckbox ? 'space-between' : 'normal',
                     }}
                     data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.value}`}
                 >

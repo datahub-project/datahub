@@ -117,5 +117,6 @@ public class GmsGraphQLEngineArgs {
   ObjectStorageClient objectStorageClient;
   SemanticSearchService semanticSearchService;
   SemanticSearchConfiguration semanticSearchConfiguration;
+  boolean entityIndexV3Enabled;
   // any fork specific args should go below this line
 }

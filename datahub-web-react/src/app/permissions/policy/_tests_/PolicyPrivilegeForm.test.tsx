@@ -11,7 +11,7 @@ import { render } from '@utils/test-utils/customRender';
 import { EntityType, PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
 
 // Mock DomainNavigator completely since it uses GraphQL
-vi.mock('@app/domain/nestedDomains/domainNavigator/DomainNavigator', () => ({
+vi.mock('@app/domainV2/nestedDomains/domainNavigator/DomainNavigator', () => ({
     default: () => <div data-testid="mocked-domain-navigator">Domain Navigator</div>,
 }));
 
@@ -30,33 +30,11 @@ vi.mock('@app/useEntityRegistry', async () => {
             getDisplayName: mockGetDisplayName,
             getEntityName: vi.fn().mockReturnValue('Tag'),
         }),
-        useEntityRegistryV2: actual.useEntityRegistryV2,
     };
 });
 
-// Mock the app config
-vi.mock('@app/useAppConfig', () => ({
-    useAppConfig: () => ({
-        config: {
-            policiesConfig: {
-                resourcePrivileges: [
-                    {
-                        resourceType: 'dataset',
-                        resourceTypeDisplayName: 'Dataset',
-                        privileges: [{ type: 'view', displayName: 'View' }],
-                    },
-                ],
-                platformPrivileges: [{ type: 'manage-policies', displayName: 'Manage Policies' }],
-            },
-            featureFlags: {
-                glossaryBasedPoliciesEnabled: true,
-            },
-        },
-    }),
-}));
-
 // Mock recommendation hooks
-vi.mock('@app/shared/recommendation', () => ({
+vi.mock('@app/sharedV2/recommendation', () => ({
     useGetRecommendations: () => ({ recommendedData: [] }),
 }));
 
@@ -122,6 +100,16 @@ describe('PolicyPrivilegeForm', () => {
         setEditState: vi.fn(),
         isEditState: false,
         focusPolicyUrn: undefined,
+        policyPrivileges: {
+            resourcePrivileges: [
+                {
+                    resourceType: 'dataset',
+                    resourceTypeDisplayName: 'Dataset',
+                    privileges: [{ type: 'view', displayName: 'View' }],
+                },
+            ],
+            platformPrivileges: [{ type: 'manage-policies', displayName: 'Manage Policies' }],
+        },
     };
 
     it('renders form with container section for metadata policy type', () => {

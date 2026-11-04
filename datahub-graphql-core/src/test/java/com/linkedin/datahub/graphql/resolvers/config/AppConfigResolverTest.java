@@ -11,8 +11,11 @@ import com.datahub.authorization.DefaultAuthorizerConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AppConfig;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.PersonalSidebarSection;
+import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
 import com.linkedin.datahub.graphql.generated.SearchBarAPI;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.config.*;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
@@ -105,7 +108,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false, // isS3Enabled
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
   }
 
   private void setupFeatureFlags() {
@@ -211,7 +215,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false, // isS3Enabled
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -381,7 +386,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             null, // null settings service
             false,
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -413,7 +419,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -432,6 +439,42 @@ public class AppConfigResolverTest {
     // Verify that the privileges lists are populated (they come from static config)
     assertFalse(result.getPoliciesConfig().getPlatformPrivileges().isEmpty());
     assertFalse(result.getPoliciesConfig().getResourcePrivileges().isEmpty());
+  }
+
+  @Test
+  public void testResourcePrivilegesEntityTypeMapping() throws Exception {
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    // The policy builder narrows resource search to these entity types; a null entityType
+    // drops the resource type from the search.
+    Map<String, EntityType> entityTypeByResourceType = new HashMap<>();
+    for (ResourcePrivileges privileges : result.getPoliciesConfig().getResourcePrivileges()) {
+      entityTypeByResourceType.put(privileges.getResourceType(), privileges.getEntityType());
+    }
+
+    assertEquals(
+        entityTypeByResourceType.get(
+            PoliciesConfig.STRUCTURED_PROPERTIES_PRIVILEGES.getResourceType()),
+        EntityType.STRUCTURED_PROPERTY);
+    assertEquals(
+        entityTypeByResourceType.get(
+            PoliciesConfig.DATA_PROCESS_INSTANCE_PRIVILEGES.getResourceType()),
+        EntityType.DATA_PROCESS_INSTANCE);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.NOTEBOOK_PRIVILEGES.getResourceType()),
+        EntityType.NOTEBOOK);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.DATA_PRODUCT_PRIVILEGES.getResourceType()),
+        EntityType.DATA_PRODUCT);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.VERSION_SET_PRIVILEGES.getResourceType()),
+        EntityType.VERSION_SET);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.INGESTION_SOURCE_PRIVILEGES.getResourceType()),
+        EntityType.INGESTION_SOURCE);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.APPLICATION_PRIVILEGES.getResourceType()),
+        EntityType.APPLICATION);
   }
 
   @Test
@@ -458,7 +501,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             true, // isS3Enabled
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -492,7 +536,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             true, // isS3Enabled
-            mockSemanticSearchConfiguration);
+            mockSemanticSearchConfiguration,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -569,7 +614,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            semanticSearchConfig);
+            semanticSearchConfig,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -637,7 +683,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            semanticSearchConfig);
+            semanticSearchConfig,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -698,7 +745,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            semanticSearchConfig);
+            semanticSearchConfig,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -772,7 +820,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            semanticSearchConfig);
+            semanticSearchConfig,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -806,7 +855,8 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             false,
-            null);
+            null,
+            false);
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -841,7 +891,8 @@ public class AppConfigResolverTest {
         mockChromeExtensionConfiguration,
         mockSettingsService,
         false,
-        semanticSearchConfig);
+        semanticSearchConfig,
+        false);
   }
 
   /**
@@ -1096,7 +1147,8 @@ public class AppConfigResolverTest {
               mockChromeExtensionConfiguration,
               mockSettingsService,
               false,
-              semanticSearchConfig);
+              semanticSearchConfig,
+              false);
 
       AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -1107,5 +1159,43 @@ public class AppConfigResolverTest {
           expectedModelEmbeddingKey,
           "Model embedding key derivation failed for model ID: " + modelId);
     }
+  }
+
+  @Test
+  public void testEntityIndexV3EnabledExposedOnAppConfig() throws Exception {
+    resolver =
+        new AppConfigResolver(
+            mockGitVersion,
+            true,
+            mockIngestionConfiguration,
+            mockAuthenticationConfiguration,
+            mockAuthorizationConfiguration,
+            true,
+            mockVisualConfiguration,
+            mockTelemetryConfiguration,
+            mockTestsConfiguration,
+            mockDatahubConfiguration,
+            mockViewsConfiguration,
+            mockSearchBarConfiguration,
+            mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
+            mockHomePageConfiguration,
+            mockFeatureFlags,
+            mockChromeExtensionConfiguration,
+            mockSettingsService,
+            false,
+            mockSemanticSearchConfiguration,
+            true);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+    assertNotNull(result.getEntityIndexV3());
+    assertTrue(Boolean.TRUE.equals(result.getEntityIndexV3().getEnabled()));
+  }
+
+  @Test
+  public void testEntityIndexV3DefaultsDisabled() throws Exception {
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+    assertNotNull(result.getEntityIndexV3());
+    assertFalse(Boolean.TRUE.equals(result.getEntityIndexV3().getEnabled()));
   }
 }

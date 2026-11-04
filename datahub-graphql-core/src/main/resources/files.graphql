@@ -160,7 +160,8 @@ input CreateDataHubFileInput {
   id: String!
 
   """
-  The key for where this file is stored inside of the given bucket
+  Ignored. The server stores the key the file was uploaded to, built from the configured asset
+  path prefix, the id and the original filename. Kept for backwards compatibility.
   """
   storageKey: String!
 

@@ -60,6 +60,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# A serialized semanticContent aspect larger than this is refused by GMS (RestLi
+# parse cap) and, even if that were raised, exceeds the Kafka producer max request
+# size (5MB) — which splits the SQL store and search index. Keep the assembled
+# aspect below the 5MB floor with headroom. max_chunks_per_document is the primary
+# bound; this is the backstop for a document whose per-chunk text is pathologically
+# large.
+MAX_SERIALIZED_ASPECT_BYTES = 4 * 1024 * 1024
+
 
 class SkipMarkerReadError(RuntimeError):
     """Raised when the existing semanticContent aspect cannot be read while building a
@@ -109,6 +117,10 @@ class DocumentChunkingReport(SourceReport):
     num_embedding_failures: int = 0
     embedding_failures: list[str] = field(default_factory=list)
 
+    # Oversized-aspect protection
+    num_documents_truncated_oversized: int = 0
+    num_documents_dropped_oversized: int = 0
+
     def report_document_fetched(self) -> None:
         self.num_documents_fetched += 1
 
@@ -151,6 +163,7 @@ class DocumentChunkingSource(Source):
         config: DocumentChunkingSourceConfig,
         standalone: bool = True,
         graph: Optional[DataHubGraph] = None,
+        fail_on_config_lookup_error: bool = False,
     ):
         """Initialize DocumentChunkingSource.
 
@@ -160,10 +173,16 @@ class DocumentChunkingSource(Source):
             standalone: If True, runs as a standalone source (fetches docs from DataHub).
                        If False, runs as a sub-component (called inline by other sources).
             graph: Optional DataHubGraph for inline mode (parent's graph connection).
+            fail_on_config_lookup_error: Raise instead of skipping embedding when the
+                server's embedding config cannot be loaded.
         """
         super().__init__(ctx)
         self.config = config
         self.report = DocumentChunkingReport()
+        # URN -> "truncated" | "dropped": records how each oversized document was already
+        # counted, so a document that trips both the pre-embed count cap and the
+        # post-assembly byte backstop is reported once, with the terminal outcome.
+        self._oversized_counted: dict[str, str] = {}
         self.standalone = standalone
 
         # Initialize DataHub client
@@ -185,7 +204,9 @@ class DocumentChunkingSource(Source):
         self.embedding_model: Optional[str] = None
         self._provider: Optional[EmbeddingProvider] = None
         self.config.embedding = DocumentChunkingSource.resolve_embedding_config(
-            self.config.embedding, self.graph
+            self.config.embedding,
+            self.graph,
+            fail_on_lookup_error=fail_on_config_lookup_error,
         )
 
         # At this point, embedding config should be fully resolved
@@ -367,6 +388,11 @@ class DocumentChunkingSource(Source):
             logger.warning(f"No chunks created for document {document_urn}")
             yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
             return
+
+        # Bound the chunk count so the assembled aspect stays under the Kafka size
+        # floor. Only the kept chunks are embedded below, preserving chunk/vector
+        # alignment.
+        chunks = self._cap_chunks(chunks, document_urn)
 
         # All-blank chunk text is deterministic for this document: _generate_embeddings
         # would filter every chunk before calling the provider, so treat it as a
@@ -707,6 +733,10 @@ class DocumentChunkingSource(Source):
                 self.report.report_document_skipped()
                 return True
 
+            # Bound the chunk count so the assembled aspect stays under the Kafka
+            # size floor (only the kept chunks are embedded below).
+            chunks = self._cap_chunks(chunks, doc["urn"])
+
             # Generate embeddings (only if configured)
             embeddings = []
             embed_failed = False
@@ -898,6 +928,74 @@ class DocumentChunkingSource(Source):
             logger.error(f"Failed to chunk elements: {e}", exc_info=True)
             raise
 
+    def _count_oversized(self, document_urn: str, *, dropped: bool) -> None:
+        """Count a document as oversized once across the two chokepoints.
+
+        A document can trip both the pre-embed count cap (truncated) and the
+        post-assembly byte backstop; counting it at each would report one document as
+        two. Drop is the terminal outcome: a document first truncated at the count cap
+        and then dropped by the byte guard is reclassified from truncated to dropped so
+        the counters stay exact.
+        """
+        prior = self._oversized_counted.get(document_urn)
+        if prior == "dropped":
+            return
+        if dropped:
+            if prior == "truncated":
+                self.report.num_documents_truncated_oversized -= 1
+            self.report.num_documents_dropped_oversized += 1
+            self._oversized_counted[document_urn] = "dropped"
+        elif prior is None:
+            self.report.num_documents_truncated_oversized += 1
+            self._oversized_counted[document_urn] = "truncated"
+
+    def _cap_chunks(
+        self, chunks: list[dict[str, Any]], document_urn: str
+    ) -> list[dict[str, Any]]:
+        """Bound a document's embeddable-chunk count so its semanticContent aspect stays
+        under the Kafka/GMS size floor.
+
+        The cap counts chunks that carry embeddable text, because only those become
+        vectors in the aspect. Counting embeddable chunks (rather than raw chunks) keeps
+        leading blank chunks from consuming the budget and, critically, keeps a document
+        whose text begins past the first max_chunks raw chunks from being capped down to
+        an all-blank prefix and misclassified as non-indexable. Truncation is a warning,
+        not a failure: an over-long document is embedded partially rather than failing the
+        run or emitting an aspect large enough to be rejected by GMS and poison the async
+        sink batch. The kept chunks are a leading prefix (blanks interleaved with the kept
+        embeddable chunks are retained so character offsets stay correct), so chunk/vector
+        alignment is preserved.
+        """
+        max_chunks = self.config.chunking.max_chunks_per_document
+        embeddable_seen = 0
+        cutoff = len(chunks)
+        for i, chunk in enumerate(chunks):
+            if _has_embeddable_text(chunk):
+                embeddable_seen += 1
+                if embeddable_seen == max_chunks:
+                    cutoff = i + 1
+                    break
+        # Only real truncation counts: if the dropped tail has no embeddable text
+        # (e.g. the Nth embeddable chunk is followed only by trailing blanks), nothing
+        # that would have been embedded is lost, so emit unchanged without a warning.
+        if cutoff >= len(chunks) or not any(
+            _has_embeddable_text(chunk) for chunk in chunks[cutoff:]
+        ):
+            return chunks
+
+        self._count_oversized(document_urn, dropped=False)
+        self.report.warning(
+            title="Document truncated to chunk cap",
+            message="Document produced more embeddable chunks than "
+            "max_chunks_per_document; kept the first N and dropped the rest so the "
+            "semanticContent aspect stays under the Kafka producer size limit. Raise "
+            "chunking.max_chunks_per_document (with force_reprocess to re-embed an "
+            "already-processed document) only if the resulting aspect still fits.",
+            context=f"{document_urn}: {len(chunks)} raw chunks -> capped at {max_chunks} embeddable",
+            log=False,
+        )
+        return chunks[:cutoff]
+
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
         """Generate embeddings via the configured provider.
 
@@ -1075,6 +1173,57 @@ class DocumentChunkingSource(Source):
             embeddings={model_key: embedding_model_data}
         )
 
+        # Backstop after chunk capping. The pre-embed chunk cap cannot know the
+        # embedding dimension, so a high-dimensional model (e.g. a 3072-dim provider)
+        # can still assemble an aspect over the size floor at the default cap, as can a
+        # document whose per-chunk text is pathologically large. Truncate to the largest
+        # chunk prefix that serializes under the ceiling and emit that, rather than emit
+        # a poison MCP that GMS rejects (failing the whole async sink batch) or drop the
+        # whole document. Binary search because each serialize is multi-MB. Dropping from
+        # the tail keeps the kept chunks' character offsets and vectors aligned.
+        serialized_bytes = len(json.dumps(semantic_content.to_obj()))
+        if serialized_bytes > MAX_SERIALIZED_ASPECT_BYTES:
+            lo, hi = 0, len(embedding_chunks)
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                embedding_model_data.chunks = embedding_chunks[:mid]
+                embedding_model_data.totalChunks = mid
+                if (
+                    len(json.dumps(semantic_content.to_obj()))
+                    <= MAX_SERIALIZED_ASPECT_BYTES
+                ):
+                    lo = mid
+                else:
+                    hi = mid - 1
+            if lo == 0:
+                # Even a single chunk exceeds the ceiling: nothing safe to emit.
+                self._count_oversized(document_urn, dropped=True)
+                self.report.warning(
+                    title="Oversized semanticContent aspect dropped",
+                    message="A single embedding chunk exceeds the safe aspect size "
+                    "ceiling, so the semanticContent aspect was not emitted (an oversized "
+                    "aspect is rejected by GMS and poisons the async sink batch). Lower "
+                    "chunking.max_characters (with force_reprocess to re-embed an "
+                    "already-processed document) for this source.",
+                    context=f"{document_urn}: {serialized_bytes} bytes > {MAX_SERIALIZED_ASPECT_BYTES}",
+                    log=False,
+                )
+                return
+            embedding_model_data.chunks = embedding_chunks[:lo]
+            embedding_model_data.totalChunks = lo
+            self._count_oversized(document_urn, dropped=False)
+            self.report.warning(
+                title="semanticContent aspect truncated to size ceiling",
+                message="Assembled semanticContent exceeded the safe size ceiling after "
+                "chunk capping (a high embedding dimension inflates each chunk), so it was "
+                "truncated to the chunks that fit before emitting. Lower "
+                "chunking.max_chunks_per_document or chunking.max_characters (with "
+                "force_reprocess to re-embed an already-processed document), or reduce the "
+                "embedding dimension, to change how much of the document is embedded.",
+                context=f"{document_urn}: {serialized_bytes} bytes > {MAX_SERIALIZED_ASPECT_BYTES}, kept {lo}/{len(embedding_chunks)} chunks",
+                log=False,
+            )
+
         # Create MetadataWorkUnit
         mcp = MetadataChangeProposalWrapper(
             entityUrn=document_urn,
@@ -1098,6 +1247,7 @@ class DocumentChunkingSource(Source):
     def resolve_embedding_config(
         embedding_config: "EmbeddingConfig",
         graph: Optional[DataHubGraph] = None,
+        fail_on_lookup_error: bool = False,
     ) -> "EmbeddingConfig":
         """Resolve embedding configuration using server-first, then defaults logic.
 
@@ -1112,12 +1262,16 @@ class DocumentChunkingSource(Source):
         Args:
             embedding_config: Initial embedding configuration from recipe
             graph: Optional DataHubGraph for querying server config
+            fail_on_lookup_error: With no local config, raise when the server config
+                cannot be loaded instead of skipping embedding. A server that answers
+                with semantic search disabled still skips embedding.
 
         Returns:
             Resolved EmbeddingConfig ready for use
 
         Raises:
-            ValueError: If local config validation fails (unless allow_local_embedding_config=true)
+            ValueError: If local config validation fails (unless allow_local_embedding_config=true),
+                or the server config cannot be loaded and fail_on_lookup_error is set
         """
         from datahub.ingestion.source.unstructured.chunking_config import (
             EmbeddingConfig,
@@ -1230,6 +1384,12 @@ class DocumentChunkingSource(Source):
                         f"\n  Model Embedding Key: {server_config.embedding_config.model_embedding_key}"
                         f"\n  AWS Region: {server_config.embedding_config.aws_region or 'N/A'}"
                     )
+                    if server_config.entity_index_v3_enabled:
+                        logger.info(
+                            "Search V3 is enabled on the server; GMS will also index "
+                            "document embeddings on documentindex_v3 (MCP only — this "
+                            "source does not write OpenSearch)."
+                        )
                     return resolved
                 elif server_config and not server_config.enabled:
                     # Server is reachable and has explicitly disabled semantic search.
@@ -1247,6 +1407,12 @@ class DocumentChunkingSource(Source):
                     return EmbeddingConfig()
 
             except Exception as e:
+                if fail_on_lookup_error:
+                    raise ValueError(
+                        "Could not load the embedding configuration from the DataHub "
+                        f"server: {e}. Stopping before any document is processed, so "
+                        "saved document hashes are left unchanged."
+                    ) from e
                 logger.warning(
                     f"Failed to load embedding config from server: {e}. Skipping embedding generation."
                 )

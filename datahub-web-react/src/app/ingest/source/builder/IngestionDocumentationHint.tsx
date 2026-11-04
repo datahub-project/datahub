@@ -1,10 +1,10 @@
-import { CloseOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 
 const Container = styled.div`
@@ -32,7 +32,7 @@ const Description = styled.div`
     max-width: 90%;
 `;
 
-const StyledCloseOutlined = styled(CloseOutlined)`
+const StyledCloseOutlined = styled(X)`
     color: ${ANTD_GRAY[6]};
 `;
 
@@ -48,7 +48,7 @@ export const IngestionDocumentationHint = ({ sourceConfigs, onHide }: Props) => 
             <Header>
                 <Title>Let&apos;s get connected! 🎉</Title>
                 <Tooltip showArrow={false} title="Hide">
-                    <Button type="text" icon={<StyledCloseOutlined />} onClick={onHide} />
+                    <Button type="text" icon={<StyledCloseOutlined />} onClick={onHide} aria-label="Hide" />
                 </Tooltip>
             </Header>
             <Description>

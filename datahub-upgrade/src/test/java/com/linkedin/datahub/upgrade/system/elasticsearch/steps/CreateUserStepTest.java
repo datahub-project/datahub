@@ -6,12 +6,19 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexRoleUtils;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.ComponentClusterConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.function.Function;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -41,6 +48,7 @@ public class CreateUserStepTest {
 
     // Setup common mocks
     Mockito.when(esComponents.getSearchClient()).thenReturn(searchClient);
+    Mockito.when(esComponents.getConfig()).thenReturn(elasticSearch);
     Mockito.when(searchClient.getEngineType()).thenReturn(searchEngineType);
     Mockito.when(configurationProvider.getElasticSearch()).thenReturn(elasticSearch);
     Mockito.when(elasticSearch.getIndex()).thenReturn(index);
@@ -520,5 +528,214 @@ public class CreateUserStepTest {
     Assert.assertNotNull(result);
     Assert.assertEquals(result.stepId(), "CreateElasticsearchUserStep");
     Assert.assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testExecutable_CreatesUserOnEachUniqueCluster() throws Exception {
+    System.setProperty("CREATE_USER_ES", "true");
+    System.setProperty("CREATE_USER_ES_USERNAME", "testuser");
+    System.setProperty("CREATE_USER_ES_PASSWORD", "testpass");
+    Mockito.when(index.getFinalPrefix()).thenReturn("test_");
+    Mockito.when(esComponents.getIndexConvention()).thenReturn(Mockito.mock(IndexConvention.class));
+
+    SearchClientShim<?> primaryClient = Mockito.mock(SearchClientShim.class);
+    SearchClientShim<?> secondaryClient = Mockito.mock(SearchClientShim.class);
+    SearchClientShim.SearchEngineType engineType =
+        Mockito.mock(SearchClientShim.SearchEngineType.class);
+    Mockito.when(engineType.isOpenSearch()).thenReturn(false);
+    Mockito.when(primaryClient.getEngineType()).thenReturn(engineType);
+    Mockito.when(secondaryClient.getEngineType()).thenReturn(engineType);
+
+    CreateUserStep splitStep =
+        new CreateUserStep(
+            esComponents,
+            configurationProvider,
+            registryWithClients(primaryClient, secondaryClient));
+
+    try (MockedStatic<IndexRoleUtils> indexRoleUtilsMock =
+        Mockito.mockStatic(IndexRoleUtils.class)) {
+      indexRoleUtilsMock
+          .when(
+              () ->
+                  IndexRoleUtils.createElasticsearchCloudUser(
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
+                      Mockito.anyString(),
+                      Mockito.anyString(),
+                      Mockito.anyString(),
+                      Mockito.anyString()))
+          .thenAnswer(invocation -> null);
+
+      UpgradeStepResult result = splitStep.executable().apply(upgradeContext);
+
+      Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+      indexRoleUtilsMock.verify(
+          () ->
+              IndexRoleUtils.createElasticsearchCloudUser(
+                  Mockito.any(OperationContext.class),
+                  Mockito.any(BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
+                  Mockito.anyString(),
+                  Mockito.anyString(),
+                  Mockito.anyString(),
+                  Mockito.anyString()),
+          Mockito.times(2));
+    }
+  }
+
+  @Test
+  public void testExecutable_DedupesAliasedClustersSharingAClient() throws Exception {
+    System.setProperty("CREATE_USER_ES", "true");
+    System.setProperty("CREATE_USER_ES_USERNAME", "testuser");
+    System.setProperty("CREATE_USER_ES_PASSWORD", "testpass");
+    Mockito.when(index.getFinalPrefix()).thenReturn("test_");
+    Mockito.when(esComponents.getIndexConvention()).thenReturn(Mockito.mock(IndexConvention.class));
+
+    SearchClientShim<?> sharedClient = Mockito.mock(SearchClientShim.class);
+    SearchClientShim.SearchEngineType engineType =
+        Mockito.mock(SearchClientShim.SearchEngineType.class);
+    Mockito.when(engineType.isOpenSearch()).thenReturn(false);
+    Mockito.when(sharedClient.getEngineType()).thenReturn(engineType);
+
+    CreateUserStep splitStep =
+        new CreateUserStep(
+            esComponents, configurationProvider, registryWithClients(sharedClient, sharedClient));
+
+    try (MockedStatic<IndexRoleUtils> indexRoleUtilsMock =
+        Mockito.mockStatic(IndexRoleUtils.class)) {
+      indexRoleUtilsMock
+          .when(
+              () ->
+                  IndexRoleUtils.createElasticsearchCloudUser(
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
+                      Mockito.anyString(),
+                      Mockito.anyString(),
+                      Mockito.anyString(),
+                      Mockito.anyString()))
+          .thenAnswer(invocation -> null);
+
+      UpgradeStepResult result = splitStep.executable().apply(upgradeContext);
+
+      Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+      indexRoleUtilsMock.verify(
+          () ->
+              IndexRoleUtils.createElasticsearchCloudUser(
+                  Mockito.any(OperationContext.class),
+                  Mockito.any(BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
+                  Mockito.anyString(),
+                  Mockito.anyString(),
+                  Mockito.anyString(),
+                  Mockito.anyString()),
+          Mockito.times(1));
+    }
+  }
+
+  @Test
+  public void testExecutable_UsesEachClusterEffectivePrefix() throws Exception {
+    System.setProperty("CREATE_USER_ES", "true");
+    System.setProperty("CREATE_USER_ES_USERNAME", "testuser");
+    System.setProperty("CREATE_USER_ES_PASSWORD", "testpass");
+    Mockito.when(esComponents.getIndexConvention()).thenReturn(Mockito.mock(IndexConvention.class));
+
+    SearchClientShim<?> primaryClient = Mockito.mock(SearchClientShim.class);
+    SearchClientShim<?> secondaryClient = Mockito.mock(SearchClientShim.class);
+    SearchClientShim.SearchEngineType engineType =
+        Mockito.mock(SearchClientShim.SearchEngineType.class);
+    Mockito.when(engineType.isOpenSearch()).thenReturn(false);
+    Mockito.when(primaryClient.getEngineType()).thenReturn(engineType);
+    Mockito.when(secondaryClient.getEngineType()).thenReturn(engineType);
+
+    CreateUserStep splitStep =
+        new CreateUserStep(
+            esComponents,
+            configurationProvider,
+            registryWithClients(
+                primaryClient, secondaryClient, indexConfig("shared_"), indexConfig("secondary_")));
+
+    try (MockedStatic<IndexRoleUtils> indexRoleUtilsMock =
+        Mockito.mockStatic(IndexRoleUtils.class)) {
+      indexRoleUtilsMock
+          .when(
+              () ->
+                  IndexRoleUtils.createElasticsearchCloudUser(
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
+                      Mockito.anyString(),
+                      Mockito.anyString(),
+                      Mockito.anyString(),
+                      Mockito.anyString()))
+          .thenAnswer(invocation -> null);
+
+      UpgradeStepResult result = splitStep.executable().apply(upgradeContext);
+
+      Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+      indexRoleUtilsMock.verify(
+          () ->
+              IndexRoleUtils.createElasticsearchCloudUser(
+                  Mockito.any(OperationContext.class),
+                  Mockito.any(BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
+                  Mockito.eq("shared_access"),
+                  Mockito.anyString(),
+                  Mockito.anyString(),
+                  Mockito.eq("shared_")));
+      indexRoleUtilsMock.verify(
+          () ->
+              IndexRoleUtils.createElasticsearchCloudUser(
+                  Mockito.any(OperationContext.class),
+                  Mockito.any(BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
+                  Mockito.eq("secondary_access"),
+                  Mockito.anyString(),
+                  Mockito.anyString(),
+                  Mockito.eq("secondary_")));
+    }
+  }
+
+  private static SearchClusterRegistry registryWithClients(
+      SearchClientShim<?> primaryClient, SearchClientShim<?> secondaryClient) {
+    return registryWithClients(
+        primaryClient, secondaryClient, indexConfig("test_"), indexConfig("test_"));
+  }
+
+  private static SearchClusterRegistry registryWithClients(
+      SearchClientShim<?> primaryClient,
+      SearchClientShim<?> secondaryClient,
+      IndexConfiguration primaryIndex,
+      IndexConfiguration secondaryIndex) {
+    ElasticSearchConfiguration routing = Mockito.mock(ElasticSearchConfiguration.class);
+    Mockito.when(routing.getComponentCluster())
+        .thenReturn(ComponentClusterConfiguration.builder().build());
+    Map<String, SearchClusterRegistry.ClusterConnection> connections = new LinkedHashMap<>();
+    connections.put(
+        "primary",
+        new SearchClusterRegistry.ClusterConnection(
+            "primary",
+            elasticSearchConfig(primaryIndex),
+            primaryClient,
+            Mockito.mock(ESBulkProcessor.class),
+            Mockito.mock(ESIndexBuilder.class)));
+    connections.put(
+        "secondary",
+        new SearchClusterRegistry.ClusterConnection(
+            "secondary",
+            elasticSearchConfig(secondaryIndex),
+            secondaryClient,
+            Mockito.mock(ESBulkProcessor.class),
+            Mockito.mock(ESIndexBuilder.class)));
+    return new SearchClusterRegistry(routing, connections);
+  }
+
+  private static IndexConfiguration indexConfig(String finalPrefix) {
+    IndexConfiguration indexConfig = Mockito.mock(IndexConfiguration.class);
+    Mockito.when(indexConfig.getFinalPrefix()).thenReturn(finalPrefix);
+    return indexConfig;
+  }
+
+  private static ElasticSearchConfiguration elasticSearchConfig(IndexConfiguration indexConfig) {
+    ElasticSearchConfiguration config = Mockito.mock(ElasticSearchConfiguration.class);
+    Mockito.when(config.getIndex()).thenReturn(indexConfig);
+    return config;
   }
 }

@@ -328,6 +328,23 @@ public class TrackingServiceTest {
   }
 
   @Test
+  public void testSanitizeEventKeepsLanguage() throws JSONException {
+    // The allowlist drops anything unlisted, so locale fields reaching Mixpanel depend on being
+    // registered there — not merely on the frontend sending them.
+    final JSONObject event = new JSONObject();
+    event.put(EVENT_TYPE_FIELD, EVENT_TYPE);
+    event.put("language", "pt-BR");
+    event.put("appLanguage", "pt-BR");
+
+    final JSONObject sanitizedEvent = _trackingService.sanitizeEvent(event);
+    assertNotNull(sanitizedEvent);
+    assertTrue(sanitizedEvent.has("language"));
+    assertEquals(sanitizedEvent.get("language"), "pt-BR");
+    assertTrue(sanitizedEvent.has("appLanguage"));
+    assertEquals(sanitizedEvent.get("appLanguage"), "pt-BR");
+  }
+
+  @Test
   public void testTrackEventWithNestedEventTimestamp() throws IOException {
     // Mock the secret service
     when(_secretService.hashString(eq(ACTOR_URN_STRING))).thenReturn(HASHED_ACTOR_URN_STRING);

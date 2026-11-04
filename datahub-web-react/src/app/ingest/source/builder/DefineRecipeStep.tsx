@@ -6,9 +6,9 @@ import RecipeBuilder from '@app/ingest/source/builder/RecipeBuilder';
 import { getRecipeJson } from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { CONNECTORS_WITH_FORM } from '@app/ingest/source/builder/RecipeForm/constants';
 import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
-import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
 import { StepProps } from '@app/ingest/source/builder/types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingest/source/utils';
+import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { Button } from '@src/alchemy-components';
 
 const LOOKML_DOC_LINK = 'https://docs.datahub.com/docs/generated/ingestion/sources/looker#module-lookml';

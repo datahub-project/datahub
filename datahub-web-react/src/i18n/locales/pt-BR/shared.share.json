@@ -1,9 +1,14 @@
 {
+    "copyLink.success": "Link copiado",
     "copyLink.tooltip": "Copiar um link compartilhável para esta Entity.",
     "copyName.label": "Copiar Nome",
+    "copyName.success": "Nome copiado",
     "copyName.tooltip": "Copiar o nome completo do {{type}}",
     "copyUrn.label": "Copiar URN",
+    "copyUrn.success": "URN copiada",
     "copyUrn.tooltip": "Copiar o URN para este {{type}}. Um URN identifica exclusivamente uma Entity no DataHub.",
+    "email.body": "Confira este(a) {{displayType}} no DataHub: {{linkText}}. Urn: {{urn}}",
     "email.label": "E-mail",
+    "email.subject": "{{displayName}} | {{displayType}}",
     "email.tooltip": "Compartilhar este {{type}} por e-mail"
 }

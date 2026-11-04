@@ -40,9 +40,7 @@ public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<B
         () -> {
           try {
             _logger.debug(
-                String.format(
-                    "Fetch browse paths. entity type: %s, urn: %s",
-                    input.getType(), input.getUrn()));
+                "Fetch browse paths. entity type: {}, urn: {}", input.getType(), input.getUrn());
             if (_typeToEntity.containsKey(input.getType())) {
               return _typeToEntity
                   .get(input.getType())

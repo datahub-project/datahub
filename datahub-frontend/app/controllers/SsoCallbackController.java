@@ -51,6 +51,7 @@ public class SsoCallbackController extends CallbackController {
   private final boolean authVerboseLogging;
   private final String accessDeniedMessage;
   private final String accessDeniedRedirectUrl;
+  private final ProxyAdmission proxyAdmission;
 
   private static final String DEFAULT_REQUIRED_GROUPS_DENIED_MESSAGE =
       "Access Denied: You do not belong to the required groups to access this application. Please contact your administrator.";
@@ -62,7 +63,9 @@ public class SsoCallbackController extends CallbackController {
       @Nonnull SystemEntityClient entityClient,
       @Nonnull AuthServiceClient authClient,
       @Nonnull Config config,
-      @Nonnull com.typesafe.config.Config configs) {
+      @Nonnull com.typesafe.config.Config configs,
+      @Nonnull ProxyAdmission proxyAdmission) {
+    this.proxyAdmission = proxyAdmission;
     this.ssoManager = ssoManager;
     this.config = config;
     this.configs = configs;
@@ -177,30 +180,36 @@ public class SsoCallbackController extends CallbackController {
       log.debug(
           "Handling SSO callback. Protocol: {}",
           ssoManager.getSsoProvider().protocol().getCommonName());
-      return callback(request)
-          .handle(
-              (res, e) -> {
-                if (e != null) {
-                  String basePath =
-                      BasePathUtils.normalizeBasePath(configs.getString("datahub.basePath"));
-                  String loginUrl = BasePathUtils.addBasePath("/login", basePath);
-                  if (e.getCause() instanceof RequiredGroupsException) {
-                    log.warn("User missing required groups.");
-                    return requiredGroupsDenialResult(
-                        resolveAccessDeniedRedirectUrl(), resolveAccessDeniedMessage(), loginUrl);
-                  }
-                  return Results.redirect(
-                          String.format(
-                              "%s?error_msg=%s",
-                              loginUrl,
-                              URLEncoder.encode(
-                                  "Failed to sign in using Single Sign-On provider. Please try again, or contact your DataHub Administrator.",
-                                  StandardCharsets.UTF_8)))
-                      .discardingCookie("actor")
-                      .withNewSession();
-                }
-                return res;
-              });
+      return ProxyAdmission.admitAsync(
+          proxyAdmission,
+          () ->
+              callback(request)
+                  .handle(
+                      (res, e) -> {
+                        if (e != null) {
+                          String basePath =
+                              BasePathUtils.normalizeBasePath(
+                                  configs.getString("datahub.basePath"));
+                          String loginUrl = BasePathUtils.addBasePath("/login", basePath);
+                          if (e.getCause() instanceof RequiredGroupsException) {
+                            log.warn("User missing required groups.");
+                            return requiredGroupsDenialResult(
+                                resolveAccessDeniedRedirectUrl(),
+                                resolveAccessDeniedMessage(),
+                                loginUrl);
+                          }
+                          return Results.redirect(
+                                  String.format(
+                                      "%s?error_msg=%s",
+                                      loginUrl,
+                                      URLEncoder.encode(
+                                          "Failed to sign in using Single Sign-On provider. Please try again, or contact your DataHub Administrator.",
+                                          StandardCharsets.UTF_8)))
+                              .discardingCookie("actor")
+                              .withNewSession();
+                        }
+                        return res;
+                      }));
     }
     return CompletableFuture.completedFuture(
         Results.internalServerError(

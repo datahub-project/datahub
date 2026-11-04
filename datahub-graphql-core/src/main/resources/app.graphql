@@ -151,6 +151,11 @@ type PlatformPrivileges {
   manageDocuments: Boolean!
 
   """
+  Whether the user should be able to create Documents (Knowledge Articles)
+  """
+  createDocuments: Boolean!
+
+  """
   Whether the user is able to manage user credentials
   """
   manageUserCredentials: Boolean!
@@ -895,9 +900,19 @@ type FeatureFlagsConfig {
   glossaryBasedPoliciesEnabled: Boolean!
 
   """
+  Whether structured properties are enabled as criteria in policies.
+  """
+  structuredPropertiesInPoliciesEnabled: Boolean!
+
+  """
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!
+
+  """
+  If enabled, document body edits stay local until the user saves instead of auto-saving.
+  """
+  documentExplicitSaveEnabled: Boolean!
 
   """
   If enabled, hides lineage information in search result cards

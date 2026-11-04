@@ -23,6 +23,8 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
@@ -88,6 +90,24 @@ public class TestOperationContexts {
       throw new RuntimeException(e);
     }
     return entityRegistry;
+  }
+
+  /**
+   * Stamps a single-cluster {@link SearchClusterAccess} onto an existing context so DAO tests that
+   * already inject a client keep working without a live registry.
+   */
+  @Nonnull
+  public static OperationContext withSearchClusterAccess(
+      @Nonnull OperationContext opContext, @Nullable SearchClusterAccess access) {
+    return opContext.toBuilder()
+        .searchContext(opContext.getSearchContext().toBuilder().searchClusterAccess(access).build())
+        .build(opContext.getSessionActorContext(), false);
+  }
+
+  @Nonnull
+  public static OperationContext withFixedSearchClient(
+      @Nonnull OperationContext opContext, @Nonnull SearchClientShim<?> client) {
+    return withSearchClusterAccess(opContext, SearchClusterAccess.fixed(client));
   }
 
   public static RetrieverContext emptyActiveUsersRetrieverContext(

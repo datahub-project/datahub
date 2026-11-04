@@ -19,7 +19,7 @@ from tests.integration.metabase.metabase_setup_utils import (  # type: ignore[im
     verify_metabase_api_ready,
 )
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
@@ -715,8 +715,6 @@ def loaded_metabase(docker_compose_runner, metabase_credentials):
         logger.info("Metabase test data setup complete")
 
         yield docker_services
-
-    cleanup_image("metabase/metabase")
 
 
 @time_machine.travel(DOCKER_FROZEN_TIME)

@@ -125,6 +125,7 @@ dependencies {
   // testcontainers for integration tests
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.testContainersElasticsearch
+  testImplementation externalDependency.testContainersOpenSearch
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
 
@@ -488,4 +489,30 @@ docker {
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)
   }
+}
+
+/**
+ * Search V3 migration tests. Start OpenSearch containers and run the zero-downtime cutover end to
+ * end (Phase 1, fill, catch-up, read flip, later mapping-change and stale-id deploys) with V2 and
+ * V3 on separate clusters and on one cluster, plus a V3-only fresh install. Opt-in: the default
+ * `test` task sees the classes skip themselves unless SEARCH_V3_MIGRATION_TEST=true, which this task
+ * sets. Not wired into CI on purpose; the cost is only worth paying while the migration is being
+ * worked on.
+ */
+tasks.register('searchV3MigrationTest', Test) {
+  group = 'verification'
+  description = 'Runs the Search V3 migration tests against OpenSearch containers.'
+  useTestNG()
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+  environment 'SEARCH_V3_MIGRATION_TEST', 'true'
+  filter {
+    includeTestsMatching 'com.linkedin.datahub.upgrade.system.elasticsearch.migration.*'
+  }
+  testLogging {
+    events 'passed', 'skipped', 'failed'
+    exceptionFormat = 'full'
+    showStandardStreams = true
+  }
+  outputs.upToDateWhen { false }
 }

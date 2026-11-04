@@ -87,6 +87,13 @@ export const CodeBlockHeader = styled.div(({ theme }) => ({
     borderBottom: `1px solid ${theme.colors.border}`,
 }));
 
+/** Footer slot below the code body — mirrors header horizontal padding (12px). */
+export const CodeBlockFooter = styled.div(({ theme }) => ({
+    padding: `${spacing.xsm} ${spacing.sm}`,
+    background: theme.colors.bgSurface,
+    borderTop: `1px solid ${theme.colors.border}`,
+}));
+
 export const HeaderLeft = styled.div({
     display: 'flex',
     alignItems: 'center',

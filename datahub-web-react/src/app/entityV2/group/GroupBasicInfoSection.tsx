@@ -1,4 +1,5 @@
-import { SlackOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
+import { SlackLogo } from '@phosphor-icons/react/dist/csr/SlackLogo';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -28,7 +29,7 @@ export const GroupBasicInfoSection = ({ email, slack }: Props) => {
                     {email || <EmptyValue />}
                 </SocialDetails>
                 <SocialDetails>
-                    <SlackOutlined />
+                    <Icon icon={SlackLogo} size="sm" color="inherit" />
                     {slack || <EmptyValue />}
                 </SocialDetails>
             </SocialInfo>

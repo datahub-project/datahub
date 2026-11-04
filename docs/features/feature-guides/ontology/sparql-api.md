@@ -7,7 +7,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Advanced Querying with SPARQL
 
-<FeatureAvailability saasOnly stage="private-beta" />
+<FeatureAvailability saasOnly stage="private-beta"/>
 
 The [traverse APIs](querying-your-ontology.md) express a walk as parameters: start here, follow
 these types, this many hops. That covers most questions, but not ones that need a particular shape —

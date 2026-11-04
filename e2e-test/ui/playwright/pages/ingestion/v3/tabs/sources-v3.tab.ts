@@ -149,8 +149,7 @@ export class SourcesV3Tab extends SourcesBaseTab {
     const { sourceName: newSourceName, displayName, verifyForm, fillForm, schedule } = options;
 
     await this.searchIfNotVisible(displayName);
-    await this.openMoreOptions(displayName);
-    await this.clickDropdownItem('Edit');
+    await this.selectMoreOption(displayName, 'Edit');
 
     if (verifyForm) {
       await verifyForm(this.page);

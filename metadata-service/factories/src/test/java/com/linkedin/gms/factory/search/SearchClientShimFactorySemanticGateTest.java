@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.search;
 
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -10,9 +9,8 @@ import static org.testng.Assert.expectThrows;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,91 +19,54 @@ import org.testng.annotations.Test;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
- * Unit tests for the startup gate in {@link SearchClientShimFactory} that rejects semantic search
- * when the cluster is in ES 7 compatibility mode, and for the version-check gate in {@link
- * Es8SearchClientShim#assertSemanticSearchSupported(String)} which enforces the 8.18+ minimum.
- *
- * <p>Both tests call real production code paths rather than re-implementing the gate logic inline.
+ * Unit tests for startup gates in {@link SearchClientShimFactory} (unsupported ES 7 engine type,
+ * IAM credentials, nmslib on OpenSearch 3). ES 8.18+ semantic-search version checks live in {@code
+ * Es8SearchClientShimVersionTest}.
  */
 public class SearchClientShimFactorySemanticGateTest {
 
-  /**
-   * Exercises the factory guard: when the resolved shim is {@link Es7CompatibilitySearchClientShim}
-   * and semantic search is enabled, the factory throws {@link IllegalStateException}. The guard
-   * logic lives at the bottom of {@link SearchClientShimFactory#createSearchClientShim}.
-   *
-   * <p>We replicate the decision by calling the exact same gate expression used in the factory:
-   *
-   * <pre>
-   *   if (semanticEnabled {@code &&} shim instanceof Es7CompatibilitySearchClientShim) {
-   *     throw new IllegalStateException(...)
-   *   }
-   * </pre>
-   *
-   * This is not an inline re-implementation of the logic — it is a thin wrapper that invokes the
-   * factory helper {@link SearchClientShimFactory#assertCompatModeNotSemanticEnabled} so that a
-   * future refactor that removes the guard from the factory will also break this test.
-   */
   @Test
-  public void factoryRejectsEs7ShimWhenSemanticSearchEnabled() {
-    SearchClientShim<?> es7Shim = mock(Es7CompatibilitySearchClientShim.class, CALLS_REAL_METHODS);
-
-    IllegalStateException ex =
-        expectThrows(
-            IllegalStateException.class,
-            () -> SearchClientShimFactory.assertCompatModeNotSemanticEnabled(es7Shim, true));
-
-    String msg = ex.getMessage().toLowerCase();
-    assertTrue(
-        msg.contains("8.18") || msg.contains("compatibility"),
-        "IllegalStateException should mention 8.18 or compatibility; got: " + ex.getMessage());
-    assertTrue(
-        msg.contains("semantic"),
-        "IllegalStateException should mention semantic search; got: " + ex.getMessage());
+  public void parseEngineTypeRejectsElasticsearch7() {
+    SearchClientShimFactory factory = new SearchClientShimFactory();
+    for (String alias : new String[] {"ELASTICSEARCH_7", "ES7"}) {
+      IllegalArgumentException ex =
+          expectThrows(
+              IllegalArgumentException.class,
+              () -> ReflectionTestUtils.invokeMethod(factory, "parseEngineType", alias));
+      assertTrue(
+          ex.getMessage().contains("no longer supported"),
+          "Message should say Elasticsearch 7 is unsupported; got: " + ex.getMessage());
+    }
   }
 
   @Test
   public void factoryRejectsOpenSearchIamAuthWithoutSharedCredentials() {
-    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
-    esConfig.setOpensearchUseAwsIamAuth(true);
-    esConfig.setRegion("us-east-1");
+    SearchClusterSettings cluster =
+        SearchClusterSettings.builder()
+            .uri("http://search:9200")
+            .opensearchUseAwsIamAuth(true)
+            .region("us-east-1")
+            .build();
 
     IllegalStateException ex =
         expectThrows(
             IllegalStateException.class,
-            () -> SearchClientShimFactory.assertIamAuthHasSharedCredentials(esConfig, null));
+            () ->
+                SearchClientShimFactory.assertIamAuthHasSharedCredentials(
+                    "primary", cluster, null));
     assertTrue(ex.getMessage().contains("DefaultCredentialsProvider"));
   }
 
   @Test
   public void factoryAllowsOpenSearchIamAuthWithSharedCredentials() {
-    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
-    esConfig.setOpensearchUseAwsIamAuth(true);
-    esConfig.setRegion("us-east-1");
+    SearchClusterSettings cluster =
+        SearchClusterSettings.builder()
+            .uri("http://search:9200")
+            .opensearchUseAwsIamAuth(true)
+            .region("us-east-1")
+            .build();
     SearchClientShimFactory.assertIamAuthHasSharedCredentials(
-        esConfig, mock(AwsCredentialsProvider.class));
-  }
-
-  @Test
-  public void factoryAllowsEs7ShimWhenSemanticSearchDisabled() {
-    SearchClientShim<?> es7Shim = mock(Es7CompatibilitySearchClientShim.class, CALLS_REAL_METHODS);
-    // Must not throw — semanticEnabled=false means the gate should be a no-op.
-    SearchClientShimFactory.assertCompatModeNotSemanticEnabled(es7Shim, false);
-  }
-
-  @Test
-  public void factoryAllowsEs8ShimWhenSemanticSearchEnabled() {
-    // An Es8 shim with semanticEnabled=true must NOT be rejected by the compat-mode gate.
-    // (The Es8 shim has its own version check; that is a separate concern.)
-    SearchClientShim<?> es8Shim = mock(Es8SearchClientShim.class, CALLS_REAL_METHODS);
-    // Must not throw.
-    SearchClientShimFactory.assertCompatModeNotSemanticEnabled(es8Shim, true);
-  }
-
-  @Test
-  public void factoryAllowsNonEs7CompatibilityShimWhenSemanticSearchEnabled() {
-    SearchClientShim<?> plainShim = mock(SearchClientShim.class);
-    SearchClientShimFactory.assertCompatModeNotSemanticEnabled(plainShim, true);
+        "primary", cluster, mock(AwsCredentialsProvider.class));
   }
 
   @Test
@@ -186,48 +147,5 @@ public class SearchClientShimFactorySemanticGateTest {
     ElasticSearchConfiguration configuration = new ElasticSearchConfiguration();
     configuration.setEntityIndex(entityIndex);
     return configuration;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Version-gate tests for Es8SearchClientShim.assertSemanticSearchSupported()
-  // ---------------------------------------------------------------------------
-
-  @Test
-  public void es8VersionGateAccepts8_18() {
-    // 8.18 is the minimum supported version; must not throw.
-    Es8SearchClientShim.assertSemanticSearchSupported("8.18.0");
-  }
-
-  @Test
-  public void es8VersionGateAccepts8_19() {
-    Es8SearchClientShim.assertSemanticSearchSupported("8.19.1");
-  }
-
-  @Test
-  public void es8VersionGateAccepts9_x() {
-    Es8SearchClientShim.assertSemanticSearchSupported("9.0.0");
-  }
-
-  @Test
-  public void es8VersionGateRejects8_17() {
-    IllegalStateException ex =
-        expectThrows(
-            IllegalStateException.class,
-            () -> Es8SearchClientShim.assertSemanticSearchSupported("8.17.0"));
-    assertTrue(
-        ex.getMessage().contains("8.18"), "Message should mention 8.18; got: " + ex.getMessage());
-  }
-
-  @Test
-  public void es8VersionGateRejectsNullVersion() {
-    expectThrows(
-        IllegalStateException.class, () -> Es8SearchClientShim.assertSemanticSearchSupported(null));
-  }
-
-  @Test
-  public void es8VersionGateRejectsUnknownVersion() {
-    expectThrows(
-        IllegalStateException.class,
-        () -> Es8SearchClientShim.assertSemanticSearchSupported("unknown"));
   }
 }

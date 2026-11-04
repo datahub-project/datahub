@@ -119,7 +119,7 @@ export class SearchPage extends BasePage {
     await retryOnFail(
       async () => {
         await expect(this.page.getByText('of 0 results')).toBeHidden();
-        await expect(this.page.getByText(/of [0-9]+ result/)).toBeVisible();
+        await expect(this.page.getByText(/of [\d,]+ results?/)).toBeVisible();
       },
       {
         onRetry: async () => {
@@ -133,10 +133,10 @@ export class SearchPage extends BasePage {
 
   async getResultCount(): Promise<number> {
     // Extract count from text like "1-20 of 1234 results"
-    const resultText = await this.page.getByText(/of [0-9]+ result/).textContent();
+    const resultText = await this.page.getByText(/of [\d,]+ results?/).textContent();
     if (!resultText) return 0;
-    const match = resultText.match(/of (\d+) result/);
-    return match ? parseInt(match[1], 10) : 0;
+    const match = resultText.match(/of ([\d,]+) results?/);
+    return match ? parseInt(match[1].replaceAll(',', ''), 10) : 0;
   }
 
   async clickResult(resultName: string): Promise<void> {

@@ -1,6 +1,7 @@
 {
     "appearance.subTitle": "Manage your appearance settings.",
     "appearance.title": "Appearance",
+    "darkMode.beta": "Beta",
     "darkMode.description": "Use a dark color theme throughout DataHub.",
     "darkMode.title": "Dark mode",
     "language.description": "Choose your preferred display language",

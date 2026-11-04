@@ -21,13 +21,16 @@ public class RemoveGroupResolverTest {
   private static final Urn MEMBER_URN = UrnUtils.getUrn("urn:li:corpuser:member");
 
   private EntityClient _entityClient;
+  private EntityClient.ReferencesCleanup _references;
   private GroupService _groupService;
   private RemoveGroupResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
 
   @BeforeMethod
-  public void setupTest() {
+  public void setupTest() throws Exception {
     _entityClient = mock(EntityClient.class);
+    _references = mock(EntityClient.ReferencesCleanup.class);
+    when(_entityClient.deleteEntityThenReferences(any(), eq(GROUP_URN))).thenReturn(_references);
     _groupService = mock(GroupService.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
     _resolver = new RemoveGroupResolver(_entityClient, _groupService);
@@ -51,11 +54,11 @@ public class RemoveGroupResolverTest {
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
 
-    // The captured list must be read while the edges still exist — after deleteEntity the
+    // The captured list must be read while the edges still exist — after the delete the
     // key-aspect DELETE MCL leads to removeNode(), which reaps them.
     InOrder inOrder = inOrder(_groupService, _entityClient);
     inOrder.verify(_groupService).getNativeGroupMembers(any(), eq(GROUP_URN));
-    inOrder.verify(_entityClient).deleteEntity(any(), eq(GROUP_URN));
+    inOrder.verify(_entityClient).deleteEntityThenReferences(any(), eq(GROUP_URN));
   }
 
   @Test
@@ -81,15 +84,15 @@ public class RemoveGroupResolverTest {
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
 
-    // The cleanup decision is now made after deleteEntityReferences, so observing that call no
+    // The cleanup decision is now made after the references, so observing that call no
     // longer proves the decision has been reached. Wait the sweep out instead of racing it.
-    verify(_entityClient, timeout(10000)).deleteEntityReferences(any(), eq(GROUP_URN));
+    verify(_references, timeout(10000)).run();
     verify(_groupService, after(1000).never())
         .removeStaleNativeGroupMembership(any(), any(), any());
   }
 
   @Test
-  public void testDeleteEntityReferencesStillRunsWhenCleanupThrows() throws Exception {
+  public void testReferencesStillRunWhenCleanupThrows() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     doThrow(new RuntimeException("simulated storage failure"))
@@ -98,17 +101,15 @@ public class RemoveGroupResolverTest {
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
 
-    // A failure in the membership cleanup must not suppress deleteEntityReferences.
-    verify(_entityClient, timeout(10000)).deleteEntityReferences(any(), eq(GROUP_URN));
+    // A failure in the membership cleanup must not suppress the references.
+    verify(_references, timeout(10000)).run();
   }
 
   @Test
-  public void testMembershipCleanupStillRunsWhenDeleteEntityReferencesThrows() throws Exception {
+  public void testMembershipCleanupStillRunsWhenReferencesThrow() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
-    doThrow(new RuntimeException("simulated reference cleanup failure"))
-        .when(_entityClient)
-        .deleteEntityReferences(any(), eq(GROUP_URN));
+    doThrow(new RuntimeException("simulated reference cleanup failure")).when(_references).run();
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
 
@@ -131,7 +132,7 @@ public class RemoveGroupResolverTest {
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
 
-    verify(_entityClient, timeout(10000)).deleteEntity(any(), eq(GROUP_URN));
+    verify(_entityClient, timeout(10000)).deleteEntityThenReferences(any(), eq(GROUP_URN));
   }
 
   @Test
@@ -148,8 +149,8 @@ public class RemoveGroupResolverTest {
     // nothing by going second.
     verify(_groupService, timeout(10000))
         .removeStaleNativeGroupMembership(any(), eq(GROUP_URN), any());
-    InOrder inOrder = inOrder(_entityClient, _groupService);
-    inOrder.verify(_entityClient).deleteEntityReferences(any(), eq(GROUP_URN));
+    InOrder inOrder = inOrder(_references, _groupService);
+    inOrder.verify(_references).run();
     inOrder.verify(_groupService).removeStaleNativeGroupMembership(any(), eq(GROUP_URN), any());
   }
 }

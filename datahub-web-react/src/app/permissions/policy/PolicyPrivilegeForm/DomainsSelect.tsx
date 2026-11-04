@@ -1,4 +1,4 @@
-import { Input } from '@components';
+import { MultiValueInput } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -7,7 +7,6 @@ import DomainSelector from '@app/entityV2/shared/DomainSelector/DomainSelector';
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
-import { toStartsWithValues } from '@app/permissions/policy/policyUtils';
 
 import { PolicyMatchCondition, ResourceFilter } from '@types';
 
@@ -32,10 +31,6 @@ const SelectContainer = styled.div`
     min-width: 0;
 `;
 
-const StyledInput = styled(Input)`
-    width: 100%;
-`;
-
 export default function DomainsSelect({
     domainSelectValue,
     domainCondition,
@@ -46,7 +41,6 @@ export default function DomainsSelect({
     const { t } = useTranslation('settings.permissions');
 
     const isStartsWithCondition = domainCondition === PolicyMatchCondition.StartsWith;
-    const startsWithValue = isStartsWithCondition && domainSelectValue.length > 0 ? domainSelectValue[0] : '';
 
     const handleConditionChange = useClearOnConditionChange(domainCondition, FIELD_TYPES.DOMAIN, onConditionChange);
 
@@ -61,10 +55,11 @@ export default function DomainsSelect({
             />
             <SelectContainer>
                 {isStartsWithCondition ? (
-                    <StyledInput
+                    <MultiValueInput
                         placeholder={t('privilegeForm.domainPrefixPlaceholder')}
-                        value={startsWithValue}
-                        onChange={(e) => onDomainsChange(toStartsWithValues(e.target.value))}
+                        values={domainSelectValue}
+                        onUpdate={onDomainsChange}
+                        width="full"
                     />
                 ) : (
                     <DomainSelector

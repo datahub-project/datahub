@@ -52,6 +52,8 @@ export const NAMES = {
   REVENUE_PER_CUSTOMER: 'PW Revenue Per Customer',
   PAYMENT_VOLUME: 'PW Payment Volume',
   EVENT_COUNT: 'PW Event Count',
+  ORDERS_CHART: 'PW Metrics Orders Chart',
+  ORDERS_DASHBOARD: 'PW Metrics Orders Dashboard',
   ORDERS_ALIAS: 'ORDERS',
   CUSTOMERS_ALIAS: 'CUSTOMERS',
 } as const;

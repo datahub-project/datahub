@@ -11,6 +11,11 @@ record DataFlowKey {
   * Workflow manager like azkaban, airflow which orchestrates the flow
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": false,
+      "searchLabel": "tool",
+      "boostScore": 1.0
+    },
     "fieldType": "TEXT_PARTIAL"
   }
   orchestrator: string
@@ -19,6 +24,17 @@ record DataFlowKey {
   * Unique Identifier of the data flow
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    },
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true
   }
@@ -28,6 +44,12 @@ record DataFlowKey {
   * Cluster where the flow is executed
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": false,
+      "searchLabel": "location",
+      "copyToOther": true,
+      "boostScore": 1.0
+    },
     "fieldType": "TEXT_PARTIAL"
   }
   cluster: string

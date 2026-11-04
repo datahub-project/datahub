@@ -11,17 +11,26 @@ import com.datahub.authorization.AuthorizationSession;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.ByteString;
 import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductAssociationArray;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
+import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +41,7 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class DataProductMembershipAuthorizationValidatorTest {
@@ -198,6 +208,71 @@ public class DataProductMembershipAuthorizationValidatorTest {
                 eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)));
   }
 
+  // A PATCH arrives as a PatchItemImpl by default, or as a ProposedItem under alternate MCP
+  // validation. Both must be resolved against the stored aspect before authorizing.
+  @DataProvider(name = "patchItemBuilders")
+  public Object[][] patchItemBuilders() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  @Test(dataProvider = "patchItemBuilders")
+  public void testPatchAddingAssetChecksOnlyTheAddedAsset(boolean alternateValidation) {
+    mockCurrentProperties(propertiesWithAssets(MEMBER_DATASET_URN));
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
+                    eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)))
+        .thenReturn(Set.of());
+
+    validate(patchItem(alternateValidation, addAssetOp(OTHER_DATASET_URN))).toList();
+
+    authUtilsMockedStatic.verify(
+        () ->
+            EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
+                eq(mockAuthSession),
+                eq(Map.of(DATA_PRODUCT_URN, Set.of(OTHER_DATASET_URN))),
+                any(Map.class),
+                any(Map.class)));
+  }
+
+  @Test(dataProvider = "patchItemBuilders")
+  public void testPatchAddingFirstAssetIsDeniedWithoutPrivilege(boolean alternateValidation) {
+    mockCurrentProperties(new DataProductProperties());
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
+                    eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)))
+        .thenReturn(Set.of(DATA_PRODUCT_URN));
+
+    Assert.assertTrue(
+        validate(patchItem(alternateValidation, addAssetOp(OTHER_DATASET_URN)))
+            .findAny()
+            .isPresent());
+  }
+
+  @Test(dataProvider = "patchItemBuilders")
+  public void testPatchRenameIsDeniedWithoutPrivilege(boolean alternateValidation) {
+    DataProductProperties current = new DataProductProperties();
+    current.setName("Original name");
+    mockCurrentProperties(current);
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                    eq(mockAuthSession), any(Set.class), any(Map.class), any(Map.class)))
+        .thenReturn(Set.of(DATA_PRODUCT_URN));
+
+    Assert.assertTrue(
+        validate(
+                patchItem(
+                    alternateValidation,
+                    "{\"op\":\"add\",\"path\":\"/name\",\"value\":\"Updated name\"}"))
+            .findAny()
+            .isPresent());
+  }
+
   private void mockCurrentProperties(DataProductProperties current) {
     Aspect aspect = new Aspect(current.data());
     when(mockAspectRetriever.getLatestAspectObjects(
@@ -225,7 +300,31 @@ public class DataProductMembershipAuthorizationValidatorTest {
         .get();
   }
 
-  private Stream<AspectValidationException> validate(TestMCP item) {
+  private static String addAssetOp(Urn assetUrn) {
+    return String.format(
+        "{\"op\":\"add\",\"path\":\"/assets/%s\",\"value\":{\"destinationUrn\":\"%s\"}}",
+        assetUrn, assetUrn);
+  }
+
+  // Same JSON Patch array shape the Python DataProductPatchBuilder emits.
+  private static BatchItem patchItem(boolean alternateValidation, String op) {
+    MetadataChangeProposal mcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(DATA_PRODUCT_URN)
+            .setEntityType(DATA_PRODUCT_URN.getEntityType())
+            .setAspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(
+                new GenericAspect()
+                    .setContentType("application/json")
+                    .setValue(ByteString.copyString("[" + op + "]", StandardCharsets.UTF_8)));
+    TestEntityRegistry registry = new TestEntityRegistry();
+    return alternateValidation
+        ? ProposedItem.builder().build(mcp, AuditStampUtils.createDefaultAuditStamp(), registry)
+        : PatchItemImpl.builder().build(mcp, AuditStampUtils.createDefaultAuditStamp(), registry);
+  }
+
+  private Stream<AspectValidationException> validate(BatchItem item) {
     return validator.validateProposedAspectsWithAuth(
         OperationFingerprint.EMPTY,
         Collections.singletonList(item),

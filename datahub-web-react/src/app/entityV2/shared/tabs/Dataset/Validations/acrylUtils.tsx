@@ -1,17 +1,17 @@
-import { ApiOutlined } from '@ant-design/icons';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 
 import { Assertion, AssertionResultType, AssertionType, EntityType } from '@types';
 
-const StyledApiOutlined = styled(ApiOutlined)`
+const StyledApiOutlined = styled(Plugs)`
     && {
         margin: 0px;
         padding: 0px;
@@ -179,8 +179,22 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
     return summary;
 };
 
+// Uses the stored info.type only, so the list's label, grouping and type filter agree with the
+// server-side assertionType index that filters and sorts the list.
 export const getAssertionType = (assertion: Assertion): string | undefined => {
-    return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
+    return assertion?.info?.type?.toUpperCase();
+};
+
+/**
+ * Free-text type reported for a CUSTOM assertion (e.g. "dbt", or a Monte Carlo monitor type such as
+ * "FRESHNESS"). The custom assertion API documents it as how the assertion is categorized, so the
+ * list shows it on hover over the Custom type rather than replacing that type.
+ */
+export const getCustomAssertionType = (assertion: Assertion): string | undefined => {
+    if (assertion?.info?.type !== AssertionType.Custom) {
+        return undefined;
+    }
+    return assertion.info.customAssertion?.type || undefined;
 };
 
 /**

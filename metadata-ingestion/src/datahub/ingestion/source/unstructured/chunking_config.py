@@ -10,6 +10,10 @@ from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
 _LOCAL_EMBEDDING_DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings"
 
+# Default per-document chunk cap. Shared with the staleness fingerprint so the cap is
+# only fingerprinted when it deviates from this value (see get_processing_config_fingerprint).
+DEFAULT_MAX_CHUNKS_PER_DOCUMENT = 100
+
 
 class ServerEmbeddingConfig(ConfigModel):
     """Embedding configuration fetched from DataHub server via AppConfig API."""
@@ -28,6 +32,7 @@ class ServerSemanticSearchConfig(ConfigModel):
     enabled: bool
     enabled_entities: list[str]
     embedding_config: Optional[ServerEmbeddingConfig] = None
+    entity_index_v3_enabled: Optional[bool] = None
 
 
 class ChunkingConfig(ConfigModel):
@@ -40,6 +45,14 @@ class ChunkingConfig(ConfigModel):
     overlap: int = Field(default=0, description="Character overlap between chunks")
     combine_text_under_n_chars: int = Field(
         default=100, description="Combine chunks smaller than this size"
+    )
+    max_chunks_per_document: int = Field(
+        default=DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
+        ge=1,
+        description="Maximum number of chunks embedded per document. A document that "
+        "produces more chunks is truncated to the first N so its semanticContent aspect "
+        "stays under the Kafka producer size limit; the dropped chunks are reported as a "
+        "warning, not a failure.",
     )
 
 
@@ -574,7 +587,7 @@ def get_processing_config_fingerprint(
     # Embedding is enabled when provider is configured
     embedding_enabled = embedding.provider is not None
 
-    return {
+    fingerprint: dict[str, Any] = {
         # Chunking affects chunk boundaries and structure
         "chunking_strategy": chunking.strategy if embedding_enabled else None,
         "chunking_max_characters": chunking.max_characters
@@ -591,6 +604,18 @@ def get_processing_config_fingerprint(
             embedding.model_embedding_key if embedding_enabled else None
         ),
     }
+    # The chunk cap changes emitted output (fewer chunks), so a change must re-hash
+    # affected documents. Only add the key when the cap is non-default, so merely
+    # upgrading to a build that introduces the knob does not re-fingerprint (and
+    # re-embed) every already-processed document.
+    if (
+        embedding_enabled
+        and chunking.max_chunks_per_document != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+    ):
+        fingerprint["chunking_max_chunks_per_document"] = (
+            chunking.max_chunks_per_document
+        )
+    return fingerprint
 
 
 def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
@@ -607,9 +632,9 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     """
     from datahub.configuration.common import GraphError
 
-    # Full query includes vertexProviderConfig (added in DataHub v0.15+).
-    # Older servers reject it with FieldUndefined; we fall back to the base
-    # query in that case rather than propagating a confusing schema error.
+    # Full query includes vertexProviderConfig (v0.15+) and entityIndexV3. Older
+    # servers reject unknown fields with FieldUndefined; we fall back to the base
+    # query rather than propagating a confusing schema error.
     _QUERY_FULL = """
         query getSemanticSearchConfig {
           appConfig {
@@ -629,9 +654,13 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
                 }
               }
             }
+            entityIndexV3 {
+              enabled
+            }
           }
         }
     """
+    # Oldest GMS schemas: no vertexProviderConfig, no entityIndexV3.
     _QUERY_BASE = """
         query getSemanticSearchConfig {
           appConfig {
@@ -658,11 +687,12 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             strip_unsupported_fields=True,
         )
     except GraphError as e:
-        # Older servers don't have vertexProviderConfig in their schema. When the
-        # graphql-core library is absent, strip_unsupported_fields is a no-op and
-        # the full query reaches the server, which rejects it with FieldUndefined.
-        # Retry with the base query — vertex fields will simply be None.
-        if "vertexProviderConfig" in str(e) and "FieldUndefined" in str(e):
+        # When graphql-core is absent, strip_unsupported_fields is a no-op and the
+        # full query reaches the server. Retry without the newer fields.
+        error_text = str(e)
+        if "FieldUndefined" in error_text and (
+            "vertexProviderConfig" in error_text or "entityIndexV3" in error_text
+        ):
             response = graph.execute_graphql(
                 query=_QUERY_BASE,
                 operation_name="getSemanticSearchConfig",
@@ -671,6 +701,8 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             raise
 
     semantic_search_config = response.get("appConfig", {}).get("semanticSearchConfig")
+    entity_index_v3 = response.get("appConfig", {}).get("entityIndexV3") or {}
+    entity_index_v3_enabled = entity_index_v3.get("enabled")
 
     if not semantic_search_config:
         raise GraphError(
@@ -687,6 +719,7 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             enabled=is_enabled,
             enabled_entities=semantic_search_config["enabledEntities"],
             embedding_config=None,
+            entity_index_v3_enabled=entity_index_v3_enabled,
         )
 
     # Extract AWS region from nested awsProviderConfig
@@ -729,4 +762,5 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
         enabled=is_enabled,
         enabled_entities=semantic_search_config["enabledEntities"],
         embedding_config=server_embedding_config,
+        entity_index_v3_enabled=entity_index_v3_enabled,
     )

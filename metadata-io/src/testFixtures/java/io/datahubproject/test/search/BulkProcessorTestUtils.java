@@ -5,7 +5,6 @@ import co.elastic.clients.elasticsearch._helpers.bulk.BulkListener;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.AbstractBulkProcessorShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -27,8 +26,7 @@ public class BulkProcessorTestUtils {
     final SearchClientShim<?> searchClient = getRestHighLevelClient(bulkProcessor);
 
     // if the bulks are big it takes time for Elastic/OpenSearch to process these bulk requests
-    if (searchClient instanceof OpenSearch2SearchClientShim
-        || searchClient instanceof OpenSearchSearchClientShim) {
+    if (searchClient instanceof OpenSearchSearchClientShim) {
       getBulkProcessorListener((AbstractBulkProcessorShim<?>) searchClient).waitForBulkProcessed();
     } else if (searchClient instanceof Es8SearchClientShim) {
       // Null when the proxy listener was never installed on this shim's ingesters (a test that
