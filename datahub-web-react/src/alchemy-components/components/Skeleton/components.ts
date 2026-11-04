@@ -33,7 +33,7 @@ export const SkeletonTitle = styled.h3<{ $active: boolean; $width?: string }>`
     ${skeletonFill}
     width: ${(props) => props.$width ?? '100%'};
     height: ${SKELETON_LINE_HEIGHT}px;
-    margin: ${SKELETON_LINE_HEIGHT}px 0 0 0;
+    margin: 0;
     border-radius: 4px;
 `;
 

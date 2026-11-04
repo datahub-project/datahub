@@ -16,7 +16,8 @@ export function SkeletonButton({
     ...props
 }: SkeletonButtonProps) {
     const baseHeight = getElementHeight(size);
-    const defaultWidth = shape === 'circle' ? baseHeight : baseHeight * 2;
+    const isEqualSided = shape === 'circle' || shape === 'square';
+    const defaultWidth = isEqualSided ? baseHeight : baseHeight * 2;
     let borderRadius = ELEMENT_BORDER_RADIUS;
     if (shape === 'circle') borderRadius = '50%';
     if (shape === 'round') borderRadius = '999px';
