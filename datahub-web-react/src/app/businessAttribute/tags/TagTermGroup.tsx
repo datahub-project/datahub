@@ -2,9 +2,8 @@
 // gated on `useBusinessAttributesFlag`) over to the V2 `app/sharedV2/tags/TagTermGroup` and delete
 // this V1 file. The V1 UI was removed in #16680, but this file was left behind because the
 // BusinessAttributes list page is behind a feature flag and was missed by that cleanup sweep.
-import { Text } from '@components';
+import { Button, ButtonProps, Text } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Button } from 'antd';
 import React, { useMemo, useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
@@ -30,7 +29,7 @@ type Props = {
     canAddTag?: boolean;
     canAddTerm?: boolean;
     showEmptyMessage?: boolean;
-    buttonProps?: Record<string, unknown>;
+    buttonProps?: Partial<ButtonProps>;
     onOpenModal?: () => void;
     maxShow?: number;
     entityUrn?: string;
@@ -190,28 +189,30 @@ export default function TagTermGroup({
             )}
             {canAddTag && !readOnly && (
                 <NoElementButton
-                    type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
+                    variant={showEmptyMessage && tagsEmpty ? 'outline' : 'text'}
+                    color="gray"
+                    icon={{ icon: Plus }}
                     onClick={() => {
                         setAddModalType(EntityType.Tag);
                         setShowAddModal(true);
                     }}
                     {...buttonProps}
                 >
-                    <Plus size={14} weight="bold" />
-                    <span>{t('addTagsButton')}</span>
+                    {t('addTagsButton')}
                 </NoElementButton>
             )}
             {canAddTerm && !readOnly && (
                 <NoElementButton
-                    type={showEmptyMessage && termsEmpty ? 'default' : 'text'}
+                    variant={showEmptyMessage && termsEmpty ? 'outline' : 'text'}
+                    color="gray"
+                    icon={{ icon: Plus }}
                     onClick={() => {
                         setAddModalType(EntityType.GlossaryTerm);
                         setShowAddModal(true);
                     }}
                     {...buttonProps}
                 >
-                    <Plus size={14} weight="bold" />
-                    <span>{t('addTermsButton')}</span>
+                    {t('addTermsButton')}
                 </NoElementButton>
             )}
             {showAddModal &&

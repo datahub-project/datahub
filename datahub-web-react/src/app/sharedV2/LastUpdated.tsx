@@ -1,7 +1,6 @@
 import { green, orange, red } from '@ant-design/colors';
 import { Popover } from '@components';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
-import { Image } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -37,7 +36,7 @@ const PopoverContentSection = styled.div`
     margin-bottom: 5px;
 `;
 
-const PreviewImage = styled(Image)`
+const PreviewImage = styled.img`
     max-height: 9px;
     width: auto;
     object-fit: contain;
@@ -49,7 +48,7 @@ const PreviewImage = styled(Image)`
 function PlatformLabel({ logoUrl, name, children }: { logoUrl?: string; name?: string; children?: React.ReactNode }) {
     return (
         <strong>
-            {logoUrl && <PreviewImage preview={false} src={logoUrl} alt={name} />}
+            {logoUrl && <PreviewImage src={logoUrl} alt={name ?? ''} />}
             {children}
         </strong>
     );

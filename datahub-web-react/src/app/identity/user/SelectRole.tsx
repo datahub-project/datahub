@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
+import { Loader, Tooltip } from '@components';
 import { User } from '@phosphor-icons/react/dist/csr/User';
-import { Select, Spin, Tooltip } from 'antd';
+import { Select } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -120,7 +121,7 @@ export default function SelectRole({
             {menu}
             {rolesHasMore && (
                 <LoadMoreSentinel ref={rolesObserverRef}>
-                    <Spin size="small" />
+                    <Loader size="xs" />
                 </LoadMoreSentinel>
             )}
         </DropdownContainer>
@@ -148,7 +149,7 @@ export default function SelectRole({
                 onDropdownVisibleChange={handleDropdownVisibleChange}
                 dropdownRender={dropdownRender}
                 loading={rolesLoading}
-                notFoundContent={rolesLoading ? <Spin size="small" /> : t('users.noRolesFound')}
+                notFoundContent={rolesLoading ? <Loader size="xs" /> : t('users.noRolesFound')}
             >
                 {selectOptions}
             </RoleSelect>

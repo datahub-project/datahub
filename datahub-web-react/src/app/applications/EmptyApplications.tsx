@@ -1,4 +1,5 @@
-import { Empty, Typography } from 'antd';
+import { EmptyState } from '@components';
+import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -15,30 +16,14 @@ const EmptyContainer = styled.div`
     padding: 40px;
 `;
 
-const StyledEmpty = styled(Empty)`
-    .ant-empty-description {
-        margin-bottom: 12px;
-    }
-`;
-
 const EmptyApplications = ({ isEmptySearch }: Props) => {
     const { t } = useTranslation('misc');
     return (
-        <EmptyContainer>
-            <StyledEmpty
-                description={
-                    <>
-                        <Typography.Text data-testid="applications-not-found">
-                            {isEmptySearch ? t('applications.emptySearch') : t('applications.empty')}
-                        </Typography.Text>
-                        <div>
-                            {!isEmptySearch && (
-                                <Typography.Paragraph>{t('applications.emptyDescription')}</Typography.Paragraph>
-                            )}
-                        </div>
-                    </>
-                }
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
+        <EmptyContainer data-testid="applications-not-found">
+            <EmptyState
+                icon={AppWindow}
+                title={isEmptySearch ? t('applications.emptySearch') : t('applications.empty')}
+                description={isEmptySearch ? undefined : t('applications.emptyDescription')}
             />
         </EmptyContainer>
     );

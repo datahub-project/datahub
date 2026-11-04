@@ -1,5 +1,4 @@
-import { Text } from '@components';
-import { Typography } from 'antd';
+import { Heading, Text } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -18,10 +17,8 @@ const PageHeaderContainer = styled.div`
     }
 `;
 
-const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
-    }
+const PageTitle = styled.div`
+    margin-bottom: 12px;
 `;
 
 const ListContainer = styled.div``;
@@ -48,7 +45,11 @@ export const ManageDomainsPage = () => {
         >
             <PageContainer>
                 <PageHeaderContainer>
-                    <PageTitle level={3}>{t('page.title')}</PageTitle>
+                    <PageTitle>
+                        <Heading type="h3" size="4xl" weight="semiBold">
+                            {t('page.title')}
+                        </Heading>
+                    </PageTitle>
                     <Text color="textSecondary">{t('page.subtitle')}</Text>
                 </PageHeaderContainer>
                 <ListContainer>

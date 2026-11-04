@@ -1,8 +1,8 @@
-import { Image, Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { Heading } from '@components/components/Heading';
 import { Text } from '@components/components/Text';
 
 import dataHubLogo from '@images/datahublogo.png';
@@ -13,8 +13,13 @@ const Section = styled.div`
     margin-left: 60px;
 `;
 
-const TitleText = styled(Typography.Text)`
+const Logo = styled.img`
+    width: 40px;
+`;
+
+const TitleText = styled(Text)`
     font-size: 18px;
+    font-weight: 600;
     margin-left: 8px;
     color: ${(props) => props.theme.colors.textSecondary};
 `;
@@ -27,6 +32,10 @@ const TitleSection = styled.div`
 
 const MessageSection = styled.div`
     margin-bottom: 20px;
+`;
+
+const MessageTitle = styled.div`
+    margin-bottom: 12px;
 `;
 
 const DetailParagraph = styled(Text)`
@@ -72,11 +81,15 @@ export const ErrorSection = (): JSX.Element => {
         <Section>
             <div>
                 <TitleSection>
-                    <Image src={themeLogo} preview={false} style={{ width: 40 }} />
-                    <TitleText strong>{themeConfig.content.title}</TitleText>
+                    <Logo src={themeLogo} alt={themeConfig.content.title} />
+                    <TitleText type="span">{themeConfig.content.title}</TitleText>
                 </TitleSection>
                 <MessageSection>
-                    <Typography.Title level={2}>{t('section.title')}</Typography.Title>
+                    <MessageTitle>
+                        <Heading type="h2" size="4xl" weight="semiBold">
+                            {t('section.title')}
+                        </Heading>
+                    </MessageTitle>
                     <DetailParagraph color="textSecondary">{t('section.description')}</DetailParagraph>
                 </MessageSection>
                 <div>

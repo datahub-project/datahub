@@ -1,8 +1,8 @@
 import { grey } from '@ant-design/colors';
 import { ApolloError } from '@apollo/client';
-import { Text } from '@components';
+import { Button, Divider, Text, toast } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Button, Divider, Typography, message } from 'antd';
+import { Typography } from 'antd';
 import ColorHash from 'color-hash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChromePicker } from 'react-color';
@@ -47,8 +47,8 @@ type SearchResultsInterface = {
     facets?: Maybe<Array<FacetMetadata>>;
 };
 
-const TitleLabel = styled(Typography.Text)`
-    &&& {
+const TitleLabel = styled.span`
+    && {
         color: ${grey[2]};
         font-size: 12px;
         display: block;
@@ -57,8 +57,8 @@ const TitleLabel = styled(Typography.Text)`
     }
 `;
 
-const TitleText = styled(Typography.Text)`
-    &&& {
+const TitleText = styled.span`
+    && {
         color: ${grey[10]};
         font-weight: 700;
         font-size: 20px;
@@ -85,8 +85,8 @@ const ColorPickerPopOver = styled.div`
     z-index: 100;
 `;
 
-const DescriptionLabel = styled(Typography.Text)`
-    &&& {
+const DescriptionLabel = styled.span`
+    && {
         text-align: left;
         font-weight: bold;
         font-size: 14px;
@@ -111,8 +111,8 @@ const StatsBox = styled.div`
     justify-content: left;
 `;
 
-const StatsLabel = styled(Typography.Text)`
-    &&& {
+const StatsLabel = styled.span`
+    && {
         color: ${grey[10]};
         font-size: 14px;
         font-weight: 700;
@@ -128,7 +128,7 @@ const StatsButton = styled(Button)`
     line-height: 20px;
 `;
 
-const EmptyStatsText = styled(Typography.Text)`
+const EmptyStatsText = styled.span`
     font-size: 15px;
     font-style: italic;
 `;
@@ -253,13 +253,13 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         colorHex: colorValue,
                     },
                 });
-                message.destroy();
-                message.success({ content: t('colorSaved'), duration: 2 });
+                toast.destroy();
+                toast.success(t('colorSaved'), { duration: 2 });
                 setDisplayColorPicker(false);
             } catch (e: unknown) {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: t('saveColorError', { error: e.message || '' }), duration: 2 });
+                    toast.error(t('saveColorError', { error: e.message || '' }), { duration: 2 });
                 }
             }
             refetch?.();
@@ -315,11 +315,11 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
 
     // Save the description
     const handleSaveDescription = async (desc: string) => {
-        message.loading({ content: tcFeedback('saving') });
+        toast.loading(tcFeedback('saving'));
         try {
             await updateDescriptionValue(desc);
-            message.destroy();
-            message.success({ content: t('descriptionUpdated'), duration: 2 });
+            toast.destroy();
+            toast.success(t('descriptionUpdated'), { duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateDescription,
@@ -327,9 +327,9 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                 entityUrn: urn,
             });
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error({ content: t('updateDescriptionError', { error: e.message || '' }), duration: 2 });
+                toast.error(t('updateDescriptionError', { error: e.message || '' }), { duration: 2 });
             }
         }
         refetch?.();
@@ -417,7 +417,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                                                 history,
                                             })
                                         }
-                                        type="link"
+                                        variant="link"
                                     >
                                         <span data-testid={`stats-${aggregation?.value}`}>
                                             {aggregation?.count}{' '}
@@ -441,8 +441,12 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                                 {EMPTY_MESSAGES.owners.title}. {EMPTY_MESSAGES.owners.description}
                             </Text>
                         )}
-                        <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
-                            <Plus size={16} style={{ marginRight: 8 }} />
+                        <Button
+                            variant={ownersEmpty ? 'outline' : 'text'}
+                            color="gray"
+                            icon={{ icon: Plus }}
+                            onClick={() => setShowAddModal(true)}
+                        >
                             {ownersEmpty ? (
                                 <OwnerButtonEmptyTitle>{t('addOwners')}</OwnerButtonEmptyTitle>
                             ) : (

@@ -1,4 +1,5 @@
-import { Empty, Typography } from 'antd';
+import { EmptyState } from '@components';
+import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -15,30 +16,14 @@ const EmptyContainer = styled.div`
     padding: 40px;
 `;
 
-const StyledEmpty = styled(Empty)`
-    .ant-empty-description {
-        margin-bottom: 12px;
-    }
-`;
-
 const EmptyTags = ({ isEmptySearch }: Props) => {
     const { t } = useTranslation('misc');
     return (
-        <EmptyContainer>
-            <StyledEmpty
-                description={
-                    <>
-                        <Typography.Text data-testid="tags-not-found">
-                            {isEmptySearch ? t('tags.emptySearch') : t('tags.empty')}
-                        </Typography.Text>
-                        <div>
-                            {!isEmptySearch && (
-                                <Typography.Paragraph>{t('tags.emptyDescription')}</Typography.Paragraph>
-                            )}
-                        </div>
-                    </>
-                }
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
+        <EmptyContainer data-testid="tags-not-found">
+            <EmptyState
+                icon={Tag}
+                title={isEmptySearch ? t('tags.emptySearch') : t('tags.empty')}
+                description={isEmptySearch ? undefined : t('tags.emptyDescription')}
             />
         </EmptyContainer>
     );

@@ -1,5 +1,6 @@
+import { Button } from '@components';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import { Button, Drawer, Space } from 'antd';
+import { Button as AntButton, Drawer } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -19,6 +20,7 @@ type Props = {
 const DetailsLayout = styled.div`
     display: flex;
     justify-content: space-between;
+    align-items: center;
 `;
 
 export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisible, urn }: Props) => {
@@ -35,17 +37,14 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                 open={tagProfileDrawerVisible}
                 footer={
                     <DetailsLayout>
-                        <Space>
-                            <Button type="text" onClick={closeTagProfileDrawer}>
-                                {tc('close')}
-                            </Button>
-                        </Space>
-                        <Space>
-                            {/* broken */}
-                            <Button href={resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, urn))}>
-                                <Info /> {t('tagDetails')}
-                            </Button>
-                        </Space>
+                        <Button variant="text" color="gray" onClick={closeTagProfileDrawer}>
+                            {tc('close')}
+                        </Button>
+                        {/* broken */}
+                        {/* Kept on antd: alchemy Button has no `href`, and this must stay a real link. */}
+                        <AntButton href={resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, urn))}>
+                            <Info /> {t('tagDetails')}
+                        </AntButton>
                     </DetailsLayout>
                 }
             >

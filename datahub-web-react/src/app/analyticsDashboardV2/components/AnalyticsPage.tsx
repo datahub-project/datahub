@@ -1,5 +1,4 @@
-import { Loader, PageTitle, SelectOption, SimpleSelect, Text } from '@components';
-import { Alert } from 'antd';
+import { Alert, Loader, PageTitle, SelectOption, SimpleSelect, Text } from '@components';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -145,7 +144,7 @@ export const AnalyticsPage = () => {
                 <>
                     <HighlightGroup>
                         {highlightError && (
-                            <Alert type="error" message={highlightError?.message || t('failedToLoadHighlights')} />
+                            <Alert variant="error" title={highlightError?.message || t('failedToLoadHighlights')} />
                         )}
                         {highlightData?.getHighlights?.map((highlight) => (
                             <Highlight highlight={highlight} shortenValue key={highlight.title} />
@@ -153,7 +152,7 @@ export const AnalyticsPage = () => {
                     </HighlightGroup>
 
                     {chartError && (
-                        <Alert type="error" message={metadataAnalyticsError?.message || t('failedToLoadCharts')} />
+                        <Alert variant="error" title={metadataAnalyticsError?.message || t('failedToLoadCharts')} />
                     )}
                     {chartData?.getAnalyticsCharts
                         ?.filter((chartGroup) => chartGroup.groupId === 'GlobalMetadataAnalytics')
@@ -170,8 +169,8 @@ export const AnalyticsPage = () => {
                         <FilterSection>
                             {domainError && (
                                 <Alert
-                                    type="error"
-                                    message={metadataAnalyticsError?.message || t('failedToLoadDomains')}
+                                    variant="error"
+                                    title={metadataAnalyticsError?.message || t('failedToLoadDomains')}
                                 />
                             )}
                             <DomainSelect
@@ -190,7 +189,7 @@ export const AnalyticsPage = () => {
                     </DomainSection>
 
                     {metadataAnalyticsError && (
-                        <Alert type="error" message={metadataAnalyticsError?.message || t('failedToLoadCharts')} />
+                        <Alert variant="error" title={metadataAnalyticsError?.message || t('failedToLoadCharts')} />
                     )}
                     {metadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
                         <ChartGroup chartGroup={{ ...chartGroup, title: '' }} key={chartGroup.groupId} />
@@ -204,7 +203,7 @@ export const AnalyticsPage = () => {
                             </EmptyDomainText>
                         )}
 
-                    {chartError && <Alert type="error" message={chartError?.message || t('failedToLoadCharts')} />}
+                    {chartError && <Alert variant="error" title={chartError?.message || t('failedToLoadCharts')} />}
                     {chartData?.getAnalyticsCharts
                         ?.filter((chartGroup) => chartGroup.groupId === 'DataHubUsageAnalytics')
                         .map((chartGroup) => (

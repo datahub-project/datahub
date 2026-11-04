@@ -1,5 +1,4 @@
-import { Tooltip } from '@components';
-import { Tag, Typography } from 'antd';
+import { Pill, Text, Tooltip } from '@components';
 import type { TFunction } from 'i18next';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -42,10 +41,12 @@ export function DomainNameColumn(logoIcon: JSX.Element, t: TFunction<'governance
             <Link to={record.url}>
                 {logoIcon}
                 <DomainNameContainer>
-                    <Typography.Text>{record.name}</Typography.Text>
+                    <Text type="span">{record.name}</Text>
                 </DomainNameContainer>
                 <Tooltip title={t('column.entitiesTooltip', { formattedCount: record.entities })}>
-                    <Tag>{t('column.entitiesTag', { formattedCount: record.entities })}</Tag>
+                    <span>
+                        <Pill label={t('column.entitiesTag', { formattedCount: record.entities })} size="sm" />
+                    </span>
                 </Tooltip>
             </Link>
         </span>

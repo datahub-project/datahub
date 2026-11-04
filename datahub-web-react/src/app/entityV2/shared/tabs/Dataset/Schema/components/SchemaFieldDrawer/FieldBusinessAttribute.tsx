@@ -25,7 +25,7 @@ export default function FieldBusinessAttribute({ expandedField, refetch }: Props
         <BusinessAttributeGroup
             businessAttribute={expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute || undefined}
             canRemove
-            buttonProps={{ size: 'small' }}
+            buttonProps={{ size: 'sm' }}
             canAddAttribute
             entityUrn={expandedField?.schemaFieldEntity?.urn}
             entityType={EntityType.Dataset}
