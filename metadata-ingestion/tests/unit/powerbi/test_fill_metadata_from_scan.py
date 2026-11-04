@@ -1959,6 +1959,46 @@ def test_get_workunits_internal_warns_once_per_unmatched_athena_override():
     assert "table=orders" not in str(unmatched[0].context)
 
 
+@pytest.mark.parametrize(
+    "partial_run", ["modified_since", "phase1_failure", "phase2_failure"]
+)
+def test_get_workunits_internal_reports_unmatched_override_as_info_on_partial_run(
+    partial_run: str,
+) -> None:
+    """When some workspaces weren't processed, an override's table may just not
+    have been seen, so the unmatched override is info, not a recurring warning."""
+    source = _make_source(
+        workspaces_to_return=[_make_workspace("WS-A")],
+        excluded_ids=set(),
+        athena_table_platform_override=[
+            {"database": "sales", "table": "orders", "platform": "mysql"},
+        ],
+        **(
+            {"modified_since": "2024-01-01T00:00:00"}
+            if partial_run == "modified_since"
+            else {}
+        ),
+    )
+    if partial_run == "modified_since":
+        source.stale_entity_removal_handler = mock.MagicMock()  # type: ignore[assignment]
+        source.state_provider = mock.MagicMock()  # type: ignore[assignment]
+        source._apply_workunit_processors = mock.MagicMock(return_value=iter([]))  # type: ignore[method-assign]
+    elif partial_run == "phase1_failure":
+        source.powerbi_client.fill_metadata_from_scan_result = mock.MagicMock(  # type: ignore[method-assign]
+            side_effect=RuntimeError("scan down")
+        )
+    else:
+        source.powerbi_client.fill_regular_metadata_detail = mock.MagicMock(  # type: ignore[method-assign]
+            side_effect=RuntimeError("pages endpoint down")
+        )
+
+    list(source.get_workunits_internal())
+
+    title = "Athena table platform override never matched"
+    assert [i.title for i in source.reporter.infos].count(title) == 1
+    assert title not in [w.title for w in source.reporter.warnings]
+
+
 def test_get_workunits_internal_skips_unmatched_override_warning_without_lineage():
     """With extract_lineage off no override can match, so none is reported."""
     source = _make_source(
