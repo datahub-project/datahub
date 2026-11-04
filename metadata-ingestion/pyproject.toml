@@ -1069,6 +1069,11 @@ snowplow = [
     "cachetools<6.0.0",
 ]
 
+sns = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+]
+
 sql-parser = [
     "sqlglot[c]==30.22.0",
 ]
@@ -1087,6 +1092,11 @@ sqlalchemy = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
+]
+
+sqs = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
 ]
 
 starburst-trino-usage = [
@@ -1868,6 +1878,8 @@ kafka = "datahub.ingestion.source.kafka.kafka:KafkaSource"
 kafka-connect = "datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource"
 kinesis = "datahub.ingestion.source.kinesis.kinesis:KinesisSource"
 langfuse = "datahub.ingestion.source.langfuse.langfuse:LangfuseSource"
+sqs = "datahub.ingestion.source.aws_messaging.sqs_source:SqsSource"
+sns = "datahub.ingestion.source.aws_messaging.sns_source:SnsSource"
 ldap = "datahub.ingestion.source.ldap:LDAPSource"
 looker = "datahub.ingestion.source.looker.looker_source:LookerDashboardSource"
 lookml = "datahub.ingestion.source.looker.lookml_source:LookMLSource"

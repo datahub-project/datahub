@@ -269,6 +269,56 @@
     displayName: Amazon Data Firehose
     type: OTHERS
     logoUrl: "assets/platforms/kinesisfirehoselogo.png"
+- entityUrn: urn:li:dataPlatform:sqs
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: sqs
+    displayName: Amazon SQS
+    type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/sqslogo.png"
+- entityUrn: urn:li:dataPlatform:sns
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: sns
+    displayName: Amazon SNS
+    type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/snslogo.png"
+- entityUrn: urn:li:dataPlatform:lambda
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: lambda
+    displayName: AWS Lambda
+    type: OTHERS
+    logoUrl: "assets/platforms/lambdalogo.png"
+- entityUrn: urn:li:dataPlatform:eventbridge
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: eventbridge
+    displayName: Amazon EventBridge
+    type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/eventbridgelogo.png"
+- entityUrn: urn:li:dataPlatform:eventbridge-pipes
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: eventbridge-pipes
+    displayName: Amazon EventBridge Pipes
+    type: OTHERS
+    logoUrl: "assets/platforms/eventbridgelogo.png"
 - entityUrn: urn:li:dataPlatform:kusto
   entityType: dataPlatform
   aspectName: dataPlatformInfo

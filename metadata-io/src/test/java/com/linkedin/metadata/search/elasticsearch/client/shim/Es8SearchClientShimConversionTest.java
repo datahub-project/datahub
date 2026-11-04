@@ -8,12 +8,14 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.bulk.UpdateAction;
 import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
 import co.elastic.clients.json.JsonpUtils;
@@ -29,6 +31,7 @@ import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
@@ -223,6 +226,43 @@ public class Es8SearchClientShimConversionTest {
     assertTrue(
         operation.isIndex(),
         "IndexRequest with default OpType.INDEX must produce an IndexOperation");
+  }
+
+  @Test
+  public void testAddToProcessorUpdateWithoutUpsertCannotCreateTheDocument() throws Exception {
+    @SuppressWarnings("unchecked")
+    BulkIngester<Object> mockProcessor = mock(BulkIngester.class);
+    UpdateRequest update =
+        new UpdateRequest("my_index", "doc-1")
+            .doc(Collections.singletonMap("field", "value"))
+            .docAsUpsert(false);
+
+    invokeAddToProcessor(mockProcessor, update);
+
+    var captor = forClass(BulkOperation.class);
+    verify(mockProcessor).add(captor.capture(), eq(update));
+    UpdateAction<?, ?> action = captor.getValue().update().action();
+    assertNull(action.upsert());
+    assertFalse(Boolean.TRUE.equals(action.docAsUpsert()));
+  }
+
+  @Test
+  public void testAddToProcessorScriptedUpsertKeepsItsUpsertDocument() throws Exception {
+    @SuppressWarnings("unchecked")
+    BulkIngester<Object> mockProcessor = mock(BulkIngester.class);
+    UpdateRequest update =
+        new UpdateRequest("my_index", "doc-1")
+            .script(new org.opensearch.script.Script("ctx._source.field = 'value'"))
+            .scriptedUpsert(true)
+            .upsert(Collections.singletonMap("field", "initial"));
+
+    invokeAddToProcessor(mockProcessor, update);
+
+    var captor = forClass(BulkOperation.class);
+    verify(mockProcessor).add(captor.capture(), eq(update));
+    UpdateAction<?, ?> action = captor.getValue().update().action();
+    assertEquals(action.upsert(), Map.of("field", "initial"));
+    assertEquals(action.scriptedUpsert(), Boolean.TRUE);
   }
 
   /** Helper to invoke protected addToProcessor(BulkIngester, DocWriteRequest) via reflection. */

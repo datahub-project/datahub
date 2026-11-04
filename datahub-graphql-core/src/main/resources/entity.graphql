@@ -12879,7 +12879,9 @@ Input provided when getting an invite token
 """
 input GetInviteTokenInput {
   """
-  The urn of the role to get the invite token for
+  The urn of the role to get the invite token for. Reading or creating a link for a role requires
+  the Manage Policies privilege. Omit it to invite a user with no role, which requires only Manage
+  User Credentials.
   """
   roleUrn: String
 }
@@ -12889,7 +12891,9 @@ Input provided when creating an invite token
 """
 input CreateInviteTokenInput {
   """
-  The urn of the role to create the invite token for
+  The urn of the role to create the invite token for. Creating a link for a role requires the
+  Manage Policies privilege. Omit it to invite a user with no role, which requires only Manage User
+  Credentials.
   """
   roleUrn: String
 }

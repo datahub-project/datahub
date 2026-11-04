@@ -122,6 +122,46 @@ public class BulkListenerFailureHandlingTest {
   }
 
   @Test
+  public void testCreateConflictCompletesWithoutRequeue() {
+    BulkWriteResultTracker tracker = new BulkWriteResultTracker();
+    tracker.recordEnqueued(1);
+    Consumer<DocWriteRequest<?>> requeue = mock(Consumer.class);
+    BulkItemRequeueSupport support = new BulkItemRequeueSupport(true, 3, requeue);
+    BulkListener listener =
+        BulkListener.create(WriteRequest.RefreshPolicy.NONE, null, tracker, support);
+
+    IndexRequest createRequest =
+        new IndexRequest("idx")
+            .id("1")
+            .source(Collections.emptyMap())
+            .opType(DocWriteRequest.OpType.CREATE);
+    BulkRequest bulkRequest = new BulkRequest().add(createRequest);
+
+    BulkItemResponse.Failure failure = mock(BulkItemResponse.Failure.class);
+    when(failure.getStatus()).thenReturn(RestStatus.CONFLICT);
+    when(failure.getMessage()).thenReturn("version_conflict_engine_exception");
+
+    BulkItemResponse item = mock(BulkItemResponse.class);
+    when(item.isFailed()).thenReturn(true);
+    when(item.getFailure()).thenReturn(failure);
+    when(item.getFailureMessage()).thenReturn("version_conflict_engine_exception");
+    when(item.getOpType()).thenReturn(DocWriteRequest.OpType.CREATE);
+    when(item.status()).thenReturn(RestStatus.CONFLICT);
+
+    BulkResponse response = mock(BulkResponse.class);
+    when(response.hasFailures()).thenReturn(true);
+    when(response.getItems()).thenReturn(new BulkItemResponse[] {item});
+    when(response.getIngestTookInMillis()).thenReturn(BulkResponse.NO_INGEST_TOOK);
+    when(response.getTook()).thenReturn(org.opensearch.common.unit.TimeValue.timeValueMillis(1));
+    when(response.buildFailureMessage()).thenReturn("conflict");
+
+    listener.afterBulk(1L, bulkRequest, response);
+    verify(requeue, never()).accept(any());
+    assertEquals(tracker.getPendingItems(), 0);
+    assertEquals(tracker.getUnrecoveredTransferFailures(), 0);
+  }
+
+  @Test
   public void testNonRetriableIsTransferFailure() {
     BulkWriteResultTracker tracker = new BulkWriteResultTracker();
     tracker.recordEnqueued(1);

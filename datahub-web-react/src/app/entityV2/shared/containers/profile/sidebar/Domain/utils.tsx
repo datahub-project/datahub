@@ -87,6 +87,15 @@ export const getContentsSummary = (contents: SearchResults): ContentsSummary => 
     return getContentCountsByType(contents);
 };
 
+function getEntityTypeLabel(entityRegistry: EntityRegistry, type: ContentTypeSummary): string | undefined {
+    if (type.type) {
+        return type.type;
+    }
+    return type.count === 1
+        ? entityRegistry.getEntityName(type.entityType)
+        : entityRegistry.getCollectionName(type.entityType);
+}
+
 export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry: EntityRegistry): React.ReactNode => {
     return (
         <>
@@ -95,10 +104,7 @@ export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry:
                     <SummaryText key={type.entityType}>
                         {i18next.t('entity.shared.containers:sidebar.entityTypeCount', {
                             count: type.count,
-                            type: (!type.type
-                                ? entityRegistry.getEntityName(type.entityType as EntityType)
-                                : type.type
-                            )?.toLocaleLowerCase(),
+                            type: getEntityTypeLabel(entityRegistry, type)?.toLocaleLowerCase(),
                         })}
                         {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
