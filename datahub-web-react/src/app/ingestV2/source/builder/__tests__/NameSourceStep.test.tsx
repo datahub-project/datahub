@@ -52,4 +52,32 @@ describe('NameSourceStep', () => {
 
         expect(updatedState).toEqual({ name: 'Test Name' });
     });
+    it('should write extra env vars from the advanced section into config.extraArgs', () => {
+        let updatedState;
+        const updateStateMock = (newState) => {
+            updatedState = newState;
+        };
+        const state = { name: 'source', config: { debugMode: true } };
+        const { getByTestId } = renderWithTheme(
+            <MockedProvider mocks={[]} addTypename={false}>
+                <NameSourceStep
+                    state={state}
+                    updateState={updateStateMock}
+                    prev={() => {}}
+                    submit={() => {}}
+                    goTo={() => {}}
+                    cancel={() => {}}
+                    ingestionSources={[]}
+                    isEditing
+                />
+            </MockedProvider>,
+        );
+        const envInput = getByTestId('extra-args-input') as HTMLInputElement;
+        fireEvent.change(envInput, { target: { value: '{"A": "b"}' } });
+
+        expect(updatedState).toEqual({
+            name: 'source',
+            config: { debugMode: true, extraArgs: [{ key: 'extra_env_vars', value: '{"A": "b"}' }] },
+        });
+    });
 });

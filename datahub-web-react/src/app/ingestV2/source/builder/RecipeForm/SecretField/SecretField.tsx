@@ -1,5 +1,6 @@
 import { useApolloClient } from '@apollo/client';
-import { AutoComplete, Divider, Form } from 'antd';
+import { Divider } from '@components';
+import { AutoComplete, Form } from 'antd';
 import React, { ReactNode } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';

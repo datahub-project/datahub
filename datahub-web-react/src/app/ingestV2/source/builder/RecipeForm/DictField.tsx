@@ -2,7 +2,7 @@ import { Button as AlchemyButton, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { Button, Form, Input } from 'antd';
+import { Form, Input } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -15,7 +15,11 @@ export const Label = styled.div`
     padding-bottom: 8px;
 `;
 
-const StyledButton = styled(Button)`
+const StyledButton = styled(AlchemyButton)`
+    && {
+        border-style: dashed;
+        justify-content: center;
+    }
     color: ${(props) => props.theme.colors.textTertiary};
     margin: 10px 0 0 30px;
     width: calc(100% - 72px);
@@ -109,7 +113,13 @@ export default function DictField({ field, removeMargin }: Props) {
                             />
                         </SectionWrapper>
                     ))}
-                    <StyledButton type="dashed" onClick={() => add()} icon={<Plus />}>
+                    <StyledButton
+                        type="button"
+                        variant="outline"
+                        color="gray"
+                        onClick={() => add()}
+                        icon={{ icon: Plus }}
+                    >
                         {field.buttonLabel}
                     </StyledButton>
                     <ErrorWrapper>{errors}</ErrorWrapper>

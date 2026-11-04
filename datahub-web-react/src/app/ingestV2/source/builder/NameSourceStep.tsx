@@ -1,5 +1,5 @@
-import { Button, Text, Tooltip } from '@components';
-import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
+import { Button, Checkbox, CollapsiblePanel, Input, Text, Tooltip } from '@components';
+import { Form } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -21,6 +21,10 @@ const ControlsContainer = styled.div`
 
 const LabelContainer = styled.div`
     display: flex;
+`;
+
+const HelpText = styled(Text)`
+    margin-bottom: 1em;
 `;
 
 const ExtraEnvKey = 'extra_env_vars';
@@ -234,15 +238,13 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                     }
                     style={{ marginBottom: 16 }}
                 >
-                    <Typography.Paragraph data-testid="give-source-name-heading">
-                        {t('nameStep.giveName')}
-                    </Typography.Paragraph>
+                    <HelpText data-testid="give-source-name-heading">{t('nameStep.giveName')}</HelpText>
                     <Input
-                        data-testid="source-name-input"
+                        inputTestId="source-name-input"
                         className="source-name-input"
                         placeholder={t('nameStep.namePlaceholder')}
                         value={state.name}
-                        onChange={(event) => setName(event.target.value)}
+                        setValue={setName}
                         onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
@@ -257,77 +259,109 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                     <ActorsSearchSelect selectedActorUrns={selectedOwnerUrns} onUpdate={onUpdateOwners} />
                 </Form.Item>
 
-                <Collapse ghost>
-                    <Collapse.Panel
-                        header={
-                            <Text type="span" color="textSecondary" data-testid="advanced-settings-header">
-                                {t('nameStep.advanced')}
+                <CollapsiblePanel
+                    header={
+                        <Text type="span" color="textSecondary" data-testid="advanced-settings-header">
+                            {t('nameStep.advanced')}
+                        </Text>
+                    }
+                >
+                    {/* NOTE: Executor ID is OSS-only, used by actions pod */}
+                    <Form.Item
+                        label={
+                            <Text type="span" weight="semiBold">
+                                {t('nameStep.executorId.label')}
                             </Text>
                         }
-                        key="1"
                     >
-                        {/* NOTE: Executor ID is OSS-only, used by actions pod */}
-                        <Form.Item label={<Typography.Text strong>{t('nameStep.executorId.label')}</Typography.Text>}>
-                            <Typography.Paragraph>{t('nameStep.executorId.description')}</Typography.Paragraph>
-                            <Input
-                                placeholder={EXECUTOR_ID_PLACEHOLDER}
-                                value={state.config?.executorId || ''}
-                                onChange={(event) => setExecutorId(event.target.value)}
-                                onBlur={(event) => handleBlur(event, setExecutorId)}
-                            />
-                        </Form.Item>
-                        <Form.Item label={<Typography.Text strong>{t('nameStep.cliVersion.label')}</Typography.Text>}>
-                            <Typography.Paragraph>{t('nameStep.cliVersion.description')}</Typography.Paragraph>
-                            <Input
-                                data-testid="cli-version-input"
-                                className="cli-version-input"
-                                placeholder={t('nameStep.cliVersion.placeholder')}
-                                value={state.config?.version || ''}
-                                onChange={(event) => setVersion(event.target.value)}
-                                onBlur={(event) => handleBlur(event, setVersion)}
-                            />
-                        </Form.Item>
-                        <Form.Item label={<Typography.Text strong>{t('nameStep.debugMode.label')}</Typography.Text>}>
-                            <Typography.Paragraph>{t('nameStep.debugMode.description')}</Typography.Paragraph>
-                            <Checkbox
-                                checked={state.config?.debugMode || false}
-                                onChange={(event) => setDebugMode(event.target.checked)}
-                            />
-                        </Form.Item>
-                        <Form.Item label={<Typography.Text strong>{t('nameStep.extraEnvVars.label')}</Typography.Text>}>
-                            <Typography.Paragraph>{t('nameStep.extraEnvVars.description')}</Typography.Paragraph>
-                            <Input
-                                data-testid="extra-args-input"
-                                placeholder={EXTRA_ENV_PLACEHOLDER}
-                                value={retrieveExtraEnvs()}
-                                onChange={(event) => setExtraEnvs(event.target.value)}
-                                onBlur={(event) => handleBlur(event, setExtraEnvs)}
-                            />
-                        </Form.Item>
-                        <Form.Item label={<Typography.Text strong>{t('nameStep.extraPlugins.label')}</Typography.Text>}>
-                            <Typography.Paragraph>{t('nameStep.extraPlugins.description')}</Typography.Paragraph>
-                            <Input
-                                data-testid="extra-pip-plugin-input"
-                                placeholder={EXTRA_ARGS_PLACEHOLDER}
-                                value={retrieveExtraDataHubPlugins()}
-                                onChange={(event) => setExtraDataHubPlugins(event.target.value)}
-                                onBlur={(event) => handleBlur(event, setExtraDataHubPlugins)}
-                            />
-                        </Form.Item>
-                        <Form.Item
-                            label={<Typography.Text strong>{t('nameStep.extraPipLibraries.label')}</Typography.Text>}
-                        >
-                            <Typography.Paragraph>{t('nameStep.extraPipLibraries.description')}</Typography.Paragraph>
-                            <Input
-                                data-testid="extra-pip-reqs-input"
-                                placeholder={EXTRA_PIP_PLACEHOLDER}
-                                value={retrieveExtraReqs()}
-                                onChange={(event) => setExtraReqs(event.target.value)}
-                                onBlur={(event) => handleBlur(event, setExtraReqs)}
-                            />
-                        </Form.Item>
-                    </Collapse.Panel>
-                </Collapse>
+                        <HelpText>{t('nameStep.executorId.description')}</HelpText>
+                        <Input
+                            placeholder={EXECUTOR_ID_PLACEHOLDER}
+                            value={state.config?.executorId || ''}
+                            setValue={setExecutorId}
+                            onBlur={(event) => handleBlur(event, setExecutorId)}
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label={
+                            <Text type="span" weight="semiBold">
+                                {t('nameStep.cliVersion.label')}
+                            </Text>
+                        }
+                    >
+                        <HelpText>{t('nameStep.cliVersion.description')}</HelpText>
+                        <Input
+                            inputTestId="cli-version-input"
+                            className="cli-version-input"
+                            placeholder={t('nameStep.cliVersion.placeholder')}
+                            value={state.config?.version || ''}
+                            setValue={setVersion}
+                            onBlur={(event) => handleBlur(event, setVersion)}
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label={
+                            <Text type="span" weight="semiBold">
+                                {t('nameStep.debugMode.label')}
+                            </Text>
+                        }
+                    >
+                        <HelpText>{t('nameStep.debugMode.description')}</HelpText>
+                        <Checkbox
+                            isChecked={state.config?.debugMode || false}
+                            setIsChecked={setDebugMode}
+                            justifyContent="flex-start"
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label={
+                            <Text type="span" weight="semiBold">
+                                {t('nameStep.extraEnvVars.label')}
+                            </Text>
+                        }
+                    >
+                        <HelpText>{t('nameStep.extraEnvVars.description')}</HelpText>
+                        <Input
+                            inputTestId="extra-args-input"
+                            placeholder={EXTRA_ENV_PLACEHOLDER}
+                            value={retrieveExtraEnvs()}
+                            setValue={setExtraEnvs}
+                            onBlur={(event) => handleBlur(event, setExtraEnvs)}
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label={
+                            <Text type="span" weight="semiBold">
+                                {t('nameStep.extraPlugins.label')}
+                            </Text>
+                        }
+                    >
+                        <HelpText>{t('nameStep.extraPlugins.description')}</HelpText>
+                        <Input
+                            inputTestId="extra-pip-plugin-input"
+                            placeholder={EXTRA_ARGS_PLACEHOLDER}
+                            value={retrieveExtraDataHubPlugins()}
+                            setValue={setExtraDataHubPlugins}
+                            onBlur={(event) => handleBlur(event, setExtraDataHubPlugins)}
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label={
+                            <Text type="span" weight="semiBold">
+                                {t('nameStep.extraPipLibraries.label')}
+                            </Text>
+                        }
+                    >
+                        <HelpText>{t('nameStep.extraPipLibraries.description')}</HelpText>
+                        <Input
+                            inputTestId="extra-pip-reqs-input"
+                            placeholder={EXTRA_PIP_PLACEHOLDER}
+                            value={retrieveExtraReqs()}
+                            setValue={setExtraReqs}
+                            onBlur={(event) => handleBlur(event, setExtraReqs)}
+                        />
+                    </Form.Item>
+                </CollapsiblePanel>
             </RequiredFieldForm>
             <ControlsContainer>
                 <Button variant="outline" color="gray" onClick={prev}>

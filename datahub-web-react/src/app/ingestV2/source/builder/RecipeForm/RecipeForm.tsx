@@ -1,9 +1,9 @@
-import { Button, Tooltip } from '@components';
+import { Button, CollapsiblePanel, Text, Tooltip, toast } from '@components';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
 import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import { Question } from '@phosphor-icons/react/dist/csr/Question';
-import { Collapse, Form, Typography, message } from 'antd';
+import { Form } from 'antd';
 import i18next from 'i18next';
 import get from 'lodash/get';
 import React, { Fragment, useMemo } from 'react';
@@ -30,18 +30,17 @@ const ControlsContainer = styled.div`
     margin-top: 12px;
 `;
 
-const StyledCollapse = styled(Collapse)`
-    margin-bottom: 16px;
-
-    .ant-collapse-header {
-        font-size: 14px;
-        font-weight: bold;
-        padding: 12px 0;
-    }
+const SectionHeaderContainer = styled.span`
+    font-size: 14px;
+    font-weight: bold;
 `;
 
 const HeaderTitle = styled.span`
     margin-left: 8px;
+`;
+
+const FilterSectionTitle = styled(Text)`
+    margin-bottom: 0.5em;
 `;
 
 const MarginWrapper = styled.div`
@@ -67,7 +66,7 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     try {
         recipeObj = YAML.parse(displayRecipe);
     } catch (e) {
-        message.warn(i18next.t('ingestion.sourceBuilder:recipeForm.invalidYaml.error'));
+        toast.warning(i18next.t('ingestion.sourceBuilder:recipeForm.invalidYaml.error'));
         return {};
     }
     if (recipeObj) {
@@ -83,7 +82,7 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
 
 function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: string; sectionTooltip?: string }) {
     return (
-        <span>
+        <SectionHeaderContainer>
             {icon}
             <HeaderTitle>{text}</HeaderTitle>
             {sectionTooltip && (
@@ -91,7 +90,7 @@ function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: string
                     <HeaderTooltipWrapper />
                 </Tooltip>
             )}
-        </span>
+        </SectionHeaderContainer>
     );
 }
 
@@ -214,92 +213,85 @@ function RecipeForm({
             form={form}
             onValuesChange={updateFormValues}
         >
-            <StyledCollapse defaultActiveKey="0">
-                <Collapse.Panel
-                    forceRender
-                    header={<SectionHeader icon={<Plugs />} text={t('recipeForm.connection.title')} />}
-                    key="0"
+            <CollapsiblePanel
+                defaultOpen
+                header={<SectionHeader icon={<Plugs />} text={t('recipeForm.connection.title')} />}
+            >
+                {visibleFields.map((field, i) => (
+                    <FormField
+                        key={field.name}
+                        field={field}
+                        secrets={secrets}
+                        refetchSecrets={refetchSecrets}
+                        removeMargin={i === visibleFields.length - 1}
+                        updateFormValue={updateFormValue}
+                    />
+                ))}
+                {getConnectorsWithTestConnectionFromHook().has(type as string) && (
+                    <TestConnectionWrapper>
+                        <TestConnectionButton
+                            recipe={displayRecipe}
+                            sourceConfigs={sourceConfigs}
+                            version={version}
+                            selectedSource={selectedSource}
+                            renderModal={(props) => <TestConnectionModal {...props} />}
+                        />
+                    </TestConnectionWrapper>
+                )}
+            </CollapsiblePanel>
+            {filterFields.length > 0 && (
+                <CollapsiblePanel
+                    defaultOpen={!!defaultOpenSections?.includes(RecipeSections.Filter)}
+                    header={
+                        <SectionHeader
+                            icon={<Funnel />}
+                            text={t('recipeForm.filter.title')}
+                            sectionTooltip={filterSectionTooltip}
+                        />
+                    }
                 >
-                    {visibleFields.map((field, i) => (
+                    {filterFields.map((field, i) => (
+                        <Fragment key={field.name}>
+                            {shouldRenderFilterSectionHeader(field, i, filterFields) && (
+                                <FilterSectionTitle type="div" size="2xl" weight="semiBold">
+                                    {field.section}
+                                </FilterSectionTitle>
+                            )}
+                            <MarginWrapper>
+                                <FormField
+                                    field={field}
+                                    secrets={secrets}
+                                    refetchSecrets={refetchSecrets}
+                                    removeMargin={i === filterFields.length - 1}
+                                    updateFormValue={updateFormValue}
+                                />
+                            </MarginWrapper>
+                        </Fragment>
+                    ))}
+                </CollapsiblePanel>
+            )}
+            {visibleAdvancedFields.length > 0 && (
+                <CollapsiblePanel
+                    defaultOpen={!!defaultOpenSections?.includes(RecipeSections.Advanced)}
+                    header={
+                        <SectionHeader
+                            icon={<Gear />}
+                            text={t('recipeForm.settings.title')}
+                            sectionTooltip={advancedSectionTooltip}
+                        />
+                    }
+                >
+                    {visibleAdvancedFields.map((field, i) => (
                         <FormField
                             key={field.name}
                             field={field}
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
-                            removeMargin={i === visibleFields.length - 1}
+                            removeMargin={i === visibleAdvancedFields.length - 1}
                             updateFormValue={updateFormValue}
                         />
                     ))}
-                    {getConnectorsWithTestConnectionFromHook().has(type as string) && (
-                        <TestConnectionWrapper>
-                            <TestConnectionButton
-                                recipe={displayRecipe}
-                                sourceConfigs={sourceConfigs}
-                                version={version}
-                                selectedSource={selectedSource}
-                                renderModal={(props) => <TestConnectionModal {...props} />}
-                            />
-                        </TestConnectionWrapper>
-                    )}
-                </Collapse.Panel>
-            </StyledCollapse>
-            {filterFields.length > 0 && (
-                <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Filter) ? '1' : ''}>
-                    <Collapse.Panel
-                        forceRender
-                        header={
-                            <SectionHeader
-                                icon={<Funnel />}
-                                text={t('recipeForm.filter.title')}
-                                sectionTooltip={filterSectionTooltip}
-                            />
-                        }
-                        key="1"
-                    >
-                        {filterFields.map((field, i) => (
-                            <Fragment key={field.name}>
-                                {shouldRenderFilterSectionHeader(field, i, filterFields) && (
-                                    <Typography.Title level={4}>{field.section}</Typography.Title>
-                                )}
-                                <MarginWrapper>
-                                    <FormField
-                                        field={field}
-                                        secrets={secrets}
-                                        refetchSecrets={refetchSecrets}
-                                        removeMargin={i === filterFields.length - 1}
-                                        updateFormValue={updateFormValue}
-                                    />
-                                </MarginWrapper>
-                            </Fragment>
-                        ))}
-                    </Collapse.Panel>
-                </StyledCollapse>
-            )}
-            {visibleAdvancedFields.length > 0 && (
-                <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Advanced) ? '2' : ''}>
-                    <Collapse.Panel
-                        forceRender
-                        header={
-                            <SectionHeader
-                                icon={<Gear />}
-                                text={t('recipeForm.settings.title')}
-                                sectionTooltip={advancedSectionTooltip}
-                            />
-                        }
-                        key="2"
-                    >
-                        {visibleAdvancedFields.map((field, i) => (
-                            <FormField
-                                key={field.name}
-                                field={field}
-                                secrets={secrets}
-                                refetchSecrets={refetchSecrets}
-                                removeMargin={i === visibleAdvancedFields.length - 1}
-                                updateFormValue={updateFormValue}
-                            />
-                        ))}
-                    </Collapse.Panel>
-                </StyledCollapse>
+                </CollapsiblePanel>
             )}
             <ControlsContainer>
                 <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>

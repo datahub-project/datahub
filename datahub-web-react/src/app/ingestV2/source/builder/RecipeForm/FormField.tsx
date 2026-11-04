@@ -2,7 +2,6 @@ import { Button, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Checkbox, Form, Input, Select } from 'antd';
-import AntButton from 'antd/lib/button';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -19,7 +18,11 @@ import DatePicker from '@utils/DayjsDatePicker';
 
 import { Secret } from '@types';
 
-const StyledButton = styled(AntButton)`
+const StyledButton = styled(Button)`
+    && {
+        border-style: dashed;
+        justify-content: center;
+    }
     color: ${(props) => props.theme.colors.textTertiary};
     width: 80%;
 `;
@@ -60,7 +63,14 @@ function ListField({ field, removeMargin }: CommonFieldProps) {
                             />
                         </Form.Item>
                     ))}
-                    <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<Plus />}>
+                    <StyledButton
+                        type="button"
+                        variant="outline"
+                        color="gray"
+                        onClick={() => add()}
+                        style={{ width: '80%' }}
+                        icon={{ icon: Plus }}
+                    >
                         {field.buttonLabel}
                     </StyledButton>
                     <ErrorWrapper>{errors}</ErrorWrapper>

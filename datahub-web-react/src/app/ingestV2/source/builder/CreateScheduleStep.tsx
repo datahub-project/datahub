@@ -1,6 +1,6 @@
 import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-import { Checkbox, Form, Input, Switch, Typography } from 'antd';
+import { Form, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Cron } from 'react-js-cron';
@@ -12,7 +12,7 @@ import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/sharedV2/form/RequiredFieldForm';
 import { lowerFirstLetter } from '@app/sharedV2/textUtil';
-import { Button, Text } from '@src/alchemy-components';
+import { Button, Checkbox, Input, Switch, Text } from '@src/alchemy-components';
 import { cronToString } from '@utils/cronstrue';
 
 const Section = styled.div`
@@ -22,16 +22,11 @@ const Section = styled.div`
     padding-top: 0px;
 `;
 
-const SelectTemplateHeader = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
-    }
+const SelectTemplateHeader = styled(Text)`
+    margin-bottom: 8px;
 `;
 
-const CronText = styled(Typography.Paragraph)`
-    &&& {
-        margin-bottom: 0px;
-    }
+const CronText = styled(Text)`
     color: ${(props) => props.theme.colors.textTertiary};
 `;
 
@@ -47,10 +42,12 @@ const Schedule = styled.div`
 `;
 
 const AdvancedSchedule = styled.div`
+    display: flex;
+    align-items: center;
     margin-left: 20px;
 `;
 
-const AdvancedCheckBox = styled(Typography.Text)`
+const AdvancedCheckBox = styled(Text)`
     margin-right: 10px;
     color: ${(props) => props.theme.colors.textSecondary};
 `;
@@ -84,7 +81,9 @@ const StyledWarningOutlined = styled(Warning)`
     margin-top: 12px;
 `;
 
-const ItemDescriptionText = styled(Typography.Paragraph)``;
+const ItemDescriptionText = styled(Text)`
+    margin-bottom: 1em;
+`;
 
 const DAILY_MIDNIGHT_CRON_INTERVAL = '0 0 * * *';
 
@@ -143,7 +142,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
     return (
         <>
             <Section>
-                <SelectTemplateHeader level={5} data-testid="configure-schedule-heading">
+                <SelectTemplateHeader type="div" size="lg" weight="semiBold" data-testid="configure-schedule-heading">
                     {t('schedule.title')}
                 </SelectTemplateHeader>
             </Section>
@@ -151,15 +150,19 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                 <Form.Item
                     tooltip={t('schedule.enableTooltip')}
                     label={
-                        <Typography.Text strong>
+                        <Text type="span" weight="semiBold">
                             {t('schedule.runOnSchedule')}{' '}
                             <Text type="span" color="textSecondary">
                                 {t('schedule.recommended')}
                             </Text>
-                        </Typography.Text>
+                        </Text>
                     }
                 >
-                    <Switch checked={scheduleEnabled} onChange={(v) => setScheduleEnabled(v)} />
+                    <Switch
+                        label=""
+                        isChecked={scheduleEnabled}
+                        onChange={(e) => setScheduleEnabled(e.target.checked)}
+                    />
                     {!scheduleEnabled && (
                         <WarningContainer>
                             <StyledWarningOutlined />
@@ -169,7 +172,11 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                 </Form.Item>
                 <StyledFormItem
                     required
-                    label={<Typography.Text strong>{t('schedule.scheduleLabel')}</Typography.Text>}
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {t('schedule.scheduleLabel')}
+                        </Text>
+                    }
                 >
                     <Schedule>
                         {advancedCronCheck ? (
@@ -177,7 +184,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                                 placeholder={DAILY_MIDNIGHT_CRON_INTERVAL}
                                 autoFocus
                                 value={scheduleCronInterval}
-                                onChange={(e) => setScheduleCronInterval(e.target.value)}
+                                setValue={setScheduleCronInterval}
                             />
                         ) : (
                             <Cron
@@ -189,14 +196,11 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                             />
                         )}
                         <AdvancedSchedule>
-                            <AdvancedCheckBox>{t('schedule.showAdvanced')}</AdvancedCheckBox>
-                            <Checkbox
-                                checked={advancedCronCheck}
-                                onChange={(event) => setAdvancedCronCheck(event.target.checked)}
-                            />
+                            <AdvancedCheckBox type="span">{t('schedule.showAdvanced')}</AdvancedCheckBox>
+                            <Checkbox isChecked={advancedCronCheck} setIsChecked={setAdvancedCronCheck} />
                         </AdvancedSchedule>
                     </Schedule>
-                    <CronText>
+                    <CronText type="div">
                         {cronAsText.error && <>{t('schedule.invalidCron')}</>}
                         {!cronAsText.text && (
                             <Typography.Paragraph keyboard style={{ marginTop: 4 }}>
@@ -211,7 +215,14 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                         )}
                     </CronText>
                 </StyledFormItem>
-                <Form.Item required label={<Typography.Text strong>{t('schedule.timezoneLabel')}</Typography.Text>}>
+                <Form.Item
+                    required
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {t('schedule.timezoneLabel')}
+                        </Text>
+                    }
+                >
                     <ItemDescriptionText>{t('schedule.timezoneDescription')}</ItemDescriptionText>
                     <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
                 </Form.Item>
