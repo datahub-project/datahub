@@ -213,6 +213,42 @@ def test_query_history_entries_that_cannot_be_parsed_are_skipped(
     assert {w.title for w in proxy.report.warnings} == {"Failed to parse query"}
 
 
+def test_query_history_entry_rejected_by_the_sdk_parser_is_skipped(
+    workspace_client: MagicMock, api_proxy: ProxyBuilder
+) -> None:
+    """Newer databricks-sdk versions convert fields inside QueryInfo.from_dict.
+    A failure there must skip that entry, not end the whole listing."""
+    from databricks.sdk.service.sql import QueryInfo
+
+    entries = [
+        {
+            "query_id": qid,
+            "query_text": "SELECT 1",
+            "query_start_time_ms": 1_700_000_000_000,
+            "query_end_time_ms": 1_700_000_001_000,
+        }
+        for qid in ("q1", "q2", "q3")
+    ]
+    workspace_client.api_client.do.return_value = {"res": entries}
+    proxy = api_proxy(workspace_client)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    real_from_dict = QueryInfo.from_dict
+
+    def from_dict(d: Dict[str, Any]) -> QueryInfo:
+        if d["query_id"] == "q2":
+            raise ValueError("unparseable field")
+        return real_from_dict(d)
+
+    with patch(
+        "datahub.ingestion.source.unity.proxy.QueryInfo.from_dict",
+        side_effect=from_dict,
+    ):
+        queries = list(proxy.query_history(start, start))
+
+    assert [q.query_id for q in queries] == ["q1", "q3"]
+    assert {w.title for w in proxy.report.warnings} == {"Failed to parse query"}
+
+
 @pytest.mark.parametrize(
     "lineage_entry, expected",
     [

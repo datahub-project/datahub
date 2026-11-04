@@ -739,8 +739,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 "statement_types": [typ.value for typ in statement_types],
             }
         )
-        for query_info in self._query_history(filter_by=filter_by):
+        for raw_query in self._query_history(filter_by=filter_by):
+            # Parse inside the try: newer databricks-sdk versions convert fields in
+            # from_dict, so one malformed entry would otherwise end the whole listing.
             try:
+                query_info = QueryInfo.from_dict(raw_query)
                 optional_query = self._create_query(query_info)
                 if optional_query:
                     yield optional_query
@@ -749,7 +752,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 self.report.warning(
                     title="Failed to parse query",
                     message="A query from query history could not be parsed and was skipped.",
-                    context=f"query_id={getattr(query_info, 'query_id', None)}",
+                    context=f"query_id={raw_query.get('query_id')}",
                     exc=e,
                     log=False,
                 )
@@ -758,8 +761,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self,
         filter_by: QueryFilterWithStatementTypes,
         include_metrics: bool = False,
-    ) -> Iterable[QueryInfo]:
-        """Manual implementation of the query_history.list() endpoint.
+    ) -> Iterable[Dict[str, Any]]:
+        """Manual implementation of the query_history.list() endpoint, yielding raw entries.
 
         Needed because:
         - WorkspaceClient incorrectly passes params as query params, not body
@@ -781,8 +784,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         while True:
             if "res" not in response or not response["res"]:
                 return
-            for v in response["res"]:
-                yield QueryInfo.from_dict(v)
+            yield from response["res"]
             if not response.get("next_page_token"):  # last page
                 return
             response = self._workspace_client.api_client.do(  # type: ignore
