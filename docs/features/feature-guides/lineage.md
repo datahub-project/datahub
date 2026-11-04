@@ -121,7 +121,7 @@ If you do not have permission to see the values of a group, the group still appe
 
 #### Managing Lenses (Admins)
 
-Each **Group by** option is a lens, which you can create, edit, and delete. Only admins can manage lenses. Each lens has these settings:
+Each **Group by** option is a lens, which you can create, edit, and delete. Only users with the **Manage Lineage Lenses** privilege can manage lenses. Each lens has these settings:
 
 - **Attribute:** The asset attribute to group by: platform, domain, or glossary term.
 - **Values:** Limit the lens to specific values. Use this to group by only the domains or terms you care about.
