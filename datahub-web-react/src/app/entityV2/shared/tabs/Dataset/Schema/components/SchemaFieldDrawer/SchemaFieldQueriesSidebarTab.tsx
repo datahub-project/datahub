@@ -1,4 +1,4 @@
-import { Button, Typography } from 'antd';
+import { Button, Text } from '@components';
 import React, { useEffect } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -68,6 +68,7 @@ const SeeAllButton = styled(Button)`
     margin-right: 10px;
     margin-bottom: 50px;
     width: 170px;
+    justify-content: center;
 `;
 
 const QueriesTabContainer = styled.div`
@@ -100,7 +101,8 @@ const Section = styled.div`
     line-height: 24px;
 `;
 
-const QueriesTitle = styled(Typography.Text)`
+const QueriesTitle = styled(Text).attrs({ type: 'span' })`
+    color: ${(props) => props.theme.colors.text};
     && {
         margin: 0px;
         font-size: 16px;
@@ -108,6 +110,8 @@ const QueriesTitle = styled(Typography.Text)`
         align-self: flex-start;
         margin: 10px 0 0 10px;
     }
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath } }: Props) {
@@ -185,6 +189,8 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                 ))}
             {hasMore && !loading && (
                 <SeeAllButton
+                    variant="outline"
+                    color="gray"
                     onClick={() => {
                         routeToTab({
                             tabName: EntityTabPath.QUERIES,

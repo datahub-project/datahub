@@ -1,4 +1,4 @@
-import { Empty } from 'antd';
+import { EmptyState } from '@components';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
@@ -112,7 +112,7 @@ export const IncidentList = () => {
                 />
             );
         }
-        return <Empty description={t('list.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <EmptyState title={t('list.empty')} size="sm" />;
     };
 
     return (

@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import i18next from 'i18next';
@@ -19,6 +20,13 @@ type Props = {
     assertionDescription?: Maybe<string>;
     ellipsis?: boolean;
 };
+
+const BoldText = styled(Text).attrs({ type: 'span', weight: 'bold' })`
+    color: ${(props) => props.theme.colors.text};
+    font-size: inherit;
+    line-height: inherit;
+    word-break: break-word;
+`;
 
 const StyledDescrptionContainer = styled.div`
     display: flex;
@@ -49,7 +57,7 @@ const renderFallbackDescription = (field: string | null | undefined) => (
     <Trans
         i18nKey="entity.profile.validations:fieldDescription.customCheckOn"
         values={{ field: field ?? i18next.t('entity.profile.validations:fieldDescription.fieldFallback') }}
-        components={{ bold: <Typography.Text style={{ fontWeight: 'bold' }} /> }}
+        components={{ bold: <BoldText /> }}
     />
 );
 
@@ -76,7 +84,7 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
                         maxValue: descriptor.tokens.maxValue,
                     }}
                     components={{
-                        bold: <Typography.Text style={{ fontWeight: 'bold' }} />,
+                        bold: <BoldText />,
                     }}
                 />
             );

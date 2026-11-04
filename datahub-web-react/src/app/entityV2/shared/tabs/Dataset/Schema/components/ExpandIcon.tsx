@@ -1,8 +1,7 @@
-import { Tooltip } from '@components';
+import { Text, Tooltip } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
-import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -65,12 +64,14 @@ const DepthContainer = styled.div<{ multipleDigits?: boolean }>`
     align-items: center;
 `;
 
-const DepthNumber = styled(Typography.Text)`
+const DepthNumber = styled(Text).attrs({ type: 'span' })`
     margin-left: 4px;
     background: transparent;
     color: ${(props) => props.theme.colors.textOnFillDefault};
     font-size: 10px;
     font-weight: 400;
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 const StyledTooltip = styled(Tooltip)`

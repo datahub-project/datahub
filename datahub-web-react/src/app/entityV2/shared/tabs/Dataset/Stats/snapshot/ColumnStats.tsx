@@ -1,8 +1,8 @@
-import { Typography } from 'antd';
+import { Heading, Text } from '@components';
 import { ColumnType, ColumnsType } from 'antd/lib/table';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import SampleValueTag from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
@@ -19,11 +19,26 @@ const StatSection = styled.div`
     padding: 20px 20px;
 `;
 
-const NameText = styled(Typography.Text)`
+const NameText = styled(Text).attrs({ type: 'span' })`
     font-family: 'Roboto Mono', monospace;
     font-weight: 600;
     font-size: 12px;
     color: ${(props) => props.theme.colors.text};
+    line-height: inherit;
+    word-break: break-word;
+`;
+
+const UnknownValueText = styled(Text).attrs({ type: 'span' })`
+    color: ${(props) => props.theme.colors.textDisabled};
+    font-size: inherit;
+    line-height: inherit;
+    word-break: break-word;
+`;
+
+// Matches antd Typography.Title's bottom margin
+const SectionTitleContainer = styled.div`
+    margin-bottom: 8px;
+    word-break: break-word;
 `;
 
 const isPresent = (val?: string | number | null): val is string | number => {
@@ -36,7 +51,6 @@ const decimalToPercentStr = (decimal: number, precision: number): string => {
 
 export default function ColumnStats({ columnStats, partitionSpec }: Props) {
     const { t } = useTranslation('entity.profile.stats');
-    const theme = useTheme();
     const columnStatsTableData = useMemo(
         () =>
             columnStats.map((doc) => ({
@@ -62,9 +76,7 @@ export default function ColumnStats({ columnStats, partitionSpec }: Props) {
      * Returns a placeholder value to show in the column data table when data is null.
      */
     const unknownValue = () => {
-        return (
-            <Typography.Text style={{ color: theme.colors.textDisabled }}>{t('columnStats.unknown')}</Typography.Text>
-        );
+        return <UnknownValueText>{t('columnStats.unknown')}</UnknownValueText>;
     };
 
     /**
@@ -172,11 +184,13 @@ export default function ColumnStats({ columnStats, partitionSpec }: Props) {
 
     return (
         <StatSection>
-            <Typography.Title level={5}>
-                {t(isPartitioned ? 'columnStats.columnStatsForPartition' : 'columnStats.columnStatsTitle', {
-                    partition: partitionSpec?.partition,
-                })}
-            </Typography.Title>
+            <SectionTitleContainer>
+                <Heading type="h5" size="lg" weight="semiBold">
+                    {t(isPartitioned ? 'columnStats.columnStatsForPartition' : 'columnStats.columnStatsTitle', {
+                        partition: partitionSpec?.partition,
+                    })}
+                </Heading>
+            </SectionTitleContainer>
             <StyledTable pagination={false} columns={columnStatsColumns} dataSource={columnStatsTableData} />
         </StatSection>
     );

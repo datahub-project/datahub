@@ -1,7 +1,7 @@
-import { Icon } from '@components';
+import { Divider, Icon, Text } from '@components';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
-import { Divider, Typography } from 'antd';
+import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -103,6 +103,22 @@ const PartitionRow = styled.div`
     gap: 4px;
     font-size: 12px;
     color: ${(props) => props.theme.colors.textSecondary};
+`;
+
+const BoldText = styled(Text).attrs({ type: 'span', weight: 'semiBold' })`
+    color: ${(props) => props.theme.colors.text};
+    font-size: inherit;
+    line-height: inherit;
+    word-break: break-word;
+`;
+
+// Matches antd Typography.Paragraph's bottom margin
+const ParagraphText = styled(Text).attrs({ type: 'div' })`
+    color: ${(props) => props.theme.colors.text};
+    font-size: inherit;
+    line-height: inherit;
+    margin-bottom: 1em;
+    word-break: break-word;
 `;
 
 const ThinDivider = styled(Divider)`
@@ -274,7 +290,7 @@ const MessageSection = ({
                     <SecondaryHeader>
                         {t('resultPopover.recommendedAction', { defaultValue: 'Recommended action' })}
                     </SecondaryHeader>
-                    <Typography.Paragraph>{recommendedAction}</Typography.Paragraph>
+                    <ParagraphText>{recommendedAction}</ParagraphText>
                 </ContextRow>
             )}
         </>
@@ -292,7 +308,7 @@ const ExternalResultsSection = ({ assertion, result }: { assertion: Assertion; r
             <PlatformRow key="external-results">
                 {sortNativeResults(result.nativeResults).map((entry) => (
                     <div key={entry.key}>
-                        <Typography.Text strong>{entry.key}</Typography.Text>: {entry.value}
+                        <BoldText>{entry.key}</BoldText>: {entry.value}
                     </div>
                 ))}
             </PlatformRow>,

@@ -1,8 +1,7 @@
-import { Icon, Tooltip } from '@components';
+import { Button, Divider, Icon, Tooltip } from '@components';
 import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
 import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import { Button, Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -23,8 +22,10 @@ const Container = styled.div`
     flex-direction: column;
 `;
 
+// inline-flex: alchemy Button is display: flex, and these sit side by side in a block container
 const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
+        display: inline-flex;
         background-color: ${(props) => (props.$isSelected ? props.theme.colors.buttonFillBrand : 'none')};
         color: ${(props) => (props.$isSelected ? props.theme.colors.bg : props.theme.colors.textTertiary)};
         border-radius: 8px;
@@ -198,6 +199,8 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                 {directionOptions.map((option) => (
                     <Tooltip title={option.tip} placement="bottom" showArrow={false}>
                         <LineageButton
+                            variant="outline"
+                            color="gray"
                             $isSelected={selectedDirection === option.value}
                             onClick={() => setDirection(option.value)}
                         >
@@ -232,7 +235,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                     showArrow={false}
                 >
                     <AdvancedFiltersButton
-                        type="link"
+                        variant="link"
                         $isSelected={showAdvancedFilters}
                         onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                     >

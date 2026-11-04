@@ -1,7 +1,7 @@
-import { Tooltip } from '@components';
+import { Button, Tooltip } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
-import { Button, Select } from 'antd';
+import { Select } from 'antd';
 import * as React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -29,16 +29,8 @@ const StyledButton = styled(Button)<{ $isSelected: boolean }>`
         font-size: 12px;
         font-weight: 700;
         line-height: 16px;
+        color: ${(props) => (props.$isSelected ? props.theme.colors.textBrand : props.theme.colors.text)};
     }
-
-    ${(props) =>
-        props.$isSelected &&
-        `
-        color: ${props.theme.colors.textBrand};
-        &:focus, &:hover {
-            color: ${props.theme.colors.textBrand};
-        }
-    `};
 `;
 
 interface Props {
@@ -113,7 +105,7 @@ export default function ColumnsLineageSelect({
             )}
             <Tooltip title={columnButtonTooltip} showArrow={false}>
                 <StyledButton
-                    type="text"
+                    variant="text"
                     onClick={() => setIsColumnLevelLineage(!isColumnLevelLineage)}
                     data-testid="column-lineage-toggle"
                     $isSelected={isColumnLevelLineage}

@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Button } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -6,6 +6,12 @@ import styled from 'styled-components';
 type Props = {
     description: any;
 };
+
+// A link-styled button: the toggle has no destination. align-self keeps the click target to the label.
+const ToggleButton = styled(Button)`
+    align-self: flex-start;
+    padding: 0;
+`;
 
 const DescriptionContainer = styled.div`
     position: relative;
@@ -28,13 +34,16 @@ export default function AccessManagerDescription({ description }: Props) {
     return (
         <DescriptionContainer>
             {finalDescription}
-            <Typography.Link
-                onClick={() => {
-                    toggleExpanded();
-                }}
-            >
-                {(shouldTruncateDescription && (expanded ? ` ${tc('readLess')}` : `...${tc('readMore')}`)) || undefined}
-            </Typography.Link>
+            {shouldTruncateDescription && (
+                <ToggleButton
+                    variant="link"
+                    onClick={() => {
+                        toggleExpanded();
+                    }}
+                >
+                    {expanded ? ` ${tc('readLess')}` : `...${tc('readMore')}`}
+                </ToggleButton>
+            )}
         </DescriptionContainer>
     );
 }

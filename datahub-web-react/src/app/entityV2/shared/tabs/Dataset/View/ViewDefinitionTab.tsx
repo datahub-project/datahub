@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Heading, Text } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -19,6 +19,11 @@ const FORMATTED_OPTION = 'formatted';
 const InfoSection = styled.div`
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 20px;
+`;
+
+const SectionTitleContainer = styled.div`
+    margin-bottom: 8px;
+    word-break: break-word;
 `;
 
 const InfoItemContainer = styled.div<{ justifyContent }>`
@@ -67,7 +72,11 @@ export default function ViewDefinitionTab() {
     return (
         <>
             <InfoSection>
-                <Typography.Title level={5}>{t('viewDefinitionTab.detailsHeading')}</Typography.Title>
+                <SectionTitleContainer>
+                    <Heading type="h5" size="lg" weight="semiBold">
+                        {t('viewDefinitionTab.detailsHeading')}
+                    </Heading>
+                </SectionTitleContainer>
                 <InfoItemContainer justifyContent={JUSTIFY_CONTENT_LEFT}>
                     <InfoItem title={t('viewDefinitionTab.materializedLabel')}>
                         <InfoItemContent>
@@ -83,7 +92,11 @@ export default function ViewDefinitionTab() {
             </InfoSection>
             {canViewQueries ? (
                 <InfoSection>
-                    <Typography.Title level={5}>{t('viewDefinitionTab.logicHeading')}</Typography.Title>
+                    <SectionTitleContainer>
+                        <Heading type="h5" size="lg" weight="semiBold">
+                            {t('viewDefinitionTab.logicHeading')}
+                        </Heading>
+                    </SectionTitleContainer>
                     <CodeBlockWrapper>
                         <CodeBlock
                             code={code}
@@ -97,8 +110,14 @@ export default function ViewDefinitionTab() {
                 </InfoSection>
             ) : (
                 <InfoSection>
-                    <Typography.Title level={5}>{t('viewDefinitionTab.logicHeading')}</Typography.Title>
-                    <Typography.Text type="secondary">{t('viewDefinitionTab.noViewPermission')}</Typography.Text>
+                    <SectionTitleContainer>
+                        <Heading type="h5" size="lg" weight="semiBold">
+                            {t('viewDefinitionTab.logicHeading')}
+                        </Heading>
+                    </SectionTitleContainer>
+                    <Text type="span" color="textSecondary">
+                        {t('viewDefinitionTab.noViewPermission')}
+                    </Text>
                 </InfoSection>
             )}
         </>

@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Heading, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -11,15 +11,11 @@ const AssertionTitleContainer = styled.div`
         border-bottom: 0px;
     }
 `;
-const AssertionListTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 0px;
-    }
-`;
-
-const SubTitle = styled(Typography.Text)`
+const SubTitle = styled(Text).attrs({ type: 'span' })`
     font-size: 14px;
     color: ${(props) => props.theme.colors.textSecondary};
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 export const AssertionListTitleContainer = () => {
@@ -27,7 +23,9 @@ export const AssertionListTitleContainer = () => {
     return (
         <AssertionTitleContainer>
             <div className="left-section">
-                <AssertionListTitle level={4}>{t('assertionList.assertionsTitle')}</AssertionListTitle>
+                <Heading type="h4" size="2xl" weight="semiBold">
+                    {t('assertionList.assertionsTitle')}
+                </Heading>
                 <SubTitle>{t('assertionList.subtitle')}</SubTitle>
             </div>
         </AssertionTitleContainer>

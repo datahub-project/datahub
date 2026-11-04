@@ -1,4 +1,4 @@
-import { Empty } from 'antd';
+import { EmptyState } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -16,7 +16,7 @@ const StyledIframe = styled.iframe`
     height: 100%;
 `;
 
-const StyledEmpty = styled(Empty)`
+const StyledEmpty = styled(EmptyState)`
     margin-top: 28px;
     font-size: 16px;
     color: ${(props) => props.theme.colors.textSecondary};
@@ -30,7 +30,7 @@ export const EmbedTab = () => {
         <EmbedContainer>
             {(embedRenderUrl && (
                 <StyledIframe src={safeUrl(embedRenderUrl)} title={entityData?.urn} frameBorder={0} />
-            )) || <StyledEmpty description={t('embed.noPreview')} />}
+            )) || <StyledEmpty title={t('embed.noPreview')} size="sm" />}
         </EmbedContainer>
     );
 };

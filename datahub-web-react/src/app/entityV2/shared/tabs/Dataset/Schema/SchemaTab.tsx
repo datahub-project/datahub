@@ -1,5 +1,4 @@
-import { Loader } from '@components';
-import { Empty } from 'antd';
+import { EmptyState, Loader } from '@components';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
@@ -38,7 +37,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { ChangeCategoryType } from '@types';
 
-const NoSchema = styled(Empty)`
+const NoSchema = styled(EmptyState)`
     color: ${(props) => props.theme.colors.textDisabled};
     padding-top: 60px;
 `;
@@ -373,7 +372,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                         <Loader size="md" />
                                     </LoadingWrapper>
                                 ) : (
-                                    <NoSchema />
+                                    <NoSchema title={t('noData', { ns: 'alchemy' })} size="sm" />
                                 )}
                             </SchemaScrollArea>
                         )}

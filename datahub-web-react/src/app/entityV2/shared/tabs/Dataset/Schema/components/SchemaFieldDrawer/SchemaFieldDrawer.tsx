@@ -1,8 +1,9 @@
+import { Text } from '@components';
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
 import { Code } from '@phosphor-icons/react/dist/csr/Code';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
-import { Drawer, Typography } from 'antd';
+import { Drawer } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -57,13 +58,15 @@ const DrawerContent = styled.div`
     height: 100%;
 `;
 
-const TimelineHeader = styled(Typography.Text)`
+const TimelineHeader = styled(Text).attrs({ type: 'span' })`
+    color: ${(props) => props.theme.colors.text};
     font-size: 16px;
     font-weight: 700;
     line-height: 24px;
     overflow: hidden;
     display: block;
     cursor: pointer;
+    word-break: break-word;
 `;
 
 const TimelineHeaderWrapper = styled.div`

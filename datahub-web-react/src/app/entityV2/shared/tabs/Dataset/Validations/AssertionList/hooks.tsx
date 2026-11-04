@@ -1,5 +1,4 @@
 import { Column, Tooltip } from '@components';
-import { Typography } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -34,7 +33,7 @@ const CategoryType = styled.div`
     font-size: 14px;
 `;
 
-const LastRun = styled(Typography.Text)`
+const LastRun = styled.span`
     font-family: Mulish;
     color: ${(props) => props.theme.colors.text};
     white-space: nowrap;

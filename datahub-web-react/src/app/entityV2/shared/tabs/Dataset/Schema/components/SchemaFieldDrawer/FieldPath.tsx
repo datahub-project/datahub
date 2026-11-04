@@ -1,7 +1,6 @@
-import { Popover } from '@components';
+import { Divider, Popover, Text } from '@components';
 import { ArrowBendDownLeft } from '@phosphor-icons/react/dist/csr/ArrowBendDownLeft';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
-import { Divider, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -18,7 +17,7 @@ const FieldPathWrapper = styled.div`
 const PopoverContentWrapper = styled.span`
     color: ${(props) => props.theme.colors.text};
 `;
-const FieldName = styled(Typography.Text)`
+const FieldName = styled(Text).attrs({ type: 'span' })`
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
@@ -26,11 +25,13 @@ const FieldName = styled(Typography.Text)`
     overflow: hidden;
     display: block;
     cursor: pointer;
+    word-break: break-word;
 `;
-const LevelNum = styled(Typography.Text)`
+const LevelNum = styled(Text).attrs({ type: 'span' })`
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
+    word-break: break-word;
 `;
 
 const StyledDivider = styled(Divider)`
@@ -56,12 +57,14 @@ const DepthContainer = styled.div`
     align-items: center;
 `;
 
-const DepthNumber = styled(Typography.Text)`
+const DepthNumber = styled(Text).attrs({ type: 'span' })`
     margin-left: 4px;
     background: transparent;
     color: ${(props) => props.theme.colors.textBrand};
     font-size: 10px;
     font-weight: 400;
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 interface Props {

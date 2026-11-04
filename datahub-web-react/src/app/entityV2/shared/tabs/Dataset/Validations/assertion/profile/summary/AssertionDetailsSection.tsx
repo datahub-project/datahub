@@ -1,34 +1,18 @@
-import { Icon } from '@components';
+import { CollapsiblePanel, Icon } from '@components';
 import { Code } from '@phosphor-icons/react/dist/csr/Code';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import { Collapse } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Assertion, AssertionType } from '@types';
 
-const { Panel } = Collapse;
-
-const StyledCollapse = styled(Collapse)`
-    background: ${(props) => props.theme.colors.bgSurface};
-    border-radius: 8px;
-    margin-bottom: 16px;
-
-    .ant-collapse-header {
-        font-weight: 600;
-        color: ${(props) => props.theme.colors.text};
-    }
-
-    .ant-collapse-content-box {
-        padding: 16px;
-    }
-`;
-
 const SectionTitle = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+    font-weight: 600;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const LogicContainer = styled.div`
@@ -125,43 +109,39 @@ export const AssertionDetailsSection = ({ assertion }: Props) => {
         return null;
     }
 
-    const defaultActiveKeys: string[] = [];
-    if (logic) defaultActiveKeys.push('logic');
-
     return (
-        <StyledCollapse defaultActiveKey={defaultActiveKeys} expandIconPosition="end">
+        <>
             {logic && (
-                <Panel
+                <CollapsiblePanel
+                    defaultOpen
                     header={
                         <SectionTitle>
                             <Icon icon={Code} size="md" />
                             <span>{t('assertionSummary.detailsLogicTitle')}</span>
                         </SectionTitle>
                     }
-                    key="logic"
                 >
                     <LogicContainer>
                         <pre>
                             <code>{logic}</code>
                         </pre>
                     </LogicContainer>
-                </Panel>
+                </CollapsiblePanel>
             )}
             {hasCustomProperties && (
-                <Panel
+                <CollapsiblePanel
                     header={
                         <SectionTitle>
                             <Icon icon={Info} size="md" />
                             <span>{t('assertionSummary.detailsCustomPropertiesTitle')}</span>
                         </SectionTitle>
                     }
-                    key="properties"
                 >
                     <PropertiesContainer>
                         <pre>{JSON.stringify(customPropertiesObject, null, 2)}</pre>
                     </PropertiesContainer>
-                </Panel>
+                </CollapsiblePanel>
             )}
-        </StyledCollapse>
+        </>
     );
 };

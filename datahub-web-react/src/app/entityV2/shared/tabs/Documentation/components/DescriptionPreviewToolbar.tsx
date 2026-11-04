@@ -1,5 +1,5 @@
+import { Button } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
-import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,7 +13,7 @@ export const DescriptionPreviewToolbar = ({ onEdit }: DescriptionPreviewToolbarP
     const { t: tc } = useTranslation('common.actions');
     return (
         <TabToolbar>
-            <Button type="text" onClick={onEdit}>
+            <Button variant="text" color="gray" onClick={onEdit}>
                 <PencilSimple /> {tc('edit')}
             </Button>
         </TabToolbar>

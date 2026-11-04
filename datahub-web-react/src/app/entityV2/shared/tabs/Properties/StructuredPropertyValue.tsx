@@ -16,17 +16,18 @@ import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/co
 import ActorPill from '@src/app/sharedV2/owners/ActorPill';
 import { Entity, EntityType, MetadataAttribution, OwnerType } from '@src/types.generated';
 
-const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean }>`
+// A plain span rather than alchemy Text: Tooltip children must forward their ref to a DOM node
+const ValueText = styled.span<{ $size: number; $isProposed?: boolean }>`
     font-family: 'Manrope';
     font-weight: 400;
-    font-size: ${(props) => props.size}px;
+    font-size: ${(props) => props.$size}px;
     color: ${(props) => props.theme.colors.textSecondary};
     display: block;
     width: 100%;
 
     .remirror-editor.ProseMirror,
     .datahub-editor-content {
-        font-size: ${(props) => props.size}px;
+        font-size: ${(props) => props.$size}px;
     }
 
     ${(props) =>
@@ -36,6 +37,7 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
                 cursor: pointer;
         }
         `}
+    word-break: break-word;
 `;
 
 const StyledIcon = styled(ArrowSquareOut)`
@@ -178,7 +180,7 @@ export default function StructuredPropertyValue({
 
     return (
         <Tooltip placement="topLeft" title={!value.entity && !!attribution && tooltipContent}>
-            <ValueText size={size} data-testid={dataTestId}>
+            <ValueText $size={size} data-testid={dataTestId}>
                 {value.entity ? (
                     valueEntityRender
                 ) : (

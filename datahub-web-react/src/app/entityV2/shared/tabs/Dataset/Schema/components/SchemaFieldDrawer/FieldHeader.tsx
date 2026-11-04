@@ -1,5 +1,5 @@
+import { Divider } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Divider } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';

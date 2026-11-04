@@ -1,4 +1,5 @@
-import { Card, Typography } from 'antd';
+import { Text } from '@components';
+import { Card } from 'antd';
 import React, { useMemo } from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -7,12 +8,14 @@ import { TimeSeriesChart } from '@app/analyticsDashboardV2/components/TimeSeries
 
 import { DateInterval, DateRange } from '@types';
 
-const ChartTitle = styled(Typography.Text)`
+const ChartTitle = styled(Text).attrs({ type: 'span' })`
     && {
         text-align: left;
         font-size: 12px;
         color: ${(props) => props.theme.colors.textSecondary};
+        line-height: inherit;
     }
+    word-break: break-word;
 `;
 
 /**

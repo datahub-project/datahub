@@ -1,5 +1,4 @@
-import { Tooltip } from '@components';
-import { Divider } from 'antd';
+import { Divider, Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 

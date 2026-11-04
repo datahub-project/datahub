@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React, { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -24,9 +24,11 @@ const IncidentListTitle = styled.div`
     }
 `;
 
-const SubTitle = styled(Typography.Text)`
+const SubTitle = styled(Text).attrs({ type: 'span' })`
     font-size: 14px;
     color: ${(props) => props.theme.colors.textSecondary};
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 export const IncidentTitleContainer = ({

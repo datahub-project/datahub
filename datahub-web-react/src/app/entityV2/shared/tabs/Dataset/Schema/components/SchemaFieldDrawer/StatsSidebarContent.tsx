@@ -1,6 +1,6 @@
+import { Text } from '@components';
 import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
-import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -41,13 +41,14 @@ const StatLabel = styled.div`
     }
 `;
 
-const LabelText = styled(Typography.Text)`
+const LabelText = styled(Text).attrs({ type: 'span' })`
     color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;
     width: ${maxLabelWidth}px;
     margin-right: 8px;
+    word-break: break-word;
 `;
 
 const StatValue = styled.div<{ isDecreasing: boolean }>`

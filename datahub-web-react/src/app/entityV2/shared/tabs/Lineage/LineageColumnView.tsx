@@ -1,11 +1,11 @@
-import { Tooltip } from '@components';
+import { Button, Text, Tooltip } from '@components';
 import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
 import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
-import { Button, Select, Typography } from 'antd';
+import { Select } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -65,7 +65,15 @@ const ToolbarActionButton = styled(Button)`
         font-size: 12px;
         font-weight: 700;
         line-height: 16px;
+        color: ${(props) => props.theme.colors.text};
     }
+`;
+
+const ButtonLabel = styled(Text).attrs({ type: 'span' })`
+    color: ${(props) => props.theme.colors.text};
+    font-size: inherit;
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 const StyledSelect = styled(Select)`
@@ -162,11 +170,11 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                     <ManageLineageMenuForImpactAnalysis
                         setVisualizeViewInEditMode={setVisualizeViewInEditMode}
                         menuIcon={
-                            <ToolbarActionButton type="text">
+                            <ToolbarActionButton variant="text">
                                 <Graph size={16} />
-                                <Typography.Text>
+                                <ButtonLabel>
                                     <b>{tcAction('edit')}</b>
-                                </Typography.Text>
+                                </ButtonLabel>
                                 <StyledCaretDown />
                             </ToolbarActionButton>
                         }
@@ -184,11 +192,11 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                     )}
                     <LineageTabTimeSelector />
                     <Tooltip title={isLoading ? t('refresh.loadingTooltip') : t('refresh.tooltip')} showArrow={false}>
-                        <RefreshCacheButton type="text" onClick={() => setSkipCache(true)} disabled={isLoading}>
+                        <RefreshCacheButton variant="text" onClick={() => setSkipCache(true)} disabled={isLoading}>
                             {isLoading ? <SpinningCircleNotch size={16} /> : <ArrowsClockwise size={16} />}
-                            <Typography.Text>
+                            <ButtonLabel>
                                 <b>{tcAction('refresh')}</b>
-                            </Typography.Text>
+                            </ButtonLabel>
                         </RefreshCacheButton>
                     </Tooltip>
                 </RightButtonsWrapper>

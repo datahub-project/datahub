@@ -1,5 +1,5 @@
+import { Button } from '@components';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
-import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -29,7 +29,9 @@ const StatusText = styled.div`
 `;
 
 const ActionButton = styled(Button)`
-    color: ${(props) => props.theme.colors.textInformation};
+    && {
+        color: ${(props) => props.theme.colors.textInformation};
+    }
 `;
 
 const StyledArrowRightOutlined = styled(ArrowRight)`
@@ -70,7 +72,7 @@ export const DataContractSummaryFooter = ({
                 </StatusText>
             </StatusContainer>
             {showAction && (
-                <ActionButton type="text">
+                <ActionButton variant="text">
                     {actionText}
                     <StyledArrowRightOutlined />
                 </ActionButton>

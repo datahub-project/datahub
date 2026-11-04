@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -10,10 +10,12 @@ type Props = {
     payload: string | undefined | null;
 };
 
-const NameText = styled(Typography.Text)`
+const NameText = styled(Text).attrs({ type: 'span' })`
     font-weight: 600;
     font-size: 12px;
     color: ${(props) => props.theme.colors.text};
+    line-height: inherit;
+    word-break: break-word;
 `;
 
 export default function DynamicTabularTab({ payload: rawPayload }: Props) {

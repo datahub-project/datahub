@@ -1,4 +1,3 @@
-import { Typography } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -9,7 +8,7 @@ import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateE
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
 import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
-import { Button } from '@src/alchemy-components';
+import { Button, Text } from '@src/alchemy-components';
 import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 
 import { Deprecation, SubResourceType, UsageQueryResult } from '@types';
@@ -57,20 +56,22 @@ const MarkAsDeprecatedButtonContainer = styled.div`
     margin-left: -4px;
 `;
 
-const DetailLabel = styled(Typography.Text)`
+const DetailLabel = styled(Text).attrs({ type: 'span' })`
     color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-weight: 600;
     line-height: 16px;
+    word-break: break-word;
 `;
 
-const DetailValue = styled(Typography.Text)`
+const DetailValue = styled(Text).attrs({ type: 'span' })`
     color: ${(props) => props.theme.colors.textSecondary};
     opacity: 0.5;
     font-size: 12px;
     font-weight: 500;
     line-height: 16px;
     width: max-content;
+    word-break: break-word;
 `;
 
 const StyledButton = styled(Button)`
