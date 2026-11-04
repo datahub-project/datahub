@@ -382,6 +382,15 @@ class SQLAlchemyQueryCombinerReport(Report):
     # table could not be read at all. See GATE_EXECUTION_OPTION.
     queries_skipped_after_gate: int = 0
 
+    # Failed windows narrowed down by bisection instead of being re-issued one
+    # query at a time, and the combined statements that cost. A window of n
+    # queries with one bad expression takes about 1.5 * log2(n) combined
+    # statements plus the bad query alone, rather than n. The single queries
+    # bisection bottoms out on are counted in uncombined_queries_issued like
+    # any other serial retry.
+    failed_windows_bisected: int = 0
+    bisect_statements_issued: int = 0
+
     # Queries never issued because the table's exact row count came back 0, so
     # their results would have been discarded. Not a failure; counted apart
     # from queries_skipped_after_gate, which means "could not be read".
@@ -665,10 +674,7 @@ class SQLAlchemyQueryCombiner:
         # queue by now, so the failure is remembered for the flush instead.
         gate_exc = self._gate_failure_by_thread.get(main_greenlet)
         if gate_exc is not None:
-            for fut in pending_queue.values():
-                fut.exc = _skip_like(gate_exc)
-                fut.done = True
-                self._count_skip(gate_exc)
+            self._skip_futures(pending_queue.values(), gate_exc)
             return
 
         # Gates first, so the window that is attempted always contains them --
@@ -679,9 +685,8 @@ class SQLAlchemyQueryCombiner:
         # queries, which changes which column straddles a boundary and so
         # which one costs two windows when it fails. That is alignment luck,
         # not a saving: swept across every column position on a 12-column
-        # table it came out slightly worse overall. The real cost is that one
-        # failing query takes its whole window serial, which needs the window
-        # bisected -- tracked in #20181.
+        # table it came out slightly worse overall. A failing query no longer
+        # takes its whole window serial: _bisect_failed_window narrows it down.
         pending_queue = dict(
             itertools.islice(
                 sorted(pending_queue.items(), key=lambda kv: not kv[1].is_gate),
@@ -710,14 +715,108 @@ class SQLAlchemyQueryCombiner:
                 if any(fut.is_gate for fut in queue.values())
                 else ""
             )
+            if self.is_query_timeout(e):
+                # Halving a statement the server ran out of time on does not
+                # make its halves fast, and each one that times out pays the
+                # full limit again. One query at a time is the bounded choice.
+                logger.warning(
+                    f"Failed to execute {what} of {len(queue)} queries "
+                    f"({type(e).__name__}); resolving them one at a time.{gated}"
+                )
+                logger.debug(f"Failed to execute {what}", exc_info=e)
+                self._execute_futures_serially(
+                    [fut for fut in queue.values() if not fut.done]
+                )
+                return
             logger.warning(
                 f"Failed to execute {what} of {len(queue)} queries "
-                f"({type(e).__name__}); resolving them one at a time.{gated}"
+                f"({type(e).__name__}); bisecting to find the failing ones.{gated}"
             )
             logger.debug(f"Failed to execute {what}", exc_info=e)
-            self._execute_futures_serially(
-                [fut for fut in queue.values() if not fut.done]
+            self._bisect_failed_window(list(queue.items()))
+
+    def _bisect_failed_window(self, window: List[Tuple[str, _QueryFuture]]) -> None:
+        """Resolve a window whose combined statement failed.
+
+        Re-issuing every query on its own costs one round trip per query when
+        usually one expression is at fault: a column-level grant, a function
+        the platform lacks, an overflow. Splitting the window in half and
+        recursing into whichever half fails finds that expression in about
+        1.5 * log2(n) statements instead of n (#20181).
+
+        Gates still go first and alone, exactly as on the serial path, so an
+        unreadable or empty table costs one statement and the rest are skipped.
+        """
+        pending = [(k, fut) for k, fut in window if not fut.done]
+        gates = [fut for _, fut in pending if fut.is_gate]
+        if gates:
+            self._execute_futures_serially(gates)
+            cause = self._gate_failure_by_thread.get(self._get_main_greenlet())
+            pending = [(k, fut) for k, fut in pending if not fut.done]
+            if cause is not None:
+                self._skip_futures((fut for _, fut in pending), cause)
+                return
+        if not pending:
+            return
+        self.report.failed_windows_bisected += 1
+        self._bisect(pending, known_to_fail=True)
+
+    def _bisect(
+        self, window: List[Tuple[str, _QueryFuture]], known_to_fail: bool
+    ) -> None:
+        # known_to_fail means a statement covering exactly this window already
+        # failed, or its sibling half succeeded inside a parent that failed, so
+        # issuing it whole again would only fail again. That inference is the
+        # one shortcut taken; it never skips a query, it only skips a
+        # statement, so a failure that depends on the combination (statement
+        # size, say) still resolves every query correctly.
+        if len(window) == 1:
+            self._execute_futures_serially([window[0][1]])
+            return
+        if not known_to_fail and self._try_combine(window):
+            return
+        mid = len(window) // 2
+        left, right = window[:mid], window[mid:]
+        if len(left) == 1:
+            self._execute_futures_serially([left[0][1]])
+            left_failed = left[0][1].exc is not None
+        else:
+            left_failed = not self._try_combine(left)
+            if left_failed:
+                self._bisect(left, known_to_fail=True)
+        # If the left half went through, whatever sank the parent is on the
+        # right, so testing the right half whole would be a wasted statement.
+        self._bisect(right, known_to_fail=not left_failed)
+
+    def _try_combine(self, window: List[Tuple[str, _QueryFuture]]) -> bool:
+        """Issue one combined statement for a bisection step.
+
+        True when the window is resolved: the statement succeeded, or it timed
+        out and the window was settled one query at a time (see
+        _cte_combine_or_serial for why a timeout is not bisected further).
+        False when it failed and the caller should split it.
+        """
+        # The failed parent statement may have left the transaction aborted.
+        self._rollback_quietly(window[0][1].conn)
+        self.report.bisect_statements_issued += 1
+        try:
+            self._execute_cte_combine(dict(window))
+            return True
+        except Exception as e:
+            # Not counted in query_exceptions: that counts failed batches, and
+            # the window this step belongs to already did. A timeout is still
+            # counted, as it is for each serial retry.
+            logger.debug(
+                f"Bisection step of {len(window)} queries failed ({type(e).__name__})",
+                exc_info=e,
             )
+            if self.is_query_timeout(e):
+                self.report.query_timeouts += 1
+                self._execute_futures_serially(
+                    [fut for _, fut in window if not fut.done]
+                )
+                return True
+            return False
 
     def _execute_cte_combine(self, pending_queue: Dict[str, _QueryFuture]) -> None:
         # Two or more queries are combined by putting each into its own CTE and
@@ -938,15 +1037,20 @@ class SQLAlchemyQueryCombiner:
                         logger.warning(
                             f"Flat-group CTE re-route also failed for "
                             f"{len(group_queue)} queries ({type(e2).__name__}); "
-                            f"running them serially."
+                            f"narrowing down the failing ones."
                         )
                         logger.debug(
                             "Flat-group CTE re-route also failed",
                             exc_info=e2,
                         )
-                        self._execute_futures_serially(
-                            [fut for _, fut in members if not fut.done]
-                        )
+                        if self.is_query_timeout(e2):
+                            self._execute_futures_serially(
+                                [fut for _, fut in members if not fut.done]
+                            )
+                        else:
+                            self._bisect_failed_window(
+                                [(k, fut) for k, fut in members if not fut.done]
+                            )
 
         if (
             unmatched
@@ -1056,6 +1160,15 @@ class SQLAlchemyQueryCombiner:
                 self._gate_failure_by_thread[self._get_main_greenlet()] = (
                     _EmptyTableSkip()
                 )
+
+    def _skip_futures(
+        self, futures: Iterable["_QueryFuture"], cause: Exception
+    ) -> None:
+        """Resolve futures without issuing them, because of `cause`."""
+        for fut in futures:
+            fut.exc = _skip_like(cause)
+            fut.done = True
+            self._count_skip(cause)
 
     def _count_skip(self, exc: Exception) -> None:
         if isinstance(exc, _EmptyTableSkip):

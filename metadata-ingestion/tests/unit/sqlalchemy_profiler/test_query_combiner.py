@@ -949,14 +949,15 @@ class TestFlattenPath:
         assert caps[0].exc is not None
         assert all(c.done and c.exc is None for c in caps[1:])
         assert all(c.result.scalar() == 3 for c in caps[1:])
-        # Only the window holding the bad query goes one at a time.
-        assert (
-            combiner.report.uncombined_queries_issued == MAX_QUERIES_TO_COMBINE_AT_ONCE
-        )
-        # Two combine attempts: the window that failed, then the rest, which
-        # were still combined rather than demoted with it. The counter is bumped
-        # before the statement is issued, so only the second one succeeded.
-        assert combiner.report.combined_queries_issued == 2
+        # The window holding the bad query is bisected rather than run one at a
+        # time: 20, 10, 5 and 2 fail down the left edge, the bad query and its
+        # neighbour run alone, and 3, 5, 10 and 20 succeed on the way back up.
+        assert combiner.report.failed_windows_bisected == 1
+        assert combiner.report.bisect_statements_issued == 8
+        assert combiner.report.uncombined_queries_issued == 2
+        # The window that failed, the eight bisection steps, then the rest of
+        # the queue, which was still combined rather than demoted with it.
+        assert combiner.report.combined_queries_issued == 10
         assert combiner.report.query_exceptions == 1
 
     def test_failing_unit_does_not_demote_out_of_window_futures(
@@ -981,10 +982,11 @@ class TestFlattenPath:
         assert caps[0].exc is not None  # the bad query fails
         assert all(c.done and c.exc is None for c in caps[1:])  # all good resolve
         assert all(c.result.scalar() == 3 for c in caps[1:])
-        # uncombined is the failed group's size, not the whole queue.
-        assert (
-            combiner.report.uncombined_queries_issued == MAX_QUERIES_TO_COMBINE_AT_ONCE
-        )
+        # Only the failed group is narrowed down, and it is bisected rather
+        # than serialized, so the bad query and one neighbour run alone.
+        assert combiner.report.flat_group_serial_fallbacks == 1
+        assert combiner.report.failed_windows_bisected == 1
+        assert combiner.report.uncombined_queries_issued == 2
         # The out-of-window good futures collapsed into one scan.
         assert (
             combiner.report.scans_avoided == good_count - MAX_QUERIES_TO_COMBINE_AT_ONCE
@@ -1098,6 +1100,191 @@ class TestFlattenPath:
         assert all(c.exc is not None for c in caps)
         # One for the combined statement, then one per retry -- not one total.
         assert combiner.report.query_timeouts == 1 + len(queries)
+        # Halves of a statement that timed out are not bisected: each would pay
+        # the limit again.
+        assert combiner.report.failed_windows_bisected == 0
+
+
+class TestBisection:
+    """A failed window is narrowed down instead of re-issued query by query."""
+
+    @staticmethod
+    def _numbered(test_table: sa.Table, n: int) -> List[Any]:
+        # Each query returns a different value, so a result handed to the
+        # wrong future is caught rather than hidden by every count being 3.
+        return [
+            sa.select((sa.func.count() + i).label(f"c{i}")).select_from(test_table)
+            for i in range(n)
+        ]
+
+    @staticmethod
+    def _bad(label: str = "bad") -> Any:
+        return sa.select(sa.func.count(sa.column("no_such_col")).label(label))
+
+    @staticmethod
+    def _count_statements(engine: sa.engine.Engine) -> List[str]:
+        issued: List[str] = []
+
+        def record(conn, cursor, statement, *_):
+            if statement.strip().upper().startswith(("SELECT", "WITH")):
+                issued.append(statement)
+
+        sa.event.listen(engine, "before_cursor_execute", record)
+        return issued
+
+    @pytest.mark.parametrize("position", [0, 1, 19, 20, 38, 39])
+    def test_one_bad_query_costs_logarithmic_statements(
+        self, engine, test_table, position
+    ):
+        queries: List[Any] = self._numbered(test_table, 39)
+        queries.insert(position, self._bad().select_from(test_table))
+        assert len(queries) == MAX_QUERIES_TO_COMBINE_AT_ONCE
+        issued = self._count_statements(engine)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q, flattenable=False) for q in queries]
+            qc.flush()
+
+        bad = caps.pop(position)
+        assert bad.exc is not None
+        assert [c.exc for c in caps] == [None] * 39
+        assert [c.result.scalar() for c in caps] == [3 + i for i in range(39)]
+        # The failed window, at most two statements per level of a 40-query
+        # tree, and the bad query alone. Serial recovery was 1 + 40.
+        assert len(issued) <= 1 + 2 * 6 + 1, len(issued)
+        # The bad query plus at most two neighbours from the last split.
+        assert combiner.report.uncombined_queries_issued <= 3
+        assert combiner.report.failed_windows_bisected == 1
+        assert combiner.report.query_exceptions == 1
+
+    def test_several_bad_queries_all_resolve(self, engine, test_table):
+        queries: List[Any] = self._numbered(test_table, 17)
+        bad_positions = [2, 9, 15]
+        for p in bad_positions:
+            queries.insert(p, self._bad(f"bad{p}").select_from(test_table))
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q, flattenable=False) for q in queries]
+            qc.flush()
+
+        assert [i for i, c in enumerate(caps) if c.exc is not None] == bad_positions
+        good = [c for i, c in enumerate(caps) if i not in bad_positions]
+        assert [c.result.scalar() for c in good] == [3 + i for i in range(17)]
+        assert combiner.report.uncombined_queries_issued < len(queries)
+
+    def test_every_query_failing_is_bounded(self, engine, test_table):
+        # The worst case for bisection: every internal node of the tree fails.
+        # It must still resolve every future and stay within 2n statements.
+        n = 8
+        queries = [self._bad(f"b{i}").select_from(test_table) for i in range(n)]
+        issued = self._count_statements(engine)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q, flattenable=False) for q in queries]
+            qc.flush()
+
+        assert all(c.done and c.exc is not None for c in caps)
+        assert len(issued) <= 2 * n, len(issued)
+
+    def test_a_failure_that_depends_on_the_combination_loses_nothing(
+        self, engine, test_table
+    ):
+        # A sibling succeeding implies the other half fails only if the failure
+        # belongs to a query. When it belongs to the statement (here: too many
+        # subqueries at once) that inference is wrong, and the cost of being
+        # wrong must be statements, never results.
+        def too_big(conn, cursor, statement, *_):
+            if statement.count("count(*)") > 6:
+                raise sa.exc.OperationalError(statement, {}, Exception("too big"))
+
+        sa.event.listen(engine, "before_cursor_execute", too_big)
+        queries = self._numbered(test_table, 30)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q, flattenable=False) for q in queries]
+            qc.flush()
+
+        assert [c.exc for c in caps] == [None] * 30
+        assert [c.result.scalar() for c in caps] == [3 + i for i in range(30)]
+        # Only the original window counts as a failed batch.
+        assert combiner.report.query_exceptions == 1
+
+    def test_a_healthy_gate_runs_alone_and_the_rest_is_bisected(
+        self, engine, test_table
+    ):
+        gate_query_ = sa.select(sa.func.count().label("rowcount")).select_from(
+            test_table
+        )
+        queries = self._numbered(test_table, 10)
+        queries.insert(5, self._bad().select_from(test_table))
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            gate = _schedule(qc, conn, gate_query_, gate=True, flattenable=False)
+            caps = [_schedule(qc, conn, q, flattenable=False) for q in queries]
+            qc.flush()
+
+        assert gate.exc is None and gate.result.scalar() == 3
+        assert caps[5].exc is not None
+        good = caps[:5] + caps[6:]
+        assert [c.result.scalar() for c in good] == [3 + i for i in range(10)]
+        assert combiner.report.queries_skipped_after_gate == 0
+        assert combiner.report.failed_windows_bisected == 1
+        # The gate, then the bad query, alone; everything else stays combined.
+        assert combiner.report.uncombined_queries_issued <= 3
+
+    def test_an_empty_table_still_stops_at_the_gate(self, engine):
+        metadata = sa.MetaData()
+        empty = sa.Table("empty_table", metadata, Column("id", Integer))
+        metadata.create_all(engine)
+        gate_query_ = sa.select(sa.func.count().label("rowcount")).select_from(empty)
+        others = [sa.select(sa.func.max(empty.c.id).label(f"m{i}")) for i in range(6)]
+        others.insert(3, self._bad().select_from(empty))
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            gate = _schedule(qc, conn, gate_query_, gate=True, flattenable=False)
+            caps = [_schedule(qc, conn, q, flattenable=False) for q in others]
+            qc.flush()
+
+        assert gate.result.scalar() == 0
+        assert all(c.done and c.exc is not None for c in caps)
+        assert combiner.report.queries_skipped_empty_table == len(others)
+        assert combiner.report.failed_windows_bisected == 0
+        assert combiner.report.uncombined_queries_issued == 1
+
+    def test_every_bisection_step_rolls_back_first(self, engine, test_table):
+        # On Postgres/Redshift the failed parent leaves the transaction aborted
+        # (25P02), so a step that does not roll back first fails for that
+        # reason alone and the bisection degrades to serial.
+        queries: List[Any] = self._numbered(test_table, 7)
+        queries.insert(4, self._bad().select_from(test_table))
+        combiner = _make_combiner()
+        calls: List[str] = []
+        real_rollback = combiner._rollback_quietly
+        real_combine = combiner._execute_cte_combine
+
+        def rollback(conn: Any) -> None:
+            calls.append("rollback")
+            real_rollback(conn)
+
+        def combine(queue: Any) -> None:
+            calls.append("combine")
+            real_combine(queue)
+
+        with (
+            engine.connect() as conn,
+            combiner.activate() as qc,
+            patch.object(combiner, "_rollback_quietly", side_effect=rollback),
+            patch.object(combiner, "_execute_cte_combine", side_effect=combine),
+        ):
+            caps = [_schedule(qc, conn, q, flattenable=False) for q in queries]
+            qc.flush()
+
+        assert caps[4].exc is not None
+        # The first combine is the window itself; every one after it is a
+        # bisection step and must follow a rollback.
+        later = [i for i, c in enumerate(calls) if c == "combine"][1:]
+        assert later, calls
+        assert all(calls[i - 1] == "rollback" for i in later), calls
 
 
 class TestRollbackFailure:
