@@ -312,3 +312,65 @@ def get_schema_fields_for_hive_column(
         schema_fields[0].description = description
     schema_fields[0].isPartOfKey = is_part_of_key
     return schema_fields
+
+
+def _extract_type_json_descriptions(
+    type_obj: object, prefix: str, result: Dict[str, str]
+) -> None:
+    if not isinstance(type_obj, dict):
+        return
+
+    kind = type_obj.get("type")
+    if kind == "struct":
+        fields = type_obj.get("fields")
+        if isinstance(fields, list):
+            for field in fields:
+                if not isinstance(field, dict):
+                    continue
+                field_name = field.get("name")
+                if not isinstance(field_name, str) or not field_name:
+                    continue
+                field_path = f"{prefix}.{field_name}" if prefix else field_name
+                metadata = field.get("metadata")
+                if isinstance(metadata, dict):
+                    comment = metadata.get("comment")
+                    if isinstance(comment, str) and comment:
+                        result[field_path] = comment
+                _extract_type_json_descriptions(field.get("type"), field_path, result)
+    elif kind == "array":
+        _extract_type_json_descriptions(type_obj.get("elementType"), prefix, result)
+    elif kind == "map":
+        _extract_type_json_descriptions(type_obj.get("keyType"), prefix, result)
+        _extract_type_json_descriptions(type_obj.get("valueType"), prefix, result)
+
+
+def get_column_descriptions_from_type_json(
+    type_json: str, column_name: Optional[str] = None
+) -> Dict[str, str]:
+    """Extract a mapping of flattened field paths to comments from a Spark/Unity Catalog type_json string."""
+    if not type_json or not isinstance(type_json, str):
+        return {}
+    try:
+        parsed = json.loads(type_json)
+    except (ValueError, TypeError):
+        logger.debug(f"Unable to parse type_json: {type_json}")
+        return {}
+
+    if not isinstance(parsed, dict):
+        return {}
+
+    result: Dict[str, str] = {}
+    if parsed.get("type") == "struct" and isinstance(parsed.get("fields"), list):
+        _extract_type_json_descriptions(parsed, column_name or "", result)
+    else:
+        root_name = parsed.get("name")
+        if not isinstance(root_name, str) or not root_name:
+            root_name = column_name or ""
+        metadata = parsed.get("metadata")
+        if isinstance(metadata, dict) and root_name:
+            comment = metadata.get("comment")
+            if isinstance(comment, str) and comment:
+                result[root_name] = comment
+        _extract_type_json_descriptions(parsed.get("type"), root_name, result)
+
+    return result

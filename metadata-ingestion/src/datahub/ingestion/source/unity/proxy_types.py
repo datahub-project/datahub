@@ -178,6 +178,7 @@ class Column(CommonProperty):
     nullable: Optional[bool]
     comment: Optional[str]
     partition_index: Optional[int] = None
+    type_json: Optional[str] = None
 
 
 @dataclass

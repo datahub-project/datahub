@@ -1,10 +1,15 @@
+import json
+
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
 )
-from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.hive_schema_to_avro import (
+    get_column_descriptions_from_type_json,
+    get_schema_fields_for_hive_column,
+)
 
 
 def test_get_avro_schema_for_hive_column():
@@ -60,4 +65,96 @@ def test_list_of_structs_inside_struct():
     assert isinstance(schema_fields[0].type.type, RecordTypeClass)
     assert not any(isinstance(f.type.type, NullTypeClass) for f in schema_fields), (
         "no field should fall back to NullType"
+    )
+
+
+def test_get_column_descriptions_from_type_json_nested_struct_and_array():
+    type_json = json.dumps(
+        {
+            "name": "details",
+            "type": {
+                "type": "struct",
+                "fields": [
+                    {
+                        "name": "col_a",
+                        "type": "string",
+                        "nullable": True,
+                        "metadata": {"comment": "Column A comment"},
+                    },
+                    {
+                        "name": "items",
+                        "type": {
+                            "type": "array",
+                            "elementType": {
+                                "type": "struct",
+                                "fields": [
+                                    {
+                                        "name": "item_id",
+                                        "type": "string",
+                                        "nullable": True,
+                                        "metadata": {"comment": "Item identifier"},
+                                    },
+                                    {
+                                        "name": "item_count",
+                                        "type": "integer",
+                                        "nullable": True,
+                                        "metadata": {},
+                                    },
+                                ],
+                            },
+                            "containsNull": True,
+                        },
+                        "nullable": True,
+                        "metadata": {"comment": "List of items"},
+                    },
+                ],
+            },
+            "nullable": True,
+            "metadata": {"comment": "Details record"},
+        }
+    )
+
+    descriptions = get_column_descriptions_from_type_json(type_json)
+    assert descriptions == {
+        "details": "Details record",
+        "details.col_a": "Column A comment",
+        "details.items": "List of items",
+        "details.items.item_id": "Item identifier",
+    }
+
+
+def test_get_column_descriptions_from_type_json_map_and_invalid_inputs():
+    map_type_json = json.dumps(
+        {
+            "name": "attributes",
+            "type": {
+                "type": "map",
+                "keyType": "string",
+                "valueType": {
+                    "type": "struct",
+                    "fields": [
+                        {
+                            "name": "label",
+                            "type": "string",
+                            "nullable": True,
+                            "metadata": {"comment": "Attribute label"},
+                        }
+                    ],
+                },
+                "valueContainsNull": True,
+            },
+            "nullable": True,
+            "metadata": {},
+        }
+    )
+    assert get_column_descriptions_from_type_json(map_type_json) == {
+        "attributes.label": "Attribute label"
+    }
+    assert get_column_descriptions_from_type_json("") == {}
+    assert get_column_descriptions_from_type_json("not-json") == {}
+    assert (
+        get_column_descriptions_from_type_json(
+            '{"name":"col_a","type":"integer","nullable":true,"metadata":{}}'
+        )
+        == {}
     )
