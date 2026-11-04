@@ -7,7 +7,7 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { INGESTION_TAB_QUERY_PARAMS } from '@app/ingest/constants';
 import IngestionSourceTable from '@app/ingest/source/IngestionSourceTable';

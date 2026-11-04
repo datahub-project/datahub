@@ -175,7 +175,9 @@ sqlglot_lib = {
     # the release when that happens, keep it here and set DATAHUB_SQLGLOT_DISABLE_C
     # to force pure-Python sqlglot at runtime (see
     # datahub/_force_pure_python_sqlglot.py).
-    "sqlglot[c]==30.12.0",
+    # 30.21.0 rewrote pushdown_projections to raise on unexpanded stars; see
+    # datahub/sql_parsing/_legacy_pushdown_projections.py for the fallback.
+    "sqlglot[c]==30.22.0",
 }
 
 dbt_common = {
@@ -773,6 +775,8 @@ plugins: Dict[str, Set[str]] = {
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
     "langfuse": {"requests<3.0.0"},
+    "sqs": aws_common,
+    "sns": aws_common,
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -853,7 +857,7 @@ plugins: Dict[str, Set[str]] = {
     "snowplow": snowplow,
     # Floor at 0.235.2: first release pinning sqlglot~=30.8.0. Cap at <0.237 after
     # vetting 0.236. Excluded from the pyproject/uv lock and from the "all" extra
-    # because DataHub pins sqlglot[c]==30.12.0 and no released sqlmesh accepts that
+    # because DataHub pins sqlglot[c]==30.22.0 and no released sqlmesh accepts that
     # yet — install with ``pip install 'acryl-datahub[sqlmesh]'`` (setuptools path)
     # in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
     "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib}
@@ -966,7 +970,7 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
-    # SQLMesh pins sqlglot~=30.8.0; DataHub pins sqlglot[c]==30.12.0. Until
+    # SQLMesh pins sqlglot~=30.8.0; DataHub pins sqlglot[c]==30.22.0. Until
     # sqlmesh widens its pin, keep it out of "all" so lock resolution succeeds.
     "sqlmesh",
     # Debug recording is an optional debugging tool.
@@ -1111,6 +1115,8 @@ base_dev_requirements = {
             "sagemaker",
             "kafka",
             "kinesis",
+            "sqs",
+            "sns",
             "datahub-rest",
             "datahub-lite",
             "duckdb",
@@ -1270,6 +1276,8 @@ entry_points = {
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
         "langfuse = datahub.ingestion.source.langfuse.langfuse:LangfuseSource",
+        "sqs = datahub.ingestion.source.aws_messaging.sqs_source:SqsSource",
+        "sns = datahub.ingestion.source.aws_messaging.sns_source:SnsSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",

@@ -13,7 +13,7 @@ import styled, { useTheme } from 'styled-components';
 import { DomainLink } from '@app/businessAttribute/tags/DomainLink';
 import Tag from '@app/businessAttribute/tags/tag/Tag';
 import StyledTerm from '@app/businessAttribute/tags/term/StyledTerm';
-import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import AddTagsModal from '@app/sharedV2/tags/AddTagsModal';
 import AddTermsModal from '@app/sharedV2/tags/AddTermsModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';

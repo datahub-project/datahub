@@ -7,8 +7,8 @@ import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 
 import { TimezoneSelect } from '@app/ingest/source/builder/TimezoneSelect';
-import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
 import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types';
+import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { RequiredFieldForm } from '@app/sharedV2/form/RequiredFieldForm';
 import { lowerFirstLetter } from '@app/sharedV2/textUtil';
 import { Button } from '@src/alchemy-components';

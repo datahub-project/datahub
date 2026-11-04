@@ -16,6 +16,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.entity.Aspect;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -24,6 +26,7 @@ import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -179,13 +182,29 @@ public final class StructuredPropertyUrnIdentity {
     return identities;
   }
 
+  /**
+   * The parsed name only needs {@code propertyDefinition}. That aspect is already retained by the
+   * entity-client cache. This class runs on the V3 write after the projection window has closed, so
+   * the cache is selected here rather than through that window.
+   */
+  @Nonnull
+  private static AspectRetriever definitionRetriever(@Nonnull final OperationContext opContext) {
+    RetrieverContext retrieverContext = opContext.getRetrieverContext();
+    if (retrieverContext != null) {
+      AspectRetriever caching = retrieverContext.getCachingAspectRetriever();
+      if (caching instanceof EntityClientAspectRetriever) {
+        return caching;
+      }
+    }
+    return opContext.getAspectRetriever();
+  }
+
   @Nonnull
   private static Map<Urn, StructuredPropertyDefinition> definitions(
       @Nonnull final OperationContext opContext, @Nonnull final Set<Urn> propertyUrns) {
     try {
       Map<Urn, Map<String, Aspect>> aspects =
-          opContext
-              .getAspectRetriever()
+          definitionRetriever(opContext)
               .getLatestAspectObjects(
                   opContext, propertyUrns, Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
       Map<Urn, StructuredPropertyDefinition> definitions = new HashMap<>();

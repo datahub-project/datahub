@@ -23,7 +23,7 @@ vi.mock('react-i18next', async (importOriginal) => ({
     useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityContext: () => ({ setShouldRefetchEmbeddedListSearch: vi.fn() }),
     useEntityData: () => ({ urn: 'urn:li:application:parent', entityType: mocks.pageEntityType }),
 }));

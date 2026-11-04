@@ -100,5 +100,9 @@
     "searchActions.owners.addTitle": "Lägg till ägare",
     "searchActions.owners.removeTitle": "Ta bort ägare",
     "searchActions.tags.addTitle": "Lägg till taggar",
-    "searchActions.tags.removeTitle": "Ta bort taggar"
+    "searchActions.tags.removeTitle": "Ta bort taggar",
+    "structuredProperty.addMore": "+ Lägg till fler",
+    "structuredProperty.selectPlaceholder": "Välj",
+    "viewAll.resultsIncomplete": "Resultaten kan vara ofullständiga.",
+    "viewAll.searchAllAssets": "Sök bland alla hämtade {{platform}}-tillgångar"
 }

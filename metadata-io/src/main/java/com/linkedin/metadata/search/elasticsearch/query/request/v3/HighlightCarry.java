@@ -13,7 +13,8 @@ import javax.annotation.Nonnull;
 
 /**
  * Holds opted-in source values for one search until the final page is known. Matching runs in
- * {@link #apply}, so rows discarded by reranking are not scanned.
+ * {@link #apply}, so rows discarded by reranking are not scanned. {@link #begin} and {@link #clear}
+ * also bound {@link StageMatchedFields}, the separate scan a ranking stage uses.
  */
 public final class HighlightCarry {
   private static final ThreadLocal<Pending> PENDING = new ThreadLocal<>();
@@ -22,6 +23,7 @@ public final class HighlightCarry {
 
   public static void begin() {
     PENDING.set(new Pending());
+    StageMatchedFields.clear();
   }
 
   public static boolean isDeferred() {
@@ -70,6 +72,7 @@ public final class HighlightCarry {
 
   public static void clear() {
     PENDING.remove();
+    StageMatchedFields.clear();
   }
 
   private static final class Pending {
