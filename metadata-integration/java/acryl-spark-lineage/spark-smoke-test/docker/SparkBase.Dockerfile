@@ -1,4 +1,6 @@
-FROM python:3.9
+# slim: the full image ships ImageMagick and other build libraries this image never uses,
+# which carry most of its Snyk findings.
+FROM python:3.11-slim-trixie
 
 ARG shared_workspace=/opt/workspace
 
@@ -44,7 +46,7 @@ RUN set -e; \
 ENV SPARK_HOME=/usr/bin/spark-${spark_version}-bin-hadoop${hadoop_version}
 ENV SPARK_MASTER_HOST=spark-master
 ENV SPARK_MASTER_PORT=7077
-ENV PYSPARK_PYTHON=python3.9
+ENV PYSPARK_PYTHON=python3.11
 ENV PATH=$PATH:$SPARK_HOME/bin
 
 COPY workspace $SHARED_WORKSPACE
