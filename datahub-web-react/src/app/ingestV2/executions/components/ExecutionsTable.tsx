@@ -25,7 +25,6 @@ const StyledTable = styled(Table)`
 
 interface Props {
     executionRequests: ExecutionRequest[];
-    setFocusExecutionUrn: (urn: string) => void;
     loading?: boolean;
     handleRollback: (executionUrn: string) => void;
     handleCancelExecution: (executionUrn: string, ingestionSourceUrn: string) => void;
@@ -33,16 +32,14 @@ interface Props {
     /** Invoked when the user clicks a source name in a run row. Owns navigation, since the host
      * page decides what "go to this source" means. */
     onSourceClick: (record: ExecutionRequestRecord) => void;
-    /** Returns the route to a run-details page for the given execution urn, or undefined to fall
-     * back to the legacy in-place modal (setFocusExecutionUrn). */
-    getRunDetailsPath: (urn: string) => string | undefined;
+    /** Returns the route to a run-details page for the given execution urn. */
+    getRunDetailsPath: (urn: string) => string;
     /** Stashed as location state on the run-details route so its breadcrumb can link back here. */
     runDetailsFromUrl: string;
 }
 
 export default function ExecutionsTable({
     executionRequests,
-    setFocusExecutionUrn,
     loading,
     handleRollback,
     handleCancelExecution,
@@ -85,14 +82,9 @@ export default function ExecutionsTable({
 
     const handleViewDetails = useCallback(
         (urn: string) => {
-            const path = getRunDetailsPath(urn);
-            if (path) {
-                history.push(path, { fromUrl: runDetailsFromUrl });
-            } else {
-                setFocusExecutionUrn(urn);
-            }
+            history.push(getRunDetailsPath(urn), { fromUrl: runDetailsFromUrl });
         },
-        [history, setFocusExecutionUrn, getRunDetailsPath, runDetailsFromUrl],
+        [history, getRunDetailsPath, runDetailsFromUrl],
     );
 
     const tableColumns: Column<ExecutionRequestRecord>[] = [
