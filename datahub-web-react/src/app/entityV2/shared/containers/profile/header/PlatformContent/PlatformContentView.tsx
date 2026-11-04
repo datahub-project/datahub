@@ -1,4 +1,4 @@
-import { Image, Typography } from 'antd';
+import { Text } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
@@ -20,7 +20,8 @@ const LogoIcon = styled.span`
     margin-right: 4px;
 `;
 
-const PreviewImage = styled(Image)`
+// Plain img: LoadedImage adds padding and a large error placeholder that don't fit a 17px logo.
+const PreviewImage = styled.img`
     max-height: 17px;
     width: auto;
     object-fit: contain;
@@ -35,7 +36,8 @@ const PlatformContentWrapper = styled.div`
     flex: 1;
 `;
 
-const PlatformText = styled(Typography.Text)`
+const PlatformText = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     font-size: 10px;
     font-weight: 400;
     color: ${(props) => props.theme.colors.textSecondary};
@@ -111,16 +113,12 @@ function PlatformContentView(props: Props) {
                     <LogoIcon>
                         {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
                         {!!platformLogoUrl && !showSiblingPlatformLogos && (
-                            <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
+                            <PreviewImage src={platformLogoUrl} alt={platformName} />
                         )}
                         {!!showSiblingPlatformLogos &&
                             platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
                                 <>
-                                    <PreviewImage
-                                        preview={false}
-                                        src={platformLogoUrlsEntry || ''}
-                                        alt={platformName}
-                                    />
+                                    <PreviewImage src={platformLogoUrlsEntry || ''} alt={platformName} />
                                 </>
                             ))}
                     </LogoIcon>

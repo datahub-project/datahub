@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Heading } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -71,9 +71,9 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
             ) : (
                 <ListWrapper>
                     <TitleContainer>
-                        <Typography.Title style={{ margin: '0' }} level={3}>
+                        <Heading type="h3" size="4xl" weight="semiBold">
                             {getRelatedTermTypeLabel(glossaryRelatedTermType)}
-                        </Typography.Title>
+                        </Heading>
                         {canEditRelatedTerms && (
                             <Button
                                 variant="text"

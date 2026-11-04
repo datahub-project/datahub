@@ -1,5 +1,4 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Button as AntButton } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -34,10 +33,10 @@ export const AddLinkModal = ({ buttonProps, buttonType }: Props) => {
         }
         if (bType === 'text') {
             return (
-                <AntButton data-testid="add-link-button" onClick={showModal} type="text">
+                <Button data-testid="add-link-button" variant="text" onClick={showModal}>
                     <Plus />
                     {t('links.addLink')}
-                </AntButton>
+                </Button>
             );
         }
         return (

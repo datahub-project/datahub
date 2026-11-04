@@ -1,11 +1,12 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { formatNumber } from '@app/sharedV2/formatNumber';
 
-const EntityCountText = styled(Typography.Text)`
+const EntityCountText = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     display: inline-block;
     font-size: 12px;
     line-height: 20px;

@@ -1,7 +1,7 @@
+import { Text } from '@components';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Button as AntButton, Typography } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
@@ -101,10 +101,12 @@ export default function EmbeddedListSearchHeader({
         <>
             <TabToolbar>
                 <HeaderContainer>
-                    <AntButton type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
+                    <Button variant="text" color="gray" onClick={onToggleFilters} data-testid="toggle-filters-button">
                         <Funnel />
-                        <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
-                    </AntButton>
+                        <Text type="span" size="inherit" style={{ lineHeight: 'inherit' }}>
+                            {t('embeddedSearch.filters')}
+                        </Text>
+                    </Button>
                     <SearchAndDownloadContainer>
                         <SearchBar
                             dataTestId="embedded-search-bar"

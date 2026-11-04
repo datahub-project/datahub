@@ -1,4 +1,4 @@
-import { List, Typography } from 'antd';
+import { EmptyState, Heading } from '@components';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -16,9 +16,27 @@ const ViewRawButtonContainer = styled.div`
     justify-content: flex-end;
 `;
 
+const ListContainer = styled.div`
+    padding: 0 32px 16px 32px;
+`;
+
+const ListHeader = styled.div`
+    padding: 12px 0;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+`;
+
+const ListItem = styled.div`
+    padding: 20px 0 12px 0;
+
+    &:not(:last-child) {
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    }
+`;
+
 export default function SourcesView() {
     const entityRegistry = useEntityRegistry();
     const { t } = useTranslation('entity.types');
+    const { t: tAlchemy } = useTranslation('alchemy');
     const baseEntity = useBaseEntity<GetMlFeatureTableQuery>();
     const featureTable = baseEntity?.mlFeatureTable;
 
@@ -69,16 +87,22 @@ export default function SourcesView() {
                     }
                 </ViewRawButtonContainer>
             </div>
-            <List
-                style={{ padding: '0 32px 16px 32px' }}
-                dataSource={sources}
-                header={<Typography.Title level={3}>{t('mlFeatureTable.sourcesTab')}</Typography.Title>}
-                renderItem={(item) => (
-                    <List.Item style={{ paddingTop: '20px' }}>
-                        {entityRegistry.renderPreview(item?.type || EntityType.Dataset, PreviewType.PREVIEW, item)}
-                    </List.Item>
+            <ListContainer>
+                <ListHeader>
+                    <Heading type="h3" size="4xl" weight="semiBold">
+                        {t('mlFeatureTable.sourcesTab')}
+                    </Heading>
+                </ListHeader>
+                {sources?.length ? (
+                    sources.map((item) => (
+                        <ListItem key={item.urn}>
+                            {entityRegistry.renderPreview(item?.type || EntityType.Dataset, PreviewType.PREVIEW, item)}
+                        </ListItem>
+                    ))
+                ) : (
+                    <EmptyState title={tAlchemy('noData')} size="sm" />
                 )}
-            />
+            </ListContainer>
         </>
     );
 }

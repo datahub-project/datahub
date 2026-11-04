@@ -1,23 +1,24 @@
-import { Skeleton, Space } from 'antd';
+import { Skeleton } from '@components';
 import * as React from 'react';
 import styled from 'styled-components';
 
+const Row = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
 const TypeSkeleton = styled(Skeleton.Input)`
-    && {
-        width: 60px;
-        height: 60px;
-        border-radius: 8px;
-        background-color: ${(props) => props.theme.colors.bgSurface};
-    }
+    border-radius: 8px;
 `;
 
 export default function ContentSectionLoading() {
     return (
-        <Space direction="horizontal">
-            <TypeSkeleton active size="default" />
-            <TypeSkeleton active size="default" />
-            <TypeSkeleton active size="default" />
-            <TypeSkeleton active size="default" />
-        </Space>
+        <Row>
+            <TypeSkeleton width={60} height={60} />
+            <TypeSkeleton width={60} height={60} />
+            <TypeSkeleton width={60} height={60} />
+            <TypeSkeleton width={60} height={60} />
+        </Row>
     );
 }

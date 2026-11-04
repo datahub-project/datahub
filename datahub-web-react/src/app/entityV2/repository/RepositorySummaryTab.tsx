@@ -1,5 +1,5 @@
-import { ExportOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -84,7 +84,7 @@ export const RepositorySummaryTab = () => {
                 )}
                 {externalUrl && (
                     <ExternalLink href={externalUrl} target="_blank" rel="noopener noreferrer">
-                        <ExportOutlined />
+                        <ArrowSquareOut />
                         {t('repository.summary.viewSource')}
                     </ExternalLink>
                 )}

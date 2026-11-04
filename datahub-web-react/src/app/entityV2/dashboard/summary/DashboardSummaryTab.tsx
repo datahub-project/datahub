@@ -1,4 +1,4 @@
-import { Divider } from 'antd';
+import { Divider } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 

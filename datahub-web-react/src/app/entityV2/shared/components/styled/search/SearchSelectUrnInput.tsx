@@ -1,5 +1,5 @@
+import { Skeleton } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Skeleton } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -150,7 +150,7 @@ export function SearchSelectUrnInput({
                                 {hydratedEntityMap[entity.urn] ? (
                                     <EntityLink entity={hydratedEntityMap[entity.urn]} />
                                 ) : (
-                                    <Skeleton.Input active />
+                                    <Skeleton.Input />
                                 )}
                                 <IconWrapper>
                                     <Icon icon={X} onClick={() => removeEntity(entity)} />

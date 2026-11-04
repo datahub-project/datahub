@@ -1,5 +1,4 @@
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
-import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath } from 'react-router';
@@ -80,14 +79,33 @@ const TabsContainer = styled.div``;
 
 const Tabs = styled.div``;
 
-const SidebarColumn = styled(Col)`
+// Column widths match the antd Col spans they replace (7/17 from md up, full width below).
+const SidebarColumn = styled.div`
+    position: relative;
+    min-height: 1px;
+    flex: 0 0 100%;
+    max-width: 100%;
     height: 100%;
+
+    @media (min-width: 768px) {
+        flex: 0 0 29.16666667%;
+        max-width: 29.16666667%;
+    }
     overflow: auto;
 `;
 
-const ContentColumn = styled(Col)`
+const ContentColumn = styled.div`
+    position: relative;
+    min-height: 1px;
+    flex: 0 0 100%;
+    max-width: 100%;
     border-left: 1px solid ${(props) => props.theme.colors.border};
     height: 100%;
+
+    @media (min-width: 768px) {
+        flex: 0 0 70.83333333%;
+        max-width: 70.83333333%;
+    }
     padding: 8px 16px;
 `;
 
@@ -226,10 +244,10 @@ export default function UserProfile({ urn }: Props) {
             <EntityHead />
             {error && <ErrorSection />}
             <UserProfileWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
-                <SidebarColumn xl={7} lg={7} md={7} sm={24} xs={24}>
+                <SidebarColumn>
                     <UserSideBar sidebarData={sidebarData} refetch={refetch} />
                 </SidebarColumn>
-                <ContentColumn xl={17} lg={17} md={17} sm={24} xs={24}>
+                <ContentColumn>
                     <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
                 </ContentColumn>
             </UserProfileWrapper>

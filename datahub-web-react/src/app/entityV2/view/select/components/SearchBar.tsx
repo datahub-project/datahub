@@ -1,37 +1,47 @@
+import { SearchBar as AlchemySearchBar } from '@components';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import { Input } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
-const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?: string; $fullWidth?: boolean }>`
-    ${(props) => !props.$isShowNavBarRedesign && 'max-width: 330px;'}
-    background-color: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bgSurfaceDarker};
-    border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '7px')};
+// Root rules sit under &&& so they beat the alchemy SearchBar's own affix-wrapper styles.
+const StyledInput = styled(AlchemySearchBar)<{
+    $isShowNavBarRedesign?: boolean;
+    $minWidth?: string;
+    $fullWidth?: boolean;
+}>`
+    &&& {
+        ${(props) => !props.$isShowNavBarRedesign && 'max-width: 330px;'}
+        background-color: ${(props) =>
+            props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bgSurfaceDarker};
+        border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '7px')};
 
-    ${(props) => !props.$isShowNavBarRedesign && 'border: unset;'}
+        ${(props) => !props.$isShowNavBarRedesign && 'border: unset; box-shadow: none;'}
 
-    ${(props) => props.$isShowNavBarRedesign && props.$minWidth && `min-width: ${props.$minWidth};`}
+        ${(props) => props.$isShowNavBarRedesign && props.$minWidth && `min-width: ${props.$minWidth};`}
+        ${(props) =>
+            props.$isShowNavBarRedesign &&
+            `
+            ${props.$fullWidth ? 'width: 100%;' : ''}
+            border: 1px solid;
+            border-color: ${props.theme.colors.border};
+            box-shadow: ${props.theme.colors.shadowXs};
+
+            &:hover {
+                border-color: ${props.theme.colors.borderBrand};
+            }
+
+            &.ant-input-affix-wrapper-focused {
+                border-color: ${props.theme.colors.borderBrand};
+            }
+        `}
+    }
+
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        ${props.$fullWidth && 'width: 100%;'}
-        height: 40px;
-        border: 1px solid;
-        border-color: ${props.theme.colors.border};
-        box-shadow: ${props.theme.colors.shadowXs};
-
-        &&:hover {
-            border-color: ${props.theme.colors.borderBrand};
-        }
-
-        &.ant-input-affix-wrapper-focused {
-            border-color: ${props.theme.colors.borderBrand};
-        }
-        
         & .ant-input::placeholder {
             color: ${props.theme.colors.textPlaceholder};
         }
@@ -94,7 +104,8 @@ export default function SearchBar({ onClickManageViews, onChangeSearch, minWidth
                             ? t('viewSelect.searchPlaceholder')
                             : t('viewSelect.searchPlaceholderLegacy')
                     }
-                    onChange={onChangeSearch}
+                    onChange={(_, event) => onChangeSearch(event)}
+                    height={isShowNavBarRedesign ? '40px' : '32px'}
                     allowClear
                     prefix={isShowNavBarRedesign ? <MagnifyingGlass size={20} /> : <SearchOutlinedStyle />}
                     data-testid="search-overlay-input"

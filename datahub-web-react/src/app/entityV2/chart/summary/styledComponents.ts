@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import styled from 'styled-components';
 
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
@@ -8,7 +8,8 @@ export const MainSection = styled.div`
     flex-direction: column;
 `;
 
-export const SummaryHeader = styled(Typography.Text)`
+export const SummaryHeader = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     margin-bottom: 20px;
     font-size: 18px;
     color: ${(props) => props.theme.colors.text};

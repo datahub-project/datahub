@@ -1,4 +1,4 @@
-import { Divider, Typography } from 'antd';
+import { Divider, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
@@ -21,7 +21,8 @@ type RolePageParams = {
     urn: string;
 };
 
-const TitleLabel = styled(Typography.Text)`
+const TitleLabel = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     &&& {
         color: ${(props) => props.theme.colors.textTertiary};
         font-size: 12px;
@@ -31,7 +32,8 @@ const TitleLabel = styled(Typography.Text)`
     }
 `;
 
-const DescriptionLabel = styled(Typography.Text)`
+const DescriptionLabel = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     &&& {
         text-align: left;
         font-weight: bold;
@@ -41,7 +43,8 @@ const DescriptionLabel = styled(Typography.Text)`
     }
 `;
 
-const TitleText = styled(Typography.Text)`
+const TitleText = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     &&& {
         color: ${(props) => props.theme.colors.text};
         font-weight: 700;
@@ -52,7 +55,10 @@ const TitleText = styled(Typography.Text)`
     }
 `;
 
-const { Paragraph } = Typography;
+// Keeps antd Paragraph's 1em bottom margin.
+const Paragraph = styled(Text).attrs({ type: 'p' })`
+    margin-bottom: 1em;
+`;
 
 export default function RoleEntityProfile() {
     const { t } = useTranslation('entity.types');

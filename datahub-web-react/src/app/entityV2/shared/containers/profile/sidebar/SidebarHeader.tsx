@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Heading } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -8,9 +8,6 @@ const HeaderContainer = styled.div`
     align-items: center;
     justify-content: space-between;
     margin-bottom: 8px;
-    > .ant-typography {
-        margin-bottom: 0;
-    }
 `;
 
 type Props = {
@@ -22,7 +19,9 @@ type Props = {
 export const SidebarHeader = ({ title, actions, children }: Props) => {
     return (
         <HeaderContainer>
-            <Typography.Title level={5}>{title}</Typography.Title>
+            <Heading type="h5" size="lg" weight="semiBold">
+                {title}
+            </Heading>
             {actions && <div>{actions}</div>}
             {children}
         </HeaderContainer>

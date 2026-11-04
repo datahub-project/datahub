@@ -1,8 +1,8 @@
 import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
-import { Empty, Select } from 'antd';
+import { Select } from 'antd';
 import React, { MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
@@ -13,6 +13,12 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useDomainsContext } from '@src/app/domainV2/DomainsContext';
 
 import { Domain, EntityType } from '@types';
+
+const NotFoundMessage = styled.div`
+    padding: 8px 0;
+    text-align: center;
+    color: ${(props) => props.theme.colors.textTertiary};
+`;
 
 // filter out entity itself and its children
 function filterResultsForMove(entity: Domain, entityUrn: string) {
@@ -30,7 +36,6 @@ interface Props {
 }
 
 export default function DomainParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving }: Props) {
-    const theme = useTheme();
     const { t } = useTranslation('entity.shared.entityDropdown');
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
@@ -88,13 +93,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                 onSearch={handleSearch}
                 onFocus={handleFocus}
                 dropdownStyle={isShowingDomainNavigator || !searchQuery ? { display: 'none' } : {}}
-                notFoundContent={
-                    <Empty
-                        description={t('domainSelect.notFound')}
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        style={{ color: theme.colors.textTertiary }}
-                    />
-                }
+                notFoundContent={<NotFoundMessage>{t('domainSelect.notFound')}</NotFoundMessage>}
                 options={domainAutocompleteOptions(
                     domainSearchResultsFiltered,
                     autoCompleteResultsLoading,

@@ -1,6 +1,6 @@
 import { Popover } from '@components';
-import { Space } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
 
 import { PillStyleProps } from '@components/components/Pills/types';
 
@@ -8,6 +8,11 @@ import VersionsPreview from '@app/entityV2/shared/versioning/VersionsPreview';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 
 import { VersionProperties } from '@types';
+
+const PillWrapper = styled.div`
+    display: inline-flex;
+    align-items: center;
+`;
 
 interface Props {
     versionProperties?: VersionProperties;
@@ -27,7 +32,7 @@ export default function VersioningBadge({
 
     return (
         <Popover content={showPopover && <VersionsPreview versionSet={versionProperties.versionSet ?? undefined} />}>
-            <Space>
+            <PillWrapper>
                 <VersionPill
                     {...props}
                     label={versionProperties?.version.versionTag}
@@ -35,7 +40,7 @@ export default function VersioningBadge({
                     clickable={showPopover}
                     className={className}
                 />
-            </Space>
+            </PillWrapper>
         </Popover>
     );
 }
