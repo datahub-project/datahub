@@ -297,10 +297,11 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_external_query_connections_resolved: int = 0
     m_query_external_query_connections_unmapped: int = 0
     m_query_external_query_failures: int = 0
-    # Indexes into athena_table_platform_override of overrides that rewrote at
-    # least one URN; used to warn once per run about overrides that never matched.
+    # Indexes into athena_table_platform_override of overrides that matched at
+    # least one upstream (whether or not a higher-priority entry won); used to warn
+    # once per run about overrides that never matched.
     # The leading underscore keeps these meaningless indexes out of the report.
-    _athena_table_platform_overrides_applied: Set[int] = dataclass_field(
+    _athena_table_platform_overrides_matched: Set[int] = dataclass_field(
         default_factory=set
     )
 

@@ -8,7 +8,7 @@ end-to-end coverage lives in ``tests/integration/powerbi/test_m_parser.py``.
 """
 
 from contextlib import AbstractContextManager
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1656,7 +1656,7 @@ def test_odbc_athena_nav_applies_table_platform_override():
 
 
 @pytest.mark.parametrize(
-    "overrides, expected_platform",
+    "overrides, expected_platform, expected_matched",
     [
         # A DSN-scoped entry wins over a global one listed before it.
         (
@@ -1670,6 +1670,21 @@ def test_odbc_athena_nav_applies_table_platform_override():
                 },
             ],
             "mysql",
+            {0, 1},
+        ),
+        # ...and over one listed after it.
+        (
+            [
+                {
+                    "dsn": "d",
+                    "database": "mydb",
+                    "table": "orders",
+                    "platform": "mysql",
+                },
+                {"database": "mydb", "table": "orders", "platform": "hive"},
+            ],
+            "mysql",
+            {0, 1},
         ),
         # Among global entries for the same table, the first one wins.
         (
@@ -1678,13 +1693,37 @@ def test_odbc_athena_nav_applies_table_platform_override():
                 {"database": "mydb", "table": "orders", "platform": "hive"},
             ],
             "mysql",
+            {0, 1},
+        ),
+        # An entry scoped to another DSN did not match this upstream.
+        (
+            [
+                {
+                    "dsn": "other",
+                    "database": "mydb",
+                    "table": "orders",
+                    "platform": "hive",
+                },
+                {"database": "mydb", "table": "orders", "platform": "mysql"},
+            ],
+            "mysql",
+            {1},
         ),
     ],
-    ids=["dsn-scoped-beats-earlier-global", "first-global-wins"],
+    ids=[
+        "dsn-scoped-beats-earlier-global",
+        "dsn-scoped-beats-later-global",
+        "first-global-wins",
+        "other-dsn-scope-not-matched",
+    ],
 )
 def test_odbc_athena_override_priority(
-    overrides: List[Dict[str, str]], expected_platform: str
+    overrides: List[Dict[str, str]],
+    expected_platform: str,
+    expected_matched: Set[int],
 ) -> None:
+    """Also pins which entries count as matched: a global entry outranked by a
+    DSN-scoped one still matched, so it must not get the "never matched" warning."""
     instance = _build_odbc_lineage(
         athena_table_platform_override=[AthenaPlatformOverride(**o) for o in overrides]
     )
@@ -1706,6 +1745,9 @@ def test_odbc_athena_override_priority(
     assert [u.urn for u in result.upstreams] == [
         f"urn:li:dataset:(urn:li:dataPlatform:{expected_platform},mydb.orders,PROD)"
     ]
+    assert instance.reporter._athena_table_platform_overrides_matched == (
+        expected_matched
+    )
 
 
 def test_odbc_athena_post_processing_keeps_unparseable_urn_and_warns() -> None:
@@ -1770,8 +1812,8 @@ def test_odbc_athena_nav_override_matches_case_insensitively():
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:mysql,salesdb.orders,PROD)"
     ]
-    assert instance.reporter._athena_table_platform_overrides_applied == {0}
-    assert "athena_table_platform_overrides_applied" not in str(
+    assert instance.reporter._athena_table_platform_overrides_matched == {0}
+    assert "athena_table_platform_overrides_matched" not in str(
         instance.reporter.as_obj()
     )
 

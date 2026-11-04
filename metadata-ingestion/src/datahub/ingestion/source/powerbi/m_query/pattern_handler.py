@@ -2572,28 +2572,29 @@ class OdbcLineage(AbstractLineage):
             # names straight from the Power Query navigator.
             urn_database_key = urn_database.casefold()
             urn_table_key = urn_table.casefold()
-            matched_index: Optional[int] = None
+            dsn_key = dsn.casefold()
+            scoped_indexes: List[int] = []
+            global_indexes: List[int] = []
             for index, override in enumerate(
                 self.config.athena_table_platform_override
             ):
                 if (
-                    override.database.casefold() == urn_database_key
-                    and override.table.casefold() == urn_table_key
+                    override.database.casefold() != urn_database_key
+                    or override.table.casefold() != urn_table_key
                 ):
-                    if override.dsn is not None and override.dsn.casefold() == (
-                        dsn.casefold()
-                    ):
-                        # DSN-scoped match takes priority
-                        matched_index = index
-                        break
-                    elif override.dsn is None and matched_index is None:
-                        # Global match (only if no DSN-scoped match found yet)
-                        matched_index = index
+                    continue
+                if override.dsn is None:
+                    global_indexes.append(index)
+                elif override.dsn.casefold() == dsn_key:
+                    scoped_indexes.append(index)
 
-            if matched_index is None:
+            candidates = scoped_indexes + global_indexes
+            if not candidates:
                 return urn
-            self.reporter._athena_table_platform_overrides_applied.add(matched_index)
-            matched_override = self.config.athena_table_platform_override[matched_index]
+            # Every candidate matched this upstream, including a global entry that
+            # a DSN-scoped one outranks, so none of them is a typo to warn about.
+            self.reporter._athena_table_platform_overrides_matched.update(candidates)
+            matched_override = self.config.athena_table_platform_override[candidates[0]]
             target_platform = matched_override.platform
             target_platform_instance = matched_override.platform_instance
 

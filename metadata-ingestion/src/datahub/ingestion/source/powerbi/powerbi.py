@@ -2160,15 +2160,15 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def _report_unmatched_athena_table_platform_overrides(self) -> None:
         # A typo in an override silently leaves lineage on Athena, so surface every
-        # configured override that never rewrote a URN during the run. Without
-        # lineage extraction no override can ever match, so stay silent.
+        # configured override that never matched an upstream during the run.
+        # Without lineage extraction no override can ever match, so stay silent.
         if not self.source_config.extract_lineage:
             return
-        applied = self.reporter._athena_table_platform_overrides_applied
+        matched = self.reporter._athena_table_platform_overrides_matched
         for index, override in enumerate(
             self.source_config.athena_table_platform_override
         ):
-            if index in applied:
+            if index in matched:
                 continue
             self.reporter.warning(
                 title="Athena table platform override never matched",
