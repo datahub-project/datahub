@@ -828,6 +828,12 @@
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Checks semantic embedding availability",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubDocumentsSource",
