@@ -1,13 +1,18 @@
 package io.datahubproject.openapi.client;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.v2.models.BatchGetUrnRequestV2;
 import io.datahubproject.openapi.v2.models.BatchGetUrnResponseV2;
-import java.io.ByteArrayOutputStream;
+import io.datahubproject.openapi.v2.models.GenericAspectV2;
+import io.datahubproject.openapi.v2.models.GenericEntityV2;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -28,7 +33,8 @@ public class OpenApiClient {
   private final boolean useSsl;
   @Getter private final OperationContext systemOperationContext;
 
-  private static final String OPENAPI_PATH = "/openapi/v2/entity/batch/";
+  private static final String OPENAPI_PATH = "/openapi/v3/entity/";
+  private static final String BATCH_GET_SUFFIX = "/batchGet";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   public OpenApiClient(
@@ -51,13 +57,22 @@ public class OpenApiClient {
   public BatchGetUrnResponseV2 getBatchUrns(
       String entityName, BatchGetUrnRequestV2 request, String authCredentials) {
     String url =
-        (useSsl ? "https://" : "http://") + gmsHost + ":" + gmsPort + OPENAPI_PATH + entityName;
+        (useSsl ? "https://" : "http://")
+            + gmsHost
+            + ":"
+            + gmsPort
+            + OPENAPI_PATH
+            + entityName
+            + BATCH_GET_SUFFIX
+            + "?systemMetadata="
+            + request.isWithSystemMetadata();
     HttpPost httpPost = new HttpPost(url);
     httpPost.setHeader(HttpHeaders.AUTHORIZATION, authCredentials);
     try {
       httpPost.setEntity(
           new StringEntity(
-              OBJECT_MAPPER.writeValueAsString(request), ContentType.APPLICATION_JSON));
+              OBJECT_MAPPER.writeValueAsString(toV3BatchGetBody(request)),
+              ContentType.APPLICATION_JSON));
       httpPost.setHeader("Content-type", "application/json");
       return httpClient.execute(httpPost, OpenApiClient::mapResponse);
     } catch (IOException e) {
@@ -66,24 +81,61 @@ public class OpenApiClient {
     }
   }
 
-  private static BatchGetUrnResponseV2 mapResponse(ClassicHttpResponse response) {
-    BatchGetUrnResponseV2 serializedResponse;
-    try {
-      ByteArrayOutputStream result = new ByteArrayOutputStream();
-      InputStream contentStream = response.getEntity().getContent();
-      byte[] buffer = new byte[1024];
-      int length = contentStream.read(buffer);
-      while (length > 0) {
-        result.write(buffer, 0, length);
-        length = contentStream.read(buffer);
+  /**
+   * The v3 batchGet body is one object per urn, keyed by the aspects to fetch: {@code [{"urn":
+   * "...", "<aspectName>": {}}]}. An object with only {@code urn} returns every aspect, matching an
+   * empty {@code aspectNames} in the v2 request.
+   */
+  static List<Map<String, Object>> toV3BatchGetBody(BatchGetUrnRequestV2 request) {
+    List<String> aspectNames =
+        request.getAspectNames() != null ? request.getAspectNames() : List.of();
+    List<Map<String, Object>> body = new ArrayList<>();
+    for (String urn : request.getUrns()) {
+      Map<String, Object> entity = new LinkedHashMap<>();
+      entity.put("urn", urn);
+      for (String aspectName : aspectNames) {
+        entity.put(aspectName, Map.of());
       }
-      serializedResponse =
-          OBJECT_MAPPER.readValue(
-              result.toString(StandardCharsets.UTF_8), BatchGetUrnResponseV2.class);
+      body.add(entity);
+    }
+    return body;
+  }
+
+  /**
+   * v3 returns {@code [{"urn": "...", "<aspectName>": {"value": ..., "systemMetadata": ...}}]}.
+   * Regroup the aspects under {@code aspects} to keep the v2 response type for existing callers.
+   */
+  static BatchGetUrnResponseV2<GenericAspectV2, GenericEntityV2> toV2Response(
+      List<Map<String, Object>> v3Entities) {
+    List<GenericEntityV2> entities = new ArrayList<>();
+    for (Map<String, Object> v3Entity : v3Entities) {
+      Map<String, GenericAspectV2> aspects = new LinkedHashMap<>();
+      for (Map.Entry<String, Object> field : v3Entity.entrySet()) {
+        if ("urn".equals(field.getKey()) || !(field.getValue() instanceof Map<?, ?> aspect)) {
+          continue;
+        }
+        Map<String, Object> v2Aspect = new LinkedHashMap<>();
+        v2Aspect.put("value", aspect.get("value"));
+        if (aspect.get("systemMetadata") != null) {
+          v2Aspect.put("systemMetadata", aspect.get("systemMetadata"));
+        }
+        aspects.put(field.getKey(), new GenericAspectV2(v2Aspect));
+      }
+      entities.add(new GenericEntityV2((String) v3Entity.get("urn"), aspects));
+    }
+    return BatchGetUrnResponseV2.<GenericAspectV2, GenericEntityV2>builder()
+        .entities(entities)
+        .build();
+  }
+
+  private static BatchGetUrnResponseV2 mapResponse(ClassicHttpResponse response) {
+    try (InputStream contentStream = response.getEntity().getContent()) {
+      List<Map<String, Object>> v3Entities =
+          OBJECT_MAPPER.readValue(contentStream, new TypeReference<>() {});
+      return toV2Response(v3Entities);
     } catch (IOException e) {
       log.error("Wasn't able to convert response into expected type.", e);
       throw new RuntimeException(e);
     }
-    return serializedResponse;
   }
 }
