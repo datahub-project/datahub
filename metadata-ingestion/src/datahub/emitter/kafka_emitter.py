@@ -17,7 +17,6 @@ from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolv
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
@@ -258,6 +257,9 @@ class DatahubKafkaEmitter(Closeable, Emitter):
 
         Not atomic: if producing one aspect raises, the aspects before it are already queued.
         """
+        # Deferred: mcp_builder pulls in ingestion sources, which pgqueue must not import.
+        from datahub.emitter.mcp_builder import mcps_from_mce
+
         _warn_mce_deprecated()
         # GMS is removing its MCE topic consumer; the MCP topic is always consumed.
         mcps = list(mcps_from_mce(mce))

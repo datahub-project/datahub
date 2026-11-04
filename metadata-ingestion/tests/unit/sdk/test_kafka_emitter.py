@@ -146,7 +146,7 @@ class KafkaEmitterTest(unittest.TestCase):
 
         _warn_mce_deprecated.cache_clear()
         with (
-            self.assertWarns(DeprecationWarning),
+            pytest.warns(DeprecationWarning),
             self.assertLogs("datahub.emitter.kafka_emitter", "WARNING") as logs,
         ):
             emitter.emit(mce, callback=lambda err, msg: None)
