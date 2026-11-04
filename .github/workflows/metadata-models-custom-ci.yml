@@ -14,7 +14,10 @@ on:
 
 jobs:
   test-model-deploy:
-    runs-on: ubuntu-24.04
+    # Depot for internal runs (remote Gradle build cache via DEPOT_CACHE_TOKEN);
+    # fork PRs stay GitHub-hosted. Non-PR events have no pull_request, so the
+    # fork check is false there.
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && !github.event.pull_request.head.repo.fork && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
 
     steps:
       - name: Checkout code
@@ -28,6 +31,8 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Build metadata-models-custom
         run: |

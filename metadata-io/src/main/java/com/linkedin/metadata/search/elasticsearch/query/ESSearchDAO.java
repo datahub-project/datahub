@@ -170,14 +170,20 @@ public class ESSearchDAO {
   // remote calls end by the same deadline, so a worker is free about when its search falls back;
   // the in-process providers ignore it and keep their worker until they finish. The queue is
   // bounded: when the workers and the queue are full, searches get the keyword ranking right away
-  private static final ExecutorService HYBRID_EXECUTOR =
-      new ThreadPoolExecutor(
-          8,
-          8,
-          0L,
-          TimeUnit.MILLISECONDS,
-          new ArrayBlockingQueue<>(16),
-          new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
+  private static final ExecutorService HYBRID_EXECUTOR = newHybridExecutor();
+
+  // A test that fills the pool builds its own from this, since the shared pool keeps the workers
+  // that earlier tests started
+  @VisibleForTesting
+  static ThreadPoolExecutor newHybridExecutor() {
+    return new ThreadPoolExecutor(
+        8,
+        8,
+        0L,
+        TimeUnit.MILLISECONDS,
+        new ArrayBlockingQueue<>(16),
+        new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
+  }
 
   final boolean pointInTimeCreationEnabled;
   @Nonnull final ElasticSearchConfiguration searchConfiguration;
@@ -195,6 +201,7 @@ public class ESSearchDAO {
   private final AtomicLong hybridLastFailureNanos = new AtomicLong(System.nanoTime());
   private volatile long hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(HYBRID_PAUSE_MILLIS);
   private volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
+  private volatile ExecutorService hybridExecutor = HYBRID_EXECUTOR;
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,
@@ -855,7 +862,7 @@ public class ESSearchDAO {
           window.add(row.copy());
         }
         rerank =
-            HYBRID_EXECUTOR.submit(
+            hybridExecutor.submit(
                 Context.current()
                     .wrap(
                         () ->
@@ -979,6 +986,11 @@ public class ESSearchDAO {
   @VisibleForTesting
   void setHybridTimeoutMillis(long millis) {
     hybridTimeoutMillis = millis;
+  }
+
+  @VisibleForTesting
+  void setHybridExecutor(@Nonnull ExecutorService executor) {
+    hybridExecutor = executor;
   }
 
   private void countHybridTimeout(@Nonnull OperationContext opContext) {

@@ -856,6 +856,12 @@
     "description": "AWS managed message queues. Catalogs queues with lineage to dead-letter queues; pairs with the SNS connector for topic-to-queue lineage.",
     "img_path": "img/logos/platforms/sqs.svg"
   },
+  "sns": {
+    "platform_type": "Messaging",
+    "title": "Amazon SNS",
+    "description": "AWS managed pub/sub topics. Catalogs topics with lineage to subscribed SQS queues; pairs with the SQS connector.",
+    "img_path": "img/logos/platforms/sns.svg"
+  },
   "redpanda": {
     "supported_via": "kafka",
     "title": "Redpanda",
