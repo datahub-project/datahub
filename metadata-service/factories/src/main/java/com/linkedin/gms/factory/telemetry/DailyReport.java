@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.telemetry;
 
 import static com.linkedin.gms.factory.telemetry.TelemetryUtils.*;
 
+import com.datahub.telemetry.MixpanelEventSender;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -19,12 +20,13 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.Nonnull;
-import java.io.IOException;
+import jakarta.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,6 +56,8 @@ public class DailyReport {
   private final GitVersion _gitVersion;
 
   private static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
+  private static final String DATAHUB_EVENTS_ENDPOINT = "https://track.datahubproject.io/mp/track";
+  private static final String DATAHUB_ENGAGE_ENDPOINT = "https://track.datahubproject.io/mp/engage";
 
   private static final String DAU = "dau";
   private static final String WAU = "wau";
@@ -93,14 +97,15 @@ public class DailyReport {
           EntityType.INCIDENT,
           EntityType.CONTAINER);
 
-  private MixpanelAPI mixpanel;
+  private MixpanelEventSender mixpanelSender;
   private MessageBuilder mixpanelBuilder;
 
   public DailyReport(
       @Nonnull OperationContext systemOperationContext,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
-      GitVersion gitVersion) {
+      GitVersion gitVersion,
+      @Nullable MetricUtils metricUtils) {
     this.systemOperationContext = systemOperationContext;
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
@@ -108,11 +113,15 @@ public class DailyReport {
     try {
       String clientId = getClientId(systemOperationContext, entityService);
 
-      // initialize MixPanel instance and message builder
-      mixpanel =
-          new MixpanelAPI(
-              "https://track.datahubproject.io/mp/track",
-              "https://track.datahubproject.io/mp/engage");
+      // The daily report always goes to DataHub's own collector with DataHub's token, on a
+      // client of its own rather than the one TrackingService uses. Delivery runs on the
+      // sender's background thread, so an unreachable collector cannot delay GMS startup or
+      // the scheduler thread this job shares with other scheduled tasks.
+      mixpanelSender =
+          new MixpanelEventSender(
+              "daily-report",
+              new MixpanelAPI(DATAHUB_EVENTS_ENDPOINT, DATAHUB_ENGAGE_ENDPOINT),
+              metricUtils);
       mixpanelBuilder = new MessageBuilder(MIXPANEL_TOKEN);
 
       // set user-level properties
@@ -120,12 +129,7 @@ public class DailyReport {
       props.put("java_version", System.getProperty("java.version"));
       props.put("os", System.getProperty("os.name"));
       props.put("server_version", _gitVersion.getVersion());
-      JSONObject update = mixpanelBuilder.set(clientId, props);
-      try {
-        mixpanel.sendMessage(update);
-      } catch (IOException e) {
-        log.error("Error sending telemetry profile:", e);
-      }
+      mixpanelSender.submit(mixpanelBuilder.set(clientId, props));
     } catch (Exception e) {
       log.warn("Unable to set up telemetry.", e);
     }
@@ -270,18 +274,21 @@ public class DailyReport {
   }
 
   public void ping(String eventName, JSONObject properties) {
-    if (mixpanel == null || mixpanelBuilder == null) {
+    if (mixpanelSender == null || mixpanelBuilder == null) {
       log.error("Unable to send telemetry metrics, MixPanel API not initialized");
       return;
     }
 
-    try {
-      JSONObject event =
-          mixpanelBuilder.event(
-              getClientId(systemOperationContext, _entityService), eventName, properties);
-      mixpanel.sendMessage(event);
-    } catch (IOException e) {
-      log.error("Error reporting telemetry:", e);
+    JSONObject event =
+        mixpanelBuilder.event(
+            getClientId(systemOperationContext, _entityService), eventName, properties);
+    mixpanelSender.submit(event);
+  }
+
+  /** Spring infers this as the bean's destroy method; it stops the sender's worker thread. */
+  public void close() {
+    if (mixpanelSender != null) {
+      mixpanelSender.close();
     }
   }
 

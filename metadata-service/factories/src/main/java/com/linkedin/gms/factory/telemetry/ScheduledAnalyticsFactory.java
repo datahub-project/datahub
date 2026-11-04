@@ -2,8 +2,10 @@ package com.linkedin.gms.factory.telemetry;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -22,8 +24,9 @@ public class ScheduledAnalyticsFactory {
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
-      GitVersion gitVersion) {
+      GitVersion gitVersion,
+      @Nullable MetricUtils metricUtils) {
     return new DailyReport(
-        systemOperationContext, configurationProvider, entityService, gitVersion);
+        systemOperationContext, configurationProvider, entityService, gitVersion, metricUtils);
   }
 }

@@ -742,6 +742,25 @@ sum(rate(primary_storage_target_used_total{forUpdate="false"}[5m]))
 rate(primary_storage_read_fallback_to_primary_total[5m])
 ```
 
+## Product telemetry (Mixpanel) delivery metrics
+
+GMS forwards product analytics events to Mixpanel from a single background thread, so a slow or
+unreachable Mixpanel endpoint never holds a request thread or delays startup. Events are queued
+and dropped when the queue is full. One counter reports what happened to each message:
+
+| Metric                                | Tags                                       | Meaning                                                                   |
+| ------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
+| `datahub.telemetry.mixpanel.messages` | `result` (`sent` \| `failed` \| `dropped`) | Messages delivered, refused or timed out, or shed when the queue was full |
+
+Example PromQL:
+
+```promql
+# Telemetry delivery failure rate; a sustained non-zero value means the endpoint is down
+sum(rate(datahub_telemetry_mixpanel_messages_total{result!="sent"}[5m]))
+  /
+sum(rate(datahub_telemetry_mixpanel_messages_total[5m]))
+```
+
 ## Cache Monitoring (Micrometer)
 
 ### Overview

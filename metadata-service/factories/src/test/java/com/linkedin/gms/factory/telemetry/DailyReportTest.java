@@ -192,7 +192,7 @@ public class DailyReportTest {
    */
   private DailyReport createDailyReportForTesting() {
     return new DailyReport(
-        mockOperationContext, mockConfigurationProvider, mockEntityService, mockGitVersion);
+        mockOperationContext, mockConfigurationProvider, mockEntityService, mockGitVersion, null);
   }
 
   @Test
