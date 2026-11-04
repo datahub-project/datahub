@@ -1,4 +1,5 @@
-import { Checkbox, Empty, Table, TableProps } from 'antd';
+import { Checkbox, EmptyState } from '@components';
+import { Table, TableProps } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -80,7 +81,7 @@ const DetailsColumnWrapper = styled.div`
     justify-content: left;
 `;
 
-const AssertionSelectCheckbox = styled(Checkbox)`
+const AssertionSelectCheckboxWrapper = styled.span`
     margin-right: 12px;
 `;
 
@@ -155,11 +156,12 @@ export const AcrylAssertionsTable = ({
                 return (
                     <DetailsColumnWrapper>
                         {showSelect && (
-                            <AssertionSelectCheckbox
-                                checked={selected}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={() => onSelect?.(record.urn as string)}
-                            />
+                            <AssertionSelectCheckboxWrapper>
+                                <Checkbox
+                                    isChecked={!!selected}
+                                    onCheckboxChange={() => onSelect?.(record.urn as string)}
+                                />
+                            </AssertionSelectCheckboxWrapper>
                         )}
                         <DetailsColumn
                             assertion={record.assertion}
@@ -208,12 +210,7 @@ export const AcrylAssertionsTable = ({
                 dataSource={assertionsTableData}
                 rowKey="urn"
                 locale={{
-                    emptyText: (
-                        <Empty
-                            description={t('assertionList.noAssertionsTitle')}
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        />
-                    ),
+                    emptyText: <EmptyState title={t('assertionList.noAssertionsTitle')} size="sm" />,
                 }}
                 onRow={(record) => {
                     return {

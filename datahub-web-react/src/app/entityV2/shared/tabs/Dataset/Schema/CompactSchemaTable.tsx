@@ -1,4 +1,5 @@
-import { Button, Table } from 'antd';
+import { Link } from '@components';
+import { Table } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import { FixedType } from 'rc-table/lib/interface';
 import React, { useMemo, useState } from 'react';
@@ -67,11 +68,16 @@ const TableContainer = styled.div<{ fullHeight?: boolean }>`
     }
 `;
 
-const StyledButton = styled(Button)`
+const ViewMoreLink = styled(Link)`
+    display: inline-block;
+    padding: 0 7px;
+    line-height: 24px;
     color: ${(props) => props.theme.colors.textTertiary};
     font-weight: 500;
     :hover {
         color: ${(props) => props.theme.colors.text};
+        opacity: 1;
+        text-decoration: none;
     }
 `;
 
@@ -218,13 +224,12 @@ export default function CompactSchemaTable({
                 }}
             />
             {hasSeeMore && (
-                <StyledButton
-                    type="text"
-                    size="small"
+                <ViewMoreLink
+                    target="_self"
                     href={resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Dataset, urn))}
                 >
                     {t('compactSchemaTable.viewMore', { count: rows.length - numberOfRowsToShow })}
-                </StyledButton>
+                </ViewMoreLink>
             )}
             {!!schemaFields && (
                 <SchemaFieldDrawer

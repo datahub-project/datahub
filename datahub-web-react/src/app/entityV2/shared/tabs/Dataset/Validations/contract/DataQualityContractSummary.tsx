@@ -1,4 +1,5 @@
-import { Table, Typography } from 'antd';
+import { Text } from '@components';
+import { Table } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -80,7 +81,7 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                         (() => {
                             // Prefer explicit description — same as Quality list / profile primary label.
                             if (assertion.info?.description) {
-                                return <Typography.Text>{assertion.info.description}</Typography.Text>;
+                                return <Text type="span">{assertion.info.description}</Text>;
                             }
                             const custom = assertion.info?.customAssertion;
                             if (
@@ -105,7 +106,7 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                                     />
                                 );
                             }
-                            return <Typography.Text>{assertion.info?.customAssertion?.type}</Typography.Text>;
+                            return <Text type="span">{assertion.info?.customAssertion?.type}</Text>;
                         })()}
                 </>
             ),

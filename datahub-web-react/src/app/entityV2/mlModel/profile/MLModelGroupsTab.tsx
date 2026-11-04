@@ -1,4 +1,5 @@
-import { Space, Table, Typography } from 'antd';
+import { Link as AlchemyLink, Heading } from '@components';
+import { Table } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +14,13 @@ import { EntityType, MlModelGroup } from '@types';
 
 const TabContent = styled.div`
     padding: 16px;
+`;
+
+const VerticalStack = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
 `;
 
 const TruncatedDescription = styled.div<{ isExpanded: boolean }>`
@@ -63,7 +71,7 @@ export default function MLModelGroupsTab() {
                 return (
                     <>
                         <TruncatedDescription isExpanded={isExpanded}>{description}</TruncatedDescription>
-                        <Typography.Link
+                        <AlchemyLink
                             onClick={() => {
                                 const newExpanded = new Set(expandedRows);
                                 if (isExpanded) {
@@ -75,7 +83,7 @@ export default function MLModelGroupsTab() {
                             }}
                         >
                             {isExpanded ? tc('showLess') : tc('readMore')}
-                        </Typography.Link>
+                        </AlchemyLink>
                     </>
                 );
             },
@@ -84,15 +92,17 @@ export default function MLModelGroupsTab() {
 
     return (
         <TabContent>
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
-                <Typography.Title level={3}>{t('group.namePlural')}</Typography.Title>
+            <VerticalStack>
+                <Heading type="h3" size="4xl" weight="semiBold">
+                    {t('group.namePlural')}
+                </Heading>
                 <Table
                     data-testid="mlmodel-groups-table"
                     pagination={false}
                     columns={propertyTableColumns}
                     dataSource={model?.properties?.groups as MlModelGroup[]}
                 />
-            </Space>
+            </VerticalStack>
         </TabContent>
     );
 }

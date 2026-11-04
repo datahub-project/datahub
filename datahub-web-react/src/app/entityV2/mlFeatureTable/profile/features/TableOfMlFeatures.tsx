@@ -1,5 +1,6 @@
+import { Text } from '@components';
 import { CheckSquare } from '@phosphor-icons/react/dist/csr/CheckSquare';
-import { Table, Typography } from 'antd';
+import { Table } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +18,11 @@ import { MlFeature, MlFeatureDataType, MlPrimaryKey } from '@types';
 
 const FeaturesContainer = styled.div`
     margin-bottom: 100px;
+`;
+
+// antd Typography.Text forced the body text color, so keep the name from taking the link color.
+const FeatureName = styled(Text)`
+    color: ${(props) => props.theme.colors.text};
 `;
 
 type Props = {
@@ -62,7 +68,9 @@ export default function TableOfMlFeatures({ features }: Props) {
         width: 100,
         render: (name: string, feature: MlFeature | MlPrimaryKey) => (
             <Link to={entityRegistry.getEntityUrl(feature.type, feature.urn)}>
-                <Typography.Text strong>{name}</Typography.Text>
+                <FeatureName type="span" weight="semiBold">
+                    {name}
+                </FeatureName>
             </Link>
         ),
     };

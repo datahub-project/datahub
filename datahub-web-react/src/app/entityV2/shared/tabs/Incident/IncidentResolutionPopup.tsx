@@ -1,4 +1,5 @@
-import { Form, Input, Modal, message } from 'antd';
+import { Modal, TextArea, toast } from '@components';
+import { Form } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
@@ -20,8 +21,6 @@ type IncidentResolutionPopupProps = {
     refetch: () => void;
     handleClose: () => void;
 };
-
-const { TextArea } = Input;
 
 const modalBodyStyle = { fontFamily: 'Mulish, sans-serif' };
 
@@ -49,7 +48,7 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
     };
 
     const handleResolveIncident = (formData: any) => {
-        message.loading({ content: tf('updating') });
+        toast.loading(tf('updating'), { duration: 3 });
 
         updateIncidentStatusMutation({
             variables: {
@@ -58,14 +57,14 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
             },
         })
             .then(() => {
-                message.destroy();
+                toast.destroy();
                 analytics.event({
                     type: EventType.EntityActionEvent,
                     entityType,
                     entityUrn: urn,
                     actionType: EntityActionType.ResolvedIncident,
                 });
-                message.success({ content: t('resolution.success'), duration: 2 });
+                toast.success(t('resolution.success'), { duration: 2 });
                 refetch();
                 handleClose?.();
             })
@@ -82,7 +81,6 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
     return (
         <Modal
             title={<ModalTitle />}
-            visible
             destroyOnClose
             onCancel={handleClose}
             centered
