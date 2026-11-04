@@ -1,11 +1,15 @@
 package io.datahubproject.test.boot;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.SearchClientShims;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -15,6 +19,7 @@ import org.apache.kafka.clients.producer.MockProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.mockito.Mockito;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -31,9 +36,9 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
  *
  * <ul>
  *   <li>{@code searchClientShims}: the Elasticsearch/OpenSearch client map. The production factory
- *       connects to the cluster to detect its engine. It becomes a single Mockito client for the
- *       primary cluster; the production {@code searchClientShim}, {@code searchClusterRegistry},
- *       bulk processor and index builders are still built from it by their real factories.
+ *       connects to each cluster to detect its engine. It becomes one Mockito client per configured
+ *       cluster; the production {@code searchClientShim}, {@code searchClusterRegistry}, bulk
+ *       processor and index builders are still built from it by their real factories.
  *   <li>{@code kafkaProducer} / {@code dataHubUsageProducer}: replaced by {@link MockProducer},
  *       only if the process defined them (so a Kafka-disabled boot never gains Kafka beans from
  *       here).
@@ -73,8 +78,14 @@ public class ExternalBoundaryStubs
   @Override
   public void postProcessBeanDefinitionRegistry(@Nonnull BeanDefinitionRegistry registry)
       throws BeansException {
+    // Built lazily from the production search configuration, so every configured cluster (not
+    // only primary) gets a client and multi-cluster routing is wired as in production.
+    BeanFactory beanFactory = (BeanFactory) registry;
     replaceIfPresent(
-        registry, SEARCH_CLIENT_SHIMS, SearchClientShims.class, ExternalBoundaryStubs::searchShims);
+        registry,
+        SEARCH_CLIENT_SHIMS,
+        SearchClientShims.class,
+        () -> searchShims(beanFactory.getBean(ConfigurationProvider.class).getElasticSearch()));
     replaceIfPresent(registry, KAFKA_PRODUCER, Producer.class, ExternalBoundaryStubs::producer);
     replaceIfPresent(registry, USAGE_PRODUCER, Producer.class, ExternalBoundaryStubs::producer);
   }
@@ -126,11 +137,34 @@ public class ExternalBoundaryStubs
     registry.registerBeanDefinition(name, replacement);
   }
 
+  /** One mock client per configured cluster, mirroring {@code SearchClientShimFactory}. */
   @SuppressWarnings({"unchecked", "rawtypes"})
-  private static SearchClientShims searchShims() {
-    SearchClientShim shim = Mockito.mock(SearchClientShim.class);
-    Mockito.when(shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    return new SearchClientShims(Map.of(ElasticSearchConfiguration.PRIMARY_CLUSTER, shim));
+  private static SearchClientShims searchShims(ElasticSearchConfiguration esConfig) {
+    Map<String, SearchClientShim<?>> shims = new LinkedHashMap<>();
+    for (Map.Entry<String, SearchClusterSettings> cluster :
+        esConfig.resolvedClusters().entrySet()) {
+      if (cluster.getValue().isConfigured()) {
+        SearchClientShim shim = Mockito.mock(SearchClientShim.class);
+        Mockito.when(shim.getEngineType())
+            .thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+        shims.put(cluster.getKey(), shim);
+      }
+    }
+    return new SearchClientShims(shims);
+  }
+
+  /** Names of the clusters the production search configuration defines with a uri. */
+  public static Set<String> configuredClusters(ElasticSearchConfiguration esConfig) {
+    Set<String> names = new TreeSet<>();
+    esConfig
+        .resolvedClusters()
+        .forEach(
+            (name, settings) -> {
+              if (settings.isConfigured()) {
+                names.add(name);
+              }
+            });
+    return names;
   }
 
   /** Completes every send immediately; serializers ignore the payload. */
