@@ -25,6 +25,9 @@ on:
       - "metadata-service/*servlet*/src/main/**"
       - "metadata-service/iceberg-catalog/src/main/**"
       - "metadata-service/auth-filter/src/main/**"
+      # Schema-registry API spec and the generated route interfaces schema-registry-servlet implements
+      - "metadata-service/schema-registry-api/src/main/**"
+      - "metadata-service/schema-registry-api/generated/**"
       # Standalone consumer applications (dispatcher servlet, app-level beans)
       - "metadata-jobs/*-job/src/main/**"
       # Application yaml and configuration POJOs
