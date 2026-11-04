@@ -142,12 +142,9 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: ${{ matrix.python-version }}
-      # Restore always; save only from master (below) so PR runs stop minting per-PR
-      # copies of this shared key. Key hashes the manifests that actually determine the
-      # uv cache contents — the old '**/requirements.txt' matched 13 unrelated files and
-      # none of them.
+      # Restore-only: ci-cache-warmup.yml warm-metadata-ingestion-uv-cache writes this
+      # key on both cache backends from every default-branch push.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: uv-cache
         with:
           path: |
             ~/.cache/uv
@@ -249,17 +246,6 @@ jobs:
           source venv/bin/activate
           pytest tests/unit/snowflake/ \
             --junit-xml=test-results/junit.snowflake-preserve-column-case.xml
-      # Success-only, single matrix leg (parallel legs would race to reserve the same
-      # key). On master this workflow usually runs on Depot runners, where this save
-      # lands in Depot Cache instead of the GitHub cache — the reliably GitHub-hosted
-      # master writers for this key are documentation.yml and check-datahub-jars.yml.
-      - name: Save uv cache (master only)
-        if: github.ref == 'refs/heads/master' && matrix.command == 'testQuick' && matrix.python-version == '3.11' && steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt') }}
       - name: Debug info
         if: always()
         run: |

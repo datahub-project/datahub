@@ -68,9 +68,11 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       # mdPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
-      # Cache ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
+      # Restore ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
+      # Restore-only: ci-cache-warmup.yml warm-web-yarn-cache writes this key on
+      # both cache backends; a save from this pull_request-only job would only
+      # mint a per-PR copy.
       - name: Restore yarn cache
-        id: yarn-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/yarn
@@ -79,12 +81,6 @@ jobs:
             ${{ runner.os }}-yarn-
       - name: run markdown checks
         run: ./gradlew :datahub-web-react:mdPrettierCheck :datahub-web-react:docusaurusMarkdownLint
-      - name: Save yarn cache
-        if: always() && steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
 
   github-actions-format:
     name: github_actions_format_check
@@ -99,9 +95,11 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       # githubActionsPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
-      # Cache ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
+      # Restore ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
+      # Restore-only: ci-cache-warmup.yml warm-web-yarn-cache writes this key on
+      # both cache backends; a save from this pull_request-only job would only
+      # mint a per-PR copy.
       - name: Restore yarn cache
-        id: yarn-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/yarn
@@ -110,12 +108,6 @@ jobs:
             ${{ runner.os }}-yarn-
       - name: run prettier --check
         run: ./gradlew :datahub-web-react:githubActionsPrettierCheck
-      - name: Save yarn cache
-        if: always() && steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
 
   product-update-release-sync:
     name: product_update_release_sync
@@ -314,8 +306,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
       # Restore-only: this workflow is pull_request-only, so a save here would be
-      # ref-scoped to the PR and never shared. The master-scoped entry is written by
-      # ci-cache-warmup.yml (push to master) under this exact key.
+      # ref-scoped to the PR and never shared. The entry is written by
+      # ci-cache-warmup.yml (push to master) on both cache backends under this exact key.
       # Key must stay byte-identical with the lookup and save keys in
       # ci-cache-warmup.yml warm-smoke-test-lint-cache. metadata-ingestion's
       # manifests are included because requirements.txt installs '-e ../metadata-ingestion[...]'.
@@ -361,8 +353,8 @@ jobs:
           path: ${{ env.UV_CACHE_DIR }}
           # Restore-only: Actions caches are ref-scoped, so a PR-side save can never be
           # shared with other PRs — it just mints a per-PR copy against the repo's 10GB
-          # budget. The master-scoped entry every PR restores from is written by
-          # ci-cache-warmup.yml (push to master), which uses this exact key.
+          # budget. The entry every PR restores from is written by ci-cache-warmup.yml
+          # (push to master) on both cache backends, which uses this exact key.
           # Key must stay byte-identical with the lookup and save keys in
           # ci-cache-warmup.yml warm-python-lint-cache (hashFiles cannot be
           # deduplicated across workflow files).
@@ -452,9 +444,8 @@ jobs:
       - name: Fetch PR base for antd-import baseline
         run: git fetch --no-tags --depth=1 origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
       # Restore-only, from yarn's default cache dir: the master-scoped entry under this
-      # key is written by ci-cache-warmup.yml warm-web-yarn-cache (build-and-test's
-      # frontend jobs run on Depot runners, whose cache writes GitHub-hosted jobs cannot
-      # read). Saving here would only mint a per-PR copy (this workflow is
+      # key is written by ci-cache-warmup.yml warm-web-yarn-cache on both cache
+      # backends. Saving here would only mint a per-PR copy (this workflow is
       # pull_request-only), so we never save.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         name: Restore yarn cache
@@ -508,7 +499,7 @@ jobs:
         run: python3 ./.github/scripts/check_playwright_p0.py
       # Restore-only, from yarn's default cache dir, using the same key family as
       # resusable-playwright-tests.yml (key must stay byte-identical with it and with
-      # ci-cache-warmup.yml warm-playwright-yarn-cache, whose GitHub-hosted save is
+      # ci-cache-warmup.yml warm-playwright-yarn-cache, whose GitHub-hosted leg is
       # what PR jobs here can actually read). The playwright- prefix keeps this small
       # entry out of the '<os>-yarn-' family, so a web-cache prefix restore can never
       # land on it; the secondary restore-key still falls back to the datahub-web-react
