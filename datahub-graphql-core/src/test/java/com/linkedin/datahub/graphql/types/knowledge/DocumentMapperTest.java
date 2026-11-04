@@ -44,12 +44,15 @@ import com.linkedin.knowledge.RelatedAssetArray;
 import com.linkedin.knowledge.RelatedDocument;
 import com.linkedin.knowledge.RelatedDocumentArray;
 import com.linkedin.metadata.key.DocumentKey;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredProperties;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import org.mockito.MockedStatic;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -82,6 +85,16 @@ public class DocumentMapperTest {
   private Urn platformUrn;
   private Urn platformInstanceUrn;
   private QueryContext mockQueryContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   @BeforeMethod
   public void setup() throws URISyntaxException {
@@ -363,6 +376,27 @@ public class DocumentMapperTest {
     assertNotNull(result);
     assertEquals(result.getUrn(), TEST_DOCUMENT_URN);
     assertEquals(result.getType(), EntityType.DOCUMENT);
+  }
+
+  @Test
+  public void testDocumentSourceTypeFromANewerVersionShowsAsExternal() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp stamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(actorUrn);
+    documentInfo.setCreated(stamp);
+    documentInfo.setLastModified(stamp);
+    DocumentSource source = new DocumentSource();
+    source.setSourceType(com.linkedin.knowledge.DocumentSourceType.NATIVE);
+    source.data().put("sourceType", "SOURCE_TYPE_FROM_NEWER_BUILD");
+    documentInfo.setSource(source);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    Document result = DocumentMapper.map(null, entityResponse);
+
+    assertEquals(result.getInfo().getSource().getSourceType(), DocumentSourceType.EXTERNAL);
   }
 
   @Test
