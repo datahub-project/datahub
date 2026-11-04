@@ -1598,7 +1598,8 @@ public class IncrementalReindexCatchUpStepTest {
               throw new IllegalStateException("database unavailable");
             },
             UPGRADE_VERSION,
-            new BuildIndicesConfiguration());
+            new BuildIndicesConfiguration(),
+            updateIndicesService);
 
     assertEquals(
         failingReadStep.executable().apply(upgradeContext).result(), DataHubUpgradeState.FAILED);
