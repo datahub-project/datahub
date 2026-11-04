@@ -282,6 +282,10 @@ public class EntityLineageResultResolver
       @Nullable final QueryContext context,
       final com.linkedin.metadata.graph.EntityLineageResult entityLineageResult,
       final Set<Urn> restrictedUrns) {
+    // Encryption uses a random IV, so each restricted urn is encrypted once per response: every
+    // appearance (neighbor, path elements) must carry the same placeholder for clients to join
+    // edges to nodes.
+    final Map<Urn, Urn> encryptedUrns = new HashMap<>();
     final EntityLineageResult result = new EntityLineageResult();
     result.setStart(entityLineageResult.getStart());
     result.setCount(entityLineageResult.getCount());
@@ -289,7 +293,7 @@ public class EntityLineageResultResolver
     result.setFiltered(entityLineageResult.getFiltered());
     result.setRelationships(
         entityLineageResult.getRelationships().stream()
-            .map(r -> mapEntityRelationship(context, r, restrictedUrns))
+            .map(r -> mapEntityRelationship(context, r, restrictedUrns, encryptedUrns))
             .collect(Collectors.toList()));
     return result;
   }
@@ -297,9 +301,11 @@ public class EntityLineageResultResolver
   private LineageRelationship mapEntityRelationship(
       @Nullable final QueryContext context,
       final com.linkedin.metadata.graph.LineageRelationship lineageRelationship,
-      final Set<Urn> restrictedUrns) {
+      final Set<Urn> restrictedUrns,
+      final Map<Urn, Urn> encryptedUrns) {
     final LineageRelationship result = new LineageRelationship();
-    final Entity entity = mapEntity(context, lineageRelationship.getEntity(), restrictedUrns);
+    final Entity entity =
+        mapEntity(context, lineageRelationship.getEntity(), restrictedUrns, encryptedUrns);
     if (entity != null) {
       result.setEntity(entity);
     }
@@ -324,7 +330,7 @@ public class EntityLineageResultResolver
       UrnArrayArray paths = lineageRelationship.getPaths();
       result.setPaths(
           paths.stream()
-              .map(path -> mapPath(context, path, restrictedUrns))
+              .map(path -> mapPath(context, path, restrictedUrns, encryptedUrns))
               .collect(Collectors.toList()));
     }
 
@@ -334,13 +340,16 @@ public class EntityLineageResultResolver
   private EntityPath mapPath(
       @Nullable final QueryContext context,
       @Nonnull final UrnArray path,
-      @Nonnull final Set<Urn> restrictedUrns) {
+      @Nonnull final Set<Urn> restrictedUrns,
+      @Nonnull final Map<Urn, Urn> encryptedUrns) {
     if (restrictedUrns.isEmpty()) {
       return MapperUtils.mapPath(context, path);
     }
     final EntityPath entityPath = new EntityPath();
     entityPath.setPath(
-        path.stream().map(p -> mapEntity(context, p, restrictedUrns)).collect(Collectors.toList()));
+        path.stream()
+            .map(p -> mapEntity(context, p, restrictedUrns, encryptedUrns))
+            .collect(Collectors.toList()));
     return entityPath;
   }
 
@@ -349,11 +358,13 @@ public class EntityLineageResultResolver
   private Entity mapEntity(
       @Nullable final QueryContext context,
       @Nonnull final Urn urn,
-      @Nonnull final Set<Urn> restrictedUrns) {
+      @Nonnull final Set<Urn> restrictedUrns,
+      @Nonnull final Map<Urn, Urn> encryptedUrns) {
     if (restrictedUrns.contains(urn)) {
       final Restricted restrictedEntity = new Restricted();
       restrictedEntity.setType(EntityType.RESTRICTED);
-      restrictedEntity.setUrn(_restrictedService.encryptRestrictedUrn(urn).toString());
+      restrictedEntity.setUrn(
+          encryptedUrns.computeIfAbsent(urn, _restrictedService::encryptRestrictedUrn).toString());
       return restrictedEntity;
     }
     return UrnToEntityMapper.map(context, urn);

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
@@ -53,6 +54,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -71,8 +73,7 @@ public class EntityLineageResultResolverViewAuthTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,finance.ledger,PROD)");
   private static final Urn HIDDEN_JOB =
       UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,finance_etl,PROD),load_ledger)");
-  private static final Urn ENCRYPTED = UrnUtils.getUrn("urn:li:restricted:opaque");
-  private static final Urn ENCRYPTED_JOB = UrnUtils.getUrn("urn:li:restricted:opaque-job");
+  private static final String RESTRICTED_PREFIX = "urn:li:restricted:";
 
   private SiblingGraphService siblingGraphService;
   private RestrictedService restrictedService;
@@ -82,8 +83,11 @@ public class EntityLineageResultResolverViewAuthTest {
   public void setup() {
     siblingGraphService = mock(SiblingGraphService.class);
     restrictedService = mock(RestrictedService.class);
-    when(restrictedService.encryptRestrictedUrn(HIDDEN)).thenReturn(ENCRYPTED);
-    when(restrictedService.encryptRestrictedUrn(HIDDEN_JOB)).thenReturn(ENCRYPTED_JOB);
+    // Like the real service (random IV), every call yields a different ciphertext.
+    AtomicInteger encryptions = new AtomicInteger();
+    when(restrictedService.encryptRestrictedUrn(any(Urn.class)))
+        .thenAnswer(
+            invocation -> UrnUtils.getUrn(RESTRICTED_PREFIX + encryptions.incrementAndGet()));
 
     com.linkedin.metadata.graph.EntityLineageResult graphResult =
         new com.linkedin.metadata.graph.EntityLineageResult()
@@ -221,7 +225,7 @@ public class EntityLineageResultResolverViewAuthTest {
     assertTrue(relationships.get(0).getEntity() instanceof Dataset);
     assertEquals(relationships.get(0).getEntity().getUrn(), VIEWABLE.toString());
     assertTrue(relationships.get(1).getEntity() instanceof Restricted);
-    assertEquals(relationships.get(1).getEntity().getUrn(), ENCRYPTED.toString());
+    assertTrue(relationships.get(1).getEntity().getUrn().startsWith(RESTRICTED_PREFIX));
     assertEquals(relationships.get(1).getEntity().getType(), EntityType.RESTRICTED);
   }
 
@@ -237,12 +241,15 @@ public class EntityLineageResultResolverViewAuthTest {
     assertEquals(viaPath.size(), 3);
     assertEquals(viaPath.get(0).getUrn(), SOURCE.toString());
     assertTrue(viaPath.get(1) instanceof Restricted);
-    assertEquals(viaPath.get(1).getUrn(), ENCRYPTED_JOB.toString());
+    assertTrue(viaPath.get(1).getUrn().startsWith(RESTRICTED_PREFIX));
     assertEquals(viaPath.get(2).getUrn(), VIEWABLE.toString());
 
-    List<Entity> hiddenPath = result.getRelationships().get(1).getPaths().get(0).getPath();
+    // Each appearance of a hidden urn carries the same placeholder, so edges join to nodes.
+    LineageRelationship hidden = result.getRelationships().get(1);
+    List<Entity> hiddenPath = hidden.getPaths().get(0).getPath();
     assertTrue(hiddenPath.get(1) instanceof Restricted);
-    assertEquals(hiddenPath.get(1).getUrn(), ENCRYPTED.toString());
+    assertEquals(hiddenPath.get(1).getUrn(), hidden.getEntity().getUrn());
+    assertNotEquals(viaPath.get(1).getUrn(), hidden.getEntity().getUrn());
 
     Set<String> disclosed = disclosedUrns(result);
     assertFalse(disclosed.contains(HIDDEN.toString()), disclosed.toString());
