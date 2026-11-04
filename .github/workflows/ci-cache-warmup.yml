@@ -189,8 +189,8 @@ jobs:
         run: ./gradlew :metadata-ingestion:installDevTest
       # Drops pre-built wheels and unpacked sdists, which re-download in seconds, and
       # keeps the wheels uv built from source, the slow part. What uv recommends for
-      # CI caches. Nothing puts uv on PATH here; environmentSetup installs it into the
-      # venv.
+      # CI caches. Prune with the venv's uv, the one environmentSetup installed and
+      # populated this cache with, not the uv setup-toolchain put on PATH.
       - name: Prune uv cache
         if: steps.uv-cache.outputs.cache-hit != 'true'
         run: metadata-ingestion/venv/bin/uv cache prune --ci

@@ -293,9 +293,9 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
 
-      # Ahead of the uv/gradle steps on purpose: the check is stdlib-only, so it
-      # still runs when the venv install breaks, and it fails in seconds rather
-      # than after the install.
+      # Ahead of the venv install on purpose: the check is stdlib-only, so it
+      # still runs when the install breaks, and it fails in seconds rather
+      # than after it.
       - name: Check p0 test dependencies
         run: python ./.github/scripts/check_p0_dependencies.py
 
