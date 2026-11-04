@@ -12,7 +12,7 @@ from databricks.sdk.service.catalog import ColumnTypeName
 from performance.data_generation import Distribution, LomaxDistribution, SeedMetadata
 from performance.data_model import ColumnType, Container, Table, View
 from performance.databricks.unity_proxy_mock import _convert_column_type
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 
@@ -119,7 +119,7 @@ class DatabricksDataGenerator:
 
     def _execute_sql(self, sql: str) -> None:
         print(sql)
-        self.connection.execute(sql)
+        self.connection.execute(text(sql))
 
 
 def _thread_pool_execute(desc: str, lst: List[T], fn: Callable[[T], None]) -> None:

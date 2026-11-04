@@ -27,6 +27,9 @@ class TimestampPair:
     last_updated_timestamp_dataset_props: Optional[
         int
     ]  # lastUpdatedTimestamp of the operation aspect
+    # The patch claims the dataset for this source (status, stale-entity state) only if
+    # one of the dataset's own workunits did.
+    is_primary_source: bool = False
 
 
 @dataclasses.dataclass
@@ -90,6 +93,7 @@ class AutoPatchLastModifiedProcessor(
             timestamp_pair = candidate_dataset_for_patch.get(wu.get_urn())
 
             if timestamp_pair:
+                timestamp_pair.is_primary_source |= wu.is_primary_source
                 # Update the timestamp_pair
                 if dataset_properties_aspect and dataset_properties_aspect.lastModified:
                     timestamp_pair.last_modified_dataset_props = (
@@ -121,6 +125,7 @@ class AutoPatchLastModifiedProcessor(
                 candidate_dataset_for_patch[wu.get_urn()] = TimestampPair(
                     last_modified_dataset_props=last_modified_dataset_props,
                     last_updated_timestamp_dataset_props=last_updated_timestamp_dataset_props,
+                    is_primary_source=wu.is_primary_source,
                 )
 
             yield wu
@@ -145,6 +150,7 @@ class AutoPatchLastModifiedProcessor(
                     MetadataWorkUnit(
                         id=MetadataWorkUnit.generate_workunit_id(mcp),
                         mcp_raw=mcp,
+                        is_primary_source=timestamp_pair.is_primary_source,
                     )
                     for mcp in dataset_patch_builder.build()
                 ]

@@ -30,12 +30,12 @@ record DomainAssociation {
     "/actor": {
       "fieldName": "domainAttributionActors",
       "fieldType": "URN",
-      "queryByDefault": false
+      "queryByDefault": false,
     },
     "/source": {
       "fieldName": "domainAttributionSources",
       "fieldType": "URN",
-      "queryByDefault": false
+      "queryByDefault": false,
     }
   }
   attribution: optional MetadataAttribution

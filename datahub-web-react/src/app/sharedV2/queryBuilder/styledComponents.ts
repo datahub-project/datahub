@@ -1,8 +1,6 @@
-import { Collapse } from 'antd';
 import styled from 'styled-components/macro';
 
 import { Button } from '@src/alchemy-components';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 export const ConditionContainer = styled.div<{ depth: number }>`
     display: flex;
@@ -27,6 +25,7 @@ export const IconsContainer = styled.div`
 
 export const ToolbarContainer = styled.div`
     display: flex;
+    flex: 1;
     justify-content: space-between;
     align-items: center;
     padding: 8px 16px;
@@ -49,22 +48,13 @@ export const ActionsContainer = styled.div`
     gap: 16px;
 `;
 
-export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boolean; isExpanded: boolean }>`
-    .ant-collapse-header {
-        padding: 0 0 0 ${(props) => props.depth * 20 + (props.hasChildren ? 20 : 48)}px !important;
-        align-items: center !important;
-        margin: 8px 0;
-        background-color: ${(props) => props.theme.colors.bgSurface};
-    }
+export const QueryGroup = styled.div<{ $depth: number; $hasChildren: boolean; $isExpanded: boolean }>`
+    position: relative;
 
-    .ant-collapse-item {
-        position: relative;
-    }
-
-    .ant-collapse-item::after {
-        content: ${(props) => (props.hasChildren && props.isExpanded ? '""' : 'none')};
+    &::after {
+        content: ${(props) => (props.$hasChildren && props.$isExpanded ? '""' : 'none')};
         position: absolute;
-        left: ${(props) => props.depth * 20 + 32}px;
+        left: ${(props) => props.$depth * 20 + 26}px;
         top: 52px;
         width: 2px;
         height: calc(100% - 78px);
@@ -72,40 +62,36 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
         z-index: 1;
     }
 
-    .ant-collapse-item::before {
-        content: ${(props) => (props.hasChildren && props.isExpanded ? '""' : 'none')};
+    &::before {
+        content: ${(props) => (props.$hasChildren && props.$isExpanded ? '""' : 'none')};
         position: absolute;
-        left: ${(props) => props.depth * 20 + 34}px;
+        left: ${(props) => props.$depth * 20 + 27}px;
         top: calc(100% - 28px);
         width: 5px;
         height: 2px;
         background-color: ${(props) => props.theme.colors.bgSurface};
         z-index: 1;
     }
-
-    .ant-collapse-content-box {
-        padding: 0 !important;
-    }
-
-    .ant-collapse-arrow {
-        margin-right: 0 !important;
-    }
 `;
 
-export const CardIcons = styled.div`
+export const QueryGroupHeader = styled.div<{ $depth: number; $hasChildren: boolean }>`
     display: flex;
-    justify-content: end;
-    gap: 12px;
+    align-items: center;
+    margin: 8px 0;
+    padding-left: ${(props) => props.$depth * 20 + (props.$hasChildren ? 20 : 48)}px;
+    background-color: ${(props) => props.theme.colors.bgSurface};
+`;
 
-    div {
-        border: 1px solid ${REDESIGN_COLORS.SILVER_GREY};
-        border-radius: 20px;
-        width: 28px;
-        height: 28px;
-        padding: 4px;
-        color: ${REDESIGN_COLORS.GREY_300};
-        :hover {
-            cursor: pointer;
-        }
-    }
+export const ExpandButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: ${(props) => props.theme.colors.icon};
+    cursor: pointer;
 `;

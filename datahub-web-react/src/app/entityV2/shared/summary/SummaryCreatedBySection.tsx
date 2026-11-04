@@ -6,9 +6,9 @@ import styled from 'styled-components';
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { CorpGroup, CorpUser, EntityType } from '@types';
+import { EntityType, OwnerType } from '@types';
 
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
@@ -32,7 +32,7 @@ const SectionContainer = styled.div`
 `;
 
 interface Props {
-    owner: CorpUser | CorpGroup;
+    owner: OwnerType;
 }
 
 export default function SummaryCreatedBySection({ owner }: Props) {
@@ -40,18 +40,12 @@ export default function SummaryCreatedBySection({ owner }: Props) {
     // human creator for ingested assets, and owners[0] is arbitrary (insertion order). Label it "Owner"
     // rather than the misleading "Created By".
     const { t } = useTranslation('common.labels');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
-    let ownerName;
-    if (owner?.__typename === 'CorpGroup') {
-        ownerName = entityRegistry.getDisplayName(EntityType.CorpGroup, owner);
-    }
-    if (owner?.__typename === 'CorpUser') {
-        ownerName = entityRegistry.getDisplayName(EntityType.CorpUser, owner);
-    }
+    const ownerName = owner && entityRegistry.getDisplayName(owner.type, owner);
     const ownerPictureLink =
-        (owner && owner.__typename === 'CorpUser' && owner.editableProperties?.pictureLink) || undefined;
-    const avatarType = owner?.__typename === 'CorpGroup' ? AvatarType.group : AvatarType.user;
+        (owner && 'editableProperties' in owner && owner.editableProperties?.pictureLink) || undefined;
+    const avatarType = owner?.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
 
     return (
         <>

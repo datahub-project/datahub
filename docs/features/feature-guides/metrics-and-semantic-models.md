@@ -13,6 +13,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 Metrics & Semantic Models is currently in **Beta**. The underlying entity model is stable, but the UI experience, lineage visualization, and ingestion coverage are actively evolving. Expect ongoing improvements to sidebar navigation, entity page layouts, and lineage rendering across the next few releases.
 :::
 
+:::tip Looking for modeling guidance?
+This guide covers _what_ Metrics & Semantic Models are and _how_ to turn them on. For opinionated patterns on how to model your business concepts in them — when to use a Glossary Term vs a Metric, how to represent the same KPI across Snowflake and dbt, how metric lineage works end to end — see [Metrics & Semantic Models — Best Practices](./metrics-and-semantic-models-best-practices.md).
+:::
+
 ## Why Use Metrics & Semantic Models?
 
 DataHub Metrics is a **catalog for metric definitions**, transforming how your team documents, discovers, and governs business measurements:
@@ -21,7 +25,7 @@ DataHub Metrics is a **catalog for metric definitions**, transforming how your t
 - **Lineage from KPI to source and consumers** — Trace every metric through the logical datasets it reads down to the physical tables and columns that feed it, and out to the Charts, Dashboards, and Datasets that consume it.
 - **AI-ready context** — Attach synonyms, natural-language instructions, and example questions to every metric so agents and Ask DataHub can resolve natural language questions against cataloged definitions instead of guessing.
 - **Governed like everything else** — Metrics and Semantic Models are full DataHub entities: owners, domains, tags, glossary terms, structured properties, and documentation all attach to them the same way they attach to Datasets.
-- **Portable, tool-agnostic model** — The model is designed to accept metrics from any semantic layer (Snowflake Semantic Views today; dbt Semantic Layer, Databricks metric views, and BI-tool metrics on the roadmap), so investing in the catalog is not a bet on one tool.
+- **Portable, tool-agnostic model** — The model is designed to accept metrics from any semantic layer (Snowflake Semantic Views and dbt today, Cube and MicroStrategy in alpha; Databricks metric views and more BI-tool metrics on the roadmap), so investing in the catalog is not a bet on one tool. Field-level overlap with [Apache Ossie](./ossie-compatibility.md) is documented separately.
 
 ## What's Included
 
@@ -70,16 +74,11 @@ Each field carries a **semantic annotation** identifying it as a `DIMENSION` (gr
 
 ## Prerequisites
 
-**For DataHub Cloud customers**: Reach out to your DataHub representative to enable this feature for your organization. Metrics & Semantic Models require **DataHub Cloud 2.1.0 or later**, and the feature is gated behind a per-tenant flag while it's in Beta.
+**For DataHub Cloud customers**: Metrics & Semantic Models require **DataHub Cloud 2.1.0 or later**. The feature is on by default from **2.3.0**; reach out to your DataHub representative if you need it turned off for your organization.
 
-**For DataHub Core (OSS) deployments**: Available in **DataHub Core v1.7.0 or later**. Set the environment variable `METRICS_ENABLED=true` on the GMS service before starting DataHub. For local docker-compose deployments:
+**For DataHub Core (OSS) deployments**: Available in **DataHub Core v1.7.0 or later**. The feature is on by default from **v1.8.0**. To hide Metrics from the UI, set `METRICS_ENABLED=false` on the GMS service.
 
-```bash
-# Add METRICS_ENABLED=true to your GMS environment
-METRICS_ENABLED=true datahub docker quickstart
-```
-
-Verify the flag is on via the GraphQL app-config query:
+Verify the flag via the GraphQL app-config query:
 
 ```graphql
 {
@@ -91,7 +90,7 @@ Verify the flag is on via the GraphQL app-config query:
 }
 ```
 
-Once enabled, the **Metrics** section appears in the left navigation sidebar with a `Beta` badge.
+The **Metrics** section appears in the left navigation sidebar with a `Beta` badge.
 
 ## Ingesting Metrics
 
@@ -124,6 +123,10 @@ The `emit_semantic_model_entities` control is tri-state:
 | `false`          | Force legacy `Semantic View` dataset behavior even if the server supports the new entities.                                                                                                                                      |
 
 Snowflake Semantic Views are a native Snowflake capability. If you also use the Cortex Analyst integration on top of Semantic Views, that integration is gated to Snowflake Enterprise Edition and above — cataloging the Semantic Views into DataHub does not depend on Cortex.
+
+### From Cube and MicroStrategy
+
+The [Cube](../../generated/ingestion/sources/cube.md) and [MicroStrategy](../../generated/ingestion/sources/microstrategy.md) sources can also emit Semantic Models and Metrics. Set `emit_semantic_model_entities: true` in the recipe. Both are in alpha.
 
 ### From the DataHub Python SDK
 
@@ -178,7 +181,7 @@ The **Metrics** left-nav item opens `/metrics`, a landing page with a browse tre
 
 ### Search
 
-Metrics and Semantic Models appear in **global Search** and the **search-bar autocomplete** when `METRICS_ENABLED=true`. Search by display name, description, or platform; use the **Type** filter to narrow to Metrics or Semantic Models. The dedicated **`/metrics`** browse tree remains the best way to explore metrics grouped by Semantic Model. Browse V2 does not list these entity types — use Search or `/metrics` instead.
+Metrics and Semantic Models appear in **global Search** and the **search-bar autocomplete**. Search by display name, description, or platform; use the **Type** filter to narrow to Metrics or Semantic Models. The dedicated **`/metrics`** browse tree remains the best way to explore metrics grouped by Semantic Model. Browse V2 does not list these entity types — use Search or `/metrics` instead.
 
 ### Lineage
 
@@ -214,7 +217,7 @@ Future releases will ensure AI Context feeds directly into Ask DataHub and any a
 We're actively investing in the Metrics experience. Near-term work includes:
 
 - **Metrics & Semantic Models via DataHub MCP** so agents can retrieve them during agentic workflows.
-- **Additional ingestion sources.** Expanding beyond Snowflake Semantic Views to cover dbt Semantic Layer / MetricFlow, Databricks Unity Catalog metric views, Sigma, and BI-tool measures.
+- **Additional ingestion sources.** Expanding beyond Snowflake Semantic Views and dbt to cover Databricks Unity Catalog metric views, Sigma, and BI-tool measures.
 - **Column-level lineage from source columns through to metrics.** Full column-to-metric impact analysis — see which KPIs are affected by a change to a raw column.
 - **Lineage visualization improvements.** Cleaner node labels, collapsed intermediate nodes, and a Semantic Model container view that reduces graph noise.
 - **AI-native discovery.** Ask DataHub resolving natural-language questions to cataloged metric definitions using synonyms and expression-aware SQL.
@@ -240,4 +243,5 @@ Yes. Metrics support Structured Properties — typed, governance-controlled, sea
 
 ## Related
 
+- [Metrics & Semantic Models — Best Practices](./metrics-and-semantic-models-best-practices.md) — opinionated modeling patterns, how to represent cross-platform metrics, and how metric lineage works end to end
 - [Semantic Models & Metrics SDK Tutorial](../../api/tutorials/semantic-models.md)

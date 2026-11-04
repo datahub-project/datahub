@@ -47,6 +47,7 @@ public class SearchClusterSettings {
   private SearchClusterIndexSettings index;
   private ShimSettings shim;
   private SslContextSettings sslContext;
+  private HttpProxySettings proxy;
 
   /**
    * Sparse overlays on the shared {@code elasticsearch.*} operational blocks. Kept as raw maps so a

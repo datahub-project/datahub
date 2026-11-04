@@ -7,7 +7,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Visualizing Your Ontology
 
-<FeatureAvailability saasOnly stage="public-beta" />
+<FeatureAvailability saasOnly stage="private-beta"/>
 
 A graph makes things easy to spot that a list does not: which concepts are central, which are
 orphaned, and where two teams have modelled the same idea twice.

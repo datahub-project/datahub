@@ -7,7 +7,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Querying Your Ontology
 
-<FeatureAvailability saasOnly stage="public-beta" />
+<FeatureAvailability saasOnly stage="private-beta"/>
 
 This page covers reading the relationship graph from code, and from an AI agent.
 

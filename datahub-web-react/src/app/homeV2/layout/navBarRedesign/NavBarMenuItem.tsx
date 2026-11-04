@@ -1,4 +1,4 @@
-import { Menu, MenuItemProps, Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -7,76 +7,68 @@ import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
 import { Badge, Pill, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
-const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
-    &&& {
-        position: relative;
-        padding: ${(props) => (props.isCollapsed ? '4px 0 !important' : '4px 8px')};
-        ${(props) =>
-            props.isCollapsed &&
-            `
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-        `}
-        margin: 4px 0;
-        margin-bottom: 0;
-        height: 36px;
-        min-height: 36px;
-        border-radius: 6px;
-        border: 0;
-        display: flex;
-        align-items: center;
-        ${(props) =>
-            props.isCollapsed &&
-            `
-            width: 100%;
-            justify-content: center;
-        `}
-        @media (max-height: 970px) {
-            margin: 2px 0;
-        }
-        @media (max-height: 890px) {
-            margin: 0;
-        }
+const MenuItemContainer = styled.div<{ $isCollapsed?: boolean; $isSelected?: boolean }>`
+    position: relative;
+    padding: ${(props) => (props.$isCollapsed ? '4px 0' : '4px 8px')};
+    margin: 4px 0 0 0;
+    height: 36px;
+    min-height: 36px;
+    border-radius: 6px;
+    border: 0;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    ${(props) =>
+        props.$isCollapsed &&
+        `
+        width: 100%;
+        justify-content: center;
+    `}
+    @media (max-height: 970px) {
+        margin: 2px 0;
+    }
+    @media (max-height: 890px) {
+        margin: 0;
     }
 
-    && svg {
+    svg {
         color: ${(props) => props.theme.colors.icon};
         width: 20px;
         height: 20px;
     }
 
-    && .ant-menu-title-content {
-        width: 100%;
-        color: ${(props) => props.theme.colors.textSecondary};
-        font-family: Mulish;
-        font-size: 14px;
-        font-style: normal;
-        font-weight: 500;
-        line-height: 36px;
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        height: 36px;
-        line-height: 24px;
-        ${(props) =>
-            props.isCollapsed &&
-            `
-            justify-content: center;
-            gap: 0;
-            width: auto;
-        `}
-    }
-
-    &:hover,
-    &.ant-menu-item-active {
+    &:hover {
         background: ${(props) => props.theme.colors.bgHover};
         box-shadow: ${(props) => props.theme.colors.shadowFocus};
     }
 
-    &&.ant-menu-item-selected {
-        background: ${(props) => props.theme.colors.bgSelectedSubtle};
-        box-shadow: ${(props) => props.theme.colors.shadowFocusBrand};
-    }
+    ${(props) =>
+        props.$isSelected &&
+        `
+        background: ${props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${props.theme.colors.shadowFocusBrand};
+    `}
+`;
+
+const TitleContent = styled.div<{ $isCollapsed?: boolean }>`
+    width: 100%;
+    color: ${(props) => props.theme.colors.textSecondary};
+    font-family: Mulish;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 500;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    height: 36px;
+    line-height: 24px;
+    ${(props) =>
+        props.$isCollapsed &&
+        `
+        justify-content: center;
+        gap: 0;
+        width: auto;
+    `}
 `;
 
 const Icon = styled.div<{ $isSelected?: boolean; $size?: number }>`
@@ -126,7 +118,7 @@ type Props = {
     isCollapsed?: boolean;
     isSelected?: boolean;
     iconSize?: number;
-} & MenuItemProps;
+} & React.HTMLAttributes<HTMLDivElement>;
 
 export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize, ...props }: Props) {
     const history = useHistory();
@@ -140,40 +132,49 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
 
     const component = (
         <Tooltip title={isCollapsed ? item.title : null} placement="right" showArrow={false}>
-            <StyledMenuItem
-                isCollapsed={isCollapsed}
+            <MenuItemContainer
+                $isCollapsed={isCollapsed}
+                $isSelected={isSelected}
                 onClick={onClick}
+                role="menuitem"
                 aria-label={item.title}
+                aria-current={isSelected ? 'page' : undefined}
                 {...props}
                 data-testid={item.dataTestId}
             >
-                {item.icon || item.selectedIcon ? (
-                    <Icon $size={iconSize} $isSelected={isSelected}>
-                        {isSelected ? item.selectedIcon || item.icon : item.icon}
-                    </Icon>
-                ) : null}
-                {isCollapsed ? (
-                    <>{item?.badge?.show && item?.badge?.showDot !== false && <PillDot $isSelected={isSelected} />}</>
-                ) : (
-                    <>
-                        {/* Show blue dot alongside label when expanded (only if showDot is enabled) */}
-                        {item?.badge?.show && item.badge.label && item?.badge?.showDot && (
-                            <PillDot $isSelected={isSelected} />
-                        )}
-                        <ItemTitleContentWrapper>
-                            <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
-                                {item.title}
-                            </StyledText>
-                            {item?.badge?.show &&
-                                (item.badge.label ? (
-                                    <Pill size="sm" color="blue" label={item.badge.label} clickable={false} />
-                                ) : (
-                                    <Badge count={item.badge.count || 0} clickable={false} color="primary" />
-                                ))}
-                        </ItemTitleContentWrapper>
-                    </>
-                )}
-            </StyledMenuItem>
+                <TitleContent $isCollapsed={isCollapsed}>
+                    {item.icon || item.selectedIcon ? (
+                        <Icon $size={iconSize} $isSelected={isSelected}>
+                            {isSelected ? item.selectedIcon || item.icon : item.icon}
+                        </Icon>
+                    ) : null}
+                    {isCollapsed ? (
+                        <>
+                            {item?.badge?.show && item?.badge?.showDot !== false && (
+                                <PillDot $isSelected={isSelected} />
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            {/* Show blue dot alongside label when expanded (only if showDot is enabled) */}
+                            {item?.badge?.show && item.badge.label && item?.badge?.showDot && (
+                                <PillDot $isSelected={isSelected} />
+                            )}
+                            <ItemTitleContentWrapper>
+                                <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
+                                    {item.title}
+                                </StyledText>
+                                {item?.badge?.show &&
+                                    (item.badge.label ? (
+                                        <Pill size="sm" color="blue" label={item.badge.label} clickable={false} />
+                                    ) : (
+                                        <Badge count={item.badge.count || 0} clickable={false} color="primary" />
+                                    ))}
+                            </ItemTitleContentWrapper>
+                        </>
+                    )}
+                </TitleContent>
+            </MenuItemContainer>
         </Tooltip>
     );
 

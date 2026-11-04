@@ -1,0 +1,432 @@
+#!/usr/bin/env python3
+"""Record a Meticulous base deployment for a master commit that did not rebuild.
+
+Meticulous compares a pull request with a test run on the merge-base commit. On
+this repo those runs are created from ``datahub-project-web-react (Preview)``
+deployments. Frontend Preview publishes, and records a deployment, only when the
+frontend changed. A backend-only master commit therefore has nothing Meticulous
+can use, and a pull request branched from it is skipped with "no base test run
+was found".
+
+The frontend bundle is unchanged, so the new Preview deployment reuses the last
+non-transient Pages URL (a master publish, not a pull-request preview). It is
+non-transient so GitHub keeps it, and ``auto_inactive`` stays false so the
+commit that actually built the bundle keeps its deployment.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
+from typing import Any, Mapping, Protocol, Sequence
+
+# Preview is the environment Meticulous actually records base runs from.
+# Production is where master publishes are recorded today; either can hold the
+# last long-lived Pages URL.
+RECORD_ENVIRONMENT = "datahub-project-web-react (Preview)"
+SOURCE_ENVIRONMENTS = (
+    "datahub-project-web-react (Preview)",
+    "datahub-project-web-react (Production)",
+)
+# Same directories as the frontend filter in .github/actions/ci-optimization.
+_FRONTEND_PREFIXES = (
+    "datahub-frontend/",
+    "datahub-web-react/",
+    "docker/datahub-frontend/",
+)
+DEPLOYMENT_DESCRIPTION = "Cloudflare Pages"
+
+_MAX_DEPLOYMENTS = 100
+_TRANSIENT_STATUS = {429, 500, 502, 503, 504}
+_RETRY_DELAYS_SECONDS = (1, 2, 4)
+
+
+class GitHubAPIError(RuntimeError):
+    """GitHub REST call failed."""
+
+
+class NoPublishedDeploymentError(RuntimeError):
+    """No earlier successful production deployment exists to reuse."""
+
+
+class DeploymentClient(Protocol):
+    def list_deployments(
+        self, repo: str, *, environment: str, sha: str | None
+    ) -> list[dict[str, Any]]: ...
+
+    def list_statuses(self, repo: str, deployment_id: int) -> list[dict[str, Any]]: ...
+
+    def create_deployment(self, repo: str, body: Mapping[str, Any]) -> dict[str, Any]: ...
+
+    def create_status(
+        self, repo: str, deployment_id: int, body: Mapping[str, Any]
+    ) -> dict[str, Any]: ...
+
+    def changed_paths(self, repo: str, base: str, head: str) -> list[str] | None:
+        """Paths changed from base to head.
+
+        None means the compare is not a fast-forward or its file list was
+        truncated, so the caller cannot know whether the UI changed.
+        """
+
+
+def frontend_paths_changed(paths: Sequence[str]) -> bool:
+    return any(path.startswith(_FRONTEND_PREFIXES) for path in paths)
+
+
+@dataclass(frozen=True)
+class RecordResult:
+    action: str
+    deployment_id: int | None = None
+    environment_url: str | None = None
+    source_deployment_id: int | None = None
+
+
+def latest_success_status(statuses: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
+    """Latest status, when that status is a successful https deploy.
+
+    ``statuses`` is newest first, matching the GitHub deployments API.
+    An inactive or failed latest status hides any earlier success on that deployment.
+    """
+    if not statuses or statuses[0].get("state") != "success":
+        return None
+    for status in statuses:
+        if status.get("state") != "success":
+            continue
+        url = str(status.get("environment_url") or "").strip()
+        if url.startswith("https://"):
+            return status
+    return None
+
+
+def success_environment_url(statuses: Sequence[Mapping[str, Any]]) -> str | None:
+    status = latest_success_status(statuses)
+    if status is None:
+        return None
+    return str(status.get("environment_url") or "").strip() or None
+
+
+def cloudflare_log_url(status: Mapping[str, Any] | None) -> str | None:
+    """Pages dashboard URL. Meticulous executes against that deployment, not an Actions log."""
+    if status is None:
+        return None
+    log_url = str(status.get("log_url") or "").strip()
+    if log_url.startswith("https://dash.cloudflare.com/"):
+        return log_url
+    return None
+
+
+def _deployment_id(deployment: Mapping[str, Any]) -> int:
+    raw = deployment.get("id")
+    if not isinstance(raw, int):
+        raise GitHubAPIError(f"Deployment is missing an integer id: {deployment!r}")
+    return raw
+
+
+def _sha(deployment: Mapping[str, Any]) -> str:
+    return str(deployment.get("sha") or "").lower()
+
+
+def _long_lived(deployment: Mapping[str, Any], sha: str) -> bool:
+    """Master publishes are non-transient. Pull-request previews are not a base."""
+    return deployment.get("transient_environment") is False and _sha(deployment) != sha
+
+
+def record_inherited_deployment(
+    client: DeploymentClient,
+    *,
+    repo: str,
+    sha: str,
+    environment: str,
+    source_environments: Sequence[str],
+    log_url: str | None,
+) -> RecordResult:
+    """Create a Preview deployment for ``sha`` pointing at the last master Pages URL.
+
+    A successful deployment already on ``sha`` is left alone. A deployment that
+    exists but never reached success gets a success status instead of a second
+    deployment, so a rerun after a partial failure does not pile up records.
+    """
+    sha = sha.lower()
+    existing = client.list_deployments(repo, environment=environment, sha=sha)
+
+    candidates: list[Mapping[str, Any]] = []
+    for source_environment in source_environments:
+        for deployment in client.list_deployments(repo, environment=source_environment, sha=None):
+            if _long_lived(deployment, sha):
+                candidates.append(deployment)
+    candidates.sort(key=lambda deployment: str(deployment.get("created_at") or ""), reverse=True)
+
+    source_id: int | None = None
+    source_url: str | None = None
+    source_sha: str | None = None
+    source_log: str | None = None
+    for deployment in candidates:
+        deployment_id = _deployment_id(deployment)
+        status = latest_success_status(client.list_statuses(repo, deployment_id))
+        url = success_environment_url([status] if status is not None else [])
+        if status is not None and url:
+            source_id = deployment_id
+            source_url = url
+            source_sha = _sha(deployment)
+            source_log = cloudflare_log_url(status)
+            break
+
+    if source_id is None or source_url is None or source_sha is None:
+        raise NoPublishedDeploymentError(
+            f"No long-lived Pages deployment with an https URL to reuse for {sha}"
+        )
+
+    # A success whose log URL is the Actions run, not the Pages deployment, is
+    # the shape Meticulous started and then failed to execute. Record a new
+    # deployment that points at the same dashboard URL as the publish.
+    incomplete_id: int | None = None
+    for deployment in existing:
+        deployment_id = _deployment_id(deployment)
+        status = latest_success_status(client.list_statuses(repo, deployment_id))
+        if status is None:
+            if incomplete_id is None:
+                incomplete_id = deployment_id
+            continue
+        recorded_log = cloudflare_log_url(status)
+        if source_log is None or recorded_log == source_log:
+            return RecordResult(
+                action="already_recorded",
+                deployment_id=deployment_id,
+                environment_url=str(status.get("environment_url") or "").strip(),
+                source_deployment_id=source_id,
+            )
+
+    # A cancelled or failed frontend publish leaves no URL of its own. Reusing
+    # the previous bundle would make Meticulous compare against a stale UI
+    # instead of skipping. Record nothing unless every commit since that
+    # publish stayed outside the frontend.
+    changed = client.changed_paths(repo, source_sha, sha)
+    if changed is None or frontend_paths_changed(changed):
+        return RecordResult(
+            action="skipped_stale_frontend",
+            environment_url=source_url,
+            source_deployment_id=source_id,
+        )
+
+    if incomplete_id is None:
+        created = client.create_deployment(
+            repo,
+            {
+                "ref": sha,
+                "environment": environment,
+                "description": DEPLOYMENT_DESCRIPTION,
+                "auto_merge": False,
+                "required_contexts": [],
+                "transient_environment": False,
+                "production_environment": False,
+                # Object, matching the Pages workflow. A JSON string is what the
+                # failed base run was recorded with.
+                "payload": {"inherited": True, "source_deployment_id": source_id},
+            },
+        )
+        deployment_id = _deployment_id(created)
+        action = "created"
+    else:
+        deployment_id = incomplete_id
+        action = "status_on_existing"
+
+    status_body: dict[str, Any] = {
+        "state": "success",
+        "environment": environment,
+        "environment_url": source_url,
+        "description": DEPLOYMENT_DESCRIPTION,
+        # Default true would mark every earlier production deployment inactive.
+        "auto_inactive": False,
+    }
+    # The dashboard URL is how a real Pages publish is recorded. The Actions
+    # run is only a fallback when that publish has no log URL.
+    status_log = source_log or log_url
+    if status_log:
+        status_body["log_url"] = status_log
+    client.create_status(repo, deployment_id, status_body)
+    return RecordResult(
+        action=action,
+        deployment_id=deployment_id,
+        environment_url=source_url,
+        source_deployment_id=source_id,
+    )
+
+
+class UrllibDeploymentClient:
+    """GitHub REST client using the stdlib so the workflow does not pip-install."""
+
+    def __init__(self, token: str, api_url: str) -> None:
+        self._token = token
+        self._api_url = api_url.rstrip("/")
+
+    def list_deployments(
+        self, repo: str, *, environment: str, sha: str | None
+    ) -> list[dict[str, Any]]:
+        query: dict[str, str] = {
+            "environment": environment,
+            "per_page": str(_MAX_DEPLOYMENTS),
+        }
+        if sha is not None:
+            query["sha"] = sha
+        payload = self._request("GET", f"/repos/{repo}/deployments", query=query)
+        if not isinstance(payload, list):
+            raise GitHubAPIError(f"Expected a deployment list, got {type(payload).__name__}")
+        return payload
+
+    def list_statuses(self, repo: str, deployment_id: int) -> list[dict[str, Any]]:
+        payload = self._request(
+            "GET",
+            f"/repos/{repo}/deployments/{deployment_id}/statuses",
+            query={"per_page": "20"},
+        )
+        if not isinstance(payload, list):
+            raise GitHubAPIError(f"Expected a status list, got {type(payload).__name__}")
+        return payload
+
+    def create_deployment(self, repo: str, body: Mapping[str, Any]) -> dict[str, Any]:
+        payload = self._request("POST", f"/repos/{repo}/deployments", body=body)
+        if not isinstance(payload, dict):
+            raise GitHubAPIError(f"Expected a deployment object, got {type(payload).__name__}")
+        return payload
+
+    def create_status(
+        self, repo: str, deployment_id: int, body: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        payload = self._request(
+            "POST", f"/repos/{repo}/deployments/{deployment_id}/statuses", body=body
+        )
+        if not isinstance(payload, dict):
+            raise GitHubAPIError(f"Expected a status object, got {type(payload).__name__}")
+        return payload
+
+    def changed_paths(self, repo: str, base: str, head: str) -> list[str] | None:
+        payload = self._request("GET", f"/repos/{repo}/compare/{base}...{head}")
+        if not isinstance(payload, dict):
+            raise GitHubAPIError(f"Expected a compare object, got {type(payload).__name__}")
+        status = payload.get("status")
+        if status == "identical":
+            return []
+        if status != "ahead":
+            return None
+        files = payload.get("files")
+        if not isinstance(files, list) or len(files) >= 300:
+            return None
+        return [str(item.get("filename") or "") for item in files if isinstance(item, dict)]
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        query: Mapping[str, str] | None = None,
+        body: Mapping[str, Any] | None = None,
+    ) -> Any:
+        url = self._api_url + path
+        if query:
+            url = f"{url}?{urllib.parse.urlencode(query)}"
+        data = json.dumps(body).encode() if body is not None else None
+        request = urllib.request.Request(
+            url,
+            data=data,
+            method=method,
+            headers={
+                "Authorization": f"Bearer {self._token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "datahub-inherited-frontend-deployment",
+                **({"Content-Type": "application/json"} if data is not None else {}),
+            },
+        )
+        last_error: GitHubAPIError | None = None
+        for attempt, delay in enumerate((0, *_RETRY_DELAYS_SECONDS)):
+            if delay:
+                time.sleep(delay)
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    raw = response.read()
+            except urllib.error.HTTPError as error:
+                detail = error.read().decode("utf-8", errors="replace")[:500]
+                last_error = GitHubAPIError(f"{method} {path} failed: {error.code} {detail}")
+                if error.code in _TRANSIENT_STATUS and attempt < len(_RETRY_DELAYS_SECONDS):
+                    print(f"{last_error} (attempt {attempt + 1}); retrying", file=sys.stderr)
+                    continue
+                raise last_error from error
+            except urllib.error.URLError as error:
+                last_error = GitHubAPIError(f"{method} {path} failed: {error.reason}")
+                if attempt < len(_RETRY_DELAYS_SECONDS):
+                    print(f"{last_error} (attempt {attempt + 1}); retrying", file=sys.stderr)
+                    continue
+                raise last_error from error
+            if not raw:
+                return None
+            return json.loads(raw)
+        assert last_error is not None
+        raise last_error
+
+
+def _log_url_from_env() -> str | None:
+    server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
+    if not repo or not run_id:
+        return None
+    return f"{server}/{repo}/actions/runs/{run_id}"
+
+
+def main() -> int:
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    sha = os.environ.get("GITHUB_SHA", "")
+    if not token or not repo or not sha:
+        print(
+            "::error::GITHUB_TOKEN, GITHUB_REPOSITORY, and GITHUB_SHA are required",
+            file=sys.stderr,
+        )
+        return 1
+    environment = os.environ.get("DEPLOYMENT_ENVIRONMENT", RECORD_ENVIRONMENT)
+    client = UrllibDeploymentClient(
+        token, os.environ.get("GITHUB_API_URL", "https://api.github.com")
+    )
+    try:
+        result = record_inherited_deployment(
+            client,
+            repo=repo,
+            sha=sha,
+            environment=environment,
+            source_environments=SOURCE_ENVIRONMENTS,
+            log_url=_log_url_from_env(),
+        )
+    except (GitHubAPIError, NoPublishedDeploymentError) as error:
+        print(f"::error::{error}", file=sys.stderr)
+        return 1
+
+    if result.action == "skipped_stale_frontend":
+        print(
+            f"Not recording a base for {sha}: frontend changed since deployment "
+            f"{result.source_deployment_id}. Leaving Meticulous to skip rather than "
+            f"compare against {result.environment_url}"
+        )
+        return 0
+    if result.action == "already_recorded":
+        print(
+            f"SHA {sha} already has {environment} deployment "
+            f"{result.deployment_id} -> {result.environment_url}"
+        )
+    else:
+        print(
+            f"Recorded {environment} deployment {result.deployment_id} "
+            f"({result.action}) -> {result.environment_url} "
+            f"inherited from {result.source_deployment_id}"
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

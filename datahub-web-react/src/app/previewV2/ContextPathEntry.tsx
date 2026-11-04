@@ -1,10 +1,10 @@
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import ContextPathEntityIcon from '@app/previewV2/ContextPathEntityIcon';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 
 const Path = styled.div<{ isLast: boolean }>`
     flex: ${({ isLast }) => (isLast ? '1 0 1' : '1 1 0')};

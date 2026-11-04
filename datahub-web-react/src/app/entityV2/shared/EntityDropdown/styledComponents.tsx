@@ -1,41 +1,36 @@
-import { Button } from 'antd';
 import styled from 'styled-components';
 
 export const ENTITY_HEADER_ACTION_ICON_SIZE = 16;
 export const ENTITY_HEADER_ACTION_ICON_WEIGHT = 'regular' as const;
 
-const MenuItem = styled.div`
-    font-size: 12px;
-    padding: 0 4px;
-    color: ${(props) => props.theme.colors.text};
-`;
-
-export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: number }>`
+// `type="button"` by default so these icon actions never submit an enclosing form.
+export const ActionMenuItem = styled.button.attrs<{ $fontSize?: number }>({ type: 'button' })<{
+    $fontSize?: number;
+}>`
     flex-shrink: 0;
-    border-radius: 20px;
-    width: ${(props) => (props.fontSize ? `${props.fontSize}px` : '28px')};
-    height: ${(props) => (props.fontSize ? `${props.fontSize}px` : '28px')};
-    padding: 0px;
+    width: ${(props) => (props.$fontSize ? `${props.$fontSize}px` : '28px')};
+    height: ${(props) => (props.$fontSize ? `${props.$fontSize}px` : '28px')};
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
     border: none;
-    background-color: ${(props) => props.theme.colors.bg};
-    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 50%;
+    background: none;
     color: ${(props) => props.theme.colors.icon};
-    box-shadow: none;
-    &&:hover {
+    cursor: pointer;
+    /* Buttons don't inherit the page font by default; without this, Phosphor glyphs sized in
+       em units fall back to the browser's form-control size and render noticeably small. */
+    font: inherit;
+
+    &:hover {
         background-color: ${(props) => props.theme.colors.bgSurface};
         color: ${(props) => props.theme.colors.textHover};
-        border-color: ${(props) => props.theme.colors.borderBrand};
     }
-    ${(props) =>
-        props.disabled
-            ? `
-            ${MenuItem} {
-                color: ${props.theme.colors.textDisabled};
-            }
-    `
-            : ''};
+
+    &:disabled {
+        color: ${(props) => props.theme.colors.textDisabled};
+        cursor: not-allowed;
+        background: none;
+    }
 `;

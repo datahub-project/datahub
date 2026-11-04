@@ -6,7 +6,7 @@ import { FontColorLevelOptions, FontColorOptions } from '@components/theme/confi
 import Match from '@app/searchV2/autoCompleteV2/components/matches/components/Match';
 import MoreMatches from '@app/searchV2/autoCompleteV2/components/matches/components/MoreMatches';
 import { getMatchesPrioritized, shouldShowInMatchedFieldList } from '@app/searchV2/matches/utils';
-import OverflowList from '@src/app/shared/OverflowList';
+import OverflowList from '@src/app/searchV2/autoCompleteV2/components/matches/OverflowList';
 import { Entity, MatchedField } from '@src/types.generated';
 
 interface Props {

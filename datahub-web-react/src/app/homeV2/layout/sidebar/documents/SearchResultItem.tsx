@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import { Button, Checkbox, Tooltip } from '@src/alchemy-components';
 
 import { Document } from '@types';

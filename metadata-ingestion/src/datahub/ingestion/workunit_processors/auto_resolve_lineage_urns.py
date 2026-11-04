@@ -1,11 +1,9 @@
-# NOTE: `from __future__ import annotations` keeps the schema_resolver type hints
-# (imported only under TYPE_CHECKING) as strings, so importing this module does not
-# pull in sqlglot. This module is imported eagerly on every source's
-# get_workunit_processors() path, so module load must stay sqlglot-free (guarded by
-# test_module_import_does_not_pull_sqlglot). The sqlglot-heavy schema_resolver imports
-# are therefore deferred to a single chokepoint in __init__, which runs only after
-# should_enable() confirms the feature is on and a graph exists — off the module-load
-# path, but honest about the dependency (see __init__).
+# `from __future__ import annotations` is load-bearing: SchemaInfo is TYPE_CHECKING-only
+# and appears in the _Resolution dataclass field and _schema_of's return annotation,
+# both of which would otherwise be evaluated at class-body execution. This module is
+# imported eagerly on every source's get_workunit_processors() path, so the
+# schema_resolver imports are deferred to a single chokepoint in __init__, which runs
+# only after should_enable() confirms the feature is on and a graph exists.
 from __future__ import annotations
 
 import logging
@@ -236,13 +234,9 @@ class AutoResolveLineageUrnsProcessor(
         # Preloaded URN indexes per platform, one per configured entry that loaded. A cache
         # only: a miss is asked of DataHub.
         self._alias_resolvers: Dict[str, List[UrnAliasResolver]] = {}
-        # Resolve the sqlglot-backed schema_resolver callables once, here — a single
-        # honest chokepoint rather than imports buried in two leaf methods. Deferred into
-        # __init__ (not module level) so importing this module stays sqlglot-free
-        # (guarded by test_module_import_does_not_pull_sqlglot); __init__ runs only after
-        # should_enable() confirmed the feature is on. The sqlglot dependency itself is
-        # validated up front by AutoResolveLineageUrnsConfig (fail-fast at config parse
-        # when enabled), so these imports are guaranteed to succeed here.
+        # A single chokepoint rather than imports buried in two leaf methods. Deferred
+        # into __init__ so sources that never enable the feature don't import
+        # schema_resolver at all.
         from datahub.sql_parsing.schema_resolver import (
             SchemaResolver as _SchemaResolver,
             match_columns_to_schema,

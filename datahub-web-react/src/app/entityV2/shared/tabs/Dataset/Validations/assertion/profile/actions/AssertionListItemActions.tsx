@@ -1,7 +1,7 @@
+import { Menu } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
-import { Dropdown, Menu } from 'antd';
-import React from 'react';
-import styled, { useTheme } from 'styled-components';
+import React, { useCallback, useState } from 'react';
+import styled from 'styled-components';
 
 import { ContractAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ContractAction';
 import { CopyLinkAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyLinkAction';
@@ -10,6 +10,7 @@ import { DeleteAction } from '@app/entityV2/shared/tabs/Dataset/Validations/asse
 import { ExternalUrlAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ExternalUrlAction';
 import { useIsOnSiblingsView } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { Button } from '@src/alchemy-components';
+import { ItemType } from '@src/alchemy-components/components/Menu/types';
 
 import { Assertion, AssertionRunStatus, DataContract } from '@types';
 
@@ -37,54 +38,91 @@ export const AssertionListItemActions = ({
     refetch,
     shouldRightAlign,
 }: Props) => {
-    const theme = useTheme();
     const isSiblingsView = useIsOnSiblingsView();
     const mostRun = assertion.runEvents?.runEvents;
     const externalUrl =
         assertion?.info?.externalUrl ||
         (mostRun?.length && mostRun[0].status === AssertionRunStatus.Complete && mostRun[0].result?.externalUrl);
-    const menu = (
-        <Menu>
-            {/** Currently, we do not handle adding to a contract in siblings mode, since we only load the root node's contract. */}
-            {!isSiblingsView ? (
-                <Menu.Item key="1">
-                    <ContractAction
-                        assertion={assertion}
-                        contract={contract}
-                        canEdit={canEditContract}
-                        refetch={refetch}
-                        isExpandedView
-                    />
-                </Menu.Item>
-            ) : null}
-            {externalUrl ? (
-                <Menu.Item key="2">
-                    <ExternalUrlAction assertion={assertion} isExpandedView />
-                </Menu.Item>
-            ) : null}
-            <Menu.Item key="4">
-                <CopyLinkAction assertion={assertion} isExpandedView />
-            </Menu.Item>
-            <Menu.Item key="5">
-                <CopyUrnAction assertion={assertion} isExpandedView />
-            </Menu.Item>
-            <Menu.Item key="6">
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    // ActionItem stops click propagation, so the menu never sees the click that antd would
+    // otherwise use to close itself. Close it explicitly: delete opens a modal that would
+    // otherwise sit under the still-open menu.
+    const closeMenu = useCallback(() => setIsMenuOpen(false), []);
+
+    // Each entry renders its existing action component, which carries its own tooltip,
+    // permission handling and modals, rather than the default title/icon menu row.
+    const menuItems: ItemType[] = [
+        // Currently, we do not handle adding to a contract in siblings mode, since we only load the root node's contract.
+        ...(!isSiblingsView
+            ? [
+                  {
+                      type: 'item' as const,
+                      key: 'contract',
+                      title: '',
+                      render: () => (
+                          <ContractAction
+                              assertion={assertion}
+                              contract={contract}
+                              canEdit={canEditContract}
+                              refetch={refetch}
+                              isExpandedView
+                              onActionTriggered={closeMenu}
+                          />
+                      ),
+                  },
+              ]
+            : []),
+        ...(externalUrl
+            ? [
+                  {
+                      type: 'item' as const,
+                      key: 'external-url',
+                      title: '',
+                      render: () => (
+                          <ExternalUrlAction assertion={assertion} isExpandedView onActionTriggered={closeMenu} />
+                      ),
+                  },
+              ]
+            : []),
+        {
+            type: 'item' as const,
+            key: 'copy-link',
+            title: '',
+            render: () => <CopyLinkAction assertion={assertion} isExpandedView onActionTriggered={closeMenu} />,
+        },
+        {
+            type: 'item' as const,
+            key: 'copy-urn',
+            title: '',
+            render: () => <CopyUrnAction assertion={assertion} isExpandedView onActionTriggered={closeMenu} />,
+        },
+        {
+            type: 'item' as const,
+            key: 'delete',
+            title: '',
+            render: () => (
                 <DeleteAction
                     assertion={assertion}
                     canEdit={!!assertion.dataset?.privileges?.canEditAssertions}
                     refetch={refetch}
                     isExpandedView
+                    onActionTriggered={closeMenu}
                 />
-            </Menu.Item>
-        </Menu>
-    );
+            ),
+        },
+    ];
+
     return (
         <ActionList onClick={(e) => e.stopPropagation()} $shouldRightAlign={shouldRightAlign}>
-            <Dropdown overlay={menu} trigger={['click']}>
-                <Button variant="text">
-                    <DotsThreeVertical size={20} color={theme.colors.icon} weight="bold" />
-                </Button>
-            </Dropdown>
+            <Menu items={menuItems} trigger={['click']} open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                <Button
+                    variant="text"
+                    icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'icon' }}
+                    isCircle
+                    data-testid="assertion-more-options"
+                />
+            </Menu>
         </ActionList>
     );
 };

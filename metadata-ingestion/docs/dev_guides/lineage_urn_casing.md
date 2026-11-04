@@ -234,10 +234,6 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   (`ingest_data_platform_instance_aspect`), and the instance name must also match the casing that was
   emitted. If the log shows `Loaded 0 URNs`, drop `platform_instance` and read the whole platform / env
   instead.
-- **Requires the SQL-parser dependency (`sqlglot`).** Every intended BI/dashboard connector already
-  bundles it, so the target use case needs no extra install. If you enable the flag on a source that
-  doesn't, the feature reports a clear failure (`install acryl-datahub[sql-parser]`) and emits lineage
-  unchanged.
 - **Only reconciles full-aspect (UPSERT) lineage, not PATCH.** A lineage aspect emitted as a patch
   (e.g. `dataJobInputOutput` via `DatasetPatchBuilder.add_upstream_lineage` / `DataJobPatchBuilder`,
   used by some dbt / Airflow / Spark paths) is emitted unchanged and counted under

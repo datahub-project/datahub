@@ -49,6 +49,25 @@ yarn test src/path/to/file.test.tsx --run
 files. Focus on errors in files you touched — optional prop calls (`prop?.(arg)`) and
 import aliases are common culprits.
 
+## Bundle size budgets
+
+CI measures gzip of eager `index.html` JS (`scripts/eager-budget.mjs`, baseline
+`eager-budget.json`) and logged-in shell / search closures (`scripts/page-bundle-size.mjs`,
+baseline `page-budget.json`).
+
+| Finding                                                                                                          | CI                                                      |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Growth past slack (`max(10 KB, 0.5%)`) and under 10% of baseline                                                 | Soft: Actions `::warning::` annotation; job stays green |
+| Growth past 10% of baseline                                                                                      | Hard fail                                               |
+| Shrink past slack                                                                                                | Soft warn to ratchet the committed baseline down        |
+| Forbidden eager vendor chunk, eager `@mui/icons-material`, Phosphor over ceiling, missing baseline / gated route | Hard fail                                               |
+
+**Do not** bump the JSON baselines in every feature PR that soft-warns. Catalog owns a
+recurring **bundle-budget chore** (biweekly/monthly): measure `master`, report the delta,
+then either trim/optimize, ratchet down, or raise the baseline with an explicit
+acknowledgment in that chore PR. Soft warnings on feature PRs are a signal for the next
+chore, not a merge blocker.
+
 ## File Structure
 
 - Top-level folders: `app` (application components, one folder per top-level nav page;
@@ -75,8 +94,7 @@ import aliases are common culprits.
 - An alchemy component is generalized and reusable anywhere: it must not depend on DataHub
   aspects, data structures, or GraphQL types.
 - Reusable DataHub-specific components (which may take GraphQL types as props) go under
-  `src/app/sharedV2/` (or legacy `src/app/shared/` — follow the location of the code you
-  are extending).
+  `src/app/sharedV2/`.
 - Err on the side of more, smaller components: break out a new component when JSX gets
   large or complex, or for any logical/reusable chunk. Same rule for extracting hooks from
   component logic.
@@ -140,7 +158,10 @@ Do not import from:
 
 **Icons**: use the alchemy `<Icon>` component with phosphor icons only — ant and material
 UI icons are deprecated. Specify color and size via props; if size is unknown, use
-`size="inherit"` and set `font-size` in the parent element.
+`size="inherit"` and set `font-size` in the parent element. Import phosphor icons from
+their individual CSR paths for tree-shaking:
+`import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight'` — never from
+`@phosphor-icons/react` (ESLint will error). Find icon names at https://phosphoricons.com.
 
 **Images**: use the alchemy `<LoadedImage>` component (`src` and `alt` are required; it
 handles loading skeleton and error fallback). For SVGs, set `fill="currentColor"` in the

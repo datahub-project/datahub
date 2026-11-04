@@ -81,6 +81,7 @@
     "navLinks.help.title": "Aide",
     "navLinks.home": "Accueil",
     "navLinks.metrics": "Métriques",
+    "navLinks.marketplace": "Marketplace",
     "navLinks.ingestion.description": "Gérer les intégrations de données et les Pipelines",
     "navLinks.ingestion.title": "Ingestion",
     "navLinks.settings.description": "Gérer le compte et les préférences",

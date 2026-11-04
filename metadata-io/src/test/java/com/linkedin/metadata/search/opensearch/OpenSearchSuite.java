@@ -21,7 +21,7 @@ public class OpenSearchSuite extends AbstractTestNGSpringContextTests {
     }
   }
 
-  @Bean(name = "testSearchContainer")
+  @Bean(name = "testSearchContainer", destroyMethod = "")
   public GenericContainer<?> testSearchContainer() {
     if (container == null || !container.isRunning()) {
       OPENSEARCH_TEST_CONTAINER = new OpenSearchTestContainer();

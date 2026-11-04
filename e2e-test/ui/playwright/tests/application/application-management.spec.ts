@@ -19,6 +19,7 @@ import { test } from '../../fixtures/base-test';
 import { ApplicationsPage } from '../../pages/applications.page';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
 import { withRandomSuffix } from '../../utils/random';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 const NEW_APP_NAME = withRandomSuffix('test-new');
 const NEW_APP_DESCRIPTION = 'test new description';
@@ -50,35 +51,39 @@ test.describe('Application Management Page', () => {
     logger?.info('✓ Test passed');
   });
 
-  test('should create and delete an application', async ({ page, logger }) => {
-    logger?.info('Test: Create and delete application');
-    await applicationsPage.navigateToApplicationsPage();
-    await applicationsPage.verifyPageTitle();
-    await applicationsPage.verifyPageLoaded();
-    logger?.info(`Creating application: ${NEW_APP_NAME}`);
-    await applicationsPage.clickCreateApplicationButton();
-    await applicationsPage.enterApplicationName(NEW_APP_NAME);
-    await applicationsPage.enterApplicationDescription(NEW_APP_DESCRIPTION);
-    await applicationsPage.clickCreateButton();
+  test(
+    'should create and delete an application',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.info('Test: Create and delete application');
+      await applicationsPage.navigateToApplicationsPage();
+      await applicationsPage.verifyPageTitle();
+      await applicationsPage.verifyPageLoaded();
+      logger?.info(`Creating application: ${NEW_APP_NAME}`);
+      await applicationsPage.clickCreateApplicationButton();
+      await applicationsPage.enterApplicationName(NEW_APP_NAME);
+      await applicationsPage.enterApplicationDescription(NEW_APP_DESCRIPTION);
+      await applicationsPage.clickCreateButton();
 
-    // Wait for async create operation to complete before checking table
-    logger?.info('Waiting for refetch after create');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.SHORT);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      // Wait for async create operation to complete before checking table
+      logger?.info('Waiting for refetch after create');
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(TIMEOUTS.SHORT);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    await applicationsPage.verifyApplicationInTable(NEW_APP_NAME);
-    await applicationsPage.verifyPageLoaded();
-    logger?.info(`Deleting application: ${NEW_APP_NAME}`);
-    await applicationsPage.deleteApplication(NEW_APP_NAME);
+      await applicationsPage.verifyApplicationInTable(NEW_APP_NAME);
+      await applicationsPage.verifyPageLoaded();
+      logger?.info(`Deleting application: ${NEW_APP_NAME}`);
+      await applicationsPage.deleteApplication(NEW_APP_NAME);
 
-    // Wait for async delete operation to complete before checking table
-    logger?.info('Waiting for refetch after delete');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.SHORT);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      // Wait for async delete operation to complete before checking table
+      logger?.info('Waiting for refetch after delete');
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(TIMEOUTS.SHORT);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    await applicationsPage.verifyApplicationNotInTable(NEW_APP_NAME);
-    logger?.info('✓ Test passed');
-  });
+      await applicationsPage.verifyApplicationNotInTable(NEW_APP_NAME);
+      logger?.info('✓ Test passed');
+    },
+  );
 });

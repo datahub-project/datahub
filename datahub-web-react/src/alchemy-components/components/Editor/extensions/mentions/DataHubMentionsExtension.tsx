@@ -23,10 +23,9 @@ import type { Plugin } from 'prosemirror-state';
 import React, { ComponentType } from 'react';
 
 import { MentionsNodeView } from '@components/components/Editor/extensions/mentions/MentionsNodeView';
+import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/constants';
 
-export const DATAHUB_MENTION_ATTRS = {
-    urn: 'data-datahub-mention-urn',
-};
+export { DATAHUB_MENTION_ATTRS };
 
 type DataHubAtomNodeAttributes = ProsemirrorAttributes & {
     name: string;

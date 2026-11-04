@@ -24,11 +24,13 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.graph.cache.EntityGraphBinding;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
+import com.linkedin.metadata.graph.cache.FullWalkEdge;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
 import com.linkedin.metadata.graph.cache.KnownEntityGraph;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -53,7 +55,7 @@ public class GraphScrollFallbackTest {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
             eq(Set.of("domain")),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of("domain")),
             any(),
             eq(Set.of("IsPartOf")),
@@ -102,7 +104,7 @@ public class GraphScrollFallbackTest {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
             eq(Set.of("domain")),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of("domain")),
             any(),
             eq(Set.of("IsPartOf")),
@@ -141,7 +143,7 @@ public class GraphScrollFallbackTest {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
             eq(Set.of("domain")),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of("domain")),
             any(),
             eq(Set.of("IsPartOf")),
@@ -200,7 +202,7 @@ public class GraphScrollFallbackTest {
     verify(graphRetriever, times(3))
         .scrollRelatedEntities(
             eq(Set.of("domain")),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of("domain")),
             filterCaptor.capture(),
             eq(Set.of("IsPartOf")),
@@ -223,6 +225,62 @@ public class GraphScrollFallbackTest {
     assertEquals(filterCaptor.getAllValues().get(1).getOr().get(0).getAnd().size(), 1);
     assertEquals(
         filterCaptor.getAllValues().get(1).getOr().get(0).getAnd().get(0).getValues().size(), 2);
+  }
+
+  @Test
+  public void allDescendantEdgesUsesStoredOrientationFromTheSameScroll() {
+    GraphRetriever graphRetriever = mock(GraphRetriever.class);
+    when(graphRetriever.scrollRelatedEntities(
+            eq(Set.of("domain")),
+            eq(QueryUtils.EMPTY_FILTER),
+            eq(Set.of("domain")),
+            any(),
+            eq(Set.of("IsPartOf")),
+            any(),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1,
+                1,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf",
+                        CHILD_A.toString(),
+                        ROOT.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null))))
+        .thenReturn(new RelatedEntitiesScrollResult(0, 0, null, List.of()));
+
+    OperationContext opContext = contextWithGraphRetriever(graphRetriever);
+    DescendantEdgeWalk walk =
+        GraphScrollFallback.allDescendantEdges(
+            opContext, HierarchyBindings.domainSpec(opContext), ROOT);
+
+    assertEquals(walk.getDescendants(), Set.of(CHILD_A));
+    assertFalse(walk.isTruncated());
+    assertEquals(walk.getEdges().size(), 1);
+    FullWalkEdge edge = walk.getEdges().get(0);
+    assertEquals(edge.getSourceUrn(), CHILD_A.toString());
+    assertEquals(edge.getDestinationUrn(), ROOT.toString());
+    assertEquals(edge.getRelationshipType(), "IsPartOf");
+    verify(graphRetriever, times(2))
+        .scrollRelatedEntities(
+            eq(Set.of("domain")),
+            eq(QueryUtils.EMPTY_FILTER),
+            eq(Set.of("domain")),
+            any(),
+            eq(Set.of("IsPartOf")),
+            any(),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull());
   }
 
   @Test

@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import { Dropdown } from 'antd';
+import { Dropdown } from '@components';
 import React, { useState } from 'react';
 
 import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';

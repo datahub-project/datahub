@@ -1,11 +1,12 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import EntityContext from '@app/entity/shared/EntityContext';
 import { DocumentSummaryTab } from '@app/entityV2/document/summary/DocumentSummaryTab';
+import EntityContext from '@app/entityV2/shared/EntityContext';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
@@ -17,9 +18,10 @@ import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/uti
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { TabContextType } from '@app/entityV2/shared/types';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
-import CompactContext from '@app/shared/CompactContext';
-import { EntityHead } from '@app/shared/EntityHead';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
+import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 
 import { EntityType, PageTemplateSurfaceType } from '@types';
 
@@ -69,6 +71,9 @@ const ContentCard = styled.div`
 const MainContent = styled.div`
     flex: 1;
     overflow-y: auto;
+    /* Always reserve space for the scrollbar so content doesn't shift when it appears/disappears
+       (e.g. when expanding a section makes the page taller). */
+    scrollbar-gutter: stable;
     padding: 0 20px 20px 20px;
 `;
 
@@ -136,6 +141,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
 
     const sidebarTabs = [
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: t('tab.properties'),
             component: PropertiesTab,
             icon: ListBullets,
@@ -212,11 +218,14 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                                 <ContentCard>
                                     {loading ? (
                                         <LoadingWrapper>
-                                            <LoadingOutlined />
+                                            <Loader size="sm" />
                                         </LoadingWrapper>
                                     ) : (
                                         <MainContent>
-                                            <DocumentSummaryTab />
+                                            {/* Prompts before navigating away with unsaved explicit-save body edits */}
+                                            <DiscardUnsavedChangesConfirmationProvider>
+                                                <DocumentSummaryTab />
+                                            </DiscardUnsavedChangesConfirmationProvider>
                                         </MainContent>
                                     )}
                                 </ContentCard>
