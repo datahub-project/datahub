@@ -27,6 +27,7 @@ from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.errors import DataHubDeprecationWarning
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -58,7 +59,7 @@ def _mces_as_mcps(
                     "Passing MetadataChangeEvent to DataHub hooks and DatahubEmitterOperator "
                     "is deprecated; it is sent as one MetadataChangeProposalWrapper per "
                     "aspect. Pass MetadataChangeProposalWrapper objects instead.",
-                    DeprecationWarning,
+                    DataHubDeprecationWarning,
                     stacklevel=3,
                 )
                 warned = True

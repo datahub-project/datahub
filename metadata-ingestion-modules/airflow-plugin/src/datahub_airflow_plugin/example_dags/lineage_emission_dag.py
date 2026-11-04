@@ -46,7 +46,7 @@ with DAG(
     emit_lineage_task = DatahubEmitterOperator(
         task_id="emit_lineage",
         datahub_conn_id="datahub_rest_default",
-        mces=[
+        mcps=[
             MetadataChangeProposalWrapper(
                 entityUrn=builder.make_dataset_urn(
                     platform="snowflake", name="mydb.schema.tableC", env="DEV"

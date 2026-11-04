@@ -13,6 +13,7 @@ from airflow.sdk import Asset
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin.entities import Dataset, Urn
@@ -158,6 +159,41 @@ def test_datahub_lineage_operator(mock_emit):
         task.execute({})
 
         mock_emit.assert_called()
+
+
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit")
+def test_datahub_emitter_operator_mces_is_deprecated_alias(mock_emit):
+    mcps = list(mcps_from_mce(lineage_mce))
+    with patch_airflow_connection(datahub_rest_connection_config) as config:
+        assert config.conn_id
+        with pytest.warns(DataHubDeprecationWarning, match="mces="):
+            old = DatahubEmitterOperator(
+                task_id="old", datahub_conn_id=config.conn_id, mces=mcps
+            )
+        old.execute({})
+
+        new = DatahubEmitterOperator(
+            task_id="new", datahub_conn_id=config.conn_id, mcps=mcps
+        )
+        new.execute({})
+
+        assert [c.args[0] for c in mock_emit.call_args_list] == [mcps, mcps]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {
+            "mcps": list(mcps_from_mce(lineage_mce)),
+            "mces": [lineage_mce],
+        },
+    ],
+    ids=["neither", "both"],
+)
+def test_datahub_emitter_operator_needs_exactly_one_of_mcps_mces(kwargs):
+    with pytest.raises(ValueError):
+        DatahubEmitterOperator(task_id="t", datahub_conn_id="c", **kwargs)
 
 
 @pytest.mark.parametrize(

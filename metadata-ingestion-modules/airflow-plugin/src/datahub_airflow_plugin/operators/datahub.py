@@ -1,9 +1,11 @@
-from typing import TYPE_CHECKING, Any, List, Union
+import warnings
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
 
 from airflow.sdk import BaseOperator
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.errors import DataHubDeprecationWarning
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub_airflow_plugin.hooks.datahub import (
     DatahubGenericHook,
@@ -41,8 +43,9 @@ class DatahubEmitterOperator(DatahubBaseOperator):
     """
     Emits metadata to DataHub using either a DataHub Rest or Kafka connection.
 
-    :param mces: MetadataChangeProposalWrapper objects to emit. Passing
-        MetadataChangeEvent is deprecated; each is sent as one MCP per aspect.
+    :param mcps: MetadataChangeProposalWrapper objects to emit.
+    :param mces: Deprecated alias of ``mcps``. A MetadataChangeEvent passed here
+        is sent as one MCP per aspect.
     :param datahub_conn_id: Reference to the DataHub Rest or Kafka Connection.
     :type datahub_conn_id: str
     """
@@ -51,15 +54,34 @@ class DatahubEmitterOperator(DatahubBaseOperator):
 
     def __init__(
         self,
-        mces: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
+        *,
         datahub_conn_id: str,
+        mcps: Optional[Sequence[MetadataChangeProposalWrapper]] = None,
+        mces: Optional[
+            Sequence[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
+        ] = None,
         **kwargs: Any,
     ):
         super().__init__(
             datahub_conn_id=datahub_conn_id,
             **kwargs,
         )
-        self.metadata = mces
+        self.metadata: Sequence[
+            Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
+        ]
+        if mces is not None:
+            if mcps is not None:
+                raise ValueError("Pass either mcps= or mces=, not both")
+            warnings.warn(
+                "DatahubEmitterOperator(mces=...) is deprecated; use mcps=.",
+                DataHubDeprecationWarning,
+                stacklevel=2,
+            )
+            self.metadata = mces
+        elif mcps is not None:
+            self.metadata = mcps
+        else:
+            raise ValueError("mcps= is required")
 
     def _render_template_fields(
         self, field_value: Any, context: "Context", jinja_env: "Environment"
