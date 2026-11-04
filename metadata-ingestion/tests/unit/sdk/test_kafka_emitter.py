@@ -107,6 +107,28 @@ class KafkaEmitterTest(unittest.TestCase):
         assert {c.kwargs["key"] for c in produce_calls} == {"urn:li:dataset:123"}
 
     @patch("datahub.emitter.kafka_emitter.SerializingProducer")
+    def test_emit_mce_is_deprecated(self, mock_producer):
+        emitter = DatahubKafkaEmitter(
+            config=KafkaEmitterConfig.model_validate(
+                {"connection": {"bootstrap": "foobar:9092"}}
+            )
+        )
+        mce = MetadataChangeEvent(
+            proposedSnapshot=DatasetSnapshotClass(
+                urn="urn:li:dataset:123", aspects=[StatusClass(removed=False)]
+            )
+        )
+
+        with (
+            self.assertWarns(DeprecationWarning),
+            self.assertLogs("datahub.emitter.kafka_emitter", "WARNING") as logs,
+        ):
+            emitter.emit(mce, callback=lambda err, msg: None)
+            emitter.emit(mce, callback=lambda err, msg: None)
+
+        assert len([r for r in logs.records if "deprecated" in r.getMessage()]) == 1
+
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer")
     def test_emit_mcp(self, mock_producer):
         emitter_config = KafkaEmitterConfig.model_validate(
             {

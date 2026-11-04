@@ -8,6 +8,7 @@ from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import SerializationContext, StringSerializer
 from pydantic import field_validator
+from typing_extensions import deprecated
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
@@ -151,6 +152,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         }
 
         self.backpressure_engagements = 0
+        self._warned_mce_deprecated = False
         self.backpressure_blocked_seconds = 0.0
 
         # If OAuth callback is configured, call poll() to trigger OAuth callback execution
@@ -262,12 +264,20 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             self.backpressure_engagements += 1
             self.backpressure_blocked_seconds += blocked_seconds
 
+    @deprecated("Emit MetadataChangeProposalWrapper instead of MetadataChangeEvent")
     def emit_mce_async(
         self,
         mce: MetadataChangeEvent,
         callback: KafkaOnDelivery,
     ) -> None:
         """Emit an MCE as one MCP per aspect to the MCP topic; ``callback`` fires once per MCP."""
+        if not self._warned_mce_deprecated:
+            logger.warning(
+                "Emitting MetadataChangeEvents is deprecated and will be removed in a "
+                "future release. They are converted to MCPs; emit "
+                "MetadataChangeProposalWrapper instead."
+            )
+            self._warned_mce_deprecated = True
         # GMS is removing its MCE topic consumer; the MCP topic is always consumed.
         for mcp in mcps_from_mce(mce):
             self.emit_mcp_async(mcp, callback)
