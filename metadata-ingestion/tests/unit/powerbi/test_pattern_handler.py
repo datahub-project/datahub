@@ -1186,8 +1186,8 @@ def test_odbc_navigation_without_table_reports_its_own_warning(
 def test_odbc_two_part_platform_allows_database_table_fallback(
     powerbi_platform: str, platform: str
 ) -> None:
-    """Two-part platforms keep database.table. Teradata guards that the fallback
-    covers every non-tiered platform, not just MySQL."""
+    """Two-part platforms keep database.table. Teradata guards that the two-part
+    set covers more than MySQL."""
     instance = _build_odbc_lineage()
     detail = DataAccessFunctionDetail(
         arg_list={},
@@ -1310,6 +1310,78 @@ def test_odbc_two_part_full_nav_drops_schema_and_warns():
         (w.title or "") == "Dropped ODBC navigation schema level"
         for w in instance.reporter.warnings
     )
+
+
+def test_odbc_unknown_platform_keeps_schema_so_tables_do_not_merge() -> None:
+    """A platform with no standalone connector (Sybase) must keep the navigation
+    Schema: dropping it would merge db.dbo.orders and db.sales.orders into one
+    upstream."""
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="SAP Sybase", datahub_data_platform_name="sybase"
+    )
+    urns = []
+    for schema in ("dbo", "sales"):
+        instance = _build_odbc_lineage()
+        detail = DataAccessFunctionDetail(
+            arg_list={},
+            data_access_function_name="Odbc.DataSource",
+            identifier_accessor=_nav_accessor(
+                ("Database", "db"),
+                ("Schema", schema),
+                ("Table", "orders"),
+            ),
+            node_map={},
+        )
+        result = instance.expression_lineage(
+            detail, "sybase", pair, server_name="dsn", dsn=""
+        )
+        urns.extend(u.urn for u in result.upstreams)
+        assert instance.reporter.warnings == []
+
+    assert urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:sybase,db.dbo.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sybase,db.sales.orders,PROD)",
+    ]
+
+
+@pytest.mark.parametrize(
+    "navigation, dsn_mapping, expected_urns",
+    [
+        (
+            (("Database", "stores"), ("Schema", "informix"), ("Table", "customer")),
+            {},
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:informix,stores.informix.customer,PROD)"
+            ],
+        ),
+        # Without an owner level a database.table URN never matches standalone
+        # Informix, so it is skipped rather than emitted.
+        ((("Database", "stores"), ("Table", "customer")), {}, []),
+    ],
+    ids=["full-navigation", "missing-owner-skips"],
+)
+def test_odbc_informix_is_three_tier(
+    navigation: Tuple[Tuple[str, str], ...],
+    dsn_mapping: Dict[str, str],
+    expected_urns: List[str],
+) -> None:
+    instance = _build_odbc_lineage(dsn_to_database_schema=dsn_mapping)
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(*navigation),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="IBM Informix",
+        datahub_data_platform_name="informix",
+    )
+
+    result = instance.expression_lineage(
+        detail, "informix", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == expected_urns
 
 
 def test_odbc_oracle_dsn_backfill_does_not_force_three_part_urn():

@@ -2196,6 +2196,10 @@ ODBC_TWO_TIER_PLATFORMS: FrozenSet[str] = frozenset(
 # name is the literal "db2" that the standalone Db2Source registers. Its standalone
 # connector emits database.schema.object, so it is three-tier here.
 DB2_PLATFORM: str = "db2"
+# Like db2, only reachable over ODBC. The standalone InformixSource emits
+# database.owner.table, so it is three-tier.
+INFORMIX_PLATFORM: str = "informix"
+TERADATA_PLATFORM: str = "teradata"
 
 ODBC_THREE_TIER_PLATFORMS: FrozenSet[str] = frozenset(
     {
@@ -2206,6 +2210,18 @@ ODBC_THREE_TIER_PLATFORMS: FrozenSet[str] = frozenset(
         SupportedDataPlatform.AMAZON_REDSHIFT.value.datahub_data_platform_name,
         SupportedDataPlatform.DATABRICKS_SQL.value.datahub_data_platform_name,
         DB2_PLATFORM,
+        INFORMIX_PLATFORM,
+    }
+)
+
+# Platforms whose standalone connectors (TwoTierSQLAlchemySource) emit
+# database.table. Only these may drop a navigation Schema level; on any other
+# platform dropping it could merge distinct tables (db.s1.t and db.s2.t) into one
+# upstream.
+ODBC_DATABASE_TABLE_PLATFORMS: FrozenSet[str] = frozenset(
+    {
+        SupportedDataPlatform.MYSQL.value.datahub_data_platform_name,
+        TERADATA_PLATFORM,
     }
 )
 
@@ -2737,24 +2753,37 @@ class OdbcLineage(AbstractLineage):
                 return None
             return f"{athena_database}.{table_name}"
 
-        # Everything else (MySQL/Teradata/ClickHouse/...) is database.table; a schema
-        # tier is never spliced in. A navigation Schema with no Database above it is
-        # the database (e.g. Teradata's Schema -> Table) and must win over the
-        # mapping, or a DSN serving several databases collapses onto one.
-        if database_name is None and schema_name is not None:
-            return f"{schema_name}.{table_name}"
+        if data_platform in ODBC_DATABASE_TABLE_PLATFORMS:
+            # database.table; a schema tier is never spliced in. A navigation
+            # Schema with no Database above it is the database (e.g. Teradata's
+            # Schema -> Table) and must win over the mapping, or a DSN serving
+            # several databases collapses onto one.
+            if database_name is None and schema_name is not None:
+                return f"{schema_name}.{table_name}"
+            database = database_name or config_database
+            if database is None:
+                skip_missing_level()
+                return None
+            if schema_name is not None:
+                self.reporter.warning(
+                    title="Dropped ODBC navigation schema level",
+                    message="ODBC navigation supplied a schema level that this "
+                    "platform's database.table URN shape does not use; emitting "
+                    "database.table without it.",
+                    context=context,
+                )
+            return f"{database}.{table_name}"
+
+        # No standalone connector pins the URN shape (Sybase, Firebird, Hadoop,
+        # ...), so navigation decides the tier count: keep every level it exposed
+        # rather than drop one and risk merging distinct tables. The mapping only
+        # backfills the database; it never splices in a schema navigation lacked.
         database = database_name or config_database
         if database is None:
             skip_missing_level()
             return None
         if schema_name is not None:
-            self.reporter.warning(
-                title="Dropped ODBC navigation schema level",
-                message="ODBC navigation supplied a schema level that this "
-                "platform's database.table URN shape does not use; emitting "
-                "database.table without it.",
-                context=context,
-            )
+            return f"{database}.{schema_name}.{table_name}"
         return f"{database}.{table_name}"
 
     def expression_lineage(
