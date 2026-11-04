@@ -80,7 +80,6 @@ export enum EventType {
     MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
-    IngestionSourceConfigurationImpressionEvent,
     IngestionViewAllClickEvent,
     IngestionViewAllClickWarningEvent,
     CreateIngestionSourceEvent,

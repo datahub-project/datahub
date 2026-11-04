@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 
 import type { IngestionSourceCreatePageLocationState } from '@app/ingestV2/source/multiStepBuilder/ingestionCreatePage.types';
 import type { MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
@@ -13,16 +13,18 @@ export type LaunchIngestionSourceCreateParams = {
 
 export function useLaunchIngestionSourceCreate() {
     const history = useHistory();
+    const location = useLocation();
 
     return useCallback(
         ({ sourceType, initialBuilderState, initialStepIndex = 1 }: LaunchIngestionSourceCreateParams) => {
             const locationState: IngestionSourceCreatePageLocationState = {
                 initialBuilderState,
                 initialStepIndex,
+                backUrl: `${location.pathname}${location.search}`,
             };
 
             history.push(`${PageRoutes.INGESTION_CREATE}?sourceType=${encodeURIComponent(sourceType)}`, locationState);
         },
-        [history],
+        [history, location.pathname, location.search],
     );
 }

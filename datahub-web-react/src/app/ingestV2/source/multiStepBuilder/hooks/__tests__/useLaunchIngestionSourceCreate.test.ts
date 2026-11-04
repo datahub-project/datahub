@@ -9,6 +9,7 @@ const mockPush = vi.fn();
 
 vi.mock('react-router', () => ({
     useHistory: () => ({ push: mockPush }),
+    useLocation: () => ({ pathname: '/context/documents', search: '?tab=all' }),
 }));
 
 describe('useLaunchIngestionSourceCreate', () => {
@@ -29,6 +30,7 @@ describe('useLaunchIngestionSourceCreate', () => {
         expect(mockPush).toHaveBeenCalledWith(`${PageRoutes.INGESTION_CREATE}?sourceType=github-documents`, {
             initialBuilderState,
             initialStepIndex: 1,
+            backUrl: '/context/documents?tab=all',
         });
     });
 });

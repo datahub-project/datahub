@@ -124,7 +124,13 @@ export default function ExecutionsTable({
         {
             title: tl('status'),
             key: 'status',
-            render: (record) => <StatusColumn status={record.status} onClick={() => handleViewDetails(record.urn)} />,
+            render: (record) => (
+                <StatusColumn
+                    status={record.status}
+                    onClick={() => handleViewDetails(record.urn)}
+                    dataTestId="execution-table-status"
+                />
+            ),
             width: '15%',
         },
         {

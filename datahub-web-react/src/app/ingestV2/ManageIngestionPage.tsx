@@ -201,7 +201,7 @@ export const ManageIngestionPage = () => {
                     isActive={selectedTab === TabType.RunHistory}
                     onSourceClick={handleExecutionSourceClick}
                     getRunDetailsPath={getExecutionRunDetailsPath}
-                    runDetailsFromUrl={tabUrlMap[TabType.RunHistory]}
+                    runDetailsFromUrl={`${location.pathname}${location.search}`}
                 />
             ),
             key: TabType.RunHistory as string,

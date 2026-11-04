@@ -289,6 +289,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                       _featureFlags.isShowSearchBarAutocompleteRedesign())
                   .setShowManageTags(_featureFlags.isShowManageTags())
                   .setShowIntroducePage(_featureFlags.isShowIntroducePage())
+                  // Deprecated in app.graphql; always true.
                   .setShowIngestionPageRedesign(true)
                   .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
                   .setShowLineageFilterNodes(_featureFlags.isShowLineageFilterNodes())
@@ -304,6 +305,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                   .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
                   .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
                   .setDocumentExplicitSaveEnabled(_featureFlags.isDocumentExplicitSaveEnabled())
+                  // Deprecated in app.graphql; always true.
                   .setIngestionOnboardingRedesignV1(true)
                   .setHideLineageInSearchCards(_featureFlags.isHideLineageInSearchCards())
                   .setDataProductLineageEnabled(_featureFlags.isDataProductLineageEnabled())
