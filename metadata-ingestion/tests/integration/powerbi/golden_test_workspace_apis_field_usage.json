@@ -863,12 +863,12 @@
             ],
             "foreignKeys": [
                 {
-                    "name": "Policies.EffectiveDate -> Claims By State.State (inactive)",
+                    "name": "Policies.State -> Claims By State.State (inactive)",
                     "foreignFields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV),State)"
                     ],
                     "sourceFields": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),EffectiveDate)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),State)"
                     ],
                     "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
                 }
@@ -2384,12 +2384,12 @@
             ],
             "foreignKeys": [
                 {
-                    "name": "Policies.EffectiveDate -> Claims By State.State (inactive)",
+                    "name": "Policies.State -> Claims By State.State (inactive)",
                     "foreignFields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV),State)"
                     ],
                     "sourceFields": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),EffectiveDate)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),State)"
                     ],
                     "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
                 }
@@ -3634,44 +3634,6 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:powerbi"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Exec_Composite_Model.Executive_KPIs,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Exec_Composite_Model.Policies,DEV)",
-                    "type": "TRANSFORMED"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Exec_Composite_Model.Policies,DEV),WrittenPremium)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Exec_Composite_Model.Executive_KPIs,DEV),Total Written Premium)"
-                    ],
-                    "confidenceScore": 1.0
-                }
-            ]
         }
     },
     "systemMetadata": {
