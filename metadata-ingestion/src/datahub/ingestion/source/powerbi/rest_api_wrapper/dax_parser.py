@@ -88,6 +88,8 @@ DAX_VARIABLE_RE = re.compile(r"\bVAR\s+(?P<name>[A-Za-z_]\w*)\s*=", re.IGNORECAS
 ROW_CONTEXT_VARIABLE_PREFIX = "@"
 STRING_QUOTE = '"'
 IDENTIFIER_QUOTE = "'"
+BRACKET_OPEN = "["
+BRACKET_CLOSE = "]"
 BLOCK_COMMENT_START = "/*"
 BLOCK_COMMENT_END = "*/"
 LINE_COMMENT_MARKERS = ("//", "--")
@@ -113,11 +115,54 @@ def _end_of_quoted(expression: str, start: int, quote: str) -> int:
     return length
 
 
+def _end_of_bracketed(expression: str, start: int) -> int:
+    """Index just past the `]` that closes the bracketed name opening at
+    `start`; `]]` inside the name escapes a bracket. An unterminated name
+    extends to the end of the expression."""
+    i = start + 1
+    length = len(expression)
+    while i < length:
+        if expression[i] == BRACKET_CLOSE:
+            if expression[i + 1 : i + 2] == BRACKET_CLOSE:
+                i += 2
+                continue
+            return i + 1
+        i += 1
+    return length
+
+
+def _mask_bracketed_names(text: str) -> str:
+    """Blank the inside of every `[...]` name, keeping the brackets and the
+    length, so the table-level regexes never see a quote, a parenthesis or a
+    function name that is part of a column or measure name."""
+    out: List[str] = []
+    i = 0
+    length = len(text)
+    while i < length:
+        ch = text[i]
+        if ch == IDENTIFIER_QUOTE:
+            end = _end_of_quoted(text, i, IDENTIFIER_QUOTE)
+            out.append(text[i:end])
+            i = end
+        elif ch == BRACKET_OPEN:
+            end = _end_of_bracketed(text, i)
+            inner_end = end - 1 if text[end - 1 : end] == BRACKET_CLOSE else end
+            out.append(BRACKET_OPEN + " " * (inner_end - i - 1))
+            out.append(text[inner_end:end])
+            i = end
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
 def strip_comments_and_strings(expression: str) -> str:
     """Blank out `//`, `--` and `/* */` comments and `"..."` string literals
     so a reference regex never matches inside them. Single-quoted table
-    identifiers are kept verbatim, including any `"` or comment marker they
-    contain. Everything else is returned unchanged."""
+    identifiers and `[bracketed]` column or measure names are kept verbatim,
+    including any quote or comment marker they contain, so an apostrophe in
+    `[Bob's Total]` never opens a quoted table name. Everything else is
+    returned unchanged."""
     out: List[str] = []
     i = 0
     length = len(expression)
@@ -126,6 +171,10 @@ def strip_comments_and_strings(expression: str) -> str:
         pair = expression[i : i + 2]
         if ch == IDENTIFIER_QUOTE:
             end = _end_of_quoted(expression, i, IDENTIFIER_QUOTE)
+            out.append(expression[i:end])
+            i = end
+        elif ch == BRACKET_OPEN:
+            end = _end_of_bracketed(expression, i)
             out.append(expression[i:end])
             i = end
         elif ch == STRING_QUOTE:
@@ -184,19 +233,20 @@ def extract_dax_references(expression: Optional[str]) -> DaxReferences:
         if table is not None:
             add_table(table)
 
-    for match in DAX_QUOTED_TABLE_RE.finditer(text):
-        if text[match.end() : match.end() + 1] == "[":
+    masked = _mask_bracketed_names(text)
+    for match in DAX_QUOTED_TABLE_RE.finditer(masked):
+        if masked[match.end() : match.end() + 1] == BRACKET_OPEN:
             continue
         add_table(_unescape_table(match.group(1)))
 
     variables = {
-        match.group("name").casefold() for match in DAX_VARIABLE_RE.finditer(text)
+        match.group("name").casefold() for match in DAX_VARIABLE_RE.finditer(masked)
     }
-    for match in DAX_TABLE_ARGUMENT_RE.finditer(text):
+    for match in DAX_TABLE_ARGUMENT_RE.finditer(masked):
         if match.group("bare").casefold() not in variables:
             add_table(match.group("bare"))
 
     references.has_row_context_iterators = (
-        DAX_ROW_CONTEXT_ITERATOR_RE.search(text) is not None
+        DAX_ROW_CONTEXT_ITERATOR_RE.search(masked) is not None
     )
     return references
