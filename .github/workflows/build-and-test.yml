@@ -135,6 +135,8 @@ jobs:
           distribution: "temurin"
           java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - name: Gradle build (and test) for NOT metadata ingestion
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
         # --max-workers=$(nproc): gradle.properties caps workers at 2 (an 8GB-laptop-safe
@@ -305,6 +307,8 @@ jobs:
           distribution: "temurin"
           java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - name: Gradle build and test for frontend (no JS tests)
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --max-workers="$(nproc)" \
@@ -372,6 +376,7 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
+          gradle-home-cache-excludes: caches/build-cache-1
           # Matrix legs read the cache only; the primary build job (build-except-metadata-ingestion)
           # is the writer. Prevents the 6 shard legs from racing to write the same Gradle cache.
           cache-read-only: true

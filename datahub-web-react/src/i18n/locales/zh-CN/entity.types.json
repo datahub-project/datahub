@@ -1,9 +1,12 @@
 {
     "api.name": "API",
     "api.namePlural": "API",
+    "api.signature.definedByDataset_other": "由数据集定义",
+    "api.signature.inputDatasetsTitle": "输入架构",
     "api.signature.inputTitle": "输入参数",
     "api.signature.noInput": "无输入参数",
     "api.signature.noOutput": "未声明输出",
+    "api.signature.outputDatasetsTitle": "输出架构",
     "api.signature.outputTitle": "输出",
     "api.signature.returns": "返回值",
     "api.signature.tableDescription": "描述",
