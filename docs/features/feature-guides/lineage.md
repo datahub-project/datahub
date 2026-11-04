@@ -28,11 +28,11 @@ With data lineage, you can
 You can view lineage under the **Lineage** tab, in an _Explorer_ visualization or the _Impact Analysis_ tool.
 You can also survey an asset's impact analysis in a snap on the entity sidebar.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/lineage-tab-v3.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/lineage-tab-v3.png)
 
 By default, the UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/lineage-view-v3.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/lineage-view-v3.png)
 
 In this example, data flows from between different Snowflake tables orchestrated by dbt into Looker views and explores.
 
@@ -41,14 +41,14 @@ In this example, data flows from between different Snowflake tables orchestrated
 Column-level lineage **tracks changes and movements for each specific data column.** This approach is often contrasted with table-level lineage, which specifies lineage at the table level. Column lineage can be visualized while viewing table-level
 lineage by expanding the columns of tables and hovering or clicking on columns with lineage.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/column-level-lineage-v3.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/column-level-lineage-v3.png)
 
 If there is column-level lineage to hidden assets or the table-level view is getting too busy,
 you can visualize lineage focused on a single column by clicking on the breadcrumb on a column:
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/schema-field-level-lineage-link.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/schema-field-level-lineage-link.png)
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/schema-field-level-lineage.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/schema-field-level-lineage.png)
 
 ### Grouping Lineage with Group By
 
@@ -56,7 +56,7 @@ you can visualize lineage focused on a single column by clicking on the breadcru
 
 Large lineage graphs are hard to read when every table is its own node. **Group by** collapses assets that share an attribute into a single group node, so you can see how data flows between platforms, domains, or glossary terms instead of between individual assets.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/lineage-groupby.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/lineage-groupby.png)
 
 #### Choose a Grouping
 
@@ -83,7 +83,7 @@ Grouping only changes how the graph is drawn. It does not change the lineage its
 
 #### Browse Group Members
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/lineage-groupby-assetsidebar.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/lineage-groupby-assetsidebar.png)
 
 Select a group to open the group sidebar. The sidebar lists the assets in that group and lets you:
 
@@ -96,7 +96,7 @@ Use the sidebar to find a specific asset inside a large group without expanding 
 
 The **Filters** panel narrows the graph to the assets you care about. You can add a condition on any searchable field, such as platform, domain, owner, or tag.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/lineage-groupby-filter.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/lineage-groupby-filter.png)
 
 Each condition uses one of these operators:
 
@@ -156,17 +156,17 @@ entity page, go to the **Lineage** tab to open the visualization. At its center 
 represented as a box containing all of its composite tasks. You can click and drag to move each task within the box,
 as well as click and drag the data pipeline box itself.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/dataflow-lineage-tab.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/dataflow-lineage-tab.png)
 
 Further, you can leverage DataHub's cross-platform lineage to view the upstreams and downstreams of each task.
 The number on the expand lineage button represents how many data-dependence upstreams / downstreams the task has.
 After expanding, you can keep expanding lineage further like the standard lineage explorer.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/dataflow-lineage-expand.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/dataflow-lineage-expand.png)
 
 Note that you can only expand one task's upstreams and one task's downstreams at a time, to keep the visualization simple.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/f19c3f852b9ba370e7db07bc5b90ed620f21125b/imgs/lineage/dataflow-lineage-expand-2.png)
+![](https://raw.githubusercontent.com/datahub-project/static-assets/55665dd45605ce62cf9683e0fec117e427c39622/imgs/lineage/dataflow-lineage-expand-2.png)
 
 ## Adding Lineage
 
