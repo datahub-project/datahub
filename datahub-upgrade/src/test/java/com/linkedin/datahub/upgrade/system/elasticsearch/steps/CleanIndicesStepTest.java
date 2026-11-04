@@ -113,6 +113,29 @@ public class CleanIndicesStepTest {
   }
 
   @Test
+  public void testSearchEngineFailureBuildingConfigsStillFailsTheStep() throws Exception {
+    UpgradeContext upgradeContext = mock(UpgradeContext.class);
+    when(upgradeContext.opContext()).thenReturn(TestOperationContexts.systemContextNoValidate());
+    when(upgradeContext.upgrade()).thenReturn(mock(Upgrade.class));
+    BuildIndicesConfiguration buildIndicesConfig = new BuildIndicesConfiguration();
+    buildIndicesConfig.setIncrementalReindexEnabled(false);
+    ElasticSearchIndexed indexedService = mock(ElasticSearchIndexed.class);
+    when(indexedService.buildReindexConfigs(any(), any()))
+        .thenThrow(new RuntimeException("search engine unavailable"));
+    CleanIndicesStep step =
+        new CleanIndicesStep(
+            mock(SearchClientShim.class),
+            mock(ElasticSearchConfiguration.class),
+            List.of(indexedService),
+            Set::of,
+            mock(EntityService.class),
+            UPGRADE_VERSION,
+            buildIndicesConfig);
+
+    assertEquals(step.executable().apply(upgradeContext).result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
   public void testIncrementalReindexEnabledLoadsProtectedIndices() throws Exception {
     OperationContext opContext = TestOperationContexts.systemContextNoValidate();
     SearchClientShim<?> searchClient = mock(SearchClientShim.class);

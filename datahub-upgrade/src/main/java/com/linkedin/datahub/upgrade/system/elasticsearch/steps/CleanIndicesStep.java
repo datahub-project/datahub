@@ -86,14 +86,23 @@ public class CleanIndicesStep implements UpgradeStep {
         try {
           reindexConfigs =
               IndexUtils.getAllReindexConfigs(
-                  context.opContext(), indexedServices, structuredProperties);
-        } catch (RuntimeException e) {
+                  context.opContext(),
+                  indexedServices,
+                  () -> {
+                    try {
+                      return structuredProperties.get();
+                    } catch (RuntimeException e) {
+                      throw new DefinitionsReadException(e);
+                    }
+                  });
+        } catch (DefinitionsReadException e) {
           // Orphan cleanup only needs index names. A failed read of the structured property
           // definitions, a filtering scan on Cassandra, skips it for this run instead of failing
-          // the non-blocking upgrades that follow.
+          // the non-blocking upgrades that follow. Search engine failures still fail the step.
           log.warn(
-              "Skipping orphaned index cleanup for this run: its index configs could not be built",
-              e);
+              "Skipping orphaned index cleanup for this run: the structured property definitions"
+                  + " could not be read",
+              e.getCause());
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         }
         reindexConfigs.forEach(
@@ -138,5 +147,12 @@ public class CleanIndicesStep implements UpgradeStep {
         catchUpState,
         context.opContext().getSearchContext().getIndexConvention(),
         rollbackDualWriteEnabled);
+  }
+
+  /** A failed read of the structured property definitions, which orphan cleanup can skip. */
+  private static final class DefinitionsReadException extends RuntimeException {
+    private DefinitionsReadException(RuntimeException cause) {
+      super(cause);
+    }
   }
 }

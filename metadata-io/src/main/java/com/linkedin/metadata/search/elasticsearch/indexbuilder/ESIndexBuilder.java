@@ -1034,7 +1034,11 @@ public class ESIndexBuilder {
         || !(properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> container)) {
       return false;
     }
-    Object dynamic = container.get("dynamic");
+    // A container without its own setting inherits the root's, which defaults to true.
+    Object dynamic =
+        container.containsKey("dynamic")
+            ? container.get("dynamic")
+            : currentMappings.getOrDefault("dynamic", true);
     return Boolean.TRUE.equals(dynamic) || "true".equals(dynamic);
   }
 
