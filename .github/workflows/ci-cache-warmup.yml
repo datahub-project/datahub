@@ -73,7 +73,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         if: steps.uv-cache.outputs.cache-hit != 'true'
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         if: steps.uv-cache.outputs.cache-hit != 'true'
@@ -142,7 +142,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         if: steps.uv-cache.outputs.cache-hit != 'true'
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         if: steps.uv-cache.outputs.cache-hit != 'true'
@@ -262,7 +262,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         if: steps.yarn-cache.outputs.cache-hit != 'true'
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
@@ -350,7 +350,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         if: steps.yarn-cache.outputs.cache-hit != 'true'
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
