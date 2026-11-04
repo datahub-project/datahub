@@ -1,247 +1,37 @@
-import { Button, ButtonProps, Icon } from '@components';
-import React, { useState } from 'react';
+import { Button, ButtonProps, Icon, PhosphorIconWeight } from '@components';
+import React, { ComponentType, useEffect, useState } from 'react';
 
 import { IconDisplayBlock, IconGrid, IconGridItem } from './components';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type IconModule = Record<string, ComponentType<any> | unknown>;
+
+const WEIGHTS: PhosphorIconWeight[] = ['regular', 'thin', 'light', 'bold', 'fill', 'duotone'];
+
+const smButtonProps: ButtonProps = {
+    size: 'sm',
+    color: 'gray',
+};
 
 interface Props {
     icons: string[];
 }
 
 export const IconGalleryWithSearch = ({ icons }: Props) => {
-    const [iconSet, setIconSet] = useState(icons);
+    const [iconModule, setIconModule] = useState<IconModule | null>(null);
     const [search, setSearch] = useState('');
-    const [variant, setVariant] = useState('outline');
+    const [weight, setWeight] = useState<PhosphorIconWeight>('regular');
 
-    const filteredIcons = iconSet.filter((icon) => icon.toLowerCase().includes(search.toLowerCase()));
+    useEffect(() => {
+        // The gallery is the one place that needs every icon, so it loads the whole set in a
+        // single async chunk rather than the per-icon CSR imports the app uses.
+        // eslint-disable-next-line rulesdir/no-phosphor-generic-imports
+        import('@phosphor-icons/react').then((mod) => setIconModule(mod as IconModule));
+    }, []);
 
-    const arrows = [
-        'ArrowBack',
-        'ArrowCircleDown',
-        'ArrowCircleLeft',
-        'ArrowCircleRight',
-        'ArrowCircleUp',
-        'ArrowDownward',
-        'ArrowForward',
-        'ArrowOutward',
-        'ArrowUpward',
-        'CloseFullscreen',
-        'Cached',
-        'Code',
-        'CodeOff',
-        'CompareArrows',
-        'Compress',
-        'ChevronLeft',
-        'ChevronRight',
-        'DoubleArrow',
-        'FastForward',
-        'FastRewind',
-        'FileDownload',
-        'FileUpload',
-        'ForkLeft',
-        'ForkRight',
-        'GetApp',
-        'LastPage',
-        'Launch',
-        'Login',
-        'Logout',
-        'LowPriority',
-        'ManageHistory',
-        'Merge',
-        'MergeType',
-        'MoveUp',
-        'MultipleStop',
-        'OpenInFull',
-        'Outbound',
-        'Outbox',
-        'Output',
-        'PlayArrow',
-        'PlayCircle',
-        'Publish',
-        'ReadMore',
-        'ExitToApp',
-        'Redo',
-        'Refresh',
-        'Replay',
-        'ReplyAll',
-        'Reply',
-        'Restore',
-        'SaveAlt',
-        'Shortcut',
-        'SkipNext',
-        'SkipPrevious',
-        'Start',
-        'Straight',
-        'SubdirectoryArrowLeft',
-        'SubdirectoryArrowRight',
-        'SwapHoriz',
-        'SwapVert',
-        'SwitchLeft',
-        'SwitchRight',
-        'SyncAlt',
-        'SyncDisabled',
-        'SyncLock',
-        'Sync',
-        'Shuffle',
-        'SyncProblem',
-        'TrendingDown',
-        'TrendingFlat',
-        'TrendingUp',
-        'TurnLeft',
-        'TurnRight',
-        'TurnSlightLeft',
-        'TurnSlightRight',
-        'Undo',
-        'UnfoldLessDouble',
-        'UnfoldLess',
-        'UnfoldMoreDouble',
-        'UnfoldMore',
-        'UpdateDisabled',
-        'Update',
-        'Upgrade',
-        'Upload',
-        'ZoomInMap',
-        'ZoomOutMap',
-    ];
+    const filteredIcons = icons.filter((icon) => icon.toLowerCase().includes(search.toLowerCase()));
 
-    const dataViz = [
-        'AccountTree',
-        'Analytics',
-        'ArtTrack',
-        'Article',
-        'BackupTable',
-        'BarChart',
-        'BubbleChart',
-        'Calculate',
-        'Equalizer',
-        'List',
-        'FormatListBulleted',
-        'FormatListNumbered',
-        'Grading',
-        'InsertChart',
-        'Hub',
-        'Insights',
-        'Lan',
-        'Leaderboard',
-        'LegendToggle',
-        'Map',
-        'MultilineChart',
-        'Nat',
-        'PivotTableChart',
-        'Poll',
-        'Polyline',
-        'QueryStats',
-        'Radar',
-        'Route',
-        'Rule',
-        'Schema',
-        'Sort',
-        'SortByAlpha',
-        'ShowChart',
-        'Source',
-        'SsidChart',
-        'StackedBarChart',
-        'StackedLineChart',
-        'Storage',
-        'TableChart',
-        'TableRows',
-        'TableView',
-        'Timeline',
-        'ViewAgenda',
-        'ViewArray',
-        'ViewCarousel',
-        'ViewColumn',
-        'ViewComfy',
-        'ViewCompact',
-        'ViewCozy',
-        'ViewDay',
-        'ViewHeadline',
-        'ViewKanban',
-        'ViewList',
-        'ViewModule',
-        'ViewQuilt',
-        'ViewSidebar',
-        'ViewStream',
-        'ViewTimeline',
-        'ViewWeek',
-        'Visibility',
-        'VisibilityOff',
-        'Webhook',
-        'Window',
-    ];
-
-    const social = [
-        'AccountCircle',
-        'Badge',
-        'Campaign',
-        'Celebration',
-        'Chat',
-        'ChatBubble',
-        'CommentBank',
-        'Comment',
-        'CommentsDisabled',
-        'Message',
-        'ContactPage',
-        'Contacts',
-        'GroupAdd',
-        'Group',
-        'GroupRemove',
-        'Groups',
-        'Handshake',
-        'ManageAccounts',
-        'MoodBad',
-        'SentimentDissatisfied',
-        'SentimentNeutral',
-        'SentimentSatisfied',
-        'Mood',
-        'NoAccounts',
-        'People',
-        'PersonAddAlt1',
-        'PersonOff',
-        'Person',
-        'PersonRemoveAlt1',
-        'PersonSearch',
-        'SwitchAccount',
-        'StarBorder',
-        'StarHalf',
-        'Star',
-        'ThumbDown',
-        'ThumbUp',
-        'ThumbsUpDown',
-        'Verified',
-        'VerifiedUser',
-    ];
-
-    const notifs = [
-        'Mail',
-        'Drafts',
-        'MarkAsUnread',
-        'Inbox',
-        'Outbox',
-        'MoveToInbox',
-        'Unsubscribe',
-        'Upcoming',
-        'NotificationAdd',
-        'NotificationImportant',
-        'NotificationsActive',
-        'NotificationsOff',
-        'Notifications',
-        'NotificationsPaused',
-    ];
-
-    const handleChangeSet = (set) => {
-        setIconSet(set);
-        setSearch('');
-    };
-
-    const handleResetSet = () => {
-        setIconSet(icons);
-        setSearch('');
-    };
-
-    const smButtonProps: ButtonProps = {
-        size: 'sm',
-        color: 'gray',
-    };
+    const cycleWeight = () => setWeight(WEIGHTS[(WEIGHTS.indexOf(weight) + 1) % WEIGHTS.length]);
 
     return (
         <>
@@ -252,40 +42,33 @@ export const IconGalleryWithSearch = ({ icons }: Props) => {
                 placeholder="Search for an icon…"
                 style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem' }}
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <Button onClick={handleResetSet} {...smButtonProps}>
-                        All
-                    </Button>
-                    <Button onClick={() => handleChangeSet(arrows)} {...smButtonProps}>
-                        Arrows
-                    </Button>
-                    <Button onClick={() => handleChangeSet(dataViz)} {...smButtonProps}>
-                        Data Viz
-                    </Button>
-                    <Button onClick={() => handleChangeSet(social)} {...smButtonProps}>
-                        Social
-                    </Button>
-                    <Button onClick={() => handleChangeSet(notifs)} {...smButtonProps}>
-                        Notifications
-                    </Button>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <Button onClick={() => setVariant(variant === 'outline' ? 'filled' : 'outline')} {...smButtonProps}>
-                        Variant: {variant === 'filled' ? 'Filled' : 'Outline'}
-                    </Button>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                <span>
+                    Showing {filteredIcons.length} of {icons.length}
+                </span>
+                <Button onClick={cycleWeight} {...smButtonProps}>
+                    Weight: {weight}
+                </Button>
             </div>
-            <IconGrid>
-                {filteredIcons.map((icon) => (
-                    <IconGridItem>
-                        <IconDisplayBlock key={icon} title={icon}>
-                            <Icon icon={icon as any} size="2xl" />
-                        </IconDisplayBlock>
-                        <span>{icon}</span>
-                    </IconGridItem>
-                ))}
-            </IconGrid>
+            {!iconModule ? (
+                <p>Loading icons…</p>
+            ) : (
+                <IconGrid>
+                    {filteredIcons.map((name) => {
+                        const component = iconModule[name];
+                        if (!component) return null;
+                        return (
+                            <IconGridItem key={name}>
+                                <IconDisplayBlock title={name}>
+                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                                    <Icon icon={component as ComponentType<any>} size="2xl" weight={weight} />
+                                </IconDisplayBlock>
+                                <span>{name}</span>
+                            </IconGridItem>
+                        );
+                    })}
+                </IconGrid>
+            )}
         </>
     );
 };

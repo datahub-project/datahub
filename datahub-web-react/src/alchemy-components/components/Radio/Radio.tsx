@@ -78,6 +78,11 @@ export const Radio = ({
 export const RadioGroup = ({ isVertical, radios, name, ariaLabel }: RadioGroupProps) => {
     const [generatedName] = useState(() => `radio-group-${uuidv4()}`);
     const groupName = name || generatedName;
+    // The group owns the selection: each Radio keeps local checked state, so without this
+    // a previously clicked radio would stay checked after a sibling is selected.
+    const [selectedLabel, setSelectedLabel] = useState<string | undefined>(
+        () => radios.find((radio) => radio.isChecked)?.label,
+    );
 
     if (!radios.length) {
         return <></>;
@@ -85,14 +90,19 @@ export const RadioGroup = ({ isVertical, radios, name, ariaLabel }: RadioGroupPr
 
     return (
         <RadioGroupContainer isVertical={isVertical} role="radiogroup" aria-label={ariaLabel}>
-            {radios.map((checkbox) => {
-                const props = { ...checkbox, name: groupName };
-                return (
-                    <React.Fragment key={checkbox.label}>
-                        <Radio {...props} />
-                    </React.Fragment>
-                );
-            })}
+            {radios.map((radio) => (
+                <React.Fragment key={radio.label}>
+                    <Radio
+                        {...radio}
+                        name={groupName}
+                        isChecked={selectedLabel !== undefined && radio.label === selectedLabel}
+                        setIsChecked={(value) => {
+                            if (radio.label !== undefined) setSelectedLabel(radio.label);
+                            radio.setIsChecked?.(value);
+                        }}
+                    />
+                </React.Fragment>
+            ))}
         </RadioGroupContainer>
     );
 };

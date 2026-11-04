@@ -36,7 +36,7 @@ const meta = {
         },
         width: {
             description: 'Width of the input (number for pixels or string like "100%")',
-            control: { type: 'text' },
+            control: { type: 'number' },
         },
         id: {
             description: 'HTML id attribute',

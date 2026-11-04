@@ -1,10 +1,20 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import type { Meta, StoryObj } from '@storybook/react';
-import React from 'react';
+import React, { useState } from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { MATERIAL_UI_ICONS } from '@components/components/Icon/constants';
 import { Input, inputDefaults } from '@components/components/Input/Input';
+import { InputProps } from '@components/components/Input/types';
+
+const ICON_OPTIONS = {
+    None: undefined,
+    MagnifyingGlass: { icon: MagnifyingGlass },
+    Envelope: { icon: Envelope },
+    Lock: { icon: Lock },
+};
 
 const meta = {
     title: 'Forms / Input',
@@ -50,11 +60,11 @@ const meta = {
         },
         icon: {
             description: 'The icon to display in the Input.',
-            type: 'string',
-            options: MATERIAL_UI_ICONS,
-            mapping: Object.fromEntries(MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material' }])),
+            options: Object.keys(ICON_OPTIONS),
+            mapping: ICON_OPTIONS,
             table: {
                 defaultValue: { summary: 'undefined' },
+                type: { summary: 'IconProps' },
             },
             control: {
                 type: 'select',
@@ -153,9 +163,24 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
+// Input is controlled, so the sandbox keeps the typed value in local state.
+function ControlledInput({ value, setValue, ...props }: InputProps) {
+    const [inputValue, setInputValue] = useState(value ?? '');
+    return (
+        <Input
+            {...props}
+            value={inputValue}
+            setValue={(newValue) => {
+                setInputValue(newValue);
+                setValue?.(newValue);
+            }}
+        />
+    );
+}
+
 export const sandbox: Story = {
     tags: ['dev'],
-    render: (props) => <Input {...props} />,
+    render: (props) => <ControlledInput {...props} />,
 };
 
 export const status = () => (

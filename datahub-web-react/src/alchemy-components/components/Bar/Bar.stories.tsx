@@ -22,7 +22,7 @@ const meta: Meta<typeof Bar> = {
             description: 'Color of the filled bars.',
             control: 'color',
             table: {
-                defaultValue: { summary: '#533FD1' },
+                defaultValue: { summary: 'theme.colors.chartsBrandMedium' },
             },
         },
         coloredBars: {
@@ -35,7 +35,7 @@ const meta: Meta<typeof Bar> = {
         size: {
             description: 'Size of the bars.',
             control: 'select',
-            options: ['sm', 'lg', 'default'],
+            options: ['default', 'sm'],
             table: {
                 defaultValue: { summary: 'default' },
             },

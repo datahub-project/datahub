@@ -1,15 +1,19 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { Star } from '@phosphor-icons/react/dist/csr/Star';
 import type { Meta, StoryObj } from '@storybook/react';
-import React from 'react';
+import React, { useState } from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { Select, selectDefaults } from '@components/components/Select/Select';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
-import { SelectSizeOptions } from '@components/components/Select/types';
+import { SelectProps, SelectSizeOptions } from '@components/components/Select/types';
+
+const ICON_OPTIONS = { None: undefined, MagnifyingGlass, Star, Globe };
 
 // Auto Docs
-const meta: Meta = {
+const meta = {
     title: 'Forms / Select',
     component: Select,
 
@@ -48,7 +52,7 @@ const meta: Meta = {
                 type: 'object',
             },
             table: {
-                defaultValue: { summary: selectDefaults.values?.toString() },
+                defaultValue: { summary: '[]' },
             },
         },
         showSearch: {
@@ -109,7 +113,7 @@ const meta: Meta = {
         minWidth: {
             description: 'Minimal width of the Select component.',
             control: {
-                type: 'number',
+                type: 'text',
             },
         },
         isMultiSelect: {
@@ -159,7 +163,7 @@ const meta: Meta = {
                 type: 'text',
             },
             table: {
-                defaultValue: { summary: selectDefaults.selectAllLabel },
+                defaultValue: { summary: 'Select All' },
             },
         },
         showDescriptions: {
@@ -172,9 +176,9 @@ const meta: Meta = {
             },
         },
         icon: {
-            description: `The name of the icon to display.`,
-            type: 'string',
-            options: ['Info', 'Star', 'Globe'],
+            description: 'The Phosphor icon component to display.',
+            options: Object.keys(ICON_OPTIONS),
+            mapping: ICON_OPTIONS,
             table: {
                 defaultValue: { summary: 'undefined' },
             },
@@ -183,7 +187,7 @@ const meta: Meta = {
             },
         },
         optionSwitchable: {
-            description: 'Set to `true` to uselect option by clicking on it',
+            description: 'Set to `true` to unselect option by clicking on it',
             type: 'boolean',
             table: {
                 defaultValue: { summary: 'undefined' },
@@ -243,44 +247,46 @@ type Story = StoryObj<typeof meta>;
 
 const sizeOptions: SelectSizeOptions[] = ['sm', 'md', 'lg'];
 
+// Select resets its selection to `values` on every change, so keep the selection in local state.
+const ControlledSelect = ({ values: initialValues, onUpdate, ...props }: SelectProps) => {
+    const [values, setValues] = useState(initialValues ?? []);
+    return (
+        <Select
+            {...props}
+            values={values}
+            onUpdate={(newValues) => {
+                onUpdate?.(newValues);
+                setValues(newValues);
+            }}
+        />
+    );
+};
+
 export const simpleSelectSandbox: Story = {
     tags: ['dev'],
 
-    render: (props) => (
-        <SimpleSelect
-            options={props.options}
-            label={props.label}
-            values={props.values}
-            showSearch={props.showSearch}
-            isDisabled={props.isDisabled}
-            isReadOnly={props.isReadOnly}
-            isRequired={props.isRequired}
-            size={props.size}
-            width={props.width}
-            onUpdate={props.onUpdate} // Optional: to log the selected value
-            isMultiSelect={props.isMultiSelect}
-            placeholder={props.placeholder}
-            disabledValues={props.disabledValues}
-            icon={props.icon}
-        />
-    ),
+    render: (props) => <SimpleSelect {...props} />,
 };
 
 export const simpleSelectStates = () => (
     <GridList isVertical>
         <>
-            <SimpleSelect options={[{ label: 'Default', value: 'default' }]} label="Default" values={['default']} />
+            <SimpleSelect
+                options={[{ label: 'Default', value: 'default' }]}
+                label="Default"
+                initialValues={['default']}
+            />
             <SimpleSelect
                 options={[{ label: 'Disabled State', value: 'disabled' }]}
                 label="Disabled State"
                 isDisabled
-                values={['disabled']}
+                initialValues={['disabled']}
             />
             <SimpleSelect
                 options={[{ label: 'Read Only State', value: 'readonly' }]}
                 label="Read Only State"
                 isReadOnly
-                values={['readonly']}
+                initialValues={['readonly']}
             />
         </>
     </GridList>
@@ -295,7 +301,7 @@ export const simpleSelectWithSearch = () => (
         ]}
         label="Simple Select with Search"
         showSearch
-        values={['2']}
+        initialValues={['2']}
     />
 );
 
@@ -308,7 +314,7 @@ export const simpleSelectWithMultiSelect = () => (
         ]}
         label="Simple Select with multi-select"
         showSearch
-        values={['2', '3']}
+        initialValues={['2', '3']}
         isMultiSelect
     />
 );
@@ -321,7 +327,7 @@ export const simpleSelectWithDisabledValues = () => (
             { label: 'Option 3', value: '3' },
         ]}
         label="Simple Select with disabled values"
-        values={['2']}
+        initialValues={['2']}
         isMultiSelect
         disabledValues={['2']}
     />
@@ -363,7 +369,7 @@ export const simpleSelectSizes = () => (
                     { label: 'Option 3', value: '3' },
                 ]}
                 label={`Simple Select - Font Size: ${size}, Width: ${255 + 50 * index}px`}
-                values={['3']}
+                initialValues={['3']}
                 size={size}
                 width={255 + 50 * index}
             />
@@ -388,37 +394,20 @@ export const simpleSelectWithIcon = () => (
 export const BasicSelectSandbox: Story = {
     tags: ['dev'],
 
-    render: (props) => (
-        <Select
-            options={props.options}
-            label={props.label}
-            values={props.values}
-            onCancel={props.onCancel}
-            onUpdate={props.onUpdate}
-            showSearch={props.showSearch}
-            isDisabled={props.isDisabled}
-            isReadOnly={props.isReadOnly}
-            isRequired={props.isRequired}
-            size={props.size}
-            width={props.width}
-            isMultiSelect={props.isMultiSelect}
-            placeholder={props.placeholder}
-            icon={props.icon}
-        />
-    ),
+    render: (props) => <ControlledSelect {...props} />,
 };
 
 export const states = () => (
     <GridList isVertical>
         <>
-            <Select options={[{ label: 'Default', value: 'default' }]} label="Default" values={['default']} />
-            <Select
+            <ControlledSelect options={[{ label: 'Default', value: 'default' }]} label="Default" values={['default']} />
+            <ControlledSelect
                 options={[{ label: 'Disabled State', value: 'disabled' }]}
                 label="Disabled State"
                 isDisabled
                 values={['disabled']}
             />
-            <Select
+            <ControlledSelect
                 options={[{ label: 'Read Only State', value: 'readonly' }]}
                 label="Read Only State"
                 isReadOnly
@@ -429,7 +418,7 @@ export const states = () => (
 );
 
 export const withSearch = () => (
-    <Select
+    <ControlledSelect
         options={[
             { label: 'Option 1', value: '1' },
             { label: 'Option 2', value: '2' },
@@ -443,7 +432,7 @@ export const withSearch = () => (
 );
 
 export const withMultiSelect = () => (
-    <Select
+    <ControlledSelect
         options={[
             { label: 'Option 1', value: '1' },
             { label: 'Option 2', value: '2' },
@@ -459,7 +448,7 @@ export const withMultiSelect = () => (
 export const sizes = () => (
     <GridList isVertical>
         {sizeOptions.map((size, index) => (
-            <Select
+            <ControlledSelect
                 key={`select-${size}`}
                 options={[
                     { label: 'Option 1', value: '1' },
@@ -479,7 +468,7 @@ export const sizes = () => (
 
 export const footerActions = () => (
     <GridList isVertical>
-        <Select
+        <ControlledSelect
             options={[
                 { label: 'Option 1', value: '1' },
                 { label: 'Option 2', value: '2' },
@@ -495,7 +484,7 @@ export const footerActions = () => (
 );
 
 export const withIcon = () => (
-    <Select
+    <ControlledSelect
         options={[
             { label: 'Option 1', value: '1' },
             { label: 'Option 2', value: '2' },

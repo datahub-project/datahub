@@ -37,7 +37,7 @@ import zIndexSource from '@components/theme/foundations/zIndex?raw';
 
     <Source code={colorsSource} />
 
-    By default, all `500` values are considered the "default" value of that color range. For example, `gray.500` is the default gray color. The other values are used for shading and highlighting. Color values are defined in hex format and their values range between 25 and 1000. With 25 being the lighest and 1000 being the darkest.
+    Each range is keyed from `0` (lightest) upward in steps of 100, to `1100` or `1200` for most colors. Gray has extra keys up to `2100` that are not ordered by lightness, and several gray values are marked deprecated in `colors.ts`.
 
     #### Black & White
     <FlexGrid>
