@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
-import HoverSectionContent from '@components/components/AvatarStack/HoverSectionContent';
 import { AvatarStackProps, AvatarType } from '@components/components/AvatarStack/types';
 import { Badge } from '@components/components/Badge';
 import { StructuredPopover } from '@components/components/StructuredPopover';
@@ -11,6 +10,7 @@ import { Text } from '@components/components/Text';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
+import HoverSectionContent from '@app/sharedV2/avatar/HoverSectionContent';
 
 const HeaderContainer = styled.div`
     display: flex;
