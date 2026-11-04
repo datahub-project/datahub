@@ -21,6 +21,12 @@ on:
       - "**/src/main/java/**/config/**"
       - "metadata-service/war/src/main/**"
       - "metadata-service/factories/src/main/java/com/linkedin/metadata/boot/**"
+      # Servlets, controllers and filters mounted by GMS (route mappings, servlet registration)
+      - "metadata-service/*servlet*/src/main/**"
+      - "metadata-service/iceberg-catalog/src/main/**"
+      - "metadata-service/auth-filter/src/main/**"
+      # Standalone consumer applications (dispatcher servlet, app-level beans)
+      - "metadata-jobs/*-job/src/main/**"
       # Application yaml and configuration POJOs
       - "metadata-service/configuration/**"
       - "**/src/main/resources/application*.yaml"
