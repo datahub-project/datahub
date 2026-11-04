@@ -5,6 +5,9 @@ plugins {
 // Test-only recorder for the wiring ratchet (gradle/wiring/README.md). Every Java module gets it
 // on its test runtime classpath. Spring is compileOnly so it adds nothing to that classpath: the
 // recorder only activates where Spring is already present.
+// Java 17 bytecode (the Spring 7 baseline) so modules pinned to 17, e.g. the Spark lineage agent,
+// can resolve it.
+ext.javaClassVersionOverride = 17
 dependencies {
   compileOnly externalDependency.springBootTest
   testImplementation externalDependency.springBootTest
