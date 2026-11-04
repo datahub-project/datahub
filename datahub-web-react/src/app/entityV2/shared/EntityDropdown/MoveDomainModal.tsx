@@ -1,4 +1,4 @@
-import { Form, Typography, message } from 'antd';
+import { Form } from 'antd';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -11,7 +11,7 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal } from '@src/alchemy-components';
+import { Modal, Text, toast } from '@src/alchemy-components';
 
 import { useMoveDomainMutation } from '@graphql/domain.generated';
 import { DataHubPageModuleType, EntityType } from '@types';
@@ -57,16 +57,16 @@ function MoveDomainModal(props: Props) {
             },
         })
             .then(() => {
-                message.loading({ content: tcf('updating'), duration: 2 });
+                toast.loading(tcf('updating'), { duration: 2 });
                 const newParentToUpdate = selectedParentUrn || undefined;
                 handleMoveDomainComplete(newParentToUpdate);
                 setTimeout(() => {
-                    message.success({
-                        content: t('move.success', {
+                    toast.success(
+                        t('move.success', {
                             entityName: entityRegistry.getEntityName(EntityType.Domain),
                         }),
-                        duration: 2,
-                    });
+                        { duration: 2 },
+                    );
                     refetch();
                     // Reload modules
                     // ChildHierarchy - as module in domain summary tab could be updated
@@ -76,8 +76,8 @@ function MoveDomainModal(props: Props) {
                 }, 2000);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('move.error', { errorMessage: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('move.error', { errorMessage: e.message || '' }), { duration: 3 });
             });
         onClose();
     }
@@ -105,9 +105,9 @@ function MoveDomainModal(props: Props) {
             <Form form={form} initialValues={{}} layout="vertical">
                 <Form.Item
                     label={
-                        <Typography.Text strong>
+                        <Text type="span" weight="semiBold">
                             <Trans t={t} i18nKey="move.toLabel" components={{ optional: <OptionalWrapper /> }} />
-                        </Typography.Text>
+                        </Text>
                     }
                 >
                     <StyledItem name="parent">

@@ -1,4 +1,4 @@
-import { Form, Input, Typography, message } from 'antd';
+import { Form, Input } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -14,10 +14,16 @@ import {
 } from '@app/settingsV2/posts/constants';
 import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
-import { Modal } from '@src/alchemy-components';
+import { Modal, Text, toast } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
 import { MediaType, PostContentType, PostType, SubResourceType } from '@types';
+
+const FieldLabel = styled(Text)`
+    && {
+        margin-bottom: 1em;
+    }
+`;
 
 const SubFormItem = styled(Form.Item)`
     margin-bottom: 24px;
@@ -95,10 +101,7 @@ export default function CreateEntityAnnouncementModal({
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: t('noteModal.createdSuccess'),
-                        duration: 3,
-                    });
+                    toast.success(t('noteModal.createdSuccess'), { duration: 3 });
                     onCreate?.(form.getFieldValue(noteTitle), form.getFieldValue(noteContent));
                     form.resetFields();
                 }
@@ -138,17 +141,14 @@ export default function CreateEntityAnnouncementModal({
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: t('noteModal.updatedSuccess'),
-                        duration: 3,
-                    });
+                    toast.success(t('noteModal.updatedSuccess'), { duration: 3 });
                     onEdit?.();
                     form.resetFields();
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('noteModal.updateError'), duration: 3 });
+                toast.destroy();
+                toast.error(t('noteModal.updateError'), { duration: 3 });
                 console.error('Failed to update Note:', e.message);
             });
         onClose();
@@ -214,11 +214,11 @@ export default function CreateEntityAnnouncementModal({
                     }
                 }}
             >
-                <Typography.Paragraph>{tcl('title')}</Typography.Paragraph>
+                <FieldLabel>{tcl('title')}</FieldLabel>
                 <SubFormItem name={noteTitle} rules={[{ min: 1, max: 500, required: true }]} hasFeedback>
                     <Input placeholder={t('noteModal.titlePlaceholder')} />
                 </SubFormItem>
-                <Typography.Paragraph>{t('noteModal.contentLabel')}</Typography.Paragraph>
+                <FieldLabel>{t('noteModal.contentLabel')}</FieldLabel>
                 <SubFormItem name={noteContent} rules={[{ min: 1, max: 5000 }]} hasFeedback>
                     <EditorContainer>
                         <Editor

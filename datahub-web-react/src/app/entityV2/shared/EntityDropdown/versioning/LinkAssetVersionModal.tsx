@@ -1,5 +1,5 @@
-import { Input, Modal } from '@components';
-import { Form, message } from 'antd';
+import { Input, Modal, toast } from '@components';
+import { Form } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
@@ -54,10 +54,7 @@ export default function LinkAssetVersionModal({ urn, entityType, closeModal, ref
                 entityRegistry.getGenericEntityProperties(selectedEntity.type, selectedEntity)?.versionProperties;
 
             if (selectedEntity && (!versionProperties?.isLatest || !versionProperties?.versionSet?.urn)) {
-                message.error({
-                    content: t('linkVersion.invalidError'),
-                    duration: 3,
-                });
+                toast.error(t('linkVersion.invalidError'), { duration: 3 });
                 return;
             }
 
@@ -84,24 +81,21 @@ export default function LinkAssetVersionModal({ urn, entityType, closeModal, ref
                         versionSetUrn,
                         entityType,
                     });
-                    message.loading({
-                        content: t('linkVersion.loading'),
-                        duration: 2,
-                    });
+                    toast.loading(t('linkVersion.loading'), { duration: 2 });
 
                     setTimeout(() => {
                         refetch?.();
-                        message.success({
-                            content: t('linkVersion.success', {
+                        toast.success(
+                            t('linkVersion.success', {
                                 entityName: entityRegistry.getEntityName(entityType),
                             }),
-                            duration: 2,
-                        });
+                            { duration: 2 },
+                        );
                     }, 2000);
                 })
                 .catch((e) => {
-                    message.destroy();
-                    message.error({ content: t('linkVersion.error', { errorMessage: e.message || '' }), duration: 3 });
+                    toast.destroy();
+                    toast.error(t('linkVersion.error', { errorMessage: e.message || '' }), { duration: 3 });
                 });
         });
     }
