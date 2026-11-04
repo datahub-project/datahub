@@ -1,5 +1,6 @@
 import { Icon, Pill, Tooltip } from '@components';
 import { ArrowsLeftRight } from '@phosphor-icons/react/dist/csr/ArrowsLeftRight';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -36,6 +37,13 @@ const DetailRow = styled.div`
     flex-wrap: wrap;
 `;
 
+const InfoIcon = styled.span`
+    color: ${(props) => props.theme.colors.icon};
+    display: flex;
+    align-items: center;
+    cursor: help;
+`;
+
 const SyncedSharedText = styled.span`
     color: ${(props) => props.theme.colors.text};
     font-weight: 700;
@@ -64,6 +72,11 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props
                 </Tooltip>
 
                 <SyncedSharedText>{labelText}</SyncedSharedText>
+                <Tooltip showArrow={false} title={<SyncedOrSharedTooltip type={type} />} placement="bottomLeft">
+                    <InfoIcon>
+                        <Icon icon={Info} size="md" color="inherit" />
+                    </InfoIcon>
+                </Tooltip>
                 <Tooltip showArrow={false} title={toLocalDateString(time)}>
                     <span>
                         <Pill label={toRelativeTimeString(time) || ''} variant="filled" color={pillColor} size="sm" />
