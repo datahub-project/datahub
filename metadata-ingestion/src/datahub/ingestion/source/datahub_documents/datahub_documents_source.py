@@ -405,6 +405,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         try:
+            self.chunking_source.verify_embedding_service()
             if self.config.event_mode.enabled:
                 yield from self._process_event_mode()
             else:
@@ -1588,7 +1589,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 fingerprint["onnx_pooling"] = pooling
         # The storage key names the semanticContent entry the vectors are written
         # under. Only a key that differs from the model's default is fingerprinted,
-        # so hashes recorded before this field stay valid.
+        # so default-key hashes recorded before this field stay valid; a custom key
+        # re-embeds once after upgrading (see breaking-changes.md).
         if target is not None and target.model_embedding_key != model_storage_key(
             target.model_id
         ):
@@ -1870,10 +1872,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
 
     def close(self) -> None:
         """Cleanup resources."""
-        self.chunking_source.close()
-        if self.config.incremental.enabled:
-            self._save_state()
-        # Safety net: release the lock if the work generator was never fully consumed.
-        if self.lock is not None:
-            self.lock.release()
-        super().close()
+        try:
+            self.chunking_source.close()
+        finally:
+            try:
+                if self.config.incremental.enabled:
+                    self._save_state()
+            finally:
+                # Safety net: release the lock if the work generator was never
+                # fully consumed, even when teardown above raised.
+                if self.lock is not None:
+                    self.lock.release()
+                super().close()

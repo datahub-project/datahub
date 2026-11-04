@@ -58,6 +58,13 @@ def resolve_embedding_target(
                 "configured. Ask your administrator to enable semantic search."
             )
         index = semantic.embedding_config
+        served = service.embedding_service_model
+        if served is not None and served != index.model_id:
+            raise ServerEmbeddingModelMismatchError(
+                f"The DataHub embeddings endpoint serves {served!r}, but the semantic "
+                f"index uses {index.model_id!r}. Ask your administrator to align the "
+                "models before embedding."
+            )
         if (model is not None and model != index.model_id) or (
             key is not None and key != index.model_embedding_key
         ):

@@ -110,7 +110,9 @@ class DataHubEmbeddingsClient:
         if response.status_code == 404 and isinstance(payload, dict):
             error = payload.get("error", payload)
             if isinstance(error, dict) and error.get("type") == "not_enabled":
-                raise ServerEmbeddingsUnavailableError(_NOT_OFFERED)
+                # Discovery passed, so the service was turned off mid-run: no
+                # later document can succeed either.
+                raise ServerEmbeddingRunError(_NOT_OFFERED)
         if response.status_code != 200:
             raise RuntimeError(
                 f"DataHub embeddings request failed (HTTP {response.status_code}). "

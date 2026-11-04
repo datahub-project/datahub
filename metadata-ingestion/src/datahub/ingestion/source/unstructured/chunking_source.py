@@ -215,8 +215,9 @@ class DocumentChunkingSource(Source):
             self.embedding_model = self.resolved_target.semantic_model_version
             # The classical provider rejects inputs over its code point cap instead
             # of truncating, so a chunk size above it would fail every document.
+            # model_provider, not the recipe provider: `datahub` may resolve to it.
             if (
-                self.config.embedding.provider == "classical"
+                self.resolved_target.model_provider == "classical"
                 and self.config.chunking.max_characters > CLASSICAL_MAX_CODE_POINTS
             ):
                 raise ValueError(
@@ -337,6 +338,17 @@ class DocumentChunkingSource(Source):
             )
         return self._provider
 
+    def verify_embedding_service(self) -> None:
+        """Embed one short probe through the DataHub server before any document.
+
+        A disabled service, exhausted credits, or a model that differs from the
+        index then ends the run before documents are fetched or chunked.
+        """
+        if self.embedding_model and self.resolved_target.transport == "datahub":
+            self._get_provider().embed(
+                ["DataHub embedding service check"], task=EmbeddingTask.QUERY
+            )
+
     def get_model_embedding_key(self) -> Optional[str]:
         if not self.embedding_model or not self.config.embedding.model:
             return None
@@ -454,6 +466,7 @@ class DocumentChunkingSource(Source):
             )
             return
 
+        self.verify_embedding_service()
         # Choose mode: event-driven or batch
         if self.config.event_source.enabled:
             logger.info("Running in event-driven mode (incremental batch)")
@@ -608,7 +621,8 @@ class DocumentChunkingSource(Source):
         finally:
             # Saved even when a server-wide embedding failure ends the run, so
             # documents embedded before it are not embedded (and billed) again.
-            if self.config.incremental_mode:
+            # force_reprocess never initializes a state file.
+            if self.config.incremental_mode and self.state_file_path is not None:
                 self._save_state()
 
     def _initialize_state_tracking(self) -> None:

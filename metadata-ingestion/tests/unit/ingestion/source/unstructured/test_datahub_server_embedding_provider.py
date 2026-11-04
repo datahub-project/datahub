@@ -23,6 +23,9 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 )
 from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
 from datahub.ingestion.source.unstructured.embedding_providers.base import EmbeddingTask
+from datahub.ingestion.source.unstructured.embedding_providers.classical import (
+    MAX_CODE_POINTS as CLASSICAL_MAX_CODE_POINTS,
+)
 from datahub.ingestion.source.unstructured.embedding_providers.datahub_server import (
     DataHubServerEmbeddingProvider,
     server_embedding_provider,
@@ -436,7 +439,7 @@ def test_owned_transport_preserves_sdk_settings(graph):
     assert graph.session.adapters == original_adapters
 
 
-@pytest.mark.parametrize("source_name", ["confluence", "google_drive"])
+@pytest.mark.parametrize("source_name", ["confluence", "google_drive", "notion"])
 @pytest.mark.parametrize("available", [True, False])
 @pytest.mark.parametrize("borrowed", [True, False])
 def test_connector_capability_passes_graph_and_closes_only_owned(
@@ -463,6 +466,23 @@ def test_connector_capability_passes_graph_and_closes_only_owned(
         check = partial(
             ConfluenceSource._test_semantic_search_capability, confluence_config
         )
+    elif source_name == "notion":
+        from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
+        from datahub.ingestion.source.notion.notion_source import NotionSource
+
+        if borrowed:
+            pytest.skip("Notion's connection test has no graph of its own to lend")
+        notion_config = NotionSourceConfig.model_validate(
+            {
+                "api_key": "secret_test_key",
+                "embedding": {"provider": "datahub"},
+                "datahub": {"server": SERVER, "token": "datahub-token"},
+            }
+        )
+
+        def check(_graph: Optional[DataHubGraph]) -> CapabilityReport:
+            return NotionSource._test_semantic_search_capability(notion_config)
+
     else:
         pytest.importorskip("googleapiclient")
         from datahub.ingestion.source.google_drive.google_drive_config import (
@@ -522,14 +542,21 @@ def test_connection_problem_is_basic_connectivity_failure():
 
 
 @pytest.mark.parametrize(
-    "status,headers,model",
+    "status,headers,payload",
     [
-        (403, {}, "index-model"),
-        (429, {"x-should-retry": "false"}, "index-model"),
-        (200, {}, "wrong-model"),
+        (403, {}, {}),
+        (429, {"x-should-retry": "false"}, {}),
+        (404, {}, {"error": {"type": "not_enabled"}}),
+        (
+            200,
+            {},
+            {"model": "wrong-model", "data": [{"index": 0, "embedding": [1.0]}]},
+        ),
     ],
 )
-def test_permanent_failure_stops_before_second_document(graph, status, headers, model):
+def test_permanent_failure_stops_before_second_document(
+    graph, status, headers, payload
+):
     from datahub.ingestion.source.datahub_documents.datahub_documents_config import (
         DataHubDocumentsSourceConfig,
     )
@@ -554,6 +581,8 @@ def test_permanent_failure_stops_before_second_document(graph, status, headers, 
 
     with (
         patch.object(source, "_process_batch_mode", side_effect=batch),
+        # Exercises the per-document boundary; the startup probe has its own test.
+        patch.object(source.chunking_source, "verify_embedding_service"),
         patch.object(
             source.text_partitioner, "partition_text", return_value=[{"text": "chunk"}]
         ),
@@ -563,11 +592,7 @@ def test_permanent_failure_stops_before_second_document(graph, status, headers, 
         patch.object(
             requests.Session,
             "post",
-            return_value=response(
-                {"model": model, "data": [{"index": 0, "embedding": [1.0]}]},
-                status,
-                headers,
-            ),
+            return_value=response(payload, status, headers),
         ) as post,
     ):
         list(source.get_workunits_internal())
@@ -721,3 +746,84 @@ def test_permanent_standalone_event_failure_holds_offsets(graph):
     assert process.call_count == 1
     assert consumer.suppress_offset_commits
     consumer.close.assert_called_once()
+
+
+def documents_source(graph):
+    from datahub.ingestion.source.datahub_documents.datahub_documents_config import (
+        DataHubDocumentsSourceConfig,
+    )
+
+    return DataHubDocumentsSource(
+        PipelineContext(run_id="test", graph=graph),
+        DataHubDocumentsSourceConfig(
+            embedding=EmbeddingConfig(provider="datahub"),
+            locking={"enabled": False},
+            stateful_ingestion={"enabled": False},
+        ),
+    )
+
+
+def test_startup_probe_stops_run_before_any_document(graph):
+    source = documents_source(graph)
+    with (
+        patch.object(source, "_process_batch_mode") as batch,
+        patch.object(
+            requests.Session,
+            "post",
+            return_value=response(embedding_response("different-model")),
+        ) as post,
+    ):
+        list(source.get_workunits_internal())
+    batch.assert_not_called()
+    assert post.call_count == 1
+    assert post.call_args.kwargs["json"]["x_datahub"]["task_type"] == "query"
+    assert source.report.failures
+
+
+def test_advertised_model_mismatch_fails_without_embedding(graph):
+    def advertise(model):
+        graph.server_config = RestServiceConfig(
+            raw_config={
+                "embeddingService": {"enabled": True, "path": PATH, "model": model}
+            }
+        )
+
+    advertise("other-model")
+    with (
+        patch.object(requests.Session, "post") as post,
+        pytest.raises(ServerEmbeddingModelMismatchError, match="other-model"),
+    ):
+        server_embedding_provider(graph)
+    post.assert_not_called()
+    advertise("index-model")
+    assert server_embedding_provider(graph).model_id == "index-model"
+
+
+def test_close_releases_lock_when_teardown_raises(graph):
+    source = documents_source(graph)
+    source.lock = Mock()
+    with (
+        patch.object(
+            source.chunking_source, "close", side_effect=RuntimeError("teardown")
+        ),
+        pytest.raises(RuntimeError, match="teardown"),
+    ):
+        source.close()
+    source.lock.release.assert_called_once()
+
+
+def test_classical_cap_applies_to_the_resolved_server_model(graph):
+    graph.execute_graphql.return_value["appConfig"]["semanticSearchConfig"][
+        "embeddingConfig"
+    ].update(provider="classical", modelId="hash-v1-2048")
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(provider="datahub"), incremental_mode=False
+    )
+    config.chunking.max_characters = CLASSICAL_MAX_CODE_POINTS + 1
+    with pytest.raises(ValueError, match="code point limit"):
+        DocumentChunkingSource(
+            ctx=PipelineContext(run_id="test"),
+            config=config,
+            standalone=False,
+            graph=graph,
+        )

@@ -866,49 +866,23 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             CapabilityReport for semantic search capability
         """
-        from datahub.ingestion.graph.client import DataHubGraph
         from datahub.ingestion.graph.config import DatahubClientConfig
         from datahub.ingestion.source.unstructured.chunking_source import (
             DocumentChunkingSource,
         )
 
-        graph = None
-        try:
-            # Create graph connection to query server (if datahub config provided)
-            if config.datahub and config.datahub.server:
-                graph_config = DatahubClientConfig(
-                    server=config.datahub.server,
-                    token=config.datahub.token,
-                )
-                graph = DataHubGraph(config=graph_config)
-
-            # Use shared resolution logic (server → defaults)
-            resolved_config = DocumentChunkingSource.resolve_embedding_config(
-                config.embedding, graph
+        token = config.datahub.token if config.datahub else None
+        datahub = (
+            DatahubClientConfig(
+                server=config.datahub.server,
+                token=token.get_secret_value() if token else None,
             )
-
-            # Test the resolved configuration
-            return DocumentChunkingSource.test_embedding_capability(
-                resolved_config, graph=graph
-            )
-
-        except ValueError as e:
-            # Config validation failed (e.g., semantic search not enabled on server)
-            return CapabilityReport(
-                capable=False,
-                failure_reason=str(e),
-                mitigation_message="Fix the embedding configuration or enable semantic search on DataHub server.",
-            )
-        except Exception as e:
-            # Unexpected error during config resolution
-            return CapabilityReport(
-                capable=False,
-                failure_reason=f"Failed to resolve embedding configuration: {e}",
-                mitigation_message="Check DataHub server connection and embedding configuration.",
-            )
-        finally:
-            if graph is not None:
-                graph.close()
+            if config.datahub and config.datahub.server
+            else None
+        )
+        return DocumentChunkingSource.test_semantic_search_capability(
+            config.embedding, datahub=datahub
+        )
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -1975,18 +1949,20 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
     def close(self) -> None:
         """Cleanup resources."""
-        self.chunking_source.close()
-        # Clean up work directory if not preserving outputs
-        if not self.config.advanced.preserve_outputs:
-            work_dir = Path(self.config.advanced.work_dir)
-            if work_dir.exists():
-                import shutil
+        try:
+            self.chunking_source.close()
+        finally:
+            # Clean up work directory if not preserving outputs
+            if not self.config.advanced.preserve_outputs:
+                work_dir = Path(self.config.advanced.work_dir)
+                if work_dir.exists():
+                    import shutil
 
-                try:
-                    shutil.rmtree(work_dir)
-                    logger.info(f"Cleaned up work directory: {work_dir}")
-                except Exception as e:
-                    logger.warning(f"Failed to clean up work directory: {e}")
+                    try:
+                        shutil.rmtree(work_dir)
+                        logger.info(f"Cleaned up work directory: {work_dir}")
+                    except Exception as e:
+                        logger.warning(f"Failed to clean up work directory: {e}")
 
-        # Call parent close() to prepare and commit stateful ingestion state
-        super().close()
+            # Call parent close() to prepare and commit stateful ingestion state
+            super().close()

@@ -228,7 +228,8 @@ class RestServiceConfig:
     @property
     def embedding_service_path(self) -> Optional[str]:
         # /config advertises {"embeddingService": {"enabled": true, "path":
-        # "/openapi/v1/llm/v1/embeddings"}}. Absence means unsupported, including
+        # "/openapi/v1/llm/v1/embeddings", "model": "<optional served model id>"}}.
+        # Absence means unsupported, including
         # OSS GMS. Never infer availability from the version or deployment type.
         service = self.raw_config.get("embeddingService")
         if not isinstance(service, dict) or service.get("enabled") is not True:
@@ -247,6 +248,15 @@ class RestServiceConfig:
         if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
             return None
         return path
+
+    @property
+    def embedding_service_model(self) -> Optional[str]:
+        # Optional: the model the endpoint serves, so clients can reject a
+        # mismatch with the semantic index before spending an embedding call.
+        if self.embedding_service_path is None:
+            return None
+        model = self.raw_config["embeddingService"].get("model")
+        return model if isinstance(model, str) and model else None
 
     def supports_feature(self, feature: ServiceFeature) -> bool:
         """

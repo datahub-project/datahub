@@ -1015,5 +1015,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def close(self) -> None:
-        self.chunking_source.close()
-        super().close()
+        try:
+            self.chunking_source.close()
+        finally:
+            super().close()

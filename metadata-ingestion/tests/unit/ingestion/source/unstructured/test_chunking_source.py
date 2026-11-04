@@ -1333,16 +1333,21 @@ def test_batch_success_recorded_in_state(pipeline_context, chunking_config):
     assert doc["urn"] in source.document_state
 
 
+@pytest.mark.parametrize("force_reprocess", [False, True])
 def test_server_wide_failure_keeps_state_for_documents_already_embedded(
-    pipeline_context, chunking_config
+    pipeline_context, chunking_config, tmp_path, force_reprocess
 ):
     """A server-wide failure ends the run, but documents embedded before it keep
-    their state, so the next run does not embed (and bill) them again."""
+    their state, so the next run does not embed (and bill) them again. With
+    force_reprocess there is no state file, and the failure still propagates."""
     with patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"):
         source = DocumentChunkingSource(
             ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
         )
     source.config.incremental_mode = True
+    source.config.force_reprocess = force_reprocess
+    if not force_reprocess:
+        source.state_file_path = tmp_path / "state.json"
 
     def document(name: str) -> dict:
         return {
@@ -1369,7 +1374,7 @@ def test_server_wide_failure_keeps_state_for_documents_already_embedded(
     ):
         list(source._process_batch())
 
-    save_state.assert_called_once_with()
+    assert save_state.call_count == int(not force_reprocess)
     assert first["urn"] in source.document_state
     assert second["urn"] not in source.document_state
     # The run stopped at the failure instead of trying the next document.
