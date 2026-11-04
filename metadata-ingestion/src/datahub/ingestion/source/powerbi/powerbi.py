@@ -2024,7 +2024,9 @@ class Mapper:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Enabled by default, configured using `extract_lineage`.",
+    "Enabled by default, configured using `extract_lineage`. In "
+    "`metadata_api_mode: workspace_apis` lineage comes from the semantic-model "
+    "definitions (TMDL partitions) without admin API access.",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -2483,11 +2485,20 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                         workspace=workspace
                     )
                 except Exception as e:
-                    # A skipped workspace emits nothing, so a green run would
-                    # soft-delete all of its entities under stale-entity removal.
-                    self.reporter.failure(
+                    # In workspace_apis mode a skipped workspace emits nothing
+                    # the run can fall back on, so a green run would let
+                    # stale-entity removal soft-delete all of its entities.
+                    # admin_scan keeps its long-standing warning, matching the
+                    # Phase 1 handler above.
+                    report_phase2 = (
+                        self.reporter.failure
+                        if self.source_config.metadata_api_mode
+                        == PowerBiMetadataApiMode.WORKSPACE_APIS
+                        else self.reporter.warning
+                    )
+                    report_phase2(
                         title="Failed to Fetch Workspace Metadata",
-                        message="Phase 2 metadata fetch failed for this workspace; it is skipped.",
+                        message="Phase 2 metadata fetch failed for this workspace; it will be skipped.",
                         context=f"workspace={workspace.name} id={workspace.id}",
                         exc=e,
                     )

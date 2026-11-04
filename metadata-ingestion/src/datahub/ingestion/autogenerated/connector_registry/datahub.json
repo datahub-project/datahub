@@ -3746,7 +3746,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default, configured using `extract_lineage`.",
+          "description": "Enabled by default, configured using `extract_lineage`. In `metadata_api_mode: workspace_apis` lineage comes from the semantic-model definitions (TMDL partitions) without admin API access.",
           "subtype_modifier": null,
           "supported": true
         },

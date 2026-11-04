@@ -766,7 +766,9 @@ class PowerBiDashboardSourceConfig(
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
         default=True,
-        description="Whether lineage should be ingested between X and Y. Admin API access is required if this setting is enabled",
+        description="Whether lineage should be ingested between X and Y. Admin API access is required if this setting is enabled, "
+        "except with `metadata_api_mode: workspace_apis`, where lineage is read from the semantic-model definitions "
+        "(TMDL partitions).",
     )
     # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
     # any existing tags defined to those entities

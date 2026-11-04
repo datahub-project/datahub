@@ -74,7 +74,7 @@ When the fallback engages, the ingestion report includes a **Report Scan Fallbac
 | Paginated report to dataset binding    | `/reports/{id}/datasources`                         | The report's `.rdl` definition, falling back to `/reports/{id}/datasources`                          |
 | Endorsements, apps, `modified_since`   | Supported                                           | Not available; the options are rejected                                                              |
 
-`getDefinition` is a long-running operation: the connector polls it and gives up after `scan_timeout` seconds per item, reporting the item under **Fabric Item Definition Not Fetched**. The report also carries `fabric_definitions_fetched`, `fabric_definitions_failed`, `fabric_lro_timeouts`, `tmdl_tables_parsed` and related counters.
+`getDefinition` is a long-running operation: the connector polls it and gives up after `scan_timeout` seconds per item. A semantic model whose definition is not fetched is reported as a failure under **Semantic Model Definition Not Fetched** (or **Fabric API Permission Denied** when it was refused); a report as a warning under **Report Definition Not Fetched** (or **Report Definition Permission Denied**). The report also carries `fabric_definitions_fetched`, `fabric_definitions_failed`, `fabric_lro_timeouts`, `tmdl_tables_parsed` and related counters.
 
 Call volume is roughly one Power BI listing per workspace plus one `getDefinition` per semantic model (and per report when `extract_report_field_usage` is enabled), instead of one scan per `scan_batch_size` workspaces. Fabric throttles at 500 calls per minute per principal; throttled calls are retried.
 

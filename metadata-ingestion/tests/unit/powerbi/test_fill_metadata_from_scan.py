@@ -772,6 +772,49 @@ def test_get_workunits_internal_phase1_failure_is_a_failure_in_workspace_mode():
     )
 
 
+@pytest.mark.parametrize(
+    "metadata_api_mode,expect_failure",
+    [
+        pytest.param("workspace_apis", True, id="workspace_apis_fails"),
+        pytest.param("admin_scan", False, id="admin_scan_warns"),
+    ],
+)
+def test_get_workunits_internal_phase2_failure_severity_follows_mode(
+    metadata_api_mode: str, expect_failure: bool
+) -> None:
+    """A workspace skipped in Phase 2 is a failure in workspace_apis mode,
+    where a green run would let stale-entity removal soft-delete its
+    entities, and keeps the long-standing warning in admin_scan mode. The
+    other workspace is still processed in both modes."""
+    workspaces = [_make_workspace("WS-0"), _make_workspace("WS-1")]
+    source = _make_source(
+        workspaces_to_return=workspaces,
+        excluded_ids=set(),
+        metadata_api_mode=metadata_api_mode,
+    )
+    if metadata_api_mode == "workspace_apis":
+        source.powerbi_client.fill_metadata_from_definitions = mock.MagicMock(  # type: ignore[method-assign]
+            return_value=set()
+        )
+        source.powerbi_client.report_if_no_definitions_fetched = mock.MagicMock()  # type: ignore[method-assign]
+    fill_detail = cast(
+        mock.MagicMock, source.powerbi_client.fill_regular_metadata_detail
+    )
+    fill_detail.side_effect = [ValueError("connection reset"), None]
+
+    list(source.get_workunits_internal())
+
+    processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
+    assert processed == ["WS-0", "WS-1"]
+    title = "Failed to Fetch Workspace Metadata"
+    failed = [f for f in source.reporter.failures if f.title == title]
+    warned = [w for w in source.reporter.warnings if w.title == title]
+    reported = failed if expect_failure else warned
+    other = warned if expect_failure else failed
+    assert len(reported) == 1 and any("WS-0" in c for c in reported[0].context)
+    assert other == []
+
+
 def test_get_workunits_internal_phase1_batch_failure_isolates_other_batches(caplog):
     """A scan-timeout (or any exception) in one Phase 1 batch must NOT abort
     the whole ingestion. Other batches must still be scanned, all workspaces
