@@ -560,7 +560,9 @@ rather than version equality, to determine whether an edit returns to its base.
 `value` (a typed aspect), `version`, `system_metadata`, and `createdon`. Omitting the
 version selects the highest numbered row. Explicit versions must be positive;
 missing aspects or versions return `None`. `list_versions(urn, aspect_name)`
-returns all numbered snapshots, oldest first, or an empty list.
+returns all numbered snapshots, oldest first, or an empty list. Returned typed
+values and system metadata are detached, mutable copies: editing them does not
+change persisted history or subsequent reads.
 
 Numbered rows retain their original metadata. `createdon` is the supplied
 `systemMetadata.lastObserved`, or the write time when it is absent. It is an
@@ -581,10 +583,13 @@ continue to expose current values; use the history API for earlier values.
 
 Each standalone `write()` is atomic across all aspects in its MCP or MCE and their
 edge updates. `with lite.transaction():` groups multiple writes into one commit.
-Reads inside the block see its writes. Any failed write makes the block
+Reads inside the block see its writes. Any failed write, including an invalid
+write argument, or failed database statement (including reads) makes the block
 rollback-only: even if the caller catches the error, later writes are rejected and
 leaving the block raises `LiteTransactionError`. An exception escaping the block
 rolls it back. Versions returned before the block commits are provisional.
+Reindexing rebuilds the browse edges in one transaction; a failed rebuild leaves
+the previous index intact.
 
 Transactions cannot be nested. Calling `reindex()`, `close()`, or `destroy()` inside
 a transaction raises. A Lite instance is single-threaded; do not share it across

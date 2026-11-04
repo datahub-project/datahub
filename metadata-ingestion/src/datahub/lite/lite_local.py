@@ -48,7 +48,11 @@ class PathNotFoundException(Exception):
 
 @dataclass(frozen=True)
 class AspectVersion:
-    """A persisted numbered aspect snapshot, including its original metadata."""
+    """A detached copy of a numbered aspect row and its original metadata.
+
+    The typed value and system metadata are mutable; changing them does not
+    modify the persisted history or other reads.
+    """
 
     value: _Aspect
     version: int
@@ -112,9 +116,9 @@ class DataHubLiteLocal(Generic[LiteConfig], Closeable, metaclass=ABCMeta):
     def transaction(self) -> AbstractContextManager[None]:
         """Group writes atomically. Nesting and forwarding are unsupported.
 
-        A failed write makes the block rollback-only, even if its exception is
-        caught. Reindexing, closing and destroying the store are forbidden inside
-        the block. Reads see the block's writes.
+        A failed write or database statement makes the block rollback-only, even
+        if its exception is caught. Reindexing, closing and destroying the store
+        are forbidden inside the block. Reads see the block's writes.
         """
         pass
 

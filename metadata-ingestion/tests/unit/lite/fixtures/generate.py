@@ -11,8 +11,11 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass, SystemMetada
 
 
 def main() -> None:
-    assert version("acryl-datahub") == "1.7.0.19"
-    assert version("duckdb") == "1.5.6"
+    for package, expected in (("acryl-datahub", "1.7.0.19"), ("duckdb", "1.5.6")):
+        if version(package) != expected:
+            raise RuntimeError(
+                f"{package}=={expected} is required to generate fixtures"
+            )
     for engine in ("sqlite", "duckdb"):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "catalog.db"

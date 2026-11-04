@@ -19,6 +19,7 @@ from contextlib import nullcontext
 from typing import Iterator, Sequence
 from unittest.mock import Mock
 
+import duckdb
 import pytest
 from click.testing import CliRunner
 
@@ -38,6 +39,8 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
+    MySqlDDLClass,
+    SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
     SystemMetadataClass,
@@ -505,6 +508,80 @@ def test_transaction_reads_own_writes_and_rolls_back_all_state(
     assert lite.get_aspect(CUSTOMERS_URN, "status", 1) is not None
 
 
+@pytest.mark.parametrize("read_method", ["search", "single_row"])
+def test_caught_database_read_failure_rolls_back_writes(
+    lite: DataHubLiteLocal, read_method: str
+) -> None:
+    assert isinstance(lite, SqlBackedLite)
+    before = _state(lite)
+    with pytest.raises(LiteTransactionError):
+        with lite.transaction():
+            lite.write(
+                MetadataChangeProposalWrapper(
+                    entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+                )
+            )
+            with pytest.raises((sqlite3.DatabaseError, duckdb.Error)):
+                invalid_json = "json_extract('invalid-json', '$.name')"
+                if read_method == "search":
+                    list(lite.search(f"{invalid_json} IS NOT NULL", SearchFlavor.EXACT))
+                else:
+                    lite._execute_one(f"SELECT {invalid_json}")
+    assert _state(lite) == before
+    assert lite.write(
+        MetadataChangeProposalWrapper(
+            entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+        )
+    ) == {"status": 1}
+
+
+def test_reindex_failure_preserves_browse_index(
+    lite: DataHubLiteLocal, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert isinstance(lite, SqlBackedLite)
+    lite.reindex()
+    before = _state(lite)
+
+    def fail_platform_edges(*args: object, **kwargs: object) -> None:
+        raise OSError("platform edge failed")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            lite, "_create_edges_from_data_platform_instance", fail_platform_edges
+        )
+        with pytest.raises(OSError):
+            lite.reindex()
+    assert _state(lite) == before
+    lite.reindex()
+    assert _state(lite) == before
+
+
+@pytest.mark.parametrize("conditional_mce", [False, True])
+def test_invalid_write_marks_transaction_rollback_only(
+    lite: DataHubLiteLocal, conditional_mce: bool
+) -> None:
+    before = _state(lite)
+    record = MetadataChangeProposalWrapper(
+        entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+    )
+    with pytest.raises(LiteTransactionError):
+        with lite.transaction():
+            lite.write(record)
+            with pytest.raises(ValueError):
+                if conditional_mce:
+                    lite.write(
+                        MetadataChangeEventClass(
+                            proposedSnapshot=DatasetSnapshotClass(
+                                urn=CUSTOMERS_URN, aspects=[StatusClass(removed=True)]
+                            )
+                        ),
+                        if_version_match=1,
+                    )
+                else:
+                    lite.write(record, if_version_match=0)
+    assert _state(lite) == before
+
+
 def test_later_storage_failure_rolls_back_prior_writes(
     lite: DataHubLiteLocal, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -785,6 +862,64 @@ with lite.transaction():
         reopened.close()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="SIGKILL is unavailable on Windows")
+def test_process_death_preserves_previous_browse_index(
+    engine: str, db_file: str, lite: DataHubLiteLocal
+) -> None:
+    lite.reindex()
+    before = _state(lite)
+    lite.close()
+    child = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import os
+import signal
+import sys
+from datahub.lite.lite_util import get_datahub_lite
+lite = get_datahub_lite({"type": sys.argv[1], "config": {"file": sys.argv[2]}})
+def interrupt_rebuild(*args):
+    os.kill(os.getpid(), signal.SIGKILL)
+lite.post_update_hook = interrupt_rebuild
+lite.reindex()
+""",
+            engine,
+            db_file,
+        ],
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+    assert child.returncode == -signal.SIGKILL, child.stderr.decode()
+    reopened = _open(engine, db_file)
+    try:
+        assert _state(reopened) == before
+        assert sorted(
+            item.name
+            for item in reopened.ls("/databases/mysql/instances/default/tables")
+        ) == ["customers", "orders"]
+    finally:
+        reopened.close()
+
+
+def test_invalid_standalone_write_does_not_acquire_sqlite_lock(db_file: str) -> None:
+    writer = _open("sqlite", db_file)
+    candidate = _open("sqlite", db_file, options={"busy_timeout": 0})
+    try:
+        with writer.transaction():
+            with pytest.raises(ValueError):
+                candidate.write(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+                    ),
+                    if_version_match=0,
+                )
+    finally:
+        candidate.close()
+        writer.close()
+
+
 def test_cli_version_and_history(
     engine: str, db_file: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -821,6 +956,40 @@ def test_cli_version_and_history(
         lite_cli.lite, ["get", "--urn", CUSTOMERS_URN, "--version", "1"]
     )
     assert result.exit_code == 2
+
+
+def test_cli_history_preserves_stored_union_representation(
+    engine: str, db_file: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = _open(engine, db_file)
+    store.write(
+        MetadataChangeProposalWrapper(
+            entityUrn=CUSTOMERS_URN,
+            aspect=SchemaMetadataClass(
+                schemaName="events",
+                platform="urn:li:dataPlatform:mysql",
+                version=0,
+                hash="",
+                platformSchema=MySqlDDLClass(
+                    tableSchema="CREATE TABLE events (id INT)"
+                ),
+                fields=[],
+            ),
+        )
+    )
+    stored = store.get(CUSTOMERS_URN, ["schemaMetadata"])
+    assert stored is not None
+    store.close()
+    config = LiteLocalConfig(type=engine, config={"file": db_file})
+    monkeypatch.setattr(lite_cli, "get_lite_config", lambda: config)
+    runner = CliRunner()
+    args = ["--urn", CUSTOMERS_URN, "--aspect", "schemaMetadata"]
+    version = runner.invoke(lite_cli.lite, ["get", *args, "--version", "1"])
+    history = runner.invoke(lite_cli.lite, ["history", *args])
+    assert version.exit_code == 0, version.output
+    assert history.exit_code == 0, history.output
+    assert json.loads(version.output)["value"] == stored["schemaMetadata"]
+    assert json.loads(history.output)[0]["value"] == stored["schemaMetadata"]
 
 
 def test_write_preserves_default_and_supplied_system_metadata(

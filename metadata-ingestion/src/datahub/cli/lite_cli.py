@@ -15,6 +15,7 @@ from datahub.cli.config_utils import (
     get_raw_client_config,
     persist_raw_datahub_config,
 )
+from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.run.pipeline import Pipeline
@@ -204,7 +205,7 @@ def get(
 def _version_json(snapshot: AspectVersion) -> dict[str, object]:
     return {
         "version": snapshot.version,
-        "value": snapshot.value.to_obj(),
+        "value": pre_json_transform(snapshot.value.to_obj()),
         "systemMetadata": snapshot.system_metadata.to_obj(),
         "createdon": snapshot.createdon,
     }

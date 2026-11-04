@@ -137,6 +137,10 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
             "aspect_idx", "metadata_aspect_v2", ["urn", "aspect_name", "version"]
         )
 
+        self._init_edge_table()
+        self._commit()
+
+    def _init_edge_table(self) -> None:
         self._execute(
             "CREATE TABLE IF NOT EXISTS metadata_edge_v2 "
             f"(src_id {self.STRING_TYPE}, relnship {self.STRING_TYPE}, "
@@ -146,7 +150,6 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
         self._create_unique_index(
             "edge_idx", "metadata_edge_v2", ["src_id", "relnship", "dst_id"]
         )
-        self._commit()
 
     def destroy(self) -> None:
         self._require_no_transaction("destroy")
@@ -174,7 +177,7 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
             yield
             if self._transaction_error is not None:
                 raise LiteTransactionError(
-                    "Cannot commit: a write in this transaction failed"
+                    "Cannot commit: an operation in this transaction failed"
                 ) from self._transaction_error
             self._commit()
         except BaseException:
@@ -183,6 +186,15 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
         finally:
             self._transaction_active = False
             self._transaction_error = None
+
+    @contextmanager
+    def _record_transaction_errors(self) -> Iterator[None]:
+        try:
+            yield
+        except BaseException as exc:
+            if self._transaction_active and self._transaction_error is None:
+                self._transaction_error = exc
+            raise
 
     @contextmanager
     def _write_transaction(self) -> Iterator[None]:
@@ -194,11 +206,8 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
                 raise LiteTransactionError(
                     "Cannot write: this transaction is rollback-only"
                 ) from self._transaction_error
-            try:
+            with self._record_transaction_errors():
                 yield
-            except BaseException as exc:
-                self._transaction_error = exc
-                raise
 
     def write(
         self,
@@ -206,7 +215,9 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
         *,
         if_version_match: Optional[int] = None,
     ) -> Dict[str, int]:
-        with self._write_transaction():
+        # Invalid standalone calls need no write lock, but any failed write in an
+        # existing transaction must still prevent a partial batch from committing.
+        with self._record_transaction_errors():
             writeables: Iterable[MetadataChangeProposalWrapper]
             if isinstance(record, MetadataChangeProposalWrapper):
                 writeables = [record]
@@ -222,6 +233,7 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
                 if_version_match != -1 and if_version_match < 1
             ):
                 raise ValueError("Expected version must be positive, or -1 for absent")
+        with self._write_transaction():
             versions: Dict[str, int] = {}
             for writeable in writeables:
                 assert writeable.aspectName
@@ -623,14 +635,18 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
 
     def reindex(self) -> None:
         self._require_no_transaction("reindex")
-        self._execute("DELETE FROM metadata_edge_v2")
-        self._commit()
-        for urn_aspect_dict in self.get_all_entities(typed=True):
-            for urn, aspect_map in urn_aspect_dict.items():
-                for aspect_name, aspect_value in aspect_map.items():
-                    assert isinstance(aspect_value, _Aspect)
-                    self.post_update_hook(urn, aspect_name, aspect_value)
-                self.global_post_update_hook(urn, aspect_map)  # type: ignore
+        with self.transaction():
+            # DuckDB can reject deleting and reinserting persisted unique keys in
+            # one transaction. Transactional DDL also preserves the old index if
+            # the rebuild fails, without reusing those index entries.
+            self._execute("DROP TABLE metadata_edge_v2")
+            self._init_edge_table()
+            for urn_aspect_dict in self.get_all_entities(typed=True):
+                for urn, aspect_map in urn_aspect_dict.items():
+                    for aspect_name, aspect_value in aspect_map.items():
+                        assert isinstance(aspect_value, _Aspect)
+                        self.post_update_hook(urn, aspect_name, aspect_value)
+                    self.global_post_update_hook(urn, aspect_map)  # type: ignore
 
     def get_all_entities(
         self, typed: bool = False
@@ -803,14 +819,9 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
                         entity_type="dataPlatformInstance",
                         entity_id=[str(data_platform_urn), data_platform_instance],
                     )
-                    try:
-                        self._create_edges_from_data_platform_instance(
-                            data_platform_instance_urn
-                        )
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to generate edges entity {entity_urn}", exc_info=e
-                        )
+                    self._create_edges_from_data_platform_instance(
+                        data_platform_instance_urn
+                    )
                     parent_urn = str(data_platform_instance_urn)
             else:
                 data_platform_urn = DataPlatformUrn.from_string(dpi.platform)
