@@ -26,6 +26,7 @@ export const Avatar = ({
     type = avatarDefaults.type,
     showInPill = avatarDefaults.showInPill,
     isOutlined = avatarDefaults.isOutlined,
+    avatar,
 }: AvatarProps) => {
     const { t } = useTranslation('alchemy');
     const resolvedName = name ?? t('avatar.defaultName');
@@ -34,24 +35,28 @@ export const Avatar = ({
 
     return (
         <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill}>
-            {(type === AvatarType.user || imageUrl) && (
-                <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
-                    {!hasError && imageUrl ? (
-                        <AvatarImage src={imageUrl} onError={() => setHasError(true)} />
-                    ) : (
-                        type === AvatarType.user && getNameInitials(resolvedName)
+            {avatar ?? (
+                <>
+                    {(type === AvatarType.user || imageUrl) && (
+                        <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
+                            {!hasError && imageUrl ? (
+                                <AvatarImage src={imageUrl} onError={() => setHasError(true)} />
+                            ) : (
+                                type === AvatarType.user && getNameInitials(resolvedName)
+                            )}
+                        </AvatarImageWrapper>
                     )}
-                </AvatarImageWrapper>
-            )}
-            {type === AvatarType.group && !imageUrl && (
-                <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
-                    <Icon icon={UsersThree} size="lg" />
-                </AvatarImageWrapper>
-            )}
-            {type === AvatarType.role && !imageUrl && (
-                <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
-                    {mapRoleIcon(resolvedName)}
-                </AvatarImageWrapper>
+                    {type === AvatarType.group && !imageUrl && (
+                        <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
+                            <Icon icon={UsersThree} size="lg" />
+                        </AvatarImageWrapper>
+                    )}
+                    {type === AvatarType.role && !imageUrl && (
+                        <AvatarImageWrapper $scheme={scheme} $size={size} $isOutlined={isOutlined}>
+                            {mapRoleIcon(resolvedName)}
+                        </AvatarImageWrapper>
+                    )}
+                </>
             )}
             {showInPill && <AvatarText $size={size}>{resolvedName}</AvatarText>}
         </Container>
