@@ -1,6 +1,6 @@
+import { Checkbox } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
-import { Checkbox } from 'antd';
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -28,8 +28,12 @@ const StyledDownOutlined = styled(CaretDown)`
     font-size: 10px;
 `;
 
-const StyledCheckbox = styled(Checkbox)`
+const CheckboxRow = styled.div`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     margin-right: 8px;
+    cursor: pointer;
 `;
 
 type Props = {
@@ -68,9 +72,10 @@ export const BooleanSimpleSearchFilter = ({
                 )}
             </Title>
             {areFiltersVisible && (
-                <StyledCheckbox checked={isSelected} onChange={onSelect}>
+                <CheckboxRow onClick={onSelect}>
+                    <Checkbox isChecked={isSelected} onCheckboxChange={onSelect} />
                     <SearchFilterLabel field={title} value={option} count={count} />
-                </StyledCheckbox>
+                </CheckboxRow>
             )}
         </SearchFilterWrapper>
     );

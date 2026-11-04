@@ -1,4 +1,4 @@
-import { Skeleton } from 'antd';
+import { Skeleton } from '@components';
 import * as React from 'react';
 import styled, { useTheme } from 'styled-components';
 

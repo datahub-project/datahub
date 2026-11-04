@@ -1,5 +1,4 @@
-import { Tabs } from '@components';
-import { Skeleton } from 'antd';
+import { Skeleton, Tabs } from '@components';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 
@@ -35,7 +34,7 @@ export const CenterTabs = () => {
     return (
         <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
             {showSkeleton ? (
-                <SkeletonButton shape="square" size="large" active />
+                <SkeletonButton shape="square" size="lg" active />
             ) : (
                 <Tabs selectedTab={selectedTab} onChange={setSelectedTab} tabs={activeTabs} />
             )}

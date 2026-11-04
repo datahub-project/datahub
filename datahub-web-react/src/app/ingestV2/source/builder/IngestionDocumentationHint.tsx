@@ -1,6 +1,5 @@
-import { Tooltip } from '@components';
+import { Button, Tooltip } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Button } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -32,7 +31,10 @@ const Description = styled.div`
     max-width: 90%;
 `;
 
-const StyledCloseOutlined = styled(X)`
+const CloseButton = styled(Button)`
+    width: 32px;
+    height: 32px;
+    justify-content: center;
     color: ${(props) => props.theme.colors.textTertiary};
 `;
 
@@ -49,9 +51,10 @@ export const IngestionDocumentationHint = ({ sourceConfigs, onHide }: Props) => 
             <Header>
                 <Title>{t('docHint.title')}</Title>
                 <Tooltip showArrow={false} title={t('docHint.hideTooltip')}>
-                    <Button
-                        type="text"
-                        icon={<StyledCloseOutlined />}
+                    <CloseButton
+                        variant="text"
+                        color="gray"
+                        icon={{ icon: X }}
                         onClick={onHide}
                         aria-label={t('docHint.hideTooltip')}
                     />

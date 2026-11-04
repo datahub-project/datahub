@@ -1,6 +1,7 @@
+import { SearchBar } from '@components';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
-import { Input, InputRef } from 'antd';
+import type { InputRef } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -31,7 +32,7 @@ const SearchBarContainer = styled.div`
     padding-right: 12px;
 `;
 
-const StyledSearchBar = styled(Input)`
+const StyledSearchBar = styled(SearchBar)`
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
     box-shadow: ${(props) => props.theme.colors.shadowSm};
@@ -150,7 +151,7 @@ export const SelectTemplateStep = ({
                         data-testid="source-type-search-input"
                         placeholder={t('selectTemplate.searchPlaceholder')}
                         value={searchFilter}
-                        onChange={(e) => setSearchFilter(e.target.value)}
+                        onChange={(value) => setSearchFilter(value)}
                         allowClear
                         prefix={<StyledSearchOutlined />}
                     />

@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
+import { Button } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -70,6 +70,8 @@ const RemoveButton = styled(Button)`
     width: 20px;
     height: 20px;
     margin-left: 0px;
+    justify-content: center;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 interface SelectedFilterProps {
@@ -139,8 +141,9 @@ export default function SelectedFilter({
                 </ValueSelector>
             )}
             <RemoveButton
-                type="text"
-                icon={<X size={12} />}
+                variant="text"
+                color="gray"
+                icon={{ icon: X, size: 'sm' }}
                 onClick={onRemoveFilter}
                 data-testid={`remove-filter-${field.field}`}
             />

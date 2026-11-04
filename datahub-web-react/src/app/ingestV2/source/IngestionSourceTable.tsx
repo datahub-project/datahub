@@ -1,10 +1,11 @@
 import { Column, Table } from '@components';
-import { SorterResult } from 'antd/lib/table/interface';
 import * as QueryString from 'query-string';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
+
+import { SortingState } from '@components/components/Table/types';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import { EXECUTION_REQUEST_STATUS_PENDING } from '@app/ingestV2/executions/constants';
@@ -38,7 +39,7 @@ interface Props {
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
-    onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
+    onChangeSort: (field: string, order: SortingState) => void;
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
     isLastPage?: boolean;

@@ -1,4 +1,4 @@
-import { Skeleton as AntdSkeleton } from 'antd';
+import { Skeleton as AlchemySkeleton } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -9,19 +9,12 @@ const SkeletonContainer = styled.div<{ $width: string }>`
     width: ${(props) => props.$width};
 `;
 
-const SkeletonButton = styled(AntdSkeleton.Button)`
-    &&& {
-        height: inherit;
-        width: inherit;
-    }
-`;
-
 export default function Skeleton() {
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
         <SkeletonContainer $width={isShowNavBarRedesign ? '664px' : '620px'}>
-            <SkeletonButton shape="square" active block />
+            <AlchemySkeleton.Button shape="square" active block height="100%" />
         </SkeletonContainer>
     );
 }

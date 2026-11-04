@@ -1,5 +1,4 @@
-import { Checkbox, Loader, SearchBar, Text } from '@components';
-import { Divider } from 'antd';
+import { Checkbox, Divider, Loader, SearchBar, Text } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';

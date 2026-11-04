@@ -1,4 +1,4 @@
-import { Input } from 'antd';
+import { Input } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,8 +13,8 @@ export default function TextValueInput({ name, value, onChangeValue }: Props) {
     return (
         <Input
             placeholder={t('filters.enterValue', { name: name.toLocaleLowerCase() })}
-            data-testid="edit-text-input"
-            onChange={(e) => onChangeValue(e.target.value)}
+            inputTestId="edit-text-input"
+            setValue={onChangeValue}
             value={value}
         />
     );

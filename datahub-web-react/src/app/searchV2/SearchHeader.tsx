@@ -1,5 +1,5 @@
+import { Button } from '@components';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
-import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
@@ -52,10 +52,14 @@ const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     `}
 `;
 
-const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedesign?: boolean }>`
+const Header = styled.section<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedesign?: boolean }>`
+    box-sizing: border-box;
+    flex: auto;
+    min-height: 0;
     background-color: transparent;
     height: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
     display: flex;
+    flex-direction: column;
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
@@ -119,6 +123,7 @@ const StyledButton = styled(Button)`
     :active,
     :focus {
         color: ${(props) => props.theme.colors.textTertiary};
+        background-color: transparent;
     }
 `;
 
@@ -207,8 +212,14 @@ export const SearchHeader = ({
                                 showCommandK
                             />
                             {isShowNavBarRedesign && (
-                                <StyledButton type="link" onClick={searchViewAll}>
-                                    {t('searchHeader.discover')} <ArrowRight />
+                                <StyledButton
+                                    variant="text"
+                                    color="gray"
+                                    icon={{ icon: ArrowRight, size: 'sm' }}
+                                    iconPosition="right"
+                                    onClick={searchViewAll}
+                                >
+                                    {t('searchHeader.discover')}
                                 </StyledButton>
                             )}
                         </SearchBarContainer>

@@ -1,4 +1,4 @@
-import { Button } from 'antd';
+import { Button } from '@components';
 import React, { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -7,7 +7,11 @@ const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };
 
 const StyledButton = styled(Button)`
     width: 100%;
-    text-align: center;
+    height: 32px;
+    padding: 4px 15px;
+    justify-content: center;
+    border: none;
+    font-weight: 400;
     background-color: ${(props) => props.theme.colors.buttonFillBrand};
     color: ${(props) => props.theme.colors.textOnFillBrand};
     border-radius: 0;
@@ -46,7 +50,7 @@ export default function BooleanMoreFilterMenu({ menuOption, onUpdate, style }: P
             <ScrollableContent>
                 {React.cloneElement(menuOption as React.ReactElement, { style: STYLE_NO_SHADOW })}
             </ScrollableContent>
-            <StyledButton type="text" onClick={onUpdate} data-testid="update-filters">
+            <StyledButton onClick={onUpdate} data-testid="update-filters">
                 {tc('update')}
             </StyledButton>
         </DropdownMenu>

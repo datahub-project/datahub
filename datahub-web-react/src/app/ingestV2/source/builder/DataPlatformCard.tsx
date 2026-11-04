@@ -1,4 +1,4 @@
-import { Button, Image } from 'antd';
+import { Button } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -10,6 +10,9 @@ const Container = styled(Button)`
     border-radius: 8px;
     align-items: start;
     flex-direction: column;
+    gap: 0;
+    font-weight: 400;
+    line-height: 1.5715;
     border: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bg};
     &&:hover {
@@ -19,7 +22,8 @@ const Container = styled(Button)`
     white-space: unset;
 `;
 
-const PlatformLogo = styled(Image)`
+const PlatformLogo = styled.img`
+    vertical-align: middle;
     max-height: 32px;
     height: 32px;
     width: auto;
@@ -56,10 +60,8 @@ type Props = {
 
 export const DataPlatformCard = ({ logoUrl, logoComponent, name, description, onClick, dataTestId }: Props) => {
     return (
-        <Container type="link" onClick={onClick} data-testid={dataTestId}>
-            <LogoContainer>
-                {(logoUrl && <PlatformLogo preview={false} src={logoUrl} alt={name} />) || logoComponent}
-            </LogoContainer>
+        <Container variant="text" onClick={onClick} data-testid={dataTestId}>
+            <LogoContainer>{(logoUrl && <PlatformLogo src={logoUrl} alt={name} />) || logoComponent}</LogoContainer>
             <Title>{name}</Title>
             <Description>{description}</Description>
         </Container>

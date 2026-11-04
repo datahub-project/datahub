@@ -6,12 +6,12 @@ import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
 import { TextT } from '@phosphor-icons/react/dist/csr/TextT';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
-import { MenuProps } from 'antd';
 import i18next from 'i18next';
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
+import { DropdownProps } from '@components/components/Dropdown/types';
 
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { CONTENTS_MODULE_URN, DATA_SOURCES_MODULE_URN } from '@app/entityV2/summary/modules/assets/constants';
@@ -316,7 +316,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
     );
 
     const menu = useMemo(() => {
-        const items: MenuProps['items'] = [];
+        const items: NonNullable<DropdownProps['menu']>['items'] = [];
 
         const quickLink = {
             name: t('link.moduleName'),

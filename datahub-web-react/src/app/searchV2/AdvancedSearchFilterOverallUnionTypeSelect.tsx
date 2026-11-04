@@ -1,4 +1,4 @@
-import { Select } from 'antd';
+import { SimpleSelect } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -11,11 +11,18 @@ type Props = {
     disabled?: boolean;
 };
 
-const { Option } = Select;
+// Renders inline inside a translated sentence, so the select is kept inline-sized.
+const InlineSelectWrapper = styled.span`
+    display: inline-flex;
+    vertical-align: middle;
+`;
 
-const StyledSelect = styled(Select)`
+const SelectBase = styled.span<{ $disabled: boolean }>`
+    display: inline-block;
+    padding: 0 7px;
     border-radius: 5px;
     background: ${(props) => props.theme.colors.bgSurface};
+    cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
     :hover {
         background: ${(props) => props.theme.colors.bgHover};
     }
@@ -23,25 +30,33 @@ const StyledSelect = styled(Select)`
 
 export const AdvancedSearchFilterOverallUnionTypeSelect = ({ unionType, onUpdate, disabled = false }: Props) => {
     const { t } = useTranslation('search');
+    const options = [
+        { value: UnionType.AND.toString(), label: t('advancedSearch.allFilters') },
+        { value: UnionType.OR.toString(), label: t('advancedSearch.anyFilter') },
+    ];
+    const selectedLabel = unionType === UnionType.AND ? t('advancedSearch.allFilters') : t('advancedSearch.anyFilter');
+
     return (
-        <>
-            <StyledSelect
-                showArrow={false}
-                bordered={false}
-                disabled={disabled}
-                // these values are just for display purposes- the actual value is the unionType prop
-                value={unionType === UnionType.AND ? t('advancedSearch.allFilters') : t('advancedSearch.anyFilter')}
-                onChange={(newValue) => {
-                    if ((newValue as any) !== unionType) {
-                        onUpdate(newValue as any);
+        <InlineSelectWrapper>
+            <SimpleSelect
+                options={options}
+                values={[unionType.toString()]}
+                isDisabled={disabled}
+                width="fit-content"
+                size="sm"
+                showClear={false}
+                onUpdate={(newValues) => {
+                    const newValue = Number(newValues[0]) as UnionType;
+                    if (newValues.length && newValue !== unionType) {
+                        onUpdate(newValue);
                     }
                 }}
-                size="small"
-                dropdownMatchSelectWidth={false}
-            >
-                <Option value={UnionType.AND}>{t('advancedSearch.allFilters')}</Option>
-                <Option value={UnionType.OR}>{t('advancedSearch.anyFilter')}</Option>
-            </StyledSelect>
-        </>
+                renderSelectBase={({ onClick }) => (
+                    <SelectBase $disabled={disabled} onClick={disabled ? undefined : onClick}>
+                        {selectedLabel}
+                    </SelectBase>
+                )}
+            />
+        </InlineSelectWrapper>
     );
 };

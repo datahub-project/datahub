@@ -1,4 +1,3 @@
-import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -8,7 +7,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity } from '@types';
 
-const PreviewImage = styled(Image)`
+const PreviewImage = styled.img`
+    vertical-align: middle;
     height: 16px;
     width: 16px;
     object-fit: contain;
@@ -26,7 +26,7 @@ const AutoCompleteEntityIcon = ({ entity }: Props) => {
     const platformLogoUrl = genericEntityProps?.platform?.properties?.logoUrl;
     const platformName = getPlatformName(genericEntityProps?.platform);
     return (
-        (platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName || ''} />) ||
+        (platformLogoUrl && <PreviewImage src={platformLogoUrl} alt={platformName || ''} />) ||
         entityRegistry.getIcon(entity.type, 12, IconStyleType.ACCENT)
     );
 };

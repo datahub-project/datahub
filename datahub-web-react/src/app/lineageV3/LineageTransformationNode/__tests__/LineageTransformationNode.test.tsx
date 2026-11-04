@@ -189,7 +189,7 @@ describe('LineageTransformationNode', () => {
 
         expect(screen.getAllByTestId('type-icon').length).toBeGreaterThan(0);
         expect(mockGetIcon).toHaveBeenCalledWith(EntityType.DataJob, 18);
-        expect(document.querySelector('.ant-skeleton-avatar')).toBeNull();
+        expect(screen.queryByTestId('transformation-node-skeleton')).toBeNull();
     });
 
     it('keeps the loading skeleton until the DataJob entity hydrates', () => {
@@ -198,7 +198,7 @@ describe('LineageTransformationNode', () => {
             type: EntityType.DataJob,
         });
 
-        expect(document.querySelector('.ant-skeleton-avatar')).not.toBeNull();
+        expect(screen.queryByTestId('transformation-node-skeleton')).not.toBeNull();
         expect(screen.queryByTestId('type-icon')).toBeNull();
     });
 
@@ -212,7 +212,7 @@ describe('LineageTransformationNode', () => {
         expect(screen.getByRole('img')).toHaveAttribute('src', 'assets/platforms/airflowlogo.png');
         // Node contents use the logo; popover LineageCard still requests a typeIcon fallback.
         expect(mockGetIcon).not.toHaveBeenCalledWith(EntityType.DataJob, 18);
-        expect(document.querySelector('.ant-skeleton-avatar')).toBeNull();
+        expect(screen.queryByTestId('transformation-node-skeleton')).toBeNull();
     });
 
     describe('hover card menu', () => {

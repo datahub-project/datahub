@@ -1,4 +1,4 @@
-import { Modal, Skeleton } from 'antd';
+import { Modal, Skeleton } from '@components';
 import React, { useContext } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -81,7 +81,7 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
     );
     return (
         <Modal
-            data-testid="entity-paths-modal"
+            dataTestId="entity-paths-modal"
             title={
                 <Header>
                     <Trans

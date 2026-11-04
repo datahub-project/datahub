@@ -1,5 +1,5 @@
+import { Button } from '@components';
 import { Rocket } from '@phosphor-icons/react/dist/csr/Rocket';
-import { Button } from 'antd';
 import React, { useCallback } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
@@ -107,8 +107,8 @@ export default function EmptySearchResults({ suggestions }: Props) {
                 />
             )}
             {!refineTarget && !suggestText && (
-                <Button onClick={onClickExploreAll}>
-                    <Rocket /> {t('emptyResults.exploreAll')}
+                <Button variant="outline" color="gray" icon={{ icon: Rocket }} onClick={onClickExploreAll}>
+                    {t('emptyResults.exploreAll')}
                 </Button>
             )}
         </NoDataContainer>

@@ -1,4 +1,4 @@
-import { Skeleton } from 'antd';
+import { Skeleton } from '@components';
 import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -14,7 +14,7 @@ import { HOME_PAGE_PLATFORMS_ID } from '@app/onboarding/config/HomePageOnboardin
 import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
 import { Carousel } from '@app/sharedV2/carousel/Carousel';
 
-const SkeletonCard = styled(Skeleton.Button)<{ width: string }>`
+const SkeletonCard = styled(Skeleton.Button)`
     &&& {
         height: 83px;
         width: 180px;

@@ -1,33 +1,16 @@
-import { Skeleton } from 'antd';
-import { SkeletonButtonProps } from 'antd/lib/skeleton/Button';
+import { Skeleton, SkeletonButtonProps } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 const SkeletonContainer = styled.div`
-    && {
-        display: flex;
-        flex-direction: column;
-
-        .ant-skeleton-button-sm {
-            border-radius: 4px;
-        }
-    }
+    display: flex;
+    flex-direction: column;
 `;
 
 const SectionHeader = styled.div`
     display: flex;
     justify-content: space-between;
     margin-bottom: 12px;
-
-    .ant-skeleton {
-        width: auto;
-    }
-
-    .ant-skeleton-button {
-        height: 100%;
-        border-radius: 12px;
-        background-color: ${(props) => props.theme.colors.bgSurface};
-    }
 `;
 
 const HorizontalList = styled.div`
@@ -38,11 +21,8 @@ const HorizontalList = styled.div`
     overflow: hidden;
 `;
 
-const HeaderSkeleton = styled(Skeleton.Button)<{ width?: string }>`
-    &&& {
-        height: 24px;
-        width: ${(props) => props?.width};
-    }
+const HeaderSkeleton = styled(Skeleton.Button)`
+    border-radius: 12px;
 `;
 
 interface Props {
@@ -56,7 +36,7 @@ export const HorizontalListSkeletons = ({ Component, showHeader = true, count = 
         <SkeletonContainer>
             {showHeader && (
                 <SectionHeader>
-                    <HeaderSkeleton active size="small" shape="square" block width="10rem" />
+                    <HeaderSkeleton active size="sm" shape="square" width="10rem" height={24} />
                 </SectionHeader>
             )}
             <HorizontalList>

@@ -1,7 +1,6 @@
-import { Button } from '@components';
+import { Button, Divider, Heading, Modal } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -31,9 +30,10 @@ const LoadingSubheader = styled.div`
     color: ${(props) => props.theme.colors.textTertiary};
 `;
 
-const LoadingHeader = styled(Typography.Title)`
+const LoadingHeader = styled.div`
     display: flex;
     justify-content: center;
+    margin-bottom: 10px;
 `;
 
 const ResultsHeader = styled.div<{ success: boolean }>`
@@ -128,7 +128,11 @@ function TestConnectionModal({
         >
             {isLoading && (
                 <ResultsWrapper>
-                    <LoadingHeader level={4}>{t('testConnection.loading.title')}</LoadingHeader>
+                    <LoadingHeader>
+                        <Heading type="h4" size="2xl" weight="semiBold" color="text">
+                            {t('testConnection.loading.title')}
+                        </Heading>
+                    </LoadingHeader>
                     <LoadingSubheader>{t('testConnection.loading.subheader')}</LoadingSubheader>
                     <LoadingWrapper>
                         <LoadingSvg height={100} width={100} />
