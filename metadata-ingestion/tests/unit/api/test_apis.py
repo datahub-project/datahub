@@ -14,12 +14,15 @@ def test_source_configs_are_config_models() -> None:
     checked = 0
     for source_type in sorted(source_registry.mapping):
         try:
-            config_cls = source_registry.get(source_type).get_config_class()
+            source_cls = source_registry.get(source_type)
         except ConfigurationError as e:
             if isinstance(e.__cause__, ModuleNotFoundError):
                 continue  # optional extra not installed
             raise
-        assert issubclass(config_cls, ConfigModel), source_type
+        # Added at runtime by @config_class, so not visible to mypy on Source.
+        get_config_class = getattr(source_cls, "get_config_class", None)
+        assert get_config_class is not None, source_type
+        assert issubclass(get_config_class(), ConfigModel), source_type
         checked += 1
     assert checked >= 25, f"only {checked} source configs loaded"
 
