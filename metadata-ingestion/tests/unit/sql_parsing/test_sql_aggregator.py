@@ -21,7 +21,7 @@ from datahub.metadata.schema_classes import (
     QueryUsageStatisticsClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn, SchemaFieldUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -1306,6 +1306,295 @@ def test_temp_table_composite_query_operations_and_repeated_execution() -> None:
     usage_aspect = usage_mcps[0].aspect
     assert isinstance(usage_aspect, QueryUsageStatisticsClass)
     assert usage_aspect.queryCount == 2
+
+
+def _snowflake_urn(name: str) -> str:
+    return DatasetUrn("snowflake", name).urn()
+
+
+def _preparsed_insert(
+    query_text: str,
+    downstream: str,
+    column_upstreams: Dict[str, List[str]],
+    timestamp: datetime,
+    session_id: str = "session1",
+) -> PreparsedQuery:
+    """column_upstreams maps each downstream column to the upstream tables it reads
+    the same-named column from."""
+    upstreams = list(
+        dict.fromkeys(table for tables in column_upstreams.values() for table in tables)
+    )
+    return PreparsedQuery(
+        query_id=None,
+        query_text=query_text,
+        upstreams=upstreams,
+        downstream=downstream,
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream, column=column),
+                upstreams=[ColumnRef(table=table, column=column) for table in tables],
+            )
+            for column, tables in column_upstreams.items()
+        ],
+        timestamp=timestamp,
+        session_id=session_id,
+        query_type=QueryType.INSERT,
+    )
+
+
+def _temp_table_aggregator(generate_operations: bool = False) -> SqlParsingAggregator:
+    return SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_usage_statistics=False,
+        generate_operations=generate_operations,
+        is_temp_table=lambda name: ".tmp." in name,
+    )
+
+
+def test_temp_table_with_overlapping_writers_keeps_upstream_order() -> None:
+    tmp = _snowflake_urn("db.tmp.stage")
+    src1, src2, src3 = (_snowflake_urn(f"db.src.src{i}") for i in (1, 2, 3))
+    target = _snowflake_urn("db.dst.target")
+
+    aggregator = _temp_table_aggregator()
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.stage select x from db.src.src1 join db.src.src2",
+            tmp,
+            {"x": [src1, src2]},
+            _ts(1),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.stage select x from db.src.src3 join db.src.src1",
+            tmp,
+            {"x": [src3, src1]},
+            _ts(2),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.target select x from db.tmp.stage",
+            target,
+            {"x": [tmp]},
+            _ts(3),
+        )
+    )
+
+    [lineage] = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert [upstream.dataset for upstream in lineage.upstreams] == [src1, src2, src3]
+    assert lineage.fineGrainedLineages is not None
+    assert [fgl.upstreams for fgl in lineage.fineGrainedLineages] == [
+        [SchemaFieldUrn(src, "x").urn() for src in (src1, src2, src3)]
+    ]
+
+
+def test_self_referencing_temp_writers_resolve_without_duplicates() -> None:
+    # Every writer reads the temp table it writes.
+    columns = [f"col_{i}" for i in range(10)]
+    tmp = _snowflake_urn("db.tmp.work")
+    base = _snowflake_urn("db.src.base")
+    extras = [_snowflake_urn(f"db.src.extra_{i}") for i in range(20)]
+    target = _snowflake_urn("db.dst.target")
+
+    aggregator = _temp_table_aggregator()
+    aggregator.add(
+        _preparsed_insert(
+            "create temp table db.tmp.work as select * from db.src.base",
+            tmp,
+            {column: [base] for column in columns},
+            _ts(0),
+        )
+    )
+    for i, extra in enumerate(extras):
+        aggregator.add(
+            _preparsed_insert(
+                f"insert into db.tmp.work select * from db.tmp.work join db.src.extra_{i}",
+                tmp,
+                {column: [tmp, extra] for column in columns},
+                _ts(i + 1),
+            )
+        )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.target select * from db.tmp.work",
+            target,
+            {column: [tmp] for column in columns},
+            _ts(100),
+        )
+    )
+
+    [query_id] = aggregator._lineage_map[target]
+    resolved = aggregator._resolve_query_with_temp_tables(
+        aggregator._query_map[query_id]
+    )
+
+    sources = [base, *extras]
+    assert len(resolved.column_lineage) == len(columns)
+    for column_lineage in resolved.column_lineage:
+        column = column_lineage.downstream.column
+        assert len(column_lineage.upstreams) == len(sources)
+        assert set(column_lineage.upstreams) == {
+            ColumnRef(table=source, column=column) for source in sources
+        }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_temp_table_cycle() -> None:
+    # tmp.t is written from tmp.u and tmp.u from tmp.t.
+    t, u = _snowflake_urn("db.tmp.t"), _snowflake_urn("db.tmp.u")
+    src_a, src_b = _snowflake_urn("db.src.a"), _snowflake_urn("db.src.b")
+
+    aggregator = _temp_table_aggregator(generate_operations=True)
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.t select c from db.tmp.u join db.src.a",
+            t,
+            {"c": [u, src_a]},
+            _ts(1),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.u select c from db.tmp.t join db.src.b",
+            u,
+            {"c": [t, src_b]},
+            _ts(2),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.d1 select c from db.tmp.t",
+            _snowflake_urn("db.dst.d1"),
+            {"c": [t]},
+            _ts(3),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.d2 select c from db.tmp.u",
+            _snowflake_urn("db.dst.d2"),
+            {"c": [u]},
+            _ts(4),
+        )
+    )
+
+    check_goldens_stream(
+        outputs=list(aggregator.gen_metadata()),
+        golden_path=RESOURCE_DIR / "test_temp_table_cycle.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_filtered_temp_fed_downstream_emits_only_composite_query() -> None:
+    tmp = _snowflake_urn("db.tmp.stage")
+    src = _snowflake_urn("db.src.source")
+    target = _snowflake_urn("db.dst.target")
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_query_usage_statistics=True,
+        generate_usage_statistics=False,
+        generate_operations=True,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+        is_temp_table=lambda name: ".tmp." in name,
+        is_allowed_table=lambda name: not name.startswith("db.dst."),
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.stage select x from db.src.source",
+            tmp,
+            {"x": [src]},
+            frozen_timestamp,
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.target select x from db.tmp.stage",
+            target,
+            {"x": [tmp]},
+            frozen_timestamp,
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    assert not any(mcp.entityUrn == target for mcp in mcps)
+    query_urns = {
+        mcp.entityUrn
+        for mcp in mcps
+        if mcp.entityUrn and mcp.entityUrn.startswith("urn:li:query:")
+    }
+    [composite_id] = aggregator.report.queries_with_temp_upstreams.keys()
+    assert query_urns == {QueryUrn(composite_id).urn()}
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_same_query_in_two_sessions_resolves_with_latest_session() -> None:
+    tmp = _snowflake_urn("db.tmp.stage")
+    target = _snowflake_urn("db.dst.target")
+
+    aggregator = _temp_table_aggregator(generate_operations=True)
+    for i, session_id in enumerate(("session1", "session2")):
+        src = _snowflake_urn(f"db.src.source_{session_id}")
+        aggregator.add(
+            _preparsed_insert(
+                f"insert into db.tmp.stage select x from db.src.source_{session_id}",
+                tmp,
+                {"x": [src]},
+                _ts(2 * i),
+                session_id=session_id,
+            )
+        )
+        aggregator.add(
+            _preparsed_insert(
+                "insert into db.dst.target select x from db.tmp.stage",
+                target,
+                {"x": [tmp]},
+                _ts(2 * i + 1),
+                session_id=session_id,
+            )
+        )
+
+    mcps = list(aggregator.gen_metadata())
+
+    [lineage] = [
+        mcp.aspect for mcp in mcps if isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert [upstream.dataset for upstream in lineage.upstreams] == [
+        _snowflake_urn("db.src.source_session2")
+    ]
+    [operation] = [mcp.aspect for mcp in mcps if isinstance(mcp.aspect, OperationClass)]
+    assert operation.queries == [lineage.upstreams[0].query]
+
+
+def test_slowest_downstreams_report_is_bounded(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    aggregator = _temp_table_aggregator()
+    slowest = aggregator.report.slowest_downstreams_lineage_seconds
+
+    for seconds in range(1, 16):
+        aggregator._track_downstream_resolution_time(
+            f"urn_{seconds}", [], float(seconds), slowest
+        )
+    aggregator._track_downstream_resolution_time("urn_slow", [], 61.0, slowest)
+
+    assert set(slowest) == {"urn_slow", *(f"urn_{s}" for s in range(7, 16))}
+    assert "urn_slow" in caplog.text
 
 
 def test_table_swap_id() -> None:
