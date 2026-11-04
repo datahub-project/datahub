@@ -1016,15 +1016,15 @@ class PowerBiDashboardSourceConfig(
         # list every spelling), but conflicting values would be picked by dict
         # order. Values are compared the way they are consumed: database/schema
         # ignoring whitespace around segments (this runs before
-        # dsn_to_database_schema is normalised), platform names by the platform
+        # dsn_to_database_schema is normalised), platform names by exactly what
         # normalize_platform_name resolves them to (e.g. "Amazon Redshift" and
-        # "AmazonRedshift" are both redshift).
-        def comparable(mapped: str) -> str:
-            normalised = ".".join(part.strip() for part in mapped.split("."))
+        # "AmazonRedshift" are both redshift). Unrecognised names all resolve to
+        # None and are skipped identically at runtime, so they compare equal.
+        def comparable(mapped: str) -> Optional[str]:
             if info.field_name == "dsn_to_platform_name":
-                platform, _ = normalize_platform_name(normalised)
-                return platform or normalised.casefold()
-            return normalised
+                platform, _ = normalize_platform_name(mapped)
+                return platform
+            return ".".join(part.strip() for part in mapped.split("."))
 
         seen: Dict[str, str] = {}
         for key, mapped in value.items():

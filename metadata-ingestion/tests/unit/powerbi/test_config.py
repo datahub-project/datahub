@@ -242,6 +242,9 @@ class TestPowerBiConfig:
         "field, first, second",
         [
             ("dsn_to_platform_name", "mysql", "postgres"),
+            # "poſtgres" (long s) casefolds to "postgres", but the resolver maps
+            # it to no platform, so the two keys would resolve differently.
+            ("dsn_to_platform_name", "postgres", "poſtgres"),
             ("dsn_to_database_schema", "sales.dbo", "other.dbo"),
         ],
     )
