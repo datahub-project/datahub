@@ -373,7 +373,9 @@ final class SearchV3MigrationHarness implements AutoCloseable {
                 indexConvention,
                 false,
                 new V2MappingsBuilder(
-                    config.getEntityIndex(), OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
+                    config.getEntityIndex(),
+                    OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+                    ESUtils.KEYWORD_MAXLENGTH),
                 null)
             : null;
     updateIndicesService = updateIndices(enabledStrategies(v3Strategy(null)));
