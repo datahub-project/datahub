@@ -29,7 +29,7 @@
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "MAX(\"O\".\"C\") AS \"_col_0\""
+                "column_logic": "MAX(\"O\".\"C\") AS \"_COL_0\""
             }
         },
         {
