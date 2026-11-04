@@ -3,23 +3,23 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import TabHeader from '@app/entity/shared/tabs/Properties/TabHeader';
-import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
-import useUpdateExpandedRowsFromFilter from '@app/entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
-import {
-    getFilteredCustomProperties,
-    mapCustomPropertiesToPropertyRows,
-} from '@app/entity/shared/tabs/Properties/utils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
+import TabHeader from '@app/entityV2/shared/tabs/Properties/TabHeader';
 import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
-import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import useUpdateExpandedRowsFromFilter from '@app/entityV2/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
+import {
+    filterHiddenProperties,
+    getFilteredCustomProperties,
+    mapCustomPropertiesToPropertyRows,
+} from '@app/entityV2/shared/tabs/Properties/utils';
 import { TabRenderType } from '@app/entityV2/shared/types';
-import Loading from '@app/shared/Loading';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
+import Loading from '@app/sharedV2/Loading';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EditColumn } from '@src/app/entityV2/shared/tabs/Properties/Edit/EditColumn';
 import { Maybe, SchemaFieldEntity } from '@src/types.generated';
 
 const PROPERTY_ROW_KEY = 'qualifiedName';
@@ -62,12 +62,11 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const refetch = properties?.refetch;
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const {
         structuredPropertyRows,
         expandedRowsFromFilter,
-        structuredPropertyRowsRaw,
         loading: structuredPropertiesLoading,
     } = useStructuredProperties(entityRegistry, fieldPath || null, filterText, fieldEntity);
 
@@ -78,19 +77,13 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     // only show entity custom properties on entity level, not on field level
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
     const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
-    const dataSource: PropertyRow[] = structuredPropertyRows
+    const dataSource: PropertyRow[] = filterHiddenProperties(structuredPropertyRows)
         .concat(customPropertyRows)
         .filter((row) => !row.structuredProperty?.settings?.isHidden);
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
-
-    const entityUrnsToHydrate = structuredPropertyRowsRaw
-        .flatMap((row) => row?.values?.map((v) => (typeof v?.value === 'string' ? v.value : null)))
-        .filter(Boolean);
-
-    const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate);
 
     const propertyTableColumns = [
         {
@@ -105,8 +98,8 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                 <ValuesColumn
                     propertyRow={propertyRow}
                     filterText={filterText}
-                    hydratedEntityMap={hydratedEntityMap}
                     renderType={renderType}
+                    scopeKey={fieldPath ? `${entityData?.urn}:${fieldPath}` : (entityData?.urn ?? '')}
                 />
             ),
         },

@@ -20,9 +20,9 @@ import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useBrowsePagination from '@app/searchV2/sidebar/useBrowsePagination';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
 import { BROWSE_PATH_V2_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { formatNumber } from '@app/shared/formatNumber';
-import useToggle from '@app/shared/useToggle';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import useToggle from '@app/sharedV2/useToggle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform } from '@types';

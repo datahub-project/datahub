@@ -18,6 +18,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
@@ -479,7 +480,7 @@ public class DailyReport {
 
   private QueryBuilder corpUserQuery(QueryBuilder extraFilter) {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
-    EntitySearchIndexResolver.applyEntityTypeFilter(
+    EntityFilter.applyEntityTypeFilter(
         query, List.of(Constants.CORP_USER_ENTITY_NAME), entityIndexConfiguration());
     if (extraFilter != null) {
       query.filter(extraFilter);

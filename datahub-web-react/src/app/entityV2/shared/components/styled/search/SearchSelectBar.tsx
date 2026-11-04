@@ -3,10 +3,10 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import { SearchSelectActions } from '@app/entityV2/shared/components/styled/search/SearchSelectActions';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFormContext';
+import { useEntityFormContext } from '@src/app/entityV2/shared/entityForm/EntityFormContext';
 
 const CheckboxContainer = styled.div`
     display: flex;

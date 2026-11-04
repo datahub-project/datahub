@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -36,6 +37,9 @@ public class UrnScrollResultsMapper<T extends RecordTemplate, E extends Entity> 
         searchResultMetadata.getAggregations().stream()
             .map(f -> MapperUtils.mapFacet(context, f))
             .collect(Collectors.toList()));
+    if (searchResultMetadata.hasRouteChain()) {
+      result.setRouteChain(new ArrayList<>(searchResultMetadata.getRouteChain()));
+    }
 
     return result;
   }

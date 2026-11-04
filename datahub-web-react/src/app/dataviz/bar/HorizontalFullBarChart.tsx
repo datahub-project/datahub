@@ -5,10 +5,10 @@ import { scaleBand, scaleLinear } from '@visx/scale';
 import { Bar, BarStackHorizontal } from '@visx/shape';
 import { Grid, XYChart } from '@visx/xychart';
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { Legend } from '@app/dataviz/Legend';
 import { ChartWrapper } from '@app/dataviz/components';
-import { COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR } from '@app/dataviz/constants';
 
 export const HorizontalFullBarChart = <Data extends object, DataKeys>({
     data,
@@ -21,6 +21,7 @@ export const HorizontalFullBarChart = <Data extends object, DataKeys>({
     yAccessor: (d: Data) => string;
     colorAccessor: (d: string) => string;
 }) => {
+    const theme = useTheme();
     if (!data || !data.length || !dataKeys) return null;
     if (!Array.isArray(dataKeys)) throw new Error('Datakeys must be an array');
 
@@ -68,7 +69,7 @@ export const HorizontalFullBarChart = <Data extends object, DataKeys>({
                                 yScale={{ type: 'band', paddingInner: 0.3 }}
                                 captureEvents={false}
                             >
-                                <Grid numTicks={5} lineStyle={{ stroke: '#EAEAEA' }} rows={false} />
+                                <Grid numTicks={5} lineStyle={{ stroke: theme.colors.border }} rows={false} />
 
                                 <BarStackHorizontal
                                     data={data}
@@ -82,13 +83,7 @@ export const HorizontalFullBarChart = <Data extends object, DataKeys>({
                                     {(barStacks) =>
                                         barStacks.map((barStack) =>
                                             barStack.bars.map((bar) => {
-                                                // Use the bar color to determine which label to display for Doc Initiatives
-                                                let label = null;
-                                                if (bar.color === COMPLETED_COLOR) label = bar.bar.data['Completed'];
-                                                if (bar.color === IN_PROGRESS_COLOR)
-                                                    label = bar.bar.data['In Progress'];
-                                                if (bar.color === NOT_STARTED_COLOR)
-                                                    label = bar.bar.data['Not Started'];
+                                                const label = bar.bar.data[barStack.key];
 
                                                 if (label === '0') return null;
 

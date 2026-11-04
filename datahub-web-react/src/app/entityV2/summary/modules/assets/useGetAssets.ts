@@ -1,4 +1,4 @@
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { isDataSourcesModule } from '@app/entityV2/summary/modules/assets/constants';
 import { useGetApplicationAssets } from '@app/entityV2/summary/modules/assets/useGetApplicationAssets';
 import { useGetChartAssets } from '@app/entityV2/summary/modules/assets/useGetChartAssets';

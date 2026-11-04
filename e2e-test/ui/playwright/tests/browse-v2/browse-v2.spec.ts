@@ -29,6 +29,7 @@ import { SearchPage } from '../../pages/search.page';
 import { BrowseV2Page } from '../../pages/browse-v2.page';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // Browse V2 test constants
 const BROWSE_V2_FEATURE_FLAGS = {
@@ -213,42 +214,46 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     await browseV2Page.expectBrowseV2Visible();
   });
 
-  test('Browse path selection applies filters and reduces results', async ({ page, logger }) => {
-    logger?.step('perform wildcard search and capture baseline result count');
-    await searchPage.search(SEARCH_QUERIES.WILDCARD);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    const baselineCount = await searchPage.getResultCount();
-    logger?.step(`baseline: ${baselineCount} results`);
+  test(
+    'Browse path selection applies filters and reduces results',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.step('perform wildcard search and capture baseline result count');
+      await searchPage.search(SEARCH_QUERIES.WILDCARD);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      const baselineCount = await searchPage.getResultCount();
+      logger?.step(`baseline: ${baselineCount} results`);
 
-    logger?.step('expand BigQuery platform');
-    await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
-    await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.QUICK);
+      logger?.step('expand BigQuery platform');
+      await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
+      await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(TIMEOUTS.QUICK);
 
-    logger?.step('expand PlaywrightBrowseEntity path');
-    await browseV2Page.expandBrowseNode(BROWSE_PATHS.PROJECT);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.QUICK);
+      logger?.step('expand PlaywrightBrowseEntity path');
+      await browseV2Page.expandBrowseNode(BROWSE_PATHS.PROJECT);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(TIMEOUTS.QUICK);
 
-    logger?.step('click test_schema node to apply filters');
-    await browseV2Page.clickBrowseNode(BROWSE_PATHS.SCHEMA);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      logger?.step('click test_schema node to apply filters');
+      await browseV2Page.clickBrowseNode(BROWSE_PATHS.SCHEMA);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('verify URL has filters applied');
-    const url = page.url();
-    expect(url).toContain(URL_PATTERNS.FILTER_PLATFORM);
-    expect(url).toContain(URL_PATTERNS.BIGQUERY_FILTER);
-    expect(url).toContain(URL_PATTERNS.FILTER_BROWSE_PATH);
-    expect(url).toContain(BROWSE_PATHS.PROJECT);
-    expect(url).toContain(BROWSE_PATHS.SCHEMA);
+      logger?.step('verify URL has filters applied');
+      const url = page.url();
+      expect(url).toContain(URL_PATTERNS.FILTER_PLATFORM);
+      expect(url).toContain(URL_PATTERNS.BIGQUERY_FILTER);
+      expect(url).toContain(URL_PATTERNS.FILTER_BROWSE_PATH);
+      expect(url).toContain(BROWSE_PATHS.PROJECT);
+      expect(url).toContain(BROWSE_PATHS.SCHEMA);
 
-    logger?.step('verify result count decreased');
-    const filteredCount = await searchPage.getResultCount();
-    logger?.step(`filtered: ${filteredCount} results`);
-    expect(filteredCount).toBeLessThan(baselineCount);
-    expect(filteredCount).toBeGreaterThan(0);
-  });
+      logger?.step('verify result count decreased');
+      const filteredCount = await searchPage.getResultCount();
+      logger?.step(`filtered: ${filteredCount} results`);
+      expect(filteredCount).toBeLessThan(baselineCount);
+      expect(filteredCount).toBeGreaterThan(0);
+    },
+  );
 
   test('Browse path deselection removes filters', async ({ page, logger }) => {
     logger?.step('perform wildcard search');
@@ -280,29 +285,33 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     expect(url).not.toContain(URL_PATTERNS.FILTER_BROWSE_PATH);
   });
 
-  test('Browse path click navigates to container entity page', async ({ page, logger }) => {
-    logger?.step('search for customers dataset');
-    await searchPage.search(SEARCH_QUERIES.CUSTOMERS);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+  test(
+    'Browse path click navigates to container entity page',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.step('search for customers dataset');
+      await searchPage.search(SEARCH_QUERIES.CUSTOMERS);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('click on customers dataset to open profile');
-    await searchPage.clickResult(SEARCH_QUERIES.CUSTOMERS);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      logger?.step('click on customers dataset to open profile');
+      await searchPage.clickResult(SEARCH_QUERIES.CUSTOMERS);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('verify dataset profile page is loaded');
-    expect(page.url()).toContain(SEARCH_QUERIES.ENTITY_TYPE);
-    expect(page.url()).toContain(URL_PATTERNS.BIGQUERY_FILTER);
+      logger?.step('verify dataset profile page is loaded');
+      expect(page.url()).toContain(SEARCH_QUERIES.ENTITY_TYPE);
+      expect(page.url()).toContain(URL_PATTERNS.BIGQUERY_FILTER);
 
-    logger?.step('verify browse path entries are visible');
-    await browseV2Page.expectBrowsePathVisible(CONTAINER_URNS.PROJECT);
+      logger?.step('verify browse path entries are visible');
+      await browseV2Page.expectBrowsePathVisible(CONTAINER_URNS.PROJECT);
 
-    logger?.step('click on first browse path entry to navigate to container');
-    await browseV2Page.clickBrowsePath(CONTAINER_URNS.PROJECT);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      logger?.step('click on first browse path entry to navigate to container');
+      await browseV2Page.clickBrowsePath(CONTAINER_URNS.PROJECT);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    logger?.step('verify navigation to container entity page');
-    const url = page.url();
-    expect(url).toContain(URL_PATTERNS.CONTAINER);
-    expect(url).toContain(CONTAINER_URNS.PROJECT.split(':').pop());
-  });
+      logger?.step('verify navigation to container entity page');
+      const url = page.url();
+      expect(url).toContain(URL_PATTERNS.CONTAINER);
+      expect(url).toContain(CONTAINER_URNS.PROJECT.split(':').pop());
+    },
+  );
 });

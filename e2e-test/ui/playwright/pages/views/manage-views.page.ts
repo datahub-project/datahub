@@ -17,6 +17,16 @@ export class ManageViewsPage extends BasePage {
   readonly menuItemDelete: Locator;
   readonly confirmDeleteYes: Locator;
 
+  // Query Builder Test IDs
+  readonly addGroupButton: Locator;
+  readonly addConditionButton: Locator;
+  readonly andOperatorButton: Locator;
+  readonly orOperatorButton: Locator;
+  readonly notOperatorButton: Locator;
+  readonly entitySearchInput: Locator;
+  readonly dropdownSearchInput: Locator;
+  readonly footerButtonUpdate: Locator;
+
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
     this.createViewButton = page.getByTestId('create-new-view-button');
@@ -30,6 +40,16 @@ export class ManageViewsPage extends BasePage {
     this.menuItemRemoveDefault = page.getByTestId('menu-item-remove-default');
     this.menuItemDelete = page.getByTestId('menu-item-delete');
     this.confirmDeleteYes = page.getByRole('button', { name: 'Yes' });
+
+    // Query Builder Test IDs
+    this.addGroupButton = page.getByTestId('query-builder-add-group-button');
+    this.addConditionButton = page.getByTestId('query-builder-add-condition-button');
+    this.andOperatorButton = page.getByTestId('query-builder-all-button');
+    this.orOperatorButton = page.getByTestId('query-builder-any-button');
+    this.notOperatorButton = page.getByTestId('query-builder-none-button');
+    this.entitySearchInput = page.getByTestId('entity-search-input');
+    this.dropdownSearchInput = page.getByTestId('dropdown-search-input');
+    this.footerButtonUpdate = page.getByTestId('footer-button-update');
   }
 
   // ============================================================================
@@ -205,5 +225,162 @@ export class ManageViewsPage extends BasePage {
   async expectViewNotVisible(viewName: string): Promise<void> {
     const viewRow = this.getViewRowByName(viewName);
     await expect(viewRow).not.toBeVisible({ timeout: TIMEOUTS.LONG });
+  }
+
+  // ============================================================================
+  // QUERY BUILDER METHODS for nested conditions
+  // ============================================================================
+
+  async clickAddGroupButton(): Promise<void> {
+    await this.addGroupButton.click();
+  }
+
+  async clickAddConditionInNestedGroup(groupIndex: number = 1): Promise<void> {
+    // eslint-disable-next-line playwright/no-nth-methods
+    const addBtn = this.addConditionButton.nth(groupIndex);
+    await addBtn.scrollIntoViewIfNeeded();
+    await addBtn.click();
+  }
+
+  async clickOrOperatorInRootGroup(): Promise<void> {
+    // eslint-disable-next-line playwright/no-nth-methods
+    const rootOrBtn = this.orOperatorButton.first();
+    await rootOrBtn.scrollIntoViewIfNeeded();
+    await rootOrBtn.click();
+  }
+
+  async clickNotOperatorInNestedGroup(groupIndex: number = 1): Promise<void> {
+    // eslint-disable-next-line playwright/no-nth-methods
+    const notBtn = this.notOperatorButton.nth(groupIndex);
+    await notBtn.scrollIntoViewIfNeeded();
+    await notBtn.click();
+  }
+
+  async selectPropertyInNestedCondition(fieldName: string, conditionIndex: number = 1): Promise<void> {
+    // eslint-disable-next-line playwright/no-nth-methods
+    const conditionSelect = this.conditionSelect.nth(conditionIndex);
+    await conditionSelect.scrollIntoViewIfNeeded();
+    await conditionSelect.click();
+    await this.page.getByTestId(`option-${fieldName}`).filter({ visible: true }).click();
+  }
+
+  async selectOperatorInNestedCondition(operator: string, conditionIndex: number = 1): Promise<void> {
+    // eslint-disable-next-line playwright/no-nth-methods
+    const operatorSelect = this.conditionOperatorSelect.nth(conditionIndex);
+    await operatorSelect.scrollIntoViewIfNeeded();
+    await operatorSelect.click();
+    await this.page.getByTestId(`option-${operator}`).filter({ visible: true }).click();
+  }
+
+  async verifyConditionInGroup(groupIndex: number = 0): Promise<void> {
+    // eslint-disable-next-line playwright/no-nth-methods
+    await expect(this.conditionSelect.nth(groupIndex)).toBeVisible();
+  }
+
+  async verifyGroupExists(groupIndex: number = 1): Promise<void> {
+    // eslint-disable-next-line playwright/no-nth-methods
+    await expect(this.addConditionButton.nth(groupIndex)).toBeVisible();
+  }
+
+  async createNestedGroupWithCondition(
+    rootProperty: string,
+    rootValue: string,
+    nestedOperator: string,
+    nestedProperty: string,
+    nestedOperatorType: string,
+  ): Promise<void> {
+    await this.addFilterWithSearch(rootProperty, 'equals', rootValue);
+    await this.clickAddGroupButton();
+
+    if (nestedOperator === 'not') {
+      await this.clickNotOperatorInNestedGroup();
+    } else if (nestedOperator === 'or') {
+      await this.clickOrOperatorInRootGroup();
+    }
+
+    await this.clickAddConditionInNestedGroup();
+    await this.selectPropertyInNestedCondition(nestedProperty);
+    await this.selectOperatorInNestedCondition(nestedOperatorType);
+  }
+
+  async editRootOperator(operator: string): Promise<void> {
+    if (operator === 'or') {
+      await this.clickOrOperatorInRootGroup();
+    }
+  }
+
+  async verifyStructureForEdit(): Promise<void> {
+    await this.verifyConditionInGroup(0);
+    await this.verifyGroupExists(1);
+  }
+
+  validateLogicalStructure(
+    predicate: { type?: string; operator?: string; operands?: unknown[] },
+    expectedOperator: string,
+  ): void {
+    expect(predicate.type).toBe('logical');
+    expect(predicate.operator?.toLowerCase()).toBe(expectedOperator.toLowerCase());
+    expect(Array.isArray(predicate.operands)).toBe(true);
+  }
+
+  validateRootOperands(
+    operands: Array<{ type?: string; property?: string }>,
+    {
+      expectedCount = 2,
+      checkDomain = false,
+      checkNestedGroup = false,
+    }: {
+      expectedCount?: number;
+      checkDomain?: boolean;
+      checkNestedGroup?: boolean;
+    } = {},
+  ): void {
+    expect(operands.length).toBeGreaterThanOrEqual(expectedCount);
+
+    const allHaveType = operands.every((op) => op.type && ['logical', 'property'].includes(op.type));
+    expect(allHaveType).toBe(true);
+
+    if (checkDomain) {
+      const domainCondition = operands.find((op) => op.type === 'property' && op.property === 'domains');
+      expect(domainCondition).toBeDefined();
+    }
+
+    if (checkNestedGroup) {
+      const nestedGroup = operands.find((op) => op.type === 'logical');
+      expect(nestedGroup).toBeDefined();
+    }
+  }
+
+  validateNestedGroupCondition(nestedGroup: { operands?: unknown[] } | undefined, propertyName: string): void {
+    expect(nestedGroup).toBeDefined();
+
+    const nestedOperands = (nestedGroup?.operands || []) as Array<{ type?: string; property?: string }>;
+    expect(nestedOperands.length).toBeGreaterThan(0);
+
+    const condition = nestedOperands.find((op) => op.type === 'property' && op.property === propertyName);
+    expect(condition).toBeDefined();
+  }
+
+  validateNestedStructure(
+    predicate: { type?: string; operator?: string; operands?: unknown[] },
+    {
+      expectedRootOperator = 'and',
+      nestedPropertyName,
+    }: {
+      expectedRootOperator?: string;
+      nestedPropertyName: string;
+    },
+  ): void {
+    this.validateLogicalStructure(predicate, expectedRootOperator);
+
+    const rootOperands = (predicate.operands || []) as Array<{ type?: string; property?: string }>;
+    this.validateRootOperands(rootOperands, {
+      expectedCount: 2,
+      checkDomain: true,
+      checkNestedGroup: true,
+    });
+
+    const nestedGroup = rootOperands.find((op) => op.type === 'logical');
+    this.validateNestedGroupCondition(nestedGroup as { operands?: unknown[] }, nestedPropertyName);
   }
 }

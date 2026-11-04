@@ -87,14 +87,14 @@ public class DataHubJwtTokenAuthenticator implements Authenticator {
       String token = getToken(jwtToken);
 
       Jws<Claims> claims =
-          Jwts.parserBuilder()
+          Jwts.parser()
               .setSigningKeyResolver(
                   new DataHubJwtSigningKeyResolver(
                       this.trustedIssuers, this.publicKey, this.algorithm))
               .build()
-              .parseClaimsJws(token);
+              .parseSignedClaims(token);
 
-      final String userClaim = claims.getBody().get(userIdClaim, String.class);
+      final String userClaim = claims.getPayload().get(userIdClaim, String.class);
 
       if (userClaim == null) {
         throw new AuthenticationException("Invalid or missing claim: " + userIdClaim);

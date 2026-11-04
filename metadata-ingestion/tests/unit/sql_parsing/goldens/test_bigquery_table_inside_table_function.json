@@ -1,0 +1,16 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "8f43e541d8701d9642e33c084366fd00aff3f5809d24e1353f4d1bf427f8fb89",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,p.d.features,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,p.d.model,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": null,
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT * FROM ML.PREDICT(MODEL `p.d.model`, TABLE `p.d.features`)"
+    }
+}

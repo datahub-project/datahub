@@ -230,7 +230,7 @@ Update the sql settings under global in the values.yaml as follows.
       host: "<<rds-endpoint>>:3306"
       hostForMysqlClient: "<<rds-endpoint>>"
       port: "3306"
-      url: "jdbc:mysql://<<rds-endpoint>>:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8"
+      url: "jdbc:mysql://<<rds-endpoint>>:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&rewriteBatchedStatements=true"
       driver: "com.mysql.jdbc.Driver"
       username: "root"
       password:

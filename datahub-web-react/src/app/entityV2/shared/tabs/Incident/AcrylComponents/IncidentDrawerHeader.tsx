@@ -16,8 +16,8 @@ import { useIncidentURNCopyLink } from '@app/entityV2/shared/tabs/Incident/hooks
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { Button } from '@src/alchemy-components';
 import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
-import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
+import { capitalizeFirstLetter } from '@src/app/sharedV2/textUtil';
 import { DataPlatform, EntityPrivileges } from '@src/types.generated';
 
 type IncidentDrawerHeaderProps = {

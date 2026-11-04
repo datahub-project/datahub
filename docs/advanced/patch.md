@@ -205,6 +205,18 @@ Breakdown:
 - `/urn:li:query:...` -> The query urn this relationship was derived from, part of the key for a fineGrainedLineage
 - `/urn:li:schemaField:` -> The upstream urn that is being targeted by this patch operation
 
+A patch path for an institutional memory link:
+
+`/elements/https:~1~1example.org~1docs/Design`
+
+Breakdown:
+
+- `/elements` -> the `elements` array on `institutionalMemory`
+- `/https:~1~1example.org~1docs` -> the link URL (`/` escaped as `~1`, `~` escaped as `~0`)
+- `/Design` -> the link description
+
+`elements` is keyed by `url` then `description`, the same compound-key convention as ownership (`owner` then `type`). That pair is how `updateLink` identifies a link (`currentUrl` and `currentLabel`). Two links may share a URL when their descriptions differ. A remove at `/elements/<url>` drops every description for that URL, matching `removeLink` when no label is supplied.
+
 This showcases that in some cases the key for objects is simple, in others in can be complex to determine, but for our fully supported use cases we have
 SDK support on both the Java and Python side that will generate these patches for you as long as you supply the required method parameters.
 Path is generally the most complicated portion of a patch to reason about as it requires intimate knowledge of the schema and models.

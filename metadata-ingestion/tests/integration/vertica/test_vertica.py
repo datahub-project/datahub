@@ -6,7 +6,7 @@ import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = [
     pytest.mark.integration_batch_3,
@@ -64,9 +64,6 @@ def vertica_runner(docker_compose_runner, test_resources_dir, request):
 
         yield docker_services
 
-    # The image is pretty large, so we remove it after the test.
-    cleanup_image("vertica/vertica-ce")
-
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
@@ -80,10 +77,10 @@ def test_vertica_ingest_with_db(vertica_runner, pytestconfig, tmp_path):
     )
 
     ignore_paths: List[str] = [
-        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['create_time'\]",
-        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['table_size'\]",
-        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['Projection_size'\]",
-        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['ROS_Count'\]",
+        r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['create_time'\]",
+        r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['table_size'\]",
+        r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['Projection_size'\]",
+        r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['ROS_Count'\]",
         r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['cluster_size'\]",
         r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['udx_language'\]",
     ]
@@ -92,5 +89,6 @@ def test_vertica_ingest_with_db(vertica_runner, pytestconfig, tmp_path):
         pytestconfig,
         ignore_paths=ignore_paths,
         output_path=tmp_path / "vertica.json",
-        golden_path=test_resources_dir / "vertica_mces_with_db_golden.json",
+        golden_path=test_resources_dir / "vertica_with_db_golden.json",
+        fail_on_output_mces=True,
     )

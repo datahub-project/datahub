@@ -14,9 +14,9 @@ import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
 import SelectServiceAccountModal from '@app/settingsV2/SelectServiceAccountModal';
-import { scrollToTop } from '@app/shared/searchUtils';
-import { getLocaleTimezone } from '@app/shared/time/timeUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
+import { getLocaleTimezone } from '@app/sharedV2/time/timeUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import {

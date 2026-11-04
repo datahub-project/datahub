@@ -340,9 +340,9 @@ import {
     ORACLE,
     ORACLE_CONVERT_URNS_TO_LOWERCASE,
     ORACLE_DATABASE,
-    ORACLE_EXTRACT_USAGE_HISTORY,
     ORACLE_HOST_PORT,
     ORACLE_IDENTIFIER,
+    ORACLE_INCLUDE_QUERY_USAGE,
     ORACLE_INCLUDE_TABLES,
     ORACLE_INCLUDE_VIEWS,
     ORACLE_INCLUDE_VIEW_COLUMN_LINEAGE,
@@ -458,14 +458,19 @@ import {
     TRINO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/trino';
 import {
+    AUTHENTICATION_TYPE,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    AZURE_CLIENT_ID as DATABRICKS_AZURE_CLIENT_ID,
+    AZURE_CLIENT_SECRET as DATABRICKS_AZURE_CLIENT_SECRET,
+    AZURE_TENANT_ID as DATABRICKS_AZURE_TENANT_ID,
     INCLUDE_COLUMN_LINEAGE,
     TOKEN,
     UNITY_CATALOG_ALLOW,
     UNITY_CATALOG_DENY,
-    UNITY_METASTORE_ID_ALLOW,
-    UNITY_METASTORE_ID_DENY,
     UNITY_TABLE_ALLOW,
     UNITY_TABLE_DENY,
+    WAREHOUSE_ID,
     WORKSPACE_URL,
 } from '@app/ingestV2/source/builder/RecipeForm/unity_catalog';
 import {
@@ -834,10 +839,18 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
     [DATABRICKS]: {
-        fields: [WORKSPACE_URL, TOKEN],
+        fields: [
+            AUTHENTICATION_TYPE,
+            WORKSPACE_URL,
+            WAREHOUSE_ID,
+            TOKEN,
+            CLIENT_ID,
+            CLIENT_SECRET,
+            DATABRICKS_AZURE_TENANT_ID,
+            DATABRICKS_AZURE_CLIENT_ID,
+            DATABRICKS_AZURE_CLIENT_SECRET,
+        ],
         filterFields: [
-            UNITY_METASTORE_ID_ALLOW,
-            UNITY_METASTORE_ID_DENY,
             UNITY_CATALOG_ALLOW,
             UNITY_CATALOG_DENY,
             SCHEMA_ALLOW,
@@ -846,7 +859,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             UNITY_TABLE_DENY,
         ],
         advancedFields: [INCLUDE_TABLE_LINEAGE, INCLUDE_COLUMN_LINEAGE, STATEFUL_INGESTION_ENABLED],
-        filterSectionTooltip: 'Include or exclude specific Metastores, Catalogs, Schemas, and Tables from ingestion.',
+        filterSectionTooltip: 'Include or exclude specific Catalogs, Schemas, and Tables from ingestion.',
     },
     [DBT_CLOUD]: {
         fields: [
@@ -1126,7 +1139,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             ORACLE_INCLUDE_VIEW_COLUMN_LINEAGE,
             ORACLE_PROFILING_ENABLED,
             PROFILING_TABLE_LEVEL_ONLY,
-            ORACLE_EXTRACT_USAGE_HISTORY,
+            ORACLE_INCLUDE_QUERY_USAGE,
             ORACLE_CONVERT_URNS_TO_LOWERCASE,
             REMOVE_STALE_METADATA_ENABLED,
         ],

@@ -16,6 +16,10 @@ from cassandra.cluster import (
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceConfig
 
+# docker/snippets/openssl4_ssl_compat.py defines PROTOCOL_TLSv1 as 99 so
+# snowflake's vendored urllib3 can import on OpenSSL 4. SSLContext rejects it.
+_OPENSSL4_MISSING_PROTOCOL_SENTINEL = 99
+
 
 def _decode_extensions(
     mapping: Dict[str, Any], report: SourceReport, context: str
@@ -158,13 +162,24 @@ class CassandraAPI:
 
             ssl_context = None
             if self.config.ssl_ca_certs:
-                # Map SSL version string to ssl module constant
+                # OpenSSL 4 drops PROTOCOL_TLSv1*. PROTOCOL_TLS_CLIENT negotiates
+                # the newest version the runtime still supports.
+                fallback = ssl.PROTOCOL_TLS_CLIENT
+
+                def _protocol(name: str) -> int:
+                    protocol = getattr(ssl, name, fallback)
+                    if protocol == _OPENSSL4_MISSING_PROTOCOL_SENTINEL:
+                        return fallback
+                    return protocol
+
                 ssl_version_map = {
                     "TLS_CLIENT": ssl.PROTOCOL_TLS_CLIENT,
-                    "TLSv1": ssl.PROTOCOL_TLSv1,
-                    "TLSv1_1": ssl.PROTOCOL_TLSv1_1,
-                    "TLSv1_2": ssl.PROTOCOL_TLSv1_2,
-                    "TLSv1_3": ssl.PROTOCOL_TLSv1_2,  # Python's ssl module uses TLSv1_2 for TLS 1.3
+                    "TLSv1": _protocol("PROTOCOL_TLSv1"),
+                    "TLSv1_1": _protocol("PROTOCOL_TLSv1_1"),
+                    "TLSv1_2": _protocol("PROTOCOL_TLSv1_2"),
+                    "TLSv1_3": _protocol(
+                        "PROTOCOL_TLSv1_2"
+                    ),  # Python's ssl module uses TLSv1_2 for TLS 1.3
                 }
 
                 ssl_protocol = (

@@ -184,6 +184,23 @@ public class ApplicationService {
     }
   }
 
+  /**
+   * {@link #deleteApplication}, then hands back the cleanup of the references to the Application
+   * for the caller to run.
+   */
+  @Nonnull
+  public EntityClient.ReferencesCleanup deleteApplicationThenReferences(
+      @Nonnull OperationContext opContext, @Nonnull Urn applicationUrn) {
+    Objects.requireNonNull(applicationUrn, "applicationUrn must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
+    try {
+      return this.entityClient.deleteEntityThenReferences(opContext, applicationUrn);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to delete Application with urn %s", applicationUrn), e);
+    }
+  }
+
   public void batchSetApplicationAssets(
       @Nonnull OperationContext opContext,
       @Nonnull Urn applicationUrn,

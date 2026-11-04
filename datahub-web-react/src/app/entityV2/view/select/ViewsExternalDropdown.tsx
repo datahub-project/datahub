@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { useViewsSelectContext } from '@app/entityV2/view/select/ViewSelectContext';
 import ViewsExternalDropdownContent from '@app/entityV2/view/select/ViewsExternalDropdownContent';
+import { convertViewToBuilderState } from '@app/entityV2/view/utils';
 
 interface Props {
     disabled?: boolean;
@@ -35,8 +36,12 @@ export default function ViewsExternalDropdown({ disabled, className, children }:
             </Dropdown>
             {viewBuilderDisplayState.visible && (
                 <ViewBuilder
-                    urn={viewBuilderDisplayState.view?.urn || undefined}
-                    initialState={viewBuilderDisplayState.view}
+                    urn={viewBuilderDisplayState.view?.urn}
+                    initialState={
+                        viewBuilderDisplayState.view
+                            ? convertViewToBuilderState(viewBuilderDisplayState.view)
+                            : undefined
+                    }
                     mode={viewBuilderDisplayState.mode}
                     onSubmit={onCloseViewBuilder}
                     onCancel={onCloseViewBuilder}

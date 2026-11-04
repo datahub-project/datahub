@@ -61,6 +61,9 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
         searchResultMetadata.getSuggestions().stream()
             .map(MapperUtils::mapSearchSuggestion)
             .collect(Collectors.toList()));
+    if (searchResultMetadata.hasRouteChain()) {
+      result.setRouteChain(new ArrayList<>(searchResultMetadata.getRouteChain()));
+    }
 
     return result;
   }

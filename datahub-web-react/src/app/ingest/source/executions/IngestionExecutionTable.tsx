@@ -2,7 +2,7 @@ import { Empty, Pagination, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import { StyledTable } from '@app/ingest/source/StyledTable';
 import {
     ButtonsColumn,
     SourceColumn,
@@ -10,7 +10,7 @@ import {
     TimeColumn,
 } from '@app/ingest/source/executions/IngestionExecutionTableColumns';
 import { SUCCESS, getIngestionSourceStatus } from '@app/ingest/source/utils';
-import { formatDuration } from '@app/shared/formatDuration';
+import { formatDuration } from '@app/sharedV2/formatDuration';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { SearchCfg } from '@src/conf';
 

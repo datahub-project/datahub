@@ -21,6 +21,7 @@
     "deactivate": "Deaktiválás",
     "delete": "Törlés",
     "disable": "Letiltás",
+    "discard": "Elvetés",
     "disconnect": "Leválasztás",
     "dismiss": "Elvetés",
     "done": "Kész",
@@ -83,5 +84,10 @@
     "viewAllCount": "Összes megtekintése ({{count}})",
     "viewLess": "Kevesebb megtekintése",
     "viewMore": "Több megtekintése",
-    "yes": "Igen"
+    "yes": "Igen",
+    "documentationAdded": "Dokumentáció hozzáadva",
+    "documentationRemoved": "Dokumentáció eltávolítva",
+    "documentationUpdated": "Dokumentáció frissítve",
+    "showDiff": "eltérések megjelenítése",
+    "hideDiff": "eltérések elrejtése"
 }

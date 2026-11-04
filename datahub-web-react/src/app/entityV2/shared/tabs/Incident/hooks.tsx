@@ -1,19 +1,24 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { IncidentAssigneeAvatarStack } from '@app/entityV2/shared/tabs/Incident/IncidentAssigneeAvatarStack';
 import { IncidentResolveButton } from '@app/entityV2/shared/tabs/Incident/IncidentResolveButton';
 import { CategoryType } from '@app/entityV2/shared/tabs/Incident/styledComponents';
-import { getAssigneeNamesWithAvatarUrl, getLinkedAssetsCount } from '@app/entityV2/shared/tabs/Incident/utils';
+import {
+    buildIncidentUrlSearch,
+    getAssigneeNamesWithAvatarUrl,
+    getLinkedAssetsCount,
+} from '@app/entityV2/shared/tabs/Incident/utils';
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel/IncidentPriorityLabel';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
-import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { getTimeFromNow } from '@src/app/sharedV2/time/timeUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
 
 export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
@@ -129,27 +134,19 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
     }, [privileges, refetch, t, tl]);
 };
 
-export const useIncidentURNCopyLink = (Urn: string) => {
+export const useIncidentURNCopyLink = (incidentUrn: string) => {
     const { t } = useTranslation('entity.profile.incident');
     const onCopyLink = () => {
-        const assertionUrn = Urn;
-
-        // Create a URL with the assertion_urn query parameter
-        const currentUrl = new URL(window.location.href);
-
-        // Add or update the assertion_urn query parameter
-        currentUrl.searchParams.set('incident_urn', encodeURIComponent(assertionUrn));
-
-        // The updated URL with the new or modified query parameter
-        const incidentUrl = currentUrl.href;
-
-        // Copy the URL to the clipboard
+        const incidentUrl = buildIncidentUrlSearch({
+            urn: incidentUrn,
+            baseUrl: window.location.origin + window.location.pathname,
+        });
         navigator.clipboard.writeText(incidentUrl).then(
             () => {
-                message.success(t('toast.linkCopied'));
+                toast.success(t('toast.linkCopied'));
             },
             () => {
-                message.error(t('toast.linkCopyFailed'));
+                toast.error(t('toast.linkCopyFailed'));
             },
         );
     };
@@ -166,7 +163,7 @@ export const getOnOpenAssertionLink = (Urn: string) => {
 
         // Create a URL with the assertion_urn query parameter
         const currentUrl = new URL(window.location.href);
-        currentUrl.pathname = currentUrl.pathname.replace('Incidents', 'Quality/List');
+        currentUrl.pathname = currentUrl.pathname.replace(EntityTabPath.INCIDENTS, `${EntityTabPath.QUALITY}/List`);
 
         // Add or update the assertion_urn query parameter
         currentUrl.searchParams.set('assertion_urn', encodeURIComponent(assertionUrn));
@@ -212,7 +209,7 @@ export const useOpenIncidentDetailModal = (setFocusIncidentUrn) => {
 };
 
 export default function useGetUserName() {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     return useCallback(
         (user: CorpUser) => {
