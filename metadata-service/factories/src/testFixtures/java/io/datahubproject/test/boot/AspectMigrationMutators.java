@@ -70,7 +70,12 @@ public final class AspectMigrationMutators {
         v.add("AspectMigrationMutator components on the classpath but not beans: " + missing);
       }
       if (inChain) {
-        AspectMigrationMutatorChain chain = ctx.getBean(AspectMigrationMutatorChain.class);
+        AspectMigrationMutatorChain chain =
+            ctx.getBeanProvider(AspectMigrationMutatorChain.class).getIfAvailable();
+        if (chain == null) {
+          v.add("no AspectMigrationMutatorChain bean");
+          return;
+        }
         Set<String> chained =
             chain.getChainByAspect().values().stream()
                 .flatMap(List::stream)

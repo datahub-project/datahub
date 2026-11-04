@@ -51,8 +51,24 @@ public final class MessagingContract {
       @Nonnull BootContract contract,
       @Nonnull Messaging messaging,
       @Nonnull Set<String> kafkaDisabledBaseline) {
+    // The stubs must have taken effect, or the boot talked to real infrastructure.
+    contract.check(
+        (ctx, v) -> {
+          if (!ctx.containsBean("searchClientShims")
+              || !ExternalBoundaryStubs.isStub(ctx.getBean("searchClientShims"))) {
+            v.add("searchClientShims is not the boot-test stub (bean renamed?)");
+          }
+        });
     if (messaging == Messaging.KAFKA) {
       return contract
+          .check(
+              (ctx, v) -> {
+                for (String name : List.of("kafkaProducer", "dataHubUsageProducer")) {
+                  if (ctx.containsBean(name) && !ExternalBoundaryStubs.isStub(ctx.getBean(name))) {
+                    v.add(name + " is a real Kafka producer, not the boot-test stub");
+                  }
+                }
+              })
           .requiresBean(
               "kafkaEventProducer", type("com.linkedin.metadata.dao.producer.KafkaEventProducer"))
           .requiresBean(

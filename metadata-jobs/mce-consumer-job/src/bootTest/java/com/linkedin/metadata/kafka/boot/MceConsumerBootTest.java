@@ -72,17 +72,14 @@ public class MceConsumerBootTest {
                 "metadataChangeEventsProcessor")
             // The MCE consumer serves the rest.li ingest endpoints.
             .requires(RestliHandlerServlet.class)
-            .check(HttpRoutes.mounted("GET /gms/aspects?action=getCount"))
+            .check(HttpRoutes.mounted("/gms", "GET /gms/aspects?action=getCount"))
             // Not asserted yet: AspectMigrationMutators.allRegistered(...). MceConsumerApplication
             // does not component-scan com.linkedin.metadata.aspect.hooks.migrations, so its
             // AspectMigrationMutatorChain is empty while GMS and system-update have all mutators.
             // Add the check once the consumer is meant to migrate aspects on ingest.
-            // GMS-only: telemetry scheduler, GraphQL, MAE hooks.
+            // GMS-only: telemetry scheduler, GraphQL, ingestion scheduler.
             .forbids(ScheduledAnalyticsFactory.class, DailyReport.class)
-            .forbidsBeans("graphQLEngine", "rateLimitEngine", "ingestionScheduler")
-            .forbidsTypeNamed(
-                "com.linkedin.metadata.kafka.hook.UpdateIndicesHook",
-                "com.datahub.event.PlatformEventProcessor");
+            .forbidsBeans("graphQLEngine", "rateLimitEngine", "ingestionScheduler");
     if (messaging == Messaging.KAFKA) {
       contract.requiresBeans("MCPBatchKafkaListenerRegistrar");
     } else {

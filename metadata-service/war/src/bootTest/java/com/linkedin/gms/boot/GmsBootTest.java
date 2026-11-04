@@ -14,6 +14,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.iceberg.catalog.rest.open.PublicIcebergApiController;
 import io.datahubproject.iceberg.catalog.rest.secure.IcebergApiController;
+import io.datahubproject.openapi.operations.elastic.ElasticsearchController;
 import io.datahubproject.test.boot.AspectMigrationMutators;
 import io.datahubproject.test.boot.BootContract;
 import io.datahubproject.test.boot.HttpRoutes;
@@ -88,7 +89,7 @@ public class GmsBootTest {
             .requires(
                 io.datahubproject.openapi.v3.controller.EntityController.class,
                 io.datahubproject.openapi.v2.controller.EntityController.class,
-                io.datahubproject.openapi.operations.elastic.ElasticsearchController.class)
+                ElasticsearchController.class)
             // Rest.li (the servlet itself is not a bean; the HTTP probe below covers it)
             .requiresBeans("restliServletRegistration", "rapServlet")
             // Auth
@@ -112,6 +113,7 @@ public class GmsBootTest {
             .check(AspectMigrationMutators.allRegistered(false))
             .check(
                 HttpRoutes.mounted(
+                    "",
                     "GET /health",
                     "GET /config",
                     "POST /api/graphql",

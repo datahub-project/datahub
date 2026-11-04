@@ -3,11 +3,13 @@ package io.datahubproject.test.boot;
 import com.linkedin.gms.factory.search.SearchClientShims;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.MockConsumer;
 import org.apache.kafka.clients.producer.MockProducer;
 import org.apache.kafka.clients.producer.Producer;
@@ -16,10 +18,11 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
+import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.core.Ordered;
+import org.springframework.kafka.config.AbstractKafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 /**
@@ -72,8 +75,8 @@ public class ExternalBoundaryStubs
       throws BeansException {
     replaceIfPresent(
         registry, SEARCH_CLIENT_SHIMS, SearchClientShims.class, ExternalBoundaryStubs::searchShims);
-    replaceIfPresent(registry, KAFKA_PRODUCER, Producer.class, MockProducer::new);
-    replaceIfPresent(registry, USAGE_PRODUCER, Producer.class, MockProducer::new);
+    replaceIfPresent(registry, KAFKA_PRODUCER, Producer.class, ExternalBoundaryStubs::producer);
+    replaceIfPresent(registry, USAGE_PRODUCER, Producer.class, ExternalBoundaryStubs::producer);
   }
 
   @Override
@@ -89,6 +92,17 @@ public class ExternalBoundaryStubs
         && !CONCRETE_CONSUMER_FACTORIES.contains(beanName)) {
       return new BrokerlessConsumerFactory(factory.getConfigurationProperties());
     }
+    // Container factories often build their own DefaultKafkaConsumerFactory inline (per-consumer
+    // overrides such as auto.offset.reset), so swapping the shared consumer-factory beans is not
+    // enough: swap whatever consumer factory each container factory ended up with.
+    if (bean instanceof AbstractKafkaListenerContainerFactory<?, ?, ?> containerFactory
+        && containerFactory.getConsumerFactory() != null
+        && !(containerFactory.getConsumerFactory() instanceof BrokerlessConsumerFactory)) {
+      ((AbstractKafkaListenerContainerFactory) containerFactory)
+          .setConsumerFactory(
+              new BrokerlessConsumerFactory<>(
+                  containerFactory.getConsumerFactory().getConfigurationProperties()));
+    }
     return bean;
   }
 
@@ -98,9 +112,15 @@ public class ExternalBoundaryStubs
       return;
     }
     BeanDefinition original = registry.getBeanDefinition(name);
-    BeanDefinition replacement =
-        BeanDefinitionBuilder.genericBeanDefinition(type, stub::get).getBeanDefinition();
+    RootBeanDefinition replacement = new RootBeanDefinition(type, stub::get);
+    // Keep what injection points resolve against: generic type, primary/fallback, laziness.
+    if (original.getResolvableType().resolve() != null) {
+      replacement.setTargetType(original.getResolvableType());
+    }
     replacement.setPrimary(original.isPrimary());
+    replacement.setFallback(original.isFallback());
+    replacement.setLazyInit(original.isLazyInit());
+    replacement.setDependsOn(original.getDependsOn());
     replacement.setDescription("boot-test stub for external client " + name);
     registry.removeBeanDefinition(name);
     registry.registerBeanDefinition(name, replacement);
@@ -113,6 +133,23 @@ public class ExternalBoundaryStubs
     return new SearchClientShims(Map.of(ElasticSearchConfiguration.PRIMARY_CLUSTER, shim));
   }
 
+  /** Completes every send immediately; serializers ignore the payload. */
+  private static <K, V> MockProducer<K, V> producer() {
+    return new MockProducer<>(
+        true, null, (topic, key) -> new byte[0], (topic, value) -> new byte[0]);
+  }
+
+  /** True when {@code bean} is one of the stand-ins this class hands out. */
+  public static boolean isStub(Object bean) {
+    if (bean instanceof MockProducer || bean instanceof BrokerlessConsumerFactory) {
+      return true;
+    }
+    return bean instanceof SearchClientShims shims
+        && !shims.byCluster().isEmpty()
+        && shims.byCluster().values().stream()
+            .allMatch(shim -> Mockito.mockingDetails(shim).isMock());
+  }
+
   /** Production consumer configuration, but no broker connection. */
   static final class BrokerlessConsumerFactory<K, V> extends DefaultKafkaConsumerFactory<K, V> {
     BrokerlessConsumerFactory(Map<String, Object> configs) {
@@ -121,7 +158,31 @@ public class ExternalBoundaryStubs
 
     @Override
     protected Consumer<K, V> createRawConsumer(Map<String, Object> configProps) {
-      return new MockConsumer<>("latest");
+      return new IdleMockConsumer<>();
+    }
+  }
+
+  /**
+   * {@link MockConsumer#poll} returns at once when nothing is assigned; listener threads would
+   * spin. Wait out the poll timeout (capped) like a real consumer with no records would.
+   */
+  static final class IdleMockConsumer<K, V> extends MockConsumer<K, V> {
+    IdleMockConsumer() {
+      super("latest");
+    }
+
+    @Override
+    public ConsumerRecords<K, V> poll(Duration timeout) {
+      // Not synchronized: sleep outside MockConsumer's lock so wakeup()/close() are not delayed.
+      ConsumerRecords<K, V> records = super.poll(timeout);
+      if (records.isEmpty()) {
+        try {
+          Thread.sleep(Math.min(timeout.toMillis(), 500L));
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+      }
+      return records;
     }
   }
 }

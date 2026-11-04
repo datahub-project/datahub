@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.boot;
 
 import com.datahub.event.PlatformEventProcessor;
 import com.datahub.event.hook.BusinessAttributeUpdateHook;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.metadata.kafka.MaeConsumerApplication;
@@ -87,7 +88,7 @@ public class MaeConsumerBootTest {
                 "systemMetadataService",
                 "dataHubUsageEventsProcessor")
             // MAE writes back through GMS (rest.li), never to the entity store directly.
-            .requiresBean("systemEntityClient", com.linkedin.entity.client.SystemEntityClient.class)
+            .requiresBean("systemEntityClient", SystemEntityClient.class)
             .forbidsBeans("entityService", "ebeanServer")
             // GMS-only: telemetry scheduler, query-serving components.
             .forbids(ScheduledAnalyticsFactory.class, DailyReport.class)

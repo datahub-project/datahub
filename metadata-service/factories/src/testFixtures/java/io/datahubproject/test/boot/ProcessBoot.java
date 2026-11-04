@@ -22,8 +22,13 @@ import org.springframework.core.env.MapPropertySource;
  *   <li>the entity store (and the pgQueue pool) is an in-memory H2 database built by the production
  *       Ebean factories, with DDL generation on;
  *   <li>{@link ExternalBoundaryStubs} swaps the Elasticsearch/OpenSearch and Kafka clients;
+ *   <li>Kafka bootstrap servers point at a closed loopback port;
  *   <li>HTTP ports are random.
  * </ul>
+ *
+ * <p>What is checked is the wiring, not runtime behavior. Background workers that start after the
+ * context is up are allowed to fail: e.g. pgQueue poll workers log {@code Schema "QUEUE" not
+ * found}, because the queue schema is created by system-update's SqlSetup, not by Ebean DDL.
  */
 public final class ProcessBoot {
 
@@ -32,6 +37,9 @@ public final class ProcessBoot {
     KAFKA,
     PGQUEUE
   }
+
+  /** Port 1 on loopback: connection refused immediately, nothing is ever reached. */
+  private static final String UNREACHABLE_BROKER = "127.0.0.1:1";
 
   private final List<Class<?>> sources = new ArrayList<>();
   private final List<String> profiles = new ArrayList<>();
@@ -76,7 +84,9 @@ public final class ProcessBoot {
   @Nonnull
   public ConfigurableApplicationContext start() {
     String db = "boot_" + UUID.randomUUID().toString().replace("-", "");
-    String h2Url = "jdbc:h2:mem:" + db + ";IGNORECASE=TRUE;MODE=MySQL;DB_CLOSE_DELAY=-1";
+    // No DB_CLOSE_DELAY: the database lives while the context's pools hold connections and is
+    // dropped when the context closes.
+    String h2Url = "jdbc:h2:mem:" + db + ";IGNORECASE=TRUE;MODE=MySQL";
 
     Map<String, Object> props = new LinkedHashMap<>();
     props.put("spring.main.banner-mode", "off");
@@ -97,6 +107,10 @@ public final class ProcessBoot {
     props.put("authentication.tokenService.signingKey", "boot-test-signing-key");
     props.put("authentication.tokenService.salt", "boot-test-salt");
 
+    // Safety net for any Kafka client the stubs do not cover (admin clients, producers built inside
+    // services): point it at a closed port, never at a developer's local quickstart broker.
+    props.put("kafka.bootstrapServers", UNREACHABLE_BROKER);
+    props.put("spring.kafka.bootstrap-servers", UNREACHABLE_BROKER);
     // No broker exists. Kafka clients that are not ours to stub (admin clients, ad-hoc producers
     // built inside services) must fail fast instead of blocking a context refresh for 60s.
     props.put("spring.kafka.producer.properties.max.block.ms", "1000");
@@ -124,11 +138,14 @@ public final class ProcessBoot {
                   ctx.getEnvironment()
                       .getPropertySources()
                       .addFirst(new MapPropertySource("processBootTest", props));
-                  if (ctx.getBeanFactory() instanceof BeanDefinitionRegistry registry) {
-                    registry.registerBeanDefinition(
-                        ExternalBoundaryStubs.BEAN_NAME,
-                        new RootBeanDefinition(ExternalBoundaryStubs.class));
+                  if (!(ctx.getBeanFactory() instanceof BeanDefinitionRegistry registry)) {
+                    // Booting without the stubs would connect to real infrastructure.
+                    throw new IllegalStateException(
+                        "Cannot register boot-test stubs on " + ctx.getBeanFactory());
                   }
+                  registry.registerBeanDefinition(
+                      ExternalBoundaryStubs.BEAN_NAME,
+                      new RootBeanDefinition(ExternalBoundaryStubs.class));
                 });
     if (!profiles.isEmpty()) {
       builder.profiles(profiles.toArray(new String[0]));

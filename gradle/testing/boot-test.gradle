@@ -22,6 +22,8 @@ sourceSets {
 configurations {
   bootTestImplementation.extendsFrom implementation
   bootTestRuntimeOnly.extendsFrom runtimeOnly
+  bootTestCompileOnly.extendsFrom compileOnly
+  bootTestAnnotationProcessor.extendsFrom annotationProcessor
 }
 
 dependencies {
@@ -36,6 +38,10 @@ tasks.register('bootTest', Test) {
   testClassesDirs = sourceSets.bootTest.output.classesDirs
   classpath = sourceSets.bootTest.runtimeClasspath
   useTestNG()
+  // The root build sets this to false for every Test task; a boot suite that discovers nothing
+  // must fail, not pass green.
+  failOnNoDiscoveredTests = true
+  timeout = java.time.Duration.ofMinutes(20)
   // One JVM per module: each test boots one full context and closes it.
   maxParallelForks = 1
   maxHeapSize = '3g'
@@ -52,4 +58,17 @@ tasks.register('bootTest', Test) {
     events 'failed', 'skipped'
     exceptionFormat 'full'
   }
+}
+
+// Boot coverage would inflate the aggregated unit-test report (jacocoMergedReport reads every
+// build/jacoco/*.exec). Modules apply the coverage script before or after this one, so wait for it.
+plugins.withId('jacoco') {
+  tasks.named('bootTest', Test) {
+    extensions.getByType(JacocoTaskExtension).enabled = false
+  }
+}
+
+// Keep the suite compiling on every `check`, even though it only runs on demand.
+tasks.named('check') {
+  dependsOn 'bootTestClasses'
 }
