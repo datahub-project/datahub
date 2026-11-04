@@ -130,17 +130,16 @@ Typical test function (`smoke-test/test_e2e.py:323-345`):
 
 ```python
 def test_frontend_browse_datasets(auth_session):
-    query = """query browse($input: BrowseInput!) {
-        browse(input: $input) {
+    query = """query browseV2($input: BrowseV2Input!) {
+        browseV2(input: $input) {
             start count total
-            groups { name }
-            entities { ... on Dataset { urn name } }
+            groups { name count }
         }
     }"""
-    variables = {"input": {"type": "DATASET", "path": ["prod"]}}
+    variables = {"input": {"type": "DATASET", "path": [], "query": "*"}}
     res_data = execute_graphql(auth_session, query, variables)
-    assert res_data["data"]["browse"]
-    assert len(res_data["data"]["browse"]["groups"]) > 0
+    assert res_data["data"]["browseV2"]
+    assert len(res_data["data"]["browseV2"]["groups"]) > 0
 ```
 
 ---

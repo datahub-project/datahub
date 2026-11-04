@@ -502,16 +502,6 @@ query searchIngestedUrns($input: SearchAcrossEntitiesInput!) {
 }
 """
 
-_BROWSE_ENTITIES_QUERY = """
-query browse($input: BrowseInput!) {
-  browse(input: $input) {
-    entities {
-      urn
-    }
-  }
-}
-"""
-
 
 def entity_urns_from_ingest_file(filename: str) -> List[str]:
     """Unique entity URNs from a file ingest payload (MCP or snapshot JSON)."""
@@ -665,67 +655,6 @@ def wait_for_urns_searchable(auth_session, urns: List[str]) -> None:
 def wait_for_ingested_urns_searchable(auth_session, filename: str) -> None:
     """Poll GraphQL search until searchable ingested URNs are indexed."""
     wait_for_urns_searchable(auth_session, entity_urns_from_ingest_file(filename))
-
-
-def wait_for_browse_path_entities(
-    auth_session,
-    path: List[str],
-    expected_urns: List[str],
-    entity_type: str = "DATASET",
-) -> None:
-    """Poll browse v1 until every URN in ``expected_urns`` appears at ``path``."""
-    remaining: Set[str] = set(expected_urns)
-    if not remaining:
-        return
-    sleep_sec, sleep_times = get_sleep_info()
-    found: Set[str] = set()
-    for attempt in range(sleep_times):
-        try:
-            res_data = execute_graphql(
-                auth_session,
-                _BROWSE_ENTITIES_QUERY,
-                {
-                    "input": {
-                        "type": entity_type,
-                        "path": path,
-                        "start": 0,
-                        "count": 100,
-                    }
-                },
-                expect_errors=True,
-                no_sync_wait=True,
-            )
-        except Exception as exc:
-            logger.warning("browse failed during ingest wait; retrying: %s", exc)
-            res_data = {}
-        if res_data.get("errors") or not res_data.get("data"):
-            found = set()
-        else:
-            entities = (
-                res_data.get("data", {}).get("browse", {}).get("entities", []) or []
-            )
-            found = {entity.get("urn") for entity in entities if entity.get("urn")}
-        if remaining <= found:
-            return
-        if attempt < sleep_times - 1:
-            time.sleep(sleep_sec)
-
-    raise AssertionError(
-        f"Browse path {path} did not contain {sorted(remaining)} after ingest; "
-        f"missing {sorted(remaining - found)}"
-    )
-
-
-def wait_for_browse_path_entity(
-    auth_session,
-    path: List[str],
-    expected_urn: str,
-    entity_type: str = "DATASET",
-) -> None:
-    """Poll browse v1 until ``expected_urn`` appears at ``path``."""
-    wait_for_browse_path_entities(
-        auth_session, path, [expected_urn], entity_type=entity_type
-    )
 
 
 def ingest_file_via_rest(

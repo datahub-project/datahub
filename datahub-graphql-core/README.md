@@ -71,7 +71,7 @@ To do so, simply follow the examples for other entities.
    which allows you to wire custom resolvers (DataFetchers) to the fields in your Entity type. You also may need to do this, depending
    on the complexity of the new entity. See [here](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java#L438) for reference.
 
-> Note: If you want your new Entity to be "browsable" (folder navigation) via the UI, make sure you implement the `BrowsableEntityType` interface.
+> Note: If you want your new Entity to be "browsable" (folder navigation) via the UI, give it the `browsePathsV2` aspect. The `browseV2` query serves the browse sidebar.
 
 #### Enabling Search for a new Entity
 
