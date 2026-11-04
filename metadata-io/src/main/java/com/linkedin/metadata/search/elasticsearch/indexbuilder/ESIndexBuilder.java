@@ -1673,16 +1673,19 @@ public class ESIndexBuilder {
       // index may have been deleted while the task kept running, or the task may have run amok.
       // Resuming such a task would fail or complete into a wrong-mapping index, so cancel it (with
       // confirmation) and fall through to a fresh reindex instead of adopting it.
-      if (previousTaskInfo.isPresent()
-          && !resumedReindexMatchesTarget(opContext, indexState, previousTaskInfo.get())) {
-        String staleTemp =
-            ESUtils.extractTargetIndex(
-                previousTaskInfo.get().getHeaders().get(ESUtils.OPAQUE_ID_HEADER));
+      // A destination that cannot be read throws here and fails the step: the task is never
+      // resumed on an unverified destination, and nothing is cancelled or deleted on a read error.
+      final String previousDestination =
+          previousTaskInfo
+              .map(t -> ESUtils.extractTargetIndex(t.getHeaders().get(ESUtils.OPAQUE_ID_HEADER)))
+              .orElse(null);
+      if (previousDestination != null
+          && !resumedReindexMatchesTarget(opContext, indexState, previousDestination)) {
         log.warn(
             "Index: {} - resumed reindex into {} is missing or no longer matches target mappings;"
                 + " cancelling task and restarting.",
             indexState.name(),
-            staleTemp);
+            previousDestination);
         // Must confirm the runaway task is actually stopped before deleting its target and
         // submitting a replacement - otherwise two reindexes would write the same index.
         cancelReindexTaskAndConfirm(
@@ -1690,7 +1693,7 @@ public class ESIndexBuilder {
             reindexTaskIdToCancel(previousTaskInfo.get()),
             REINDEX_CANCEL_CONFIRM_TIMEOUT_MS,
             REINDEX_CANCEL_CONFIRM_POLL_MS);
-        deleteActionWithRetry(searchClient, opContext, staleTemp, requestOptionsLong);
+        deleteActionWithRetry(searchClient, opContext, previousDestination, requestOptionsLong);
         previousTaskInfo = Optional.empty(); // force the fresh-reindex path below
       }
 
@@ -2719,48 +2722,6 @@ public class ESIndexBuilder {
     return taskInfo.getParentTaskId() != null && taskInfo.getParentTaskId().isSet()
         ? taskInfo.getParentTaskId().toString()
         : taskInfo.getTaskId().toString();
-  }
-
-  /**
-   * Whether a resumable in-flight reindex is building into an index that still exists and whose
-   * mappings still match what we would build today. A missing destination does not match: the task
-   * outlived its index (deleted by cleanup or by a failed run), and resuming it would fail on the
-   * missing index while the task recreates it with dynamic mappings on its next write. Settings are
-   * intentionally ignored: a reindex target temporarily runs with reindex-optimal settings (e.g. 0
-   * replicas, refresh disabled), so only the mappings are compared (reusing the same {@link
-   * ReindexConfig} comparison used to decide reindexing in the first place). Any failure to
-   * validate is treated as "does not match" so the caller restarts cleanly.
-   */
-  @VisibleForTesting
-  public boolean resumedReindexMatchesTarget(
-      @Nonnull OperationContext opContext, ReindexConfig indexState, TaskInfo taskInfo) {
-    String adoptedTemp = null;
-    try {
-      adoptedTemp = ESUtils.extractTargetIndex(taskInfo.getHeaders().get(ESUtils.OPAQUE_ID_HEADER));
-      ReindexConfig tempState =
-          buildReindexState(
-              opContext, adoptedTemp, indexState.targetMappings(), Collections.emptyMap());
-      // buildReindexState skips the mapping comparison for a missing index, so
-      // requiresApplyMappings
-      // alone would report a deleted destination as a match.
-      if (!tempState.exists()) {
-        log.warn(
-            "Index: {} - resumed reindex target {} no longer exists.",
-            indexState.name(),
-            adoptedTemp);
-        return false;
-      }
-      // requiresApplyMappings() is false when the temp index already has every current target
-      // mapping, the same test used to decide whether to reindex at all.
-      return !tempState.requiresApplyMappings();
-    } catch (Exception e) {
-      log.warn(
-          "Index: {} - could not validate resumed reindex target {}; treating as stale.",
-          indexState.name(),
-          adoptedTemp,
-          e);
-      return false;
-    }
   }
 
   /**

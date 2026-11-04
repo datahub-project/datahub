@@ -3395,105 +3395,6 @@ public class ESIndexBuilderTest {
   }
 
   @Test
-  void testResumedReindexMatchesTarget_TrueWhenMappingsMatch() throws IOException {
-    Map<String, Object> mappings = Map.of("properties", Map.of("urn", Map.of("type", "keyword")));
-    mockExistingIndex(RESUMED_TEMP_INDEX, mappings);
-
-    ReindexConfig indexState = mock(ReindexConfig.class);
-    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
-    when(indexState.targetMappings()).thenReturn(mappings);
-
-    TaskInfo taskInfo = mock(TaskInfo.class);
-    when(taskInfo.getHeaders()).thenReturn(resumedTaskHeaders());
-
-    assertTrue(indexBuilder.resumedReindexMatchesTarget(opContext, indexState, taskInfo));
-  }
-
-  @Test
-  void testResumedReindexMatchesTarget_FalseWhenMappingsStale() throws IOException {
-    // Temp index was built from older mappings (missing a field the current target now has).
-    Map<String, Object> tempMappings =
-        Map.of("properties", Map.of("urn", Map.of("type", "keyword")));
-    Map<String, Object> targetMappings =
-        Map.of(
-            "properties",
-            Map.of("urn", Map.of("type", "keyword"), "newField", Map.of("type", "keyword")));
-    mockExistingIndex(RESUMED_TEMP_INDEX, tempMappings);
-
-    ReindexConfig indexState = mock(ReindexConfig.class);
-    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
-    when(indexState.targetMappings()).thenReturn(targetMappings);
-
-    TaskInfo taskInfo = mock(TaskInfo.class);
-    when(taskInfo.getHeaders()).thenReturn(resumedTaskHeaders());
-
-    assertFalse(indexBuilder.resumedReindexMatchesTarget(opContext, indexState, taskInfo));
-  }
-
-  @Test
-  void testResumedReindexMatchesTarget_FalseOnMissingOpaqueHeader() {
-    ReindexConfig indexState = mock(ReindexConfig.class);
-    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
-
-    TaskInfo taskInfo = mock(TaskInfo.class);
-    when(taskInfo.getHeaders()).thenReturn(Collections.emptyMap()); // can't validate
-
-    // Any failure to validate is treated as "does not match" so the caller restarts cleanly.
-    assertFalse(indexBuilder.resumedReindexMatchesTarget(opContext, indexState, taskInfo));
-  }
-
-  @Test
-  void testResumedReindexMatchesTarget_FalseWhenDestinationMissing() throws IOException {
-    when(searchClient.indexExists(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
-        .thenReturn(false);
-
-    ReindexConfig indexState = mock(ReindexConfig.class);
-    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
-    when(indexState.targetMappings()).thenReturn(RESUME_MAPPINGS);
-
-    TaskInfo taskInfo = mock(TaskInfo.class);
-    when(taskInfo.getHeaders()).thenReturn(resumedTaskHeaders());
-
-    // The task outlived its index; resuming would fail and let the task recreate it unmapped.
-    assertFalse(indexBuilder.resumedReindexMatchesTarget(opContext, indexState, taskInfo));
-  }
-
-  @Test
-  void testResumedReindexMatchesTarget_LeavesTargetMappingsUnchanged() throws IOException {
-    // Structured properties are disabled here, so buildReindexState merges the destination's
-    // structured-property mappings into the target it compares against.
-    Map<String, Object> destMappings =
-        Map.of(
-            "properties",
-            Map.of(
-                "urn",
-                Map.of("type", "keyword"),
-                "structuredProperties",
-                Map.of("properties", Map.of("oldProp", Map.of("type", "keyword")))));
-    mockExistingIndex(RESUMED_TEMP_INDEX, destMappings);
-    Map<String, Object> structuredProperties = new HashMap<>();
-    Map<String, Object> properties = new HashMap<>();
-    properties.put("urn", Map.of("type", "keyword"));
-    properties.put("structuredProperties", structuredProperties);
-    Map<String, Object> targetMappings = new HashMap<>();
-    targetMappings.put("properties", properties);
-
-    ReindexConfig indexState = mock(ReindexConfig.class);
-    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
-    when(indexState.targetMappings()).thenReturn(targetMappings);
-    TaskInfo taskInfo = mock(TaskInfo.class);
-    when(taskInfo.getHeaders()).thenReturn(resumedTaskHeaders());
-
-    indexBuilder.resumedReindexMatchesTarget(opContext, indexState, taskInfo);
-
-    // A fresh reindex after a stale resume builds from these mappings, so the destination's
-    // structured properties must not have been merged into them.
-    assertTrue(structuredProperties.isEmpty());
-    assertEquals(properties.keySet(), Set.of("urn", "structuredProperties"));
-  }
-
-  @Test
   void testReindexResume_missingDestination_cancelsAndRestarts() throws Throwable {
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
@@ -3515,15 +3416,32 @@ public class ESIndexBuilderTest {
    * and a new destination is created instead of polling the old task. The new index's creation is
    * made to fail so the test stops before submitting a reindex.
    */
+  @Test
+  void testReindexResume_unreadableDestination_failsWithoutCancelling() throws Throwable {
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class),
+            argThat((GetIndexRequest r) -> List.of(r.indices()).contains(RESUMED_TEMP_INDEX)),
+            any(RequestOptions.class)))
+        .thenThrow(new IOException("cluster read timed out"));
+    // One attempt, so the destination read gives up without the production retry waits.
+    when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
+    ESIndexBuilder builder = resumeBuilder();
+
+    // A destination that cannot be checked is never assumed fine: the step fails, and the task
+    // is neither resumed nor cancelled.
+    assertThrows(RuntimeException.class, () -> builder.buildIndex(opContext, resumeIndexState()));
+
+    verify(searchClient, never()).performLowLevelRequest(any(), any(Request.class));
+    verify(searchClient, never())
+        .createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class));
+    verify(builder, never())
+        .pollReindexCompletion(any(), anyString(), anyString(), any(), anyInt(), any(), any());
+  }
+
   private void assertCancelledAndRestarted() throws Throwable {
-    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
-    TaskInfo previous = mock(TaskInfo.class);
-    when(previous.getTaskId()).thenReturn(new TaskId("node1", 42L));
-    when(previous.getParentTaskId()).thenReturn(TaskId.EMPTY_TASK_ID);
-    when(previous.getHeaders()).thenReturn(resumedTaskHeaders());
-    ListTasksResponse taskListResponse = mock(ListTasksResponse.class);
-    when(taskListResponse.getTasks()).thenReturn(List.of(previous));
-    when(searchClient.listTasks(any(ListTasksRequest.class), any())).thenReturn(taskListResponse);
     when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
         .thenReturn(Optional.empty());
     RuntimeException stop = new RuntimeException("stop before the new reindex");
@@ -3532,27 +3450,11 @@ public class ESIndexBuilderTest {
             any(CreateIndexRequest.class),
             any(RequestOptions.class)))
         .thenThrow(stop);
-
-    ReindexConfig indexState = mock(ReindexConfig.class);
-    when(indexState.exists()).thenReturn(true);
-    when(indexState.requiresApplyMappings()).thenReturn(true);
-    when(indexState.requiresApplySettings()).thenReturn(true);
-    when(indexState.requiresReindex()).thenReturn(true);
-    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
-    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
-    when(indexState.targetMappings()).thenReturn(RESUME_MAPPINGS);
-
-    ESIndexBuilder builder =
-        spy(
-            new ESIndexBuilder(
-                searchClient,
-                elasticSearchConfiguration,
-                TEST_ES_STRUCT_PROPS_DISABLED,
-                Map.of(),
-                gitVersion));
+    ESIndexBuilder builder = resumeBuilder();
 
     RuntimeException thrown =
-        assertThrows(RuntimeException.class, () -> builder.buildIndex(opContext, indexState));
+        assertThrows(
+            RuntimeException.class, () -> builder.buildIndex(opContext, resumeIndexState()));
 
     assertTrue(thrown == stop || thrown.getCause() == stop, "unexpected failure: " + thrown);
     ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
@@ -3566,6 +3468,39 @@ public class ESIndexBuilderTest {
     Assert.assertNotEquals(created.getValue().index(), RESUMED_TEMP_INDEX);
     verify(builder, never())
         .pollReindexCompletion(any(), anyString(), anyString(), any(), anyInt(), any(), any());
+  }
+
+  /**
+   * A builder whose task listing returns one in-flight reindex into {@link #RESUMED_TEMP_INDEX}.
+   */
+  private ESIndexBuilder resumeBuilder() throws IOException {
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+    TaskInfo previous = mock(TaskInfo.class);
+    when(previous.getTaskId()).thenReturn(new TaskId("node1", 42L));
+    when(previous.getParentTaskId()).thenReturn(TaskId.EMPTY_TASK_ID);
+    when(previous.getHeaders()).thenReturn(resumedTaskHeaders());
+    ListTasksResponse taskListResponse = mock(ListTasksResponse.class);
+    when(taskListResponse.getTasks()).thenReturn(List.of(previous));
+    when(searchClient.listTasks(any(ListTasksRequest.class), any())).thenReturn(taskListResponse);
+    return spy(
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion));
+  }
+
+  private ReindexConfig resumeIndexState() {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresApplySettings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+    when(indexState.targetMappings()).thenReturn(RESUME_MAPPINGS);
+    return indexState;
   }
 
   private static Map<String, String> resumedTaskHeaders() {
