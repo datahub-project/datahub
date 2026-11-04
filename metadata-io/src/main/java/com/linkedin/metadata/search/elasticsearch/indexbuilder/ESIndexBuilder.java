@@ -877,18 +877,21 @@ public class ESIndexBuilder {
       // put-mapping onto an existing index must not relabel it, so the stamp never travels here.
       Map<String, Object> mappings = new HashMap<>(mappingsToPut);
       mappings.remove(V3DocumentIdScheme.META);
+      Set<String> newFields = new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(mappings));
       try {
         searchClient.putIndexMapping(
             opContext,
             new PutMappingRequest(indexState.name()).source(mappings),
             requestOptionsLong);
+        if (!newFields.isEmpty()) {
+          logAddedStructuredPropertyFields(indexState, newFields, suppressError);
+        }
       } catch (IOException | RuntimeException e) {
         // System-update sends new structured-property fields along with the index's other mapping
         // changes, and they can push the index past its total-fields limit. When the engine
         // rejects the put, the other changes go in without them, and they wait for the next
         // definition upsert or reindex. Any other failure, and any failure of a definition upsert
         // (suppressError=false), propagates, so the next run sends the full put again.
-        Set<String> newFields = ReindexConfig.structuredPropertyFieldIds(mappings);
         if (!suppressError || newFields.isEmpty() || !isMappingRejection(e)) {
           throw e;
         }
@@ -1011,6 +1014,12 @@ public class ESIndexBuilder {
           e);
       return false;
     }
+    logAddedStructuredPropertyFields(indexState, newFields, suppressError);
+    return true;
+  }
+
+  private static void logAddedStructuredPropertyFields(
+      @Nonnull ReindexConfig indexState, @Nonnull Set<String> fields, boolean suppressError) {
     if (suppressError && !mapsStructuredPropertiesDynamically(indexState.currentMappings())) {
       // System-update adds fields the index was missing, possibly while values for them were
       // written; put-mapping does not index what documents already hold. Under a dynamic
@@ -1019,11 +1028,10 @@ public class ESIndexBuilder {
           "Index: {} - Added structured property fields {}. Values that documents already held"
               + " for them stay unsearchable until RestoreIndices rewrites those documents.",
           indexState.name(),
-          newFields);
+          fields);
     } else {
-      log.info("Index: {} - Added structured property fields {}", indexState.name(), newFields);
+      log.info("Index: {} - Added structured property fields {}", indexState.name(), fields);
     }
-    return true;
   }
 
   /** Whether the live structured property container maps new values dynamically. */

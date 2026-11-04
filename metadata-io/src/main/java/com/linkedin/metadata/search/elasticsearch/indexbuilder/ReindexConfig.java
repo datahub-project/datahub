@@ -816,7 +816,9 @@ public class ReindexConfig {
                   super.name);
             }
             if (super.hasRemovedStructuredProperty && !super.enableStructuredPropertiesReindex) {
-              log.warn(
+              // Deleting a property leaves its field mapped, which is harmless, so this repeats on
+              // every run at INFO and leaves WARN for differences an operator has to act on.
+              log.info(
                   "Index: {} - There's a removed Structured Property, however Structured Property"
                       + " reindexing is DISABLED. It needs"
                       + " ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true and"
