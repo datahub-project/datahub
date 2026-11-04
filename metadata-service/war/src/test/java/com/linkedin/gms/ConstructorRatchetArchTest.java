@@ -25,12 +25,19 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
-import org.springframework.asm.ClassReader;
-import org.springframework.asm.ClassVisitor;
-import org.springframework.asm.Handle;
-import org.springframework.asm.Label;
-import org.springframework.asm.MethodVisitor;
-import org.springframework.asm.Opcodes;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.VarInsnNode;
+import org.objectweb.asm.tree.analysis.Analyzer;
+import org.objectweb.asm.tree.analysis.AnalyzerException;
+import org.objectweb.asm.tree.analysis.Frame;
+import org.objectweb.asm.tree.analysis.SourceInterpreter;
+import org.objectweb.asm.tree.analysis.SourceValue;
 import org.testng.annotations.Test;
 
 /**
@@ -130,6 +137,9 @@ public class ConstructorRatchetArchTest {
     assertEquals(nullForwardingFixture(CastNull.class).size(), 1);
     assertTrue(nullForwardingFixture(NullInsideNestedCall.class).isEmpty());
     assertTrue(nullForwardingFixture(NullInsideNewObject.class).isEmpty());
+    assertEquals(nullForwardingFixture(NullBeforeNewObject.class).size(), 1);
+    assertEquals(nullForwardingFixture(NullBeforeCall.class).size(), 1);
+    assertEquals(nullForwardingFixture(NullInTernary.class).size(), 1);
   }
 
   private static Set<String> nullForwardingFixture(Class<?> fixture) {
@@ -157,6 +167,30 @@ public class ConstructorRatchetArchTest {
 
     NullInsideNestedCall() {
       this(String.valueOf((Object) null));
+    }
+  }
+
+  static class NullBeforeNewObject {
+    NullBeforeNewObject(String a, String b, StringBuilder c) {}
+
+    NullBeforeNewObject(String a) {
+      this(a, null, new StringBuilder());
+    }
+  }
+
+  static class NullBeforeCall {
+    NullBeforeCall(String a, String b, List<String> c) {}
+
+    NullBeforeCall(String a) {
+      this(a, null, List.of());
+    }
+  }
+
+  static class NullInTernary {
+    NullInTernary(String a) {}
+
+    NullInTernary(Object a) {
+      this(a == null ? null : a.toString());
     }
   }
 
@@ -269,138 +303,83 @@ public class ConstructorRatchetArchTest {
   }
 
   /**
-   * Descriptors of the constructors that pass a {@code null} literal straight to another
-   * constructor of the same class. A null consumed inside an argument expression (for example
-   * {@code this(Objects.requireNonNull(null))} or {@code this(new Foo(null))}) does not count.
+   * Descriptors of the constructors that pass a {@code null} literal (possibly cast, possibly one
+   * branch of a ternary) as an argument of {@code this(...)}. Runs ASM's data-flow analysis so each
+   * argument is traced to the instructions that produced it: a null consumed inside an argument
+   * expression (for example {@code this(Objects.requireNonNull(null))} or {@code this(new
+   * Foo(null))}) does not count, wherever it sits among the other arguments.
    */
   private static Set<String> nullForwardingConstructors(JavaClass clazz) {
     String internalName = clazz.getName().replace('.', '/');
-    Set<String> result = new TreeSet<>();
+    ClassNode node = new ClassNode();
     try (InputStream in =
         Objects.requireNonNull(
             ConstructorRatchetArchTest.class
                 .getClassLoader()
                 .getResourceAsStream(internalName + ".class"),
             clazz.getName())) {
-      new ClassReader(in)
-          .accept(
-              new ClassVisitor(Opcodes.ASM9) {
-                @Override
-                public MethodVisitor visitMethod(
-                    int access, String name, String desc, String sig, String[] exceptions) {
-                  if (!name.equals("<init>")) {
-                    return null;
-                  }
-                  return new MethodVisitor(Opcodes.ASM9) {
-                    // A null literal pushed and not yet consumed by another instruction.
-                    private boolean pendingNull;
-                    // A null literal left on the stack for this(...) as one of its arguments.
-                    private boolean forwardsNull;
-                    private boolean delegated;
-
-                    /**
-                     * Settles a pending null at the next instruction: it was consumed (an argument
-                     * of a nested call, stored, compared, ...) unless that instruction just pushes
-                     * another value or branches, in which case it stays an argument of this(...).
-                     */
-                    private void next(boolean consumesNull) {
-                      if (pendingNull && !consumesNull) {
-                        forwardsNull = true;
-                      }
-                      pendingNull = false;
-                    }
-
-                    @Override
-                    public void visitInsn(int opcode) {
-                      if (delegated) {
-                        return;
-                      }
-                      next(
-                          opcode == Opcodes.AASTORE
-                              || opcode == Opcodes.ARETURN
-                              || opcode == Opcodes.ATHROW
-                              || opcode == Opcodes.POP
-                              || opcode == Opcodes.MONITORENTER);
-                      pendingNull = opcode == Opcodes.ACONST_NULL;
-                    }
-
-                    @Override
-                    public void visitVarInsn(int opcode, int varIndex) {
-                      if (!delegated) {
-                        next(opcode == Opcodes.ASTORE);
-                      }
-                    }
-
-                    @Override
-                    public void visitIntInsn(int opcode, int operand) {
-                      if (!delegated) {
-                        next(false);
-                      }
-                    }
-
-                    @Override
-                    public void visitLdcInsn(Object value) {
-                      if (!delegated) {
-                        next(false);
-                      }
-                    }
-
-                    @Override
-                    public void visitTypeInsn(int opcode, String type) {
-                      // A cast keeps a null literal a null literal; anything else consumes it.
-                      if (!delegated && opcode != Opcodes.CHECKCAST) {
-                        next(true);
-                      }
-                    }
-
-                    @Override
-                    public void visitFieldInsn(int opcode, String owner, String name, String d) {
-                      if (!delegated) {
-                        next(opcode == Opcodes.PUTFIELD || opcode == Opcodes.PUTSTATIC);
-                      }
-                    }
-
-                    @Override
-                    public void visitJumpInsn(int opcode, Label label) {
-                      if (!delegated) {
-                        next(opcode != Opcodes.GOTO);
-                      }
-                    }
-
-                    @Override
-                    public void visitInvokeDynamicInsn(
-                        String name, String d, Handle handle, Object... args) {
-                      if (!delegated) {
-                        next(true);
-                      }
-                    }
-
-                    @Override
-                    public void visitMethodInsn(
-                        int opcode, String owner, String method, String d, boolean itf) {
-                      if (delegated) {
-                        return;
-                      }
-                      boolean ownDelegation =
-                          opcode == Opcodes.INVOKESPECIAL
-                              && method.equals("<init>")
-                              && owner.equals(internalName);
-                      next(!ownDelegation);
-                      if (ownDelegation) {
-                        delegated = true;
-                        if (forwardsNull) {
-                          result.add(desc);
-                        }
-                      }
-                    }
-                  };
-                }
-              },
-              ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+      new ClassReader(in).accept(node, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+    Set<String> result = new TreeSet<>();
+    for (MethodNode ctor : node.methods) {
+      if (ctor.name.equals("<init>") && forwardsNull(internalName, ctor)) {
+        result.add(ctor.desc);
+      }
+    }
     return result;
+  }
+
+  private static boolean forwardsNull(String owner, MethodNode ctor) {
+    Frame<SourceValue>[] frames;
+    try {
+      frames = new Analyzer<>(new NullThroughCastInterpreter()).analyze(owner, ctor);
+    } catch (AnalyzerException e) {
+      throw new IllegalStateException(owner + "#" + ctor.desc, e);
+    }
+    for (int i = 0; i < ctor.instructions.size(); i++) {
+      if (frames[i] != null
+          && ctor.instructions.get(i) instanceof MethodInsnNode call
+          && call.getOpcode() == Opcodes.INVOKESPECIAL
+          && call.name.equals("<init>")
+          && call.owner.equals(owner)) {
+        Frame<SourceValue> frame = frames[i];
+        int args = Type.getArgumentTypes(call.desc).length;
+        int top = frame.getStackSize() - 1;
+        SourceValue receiver = frame.getStack(top - args);
+        boolean onThis =
+            receiver.insns.stream()
+                .anyMatch(
+                    n ->
+                        n instanceof VarInsnNode v && v.getOpcode() == Opcodes.ALOAD && v.var == 0);
+        if (!onThis) {
+          continue; // new Self(...) inside a constructor, not this(...)
+        }
+        for (int a = 0; a < args; a++) {
+          if (frame.getStack(top - a).insns.stream()
+              .anyMatch(n -> n.getOpcode() == Opcodes.ACONST_NULL)) {
+            return true;
+          }
+        }
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /** Lets a null literal's source survive a cast, so {@code this((Foo) null)} is still a null. */
+  private static class NullThroughCastInterpreter extends SourceInterpreter {
+    NullThroughCastInterpreter() {
+      super(Opcodes.ASM9);
+    }
+
+    @Override
+    public SourceValue unaryOperation(AbstractInsnNode insn, SourceValue value) {
+      return insn.getOpcode() == Opcodes.CHECKCAST
+          ? new SourceValue(value.size, value.insns)
+          : super.unaryOperation(insn, value);
+    }
   }
 
   private static Set<String> baseline() throws IOException {
