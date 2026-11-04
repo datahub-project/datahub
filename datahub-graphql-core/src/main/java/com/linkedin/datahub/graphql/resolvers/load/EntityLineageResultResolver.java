@@ -16,7 +16,6 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
 import com.linkedin.datahub.graphql.generated.EntityPath;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.LineageInput;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
@@ -353,20 +352,20 @@ public class EntityLineageResultResolver
     return entityPath;
   }
 
-  /** The typed entity for {@code urn}, or an encrypted {@link Restricted} placeholder. */
+  /**
+   * The typed entity for {@code urn}, or for a restricted urn its encrypted form, which {@link
+   * UrnToEntityMapper} maps to a {@link Restricted} placeholder.
+   */
   @Nullable
   private Entity mapEntity(
       @Nullable final QueryContext context,
       @Nonnull final Urn urn,
       @Nonnull final Set<Urn> restrictedUrns,
       @Nonnull final Map<Urn, Urn> encryptedUrns) {
-    if (restrictedUrns.contains(urn)) {
-      final Restricted restrictedEntity = new Restricted();
-      restrictedEntity.setType(EntityType.RESTRICTED);
-      restrictedEntity.setUrn(
-          encryptedUrns.computeIfAbsent(urn, _restrictedService::encryptRestrictedUrn).toString());
-      return restrictedEntity;
-    }
-    return UrnToEntityMapper.map(context, urn);
+    final Urn disclosedUrn =
+        restrictedUrns.contains(urn)
+            ? encryptedUrns.computeIfAbsent(urn, _restrictedService::encryptRestrictedUrn)
+            : urn;
+    return UrnToEntityMapper.map(context, disclosedUrn);
   }
 }
