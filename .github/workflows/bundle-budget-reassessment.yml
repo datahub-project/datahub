@@ -32,10 +32,6 @@ permissions:
   contents: read
   actions: read
 
-concurrency:
-  group: bundle-budget-reassessment
-  cancel-in-progress: true
-
 env:
   # Defaults match OSS layout; forks override via repo variables without forking this file.
   BUNDLE_BUDGET_DIR: ${{ vars.BUNDLE_BUDGET_DIR || 'datahub-web-react' }}
@@ -58,6 +54,15 @@ jobs:
         )
       )
     runs-on: ubuntu-24.04
+    # Job-level, not workflow-level: every `build & test` completion (mostly PR
+    # runs) triggers this workflow, and a workflow-level group would let those
+    # no-op runs cancel the nightly reassessment before the job `if` skips them.
+    # Concurrency here only applies once the `if` has passed. Queue rather than
+    # cancel so a run is never killed between pushing the ratchet branch and
+    # opening its PR.
+    concurrency:
+      group: bundle-budget-reassessment
+      cancel-in-progress: false
     permissions:
       actions: read
       contents: write
