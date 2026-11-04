@@ -431,7 +431,8 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
-      - uses: ./.github/actions/restore-dependency-caches
+      - id: dep-caches
+        uses: ./.github/actions/restore-dependency-caches
         if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         with:
           uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
@@ -470,7 +471,6 @@ jobs:
         if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
@@ -538,15 +538,37 @@ jobs:
             ${{ github.workspace }}/build/build-metadata.json
             ${{ github.workspace }}/build/bake-spec-allImages.json
 
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ github.ref == 'refs/heads/master' }}
+      # actions/cache/save archives the path before it reserves the key, and a
+      # primary-key hit cannot be overwritten. Skip the save on an exact hit so
+      # a master push does not spend minutes compressing a cache it will
+      # then fail to reserve. 'false' (not != 'true') also skips a save when
+      # this job restored nothing.
+      - name: Prune uv cache
+        if: ${{ github.ref == 'refs/heads/master' && steps.dep-caches.outputs.uv-cache-hit == 'false' }}
+        run: |
+          if command -v uv >/dev/null 2>&1; then
+            uv cache prune --ci
+          elif [[ -x "$HOME/.local/bin/uv" ]]; then
+            "$HOME/.local/bin/uv" cache prune --ci
+          elif [[ -x metadata-ingestion/venv/bin/uv ]]; then
+            # Nothing puts uv on PATH here; the image build runs
+            # :metadata-ingestion:environmentSetup, which installs it into this venv.
+            metadata-ingestion/venv/bin/uv cache prune --ci
+          else
+            echo "uv not found; saving the uv cache without pruning"
+          fi
+
+      - name: Save uv cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ github.ref == 'refs/heads/master' && steps.dep-caches.outputs.uv-cache-hit == 'false' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Save yarn cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ github.ref == 'refs/heads/master' && steps.dep-caches.outputs.yarn-cache-hit == 'false' }}
         with:
           path: |
             ~/.cache/yarn
@@ -672,6 +694,9 @@ jobs:
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+          # Internal runs pull images from Depot and never run yarn; fork PRs build
+          # them in-job (yarnInstall), so only they need the ~1.7 GB yarn restore.
+          restore_yarn: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
@@ -689,10 +714,11 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
@@ -861,6 +887,8 @@ jobs:
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+          # No yarn install runs in this job; skip the ~1.7 GB yarn restore.
+          restore_yarn: "false"
 
       - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
@@ -871,9 +899,10 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Run stack-free pytest
         run: ./gradlew :smoke-test:stackFreePytest
@@ -921,6 +950,9 @@ jobs:
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+          # Internal runs pull images from Depot and never run yarn; fork PRs build
+          # them in-job (yarnInstall), so only they need the ~1.7 GB yarn restore.
+          restore_yarn: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
@@ -938,7 +970,6 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - name: Parse previous results for retry
         id: retry-check
@@ -952,6 +983,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
@@ -1176,18 +1209,6 @@ jobs:
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
-        with:
-          path: ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
-        with:
-          path: ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-
   # Runs the quickstart stack and validates that semantic search works
   # end-to-end with an in-process or locally served embedding provider, one
   # matrix leg each:
@@ -1222,6 +1243,9 @@ jobs:
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+          # Internal runs pull images from Depot and never run yarn; fork PRs build
+          # them in-job (yarnInstall), so only they need the ~1.7 GB yarn restore.
+          restore_yarn: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
@@ -1239,10 +1263,11 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0

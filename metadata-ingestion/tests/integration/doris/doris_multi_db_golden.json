@@ -128,7 +128,8 @@
         "json": {
             "customProperties": {},
             "name": "analytics_data",
-            "tags": []
+            "tags": [],
+            "description": "Aggregated analytics with Doris-specific types"
         }
     },
     "systemMetadata": {
@@ -208,7 +209,8 @@
                     },
                     "nativeDataType": "hll",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "description": "HyperLogLog for cardinality estimation"
                 },
                 {
                     "fieldPath": "user_bitmap",
@@ -220,7 +222,8 @@
                     },
                     "nativeDataType": "bitmap",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "description": "Bitmap for set operations"
                 },
                 {
                     "fieldPath": "tags",
@@ -232,7 +235,8 @@
                     },
                     "nativeDataType": "array<varchar(50)>",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "description": "Array of tags"
                 },
                 {
                     "fieldPath": "metadata",
@@ -244,7 +248,8 @@
                     },
                     "nativeDataType": "json",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "description": "JSON binary format"
                 },
                 {
                     "fieldPath": "percentile_data",
@@ -256,7 +261,8 @@
                     },
                     "nativeDataType": "quantile_state",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "description": "Quantile state for percentile calculations"
                 }
             ]
         }
@@ -347,7 +353,8 @@
         "json": {
             "customProperties": {},
             "name": "customers",
-            "tags": []
+            "tags": [],
+            "description": "One row per registered customer"
         }
     },
     "systemMetadata": {
@@ -391,7 +398,8 @@
                     },
                     "nativeDataType": "int",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "description": "Unique customer identifier"
                 },
                 {
                     "fieldPath": "customer_name",
@@ -403,7 +411,8 @@
                     },
                     "nativeDataType": "varchar(100)",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "description": "Customer's full name"
                 },
                 {
                     "fieldPath": "email",
@@ -415,7 +424,8 @@
                     },
                     "nativeDataType": "varchar(100)",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "description": "Contact email, may be \"unverified\""
                 },
                 {
                     "fieldPath": "country",
@@ -427,7 +437,8 @@
                     },
                     "nativeDataType": "varchar(50)",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "description": "\u56fd\u5bb6 (ISO country name)"
                 },
                 {
                     "fieldPath": "created_at",
@@ -1256,7 +1267,8 @@
                     },
                     "nativeDataType": "bitmap",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "description": "Bitmap of user IDs in this segment"
                 }
             ]
         }

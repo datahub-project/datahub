@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { matchPath, useLocation } from 'react-router';
 import styled from 'styled-components';
 
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,
@@ -41,6 +42,7 @@ export default function CompactTagProfile({ urn }: Props) {
 
     const tabs: EntitySidebarTab[] = [
         {
+            key: EntitySidebarTabKey.ABOUT,
             name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,

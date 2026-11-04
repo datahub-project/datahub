@@ -743,6 +743,29 @@ describe('getChangeEventString for deprecation, hierarchy and info-aspect change
         );
     });
 
+    it('renders deprecation with note and decommission date', () => {
+        const decommissionMillis = Date.UTC(2026, 0, 15, 12);
+        const changeEvent = event(CATEGORY_DEPRECATION, [
+            { key: 'status', value: 'DEPRECATED' },
+            { key: 'note', value: 'use x' },
+            { key: 'timestamp', value: String(decommissionMillis) },
+        ]);
+        expect(getChangeEventString(changeEvent)).toBe(
+            `Marked as deprecated: use x (scheduled for decommission on ${new Date(decommissionMillis).toLocaleDateString()})`,
+        );
+    });
+
+    it('renders a decommission date stored in epoch seconds', () => {
+        const decommissionSeconds = Math.floor(Date.UTC(2026, 0, 15, 12) / 1000);
+        const changeEvent = event(CATEGORY_DEPRECATION, [
+            { key: 'status', value: 'DEPRECATED' },
+            { key: 'timestamp', value: String(decommissionSeconds) },
+        ]);
+        expect(getChangeEventString(changeEvent)).toBe(
+            `Marked as deprecated. Scheduled for decommission on ${new Date(decommissionSeconds * 1000).toLocaleDateString()}.`,
+        );
+    });
+
     it('renders undeprecation', () => {
         expect(getChangeEventString(event(CATEGORY_DEPRECATION, [{ key: 'status', value: 'ACTIVE' }]))).toBe(
             'No longer deprecated.',
