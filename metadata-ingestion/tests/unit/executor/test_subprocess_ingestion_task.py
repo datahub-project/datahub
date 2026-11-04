@@ -23,9 +23,12 @@ from datahub.executor.execution.runner import (
     referenced_env_values,
 )
 from datahub.executor.execution.sub_process_ingestion_task import (
+    RUN_OPTIONS_RECIPE_KEY,
+    IngestionRunOptions,
     SubProcessIngestionTask,
     SubProcessIngestionTaskArgs,
     SubProcessIngestionTaskConfig,
+    split_run_options,
 )
 from datahub.executor.execution.sub_process_task_common import SubProcessTaskUtil
 from datahub.executor.execution.task import TaskError
@@ -327,6 +330,7 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 exec_out_dir,
                 shared_logs,
                 secret_values,
+                IngestionRunOptions(),
             )
 
             assert result == mock_process
@@ -387,6 +391,7 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 "/tmp/exec",
                 shared_logs,
                 secret_values,
+                IngestionRunOptions(),
             )
 
             mock_process.stdin.write.assert_called_once()
@@ -431,6 +436,7 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 "/tmp/exec",
                 shared_logs,
                 secret_values,
+                IngestionRunOptions(),
             )
 
             subprocess_env = mock_create.call_args[1]["env"]
@@ -1275,6 +1281,7 @@ class TestSubProcessIngestionTaskHybridArchitecture:
             "/tmp/exec",
             shared_logs,
             {},
+            IngestionRunOptions(),
         )
 
         mock_setup_venv.assert_called_once()
@@ -1320,9 +1327,9 @@ class TestSubProcessIngestionTaskHybridArchitecture:
 
             # The same LogHolder must reach both the subprocess creation and the
             # monitor, otherwise venv-setup logs would be dropped from the run.
-            # LogHolder is the second-to-last arg (last is secret_values dict).
+            # LogHolder is the third-to-last arg (then secret_values, run_options).
             create_subprocess_call = ingestion_task._create_subprocess.call_args  # type: ignore[attr-defined]
-            shared_logs_arg = create_subprocess_call[0][-2]
+            shared_logs_arg = create_subprocess_call[0][-3]
             assert isinstance(shared_logs_arg, LogHolder)
 
             monitor_subprocess_call = ingestion_task._monitor_subprocess.call_args  # type: ignore[attr-defined]
@@ -1396,6 +1403,7 @@ class TestSubProcessIngestionTaskErrorScenarios:
                     "/tmp/exec",
                     shared_logs,
                     {},
+                    IngestionRunOptions(),
                 )
 
             # Verify venv was still set up successfully before the subprocess failure
@@ -1476,6 +1484,7 @@ class TestSubProcessIngestionTaskScaleHandling:
             "/tmp/exec",
             shared_logs,
             {},
+            IngestionRunOptions(),
         )
 
         mock_subprocess_exec.assert_called_once()
@@ -1711,6 +1720,90 @@ async def test_execute_refuses_credential_redirect_before_setup(
         patch.object(ingestion_task, "_setup_directories") as mock_setup_dirs,
     ):
         with pytest.raises(TaskError, match=r"datahub_api\.server"):
+            await ingestion_task.execute(args, mock_execution_context)
+    mock_setup_dirs.assert_not_called()
+    mock_setup_venv.assert_not_called()
+
+
+def test_split_run_options_strips_the_key_from_the_recipe() -> None:
+    recipe = {
+        "source": {"type": "demo-data"},
+        RUN_OPTIONS_RECIPE_KEY: {"dry_run": True, "preview": True},
+    }
+    stripped, options = split_run_options(recipe)
+
+    assert stripped == {"source": {"type": "demo-data"}}
+    assert options.dry_run
+    assert options.preview
+    assert options.preview_workunits == 10
+
+
+def test_split_run_options_defaults_to_a_normal_run() -> None:
+    recipe = {"source": {"type": "demo-data"}}
+    stripped, options = split_run_options(recipe)
+
+    assert stripped is recipe
+    assert not options.dry_run
+    assert not options.preview
+
+
+@pytest.mark.parametrize(
+    "raw", [{"dry_run": True, "unknown": 1}, {"preview_workunits": 0}, "yes", None]
+)
+def test_split_run_options_rejects_invalid_options(raw: Any) -> None:
+    # A typo must fail the run, not fall back to a run that writes.
+    with pytest.raises(TaskError, match=RUN_OPTIONS_RECIPE_KEY):
+        split_run_options(
+            {"source": {"type": "demo-data"}, RUN_OPTIONS_RECIPE_KEY: raw}
+        )
+
+
+async def test_create_subprocess_writes_run_options_into_the_envelope(
+    ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
+) -> None:
+    validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
+    mock_process = AsyncMock()
+    mock_process.stdin = Mock()
+    mock_venv_ref = Mock()
+    mock_venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+
+    with (
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch.object(ingestion_task, "_setup_venv", return_value=mock_venv_ref),
+    ):
+        await ingestion_task._create_subprocess(
+            validated_args,
+            "demo-data",
+            {"source": {"type": "demo-data"}},
+            "/tmp/report.json",
+            {"PATH": "/usr/bin"},
+            "/tmp/exec",
+            LogHolder(),
+            {},
+            IngestionRunOptions(dry_run=True),
+        )
+
+    envelope = json.loads(mock_process.stdin.write.call_args[0][0].decode("utf-8"))
+    assert yaml.safe_load(envelope["__recipe_yaml__"]) == {
+        "source": {"type": "demo-data"}
+    }
+    assert envelope["__run_options__"]["dry_run"] is True
+
+
+async def test_execute_refuses_invalid_run_options_before_setup(
+    ingestion_task: SubProcessIngestionTask,
+    mock_execution_context: Mock,
+) -> None:
+    recipe = {
+        "source": {"type": "demo-data", "config": {}},
+        RUN_OPTIONS_RECIPE_KEY: {"dry_run": "sometimes"},
+    }
+    args = {"recipe": json.dumps(recipe), "version": "latest"}
+    with (
+        patch(_SETUP_VENV) as mock_setup_venv,
+        patch.object(ingestion_task, "_setup_directories") as mock_setup_dirs,
+    ):
+        with pytest.raises(TaskError, match=RUN_OPTIONS_RECIPE_KEY):
             await ingestion_task.execute(args, mock_execution_context)
     mock_setup_dirs.assert_not_called()
     mock_setup_venv.assert_not_called()

@@ -45,6 +45,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
@@ -90,6 +91,7 @@ public class IncrementalReindexCatchUpStepTest {
   @Mock private Upgrade upgrade;
   @Mock private ElasticSearchIndexed indexedService;
   @Mock private ESIndexBuilder indexBuilder;
+  @Mock private UpdateIndicesService updateIndicesService;
 
   private OperationContext opContext;
   private IncrementalReindexCatchUpStep step;
@@ -114,7 +116,8 @@ public class IncrementalReindexCatchUpStepTest {
             List.of(indexedService),
             Set.of(),
             UPGRADE_VERSION,
-            new BuildIndicesConfiguration());
+            new BuildIndicesConfiguration(),
+            updateIndicesService);
   }
 
   @Test
@@ -196,7 +199,8 @@ public class IncrementalReindexCatchUpStepTest {
             List.of(indexedService),
             Set.of(),
             UPGRADE_VERSION,
-            config);
+            config,
+            updateIndicesService);
 
     when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
         .thenAnswer(
@@ -260,7 +264,8 @@ public class IncrementalReindexCatchUpStepTest {
             List.of(indexedService),
             Set.of(),
             UPGRADE_VERSION,
-            config);
+            config,
+            updateIndicesService);
 
     SystemAspect mockAspect = createMockSystemAspect("urn:li:dataset:ds1");
 
@@ -369,7 +374,8 @@ public class IncrementalReindexCatchUpStepTest {
             List.of(indexedService),
             Set.of(),
             UPGRADE_VERSION,
-            config);
+            config,
+            updateIndicesService);
 
     SystemAspect mockAspect = createMockSystemAspect("urn:li:dataset:ds1");
     AtomicInteger pending = new AtomicInteger();
@@ -441,7 +447,8 @@ public class IncrementalReindexCatchUpStepTest {
             List.of(indexedService),
             Set.of(),
             UPGRADE_VERSION,
-            config);
+            config,
+            updateIndicesService);
 
     SystemAspect mockAspect = createMockSystemAspect("urn:li:dataset:ds1");
 
@@ -1293,7 +1300,8 @@ public class IncrementalReindexCatchUpStepTest {
             List.of(indexedService),
             Set.of(),
             UPGRADE_VERSION,
-            configWithPoll);
+            configWithPoll,
+            updateIndicesService);
 
     UpgradeStepResult result = timeseriesStep.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
@@ -1335,7 +1343,8 @@ public class IncrementalReindexCatchUpStepTest {
             List.of(indexedService),
             Set.of(),
             UPGRADE_VERSION,
-            configWithPoll);
+            configWithPoll,
+            updateIndicesService);
 
     UpgradeStepResult failed = timeseriesStep.executable().apply(upgradeContext);
     assertEquals(failed.result(), DataHubUpgradeState.FAILED);

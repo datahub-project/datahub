@@ -38,6 +38,8 @@ public class V3SearchDocumentProjector {
   public static final String URN_FIELD = MappingConstants.URN_FIELD;
   public static final String ENTITY_TYPE_FIELD = MappingConstants.ENTITY_TYPE_FIELD;
   public static final String SYSTEM_METADATA_FIELD = "_systemMetadata";
+  public static final String REMOVED_FIELD = "removed";
+  public static final String TOMBSTONE_FIELD = MappingConstants.TOMBSTONE_FIELD;
 
   /**
    * Aspect JSON stored in {@code _source} and not indexed. This is the same serialization written
@@ -69,6 +71,14 @@ public class V3SearchDocumentProjector {
     if (entityRegistry != null) {
       putParsedUrnName(document, urn, entityRegistry);
     }
+    return document;
+  }
+
+  public ObjectNode newTombstoneDocument(
+      @Nonnull final Urn urn, @Nonnull final EntitySpec entitySpec) {
+    final ObjectNode document = newEntityDocument(urn, entitySpec);
+    document.put(REMOVED_FIELD, true);
+    document.put(TOMBSTONE_FIELD, true);
     return document;
   }
 
@@ -170,6 +180,7 @@ public class V3SearchDocumentProjector {
       @Nonnull final MCLItem event,
       @Nonnull final AspectSpec aspectSpec) {
     try {
+      SearchDocumentTransformer.beginV3Projection();
       final boolean isDelete = ChangeType.DELETE.equals(event.getChangeType());
       Optional<ObjectNode> transformed =
           searchDocumentTransformer
@@ -194,6 +205,8 @@ public class V3SearchDocumentProjector {
     } catch (Exception e) {
       throw propagate(
           "Failed to transform V3 aspect " + aspectSpec.getName() + " for " + event.getUrn(), e);
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
     }
   }
 
@@ -224,6 +237,7 @@ public class V3SearchDocumentProjector {
       return Optional.empty();
     }
     try {
+      SearchDocumentTransformer.beginV3Projection();
       Optional<ObjectNode> transformed =
           searchDocumentTransformer.transformAspect(
               opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
@@ -231,6 +245,8 @@ public class V3SearchDocumentProjector {
     } catch (Exception e) {
       throw propagate(
           "Failed to transform previous V3 aspect " + aspectSpec.getName() + " for " + urn, e);
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
     }
   }
 

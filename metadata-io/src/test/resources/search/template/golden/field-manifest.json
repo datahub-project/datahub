@@ -77,7 +77,7 @@
     "queryByDefault" : true,
     "valueType" : "string"
   } ],
-  "datasetIndexRoots" : [ "_aspects", "_entityType", "_system", "runId", "structuredProperties", "systemCreated", "systemIndexModified", "urn" ],
+  "datasetIndexRoots" : [ "_aspects", "_entityType", "_system", "_v3Tombstone", "runId", "structuredProperties", "systemCreated", "systemIndexModified", "urn" ],
   "datasetSharedFields" : [ "description", "glossaryTerms", "name", "other", "qualifiedName", "tags", "text" ],
   "entities" : {
     "agentSkill" : {

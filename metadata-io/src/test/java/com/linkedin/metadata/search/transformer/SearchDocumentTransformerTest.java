@@ -18,14 +18,18 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.DataMapBuilder;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.Aspect;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -287,6 +291,205 @@ public class SearchDocumentTransformerTest {
         "refEntityUrn1 description details");
     assertEquals(
         searchDocument.get("refEntityUrns").get("displayName").asText(), "refEntityUrnName");
+  }
+
+  @Test
+  public void testV3LeavesBusinessAttributeRefAsUrn() throws Exception {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
+    when(aspectRetriever.getLatestAspectObject(any(), any(), anyString()))
+        .thenReturn(new Aspect(new DataMap()));
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    Urn attributeUrn = UrnUtils.getUrn("urn:li:businessAttribute:revenue");
+
+    SearchDocumentTransformer.beginV3Projection();
+    try {
+      transformer.setSearchableRefValue(
+          businessAttributeOperationContext(aspectRetriever),
+          businessAttributeRefSpec(),
+          List.of(attributeUrn),
+          searchDocument,
+          false,
+          AuditStampUtils.createDefaultAuditStamp());
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+
+    assertEquals(searchDocument.get("businessAttributeRef").asText(), attributeUrn.toString());
+    verify(aspectRetriever, never()).getLatestAspectObject(any(), any(), anyString());
+  }
+
+  @Test
+  public void testV3ExpandsBusinessAttributeRefWhenEnabled() throws Exception {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
+    when(aspectRetriever.getLatestAspectObject(any(), any(), anyString()))
+        .thenReturn(new Aspect(new DataMap()));
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    transformer.setV3BusinessAttributeExpansionEnabled(true);
+    ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    Urn attributeUrn = UrnUtils.getUrn("urn:li:businessAttribute:revenue");
+
+    SearchDocumentTransformer.beginV3Projection();
+    try {
+      transformer.setSearchableRefValue(
+          businessAttributeOperationContext(aspectRetriever),
+          businessAttributeRefSpec(),
+          List.of(attributeUrn),
+          searchDocument,
+          false,
+          AuditStampUtils.createDefaultAuditStamp());
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+
+    assertEquals(
+        searchDocument.get("businessAttributeRef").get("urn").asText(), attributeUrn.toString());
+    verify(aspectRetriever, atLeastOnce()).getLatestAspectObject(any(), any(), anyString());
+  }
+
+  @Test
+  public void testV2StillExpandsBusinessAttributeRef() throws Exception {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
+    when(aspectRetriever.getLatestAspectObject(any(), any(), anyString()))
+        .thenReturn(new Aspect(new DataMap()));
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    Urn attributeUrn = UrnUtils.getUrn("urn:li:businessAttribute:revenue");
+
+    transformer.setSearchableRefValue(
+        businessAttributeOperationContext(aspectRetriever),
+        businessAttributeRefSpec(),
+        List.of(attributeUrn),
+        searchDocument,
+        false,
+        AuditStampUtils.createDefaultAuditStamp());
+
+    assertEquals(
+        searchDocument.get("businessAttributeRef").get("urn").asText(), attributeUrn.toString());
+    verify(aspectRetriever, atLeastOnce()).getLatestAspectObject(any(), any(), anyString());
+  }
+
+  @Test
+  public void testV3ProjectionReadsStructuredPropertiesThroughEntityClientCache() throws Exception {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test_property");
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+
+    StructuredProperties structuredProperties = new StructuredProperties();
+    StructuredPropertyValueAssignmentArray valueAssignments =
+        new StructuredPropertyValueAssignmentArray();
+    StructuredPropertyValueAssignment valueAssignment = new StructuredPropertyValueAssignment();
+    PrimitivePropertyValueArray primitivePropertyValues = new PrimitivePropertyValueArray();
+    PrimitivePropertyValue value = new PrimitivePropertyValue();
+    value.setString("testing123");
+    primitivePropertyValues.add(value);
+    valueAssignment.setPropertyUrn(propertyUrn);
+    valueAssignment.setValues(primitivePropertyValues);
+    valueAssignments.add(valueAssignment);
+    structuredProperties.setProperties(valueAssignments);
+
+    DataMapBuilder propertyDefinitionBuilder = new DataMapBuilder();
+    propertyDefinitionBuilder.addKVPair("qualifiedName", "test_property");
+    propertyDefinitionBuilder.addKVPair("valueType", "urn:li:dataType:datahub.string");
+    Map<Urn, Map<String, Aspect>> definitions =
+        Map.of(
+            propertyUrn,
+            Map.of(
+                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                new Aspect(propertyDefinitionBuilder.convertToDataMap())));
+
+    AspectRetriever primary = mock(AspectRetriever.class);
+    when(primary.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
+    SystemEntityClient entityClient = mock(SystemEntityClient.class);
+    when(entityClient.getLatestAspects(any(), any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              if (urns.contains(propertyUrn)) {
+                return definitions;
+              }
+              return urns.stream()
+                  .filter(urn -> urn.toString().startsWith("urn:li:corpuser:"))
+                  .collect(
+                      java.util.stream.Collectors.toMap(
+                          urn -> urn,
+                          urn ->
+                              Map.of(
+                                  CORP_USER_KEY_ASPECT_NAME,
+                                  new Aspect(
+                                      new CorpUserInfo()
+                                          .setActive(true)
+                                          .setEmail(urn.getId())
+                                          .setDisplayName(urn.getId())
+                                          .data()))));
+            });
+    EntityClientAspectRetriever caching =
+        EntityClientAspectRetriever.builder().entityClient(entityClient).build();
+
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(primary)
+                .cachingAspectRetriever(caching)
+                .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
+                .build());
+    caching.setSystemOperationContext(opContext);
+
+    SearchDocumentTransformer.beginV3Projection();
+    final Optional<ObjectNode> transformed;
+    try {
+      transformed =
+          transformer.transformAspect(
+              opContext,
+              UrnUtils.getUrn(entityUrn),
+              structuredProperties,
+              ENTITY_REGISTRY
+                  .getEntitySpec(DATASET_ENTITY_NAME)
+                  .getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME),
+              false,
+              AuditStampUtils.createDefaultAuditStamp());
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+
+    assertTrue(transformed.isPresent());
+    assertEquals(
+        transformed.get().get("structuredProperties.test_property").get(0).asText(), "testing123");
+    verify(primary, never()).getLatestAspectObjects(any(), any(), any());
+    verify(entityClient, atLeastOnce())
+        .getLatestAspects(
+            any(),
+            eq(Set.of(propertyUrn)),
+            eq(Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)),
+            any());
+  }
+
+  private static SearchableRefFieldSpec businessAttributeRefSpec() {
+    return ENTITY_REGISTRY
+        .getEntitySpec("schemaField")
+        .getAspectSpec("businessAttributes")
+        .getSearchableRefFieldSpecs()
+        .get(0);
+  }
+
+  private static OperationContext businessAttributeOperationContext(
+      AspectRetriever aspectRetriever) {
+    return TestOperationContexts.systemContextNoSearchAuthorization(
+        RetrieverContext.builder()
+            .aspectRetriever(aspectRetriever)
+            .cachingAspectRetriever(
+                TestOperationContexts.emptyActiveUsersAspectRetriever(() -> ENTITY_REGISTRY))
+            .graphRetriever(mock(GraphRetriever.class))
+            .searchRetriever(mock(SearchRetriever.class))
+            .build());
   }
 
   @Test
