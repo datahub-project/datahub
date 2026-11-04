@@ -752,7 +752,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 self.report.warning(
                     title="Failed to parse query",
                     message="A query from query history could not be parsed and was skipped.",
-                    context=f"query_id={raw_query.get('query_id')}",
+                    context=f"query_id={raw_query.get('query_id') if isinstance(raw_query, dict) else None}",
                     exc=e,
                     log=False,
                 )

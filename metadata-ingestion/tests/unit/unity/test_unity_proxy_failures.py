@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from databricks.sdk.service.catalog import ColumnInfo, TableInfo, TableType
+from databricks.sdk.service.sql import QueryInfo
 
 from datahub.ingestion.source.unity.config import LineageDataSource
 from datahub.ingestion.source.unity.proxy import (
@@ -218,8 +219,6 @@ def test_query_history_entry_rejected_by_the_sdk_parser_is_skipped(
 ) -> None:
     """Newer databricks-sdk versions convert fields inside QueryInfo.from_dict.
     A failure there must skip that entry, not end the whole listing."""
-    from databricks.sdk.service.sql import QueryInfo
-
     entries = [
         {
             "query_id": qid,
