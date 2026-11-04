@@ -5,24 +5,39 @@ dialect-sensitive seams: DDL, the JSON and LIKE expressions in search, and the
 connection/cursor APIs.
 """
 
+import gzip
+import json
 import pathlib
+import signal
 import sqlite3
+import subprocess
+import sys
+import threading
 import time
-from typing import Iterator
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
+from typing import Iterator, Sequence
+from unittest.mock import Mock
 
 import pytest
+from click.testing import CliRunner
 
+from datahub.cli import lite_cli
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.lite.lite_local import (
     DataHubLiteLocal,
+    LiteTransactionError,
+    LiteVersionConflict,
     PathNotFoundException,
     SearchFlavor,
 )
-from datahub.lite.lite_util import get_datahub_lite
+from datahub.lite.lite_util import DataHubLiteWrapper, LiteLocalConfig, get_datahub_lite
 from datahub.lite.sql_backed_lite import SqlBackedLite
 from datahub.lite.sqlite_lite import SqliteLite
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
     StatusClass,
     SubTypesClass,
     SystemMetadataClass,
@@ -343,3 +358,491 @@ def test_add_edge_updates_destination_and_label_together(
     assert lite._execute(
         "SELECT dst_id, dst_label FROM metadata_edge_v2 WHERE src_id = 'src:1'"
     ) == [("dst:C", "label-C")]
+
+
+def _state(lite: DataHubLiteLocal) -> dict[str, list[tuple]]:
+    assert isinstance(lite, SqlBackedLite)
+    return {
+        "aspects": lite._execute(
+            "SELECT * FROM metadata_aspect_v2 ORDER BY urn, aspect_name, version"
+        ),
+        "edges": lite._execute(
+            "SELECT * FROM metadata_edge_v2 ORDER BY src_id, relnship, dst_id"
+        ),
+    }
+
+
+def test_released_database_reads_and_accepts_conditional_writes(
+    engine: str, db_file: str
+) -> None:
+    fixture = pathlib.Path(__file__).parent / "fixtures" / f"{engine}-1.7.0.19.db.gz"
+    path = pathlib.Path(db_file)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(gzip.decompress(fixture.read_bytes()))
+    urn = "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_schema.events,PROD)"
+    lite = _open(engine, db_file)
+    try:
+        history = lite.list_versions(urn, "datasetProperties")
+        assert [v.version for v in history] == [1, 2]
+        assert history[0].value == DatasetPropertiesClass(name="first")
+        assert lite.get_aspect(urn, "datasetProperties") == history[1]
+        assert history[1].createdon == 2000
+        assert history[1].system_metadata.lastObserved == 2000
+        assert lite.write(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=DatasetPropertiesClass(name="third")
+            ),
+            if_version_match=2,
+        ) == {"datasetProperties": 3}
+    finally:
+        lite.close()
+
+
+def test_numbered_history_keeps_original_observation_metadata(
+    lite: DataHubLiteLocal,
+) -> None:
+    for name, observed, expected_version in [
+        ("first", 1000, 2),
+        ("second", 2000, 3),
+        ("third", 3000, 4),
+        ("third", 4000, 4),
+    ]:
+        versions = lite.write(
+            MetadataChangeProposalWrapper(
+                entityUrn=CUSTOMERS_URN,
+                aspect=DatasetPropertiesClass(name=name),
+                systemMetadata=SystemMetadataClass(lastObserved=observed),
+            )
+        )
+        assert versions == {"datasetProperties": expected_version}
+        latest = lite.get_aspect(CUSTOMERS_URN, "datasetProperties")
+        assert latest is not None
+        assert latest.version == expected_version
+        assert latest.system_metadata.properties == {
+            "sysVersion": str(expected_version)
+        }
+        assert isinstance(lite, SqlBackedLite)
+        live = lite._execute_one(
+            "SELECT metadata, createdon FROM metadata_aspect_v2 WHERE urn = ? AND aspect_name = ? AND version = 0",
+            [CUSTOMERS_URN, "datasetProperties"],
+        )
+        assert live is not None
+        assert json.loads(live[0]) == latest.value.to_obj()
+        assert live[1] == latest.createdon
+
+    history = lite.list_versions(CUSTOMERS_URN, "datasetProperties")
+    assert [v.version for v in history] == [1, 2, 3, 4]
+    assert lite.get_aspect(CUSTOMERS_URN, "datasetProperties", 3) == history[2]
+    assert history[2].value == DatasetPropertiesClass(name="second")
+    assert latest is not None
+    assert latest.createdon == 3000
+    assert latest.system_metadata.lastObserved == 3000
+    live_metadata = lite.get(CUSTOMERS_URN, ["datasetProperties"], details=True)
+    assert live_metadata is not None
+    live_properties = live_metadata["datasetProperties"]
+    assert isinstance(live_properties, dict)
+    assert live_properties["__systemMetadata"]["lastObserved"] == 4000
+    assert lite.write(
+        MetadataChangeProposalWrapper(
+            entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+        )
+    ) == {"status": 1}
+    assert lite.get_aspect(CUSTOMERS_URN, "status", 1) is not None
+    for urn, aspect, version in [
+        (CUSTOMERS_URN, "status", 9),
+        (CUSTOMERS_URN, "unknown", 1),
+        ("urn:li:tag:missing", "status", 1),
+    ]:
+        assert lite.get_aspect(urn, aspect, version) is None
+    assert lite.list_versions(CUSTOMERS_URN, "unknown") == []
+    for version in (0, -1):
+        with pytest.raises(ValueError):
+            lite.get_aspect(CUSTOMERS_URN, "status", version)
+
+
+def test_free_text_search_does_not_match_historical_names(
+    lite: DataHubLiteLocal,
+) -> None:
+    for name in ("old_name", "new_name"):
+        lite.write(
+            MetadataChangeProposalWrapper(
+                entityUrn=CUSTOMERS_URN, aspect=DatasetPropertiesClass(name=name)
+            )
+        )
+    assert not list(lite.search("old_name", SearchFlavor.FREE_TEXT))
+    assert [hit.id for hit in lite.search("new_name", SearchFlavor.FREE_TEXT)] == [
+        CUSTOMERS_URN
+    ]
+
+
+def test_transaction_reads_own_writes_and_rolls_back_all_state(
+    lite: DataHubLiteLocal,
+) -> None:
+    before = _state(lite)
+    with pytest.raises(RuntimeError):
+        with lite.transaction():
+            for urn in (CUSTOMERS_URN, ORDERS_URN):
+                result = lite.write(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=urn, aspect=DatasetPropertiesClass(name="staged")
+                    )
+                )
+                assert result == {"datasetProperties": 2}
+                assert lite.get_aspect(urn, "datasetProperties", 2) is not None
+                live = lite.get(urn, ["datasetProperties"], typed=True)
+                assert live is not None
+                assert live["datasetProperties"] == DatasetPropertiesClass(
+                    name="staged"
+                )
+            raise RuntimeError("cancel revision")
+    assert _state(lite) == before
+    with lite.transaction():
+        assert lite.write(
+            MetadataChangeProposalWrapper(
+                entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+            )
+        ) == {"status": 1}
+    assert lite.get_aspect(CUSTOMERS_URN, "status", 1) is not None
+
+
+def test_later_storage_failure_rolls_back_prior_writes(
+    lite: DataHubLiteLocal, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert isinstance(lite, SqlBackedLite)
+    execute = lite._execute
+    before = _state(lite)
+    failed_urn = "urn:li:tag:third"
+
+    def fail_third(query: str, params: Sequence[object] = ()) -> list[tuple]:
+        if (
+            query.startswith("INSERT INTO metadata_aspect_v2")
+            and params[0] == failed_urn
+        ):
+            raise OSError("disk unavailable")
+        return execute(query, params)
+
+    monkeypatch.setattr(lite, "_execute", fail_third)
+    with pytest.raises(OSError):
+        with lite.transaction():
+            for urn in (CUSTOMERS_URN, ORDERS_URN, failed_urn):
+                lite.write(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=urn, aspect=StatusClass(removed=False)
+                    )
+                )
+    assert _state(lite) == before
+
+
+@pytest.mark.parametrize("explicit_transaction", [False, True])
+def test_hook_failure_rolls_back_aspect_and_edges(
+    lite: DataHubLiteLocal, monkeypatch: pytest.MonkeyPatch, explicit_transaction: bool
+) -> None:
+    assert isinstance(lite, SqlBackedLite)
+    before = _state(lite)
+    add_edge = lite.add_edge
+
+    def fail_after_edge(*args: object, **kwargs: object) -> None:
+        add_edge(CUSTOMERS_URN, "name", "staged", remove_existing=True)
+        raise OSError("edge hook failed")
+
+    monkeypatch.setattr(lite, "add_edge", fail_after_edge)
+    with pytest.raises(OSError):
+        with lite.transaction() if explicit_transaction else nullcontext():
+            lite.write(
+                MetadataChangeProposalWrapper(
+                    entityUrn=CUSTOMERS_URN,
+                    aspect=DatasetPropertiesClass(name="staged"),
+                )
+            )
+    assert _state(lite) == before
+
+
+def test_standalone_mce_is_atomic(
+    lite: DataHubLiteLocal, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert isinstance(lite, SqlBackedLite)
+    before = _state(lite)
+    execute = lite._execute
+
+    def fail_status(query: str, params: Sequence[object] = ()) -> list[tuple]:
+        if query.startswith("INSERT INTO metadata_aspect_v2") and params[1] == "status":
+            raise OSError("second aspect failed")
+        return execute(query, params)
+
+    record = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=CUSTOMERS_URN,
+            aspects=[DatasetPropertiesClass(name="staged"), StatusClass(removed=False)],
+        )
+    )
+    with pytest.raises(ValueError):
+        lite.write(record, if_version_match=1)
+    monkeypatch.setattr(lite, "_execute", fail_status)
+    with pytest.raises(OSError):
+        lite.write(record)
+    assert _state(lite) == before
+    monkeypatch.undo()
+    assert lite.write(record) == {"datasetProperties": 2, "status": 1}
+
+
+def test_remove_edge_failure_is_not_swallowed(
+    lite: DataHubLiteLocal, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert isinstance(lite, SqlBackedLite)
+    before = _state(lite)
+    execute = lite._execute
+
+    def fail_delete(query: str, params: Sequence[object] = ()) -> list[tuple]:
+        if query.startswith("DELETE FROM metadata_edge_v2"):
+            raise OSError("edge delete failed")
+        return execute(query, params)
+
+    monkeypatch.setattr(lite, "_execute", fail_delete)
+    with pytest.raises(LiteTransactionError):
+        with lite.transaction():
+            lite.write(
+                MetadataChangeProposalWrapper(
+                    entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+                )
+            )
+            with pytest.raises(OSError):
+                lite.remove_edge(CUSTOMERS_URN, "name")
+    assert _state(lite) == before
+
+
+@pytest.mark.parametrize("operation", ["reindex", "close", "destroy", "transaction"])
+def test_transaction_rejects_lifecycle_operations(
+    lite: DataHubLiteLocal, operation: str
+) -> None:
+    before = _state(lite)
+    with pytest.raises(RuntimeError):
+        with lite.transaction():
+            lite.write(
+                MetadataChangeProposalWrapper(
+                    entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+                )
+            )
+            if operation == "transaction":
+                with lite.transaction():
+                    pytest.fail("nested transaction was accepted")
+            else:
+                getattr(lite, operation)()
+    assert _state(lite) == before
+    assert pathlib.Path(lite.location()).exists()
+
+
+def test_conditional_writes_and_caught_conflicts(lite: DataHubLiteLocal) -> None:
+    record = MetadataChangeProposalWrapper(
+        entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+    )
+    with pytest.raises(LiteVersionConflict) as absent:
+        lite.write(record, if_version_match=1)
+    assert absent.value.current_version == -1
+    assert lite.write(record, if_version_match=-1) == {"status": 1}
+    assert lite.write(record, if_version_match=1) == {"status": 1}
+    record.aspect = StatusClass(removed=True)
+    assert lite.write(record, if_version_match=1) == {"status": 2}
+    before = _state(lite)
+    for expected in (-1, 1):
+        with pytest.raises(LiteVersionConflict) as conflict:
+            lite.write(record, if_version_match=expected)
+        assert conflict.value.current_version == 2
+        assert _state(lite) == before
+    with pytest.raises(LiteTransactionError):
+        with lite.transaction():
+            lite.write(
+                MetadataChangeProposalWrapper(
+                    entityUrn=ORDERS_URN, aspect=StatusClass(removed=False)
+                )
+            )
+            with pytest.raises(LiteVersionConflict):
+                lite.write(record, if_version_match=1)
+            # Reads remain usable, but the caught error must not permit a commit.
+            assert lite.get_aspect(ORDERS_URN, "status") is not None
+            with pytest.raises(LiteTransactionError):
+                lite.write(record)
+    assert _state(lite) == before
+    assert lite.write(record, if_version_match=2) == {"status": 2}
+
+
+def test_sqlite_conditional_writers_cannot_overwrite_each_other(db_file: str) -> None:
+    initial = _open("sqlite", db_file)
+    initial.write(
+        MetadataChangeProposalWrapper(
+            entityUrn=CUSTOMERS_URN, aspect=DatasetPropertiesClass(name="initial")
+        )
+    )
+    initial.close()
+    ready = threading.Barrier(2)
+
+    def attempt(name: str) -> str:
+        connection = _open("sqlite", db_file)
+        try:
+            base = connection.get_aspect(CUSTOMERS_URN, "datasetProperties")
+            assert base is not None and base.version == 1
+            ready.wait(timeout=10)
+            try:
+                connection.write(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=CUSTOMERS_URN,
+                        aspect=DatasetPropertiesClass(name=name),
+                    ),
+                    if_version_match=base.version,
+                )
+                return "written"
+            except LiteVersionConflict as conflict:
+                assert conflict.current_version == 2
+                return "conflict"
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sorted(pool.map(attempt, ["first", "second"])) == ["conflict", "written"]
+    reopened = _open("sqlite", db_file, read_only=True)
+    try:
+        assert [
+            v.version
+            for v in reopened.list_versions(CUSTOMERS_URN, "datasetProperties")
+        ] == [1, 2]
+    finally:
+        reopened.close()
+
+
+def test_forwarding_wrapper_delegates_and_only_forwards_success(
+    lite: DataHubLiteLocal,
+) -> None:
+    sink = Mock()
+    wrapper = DataHubLiteWrapper(lite, sink)
+    record = MetadataChangeProposalWrapper(
+        entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+    )
+    assert wrapper.write(record, if_version_match=-1) == {"status": 1}
+    sink.write_record_async.assert_called_once()
+    assert wrapper.get_aspect(CUSTOMERS_URN, "status", 1) == lite.get_aspect(
+        CUSTOMERS_URN, "status", 1
+    )
+    assert wrapper.list_versions(CUSTOMERS_URN, "status") == lite.list_versions(
+        CUSTOMERS_URN, "status"
+    )
+    with pytest.raises(LiteVersionConflict):
+        wrapper.write(record, if_version_match=-1)
+    sink.write_record_async.assert_called_once()
+    with pytest.raises(NotImplementedError):
+        with wrapper.transaction():
+            pytest.fail("forwarding transaction was accepted")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="SIGKILL is unavailable on Windows")
+def test_process_death_does_not_publish_partial_transaction(
+    engine: str, db_file: str
+) -> None:
+    committed = _open(engine, db_file)
+    with committed.transaction():
+        for name in ("first", "second", "third"):
+            committed.write(
+                MetadataChangeProposalWrapper(
+                    entityUrn=f"urn:li:document:{name}",
+                    aspect=StatusClass(removed=False),
+                )
+            )
+    before = _state(committed)
+    committed.close()
+    child = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import os
+import signal
+import sys
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.lite.lite_util import get_datahub_lite
+from datahub.metadata.schema_classes import StatusClass
+lite = get_datahub_lite({"type": sys.argv[1], "config": {"file": sys.argv[2]}})
+with lite.transaction():
+    for name in ("first", "second"):
+        lite.write(MetadataChangeProposalWrapper(entityUrn=f"urn:li:document:{name}", aspect=StatusClass(removed=True)), if_version_match=1)
+    os.kill(os.getpid(), signal.SIGKILL)
+""",
+            engine,
+            db_file,
+        ],
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+    assert child.returncode == -signal.SIGKILL, child.stderr.decode()
+    reopened = _open(engine, db_file)
+    try:
+        # close() rebuilt the browse index before the child ran; compare aspects
+        # and verify there are no uncommitted versions after recovery.
+        assert _state(reopened)["aspects"] == before["aspects"]
+        assert all(
+            len(reopened.list_versions(f"urn:li:document:{name}", "status")) == 1
+            for name in ("first", "second", "third")
+        )
+    finally:
+        reopened.close()
+
+
+def test_cli_version_and_history(
+    engine: str, db_file: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = _open(engine, db_file)
+    for removed in (False, True):
+        store.write(
+            MetadataChangeProposalWrapper(
+                entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=removed)
+            )
+        )
+    store.close()
+    config = LiteLocalConfig(type=engine, config={"file": db_file})
+    monkeypatch.setattr(lite_cli, "get_lite_config", lambda: config)
+    runner = CliRunner()
+    args = ["--urn", CUSTOMERS_URN, "--aspect", "status"]
+    result = runner.invoke(lite_cli.lite, ["get", *args, "--version", "1"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["value"] == {"removed": False}
+    assert json.loads(result.output)["version"] == 1
+    result = runner.invoke(lite_cli.lite, ["get", *args, "--version", "99"])
+    assert result.exit_code == 0 and json.loads(result.output) is None
+    result = runner.invoke(lite_cli.lite, ["history", *args])
+    assert result.exit_code == 0, result.output
+    assert [v["version"] for v in json.loads(result.output)] == [1, 2]
+    for extra in (
+        ["--aspect", "datasetProperties"],
+        ["--asof", "2020-01-01"],
+        ["--path", "/"],
+        ["--version", "0"],
+    ):
+        result = runner.invoke(lite_cli.lite, ["get", *args, "--version", "1", *extra])
+        assert result.exit_code == 2
+    result = runner.invoke(
+        lite_cli.lite, ["get", "--urn", CUSTOMERS_URN, "--version", "1"]
+    )
+    assert result.exit_code == 2
+
+
+def test_write_preserves_default_and_supplied_system_metadata(
+    lite: DataHubLiteLocal,
+) -> None:
+    record = MetadataChangeProposalWrapper(
+        entityUrn=CUSTOMERS_URN, aspect=StatusClass(removed=False)
+    )
+    lite.write(record)
+    assert record.systemMetadata is not None
+    live = lite.get(CUSTOMERS_URN, ["status"], details=True)
+    assert live is not None and isinstance(live["status"], dict)
+    assert live["status"]["__systemMetadata"]["runId"] == record.systemMetadata.runId
+    record.aspect = StatusClass(removed=True)
+    record.systemMetadata = SystemMetadataClass(
+        lastObserved=1000, runId="example-run", properties={"source": "example"}
+    )
+    lite.write(record)
+    snapshot = lite.get_aspect(CUSTOMERS_URN, "status")
+    assert snapshot is not None
+    assert snapshot.system_metadata.runId == "example-run"
+    assert snapshot.system_metadata.properties == {
+        "source": "example",
+        "sysVersion": "2",
+    }

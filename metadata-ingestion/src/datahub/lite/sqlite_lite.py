@@ -65,6 +65,10 @@ class SqliteLite(SqlBackedLite[SqliteLiteConfig]):
     def _execute_one(self, query: str, params: Sequence[Any] = ()) -> Optional[Tuple]:
         return self.sqlite_client.execute(query, params).fetchone()
 
+    def _begin(self) -> None:
+        # Acquire the write lock before reading a conditional write's version.
+        self.sqlite_client.execute("BEGIN IMMEDIATE")
+
     def _commit(self) -> None:
         self.sqlite_client.commit()
 
