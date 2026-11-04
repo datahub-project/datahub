@@ -185,6 +185,15 @@ _ODBC_ATHENA_NAV_CATALOG_SCHEMA_TABLE = (
     "in\n    accounts_Table"
 )
 
+# Athena reached through Odbc.Query rather than navigation. sqlglot lowercases the
+# whole URN, platform_instance included, so a mixed-case configured instance only
+# survives the catalog strip because the prefix match ignores case.
+_ODBC_ATHENA_QUERY_CATALOG_TABLE = (
+    'let\n    Source = Odbc.Query("driver={Simba Amazon Athena ODBC Driver};'
+    'dsn=athena_prod", "SELECT * FROM awsdatacatalog.mydb.orders")\n'
+    "in\n    Source"
+)
+
 
 # Db2 (three-tier: the standalone Db2Source emits database.schema.object) ODBC
 # navigation that surfaces a Database node and the leaf table but omits Schema.
@@ -378,6 +387,18 @@ _ODBC_NAV_SUCCESS_CASES = [
         },
         "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.accounts,PROD)",
         id="athena-platform-instance-from-dataset-type-mapping",
+    ),
+    pytest.param(
+        _ODBC_ATHENA_QUERY_CATALOG_TABLE,
+        "orders",
+        "mydb.orders",
+        {
+            "server_to_platform_instance": {
+                "athena_prod": {"platform_instance": "My_Inst", "env": "PROD"}
+            }
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:athena,my_inst.mydb.orders,PROD)",
+        id="athena-odbc-query-mixed-case-instance-strips-catalog",
     ),
     pytest.param(
         _ODBC_DB2_NAV_DATABASE_NO_SCHEMA,
