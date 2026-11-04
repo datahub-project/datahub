@@ -5,6 +5,7 @@ sends the correct URL, headers, and body shape — which is the contract that
 matters for parity with the Java GMS providers.
 """
 
+from typing import Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -838,3 +839,65 @@ def test_bedrock_cohere_long_query_matches_gms(task):
     else:
         assert body["texts"] == [text]
         assert "truncate" not in body
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        # Each emoji is two UTF-16 code units, so 1,024 of them fill the limit.
+        ("😀" * 1100, "😀" * 1024),
+        # A pair split at the boundary keeps its first half, as Java's substring does.
+        ("x" + "😀" * 1100, "x" + "😀" * 1023 + "\ud83d"),
+    ],
+)
+def test_bedrock_query_truncates_by_utf16_units_like_gms(text, expected):
+    import json
+
+    from datahub.ingestion.source.unstructured.embedding_providers.bedrock import (
+        BedrockEmbeddingProvider,
+    )
+
+    with patch("boto3.client") as client:
+        client.return_value.invoke_model.return_value = {
+            "body": MagicMock(read=lambda: json.dumps({"embeddings": [[1.0]]}))
+        }
+        provider = BedrockEmbeddingProvider(
+            model="cohere.embed-english-v3", aws_region="us-east-1"
+        )
+        provider.embed([text], task=EmbeddingTask.QUERY)
+    body = json.loads(client.return_value.invoke_model.call_args.kwargs["body"])
+    assert body["texts"] == [expected]
+
+
+@pytest.mark.parametrize("name", ["cohere", "openai", "vertex_ai"])
+def test_session_owning_providers_close_their_session(name):
+    from datahub.ingestion.source.unstructured.embedding_providers.cohere import (
+        CohereEmbeddingProvider,
+    )
+    from datahub.ingestion.source.unstructured.embedding_providers.openai import (
+        OpenAIEmbeddingProvider,
+    )
+    from datahub.ingestion.source.unstructured.embedding_providers.vertex_ai import (
+        VertexAIEmbeddingProvider,
+    )
+
+    provider: Union[
+        CohereEmbeddingProvider, OpenAIEmbeddingProvider, VertexAIEmbeddingProvider
+    ]
+    if name == "cohere":
+        provider = CohereEmbeddingProvider(model="embed-english-v3.0", api_key="k")
+    elif name == "openai":
+        provider = OpenAIEmbeddingProvider(model="text-embedding-3-small", api_key="k")
+    else:
+        with (
+            patch("google.auth.default", return_value=(MagicMock(), "project")),
+            patch(
+                "datahub.ingestion.source.unstructured.embedding_providers.vertex_ai.AuthorizedSession"
+            ),
+        ):
+            provider = VertexAIEmbeddingProvider(
+                model="gemini-embedding-001", project_id=None, location=None
+            )
+    with patch.object(provider._session, "close") as close:
+        provider.close()
+    close.assert_called_once_with()

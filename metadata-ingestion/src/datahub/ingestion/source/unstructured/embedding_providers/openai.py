@@ -52,6 +52,9 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
             }
         )
 
+    def close(self) -> None:
+        self._session.close()
+
     def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
         # api.openai.com embeddings are symmetric. provider 'local' also uses
         # this adapter and passes task through unused, even for asymmetric models.

@@ -343,19 +343,25 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         with self.report.new_stage(STAGE_DOCUMENTS):
             total = len(tree.documents)
             processed = 0
-            for start in range(0, total, CHANGE_DETECTION_BATCH_SIZE):
-                page = tree.documents[start : start + CHANGE_DETECTION_BATCH_SIZE]
-                stored = self._load_stored_documents(
-                    [ref.file.id for ref in page if ref.file.version]
-                )
-                for ref in page:
-                    yield from self._process_document_safely(
-                        ref, tree, stored.get(make_document_urn(ref.file.id))
+            try:
+                for start in range(0, total, CHANGE_DETECTION_BATCH_SIZE):
+                    page = tree.documents[start : start + CHANGE_DETECTION_BATCH_SIZE]
+                    stored = self._load_stored_documents(
+                        [ref.file.id for ref in page if ref.file.version]
                     )
-                    processed += 1
-                    if processed % PROGRESS_LOG_INTERVAL == 0 or processed == total:
-                        logger.info("Processed %d of %d Google Docs", processed, total)
-            self._merge_chunking_logs()
+                    for ref in page:
+                        yield from self._process_document_safely(
+                            ref, tree, stored.get(make_document_urn(ref.file.id))
+                        )
+                        processed += 1
+                        if processed % PROGRESS_LOG_INTERVAL == 0 or processed == total:
+                            logger.info(
+                                "Processed %d of %d Google Docs", processed, total
+                            )
+            finally:
+                # Kept when a server-wide embedding failure ends the run, so the
+                # report still shows what happened to the documents before it.
+                self._merge_chunking_logs()
             yield from self._emit_presence_if_idle()
 
     def _emit_presence_if_idle(self) -> Iterable[MetadataWorkUnit]:
@@ -946,40 +952,9 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
         config: GoogleDriveSourceConfig,
         graph: Optional[DataHubGraph] = None,
     ) -> CapabilityReport:
-        from datahub.cli.config_utils import load_client_config
-
-        owned_graph = None
-        try:
-            if graph is None and (
-                config.datahub is not None or config.embedding.provider == "datahub"
-            ):
-                owned_graph = DataHubGraph(
-                    config=config.datahub
-                    or load_client_config(refresh_per_request=True)
-                )
-                graph = owned_graph
-            resolved = DocumentChunkingSource.resolve_embedding_config(
-                config.embedding, graph
-            )
-            return DocumentChunkingSource.test_embedding_capability(
-                resolved, graph=graph
-            )
-        except ValueError as e:
-            return CapabilityReport(
-                capable=False,
-                failure_reason=str(e),
-                mitigation_message="Fix the embedding configuration or enable "
-                "semantic search on the DataHub server.",
-            )
-        except Exception as e:
-            return CapabilityReport(
-                capable=False,
-                failure_reason=f"Failed to resolve embedding configuration: {e}",
-                mitigation_message="Check the embedding configuration.",
-            )
-        finally:
-            if owned_graph is not None:
-                owned_graph.close()
+        return DocumentChunkingSource.test_semantic_search_capability(
+            config.embedding, datahub=config.datahub, graph=graph
+        )
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:

@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -25,6 +26,9 @@ from datahub.ingestion.source.unstructured.chunking_source import (
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingResult,
     EmbeddingTask,
+)
+from datahub.ingestion.source.unstructured.embedding_target import (
+    resolve_embedding_target,
 )
 from datahub.metadata.schema_classes import (
     EmbeddingChunkClass,
@@ -701,6 +705,10 @@ def test_test_embedding_capability_uses_factory_and_returns_dimension():
     assert mock_factory.call_count == 1
     assert mock_factory.call_args.args[0] is config
     assert mock_factory.call_args.kwargs["graph"] is None
+    # The provider is built from the same resolved target a run uses.
+    assert mock_factory.call_args.kwargs["target"] == resolve_embedding_target(config)
+    # A provider built only for the check is closed afterwards.
+    fake_provider.close.assert_called_once_with()
 
 
 # ---------------------------------------------------------------------------
@@ -1323,6 +1331,49 @@ def test_batch_success_recorded_in_state(pipeline_context, chunking_config):
         list(source._process_batch())
 
     assert doc["urn"] in source.document_state
+
+
+def test_server_wide_failure_keeps_state_for_documents_already_embedded(
+    pipeline_context, chunking_config
+):
+    """A server-wide failure ends the run, but documents embedded before it keep
+    their state, so the next run does not embed (and bill) them again."""
+    with patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
+        )
+    source.config.incremental_mode = True
+
+    def document(name: str) -> dict:
+        return {
+            "urn": f"urn:li:document:(test,{name},PROD)",
+            "custom_properties": {
+                "unstructured_elements": '[{"type": "Title", "text": "Test Title"}]'
+            },
+        }
+
+    first, second, third = document("doc1"), document("doc2"), document("doc3")
+    with (
+        patch.object(source, "_fetch_documents", return_value=[first, second, third]),
+        patch.object(source, "_save_state") as save_state,
+        patch.object(
+            source,
+            "_generate_embeddings",
+            side_effect=[
+                [[0.1] * 4],
+                ServerEmbeddingRunError("embedding credits are exhausted"),
+                [[0.1] * 4],
+            ],
+        ) as generate,
+        pytest.raises(ServerEmbeddingRunError),
+    ):
+        list(source._process_batch())
+
+    save_state.assert_called_once_with()
+    assert first["urn"] in source.document_state
+    assert second["urn"] not in source.document_state
+    # The run stopped at the failure instead of trying the next document.
+    assert generate.call_count == 2
 
 
 def test_malformed_elements_json_not_recorded_in_state(

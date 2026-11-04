@@ -41,6 +41,9 @@ class CohereEmbeddingProvider(EmbeddingProvider):
             }
         )
 
+    def close(self) -> None:
+        self._session.close()
+
     def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
         payload = post_json(
             COHERE_API_URL,

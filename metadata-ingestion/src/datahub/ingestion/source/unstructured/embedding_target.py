@@ -67,7 +67,8 @@ def resolve_embedding_target(
                 f"and key {index.model_embedding_key!r}. Remove the local overrides "
                 "or align those fields with the server."
             )
-        provider = EmbeddingConfig._normalize_provider(index.provider)
+        # Same normalization as the direct path, which rejects unknown providers.
+        provider = EmbeddingConfig._normalize_provider_from_server(index.provider)
         model = index.model_id
         key = index.model_embedding_key
     if provider is None or model is None:

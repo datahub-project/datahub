@@ -2385,6 +2385,27 @@ class TestFingerprintFollowsServerEmbeddingConfig:
             self.URN, self.TEXT
         )
 
+    def test_storage_key_change_reembeds_and_default_key_keeps_old_hashes(
+        self, tmp_path
+    ):
+        # The default key adds nothing, so hashes recorded before the key was
+        # fingerprinted stay valid.
+        default = self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3)
+        assert "embedding_model_key" not in default._get_processing_config_fingerprint()
+        self._record_processed(default)
+
+        # The server writes the same model under a new key: vectors stored under
+        # the old key would be orphaned, so the document must be embedded again.
+        assert _SERVER_BEDROCK_COHERE_V3.embedding_config is not None
+        renamed = ServerSemanticSearchConfig(
+            enabled=True,
+            enabled_entities=["document"],
+            embedding_config=_SERVER_BEDROCK_COHERE_V3.embedding_config.model_copy(
+                update={"model_embedding_key": "cohere_embed_v3_custom"}
+            ),
+        )
+        assert self._run_source(tmp_path, renamed)._should_process(self.URN, self.TEXT)
+
     @pytest.mark.parametrize("pooling", [None, "cls", "CLS"])
     def test_default_onnx_pooling_is_not_fingerprinted(
         self, tmp_path, monkeypatch, pooling

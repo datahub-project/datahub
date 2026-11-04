@@ -71,6 +71,7 @@ from datahub.ingestion.source.unstructured.chunking_source import (
     compute_source_text_sha256,
 )
 from datahub.ingestion.source.unstructured.embedding_target import (
+    model_storage_key,
     resolve_embedding_target,
 )
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
@@ -1585,6 +1586,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             pooling = target.onnx_pooling or "unknown_server_pooling"
             if pooling != "cls":
                 fingerprint["onnx_pooling"] = pooling
+        # The storage key names the semanticContent entry the vectors are written
+        # under. Only a key that differs from the model's default is fingerprinted,
+        # so hashes recorded before this field stay valid.
+        if target is not None and target.model_embedding_key != model_storage_key(
+            target.model_id
+        ):
+            fingerprint["embedding_model_key"] = target.model_embedding_key
         return fingerprint
 
     def _calculate_text_hash(self, text: str) -> str:

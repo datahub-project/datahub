@@ -62,6 +62,9 @@ class VertexAIEmbeddingProvider(EmbeddingProvider):
             f"publishers/google/models/{self._model}:predict"
         )
 
+    def close(self) -> None:
+        self._session.close()
+
     def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
         # Asymmetric Gemini embedding models require a task_type, as
         # VertexAiEmbeddingProvider.java sends.

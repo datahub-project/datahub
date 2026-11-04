@@ -1246,49 +1246,13 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             CapabilityReport for semantic search capability
         """
-        from datahub.cli.config_utils import load_client_config
         from datahub.ingestion.source.unstructured.chunking_source import (
             DocumentChunkingSource,
         )
 
-        owned_graph = None
-        try:
-            if graph is None and (
-                config.datahub is not None or config.embedding.provider == "datahub"
-            ):
-                owned_graph = DataHubGraph(
-                    config=config.datahub
-                    or load_client_config(refresh_per_request=True)
-                )
-                graph = owned_graph
-
-            # Use shared resolution logic (server → defaults)
-            resolved_config = DocumentChunkingSource.resolve_embedding_config(
-                config.embedding, graph
-            )
-
-            # Test the resolved configuration
-            return DocumentChunkingSource.test_embedding_capability(
-                resolved_config, graph=graph
-            )
-
-        except ValueError as e:
-            # Config validation failed (e.g., semantic search not enabled on server)
-            return CapabilityReport(
-                capable=False,
-                failure_reason=str(e),
-                mitigation_message="Fix the embedding configuration or enable semantic search on DataHub server.",
-            )
-        except Exception as e:
-            # Unexpected error during config resolution
-            return CapabilityReport(
-                capable=False,
-                failure_reason=f"Failed to resolve embedding configuration: {e}",
-                mitigation_message="Check DataHub server connection and embedding configuration.",
-            )
-        finally:
-            if owned_graph is not None:
-                owned_graph.close()
+        return DocumentChunkingSource.test_semantic_search_capability(
+            config.embedding, datahub=config.datahub, graph=graph
+        )
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:  # noqa: C901
@@ -1526,5 +1490,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
     def close(self) -> None:
         """Clean up resources."""
-        self.chunking_source.close()
-        super().close()
+        try:
+            self.chunking_source.close()
+        finally:
+            super().close()

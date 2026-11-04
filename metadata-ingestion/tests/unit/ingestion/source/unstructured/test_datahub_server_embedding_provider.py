@@ -134,6 +134,9 @@ def test_request_shape_ordering_model_and_authenticated_session(graph, task):
                 "/custom/embeddings?version=1",
                 "/custom/embeddings#fragment",
                 "embeddings",
+                # urlsplit strips the tab, so these parse as an authority or fail.
+                "/\t/example.invalid/embeddings",
+                "/\t/[",
             ]
         ],
     ],
@@ -483,7 +486,7 @@ def test_connector_capability_passes_graph_and_closes_only_owned(
         graph.server_config = RestServiceConfig(raw_config={})
     with (
         patch(
-            f"datahub.ingestion.source.{source_name}.{source_name}_source.DataHubGraph",
+            "datahub.ingestion.source.unstructured.chunking_source.DataHubGraph",
             return_value=graph,
         ) as constructor,
         patch.object(

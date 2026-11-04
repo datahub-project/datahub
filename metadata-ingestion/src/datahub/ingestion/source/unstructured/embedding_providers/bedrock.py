@@ -19,6 +19,19 @@ from datahub.ingestion.source.unstructured.embedding_providers.base import (
 # "cohere.embed-english-v3" or "amazon.titan-embed-text-v2:0".
 _COHERE_PREFIX = "cohere."
 _TITAN_PREFIX = "amazon.titan-embed"
+# GMS truncates a query to this many characters before embedding it.
+_QUERY_MAX_CHARS = 2048
+
+
+def _java_prefix(text: str, length: int) -> str:
+    """`text.substring(0, length)` as Java computes it, counting UTF-16 code units.
+
+    Characters outside the Basic Multilingual Plane count twice, and a surrogate
+    pair split at the boundary keeps its first half, so the query embedded here
+    matches the one GMS embeds.
+    """
+    units = text.encode("utf-16-le", "surrogatepass")
+    return units[: 2 * length].decode("utf-16-le", "surrogatepass")
 
 
 class BedrockEmbeddingProvider(EmbeddingProvider):
@@ -35,7 +48,7 @@ class BedrockEmbeddingProvider(EmbeddingProvider):
         # substring search so unrelated models don't get mis-formatted.
         if self._model.startswith(_COHERE_PREFIX):
             body = {
-                "texts": [text[:2048] for text in texts]
+                "texts": [_java_prefix(text, _QUERY_MAX_CHARS) for text in texts]
                 if task is EmbeddingTask.QUERY
                 else texts,
                 "input_type": "search_query"

@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator, Iterable, Optional
 
+from datahub.cli.config_utils import load_client_config
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -586,25 +587,29 @@ class DocumentChunkingSource(Source):
         # Fetch documents from DataHub
         documents = self._fetch_documents()
 
-        for doc in documents:
-            # Check if document needs processing (incremental mode)
-            if self.config.incremental_mode and not self.config.force_reprocess:
-                if not self._should_process_document(doc):
-                    logger.debug(f"Skipping document {doc['urn']} (content unchanged)")
-                    self.report.report_document_skipped_unchanged()
-                    continue
+        try:
+            for doc in documents:
+                # Check if document needs processing (incremental mode)
+                if self.config.incremental_mode and not self.config.force_reprocess:
+                    if not self._should_process_document(doc):
+                        logger.debug(
+                            f"Skipping document {doc['urn']} (content unchanged)"
+                        )
+                        self.report.report_document_skipped_unchanged()
+                        continue
 
-            # Process document and yield any workunits (SemanticContent aspects)
-            processed_ok = yield from self._process_single_document(doc)
+                # Process document and yield any workunits (SemanticContent aspects)
+                processed_ok = yield from self._process_single_document(doc)
 
-            # Update state only when processing did not fail — recording the hash
-            # for a failed document would skip it as "unchanged" forever.
-            if self.config.incremental_mode and processed_ok is not False:
-                self._update_document_state(doc)
-
-        # Save state file after processing all documents
-        if self.config.incremental_mode:
-            self._save_state()
+                # Update state only when processing did not fail — recording the hash
+                # for a failed document would skip it as "unchanged" forever.
+                if self.config.incremental_mode and processed_ok is not False:
+                    self._update_document_state(doc)
+        finally:
+            # Saved even when a server-wide embedding failure ends the run, so
+            # documents embedded before it are not embedded (and billed) again.
+            if self.config.incremental_mode:
+                self._save_state()
 
     def _initialize_state_tracking(self) -> None:
         """Initialize state tracking for incremental mode."""
@@ -1458,6 +1463,53 @@ class DocumentChunkingSource(Source):
             return (
                 f"Check your {embedding_config.provider} configuration and credentials."
             )
+
+    @staticmethod
+    def test_semantic_search_capability(
+        embedding_config: "EmbeddingConfig",
+        *,
+        datahub: Optional[DatahubClientConfig],
+        graph: Optional[DataHubGraph] = None,
+    ) -> CapabilityReport:
+        """Resolve the embedding configuration and test it, as a run would.
+
+        For sources whose connection test has no graph of its own: a graph is
+        created from `datahub` (or the SDK defaults, which `provider: datahub`
+        needs) and closed afterwards. A borrowed `graph` is never closed.
+        """
+        owned_graph = None
+        try:
+            if graph is None and (
+                datahub is not None or embedding_config.provider == "datahub"
+            ):
+                owned_graph = DataHubGraph(
+                    config=datahub or load_client_config(refresh_per_request=True)
+                )
+                graph = owned_graph
+            resolved = DocumentChunkingSource.resolve_embedding_config(
+                embedding_config, graph
+            )
+            return DocumentChunkingSource.test_embedding_capability(
+                resolved, graph=graph
+            )
+        except ValueError as e:
+            # Config validation failed, e.g. semantic search is off on the server.
+            return CapabilityReport(
+                capable=False,
+                failure_reason=str(e),
+                mitigation_message="Fix the embedding configuration or enable "
+                "semantic search on the DataHub server.",
+            )
+        except Exception as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Failed to resolve embedding configuration: {e}",
+                mitigation_message="Check the DataHub server connection and the "
+                "embedding configuration.",
+            )
+        finally:
+            if owned_graph is not None:
+                owned_graph.close()
 
     @staticmethod
     def test_embedding_capability(
