@@ -233,9 +233,10 @@ public class EntityRegistryParityTest {
     Set<String> unknown = new TreeSet<>();
     for (Map.Entry<String, String> entry : mirrored.entrySet()) {
       Set<String> fromYaml = yamlEntityTypes(entry.getKey());
+      // Compared as lists: the prioritized* lists are order-sensitive.
       assertEquals(
-          fromYaml,
-          csv(entry.getValue()),
+          List.copyOf(fromYaml),
+          List.copyOf(csv(entry.getValue())),
           entry.getKey()
               + " in application.yaml and its EntityTypeListConfig constant have drifted apart");
       fromYaml.stream()
