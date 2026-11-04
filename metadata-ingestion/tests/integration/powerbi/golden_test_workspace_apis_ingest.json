@@ -924,12 +924,12 @@
             ],
             "foreignKeys": [
                 {
-                    "name": "Policies.EffectiveDate -> Claims By State.State (inactive)",
+                    "name": "Policies.State -> Claims By State.State (inactive)",
                     "foreignFields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV),State)"
                     ],
                     "sourceFields": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),EffectiveDate)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),State)"
                     ],
                     "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
                 }
@@ -2546,12 +2546,12 @@
             ],
             "foreignKeys": [
                 {
-                    "name": "Policies.EffectiveDate -> Claims By State.State (inactive)",
+                    "name": "Policies.State -> Claims By State.State (inactive)",
                     "foreignFields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV),State)"
                     ],
                     "sourceFields": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),EffectiveDate)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),State)"
                     ],
                     "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
                 }

@@ -51,6 +51,14 @@ PARTITION_KINDS: Dict[str, PartitionKind] = {
 }
 PARTITION_MODE_DIRECT_LAKE = "directLake"
 
+# Keywords of the objects the connector reads. An unrecognised line opening
+# one of them is an object that went missing; any other unrecognised line
+# (annotations, extended properties, newer TMDL syntax) carries nothing the
+# connector emits.
+TRACKED_OBJECT_KEYWORDS = frozenset(
+    {KEYWORD_TABLE, KEYWORD_COLUMN, KEYWORD_MEASURE, KEYWORD_PARTITION}
+)
+
 DOC_COMMENT_PREFIX = "///"
 FALSE_LITERAL = "false"
 
@@ -167,6 +175,9 @@ class ParsedModel:
     shared_expressions: Dict[str, ParsedSharedExpression] = field(default_factory=dict)
     # Part paths whose content could not be parsed; the caller reports them.
     failed_parts: List[str] = field(default_factory=list)
+    # Table part paths that parsed but had a column, measure or partition
+    # line the parser could not read; that object is missing from the table.
+    incomplete_parts: List[str] = field(default_factory=list)
     # Relationship names whose fromColumn/toColumn could not be split.
     skipped_relationships: List[str] = field(default_factory=list)
 
@@ -188,13 +199,16 @@ def _indent_of(line: str) -> int:
     return len(line) - len(line.lstrip("\t"))
 
 
-def parse_tmdl(text: str) -> List[TmdlNode]:
+def parse_tmdl(text: str, unparsed: Optional[List[str]] = None) -> List[TmdlNode]:
     """Parse one TMDL document into a tree of nodes.
 
     TMDL is indentation based: an object's children are one tab deeper, its
     properties are ``key: value`` lines at that same depth, and a multi-line
     expression (``source =`` followed by M, or ``measure X =`` followed by
     DAX) is everything indented at least two tabs deeper than its header.
+
+    Unrecognised lines that open a tracked object (``column``, ``measure``,
+    ...) are appended to `unparsed`; other unrecognised lines are ignored.
     """
     roots: List[TmdlNode] = []
     stack: List[TmdlNode] = []
@@ -243,6 +257,8 @@ def parse_tmdl(text: str) -> List[TmdlNode]:
         object_match = OBJECT_LINE_RE.match(content)
         if not object_match:
             logger.debug("Ignoring unrecognised TMDL line: %r", content)
+            if unparsed is not None and content.split()[0] in TRACKED_OBJECT_KEYWORDS:
+                unparsed.append(content)
             pending_doc = []
             continue
 
@@ -328,8 +344,12 @@ def _parse_partition(node: TmdlNode) -> ParsedPartition:
     return ParsedPartition(kind=kind, mode=mode, source=source)
 
 
-def parse_table(text: str) -> Optional[ParsedTable]:
-    tables = [node for node in parse_tmdl(text) if node.keyword == KEYWORD_TABLE]
+def parse_table(
+    text: str, unparsed: Optional[List[str]] = None
+) -> Optional[ParsedTable]:
+    tables = [
+        node for node in parse_tmdl(text, unparsed) if node.keyword == KEYWORD_TABLE
+    ]
     if not tables:
         return None
     node = tables[0]
@@ -449,11 +469,14 @@ def parse_semantic_model(parts: List[DefinitionPart]) -> ParsedModel:
             if part.path.startswith(TMDL_TABLES_PREFIX) and part.path.endswith(
                 TMDL_SUFFIX
             ):
-                table = parse_table(part.text)
+                unparsed: List[str] = []
+                table = parse_table(part.text, unparsed)
                 if table is None:
                     model.failed_parts.append(part.path)
                 else:
                     model.tables.append(table)
+                    if unparsed:
+                        model.incomplete_parts.append(part.path)
             elif part.path == TMDL_RELATIONSHIPS_PATH:
                 model.relationships.extend(
                     parse_relationships(part.text, model.skipped_relationships)

@@ -151,8 +151,9 @@ def _loads_json(
     format); a syntax error, or a document whose top-level shape differs from
     `default` (an object where a list is expected or vice versa), is recorded
     under `label` for the caller to report and the default is returned so the
-    remaining visuals still parse."""
-    if not text:
+    remaining visuals still parse. An absent value (`None`) returns the
+    default silently; an empty string is a syntax error like any other."""
+    if text is None:
         return default
     try:
         loaded = json.loads(text)

@@ -76,7 +76,14 @@ When the fallback engages, the ingestion report includes a **Report Scan Fallbac
 
 `getDefinition` is a long-running operation: the connector polls it and gives up after `scan_timeout` seconds per item. A semantic model whose definition is not fetched is reported as a failure under **Semantic Model Definition Not Fetched** (or **Fabric API Permission Denied** when it was refused); a report as a warning under **Report Definition Not Fetched** (or **Report Definition Permission Denied**). The report also carries `fabric_definitions_fetched`, `fabric_definitions_failed`, `fabric_lro_timeouts`, `tmdl_tables_parsed` and related counters.
 
-Call volume is roughly one Power BI listing per workspace plus one `getDefinition` per semantic model (and per report when `extract_report_field_usage` is enabled), instead of one scan per `scan_batch_size` workspaces. Fabric throttles at 500 calls per minute per principal; throttled calls are retried.
+Call volume replaces one scan per `scan_batch_size` workspaces with per-item requests:
+
+- per workspace: the Fabric item listing and the Power BI dataset listing, the report and dashboard listings when `extract_reports` and `extract_dashboards` are enabled, and the workspace users when `extract_ownership` is enabled;
+- per semantic model: one `getDefinition` (a long-running operation, so also its status polls and result fetch) and its parameters, plus its refresh history when `extract_refresh_history` is enabled;
+- per report: its pages, plus one `getDefinition` when `extract_report_field_usage` is enabled; a paginated report instead fetches its `.rdl` definition, and its data sources when that definition yields no dataset binding;
+- per dashboard: its tiles.
+
+Fabric throttles at 500 calls per minute per principal; throttled calls are retried.
 
 ##### Enrichment from item definitions
 
@@ -88,7 +95,7 @@ These options are off by default and, except for `extract_refresh_history`, requ
 
 In `workspace_apis` mode the connector also emits lineage inside a semantic model: DAX calculated tables depend on the model tables they read, and, when `extract_column_level_lineage` is enabled, each measure gets fine-grained lineage from the columns of _other_ model tables its DAX references. References to columns of the measure's own table and to other measures (`[Total Premium]`) are not emitted as edges; the measure's DAX is kept in its schema-field description instead.
 
-Permission problems are reported as failures rather than warnings: a `401`/`403` from `getDefinition` or from the dataset listing removes that model's tables and lineage from the run, which would otherwise be soft-deleted by stale-entity removal on a green run.
+Permission problems are reported as failures rather than warnings, because the missing entities would otherwise be soft-deleted by stale-entity removal on a green run: a `401`/`403` from a semantic model's `getDefinition` removes that model's tables and lineage from the run, and a `401`/`403` from the dataset listing (`GET /groups/{id}/datasets`) removes the tables and lineage of every semantic model in that workspace.
 
 #### Lineage
 

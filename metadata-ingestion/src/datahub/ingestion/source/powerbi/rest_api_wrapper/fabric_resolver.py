@@ -97,9 +97,21 @@ class ItemDefinition:
 
 
 def item_definition_from_response(body: Dict[str, Any]) -> ItemDefinition:
-    definition = body.get(KEY_DEFINITION) or {}
+    definition = body.get(KEY_DEFINITION)
+    raw_parts = definition.get(KEY_PARTS) if isinstance(definition, dict) else None
+    # Every Fabric item definition has at least one part (a semantic model
+    # always carries its model and database files), so a body without parts
+    # is a truncated or unexpected response, not an empty item. Treating it
+    # as empty would emit a model without tables on a green run, which
+    # stale-entity removal then soft-deletes.
+    if not isinstance(definition, dict) or not isinstance(raw_parts, list):
+        raise FabricDefinitionError(
+            "getDefinition response has no definition parts list"
+        )
+    if not raw_parts:
+        raise FabricDefinitionError("getDefinition response has no definition parts")
     item = ItemDefinition(format=definition.get(KEY_FORMAT))
-    for raw_part in definition.get(KEY_PARTS) or []:
+    for raw_part in raw_parts:
         path = raw_part.get(KEY_PATH)
         payload = raw_part.get(KEY_PAYLOAD)
         if not path or payload is None:

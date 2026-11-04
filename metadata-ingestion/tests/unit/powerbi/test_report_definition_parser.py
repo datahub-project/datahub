@@ -224,3 +224,18 @@ def test_rdl_dataset_binding() -> None:
     assert (
         parse_rdl_dataset_binding([DefinitionPart("report.rdl", "<Report/>")]) is None
     )
+
+
+def test_empty_json_text_is_a_failed_part() -> None:
+    # An empty part or embedded string is not an empty visual: the visual it
+    # should describe is missing and must be reported.
+    parsed = parse_report_definition(
+        [DefinitionPart("definition/pages/p1/visuals/v1/visual.json", "")]
+    )
+    assert parsed.failed_parts == ["definition/pages/p1/visuals/v1/visual.json"]
+
+    report_json = json.dumps(
+        {"sections": [{"name": "s", "visualContainers": [{"config": ""}]}]}
+    )
+    parsed = parse_report_definition([DefinitionPart("report.json", report_json)])
+    assert parsed.failed_parts == ["report.json#s/0"]

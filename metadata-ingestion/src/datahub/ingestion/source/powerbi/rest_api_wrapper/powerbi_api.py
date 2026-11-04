@@ -1056,7 +1056,19 @@ class PowerBiAPI:
             self._report_definition_failure(e, context, FABRIC_KIND_REPORTS)
             return
 
-        parsed = parse_report_definition(definition.parts)
+        try:
+            parsed = parse_report_definition(definition.parts)
+        except Exception as e:
+            # Enrichment only: a definition the parser cannot handle must not
+            # take the report, or the rest of the workspace, with it.
+            self.reporter.report_definitions_failed += 1
+            self.reporter.warning(
+                title="Report Definition Not Parsed",
+                message="The report definition could not be parsed; the report keeps its pages but has no visual field usage.",
+                context=context,
+                exc=e,
+            )
+            return
         self.reporter.report_definitions_parsed += 1
         failed_parts = definition.failed_parts + parsed.failed_parts
         if failed_parts:
@@ -1278,6 +1290,15 @@ class PowerBiAPI:
                     message="Some non-table parts of the semantic-model definition could not be decoded or parsed; relationships or DirectLake lineage from them are missing.",
                     context=f"{context}, parts={failed_parts}",
                 )
+        if parsed_model.incomplete_parts:
+            # The tables themselves are emitted; only some of their columns,
+            # measures or partition sources are missing, so this is a warning.
+            self.reporter.tmdl_parts_incomplete += len(parsed_model.incomplete_parts)
+            self.reporter.warning(
+                title="TMDL Object Not Parsed",
+                message="Some column, measure or partition lines in table parts of the semantic-model definition could not be parsed; those objects (or the table's lineage) are missing.",
+                context=f"{context}, parts={parsed_model.incomplete_parts}",
+            )
         dataset.dependent_on_artifact_id = self._directlake_sql_endpoint_id(
             parsed_model
         )

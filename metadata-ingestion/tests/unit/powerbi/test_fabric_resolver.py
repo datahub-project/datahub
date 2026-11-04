@@ -189,6 +189,27 @@ def test_get_definition_202_without_location_is_an_error(
             resolver.get_item_definition(WORKSPACE, MODEL, "semanticModels", "TMDL")
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param({}, id="no-definition"),
+        pytest.param({"definition": None}, id="null-definition"),
+        pytest.param({"definition": {"format": "TMDL"}}, id="no-parts"),
+        pytest.param({"definition": {"format": "TMDL", "parts": []}}, id="empty-parts"),
+    ],
+)
+def test_get_definition_without_parts_is_an_error(
+    resolver: FabricDefinitionResolver, body: Dict[str, Any]
+) -> None:
+    # A 200 body without parts must not read as a model with no tables: the
+    # caller would emit it empty on a green run and stale-entity removal would
+    # soft-delete its tables.
+    with requests_mock.Mocker() as m:
+        m.post(DEFINITION_URL, json=body)
+        with pytest.raises(FabricDefinitionError):
+            resolver.get_item_definition(WORKSPACE, MODEL, "semanticModels", "TMDL")
+
+
 def test_get_definition_http_error_propagates(
     resolver: FabricDefinitionResolver,
 ) -> None:

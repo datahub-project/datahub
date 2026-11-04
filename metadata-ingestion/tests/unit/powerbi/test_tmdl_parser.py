@@ -244,3 +244,29 @@ def test_parse_semantic_model_isolates_bad_parts() -> None:
     assert model.failed_parts == ["definition/tables/Empty.tmdl"]
     assert len(model.relationships) == 2
     assert "DatabaseQuery" in model.shared_expressions
+
+
+def test_unreadable_object_line_marks_the_table_part_incomplete() -> None:
+    # An unquoted name with a space is not valid TMDL; the column it opens is
+    # lost, so the part is reported. Lines the connector does not read
+    # (annotations, changedProperty, extended properties) are not.
+    table = (
+        IMPORT_TABLE
+        + "\tcolumn Broken Name\n\t\tdataType: string\n"
+        + "\tchangedProperty = Name\n"
+        + "\tannotation PBI_ResultType = Table\n"
+        + "\textendedProperty ParserVersion = 1\n"
+    )
+    model = parse_semantic_model(
+        [
+            DefinitionPart("definition/tables/Policies.tmdl", table),
+            DefinitionPart(
+                "definition/tables/Clean.tmdl",
+                IMPORT_TABLE.replace("table Policies", "table Clean")
+                + "\tchangedProperty = Name\n\tannotation PBI_ResultType = Table\n",
+            ),
+        ]
+    )
+    assert [t.name for t in model.tables] == ["Policies", "Clean"]
+    assert model.incomplete_parts == ["definition/tables/Policies.tmdl"]
+    assert model.failed_parts == []

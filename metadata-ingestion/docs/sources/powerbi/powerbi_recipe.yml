@@ -18,7 +18,9 @@ source:
 
     # Optional -- ingest without tenant admin API access. Needs the Contributor role on
     # each workspace and the tenant setting "Service principals can use Fabric APIs".
-    # Endorsements, apps and modified_since are not available in this mode.
+    # Endorsements, apps and modified_since are not available in this mode: when you
+    # enable it, also remove modified_since and filter_dataset_endorsements below
+    # (and extract_app / extract_endorsements_to_tags if set), or the recipe is rejected.
     # metadata_api_mode: workspace_apis
     # Enrichment read from the semantic-model and report definitions (workspace_apis only)
     # extract_model_relationships: true
@@ -59,7 +61,7 @@ source:
           platform_instance: contoso-tenant  # Fabric tenant/platform instance
           env: PROD
 
-    # Need admin_api, only ingest workspace that are modified since...
+    # Need admin_api (not available with metadata_api_mode: workspace_apis), only ingest workspace that are modified since...
     modified_since: "2023-02-10T00:00:00.0000000Z"
 
     ownership:
@@ -73,7 +75,7 @@ source:
         owner_criteria: ["ReadWriteReshareExplore","Owner","Admin"]
     # wrap powerbi tables (datahub dataset) under 1 powerbi dataset (datahub container)
     extract_datasets_to_containers: true
-    # only ingest dataset that are endorsed, like "Certified"
+    # only ingest dataset that are endorsed, like "Certified" (not available with metadata_api_mode: workspace_apis)
     filter_dataset_endorsements: 
       allow:
         - Certified

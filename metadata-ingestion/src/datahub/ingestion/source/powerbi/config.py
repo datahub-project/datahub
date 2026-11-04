@@ -322,7 +322,9 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     fabric_lro_timeouts: int = 0
     tmdl_tables_parsed: int = 0
     tmdl_parts_failed: int = 0
+    tmdl_parts_incomplete: int = 0
     report_definitions_parsed: int = 0
+    report_definitions_failed: int = 0
     report_definition_parts_failed: int = 0
     report_pages_unmatched: int = 0
     report_field_references_resolved: int = 0

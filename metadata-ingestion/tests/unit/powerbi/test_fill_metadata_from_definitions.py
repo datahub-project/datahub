@@ -11,6 +11,7 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Page,
     PowerBIDataset,
     Report,
     ReportType,
@@ -25,6 +26,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 
 WORKSPACE_ID = "64ED5CAD-7C10-4684-8180-826122881108"
+SECOND_WORKSPACE_ID = "2B7C4D1E-9F3A-4E6B-8C2D-5A1F0E9B7C3D"
 MODEL_A = "05169CD2-E713-41E6-9600-1D8066D95445"
 MODEL_B = "7A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D"
 LAKEHOUSE_ID = "3C4D5E6F-7A8B-4C9D-8E0F-1A2B3C4D5E6F"
@@ -200,18 +202,30 @@ def test_lro_timeout_on_a_model_is_a_failure_and_all_failures_escalate() -> None
 
 def test_all_definitions_failed_is_judged_across_batches() -> None:
     # With scan_batch_size=1 the first batch can fail entirely while later
-    # ones succeed; the escalation must look at the whole run.
-    api = _api(
-        datasets=[
-            {"id": MODEL_A, "name": "Insurance Model"},
-            {"id": MODEL_B, "name": "Other Model"},
-        ],
-        definitions={MODEL_A: _http_error(500), MODEL_B: _definition()},
-    )
+    # ones succeed; the escalation must look at the whole run, so each batch
+    # is filled separately against the same reporter and the check runs once.
+    api = _api(definitions={MODEL_A: _http_error(500), MODEL_B: _definition()})
+    first = _workspace()
+    second = _workspace()
+    second.id = SECOND_WORKSPACE_ID
+    datasets_by_workspace = {
+        first.id: [{"id": MODEL_A, "name": "Insurance Model"}],
+        second.id: [{"id": MODEL_B, "name": "Other Model"}],
+    }
+    regular = api._PowerBiAPI__regular_api_resolver  # type: ignore[attr-defined]
+    regular.get_datasets.side_effect = lambda workspace: datasets_by_workspace[
+        workspace.id
+    ]
 
-    api.fill_metadata_from_definitions([_workspace()])
+    api.fill_metadata_from_definitions([first])
+    # The first batch alone has only failures; filling it must not escalate.
+    assert api.reporter.fabric_definitions_fetched == 0
+    assert api.reporter.fabric_definitions_failed == 1
+    api.fill_metadata_from_definitions([second])
     api.report_if_no_definitions_fetched()
 
+    assert first.datasets[MODEL_A].tables == []
+    assert [t.name for t in second.datasets[MODEL_B].tables] == ["Policies"]
     assert api.reporter.fabric_definitions_failed == 1
     assert api.reporter.fabric_definitions_fetched == 1
     assert not any(
@@ -441,6 +455,53 @@ def test_paginated_report_definition_failure_is_a_warning_with_fallback(
     assert not api.reporter.failures
     assert [w.title for w in api.reporter.warnings] == [title]
     api._get_resolver.return_value.get_report_datasources.assert_called_once()
+
+
+def test_incomplete_table_part_is_a_warning_and_keeps_the_table() -> None:
+    broken = _definition(TABLE_TMDL + "\tcolumn Broken Name\n\t\tdataType: string\n")
+    api = _api(definitions={MODEL_A: broken})
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+
+    assert [t.name for t in workspace.datasets[MODEL_A].tables] == ["Policies"]
+    assert api.reporter.tmdl_parts_incomplete == 1
+    assert not api.reporter.failures
+    assert [w.title for w in api.reporter.warnings] == ["TMDL Object Not Parsed"]
+
+
+# --- report field usage -----------------------------------------------------
+
+
+def test_report_definition_the_parser_cannot_handle_is_a_warning() -> None:
+    # Valid JSON of an unexpected nested shape (a section that is not an
+    # object) must not escape and take the workspace's reports down with it.
+    report = Report(
+        id="report-1",
+        name="Claims Overview",
+        type=ReportType.PowerBIReport,
+        webUrl=None,
+        embedUrl=None,
+        description="",
+        dataset_id=MODEL_A,
+        dataset=None,
+        pages=[Page(id="p1", displayName="Overview", name="p1", order=0)],
+        users=[],
+        tags=[],
+    )
+    malformed = ItemDefinition(
+        format=None,
+        parts=[DefinitionPart("report.json", '{"sections": [1]}')],
+    )
+    api = _api(definitions={report.id: malformed})
+
+    api._fill_report_field_usage(_workspace(), report)
+
+    assert api.reporter.report_definitions_failed == 1
+    assert api.reporter.report_definitions_parsed == 0
+    assert not api.reporter.failures
+    assert [w.title for w in api.reporter.warnings] == ["Report Definition Not Parsed"]
+    assert report.pages[0].field_references == []
 
 
 # --- workspace users as ownership -------------------------------------------
