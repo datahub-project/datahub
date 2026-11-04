@@ -1,217 +1,255 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationConfiguration;
-import com.datahub.authorization.AuthorizationRequest;
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.LineageDirection;
-import com.linkedin.datahub.graphql.generated.LineageInput;
-import com.linkedin.datahub.graphql.generated.LineageRelationship;
-import com.linkedin.datahub.graphql.generated.Restricted;
-import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.aspect.GraphRetriever;
-import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import graphql.execution.MergedField;
+import graphql.language.Document;
+import graphql.language.Field;
+import graphql.language.FragmentDefinition;
+import graphql.language.OperationDefinition;
+import graphql.parser.Parser;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.OperationContextConfig;
-import io.datahubproject.metadata.context.RequestContext;
-import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.services.RestrictedService;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
-import org.mockito.Mockito;
+import java.util.stream.Collectors;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-/**
- * Lineage neighbors the actor may not view must come back as {@link Restricted} placeholders with
- * encrypted URNs when view authorization is enabled, and an unviewable source discloses no lineage.
- */
+/** A lineage request that selects only totals is answered by the count path when enabled. */
 public class EntityLineageResultResolverTest {
 
-  private static final Urn SOURCE =
-      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,eng.orders,PROD)");
-  private static final Urn VIEWABLE =
-      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,eng.raw_orders,PROD)");
-  private static final Urn HIDDEN =
-      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,finance.ledger,PROD)");
-  private static final Urn ENCRYPTED = UrnUtils.getUrn("urn:li:restricted:opaque");
+  private static final Urn DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,resolver_count,PROD)");
 
   private SiblingGraphService siblingGraphService;
-  private RestrictedService restrictedService;
-  private DataFetchingEnvironment env;
+  private FeatureFlags featureFlags;
+  private EntityLineageResultResolver resolver;
+  private DataFetchingEnvironment environment;
 
   @BeforeMethod
   public void setup() {
     siblingGraphService = mock(SiblingGraphService.class);
-    restrictedService = mock(RestrictedService.class);
-    when(restrictedService.encryptRestrictedUrn(HIDDEN)).thenReturn(ENCRYPTED);
+    featureFlags = new FeatureFlags();
+    featureFlags.setLineageCountOnlyEnabled(true);
+    AuthorizationConfiguration authorizationConfiguration = new AuthorizationConfiguration();
+    authorizationConfiguration.setView(
+        ViewAuthorizationConfiguration.builder().enabled(false).build());
+    resolver =
+        new EntityLineageResultResolver(
+            siblingGraphService,
+            mock(RestrictedService.class),
+            authorizationConfiguration,
+            featureFlags);
 
-    com.linkedin.metadata.graph.EntityLineageResult graphResult =
+    Dataset source = new Dataset();
+    source.setUrn(DATASET_URN.toString());
+    source.setType(EntityType.DATASET);
+    QueryContext context = getMockAllowContext();
+    environment = mock(DataFetchingEnvironment.class);
+    when(environment.getContext()).thenReturn(context);
+    when(environment.getSource()).thenReturn(source);
+    when(environment.getArgument(eq("input")))
+        .thenReturn(ImmutableMap.of("direction", "UPSTREAM", "start", 0, "count", 100));
+
+    com.linkedin.metadata.graph.EntityLineageResult counted =
         new com.linkedin.metadata.graph.EntityLineageResult()
             .setStart(0)
-            .setCount(2)
-            .setTotal(2)
-            .setFiltered(0)
-            .setRelationships(
-                new LineageRelationshipArray(relationship(VIEWABLE), relationship(HIDDEN)));
+            .setCount(100)
+            .setTotal(13)
+            .setFiltered(2)
+            .setRelationships(new LineageRelationshipArray());
+    when(siblingGraphService.getLineageCount(
+            any(OperationContext.class),
+            eq(DATASET_URN),
+            eq(LineageDirection.UPSTREAM),
+            anyInt(),
+            anyBoolean(),
+            anyBoolean()))
+        .thenReturn(counted);
     when(siblingGraphService.getLineage(
             any(OperationContext.class),
-            eq(SOURCE),
-            any(),
+            eq(DATASET_URN),
+            eq(LineageDirection.UPSTREAM),
             anyInt(),
+            anyInt(),
+            anyInt(),
+            anyBoolean(),
+            anyBoolean(),
+            any(Set.class)))
+        .thenReturn(counted);
+  }
+
+  @Test
+  public void testTotalsOnlySelectionUsesTheCountPath() throws Exception {
+    selecting("{ lineage { total filtered } }");
+
+    EntityLineageResult result = resolver.get(environment).get();
+
+    assertEquals(result.getTotal().intValue(), 13);
+    assertEquals(result.getFiltered().intValue(), 2);
+    assertEquals(result.getRelationships().size(), 0);
+    // The normalized selection set expands the whole operation; on a search page that exceeds
+    // graphql-java's field limit, so the resolver must never ask for it.
+    verify(environment, never()).getSelectionSet();
+    verify(siblingGraphService, never())
+        .getLineage(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(LineageDirection.class),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            anyBoolean(),
+            anyBoolean(),
+            any(Set.class));
+  }
+
+  @Test
+  public void testRelationshipsSelectionWalksTheGraph() throws Exception {
+    selecting("{ lineage { total relationships { type } } }");
+
+    resolver.get(environment).get();
+
+    verify(siblingGraphService, never())
+        .getLineageCount(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(LineageDirection.class),
+            anyInt(),
+            anyBoolean(),
+            anyBoolean());
+  }
+
+  @Test
+  public void testFlagOffWalksTheGraph() throws Exception {
+    featureFlags.setLineageCountOnlyEnabled(false);
+    selecting("{ lineage { total filtered } }");
+
+    resolver.get(environment).get();
+
+    verify(siblingGraphService, never())
+        .getLineageCount(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(LineageDirection.class),
+            anyInt(),
+            anyBoolean(),
+            anyBoolean());
+  }
+
+  @Test
+  public void testRelationshipsFoundThroughFragments() {
+    selecting("{ lineage { total ... on EntityLineageResult { relationships { type } } } }");
+    assertTrue(EntityLineageResultResolver.selectsRelationships(environment));
+
+    selecting(
+        "{ lineage { total ...rels } }",
+        "fragment rels on EntityLineageResult { filtered ...deeper }",
+        "fragment deeper on EntityLineageResult { relationships { type } }");
+    assertTrue(EntityLineageResultResolver.selectsRelationships(environment));
+
+    selecting("{ lineage { ...counts } }", "fragment counts on EntityLineageResult { total }");
+    assertFalse(EntityLineageResultResolver.selectsRelationships(environment));
+
+    // A fragment the request does not define cannot be inspected: take the full walk.
+    selecting("{ lineage { ...missing } }");
+    assertTrue(EntityLineageResultResolver.selectsRelationships(environment));
+  }
+
+  /** Points the environment at the {@code lineage} field of {@code query}. */
+  private void selecting(String query, String... fragments) {
+    Document document = Parser.parse(query + " " + String.join(" ", fragments));
+    OperationDefinition operation = document.getDefinitionsOfType(OperationDefinition.class).get(0);
+    Field lineage = (Field) operation.getSelectionSet().getSelections().get(0);
+    Map<String, FragmentDefinition> byName =
+        document.getDefinitionsOfType(FragmentDefinition.class).stream()
+            .collect(Collectors.toMap(FragmentDefinition::getName, f -> f));
+    when(environment.getMergedField()).thenReturn(MergedField.newMergedField(lineage).build());
+    when(environment.getFragmentsByName()).thenReturn(byName);
+  }
+
+  @Test
+  public void testExplicitNullIncludeGhostEntitiesDefaultsToFalse() throws Exception {
+    SiblingGraphService siblingGraphService = mock(SiblingGraphService.class);
+    when(siblingGraphService.getLineage(
             any(),
+            eq(DATASET_URN),
+            eq(LineageDirection.UPSTREAM),
+            anyInt(),
+            anyInt(),
             anyInt(),
             anyBoolean(),
             anyBoolean(),
             anySet()))
-        .thenReturn(graphResult);
+        .thenReturn(
+            new com.linkedin.metadata.graph.EntityLineageResult()
+                .setStart(0)
+                .setCount(0)
+                .setTotal(0)
+                .setRelationships(new LineageRelationshipArray()));
+
+    EntityLineageResultResolver resolver =
+        new EntityLineageResultResolver(
+            siblingGraphService,
+            mock(RestrictedService.class),
+            new AuthorizationConfiguration(),
+            new FeatureFlags());
+
+    // An explicit null bypasses the schema default (`includeGhostEntities: Boolean = false`).
+    Map<String, Object> input = new HashMap<>();
+    input.put("direction", "UPSTREAM");
+    input.put("includeGhostEntities", null);
 
     Dataset source = new Dataset();
-    source.setUrn(SOURCE.toString());
-    source.setType(EntityType.DATASET);
-    LineageInput input = new LineageInput();
-    input.setDirection(LineageDirection.UPSTREAM);
+    source.setUrn(DATASET_URN.toString());
 
-    env = mock(DataFetchingEnvironment.class);
+    QueryContext context = getMockAllowContext();
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    when(env.getContext()).thenReturn(context);
     when(env.getSource()).thenReturn(source);
     when(env.getArgument("input")).thenReturn(input);
-  }
 
-  private static com.linkedin.metadata.graph.LineageRelationship relationship(Urn urn) {
-    return new com.linkedin.metadata.graph.LineageRelationship()
-        .setEntity(urn)
-        .setType("DownstreamOf")
-        .setDegree(1);
-  }
+    EntityLineageResult result = resolver.get(env).get();
 
-  private static AuthorizationConfiguration viewAuthorization(boolean enabled) {
-    AuthorizationConfiguration configuration = new AuthorizationConfiguration();
-    configuration.setView(ViewAuthorizationConfiguration.builder().enabled(enabled).build());
-    return configuration;
-  }
-
-  /** A real user session with view authorization on; VIEW is granted only on {@code viewable}. */
-  private static QueryContext userContext(boolean viewEnabled, Set<Urn> viewable) {
-    Authorizer authorizer = mock(Authorizer.class);
-    when(authorizer.authorize(any(AuthorizationRequest.class)))
-        .thenAnswer(
-            invocation -> {
-              AuthorizationRequest request = invocation.getArgument(0);
-              boolean allowed =
-                  request
-                      .getResourceSpec()
-                      .map(spec -> viewable.contains(UrnUtils.getUrn(spec.getEntity())))
-                      .orElse(false);
-              return new AuthorizationResult(
-                  request,
-                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
-                  "");
-            });
-    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
-    when(aspectRetriever.getEntityRegistry())
-        .thenReturn(TestOperationContexts.defaultEntityRegistry());
-    RetrieverContext retrieverContext =
-        RetrieverContext.builder()
-            .aspectRetriever(aspectRetriever)
-            .cachingAspectRetriever(
-                TestOperationContexts.emptyActiveUsersAspectRetriever(
-                    aspectRetriever::getEntityRegistry))
-            .graphRetriever(GraphRetriever.EMPTY)
-            .searchRetriever(SearchRetriever.EMPTY)
-            .build();
-    OperationContext systemContext =
-        TestOperationContexts.systemContext(
-            () ->
-                OperationContextConfig.builder()
-                    .viewAuthorizationConfiguration(
-                        ViewAuthorizationConfiguration.builder().enabled(viewEnabled).build())
-                    .build(),
-            null,
-            null,
-            null,
-            () -> retrieverContext,
-            null,
-            null,
-            null);
-    OperationContext opContext =
-        systemContext.asSession(
-            RequestContext.TEST,
-            authorizer,
-            new Authentication(new Actor(ActorType.USER, "reader"), ""));
-    QueryContext context = mock(QueryContext.class);
-    when(context.getOperationContext()).thenReturn(opContext);
-    when(context.getActorUrn()).thenReturn("urn:li:corpuser:reader");
-    return context;
-  }
-
-  private EntityLineageResultResolver resolver(boolean viewEnabled) {
-    return new EntityLineageResultResolver(
-        siblingGraphService, restrictedService, viewAuthorization(viewEnabled));
-  }
-
-  @Test
-  public void testUnviewableNeighborIsRestrictedWithEncryptedUrn() throws Exception {
-    QueryContext context = userContext(true, Set.of(SOURCE, VIEWABLE));
-    when(env.getContext()).thenReturn(context);
-
-    EntityLineageResult result = resolver(true).get(env).get();
-
-    assertEquals(result.getTotal(), 2);
-    List<LineageRelationship> relationships = result.getRelationships();
-    assertEquals(relationships.size(), 2);
-    assertTrue(relationships.get(0).getEntity() instanceof Dataset);
-    assertEquals(relationships.get(0).getEntity().getUrn(), VIEWABLE.toString());
-    assertTrue(relationships.get(1).getEntity() instanceof Restricted);
-    assertEquals(relationships.get(1).getEntity().getUrn(), ENCRYPTED.toString());
-    assertEquals(relationships.get(1).getEntity().getType(), EntityType.RESTRICTED);
-  }
-
-  @Test
-  public void testAllNeighborsTypedWhenViewAuthorizationDisabled() throws Exception {
-    // Deny-everything authorizer: nothing may be consulted when the feature is off.
-    QueryContext context = userContext(false, Set.of());
-    when(env.getContext()).thenReturn(context);
-
-    EntityLineageResult result = resolver(false).get(env).get();
-
-    assertEquals(result.getRelationships().size(), 2);
-    assertTrue(result.getRelationships().stream().allMatch(r -> r.getEntity() instanceof Dataset));
-    assertEquals(result.getRelationships().get(1).getEntity().getUrn(), HIDDEN.toString());
-  }
-
-  @Test
-  public void testUnviewableSourceDisclosesNoLineage() throws Exception {
-    QueryContext context = userContext(true, Set.of(VIEWABLE, HIDDEN));
-    when(env.getContext()).thenReturn(context);
-
-    EntityLineageResult result = resolver(true).get(env).get();
-
-    assertTrue(result.getRelationships().isEmpty());
     assertEquals(result.getTotal(), 0);
-    Mockito.verifyNoInteractions(siblingGraphService);
+    verify(siblingGraphService)
+        .getLineage(
+            any(),
+            eq(DATASET_URN),
+            eq(LineageDirection.UPSTREAM),
+            eq(0),
+            eq(100),
+            eq(1),
+            eq(false),
+            eq(false),
+            anySet());
   }
 }

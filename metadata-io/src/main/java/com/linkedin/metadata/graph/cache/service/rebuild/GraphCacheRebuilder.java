@@ -11,6 +11,7 @@ import com.linkedin.metadata.graph.cache.GraphBuildFailure;
 import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.EntityGraphDefinition;
+import com.linkedin.metadata.graph.cache.config.EntityGraphModel.GraphBounds;
 import com.linkedin.metadata.graph.cache.config.EntityGraphSources;
 import com.linkedin.metadata.graph.cache.service.freshness.SnapshotFreshnessEvaluator;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
@@ -262,12 +263,17 @@ public class GraphCacheRebuilder {
       case COOLDOWN -> distributedStore.markCooldown(markerKey);
       case OVER_LIMIT -> {
         distributedStore.markOverLimit(markerKey);
+        GraphBounds bounds = definition.getBounds();
         log.warn(
-            "Entity graph cache over limit: graphId={} source={} cacheKey={} reason={}",
+            "Entity graph cache over limit: graphId={} source={} cacheKey={} reason={} maxVertices={} maxEdges={}",
             definition.getGraphId(),
             source,
             markerKey,
-            failureReason);
+            failureReason,
+            bounds == null ? "unset" : bounds.getMaxVertices(),
+            bounds == null || bounds.getMaxEdges().isEmpty()
+                ? "unset"
+                : bounds.getMaxEdges().getAsInt());
       }
       case INVALID -> {
         distributedStore.markInvalid(markerKey);

@@ -1,7 +1,7 @@
 name: ZDU E2E (daily)
 
 # Daily smoke test of the Zero-Downtime Upgrade migration framework.
-# Applies smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch
+# Applies smoke-test/tests/zdu/framework/fixtures/pdl_patches/test-fixtures.patch
 # (which contains test-only PDL schemaVersion bumps + fake aspect-migration
 # mutators) onto a clean master checkout before running the full E2E
 # pipeline. Production code stays clean — the fixtures only exist inside
@@ -59,16 +59,10 @@ jobs:
           git fetch origin master
           git rev-parse --verify --quiet refs/heads/master || git branch master FETCH_HEAD
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: temurin
-          java-version: "25"
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
+          gradle: false
 
       - name: Verify ZDU test-fixture patch applies cleanly
         # `--check` is read-only. Fails loudly if production PDLs or
@@ -77,7 +71,7 @@ jobs:
         # "Regenerating the patch" steps.
         run: |
           git apply --check \
-            smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch
+            smoke-test/tests/zdu/framework/fixtures/pdl_patches/test-fixtures.patch
 
       - name: Apply ZDU test-fixture patch
         # Materializes the 4 fake mutators + ZduTestMutatorConfiguration +
@@ -86,7 +80,7 @@ jobs:
         # workflow run.
         run: |
           git apply \
-            smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch
+            smoke-test/tests/zdu/framework/fixtures/pdl_patches/test-fixtures.patch
 
       - name: Regenerate metadata-models codegen
         # Must run AFTER the patch, otherwise the mutator Java files
@@ -113,7 +107,7 @@ jobs:
           ZDU_COMPOSE_PROFILES: ${{ matrix.topology }}
         run: |
           cd smoke-test
-          AGENT_MODE=1 venv/bin/python -m tests.zdu
+          AGENT_MODE=1 venv/bin/python -m tests.zdu.framework
 
       - name: Upload failure bundle
         if: failure()

@@ -2,12 +2,23 @@ import functools
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+)
 
 from pydantic import Field, field_validator, model_validator
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
@@ -19,6 +30,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_protocols import MetadataWorkUnitIterable
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.sql.doris.doris_dialect import (
     AGG_STATE,
     BITMAP,
@@ -39,7 +53,8 @@ from datahub.ingestion.source.sql.mysql import (
     MySQLProfilingConfig,
     MySQLSource,
 )
-from datahub.ingestion.source.sql.sql_common import register_custom_type
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
@@ -131,6 +146,77 @@ class DorisConfig(MySQLConfig):
         description="Not applicable for Doris.",
     )
 
+    def probe_sql_alchemy_url(self) -> str:
+        """The URL the PROBE should dial, which is not the default one.
+
+        Ingestion always passes `current_db` explicitly, and for an external
+        catalog it passes the QUALIFIED `catalog.database` that Doris expects
+        over the MySQL protocol (see _qualified_database). A caller that
+        passes nothing got the bare database instead and therefore landed in
+        the session's default catalog -- the internal one -- reading a
+        different `sales` than ingestion reads.
+
+        The probe is such a caller: sqlalchemy_probe builds its engine from
+        `config.get_sql_alchemy_url()`. So `containers`, and every verdict
+        derived from that connection, described the wrong catalog. That is
+        the probe/ingestion divergence this stage exists to remove, arriving
+        through the connection rather than through the identifier.
+
+        Scoped to the probe rather than defaulted on get_sql_alchemy_url().
+        The first version defaulted it, on the reasoning that any caller
+        naming no database wants this recipe's catalog. That over-reached:
+        MySQLSource._usage_connection calls get_sql_alchemy_url() bare, and
+        DorisSource inherits it with no override while include_usage_statistics
+        lives on MySQLConfig -- so a Doris recipe with a catalog and usage
+        enabled had its usage connection silently moved to a different
+        catalog by a change meant for the probe.
+
+        A hook the probe asks for keeps the blast radius at the probe. Every
+        other caller gets exactly what it got before.
+        """
+        if not self.database:
+            return self.get_sql_alchemy_url()
+        return self.get_sql_alchemy_url(
+            current_db=self._qualified_database_name(self.database)
+        )
+
+    def _qualified_database_name(self, database: str) -> str:
+        """`catalog.database` for an external catalog, the bare name otherwise.
+
+        The config-side twin of DorisSource._qualified_database, which cannot
+        be reused here: it reads the SOURCE's detected session catalog, and
+        a config has no session. Same rule, same internal-catalog exception.
+        """
+        if self.catalog and self.catalog != DORIS_INTERNAL_CATALOG:
+            return f"{self.catalog}.{database}"
+        return database
+
+    def probe_normalize_container(self, name: str) -> str:
+        """A listed database in the spelling ingestion matches on.
+
+        Which spelling the SQLAlchemy Inspector returns on an
+        external-catalog connection is not settled: ingestion enumerates
+        with SHOW DATABASES after SWITCH, never through the Inspector, so
+        the connector does not answer it -- though _short_database_name
+        exists to strip a `catalog.` prefix, so some Doris path does return
+        qualified names.
+
+        Normalizing rather than accepting both spellings, which is what this
+        did first. Accepting both fixed the filtering and broke what came
+        after it: `containers` would emit whichever spelling the server
+        used, a caller passes that back as --parent, and get_identifier
+        builds `catalog.database.table` while ingestion matches
+        `database.table`. A listing carrying both spellings would also
+        report one database twice.
+
+        Ingestion strips the prefix (_short_database_name, get_db_name), so
+        the probe reports the stripped form too and the pin needs only one
+        spelling.
+        """
+        if self.catalog and name.startswith(f"{self.catalog}."):
+            return name[len(self.catalog) + 1 :]
+        return name
+
     @model_validator(mode="after")
     def _split_catalog_from_database(self) -> "DorisConfig":
         if self.database and "." in self.database:
@@ -153,6 +239,13 @@ class DorisConfig(MySQLConfig):
         return self
 
 
+def _lost_connection(inspector: Inspector) -> Optional[Connection]:
+    connection = inspector.bind
+    if isinstance(connection, Connection) and connection.invalidated:
+        return connection
+    return None
+
+
 @dataclass
 class DorisSourceReport(SQLSourceReport):
     # Views whose lineage was dropped because they reference another Doris
@@ -165,6 +258,12 @@ class DorisSourceReport(SQLSourceReport):
     # Nonzero means DESCRIBE failed on a table that reflected fine otherwise, so its
     # Doris-specific column types were downgraded to MySQL equivalents.
     tables_with_unreflected_types: int = 0
+    # Nonzero means the information_schema comment lookup failed for a database, so
+    # some or all of its table and column descriptions are missing.
+    databases_without_comments: int = 0
+    # Tables and views skipped because the connection dropped and could not be
+    # re-established; the database's failure entry says where it happened.
+    tables_skipped_after_connection_loss: int = 0
 
 
 @platform_name("Apache Doris", id="doris")
@@ -173,6 +272,14 @@ class DorisSourceReport(SQLSourceReport):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.DESCRIPTIONS,
+    "Table and column comments, read from information_schema",
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class DorisSource(MySQLSource):
     config: DorisConfig
     report: DorisSourceReport
@@ -187,6 +294,13 @@ class DorisSource(MySQLSource):
 
         self._session_catalog: Optional[str] = config.catalog
         self._catalog_detection_failed = False
+        # The profiling pass reflects every table again. It neither reads comments
+        # (see DorisDialect.read_comments) nor re-reports the reflection
+        # degradations the metadata pass already reported.
+        self._in_metadata_pass = True
+        # Connections that dropped and could not reconnect; the rest of their
+        # database is skipped rather than timing out table by table.
+        self._unreachable_connections: Set[Connection] = set()
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "DorisSource":
@@ -271,6 +385,8 @@ class DorisSource(MySQLSource):
             try:
                 db_url = self.config.get_sql_alchemy_url(current_db=qualified_db)
                 db_engine = create_engine(db_url, **self.config.options)
+                if isinstance(db_engine.dialect, DorisDialect):
+                    db_engine.dialect.read_comments = self._in_metadata_pass
                 db_conn = db_engine.connect()
             except Exception as e:
                 if db_engine is not None:
@@ -295,7 +411,9 @@ class DorisSource(MySQLSource):
                 # In finally, not after the yield: an early close (pipeline abort, a
                 # fatal error elsewhere) throws GeneratorExit at the yield, and the
                 # degradations this database already recorded would otherwise be lost.
-                self._report_reflection_fallbacks(db_conn)
+                if self._in_metadata_pass:
+                    self._report_reflection_fallbacks(db_conn)
+                self._unreachable_connections.discard(db_conn)
                 db_conn.close()
                 db_engine.dispose()
 
@@ -317,14 +435,14 @@ class DorisSource(MySQLSource):
             self.report.tables_reflected_without_keys += 1
             if fallback.expected:
                 self.report.warning(
-                    title="Table reflected without keys or comment",
-                    message="SHOW CREATE TABLE failed, so the table was reflected from DESCRIBE: columns are complete but keys, foreign keys and the table comment are missing.",
+                    title="Table reflected without keys",
+                    message="SHOW CREATE TABLE failed, so the table was reflected from DESCRIBE: its columns are complete but keys and foreign keys are missing.",
                     context=f"{full_name}: {fallback.error}",
                 )
             else:
                 self.report.warning(
-                    title="Table reflected without keys or comment after an unexpected error",
-                    message="SHOW CREATE TABLE failed for a reason Doris is not known to reject. DESCRIBE succeeded, so columns are complete, but keys, foreign keys and the table comment are missing. Check the account's grants on this table.",
+                    title="Table reflected without keys after an unexpected error",
+                    message="SHOW CREATE TABLE failed for a reason Doris is not known to reject. DESCRIBE succeeded, so its columns are complete, but keys and foreign keys are missing. Check the account's grants on this table.",
                     context=f"{full_name}: {fallback.error}",
                 )
 
@@ -335,6 +453,123 @@ class DorisSource(MySQLSource):
                 message="DESCRIBE failed, so column types fall back to MySQL reflection: Doris-specific types such as HLL, BITMAP and VARIANT are reported as their closest MySQL equivalent instead.",
                 context=f"{full_name}: {error}",
             )
+
+        for database, error in dialect.pop_comment_lookup_failures().items():
+            self.report.databases_without_comments += 1
+            self.report.warning(
+                title="Doris table and column comments unavailable",
+                message="Reading comments from information_schema failed, so some or all of this database's tables and columns were ingested without descriptions, which clears the descriptions an earlier run ingested from Doris. Check that the account can read information_schema.TABLES and information_schema.COLUMNS, and that the lookup finishes within the connection's read timeout and Doris' query_timeout.",
+                context=f"{database}: {error}",
+            )
+
+    def get_profiling_internal(self) -> MetadataWorkUnitIterable:
+        self._in_metadata_pass = False
+        try:
+            yield from super().get_profiling_internal()
+        finally:
+            self._in_metadata_pass = True
+
+    def _get_columns(
+        self, dataset_name: str, inspector: Inspector, schema: str, table: str
+    ) -> Sequence[Mapping[str, Any]]:
+        # Unlike the base class, a reflection error is raised rather than turned
+        # into an empty column list: the table would then be emitted with a
+        # field-less schema that overwrites the good one. loop_tables reports and
+        # skips it instead, or _process_table does when the connection dropped.
+        columns = inspector.get_columns(table, schema)
+        if not columns:
+            self.report.warning(
+                message="Missing column information", context=dataset_name
+            )
+        return columns
+
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        return self._skip_lost_connection_tables(
+            dataset_name,
+            inspector,
+            super()._process_table(
+                dataset_name, inspector, schema, table, sql_config, data_reader
+            ),
+        )
+
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        return self._skip_lost_connection_tables(
+            dataset_name,
+            inspector,
+            super()._process_view(dataset_name, inspector, schema, view, sql_config),
+        )
+
+    def _skip_lost_connection_tables(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        workunits: Iterable[Union[SqlWorkUnit, MetadataWorkUnit]],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        # `workunits` is the base class's generator, so nothing has been read yet.
+        if self._skip_unreachable(inspector):
+            return
+        try:
+            yield from workunits
+        except Exception as e:
+            if not self._skip_on_lost_connection(dataset_name, inspector, e):
+                raise
+
+    def _skip_unreachable(self, inspector: Inspector) -> bool:
+        if inspector.bind not in self._unreachable_connections:
+            return False
+        self.report.tables_skipped_after_connection_loss += 1
+        return True
+
+    def _skip_on_lost_connection(
+        self, dataset_name: str, inspector: Inspector, error: Exception
+    ) -> bool:
+        # loop_tables and loop_views skip a table that raises with only a warning,
+        # so stale-entity removal would then delete it. A failure stops that, which
+        # is right when the connection dropped: the table still exists, it just
+        # could not be read. The error is not re-raised, so the loop does not also
+        # warn about the same table.
+        connection = _lost_connection(inspector)
+        if connection is None:
+            return False
+        self.report.failure(
+            title="Lost the Doris connection while reflecting a table",
+            message="The connection dropped while the table or view was being read, so it was skipped rather than ingested incomplete.",
+            context=dataset_name,
+            exc=error,
+        )
+        # Until it is rolled back, every later statement on the connection raises
+        # PendingRollbackError. Rolling back and reconnecting here lets the next
+        # table carry on, in the same catalog and database since both are in the
+        # engine URL.
+        connection.rollback()
+        try:
+            connection.execute(text("SELECT 1"))
+        except SQLAlchemyError as e:
+            # Each remaining table would otherwise wait out its own connect
+            # timeouts before failing the same way.
+            self._unreachable_connections.add(connection)
+            self.report.failure(
+                title="Could not reconnect to Doris",
+                message="Reconnecting after a dropped connection failed, so the rest of this database's tables and views were skipped. See tables_skipped_after_connection_loss for how many.",
+                context=dataset_name,
+                exc=e,
+            )
+        return True
 
     def get_platform(self) -> str:
         return "doris"

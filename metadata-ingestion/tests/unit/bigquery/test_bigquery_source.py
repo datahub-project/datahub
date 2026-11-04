@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.introspect import declares_qualifier
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
@@ -1032,6 +1033,106 @@ def test_table_processing_logic_date_named_tables(
     ]  # alternatively
     for table in tables:
         assert tables[table].table_id in ["test-table", "20220103"]
+
+
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_table_processing_logic_date_suffixed_copies_of_a_real_table(
+    get_projects_client, get_bq_client_mock, data_dictionary_mock
+):
+    """Date-suffixed tables sitting beside an un-suffixed table of the same name are
+    one-off copies, not a sharded set. Collapsing them would land several physically
+    different tables on a single URN, so the copies are dropped instead."""
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+
+    def _item(table_id: str) -> TableListItem:
+        return TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": table_id,
+                }
+            }
+        )
+
+    client_mock.list_tables.return_value = [
+        _item("my-table"),
+        _item("my-table_20251120"),
+        _item("my-table_20251121"),
+        # A genuine sharded set in the same dataset must keep collapsing.
+        _item("my-sharded-table_20251120"),
+        _item("my-sharded-table_20251121"),
+    ]
+    data_dictionary_mock.get_tables_for_dataset.return_value = None
+
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    _ = list(
+        schema_gen.get_tables_for_dataset(
+            project_id="test-project", dataset=BigqueryDataset("test-dataset")
+        )
+    )
+
+    tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][2]
+
+    assert sorted(tables) == ["my-sharded-table_20251121", "my-table"]
+    assert source.report.num_sharded_tables_scanned == 4
+    assert source.report.num_sharded_tables_deduped == 2
+    # Counts both skipped copies, not the one family they belong to.
+    assert source.report.num_sharded_tables_shadowed_by_base_table == 2
+
+
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_date_suffixed_copies_kept_without_legacy_sharded_table_support(
+    get_projects_client, get_bq_client_mock, data_dictionary_mock
+):
+    """With enable_legacy_sharded_table_support disabled a shard keeps a `_yyyymmdd`
+    suffix in its URN, so it does not collide with the un-suffixed table and there is
+    no reason to drop it."""
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    config = BigQueryV2Config.model_validate(
+        {"project_id": "test-project", "enable_legacy_sharded_table_support": False}
+    )
+
+    def _item(table_id: str) -> TableListItem:
+        return TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": table_id,
+                }
+            }
+        )
+
+    client_mock.list_tables.return_value = [
+        _item("my-table"),
+        _item("my-table_20251120"),
+        _item("my-table_20251121"),
+    ]
+    data_dictionary_mock.get_tables_for_dataset.return_value = None
+
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    _ = list(
+        schema_gen.get_tables_for_dataset(
+            project_id="test-project", dataset=BigqueryDataset("test-dataset")
+        )
+    )
+
+    tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][2]
+
+    assert sorted(tables) == ["my-table", "my-table_20251121"]
+    assert source.report.num_sharded_tables_shadowed_by_base_table == 0
 
 
 def create_row(d: Dict[str, Any]) -> Row:
@@ -2177,48 +2278,6 @@ def test_parse_external_table_options(ddl: str, expected: ExternalTableOptions) 
     assert ExternalTableOptions.from_ddl(ddl) == expected
 
 
-@patch.object(BigQueryV2Config, "get_bigquery_client")
-@patch.object(BigQueryV2Config, "get_projects_client")
-def test_biglake_dataset_skipped_for_region_autodetect(
-    get_projects_client, get_bq_client_mock
-):
-    # BigLake/Omni datasets report locations like
-    # `aws-us-east-1` that are NOT valid INFORMATION_SCHEMA region qualifiers.
-    # If we add them to discovered_locations, the queries extractor would try
-    # to scan `region-aws-us-east-1` and emit a spurious failure every run.
-    config = BigQueryV2Config.model_validate(
-        {"project_id": "test-project", "include_schema_metadata": False}
-    )
-    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    schema_gen = source.bq_schema_extractor
-
-    biglake_dataset = BigqueryDataset(name="ds-biglake", location="aws-us-east-1")
-    gcp_dataset = BigqueryDataset(name="ds-gcp", location="europe-west1")
-
-    list(
-        schema_gen._process_schema(
-            project_id="test-project",
-            bigquery_dataset=biglake_dataset,
-            db_tables={},
-            db_views={},
-            db_snapshots={},
-        )
-    )
-    list(
-        schema_gen._process_schema(
-            project_id="test-project",
-            bigquery_dataset=gcp_dataset,
-            db_tables={},
-            db_views={},
-            db_snapshots={},
-        )
-    )
-
-    assert "aws-us-east-1" not in schema_gen.discovered_locations
-    assert "europe-west1" in schema_gen.discovered_locations
-    assert source.report.num_biglake_datasets_skipped_for_region_autodetect == 1
-
-
 @patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
@@ -2865,3 +2924,10 @@ def test_linked_dataset_lineage_without_schema_metadata_does_not_warn(
             }
         )
     assert not any("include_schema_metadata" in r.msg for r in caplog.records)
+
+
+def test_probe_qualifies_tables_through_the_project_ids_field():
+    # BigqueryV2Source is not a SQLAlchemySource, so the probe's
+    # get_identifier shim cannot build `project.dataset.table`; the Qualifier
+    # on `project_ids` declares it.
+    assert declares_qualifier(BigQueryV2Config.model_construct())

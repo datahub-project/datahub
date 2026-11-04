@@ -2,7 +2,7 @@ import { SimpleSelect } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getSupportedTimezones } from '@app/shared/time/timeUtils';
+import { getSupportedTimezones } from '@app/sharedV2/time/timeUtils';
 
 const SelectContainer = styled.div`
     max-width: 300px;

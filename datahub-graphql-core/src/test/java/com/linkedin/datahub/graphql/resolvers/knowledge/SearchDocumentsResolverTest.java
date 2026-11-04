@@ -3,6 +3,8 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -16,6 +18,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DocumentSourceType;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
+import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -26,6 +29,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
@@ -41,8 +45,10 @@ import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -93,7 +99,9 @@ public class SearchDocumentsResolverTest {
             any(),
             any(),
             any(Integer.class),
-            any(Integer.class)))
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class)))
         .thenReturn(searchResult);
 
     // Mock EntityClient.batchGetV2 to return a hydrated PUBLISHED entity by default
@@ -243,7 +251,14 @@ public class SearchDocumentsResolverTest {
     // Verify service was called
     verify(mockService, times(1))
         .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
   }
 
   @Test
@@ -259,10 +274,33 @@ public class SearchDocumentsResolverTest {
 
     assertNotNull(result);
 
-    // Verify service was called with filters
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
     verify(mockService, times(1))
         .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+            any(OperationContext.class),
+            eq("test query"),
+            filterCaptor.capture(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
+
+    final List<Criterion> criteria =
+        filterCaptor.getValue().getOr().stream()
+            .filter(conj -> conj.getAnd() != null)
+            .flatMap(conj -> conj.getAnd().stream())
+            .collect(Collectors.toList());
+    assertTrue(
+        criteria.stream().noneMatch(c -> "subTypes".equals(c.getField())),
+        "must filter on the ES field typeNames, not the aspect name subTypes");
+    assertTrue(
+        criteria.stream()
+            .anyMatch(
+                c ->
+                    "typeNames".equals(c.getField())
+                        && c.getValues().containsAll(ImmutableList.of("tutorial", "guide"))),
+        "typeNames filter should carry the requested subtypes");
   }
 
   @Test
@@ -280,7 +318,14 @@ public class SearchDocumentsResolverTest {
     // Verify service was called with rootOnly filter
     verify(mockService, times(1))
         .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
   }
 
   @Test
@@ -300,7 +345,14 @@ public class SearchDocumentsResolverTest {
     // Verify service was called (parentDocuments filter should be used, not rootOnly)
     verify(mockService, times(1))
         .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
   }
 
   @Test
@@ -317,7 +369,8 @@ public class SearchDocumentsResolverTest {
 
     // Verify service was called with "*" query
     verify(mockService, times(1))
-        .searchDocuments(any(OperationContext.class), eq("*"), any(), any(), eq(0), eq(10));
+        .searchDocuments(
+            any(OperationContext.class), eq("*"), any(), any(), eq(0), eq(10), isNull(), isNull());
   }
 
   // Note: Search operations don't require special authorization like other entity searches
@@ -335,7 +388,9 @@ public class SearchDocumentsResolverTest {
             any(),
             any(),
             any(Integer.class),
-            any(Integer.class)))
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class)))
         .thenThrow(new RuntimeException("Service error"));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -354,7 +409,14 @@ public class SearchDocumentsResolverTest {
     // Verify service was called (the filter will contain state=PUBLISHED by default)
     verify(mockService, times(1))
         .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
   }
 
   @Test
@@ -375,7 +437,9 @@ public class SearchDocumentsResolverTest {
             filterCaptor.capture(),
             any(),
             eq(0),
-            eq(10));
+            eq(10),
+            isNull(),
+            isNull());
 
     Filter filter = filterCaptor.getValue();
     assertNotNull(filter, "Filter should not be null");
@@ -392,6 +456,43 @@ public class SearchDocumentsResolverTest {
                         && c.getCondition() == Condition.EQUAL);
 
     assertTrue(hasSourceType, "Filter should contain sourceType=NATIVE");
+  }
+
+  @Test
+  public void testSearchDocumentsWithHasDomainFalse() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setHasDomain(false);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            filterCaptor.capture(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
+
+    Filter filter = filterCaptor.getValue();
+    assertNotNull(filter, "Filter should not be null");
+
+    boolean hasUnassignedDomain =
+        filter.getOr().stream()
+            .flatMap(cc -> cc.getAnd().stream())
+            .anyMatch(
+                c ->
+                    "domains".equals(c.getField())
+                        && c.getCondition() == Condition.EXISTS
+                        && Boolean.TRUE.equals(c.isNegated()));
+
+    assertTrue(hasUnassignedDomain, "Filter should contain domains EXISTS negated (unassigned)");
   }
 
   @Test
@@ -412,7 +513,9 @@ public class SearchDocumentsResolverTest {
             filterCaptor.capture(),
             any(),
             eq(0),
-            eq(10));
+            eq(10),
+            isNull(),
+            isNull());
 
     Filter filter = filterCaptor.getValue();
     assertNotNull(filter, "Filter should not be null");
@@ -448,7 +551,9 @@ public class SearchDocumentsResolverTest {
             filterCaptor.capture(),
             any(),
             eq(0),
-            eq(10));
+            eq(10),
+            isNull(),
+            isNull());
 
     Filter filter = filterCaptor.getValue();
     if (filter != null) {
@@ -522,7 +627,9 @@ public class SearchDocumentsResolverTest {
             any(),
             any(),
             any(Integer.class),
-            any(Integer.class)))
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class)))
         .thenReturn(emptySearchResult);
 
     SearchDocumentsResult result = resolver.get(mockEnv).get();
@@ -599,7 +706,9 @@ public class SearchDocumentsResolverTest {
             filterCaptor.capture(),
             any(),
             eq(0),
-            eq(10));
+            eq(10),
+            isNull(),
+            isNull());
 
     // The View's domain filter must be conjoined onto every OR clause of the base
     // (published/unpublished) filter, so every disjunct should carry the domain criterion.
@@ -627,5 +736,33 @@ public class SearchDocumentsResolverTest {
     resolver.get(mockEnv).get();
 
     verify(mockViewService, never()).getViewInfo(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testSearchDocumentsPassesFacetsAndSearchFlags() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setFacets(ImmutableList.of("domains"));
+    SearchFlags searchFlags = new SearchFlags();
+    searchFlags.setMaxAggValues(100);
+    input.setSearchFlags(searchFlags);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<List> facetsCaptor = ArgumentCaptor.forClass(List.class);
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            facetsCaptor.capture(),
+            any());
+
+    assertEquals(facetsCaptor.getValue(), ImmutableList.of("domains"));
   }
 }

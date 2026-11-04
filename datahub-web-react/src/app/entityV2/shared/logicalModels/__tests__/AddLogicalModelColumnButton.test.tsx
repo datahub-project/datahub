@@ -11,7 +11,7 @@ import { SchemaFieldDataType } from '@types';
 const URN = 'urn:li:dataset:(urn:li:dataPlatform:logical,m,PROD)';
 
 const refetch = vi.fn();
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({ urn: URN }),
     useRefetch: () => refetch,
 }));

@@ -1,9 +1,9 @@
-import { Input } from '@components';
 import { Calendar } from '@phosphor-icons/react/dist/csr/Calendar';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DefaultDatePickerInputProps } from '@components/components/DatePicker/variants/common/types';
+import { Input } from '@components/components/Input';
 
 export function DefaultDatePickerInput({ datePickerProps, ...props }: DefaultDatePickerInputProps) {
     const { t } = useTranslation('alchemy');

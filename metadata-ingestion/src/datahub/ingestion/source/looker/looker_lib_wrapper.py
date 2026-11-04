@@ -4,7 +4,17 @@ import logging
 import os
 from enum import Enum
 from functools import lru_cache
-from typing import Dict, List, MutableMapping, Optional, Sequence, Set, Union, cast
+from typing import (
+    Dict,
+    FrozenSet,
+    List,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+    cast,
+)
 
 import looker_sdk
 import looker_sdk.rtl.requests_transport as looker_requests_transport
@@ -32,6 +42,28 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 
 logger = logging.getLogger(__name__)
+
+# What test_connection checks, beside get_available_permissions, so the
+# probe's `permissions` command reports against the same sets.
+BASIC_INGEST_REQUIRED_PERMISSIONS: FrozenSet[str] = frozenset(
+    {
+        # TODO: Make this a bit more granular.
+        "access_data",
+        "explore",
+        "manage_models",
+        "see_datagroups",
+        "see_lookml",
+        "see_lookml_dashboards",
+        "see_looks",
+        "see_pdts",
+        "see_queries",
+        "see_schedules",
+        "see_sql",
+        "see_user_dashboards",
+        "see_users",
+    }
+)
+USAGE_INGEST_REQUIRED_PERMISSIONS: FrozenSet[str] = frozenset({"see_system_activity"})
 
 
 class LookerQueryResponseFormat(Enum):

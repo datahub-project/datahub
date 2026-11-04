@@ -2,6 +2,7 @@ import { Text } from '@components';
 import React from 'react';
 import { Trans } from 'react-i18next';
 
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { OnboardingStep } from '@app/onboarding/types';
 
 export const ENTITY_PROFILE_V2_COLUMNS_ID = 'entity-profile-v2-columns';
@@ -19,9 +20,9 @@ export const ENTITY_PROFILE_V2_INCIDENTS_ID = 'entity-profile-v2-incidents';
 const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_V2_COLUMNS_ID,
-        selector: `[id^='rc-tabs'][id$='Columns']`,
+        selector: `[id^='rc-tabs'][id$='${EntityTabPath.COLUMNS}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.columnsTitle" />,
-        tabName: 'Columns',
+        tabName: EntityTabPath.COLUMNS,
         action: (node) => {
             // Scroll the tab into view and ensure it's selected
             if (node) {
@@ -44,9 +45,9 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_PROFILE_V2_CONTENTS_ID,
-        selector: `[id^='rc-tabs'][id$='Contents']`,
+        selector: `[id^='rc-tabs'][id$='${EntityTabPath.CONTENTS}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.contentsTitle" />,
-        tabName: 'Contents',
+        tabName: EntityTabPath.CONTENTS,
         action: (node) => {
             if (node) {
                 node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
@@ -62,9 +63,9 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_PROFILE_V2_DOCUMENTATION_ID,
-        selector: `[id^='rc-tabs'][id$='Documentation']`,
+        selector: `[id^='rc-tabs'][id$='${EntityTabPath.DOCUMENTATION}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.documentationTitle" />,
-        tabName: 'Documentation',
+        tabName: EntityTabPath.DOCUMENTATION,
         action: (node) => {
             if (node) {
                 node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
@@ -101,7 +102,7 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
-        selector: `[id^='entity-sidebar-tabs'][id$='About']`,
+        selector: `[data-sidebar-tab='${EntitySidebarTabKey.SUMMARY}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.summaryTitle" />,
         content: (
             <Text type="div" size="md">
@@ -113,7 +114,7 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
-        selector: `[id^='entity-sidebar-tabs'][id$='Columns']`,
+        selector: `[data-sidebar-tab='${EntitySidebarTabKey.COLUMNS}']`,
         title: <Trans i18nKey="common.labels:columns" />,
         content: (
             <Text type="div" size="md">
@@ -128,7 +129,7 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
-        selector: `[id^='entity-sidebar-tabs'][id$='Lineage']`,
+        selector: `[data-sidebar-tab='${EntitySidebarTabKey.LINEAGE}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.lineageTitle" />,
         content: (
             <Text type="div" size="md">
@@ -140,7 +141,7 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_SIDEBAR_V2_PROPERTIES_ID,
-        selector: `[id^='entity-sidebar-tabs'][id$='Properties']`,
+        selector: `[data-sidebar-tab='${EntitySidebarTabKey.PROPERTIES}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.propertiesTitle" />,
         content: (
             <Text type="div" size="md">
@@ -158,9 +159,9 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_PROFILE_V2_QUERIES_ID,
-        selector: `[id^='rc-tabs'][id$='Queries']`,
+        selector: `[id^='rc-tabs'][id$='${EntityTabPath.QUERIES}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.queriesTitle" />,
-        tabName: 'Queries',
+        tabName: EntityTabPath.QUERIES,
         action: (node) => {
             if (node) {
                 node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
@@ -182,9 +183,9 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_PROFILE_V2_VALIDATION_ID,
-        selector: `[id^='rc-tabs'][id$='Quality']`,
+        selector: `[id^='rc-tabs'][id$='${EntityTabPath.QUALITY}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.qualityTitle" />,
-        tabName: 'Quality',
+        tabName: EntityTabPath.QUALITY,
         action: (node) => {
             if (node) {
                 node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
@@ -203,9 +204,9 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_PROFILE_V2_INCIDENTS_ID,
-        selector: `[id^='rc-tabs'][id$='Incidents']`,
+        selector: `[id^='rc-tabs'][id$='${EntityTabPath.INCIDENTS}']`,
         title: <Trans i18nKey="onboarding:entityProfileV2.incidentsTitle" />,
-        tabName: 'Incidents',
+        tabName: EntityTabPath.INCIDENTS,
         action: (node) => {
             if (node) {
                 node.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });

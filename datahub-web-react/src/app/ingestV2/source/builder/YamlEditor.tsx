@@ -1,7 +1,7 @@
 import Editor from '@monaco-editor/react';
 import React from 'react';
 
-import '@conf/monaco';
+import { useMonacoTheme } from '@app/theme/useMonacoTheme';
 
 const EDITOR_LANGUAGE = 'yaml';
 
@@ -11,8 +11,11 @@ type Props = {
 };
 
 export const YamlEditor = ({ initialText, onChange }: Props) => {
+    const monacoTheme = useMonacoTheme();
+
     return (
         <Editor
+            {...monacoTheme}
             options={{
                 minimap: { enabled: false },
                 scrollbar: {

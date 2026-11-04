@@ -13,13 +13,9 @@ export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex-direction: column;
     gap: 20px;
     background-color: ${(props) => props.theme.colors.bg};
-    ${(props) => props.$isShowNavBarRedesign && 'max-height: calc(100vh - 88px);'};
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
-        box-shadow: ${props.theme.colors.shadowSm};
-        margin: 5px;
-    `}
+    /* Fills the app shell (which owns the 8px inset) and scrolls inside, instead of a fixed max-height. */
+    ${(props) => props.$isShowNavBarRedesign && 'min-height: 0;'}
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm};`}
 `;
 
 export const HeaderContainer = styled.div`
@@ -221,12 +217,6 @@ export const EmptyContainer = styled.div`
     justify-content: center;
     height: 100%;
     width: 100%;
-    gap: 16px;
-
-    svg {
-        width: 160px;
-        height: 160px;
-    }
 `;
 
 export const ActionsContainer = styled.div`
@@ -236,16 +226,12 @@ export const ActionsContainer = styled.div`
 
 export const CardIcons = styled.div`
     display: flex;
+    align-items: center;
     justify-content: end;
     gap: 12px;
 
     div {
-        border: 1px solid ${(props) => props.theme.colors.border};
-        border-radius: 20px;
-        width: 28px;
-        height: 28px;
-        padding: 4px;
-        color: ${(props) => props.theme.colors.textTertiary};
+        color: ${(props) => props.theme.colors.icon};
         :hover {
             cursor: pointer;
         }

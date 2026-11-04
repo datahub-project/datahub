@@ -1,4 +1,4 @@
-import { CaretDownFilled } from '@ant-design/icons';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -69,7 +69,7 @@ export default function BooleanSearchFilter({ icon, title, option, count, initia
                     {icon && <IconWrapper>{icon}</IconWrapper>}
                     {title} {isSelected ? `(1) ` : ''}
                 </IconNameWrapper>
-                <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
+                <CaretDown size={12} weight="fill" />
             </SearchFilterLabel>
         </Dropdown>
     );

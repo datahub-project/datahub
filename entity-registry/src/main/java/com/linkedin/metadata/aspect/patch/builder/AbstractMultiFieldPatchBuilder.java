@@ -105,7 +105,8 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
   }
 
   protected static String encodeValue(@Nonnull String value) {
-    return value.replace("~ ", "~0").replace("/", "~1");
+    // Encode '~' before '/'. The '~' introduced by '~1' must not be encoded again.
+    return value.replace("~", "~0").replace("/", "~1");
   }
 
   protected static String encodeValueUrn(@Nonnull Urn urn) {

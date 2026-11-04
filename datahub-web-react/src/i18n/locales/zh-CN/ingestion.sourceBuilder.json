@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "继续设置",
     "multiStep.builder.discard.description": "现在退出将放弃你的配置。你可以继续设置，也可以退出后重新开始",
     "multiStep.builder.discard.title": "你有未保存的更改",
-    "multiStep.chat.placeholder": "AI 聊天占位内容",
     "multiStep.connection.addOwners": "添加所有者",
     "multiStep.connection.advancedSettings": "高级设置",
     "multiStep.connection.cannotChangeSourceType": "无法更改现有数据引入源的数据源类型",

@@ -10,7 +10,7 @@ This plugin extracts the following:
 
 :::tip Schema pattern
 
-It is important to explicitly define the deny schema pattern for internal Druid databases (lookup & sys) if adding a schema pattern. Otherwise, the crawler may crash before processing relevant databases. This deny pattern is defined by default but is overriden by user-submitted configurations.
+It is important to explicitly define the deny schema pattern for internal Druid databases (lookup & sys) if adding a schema pattern. Otherwise, the crawler may crash before processing relevant databases. This deny pattern is defined by default but is overridden by user-submitted configurations.
 :::
 
 ### Prerequisites

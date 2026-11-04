@@ -7,7 +7,8 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
 import { useSearchSummaryLineage } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection.hooks';
 import {
@@ -17,13 +18,14 @@ import {
     getRelatedEntitySummary,
 } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/utils';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useEntityFormContext } from '@app/entityV2/shared/entityForm/EntityFormContext';
 import { TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
-import { formatNumber } from '@app/shared/formatNumber';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineageV3/utils/useGetLineageTimeParams';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
-import CompactContext from '@src/app/shared/CompactContext';
+import CompactContext from '@src/app/sharedV2/CompactContext';
 
 import { useGetSearchAcrossLineageCountsQuery } from '@graphql/lineage.generated';
 
@@ -76,6 +78,7 @@ type Props = {
 const SidebarLineageSection = ({ contexType }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
     const { urn, entityData, entityType } = useEntityData();
+    const { isInFormContext } = useEntityFormContext();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = useContext(CompactContext);
@@ -117,6 +120,8 @@ const SidebarLineageSection = ({ contexType }: Props) => {
 
     const hasLineage = directUpstreamCount > 0 || directDownstreamCount > 0;
 
+    // Stay hidden until a count is known to be non-zero. A spinner that then disappears
+    // would claim a Lineage section for assets that have none.
     if (!hasLineage) {
         return null;
     }
@@ -174,23 +179,27 @@ const SidebarLineageSection = ({ contexType }: Props) => {
                 </>
             }
             extra={
-                <Tooltip title={t('sidebar.lineage.exploreGraphTooltip')} placement="left" showArrow={false}>
-                    <Button
-                        variant="text"
-                        color="primary"
-                        size="md"
-                        icon={{ icon: TreeStructure }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`;
-                            if (isCompact) {
-                                window.open(lineagePath, '_blank');
-                            } else {
-                                history.push(lineagePath);
-                            }
-                        }}
-                    />
-                </Tooltip>
+                <>
+                    {!isInFormContext && (
+                        <Tooltip title={t('sidebar.lineage.exploreGraphTooltip')} placement="left" showArrow={false}>
+                            <Button
+                                variant="text"
+                                color="primary"
+                                size="md"
+                                icon={{ icon: TreeStructure }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/${EntityTabPath.LINEAGE}`;
+                                    if (isCompact) {
+                                        window.open(lineagePath, '_blank');
+                                    } else {
+                                        history.push(lineagePath);
+                                    }
+                                }}
+                            />
+                        </Tooltip>
+                    )}
+                </>
             }
         />
     );

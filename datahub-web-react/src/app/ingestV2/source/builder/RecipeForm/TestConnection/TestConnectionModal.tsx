@@ -1,5 +1,6 @@
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Button } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +14,7 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
+import { ModalButtonContainer } from '@app/sharedV2/button/styledComponents';
 
 import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
@@ -79,12 +80,12 @@ const CapabilitiesTitle = styled.div`
     margin-bottom: 5px;
 `;
 
-const StyledCheck = styled(CheckOutlined)`
+const StyledCheck = styled(Check)`
     color: ${(props) => props.theme.colors.textSuccess};
     margin-right: 5px;
 `;
 
-const StyledClose = styled(CloseOutlined)`
+const StyledClose = styled(X)`
     color: ${(props) => props.theme.colors.textError};
     margin-right: 5px;
 `;

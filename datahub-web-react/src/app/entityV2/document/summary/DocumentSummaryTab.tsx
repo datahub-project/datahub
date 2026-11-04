@@ -8,10 +8,10 @@ import styled from 'styled-components';
 
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { DocumentChangeHistoryDrawer } from '@app/entityV2/document/changeHistory/DocumentChangeHistoryDrawer';
 import { EditableContent } from '@app/entityV2/document/summary/EditableContent';
 import { EditableTitle } from '@app/entityV2/document/summary/EditableTitle';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader';
 import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/DocumentActionsMenu';
 import { useModalContext } from '@app/sharedV2/modals/ModalContext';

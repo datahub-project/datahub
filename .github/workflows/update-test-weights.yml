@@ -21,7 +21,7 @@ permissions:
 jobs:
   update-weights:
     if: github.repository == 'datahub-project/datahub'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
       create_pr: ${{ steps.decide.outputs.create_pr }}
@@ -39,9 +39,10 @@ jobs:
           # alongside the weight refresh.
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
+          java: false
+          gradle: false
 
       - name: Download smoke test artifacts
         env:
@@ -318,7 +319,7 @@ jobs:
     name: Notify Slack
     needs: update-weights
     if: always() && github.repository == 'datahub-project/datahub'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Post Slack notification

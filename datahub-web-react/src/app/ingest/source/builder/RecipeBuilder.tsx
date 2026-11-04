@@ -1,10 +1,11 @@
-import { CodeOutlined, FormOutlined } from '@ant-design/icons';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { CSVInfo } from '@app/ingest/source/builder/CSVInfo';
 import { IngestionDocumentationHint } from '@app/ingest/source/builder/IngestionDocumentationHint';
 import { LookerWarning } from '@app/ingest/source/builder/LookerWarning';
@@ -116,7 +117,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
                     >
-                        <FormOutlined /> Form
+                        <PencilLine /> Form
                     </StyledButton>
                     <StyledButton
                         variant="text"
@@ -125,7 +126,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
                     >
-                        <CodeOutlined /> YAML
+                        <Code /> YAML
                     </StyledButton>
                 </ButtonsWrapper>
             </HeaderContainer>

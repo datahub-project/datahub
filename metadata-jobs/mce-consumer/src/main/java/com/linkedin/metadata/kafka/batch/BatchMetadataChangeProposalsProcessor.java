@@ -1,9 +1,13 @@
 package com.linkedin.metadata.kafka.batch;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
+import com.google.common.collect.Lists;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
@@ -14,10 +18,12 @@ import com.linkedin.metadata.kafka.InboundRecordProperties;
 import com.linkedin.metadata.kafka.config.batch.BatchMetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.trace.Span;
@@ -27,7 +33,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,6 +54,26 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BatchMetadataChangeProposalsProcessor {
 
+  /**
+   * MCPs whose urn can't be parsed, dropped one by one while entity and aspect tolerance is on
+   * (with it off, such an MCP fails the poll as before). The failure topic is keyed by the parsed
+   * urn, so they can't be sent there.
+   */
+  static final String MALFORMED_URN_METRIC = "mcp.batch.malformed_urn";
+
+  /**
+   * MCPs for an entity type or aspect this build doesn't know whose send to the failure topic
+   * failed, so they were dropped. The rest of the poll is still processed.
+   */
+  static final String UNKNOWN_DROPPED_METRIC = "mcp.batch.unknown_dropped";
+
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(
+          BatchMetadataChangeProposalsProcessor.class, "MCP (sent to the failure topic)");
+
+  private static final UnknownDataGuard MALFORMED =
+      UnknownDataGuard.forSite(BatchMetadataChangeProposalsProcessor.class, "MCP (dropped)");
+
   private static final String AVRO_SYSTEM_METADATA_FIELD = "systemMetadata";
   private static final String AVRO_PROPERTIES_FIELD = "properties";
 
@@ -67,6 +93,8 @@ public class BatchMetadataChangeProposalsProcessor {
 
   private final ConfigurationProvider provider;
   private final ConsumerPauseSupport consumerPauseSupport;
+  // The entity client writes proposals in groups of its batchIngestSize.
+  private final EntityClientConfig entityClientConfig;
 
   @Value(
       "${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:"
@@ -220,6 +248,50 @@ public class BatchMetadataChangeProposalsProcessor {
             "Unrecoverable message deserialization error. Cannot forward to failure topic.", e);
         continue;
       }
+      // Batch validation rejects the whole batch for one invalid MCP, which sends every valid MCP
+      // in it to the failure topic too. When tolerant, fail these individually instead:
+      // - after a rollback, MCPs a newer build wrote for entities or aspects this build does not
+      //   know;
+      // - an MCP whose urn can't be parsed. Reading it throws, and out of this loop that would
+      //   discard the whole poll without sending anything to the failure topic.
+      // Strict handling keeps the batch behavior from before tolerance.
+      if (handling().toleratesUnknownEntityAspect()) {
+        final Urn urn = UnknownDataGuard.urnOrNull(mcp::getEntityUrn);
+        if (urn == null && mcp.data().get("entityUrn") != null) {
+          // The failure topic is keyed by the parsed urn, so this MCP can't be sent there. A urn
+          // that can't be parsed is invalid in every version, so there is nothing to replay.
+          MALFORMED.skippedBecause(
+              Optional.empty(),
+              "malformed urn",
+              "its entity urn can't be parsed",
+              mcp.data().get("entityUrn"));
+          sliceContext
+              .getMetricUtils()
+              .ifPresent(m -> m.incrementMicrometer(MALFORMED_URN_METRIC, 1));
+          continue;
+        }
+        if (!handling()
+            .admitEvent(
+                UNKNOWN_DATA,
+                sliceContext.getEntityRegistry(),
+                sliceContext.getMetricUtils(),
+                urn,
+                mcp.hasEntityType() ? mcp.getEntityType() : null,
+                mcp.hasAspectName() ? mcp.getAspectName() : null)) {
+          if (!sendToFailureTopic(
+              sliceContext,
+              mcp,
+              new IllegalArgumentException(
+                  String.format(
+                      "Unknown entity type or aspect '%s/%s' — not in current registry.",
+                      mcp.getEntityType(), mcp.getAspectName())))) {
+            sliceContext
+                .getMetricUtils()
+                .ifPresent(m -> m.incrementMicrometer(UNKNOWN_DROPPED_METRIC, 1));
+          }
+          continue;
+        }
+      }
       long mcpSize = calculateMCPSize(mcp);
 
       // If adding this MCP would exceed the batch size limit, process the current batch first.
@@ -259,6 +331,26 @@ public class BatchMetadataChangeProposalsProcessor {
   }
 
   /**
+   * Sends one MCP this build can't apply to the failure topic, without failing the rest of the
+   * poll. Returns whether it was sent.
+   */
+  private boolean sendToFailureTopic(
+      @Nonnull final OperationContext sliceContext,
+      @Nonnull final MetadataChangeProposal mcp,
+      @Nonnull final Exception reason) {
+    try {
+      kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, List.of(mcp), reason);
+      return true;
+    } catch (RuntimeException e) {
+      // The MCP can't be applied by this build either way; don't let the failure topic abandon
+      // the valid MCPs already collected in this poll. Propagating would make the Kafka error
+      // handler retry and then discard the whole poll.
+      log.error("Failed to send MCP to the failure topic: {}", reason.getMessage(), e);
+      return false;
+    }
+  }
+
+  /**
    * Process a batch of MCPs under the supplied slice context.
    *
    * @param sliceContext slice-level OperationContext used for ingest + FMCP emission
@@ -275,22 +367,36 @@ public class BatchMetadataChangeProposalsProcessor {
         batch.size(),
         batchBytes);
 
-    try {
-      List<String> urns = entityClient.batchIngestProposals(sliceContext, batch, false);
-
-      log.debug(
-          "Successfully processed MCP event batch of size {} with urns: {}",
-          batch.size(),
-          urns.stream().filter(Objects::nonNull).toList());
-    } catch (Throwable throwable) {
-      log.error("MCP Processor Error", throwable);
-      Span currentSpan = Span.current();
-      currentSpan.recordException(throwable);
-      currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
-      currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
-
-      kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, batch, throwable);
+    // A batch holds unrelated queued proposals, so an invalid proposal must not fail the rest:
+    // the entity client returns the proposals it rejected, and those alone are dead-lettered.
+    // Each call carries one entity-client group, which the client writes in one go, so any
+    // other failure leaves nothing of that group written and dead-letters just that group.
+    for (List<MetadataChangeProposal> group :
+        Lists.partition(batch, Math.max(1, entityClientConfig.getBatchIngestSize()))) {
+      try {
+        for (Pair<MetadataChangeProposal, Exception> rejected :
+            entityClient.ingestValidProposals(sliceContext, group)) {
+          deadLetter(sliceContext, List.of(rejected.getFirst()), rejected.getSecond());
+        }
+      } catch (Throwable throwable) {
+        // Only a failed group write errors the consume span; a single rejected proposal does not,
+        // since the rest of its group was written.
+        Span.current().setStatus(StatusCode.ERROR, throwable.getMessage());
+        deadLetter(sliceContext, group, throwable);
+      }
     }
+  }
+
+  private void deadLetter(
+      @Nonnull OperationContext sliceContext,
+      List<MetadataChangeProposal> mcps,
+      Throwable throwable) {
+    log.error("MCP Processor Error", throwable);
+    Span currentSpan = Span.current();
+    currentSpan.recordException(throwable);
+    currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
+
+    kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, mcps, throwable);
   }
 
   /**

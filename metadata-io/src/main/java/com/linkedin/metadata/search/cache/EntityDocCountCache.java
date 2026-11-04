@@ -31,6 +31,7 @@ public class EntityDocCountCache {
   private static final class EntityDocCountsKey {
     private final String searchContextId;
     private final Filter filter;
+    private final boolean skipTemplateExecution;
   }
 
   public EntityDocCountCache(
@@ -62,7 +63,10 @@ public class EntityDocCountCache {
       @Nonnull OperationContext opContext, @Nullable Filter filter) {
     return entityDocCounts
         .computeIfAbsent(
-            new EntityDocCountsKey(opContext.getSearchContextId(), filter),
+            new EntityDocCountsKey(
+                opContext.getSearchContextId(),
+                filter,
+                opContext.getSearchContext().isSkipTemplateExecution()),
             k -> buildSupplier(opContext, filter))
         .get();
   }

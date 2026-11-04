@@ -46,7 +46,9 @@ class ProfilingContext:
     temp_view: Optional[str] = None
     temp_schema: Optional[str] = None
 
-    # Sampling information
+    # Sampling information. sample_percentage is diagnostic only -- adapters
+    # set it, nothing reads it back; extrapolating sampled statistics to
+    # full-table scale is not done today.
     is_sampled: bool = False
     sample_percentage: Optional[float] = None
 

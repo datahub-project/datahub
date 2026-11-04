@@ -2,7 +2,9 @@ version: '3.7'
 
 services:
   grafana:
-    image: grafana/grafana:latest
+    # Pinned: `latest` moved to 13.3, which dropped /bin/bash from the image and
+    # broke the readiness check; bump deliberately and regenerate the goldens.
+    image: grafana/grafana:13.2.4
     container_name: grafana
     ports:
       - "3000:3000"
@@ -60,7 +62,7 @@ services:
       - grafana-network
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.15.1
     container_name: prometheus
     ports:
       - "9090:9090"

@@ -29,7 +29,6 @@ query getMe {
             settings {
                 appearance {
                     showSimplifiedHomepage
-                    showThemeV2
                 }
                 views {
                     defaultView {
@@ -77,6 +76,7 @@ query getMe {
             manageFeatures
             manageHomePageTemplates
             manageDocuments
+            createDocuments
             manageServiceAccounts
         }
     }

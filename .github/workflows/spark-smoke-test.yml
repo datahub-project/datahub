@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   spark-smoke-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Fail fast instead of hanging toward the 6h default: the docker-based smoke test (quickstart +
     # Spark image build + spark-submit) has stalled for >1h on flaky network fetches during image
     # builds. A bounded timeout turns such stalls into a quick, actionable red.
@@ -41,18 +41,12 @@ jobs:
       # compiles release-25 modules (e.g. metadata-service:configuration) that javac 21 can't emit.
       # JDK 21 is also provisioned so the real-Spark test tasks fork on it (javaLauncher pinned to 21
       # in acryl-spark-lineage/build.gradle) — Spark 3.x/Hadoop can't run on JDK 24+ (JEP 486).
-      - name: Set up JDK 25 (build) + 21 (Spark runtime)
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
           java-version: |
             21
             25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
