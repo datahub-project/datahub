@@ -28,6 +28,9 @@ import org.testng.annotations.Test;
  * ({@code @RequestBody}, {@code @RequestPart}, {@code HttpEntity}, an {@code InputStream}) or drop
  * {@code consumes}. Form and multipart mappings may read their body through {@code @RequestParam}
  * or {@code @ModelAttribute}.
+ *
+ * <p>Mappings declared on an interface are checked on the interface method, which is where the
+ * annotations live; a controller implementing it inherits them without redeclaring.
  */
 public class ConsumesRequiresBodyArchTest {
 
@@ -63,15 +66,23 @@ public class ConsumesRequiresBodyArchTest {
               "com.linkedin.datahub",
               "com.linkedin.gms",
               "com.datahub",
-              "io.datahubproject");
+              "io.datahubproject",
+              // Generated schema-registry API interfaces, whose mappings the controller inherits.
+              "io.swagger");
 
   @Test
   public void mappingsThatDeclareConsumesTakeABody() {
-    assertTrue(
-        CLASSES.stream()
-            .flatMap(c -> c.getMethods().stream())
-            .anyMatch(m -> !consumes(m).isEmpty()),
-        "no mapping with consumes found; is the openapi servlet still on the test classpath?");
+    // Guard against a silently empty scan: each API surface that declares consumes today must
+    // still be imported (OpenAPI servlets, the Iceberg catalog, the schema-registry interfaces).
+    for (String pkg :
+        List.of("io.datahubproject.openapi", "io.datahubproject.iceberg", "io.swagger.api")) {
+      assertTrue(
+          CLASSES.stream()
+              .filter(c -> c.getPackageName().startsWith(pkg))
+              .flatMap(c -> c.getMethods().stream())
+              .anyMatch(m -> !consumes(m).isEmpty()),
+          "no mapping with consumes found under " + pkg + "; is it still on the test classpath?");
+    }
 
     methods()
         .that()
