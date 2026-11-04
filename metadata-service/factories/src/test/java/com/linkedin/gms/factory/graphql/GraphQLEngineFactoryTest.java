@@ -618,22 +618,14 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * Builds the engine through a fresh copy of the context's factory (the context bean is a
-   * CGLIB-enhanced @Configuration, whose @Bean methods return the existing singleton), with
-   * analytics and the gating feature flags on.
+   * Builds the engine through a fresh factory autowired from this context (the context's own bean
+   * is a CGLIB-enhanced @Configuration, whose @Bean methods return the existing singleton), with
+   * analytics and the gating feature flags on. The flags are read only while the runtime wiring is
+   * built and are restored before returning; this class runs its tests sequentially.
    */
   private GraphQLEngine buildEngineWithAllGatesOn() {
     GraphQLEngineFactory factory = new GraphQLEngineFactory();
-    for (java.lang.reflect.Field field : GraphQLEngineFactory.class.getDeclaredFields()) {
-      if (!java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
-        field.setAccessible(true);
-        try {
-          field.set(factory, field.get(graphQLEngineFactory));
-        } catch (IllegalAccessException e) {
-          throw new IllegalStateException(e);
-        }
-      }
-    }
+    applicationContext.getAutowireCapableBeanFactory().autowireBean(factory);
     setField(factory, "isAnalyticsEnabled", true);
     FeatureFlags flags = configurationProvider.getFeatureFlags();
     boolean businessAttributes = flags.isBusinessAttributeEntityEnabled();
@@ -655,11 +647,12 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
   /**
    * The schema generator registers graphql-java's property fetcher for every field the runtime
-   * wiring leaves out, so "has a DataFetcher" means "has one other than the property fetcher".
+   * wiring leaves out, so "has a DataFetcher" means "has one other than the property fetcher". If a
+   * graphql-java upgrade changes the default fetcher's type, this stops matching and
+   * testKnownUnwiredFieldsAreStillUnwired fails, so the check cannot go silently vacuous.
    */
   private static boolean isDefaultDataFetcher(DataFetcher<?> fetcher) {
-    return fetcher instanceof PropertyDataFetcher
-        || fetcher.getClass().getName().equals("graphql.schema.SingletonPropertyDataFetcher");
+    return fetcher instanceof PropertyDataFetcher;
   }
 
   /** Root fields, and fields with arguments elsewhere, left on the property fetcher. */
