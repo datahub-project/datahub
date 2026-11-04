@@ -75,6 +75,8 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: steps.uv-cache.outputs.cache-hit != 'true'
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         if: steps.uv-cache.outputs.cache-hit != 'true'
         with:
@@ -144,6 +146,8 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: steps.uv-cache.outputs.cache-hit != 'true'
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         if: steps.uv-cache.outputs.cache-hit != 'true'
         with:
@@ -199,6 +203,8 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: steps.uv-cache.outputs.cache-hit != 'true'
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         if: steps.uv-cache.outputs.cache-hit != 'true'
         with:
@@ -264,6 +270,8 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: steps.yarn-cache.outputs.cache-hit != 'true'
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: ./gradlew :datahub-web-react:yarnInstall
@@ -352,6 +360,8 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: steps.yarn-cache.outputs.cache-hit != 'true'
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - name: Populate yarn cache
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: ./gradlew :docs-website:yarnInstall
@@ -404,6 +414,8 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: steps.uv-cache.outputs.cache-hit != 'true' || steps.yarn-cache.outputs.cache-hit != 'true'
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         if: steps.uv-cache.outputs.cache-hit != 'true'
         with:
