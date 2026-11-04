@@ -219,6 +219,29 @@ public final class SearchFieldResolver {
   }
 
   /**
+   * The label is indexed by {@code copy_to} and is absent from {@code _source}. Every contributor
+   * keeps a different source name, so the projector omits that root and the value lives in doc
+   * values. The label's type does not matter: a count, a timestamp, a keyword, or a URN.
+   */
+  public boolean storedViaCopyTo(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    if (field == null || field.getSourceFields().isEmpty()) {
+      return false;
+    }
+    String indexed = parent(fieldName);
+    return field.getSourceFields().stream().noneMatch(indexed::equals);
+  }
+
+  /**
+   * A parsed URN label clears the root string. Its keywords are copied from the aspect and are not
+   * in {@code _source}, even when a contributor uses the label as its own field name.
+   */
+  public boolean parsedKeywordLabel(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    return field != null && field.isParsedKeywordLabel();
+  }
+
+  /**
    * The field opted into {@code v3.lowercase}. Case-insensitive contains, prefix, and suffix read
    * {@code <field>.lowercase}. Absent means the keyword is case-sensitive.
    */
@@ -544,15 +567,13 @@ public final class SearchFieldResolver {
     }
     // The map key of a label is that label. A source renamed onto a different label must not
     // replace it, or a quoted name query follows that source (id.text) instead of name.text.
+    // A source of the same name at another degree must not copy that degree's presence field onto
+    // the label either: hasDescription would no longer answer whether the entity itself has one.
     MutableField occupant = byName.get(name);
     if (labels.contains(name)
         && occupant != null
         && occupant != indexedField
         && name.equals(occupant.path)) {
-      MutableField source = sources.get(name);
-      if (source != null) {
-        source.addSearchTarget(indexedField);
-      }
       return;
     }
     MutableField prior = aliasedTo.get(name);

@@ -43,7 +43,11 @@ public class SettingsBuilderFactory {
     log.info(
         "Creating LegacySettingsBuilder bean (engineType={} is diagnostic only; V2 settings are engine-agnostic)",
         v2Client.getEngineType());
-    return new V2LegacySettingsBuilder(indexConfig, indexConvention);
+    return new V2LegacySettingsBuilder(
+        indexConfig,
+        indexConvention,
+        configProvider.getElasticSearch().getSearch().isEnableSearchV2_5(),
+        null);
   }
 
   @Bean("multiEntitySettingsBuilder")
@@ -99,7 +103,11 @@ public class SettingsBuilderFactory {
     // inherited from the SEARCH_V2 cluster.
     return new V2SemanticSearchSettingsBuilder(
         indexConvention,
-        new V2LegacySettingsBuilder(semanticClusterConfig.getIndex(), indexConvention),
+        new V2LegacySettingsBuilder(
+            semanticClusterConfig.getIndex(),
+            indexConvention,
+            configProvider.getElasticSearch().getSearch().isEnableSearchV2_5(),
+            null),
         semanticClient);
   }
 

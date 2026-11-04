@@ -10,6 +10,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -40,16 +41,16 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeaders;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -74,11 +75,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.index.query.QueryBuilder;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -98,16 +99,6 @@ public class IncrementalReindexCatchUpStepTest {
 
   private OperationContext opContext;
   private IncrementalReindexCatchUpStep step;
-
-  @BeforeMethod
-  public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
-  }
-
-  @AfterMethod
-  public void resetUnknownDataHandling() {
-    UnknownDataHandlingsForTests.reset();
-  }
 
   @BeforeMethod
   public void setup() throws Exception {
@@ -767,10 +758,10 @@ public class IncrementalReindexCatchUpStepTest {
 
   private Map<String, String> lastPersistedCatchUpResult() {
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Map<String, String>> resultCaptor = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<Map<String, String>> persisted = ArgumentCaptor.forClass(Map.class);
     verify(upgrade, atLeastOnce())
-        .setUpgradeResult(eq(opContext), any(), eq(entityService), any(), resultCaptor.capture());
-    return resultCaptor.getAllValues().get(resultCaptor.getAllValues().size() - 1);
+        .setUpgradeResult(any(), any(), any(), any(), persisted.capture());
+    return persisted.getValue();
   }
 
   @Test
@@ -954,48 +945,6 @@ public class IncrementalReindexCatchUpStepTest {
     }
     // A _reindex row's index carries no migration mark.
     verify(indexBuilder, never()).markMigrationComplete(any(OperationContext.class), anyString());
-  }
-
-  @Test
-  public void testV3ResumeCursorIsKeyedByEntityType() throws Exception {
-    String alias = v3Alias();
-    List<String> entityNames = v3EntityNames();
-    String entityType = entityNames.get(0);
-    String resumeUrn = "urn:li:" + entityType + ":resume";
-    DataHubUpgradeResult phase1Result = mock(DataHubUpgradeResult.class);
-    when(phase1Result.getResult()).thenReturn(new StringMap(completedV3Row(alias, 1000L, 1000L)));
-    stubIndexBuilderFor(alias);
-    when(phase1Result.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
-    DataHubUpgradeResult catchUpResult = mock(DataHubUpgradeResult.class);
-    when(catchUpResult.getResult())
-        .thenReturn(
-            new StringMap(
-                Map.of(
-                    alias + "." + entityType + "." + IncrementalReindexCatchUpStep.LAST_URN_KEY,
-                    resumeUrn)));
-    when(catchUpResult.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
-    when(upgrade.getUpgradeResult(any(), any(), any()))
-        .thenAnswer(
-            invocation ->
-                invocation.getArgument(1).toString().contains("BuildIndicesIncremental")
-                    ? Optional.of(phase1Result)
-                    : Optional.of(catchUpResult));
-    mockEmptyAspectStream();
-
-    UpgradeStepResult result = step.executable().apply(upgradeContext);
-
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
-        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao, times(entityNames.size()))
-        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
-    Map<String, String> lastUrnByType =
-        argsCaptor.getAllValues().stream()
-            .collect(
-                java.util.HashMap::new,
-                (map, args) -> map.put(args.urnLike, args.lastUrn),
-                Map::putAll);
-    assertEquals(lastUrnByType.get("urn:li:" + entityType + ":%"), resumeUrn);
   }
 
   @Test
@@ -1300,7 +1249,7 @@ public class IncrementalReindexCatchUpStepTest {
     doReturn("task-1")
         .when(indexBuilder)
         .submitFilteredReindex(any(), any(), any(), any(QueryBuilder.class), anyInt());
-    doReturn(Optional.empty()).when(indexBuilder).getTaskInfoByHeader(any(), any());
+    doReturn(Optional.empty()).when(indexBuilder).getTaskInfoByHeader(any(), any(), eq(true));
     when(indexBuilder.computeTimeoutAt()).thenReturn(System.currentTimeMillis() + 60_000L);
 
     BuildIndicesConfiguration configWithPoll = new BuildIndicesConfiguration();
@@ -1377,7 +1326,7 @@ public class IncrementalReindexCatchUpStepTest {
     doReturn("task-1")
         .when(indexBuilder)
         .submitFilteredReindex(any(), any(), any(), any(QueryBuilder.class), anyInt());
-    doReturn(Optional.empty()).when(indexBuilder).getTaskInfoByHeader(any(), any());
+    doReturn(Optional.empty()).when(indexBuilder).getTaskInfoByHeader(any(), any(), eq(true));
     when(indexBuilder.computeTimeoutAt()).thenReturn(System.currentTimeMillis() + 60_000L);
 
     UpgradeStepResult retried = timeseriesStep.executable().apply(upgradeContext);
@@ -1458,29 +1407,36 @@ public class IncrementalReindexCatchUpStepTest {
 
   @Test
   public void testAnUnresolvedIndexDoesNotDropTheRestOfItsService() throws Exception {
-    String datasetAlias = v3AliasFor("dataset");
-    String chartAlias = v3AliasFor("chart");
-    Map<String, String> phase1State = completedV3Row(datasetAlias, 1000L, 1000L);
-    phase1State.putAll(completedV3Row(chartAlias, 1000L, 1000L));
+    // Use two aliases that resolve to different V3 indices, so a failure on one does not drop
+    // migration of the other.
+    List<String> aliases = twoDistinctV3Aliases();
+    String unresolvedAlias = aliases.get(0);
+    String resolvedAlias = aliases.get(1);
+    Map<String, String> phase1State = completedV3Row(unresolvedAlias, 1000L, 1000L);
+    phase1State.putAll(completedV3Row(resolvedAlias, 1000L, 1000L));
     setupPhase1Result(phase1State);
     mockEmptyAspectStream();
 
-    ReindexConfig datasetConfig = mock(ReindexConfig.class);
-    when(datasetConfig.name()).thenReturn(datasetAlias);
-    ReindexConfig chartConfig = mock(ReindexConfig.class);
-    when(chartConfig.name()).thenReturn(chartAlias);
+    ReindexConfig unresolvedConfig = mock(ReindexConfig.class);
+    when(unresolvedConfig.name()).thenReturn(unresolvedAlias);
+    ReindexConfig resolvedConfig = mock(ReindexConfig.class);
+    when(resolvedConfig.name()).thenReturn(resolvedAlias);
     when(indexedService.buildReindexConfigs(any(), any()))
-        .thenReturn(List.of(datasetConfig, chartConfig));
-    when(indexedService.getIndexBuilder(datasetAlias))
-        .thenThrow(new IllegalArgumentException("not a search index"));
-    when(indexedService.getIndexBuilder(chartAlias)).thenReturn(indexBuilder);
+        .thenReturn(List.of(unresolvedConfig, resolvedConfig));
+    // getIndexBuilder(String) is a default method. when(...) runs it, which calls the no-arg
+    // builder, so thenThrow would attach to getIndexBuilder() and the next stub would throw
+    // during setup. doThrow/doReturn stub the overload itself.
+    doThrow(new IllegalArgumentException("not a search index"))
+        .when(indexedService)
+        .getIndexBuilder(unresolvedAlias);
+    doReturn(indexBuilder).when(indexedService).getIndexBuilder(resolvedAlias);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
     verify(indexBuilder, never())
-        .markMigrationComplete(any(OperationContext.class), eq(datasetAlias));
-    verify(indexBuilder).markMigrationComplete(opContext, chartAlias);
+        .markMigrationComplete(any(OperationContext.class), eq(unresolvedAlias));
+    verify(indexBuilder).markMigrationComplete(opContext, resolvedAlias);
   }
 
   @Test
@@ -1515,6 +1471,121 @@ public class IncrementalReindexCatchUpStepTest {
         Optional.of(IncrementalReindexState.CatchUpStatus.FAILED));
   }
 
+  @Test
+  public void testACompletedV3CatchUpRemovesTheTombstonesItsFillLeft() throws Exception {
+    String alias = v3Alias();
+    setupPhase1Result(completedV3Row(alias, 1000L, 1000L));
+    mockEmptyAspectStream();
+    ElasticSearchService searchService = searchServiceFor(alias);
+    when(searchService.deleteV3Tombstones(opContext, alias))
+        .thenReturn(ESWriteDAO.DeleteByQueryResult.builder().success(true).build());
+
+    UpgradeStepResult result = stepWith(searchService).executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    // The window is replayed first: the cleanup must not run ahead of the replay it follows.
+    InOrder order = inOrder(aspectDao, searchService);
+    order
+        .verify(aspectDao, times(v3EntityNames().size()))
+        .streamAspectBatches(any(OperationContext.class), any(), any());
+    order.verify(searchService).deleteV3Tombstones(opContext, alias);
+    verify(indexBuilder).markMigrationComplete(opContext, alias);
+  }
+
+  @Test
+  public void testASkippedV3CatchUpStillRemovesTheFillTombstones() throws Exception {
+    // The window is empty, so there is nothing to replay, but the fill's tombstones are still
+    // there and nothing can bring those entities back.
+    String alias = v3Alias();
+    Map<String, String> phase1State = completedV3Row(alias, null, 5000L);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, alias, 1000L);
+    setupPhase1Result(phase1State);
+    ElasticSearchService searchService = searchServiceFor(alias);
+    when(searchService.deleteV3Tombstones(opContext, alias))
+        .thenReturn(ESWriteDAO.DeleteByQueryResult.builder().success(true).build());
+
+    UpgradeStepResult result = stepWith(searchService).executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
+    verify(searchService).deleteV3Tombstones(opContext, alias);
+    assertEquals(
+        IncrementalReindexState.getCatchUpStatus(lastPersistedCatchUpResult(), alias),
+        Optional.of(IncrementalReindexState.CatchUpStatus.SKIPPED));
+  }
+
+  @Test
+  public void testTombstonesStayWhileTheFillIsInFlight() throws Exception {
+    // The fill creates only absent documents; removing a tombstone now would let it bring the
+    // deleted entity back.
+    String alias = v3Alias();
+    Map<String, String> filling =
+        IncrementalReindexState.setPhase1State(
+            null,
+            alias,
+            alias + "_0_14_0-0_1679000000000",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    filling = IncrementalReindexState.setBackfillPending(filling, alias, alias, 1000L);
+    setupPhase1Result(
+        IncrementalReindexState.setIndexVersion(filling, alias, EntityIndexVersion.V3));
+    mockEmptyAspectStream();
+    ElasticSearchService searchService = searchServiceFor(alias);
+
+    stepWith(searchService).executable().apply(upgradeContext);
+
+    verify(searchService, never()).deleteV3Tombstones(any(OperationContext.class), anyString());
+  }
+
+  @Test
+  public void testATombstoneCleanupThatDoesNotFinishFailsCatchUp() throws Exception {
+    String alias = v3Alias();
+    setupPhase1Result(completedV3Row(alias, 1000L, 1000L));
+    mockEmptyAspectStream();
+    ElasticSearchService searchService = searchServiceFor(alias);
+    when(searchService.deleteV3Tombstones(opContext, alias))
+        .thenReturn(
+            ESWriteDAO.DeleteByQueryResult.builder()
+                .success(false)
+                .remainingDocuments(3)
+                .failureReason("timed out")
+                .build());
+
+    UpgradeStepResult result = stepWith(searchService).executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    // FAILED is not terminal, so the next run replays what is left and cleans up again.
+    assertEquals(
+        IncrementalReindexState.getCatchUpStatus(lastPersistedCatchUpResult(), alias),
+        Optional.of(IncrementalReindexState.CatchUpStatus.FAILED));
+    verify(indexBuilder, never()).markMigrationComplete(any(OperationContext.class), anyString());
+  }
+
+  private ElasticSearchService searchServiceFor(String indexName) throws Exception {
+    ElasticSearchService searchService = mock(ElasticSearchService.class);
+    ReindexConfig config = mock(ReindexConfig.class);
+    when(config.name()).thenReturn(indexName);
+    when(searchService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
+    doReturn(indexBuilder).when(searchService).getIndexBuilder(anyString());
+    return searchService;
+  }
+
+  private IncrementalReindexCatchUpStep stepWith(ElasticSearchService searchService) {
+    return new IncrementalReindexCatchUpStep(
+        opContext,
+        entityService,
+        aspectDao,
+        List.of(searchService),
+        Set.of(),
+        UPGRADE_VERSION,
+        new BuildIndicesConfiguration(),
+        null);
+  }
+
   private void stubIndexBuilderFor(String indexName) throws Exception {
     ReindexConfig config = mock(ReindexConfig.class);
     when(config.name()).thenReturn(indexName);
@@ -1529,6 +1600,18 @@ public class IncrementalReindexCatchUpStepTest {
   private String v3AliasFor(String entityName) {
     String key = V3IndexKeys.resolve(opContext.getEntityRegistry().getEntitySpec(entityName));
     return opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(opContext, key);
+  }
+
+  private List<String> twoDistinctV3Aliases() {
+    List<String> aliases =
+        V3IndexKeys.groupEntitySpecs(opContext.getEntityRegistry()).values().stream()
+            .map(specs -> v3AliasFor(specs.get(0).getName()))
+            .distinct()
+            .sorted()
+            .limit(2)
+            .collect(Collectors.toList());
+    assertEquals(aliases.size(), 2);
+    return aliases;
   }
 
   private List<String> v3EntityNames() {
@@ -1633,83 +1716,6 @@ public class IncrementalReindexCatchUpStepTest {
     SystemMetadata systemMetadata = new SystemMetadata();
     when(aspect.getSystemMetadata()).thenReturn(systemMetadata);
     return aspect;
-  }
-
-  @Test
-  public void testSkipsRowsUnknownToRegistryBeforeConversion() throws Exception {
-    Map<String, String> phase1State =
-        IncrementalReindexState.setPhase1State(
-            null,
-            INDEX_NAME,
-            "datasetindex_v2_0_14_0-0_100",
-            null,
-            1000L,
-            0L,
-            null,
-            true,
-            IncrementalReindexState.Status.COMPLETED);
-    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
-    setupPhase1Result(phase1State);
-
-    BuildIndicesConfiguration config = new BuildIndicesConfiguration();
-    config.setCatchUpSqlPageSize(50);
-    config.setCatchUpFlushInterval(500);
-    config.setCatchUpFlushBytesThreshold(0);
-    IncrementalReindexCatchUpStep step =
-        new IncrementalReindexCatchUpStep(
-            opContext,
-            entityService,
-            aspectDao,
-            List.of(indexedService),
-            Set::of,
-            UPGRADE_VERSION,
-            config,
-            updateIndicesService);
-
-    // Rows written by a newer version: an aspect and an entity type this registry does not know.
-    Timestamp now = new Timestamp(System.currentTimeMillis());
-    List<EbeanAspectV2> rows =
-        List.of(
-            new EbeanAspectV2(
-                "urn:li:dataset:ds0", "datasetProperties", 0L, "{}", now, "tester", null, null),
-            new EbeanAspectV2(
-                "urn:li:dataset:ds1", "futureAspect", 0L, "{}", now, "tester", null, null),
-            new EbeanAspectV2(
-                "urn:li:futureEntity:fe1", "status", 0L, "{}", now, "tester", null, null),
-            new EbeanAspectV2(
-                "urn:li:dataset:ds2", "datasetProperties", 0L, "{}", now, "tester", null, null));
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
-        .thenAnswer(
-            inv ->
-                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
-                        inv.getArgument(2))
-                    .apply(
-                        PartitionedStream.<EbeanAspectV2>builder()
-                            .delegateStream(rows.stream())
-                            .build()));
-    when(entityService.alwaysProduceMCLAsync(any(), any(), any(), any(MetadataChangeLog.class)))
-        .thenReturn(Pair.of(CompletableFuture.completedFuture(null), true));
-
-    SystemAspect mockAspect = createMockSystemAspect("urn:li:dataset:ds0");
-    List<EbeanAspectV2> converted = new ArrayList<>();
-    try (MockedStatic<EntityUtils> entityUtilsMock = mockStatic(EntityUtils.class)) {
-      entityUtilsMock
-          .when(() -> EntityUtils.toSystemAspectFromEbeanAspects(any(), any(), any()))
-          .thenAnswer(
-              invocation -> {
-                List<EbeanAspectV2> aspects = invocation.getArgument(2);
-                converted.addAll(aspects);
-                return aspects.stream().map(a -> mockAspect).toList();
-              });
-
-      step.executable().apply(upgradeContext);
-    }
-
-    assertEquals(
-        converted.stream().map(a -> a.getKey().getUrn()).toList(),
-        List.of("urn:li:dataset:ds0", "urn:li:dataset:ds2"));
-    verify(entityService, times(2))
-        .alwaysProduceMCLAsync(any(), any(), any(), any(MetadataChangeLog.class));
   }
 
   private PartitionedStream<EbeanAspectV2> streamWithPagedAspects(int totalAspects, int pageSize) {

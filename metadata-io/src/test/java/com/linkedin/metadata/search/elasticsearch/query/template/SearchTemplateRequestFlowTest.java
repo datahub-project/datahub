@@ -1364,6 +1364,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             "orders",
             Map.of(),
             12,
+            List.of(),
+            List.of(),
             Map.of(),
             null);
     SearchSourceBuilder source = new SearchSourceBuilder();
@@ -1481,6 +1483,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
                 "orders",
                 Map.of(),
                 1,
+                List.of(),
+                List.of(),
                 sources,
                 null),
             hit);
@@ -1511,6 +1515,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
                 "orders",
                 Map.of(),
                 1,
+                List.of(),
+                List.of(),
                 sources,
                 null),
             hit);
@@ -1541,6 +1547,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
                 "orders",
                 Map.of(),
                 1,
+                List.of(),
+                List.of(),
                 sources,
                 null),
             hit);
@@ -1571,6 +1579,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
                 "orders",
                 Map.of(),
                 1,
+                List.of(),
+                List.of(),
                 sources,
                 null),
             hit);
@@ -1718,6 +1728,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         query,
         Map.of(),
         1,
+        List.of(),
+        List.of(),
         identitySources(queriedFields),
         null);
   }
@@ -1734,6 +1746,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         query,
         Map.of(),
         1,
+        List.of(),
+        List.of(),
         identitySources(List.of("name")),
         null);
   }

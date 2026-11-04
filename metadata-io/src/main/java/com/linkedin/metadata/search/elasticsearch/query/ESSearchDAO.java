@@ -2086,6 +2086,14 @@ public class ESSearchDAO {
         : EntityFilter.toEntityFilter(opContext, filter);
   }
 
+  Filter transformFilter(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entityNames,
+      @Nullable Filter filter,
+      @Nonnull IndexConvention indexConvention) {
+    return transformFilter(opContext, filter, indexConvention);
+  }
+
   @Nonnull
   String[] entityIndexNames(
       @Nonnull OperationContext opContext, @Nonnull Collection<String> entityNames) {

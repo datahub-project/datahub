@@ -556,6 +556,36 @@ public class MultiEntitySettingsBuilderTest {
   }
 
   @Test
+  public void testOpenSearchAddsKnnWhenSemanticIndexingEnabledWithoutEntityOptIn()
+      throws IOException {
+    when(v3Config.getAnalyzerConfig()).thenReturn("");
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    semanticSearch.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
+    when(entityIndexConfiguration.getSemanticSearch()).thenReturn(semanticSearch);
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.isV3EntityIndexType("datasetindex_v3")).thenReturn(true);
+    when(indexConvention.getEntityIndexNameV3(any(), eq("primary"))).thenReturn("primaryindex_v3");
+
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
+
+    SearchClientShim<?> osShim = mock(SearchClientShim.class);
+    when(osShim.getEngineType()).thenReturn(SearchEngineType.OPENSEARCH_2);
+    Map<String, Object> openSearchSettings =
+        new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention, osShim)
+            .getSettings(indexConfiguration, "datasetindex_v3");
+    assertEquals(openSearchSettings.get("knn"), true);
+
+    SearchClientShim<?> esShim = mock(SearchClientShim.class);
+    when(esShim.getEngineType()).thenReturn(SearchEngineType.ELASTICSEARCH_8);
+    Map<String, Object> elasticSettings =
+        new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention, esShim)
+            .getSettings(indexConfiguration, "datasetindex_v3");
+    assertFalse(elasticSettings.containsKey("knn"));
+  }
+
+  @Test
   public void testOpenSearchAddsKnnOnEveryV3IndexWhenSemanticEnabled() throws IOException {
     when(v3Config.getAnalyzerConfig()).thenReturn("");
     IndexConvention indexConvention = mock(IndexConvention.class);

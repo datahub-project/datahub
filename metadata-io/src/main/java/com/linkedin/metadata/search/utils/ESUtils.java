@@ -178,6 +178,7 @@ public class ESUtils {
   public static final String OBJECT_FIELD_TYPE = "object";
   public static final String TEXT_FIELD_TYPE = "text";
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
+  public static final String RANK_FEATURES_FIELD_TYPE = "rank_features";
 
   // End of field types
 

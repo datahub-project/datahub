@@ -26,7 +26,10 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredPro
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredQueryRouting;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
+import com.linkedin.metadata.search.elasticsearch.query.template.PostProcessComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDialects;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFieldPruner;
@@ -39,6 +42,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateM
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNormalizationPolicy;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSynonyms;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateViewer;
 import com.linkedin.metadata.search.elasticsearch.query.template.StructuredPropertyClauses;
@@ -252,6 +256,13 @@ public class SearchV3QueryBuilder {
     Map<String, RenderedSearchTemplate.NamedClause> named =
         SearchTemplateMatchReport.namedClauses(built, properties);
     built = TemplateConfiguredScores.apply(opContext, template, entitySpecs, built);
+    // Scroll drops ranking and twiddlers, so it keeps the urn-only fetch.
+    PostProcessComponent post = scroll ? null : postProcess(opContext, template);
+    List<String> sourceFields = post == null ? List.of() : List.copyOf(post.sourceFields(template));
+    List<String> matchTierFields =
+        post == null || SearchTemplateComponents.empty(template.getComponent())
+            ? List.of()
+            : post.matchTierSourceFields(SearchTemplateComponents.config(template.getComponent()));
     List<String> queriedRoots = RenderedQueryFields.roots(built);
     return new RenderedSearchTemplate(
         built,
@@ -264,6 +275,8 @@ public class SearchV3QueryBuilder {
         query,
         named,
         estimatedClauses,
+        sourceFields,
+        matchTierFields,
         queriedFieldSources(opContext, queriedRoots),
         template.getSearchType());
   }
@@ -730,7 +743,8 @@ public class SearchV3QueryBuilder {
   /**
    * Every Mustache-rendered section of the template, joined. A variable only has to be produced
    * when some section references it. The section text is the signal: the template URN is not,
-   * because a copy or a child keeps the hole and changes the URN.
+   * because a copy or a child keeps the hole and changes the URN, and the shipped sets name the
+   * same template differently.
    */
   @Nonnull
   private static String templateBlob(@Nonnull MergedSearchTemplate template) {
@@ -1180,6 +1194,30 @@ public class SearchV3QueryBuilder {
       }
     }
     return null;
+  }
+
+  @Nullable
+  private static PostProcessComponent postProcess(
+      @Nonnull OperationContext opContext, @Nonnull MergedSearchTemplate template) {
+    com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
+    if (spec == null
+        || SearchTemplateComponents.empty(spec)
+        || spec.getMode() != com.linkedin.search.template.SearchTemplateComponentMode.POST_PROCESS
+        || !spec.hasName()
+        || !spec.hasVersion()
+        || spec.getVersion() == null) {
+      return null;
+    }
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    if (coordinator == null) {
+      return null;
+    }
+    return coordinator
+        .components()
+        .find(spec.getName(), spec.getVersion())
+        .filter(PostProcessComponent.class::isInstance)
+        .map(PostProcessComponent.class::cast)
+        .orElse(null);
   }
 
   @Nonnull

@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.ExceptionsHelper;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkProcessor;
@@ -15,6 +16,7 @@ import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.index.engine.DocumentMissingException;
 
 @Slf4j
 public class BulkListener implements BulkProcessor.Listener {
@@ -47,13 +49,33 @@ public class BulkListener implements BulkProcessor.Listener {
     return new BulkListener(refreshPolicy, metricUtils, tracker, requeueSupport);
   }
 
+  public static BulkListener create(
+      @Nullable WriteRequest.RefreshPolicy refreshPolicy,
+      @Nullable MetricUtils metricUtils,
+      @Nullable BulkProcessorCompletionTracker completionTracker,
+      @Nullable BulkWriteResultTracker tracker,
+      @Nullable BulkItemRequeueSupport requeueSupport,
+      @Nullable BulkResponseClassifier<BulkResponse> responseClassifier) {
+    return new BulkListener(
+        refreshPolicy, metricUtils, completionTracker, tracker, requeueSupport, responseClassifier);
+  }
+
   private final WriteRequest.RefreshPolicy refreshPolicy;
   private final MetricUtils metricUtils;
+  @Nullable private final BulkProcessorCompletionTracker completionTracker;
   @Nullable private final BulkWriteResultTracker tracker;
   @Nullable private final BulkItemRequeueSupport requeueSupport;
+  @Nullable private final BulkResponseClassifier<BulkResponse> responseClassifier;
 
   public BulkListener(WriteRequest.RefreshPolicy policy, MetricUtils metricUtils) {
-    this(policy, metricUtils, null, null);
+    this(policy, metricUtils, null, null, null);
+  }
+
+  public BulkListener(
+      WriteRequest.RefreshPolicy policy,
+      MetricUtils metricUtils,
+      @Nullable BulkProcessorCompletionTracker completionTracker) {
+    this(policy, metricUtils, completionTracker, null, null);
   }
 
   BulkListener(
@@ -61,10 +83,31 @@ public class BulkListener implements BulkProcessor.Listener {
       MetricUtils metricUtils,
       @Nullable BulkWriteResultTracker tracker,
       @Nullable BulkItemRequeueSupport requeueSupport) {
+    this(policy, metricUtils, null, tracker, requeueSupport);
+  }
+
+  public BulkListener(
+      WriteRequest.RefreshPolicy policy,
+      MetricUtils metricUtils,
+      @Nullable BulkProcessorCompletionTracker completionTracker,
+      @Nullable BulkWriteResultTracker tracker,
+      @Nullable BulkItemRequeueSupport requeueSupport) {
+    this(policy, metricUtils, completionTracker, tracker, requeueSupport, null);
+  }
+
+  public BulkListener(
+      WriteRequest.RefreshPolicy policy,
+      MetricUtils metricUtils,
+      @Nullable BulkProcessorCompletionTracker completionTracker,
+      @Nullable BulkWriteResultTracker tracker,
+      @Nullable BulkItemRequeueSupport requeueSupport,
+      @Nullable BulkResponseClassifier<BulkResponse> responseClassifier) {
     refreshPolicy = policy;
     this.metricUtils = metricUtils;
+    this.completionTracker = completionTracker;
     this.tracker = tracker;
     this.requeueSupport = requeueSupport;
+    this.responseClassifier = responseClassifier;
   }
 
   @Override
@@ -82,18 +125,35 @@ public class BulkListener implements BulkProcessor.Listener {
       ingestTook = " Bulk ingest preprocessing took time ms: " + ingestTookInMillis;
     }
 
+    final BulkResponseClassifier.ExpectedItemRejects expected =
+        responseClassifier == null ? null : responseClassifier.classify(response, metricUtils);
+    if (completionTracker != null) {
+      completionTracker.recordOpenSearchResponse(request, response);
+    }
     if (response.hasFailures()) {
-      log.error(
-          "Failed to feed bulk request "
-              + executionId
-              + "."
-              + " Number of events: "
-              + response.getItems().length
-              + " Took time ms: "
-              + response.getTook().getMillis()
-              + ingestTook
-              + " Message: "
-              + response.buildFailureMessage());
+      if (expected != null && expected.onlyExpected()) {
+        log.info(
+            "Bulk request {} completed with {} expected item rejects and {} updates of absent"
+                + " documents skipped. Number of events: {} Took time ms: {}{}",
+            executionId,
+            expected.rejected(),
+            expected.skipped(),
+            response.getItems().length,
+            response.getTook().getMillis(),
+            ingestTook);
+      } else {
+        log.error(
+            "Failed to feed bulk request "
+                + executionId
+                + "."
+                + " Number of events: "
+                + response.getItems().length
+                + " Took time ms: "
+                + response.getTook().getMillis()
+                + ingestTook
+                + " Message: "
+                + response.buildFailureMessage());
+      }
       handleItemFailures(request, response);
     } else {
       log.info(
@@ -112,9 +172,15 @@ public class BulkListener implements BulkProcessor.Listener {
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-    if (BulkItemFailureClassifier.isDocumentMissing(failure.getMessage())) {
+    Throwable unwrappedFailure = ExceptionsHelper.unwrapCause(failure);
+    if (completionTracker != null) {
+      completionTracker.recordOpenSearchFailure(request, failure);
+    }
+
+    if (unwrappedFailure instanceof DocumentMissingException
+        || BulkItemFailureClassifier.isDocumentMissing(failure.getMessage())) {
       log.warn(
-          "Attempting to bulk load a missing document. executionId: {}. Request: {}",
+          "Attempting to bulk load a missing document. executionId: {}.  No retries left. Request: {}",
           executionId,
           buildBulkRequestSummary(request),
           failure);
@@ -125,6 +191,7 @@ public class BulkListener implements BulkProcessor.Listener {
       return;
     }
 
+    // Exception raised outside this method
     log.error(
         "Error feeding bulk request {}. No retries left. Request: {}",
         executionId,
@@ -208,7 +275,9 @@ public class BulkListener implements BulkProcessor.Listener {
       }
 
       boolean versionConflict = BulkItemFailureClassifier.isVersionConflict(failureMessage);
-      boolean retriable = BulkItemFailureClassifier.isRetriableFailure(status, failureMessage);
+      boolean retriable =
+          !BulkItemFailureClassifier.isCreateConflict(writeRequest, status, failureMessage)
+              && BulkItemFailureClassifier.isRetriableFailure(status, failureMessage);
 
       if (retriable && requeueSupport != null && requeueSupport.tryRequeue(writeRequest)) {
         incrementMetric(METRIC_ITEM_REQUEUE);

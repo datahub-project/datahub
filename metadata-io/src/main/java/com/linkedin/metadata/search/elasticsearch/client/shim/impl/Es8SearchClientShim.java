@@ -96,6 +96,8 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8Sem
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.CustomQuery;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.LegacyRangeQueryNormalizer;
+import com.linkedin.metadata.search.elasticsearch.update.BulkProcessorCompletionTracker;
+import com.linkedin.metadata.search.elasticsearch.update.V3BulkWriteAccounting;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -120,7 +122,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -1781,11 +1783,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       long retryInterval,
       int numRetries,
       int threadCount) {
-    // numRetries / retryInterval: item + whole-request requeue uses BulkItemRequeueSupport
-    // (configured via itemRequeueMaxAttempts, typically aligned with numRetries).
-    final Es8BulkListener[] listenerHolder = new Es8BulkListener[1];
-    Supplier<BulkIngester<?>> processorSupplier =
-        () -> {
+    // Item requeue is owned by BulkProcessorCompletionTracker.
+    Function<BulkProcessorCompletionTracker, BulkIngester<?>> processorFactory =
+        completionTracker -> {
           final Refresh refresh;
           switch (writeRequestRefreshPolicy) {
             case NONE:
@@ -1806,19 +1806,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .client(client)
                   .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
                   .maxOperations(bulkRequestsLimit)
-                  .maxConcurrentRequests(1)
-                  .listener(listenerHolder[0]);
+                  .listener(
+                      new Es8BulkListener(
+                          metricUtils,
+                          completionTracker,
+                          bulkWriteResultTracker,
+                          bulkItemRequeueSupport,
+                          V3BulkWriteAccounting::classifyEs8Response));
 
           builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
           return builder.build();
         };
 
-    initBulkProcessors(
-        threadCount,
-        processorSupplier,
-        () ->
-            listenerHolder[0] =
-                new Es8BulkListener(metricUtils, bulkWriteResultTracker, bulkItemRequeueSupport));
+    initBulkProcessors(threadCount, processorFactory);
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
@@ -1844,7 +1844,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   @Override
-  protected void addToProcessor(BulkIngester<?> processor, DocWriteRequest<?> writeRequest) {
+  protected void addToProcessor(
+      BulkIngester<?> processor,
+      DocWriteRequest<?> writeRequest,
+      BulkProcessorCompletionTracker.Submission submission) {
     BulkOperation operation;
     if (writeRequest instanceof UpdateRequest) {
       UpdateRequest update = (UpdateRequest) writeRequest;
@@ -1929,7 +1932,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     // Pass DocWriteRequest as context so failed items can be requeued.
     @SuppressWarnings("unchecked")
     BulkIngester<Object> typedProcessor = (BulkIngester<Object>) processor;
-    typedProcessor.add(operation, writeRequest);
+    typedProcessor.add(operation, submission);
   }
 
   @Override

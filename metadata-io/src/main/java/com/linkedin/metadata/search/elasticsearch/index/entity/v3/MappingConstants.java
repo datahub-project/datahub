@@ -30,6 +30,9 @@ public final class MappingConstants {
   /** Elasticsearch meta field used to select an index. Not stored from an aspect. */
   public static final String INDEX_FIELD = "_index";
 
+  /** Elasticsearch meta field for the hit score. Not stored from an aspect. */
+  public static final String SCORE_FIELD = "_score";
+
   /**
    * Keyword fields the index path writes itself. Searchable aspect fields, including the
    * deprecation aspect's {@code deprecated} boolean, are resolved from the registry instead.
