@@ -28,6 +28,7 @@ public class SearchableAnnotation {
   private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES =
       ImmutableSet.of(
           FieldType.TEXT,
+          FieldType.RICH_TEXT,
           FieldType.TEXT_PARTIAL,
           FieldType.WORD_GRAM,
           FieldType.URN,
@@ -132,9 +133,9 @@ public class SearchableAnnotation {
   Optional<Boolean> sourceDocValues;
 
   /**
-   * Copy this field's text into the shared field {@code other} and keep its own root. A {@code
-   * searchLabel} that names a different field replaces the root and cannot be combined with this. A
-   * label that is this field's own name can. A URN copies its parsed name.
+   * Copy this field's text into the shared field {@code other}. A {@code searchLabel} still names
+   * the shared root, including a label that differs from this field's name. A URN copies its parsed
+   * name.
    */
   boolean copyToOther;
 
@@ -378,7 +379,10 @@ public class SearchableAnnotation {
     BROWSE_PATH_V2,
     WORD_GRAM,
     DOUBLE,
-    MAP_ARRAY
+    MAP_ARRAY,
+    // Long analyzed text (document bodies, SQL). Unlike TEXT it has no keyword parent, so a value
+    // is not dropped by Lucene's 32,766-byte term limit.
+    RICH_TEXT
   }
 
   @Nonnull
@@ -468,16 +472,6 @@ public class SearchableAnnotation {
         v3Overlay
             .flatMap(overlay -> AnnotationUtils.getField(overlay, "lowercase", Boolean.class))
             .orElse(false);
-    if (copyToOther && v3SearchLabel.filter(label -> !label.isEmpty()).isPresent()) {
-      final String indexed = indexedFieldName(v3SearchLabel.get(), degree);
-      if (!indexed.equals(fieldName.orElse(schemaFieldName))) {
-        throw new ModelValidationException(
-            String.format(
-                "Failed to validate @%s annotation declared at %s: v3.copyToOther keeps this"
-                    + " field's root, and v3.searchLabel '%s' replaces it",
-                ANNOTATION_NAME, context, indexed));
-      }
-    }
     if (copyToOther && !canCopyToOther(resolvedFieldType)) {
       throw new ModelValidationException(
           String.format(

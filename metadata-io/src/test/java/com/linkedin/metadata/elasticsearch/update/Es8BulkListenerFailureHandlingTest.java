@@ -123,6 +123,35 @@ public class Es8BulkListenerFailureHandlingTest {
   }
 
   @Test
+  public void testCreateConflictCompletesWithoutRequeue() {
+    BulkWriteResultTracker tracker = new BulkWriteResultTracker();
+    tracker.recordEnqueued(1);
+    Consumer<DocWriteRequest<?>> requeue = mock(Consumer.class);
+    BulkItemRequeueSupport support = new BulkItemRequeueSupport(true, 3, requeue);
+    Es8BulkListener listener = new Es8BulkListener(null, tracker, support);
+
+    IndexRequest createRequest =
+        new IndexRequest("idx")
+            .id("1")
+            .source(Collections.emptyMap())
+            .opType(DocWriteRequest.OpType.CREATE);
+    BulkResponse response =
+        new BulkResponse.Builder()
+            .errors(true)
+            .took(1L)
+            .items(
+                failureItem(
+                    "idx", "1", 409, "version_conflict_engine_exception", "document exists"))
+            .build();
+
+    listener.afterBulk(1L, emptyBulkRequest(), List.of(createRequest), response);
+
+    verify(requeue, never()).accept(any());
+    assertEquals(tracker.getPendingItems(), 0);
+    assertEquals(tracker.getUnrecoveredTransferFailures(), 0);
+  }
+
+  @Test
   public void testExhaustedConflictIsLwwNotTransferFailure() {
     BulkWriteResultTracker tracker = new BulkWriteResultTracker();
     tracker.recordEnqueued(1);

@@ -713,6 +713,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - dataProducts
   - name: semanticModel
     category: core
     keyAspect: semanticModelKey
@@ -900,6 +901,7 @@ entities:
       - globalTags
       - semanticContent
       - dataPlatformInstance
+      - dataProducts
   - name: aiAgent
     doc: An AI agent with custom instructions, tools, and scoping. Supports native (DataHub-managed), system (bootstrapped), and external (cataloged) agents.
     category: core
@@ -920,6 +922,7 @@ entities:
       - domains
       - incidentsSummary
       - versionProperties
+      - dataProducts
   - name: api
     doc: A named callable with a typed input and output schema (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.). Cataloged as a first-class entity for discovery and caller-to-API dependency tracking (services that compose APIs, agents that invoke them).
     category: core
@@ -939,6 +942,7 @@ entities:
       - domains
       - structuredProperties
       - versionProperties
+      - dataProducts
   - name: repository
     doc: A source-code repository (GitHub, GitLab, internal SCM, etc.). The genesis node of the software-to-data lifecycle (repo -> service -> api -> app -> dataset); produces the services, APIs, and apps cataloged elsewhere. Not tabular (no columns/queries/stats).
     category: core
@@ -958,6 +962,7 @@ entities:
       - institutionalMemory
       - structuredProperties
       - browsePathsV2
+      - dataProducts
   - name: agentSkill
     doc: A high-level, reusable capability bundle (prompts + tools + domain expertise) that agents adopt. Defined in git and cataloged in DataHub.
     category: core
@@ -974,6 +979,7 @@ entities:
       - domains
       - structuredProperties
       - versionProperties
+      - dataProducts
 events:
 plugins:
   aspectPayloadValidators:

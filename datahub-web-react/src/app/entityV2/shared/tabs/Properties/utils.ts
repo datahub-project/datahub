@@ -1,5 +1,8 @@
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { PropertyRow, ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
+
+import { CustomPropertiesEntry } from '@types';
 
 function matchesName(name: string, filterText: string) {
     return name.toLocaleLowerCase().includes(filterText.toLocaleLowerCase());
@@ -66,4 +69,18 @@ export function filterStructuredProperties(
 
 export function filterHiddenProperties(rows: PropertyRow[]): PropertyRow[] {
     return filterHiddenPropertiesRecursive(rows);
+}
+
+export function mapCustomPropertiesToPropertyRows(customProperties: CustomPropertiesEntry[]) {
+    return (customProperties?.map((customProp) => ({
+        displayName: customProp.key,
+        values: [{ value: customProp.value || '' }],
+        type: { type: 'string', nativeDataType: 'string' },
+    })) || []) as PropertyRow[];
+}
+
+export function getFilteredCustomProperties(filterText: string, entityData?: GenericEntityProperties | null) {
+    return entityData?.customProperties?.filter(
+        (property) => matchesName(property.key, filterText) || matchesName(property.value || '', filterText),
+    );
 }

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.eq;
@@ -15,12 +16,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -28,6 +31,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
+import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -99,6 +103,24 @@ public class UpdateIndicesServiceTest {
             true, // searchDiffMode
             true, // structuredPropertiesHookEnabled
             true); // structuredPropertiesWriteEnabled
+  }
+
+  @Test
+  public void testDeleteV3TombstonesThrowsWhenTheDeleteDoesNotFinish() {
+    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
+    when(entitySearchService.getEsWriteDAO()).thenReturn(writeDAO);
+    when(writeDAO.deleteByQuerySync(
+            any(), anyString(), any(), nullable(BulkDeleteConfiguration.class)))
+        .thenReturn(
+            ESWriteDAO.DeleteByQueryResult.builder()
+                .success(false)
+                .remainingDocuments(3)
+                .failureReason("timed out")
+                .build());
+
+    expectThrows(
+        IllegalStateException.class,
+        () -> updateIndicesService.deleteV3Tombstones(operationContext, "datasetindex_v3"));
   }
 
   @Test

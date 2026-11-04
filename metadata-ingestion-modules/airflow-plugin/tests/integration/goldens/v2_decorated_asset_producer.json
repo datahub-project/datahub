@@ -12,6 +12,7 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "",
                 "tags": "[]",
                 "timezone": "UTC"
@@ -146,6 +147,7 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "",
                 "tags": "[]",
                 "timezone": "UTC"

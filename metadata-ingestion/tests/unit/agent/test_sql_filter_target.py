@@ -6,8 +6,10 @@ from sqlalchemy.engine.reflection import Inspector
 
 import datahub.ingestion.source.sql.sql_probe as sql_probe_module
 from datahub.configuration.common import Qualifier
+from datahub.ingestion.agent.declarations import also_filtering_fields
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.verdicts import ClassifyContext
+from datahub.ingestion.agent.introspect import pattern_field_for_config
+from datahub.ingestion.agent.verdicts import ClassifyContext, ContainerUnknown
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -445,6 +447,74 @@ def test_unity_catalog_probe_filter_target_includes_the_catalog_segment():
     assert warn.messages == []
 
 
+_UC: Dict[str, object] = {"token": "token", "workspace_url": "https://workspace_url"}
+
+
+def test_a_field_consulted_for_another_kind_is_part_of_that_kinds_verdict():
+    """Unity's override judges `table_pattern` for every table-like kind, as
+    its ingestion does, so a view's verdict can rest on it.
+
+    The rule asks "did anything decide this without needing the container?",
+    and an override that answered used to be taken at its word -- so a view
+    judged on `schema.view` came back excluded, the same inversion the rule
+    removes elsewhere. `Filters(..., also_filters=[...])` says which other
+    fields a verdict may consult, so the question can be asked of all of them.
+    """
+    # view_pattern spelled out, and allow-all. Leaving it unset let SQL's
+    # view_pattern_is_table_pattern_unless_specified copy table_pattern onto
+    # it, so the kind's OWN field was filtering and the refusal fired for the
+    # ordinary reason -- the test passed without ever reaching also_filters.
+    with pytest.raises(ContainerUnknown):
+        check_filters(
+            source_type="unity-catalog",
+            config_dict={
+                **_UC,
+                "table_pattern": {"allow": [r"^mycat\.sch\.v1$"]},
+                "view_pattern": {"allow": [".*"]},
+            },
+            kind=str(DatasetSubTypes.VIEW),
+            parent_path=["sch"],
+            names=["v1"],
+        )
+
+    # Naming the catalog answers it, which is what the refusal asks for.
+    answered = check_filters(
+        source_type="unity-catalog",
+        config_dict={
+            **_UC,
+            "table_pattern": {"allow": [r"^mycat\.sch\.v1$"]},
+            "view_pattern": {"allow": [".*"]},
+        },
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=["mycat", "sch"],
+        names=["v1"],
+    )
+    assert answered.results[0].included
+
+
+def test_unity_declares_the_fields_its_override_really_consults():
+    """The declaration, not the behaviour: `view_pattern` stays the field a
+    caller edits for a view, and `table_pattern` is only added to the set the
+    rule inspects."""
+    config = UnityCatalogSourceConfig.model_validate(_UC)
+    assert also_filtering_fields(config, str(DatasetSubTypes.VIEW)) == {"table_pattern"}
+    assert pattern_field_for_config(config, str(DatasetSubTypes.VIEW)) == "view_pattern"
+
+
+def test_unity_catalog_still_answers_when_nothing_filters():
+    """And the carve-out reaches it too, so an unfiltered recipe is still
+    answerable without naming a catalog."""
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict=_UC,
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["sch"],
+        names=["t1"],
+    )
+    assert result.results[0].included
+    assert result.results[0].target == "sch.t1"
+
+
 def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog():
     """Without exactly one catalog pinned (none, or several), there is no
     single catalog to prepend without guessing -- so this falls back to the
@@ -615,7 +685,14 @@ def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
     """One recipe spans several databases/projects, so there is nothing to
     fall back to. Guessing would give a verdict about an object in a
     different database; the partial answer plus a warning is the honest
-    one."""
+    one.
+
+    Neither recipe sets `table_pattern`, and that is load-bearing: an
+    allow-all pattern includes the name whatever string it is matched
+    against, so the missing container cannot invert the verdict and there is
+    nothing to refuse. The sibling below is the same call with a pattern that
+    DOES filter, which is refused. If this test ever starts raising, the
+    carve-out has been lost and every unfiltered probe call now errors."""
     result = check_filters(
         source_type=source_type,
         config_dict=config_dict,
@@ -637,6 +714,100 @@ def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
     )
     # And the partial answer is still an answer, not a silent exclusion.
     assert verdict.included
+
+
+def test_a_filtering_table_pattern_without_its_container_refuses():
+    """The sibling of the degrade test above, with a pattern that filters.
+
+    `^p1\\.ds1\\.t1$` is written about a project. Judged against `ds1.t1` --
+    the two parts --parent supplied -- it cannot match, so the table reads
+    excluded when ingestion looking at `p1.ds1.t1` would include it. Same
+    inversion as the Schema level, one level down.
+    """
+    with pytest.raises(ContainerUnknown) as refusal:
+        check_filters(
+            source_type="bigquery",
+            config_dict={
+                "project_ids": ["p1", "p2"],
+                "table_pattern": {"allow": [r"^p1\.ds1\.t1$"]},
+            },
+            kind=str(DatasetSubTypes.TABLE),
+            parent_path=["ds1"],
+            names=["t1"],
+        )
+    assert "table_pattern" in str(refusal.value)
+    assert "project_ids" in str(refusal.value)
+
+
+_SF_CONN = {"account_id": "a", "username": "u", "password": "p", "warehouse": "w"}
+
+
+def test_a_view_is_judged_against_view_pattern_not_table_pattern():
+    """The hook is not told which kind it is judging.
+
+    A connector guessing `table_pattern` judged Views against a field that
+    does not decide them, which went wrong in both directions: a filtering
+    `view_pattern` was never consulted, so a View it would have INCLUDED was
+    reported excluded on its bare name -- the inversion this whole rule
+    exists to stop, surviving on a sibling kind. The framework resolves the
+    deciding field per kind, so it is the one that decides here.
+    """
+    with pytest.raises(ContainerUnknown) as refusal:
+        check_filters(
+            source_type="snowflake",
+            config_dict={
+                **_SF_CONN,
+                "view_pattern": {"allow": [r"^MYDB\.PUBLIC\.V1$"]},
+            },
+            kind=str(DatasetSubTypes.VIEW),
+            parent_path=["PUBLIC"],
+            names=["V1"],
+        )
+    assert "view_pattern" in str(refusal.value)
+    assert "table_pattern" not in str(refusal.value)
+
+
+def test_a_view_its_own_pattern_admits_is_not_refused_over_table_pattern():
+    """The other direction, and the one that was a regression rather than a
+    survival: a filtering `table_pattern` beside a deliberately allow-all
+    `view_pattern` refused a View that was answerable, and named
+    `table_pattern` -- sending the reader to edit a field that decides
+    nothing here."""
+    result = check_filters(
+        source_type="snowflake",
+        config_dict={
+            **_SF_CONN,
+            "table_pattern": {"allow": [r"^MYDB\.PUBLIC\.ORDERS$"]},
+            "view_pattern": {"allow": [".*"]},
+        },
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=["PUBLIC"],
+        names=["V1"],
+    )
+    assert result.results[0].included
+
+
+def test_a_snowflake_table_pattern_without_its_database_refuses():
+    """Snowflake reaches the same rule by its own hook rather than the
+    Qualifier path, and has no config field naming a database -- a recipe
+    spans several -- so --parent is the only way to qualify one.
+    """
+    with pytest.raises(ContainerUnknown) as refusal:
+        check_filters(
+            source_type="snowflake",
+            config_dict={
+                "account_id": "a",
+                "username": "u",
+                "password": "p",
+                "warehouse": "w",
+                "table_pattern": {"allow": [r"^MYDB\.PUBLIC\.ORDERS$"]},
+            },
+            kind=str(DatasetSubTypes.TABLE),
+            parent_path=["PUBLIC"],
+            names=["ORDERS"],
+        )
+    assert "table_pattern" in str(refusal.value)
+    assert "--parent" in str(refusal.value)
 
 
 def test_a_single_pinned_container_needs_no_parent():
@@ -690,37 +861,28 @@ def test_a_single_pinned_container_needs_no_parent():
         ),
     ],
 )
-def test_a_schema_judged_without_its_container_warns(
+def test_a_schema_judged_without_its_container_refuses_rather_than_guessing(
     source_type, config_dict, name, container
 ):
-    """A Schema verdict reached on the bare name must say so.
+    """A Schema verdict that needs a container it does not have is not given.
 
     This is the inverted-verdict case: the pattern is written against
-    `container.schema`, the caller passed no --parent, and the bare name is
-    judged against a qualified pattern -- so it reads excluded when ingestion
-    would include it. The warning was gated on `probe_schema_needs_parent`,
-    a hook no config implemented any more, so it could never fire and the
-    only assertion left was a negative one.
+    `container.schema`, the caller passed no --parent, and judging the bare
+    name against a qualified pattern reads EXCLUDED when ingestion would
+    include it. A warning used to sit beside that verdict; the verdict is what
+    gets read, so there is no longer a verdict for it to contradict.
     """
-    result = check_filters(
-        source_type=source_type,
-        config_dict=config_dict,
-        kind=str(DatasetContainerSubTypes.SCHEMA),
-        parent_path=[],
-        names=[name],
-    )
-    assert any("qualified" in w for w in result.warnings), result.warnings
+    with pytest.raises(ContainerUnknown):
+        check_filters(
+            source_type=source_type,
+            config_dict=config_dict,
+            kind=str(DatasetContainerSubTypes.SCHEMA),
+            parent_path=[],
+            names=[name],
+        )
 
-    # The inverted verdict itself, which the warning does not assert: the
-    # bare name is judged against a qualified pattern and so reads EXCLUDED.
-    # That is the whole reason this warns.
-    bare = result.results[0]
-    assert bare.target == name
-    assert not bare.included
-
-    # And it really is an inversion rather than a name that is excluded
-    # either way -- given the container, the same name is included and
-    # nothing warns.
+    # And it really was an inversion rather than a name excluded either way:
+    # given the container, the same name is included and nothing warns.
     with_parent = check_filters(
         source_type=source_type,
         config_dict=config_dict,

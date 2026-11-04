@@ -351,8 +351,12 @@ public class V2MappingsBuilder implements MappingsBuilder {
       mappingForField.putAll(getMappingsForKeyword());
     } else if (fieldType == FieldType.TEXT
         || fieldType == FieldType.TEXT_PARTIAL
-        || fieldType == FieldType.WORD_GRAM) {
-      mappingForField.putAll(getMappingsForSearchText(fieldType));
+        || fieldType == FieldType.WORD_GRAM
+        || fieldType == FieldType.RICH_TEXT) {
+      // RICH_TEXT is a V3 source type. A V2 index has no rich-text analyzers, so the field keeps
+      // the text mapping it had before.
+      mappingForField.putAll(
+          getMappingsForSearchText(fieldType == FieldType.RICH_TEXT ? FieldType.TEXT : fieldType));
     } else if (fieldType == FieldType.BROWSE_PATH) {
       mappingForField.put(TYPE, ESUtils.TEXT_FIELD_TYPE);
       mappingForField.put(
