@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
@@ -18,12 +19,16 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
+import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.LineageInput;
@@ -45,6 +50,7 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.mockito.Mockito;
@@ -63,7 +69,10 @@ public class EntityLineageResultResolverViewAuthTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,eng.raw_orders,PROD)");
   private static final Urn HIDDEN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,finance.ledger,PROD)");
+  private static final Urn HIDDEN_JOB =
+      UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,finance_etl,PROD),load_ledger)");
   private static final Urn ENCRYPTED = UrnUtils.getUrn("urn:li:restricted:opaque");
+  private static final Urn ENCRYPTED_JOB = UrnUtils.getUrn("urn:li:restricted:opaque-job");
 
   private SiblingGraphService siblingGraphService;
   private RestrictedService restrictedService;
@@ -74,6 +83,7 @@ public class EntityLineageResultResolverViewAuthTest {
     siblingGraphService = mock(SiblingGraphService.class);
     restrictedService = mock(RestrictedService.class);
     when(restrictedService.encryptRestrictedUrn(HIDDEN)).thenReturn(ENCRYPTED);
+    when(restrictedService.encryptRestrictedUrn(HIDDEN_JOB)).thenReturn(ENCRYPTED_JOB);
 
     com.linkedin.metadata.graph.EntityLineageResult graphResult =
         new com.linkedin.metadata.graph.EntityLineageResult()
@@ -82,7 +92,9 @@ public class EntityLineageResultResolverViewAuthTest {
             .setTotal(2)
             .setFiltered(0)
             .setRelationships(
-                new LineageRelationshipArray(relationship(VIEWABLE), relationship(HIDDEN)));
+                new LineageRelationshipArray(
+                    relationship(VIEWABLE, new UrnArray(SOURCE, HIDDEN_JOB, VIEWABLE)),
+                    relationship(HIDDEN, new UrnArray(SOURCE, HIDDEN))));
     when(siblingGraphService.getLineage(
             any(OperationContext.class),
             eq(SOURCE),
@@ -106,11 +118,25 @@ public class EntityLineageResultResolverViewAuthTest {
     when(env.getArgument("input")).thenReturn(input);
   }
 
-  private static com.linkedin.metadata.graph.LineageRelationship relationship(Urn urn) {
+  private static com.linkedin.metadata.graph.LineageRelationship relationship(
+      Urn urn, UrnArray path) {
     return new com.linkedin.metadata.graph.LineageRelationship()
         .setEntity(urn)
         .setType("DownstreamOf")
-        .setDegree(1);
+        .setDegree(1)
+        .setPaths(new UrnArrayArray(path));
+  }
+
+  /** Every urn the GraphQL result discloses, from neighbors and their paths. */
+  private static Set<String> disclosedUrns(EntityLineageResult result) {
+    Set<String> urns = new HashSet<>();
+    for (LineageRelationship relationship : result.getRelationships()) {
+      urns.add(relationship.getEntity().getUrn());
+      for (EntityPath path : relationship.getPaths()) {
+        path.getPath().forEach(entity -> urns.add(entity.getUrn()));
+      }
+    }
+    return urns;
   }
 
   private static AuthorizationConfiguration viewAuthorization(boolean enabled) {
@@ -200,6 +226,30 @@ public class EntityLineageResultResolverViewAuthTest {
   }
 
   @Test
+  public void testUnviewablePathElementsAreRestricted() throws Exception {
+    QueryContext context = userContext(true, Set.of(SOURCE, VIEWABLE));
+    when(env.getContext()).thenReturn(context);
+
+    EntityLineageResult result = resolver(true).get(env).get();
+
+    // A viewable neighbor reached through an unviewable data job keeps its path shape.
+    List<Entity> viaPath = result.getRelationships().get(0).getPaths().get(0).getPath();
+    assertEquals(viaPath.size(), 3);
+    assertEquals(viaPath.get(0).getUrn(), SOURCE.toString());
+    assertTrue(viaPath.get(1) instanceof Restricted);
+    assertEquals(viaPath.get(1).getUrn(), ENCRYPTED_JOB.toString());
+    assertEquals(viaPath.get(2).getUrn(), VIEWABLE.toString());
+
+    List<Entity> hiddenPath = result.getRelationships().get(1).getPaths().get(0).getPath();
+    assertTrue(hiddenPath.get(1) instanceof Restricted);
+    assertEquals(hiddenPath.get(1).getUrn(), ENCRYPTED.toString());
+
+    Set<String> disclosed = disclosedUrns(result);
+    assertFalse(disclosed.contains(HIDDEN.toString()), disclosed.toString());
+    assertFalse(disclosed.contains(HIDDEN_JOB.toString()), disclosed.toString());
+  }
+
+  @Test
   public void testAllNeighborsTypedWhenViewAuthorizationDisabled() throws Exception {
     // Deny-everything authorizer: nothing may be consulted when the feature is off.
     QueryContext context = userContext(false, Set.of());
@@ -210,6 +260,7 @@ public class EntityLineageResultResolverViewAuthTest {
     assertEquals(result.getRelationships().size(), 2);
     assertTrue(result.getRelationships().stream().allMatch(r -> r.getEntity() instanceof Dataset));
     assertEquals(result.getRelationships().get(1).getEntity().getUrn(), HIDDEN.toString());
+    assertTrue(disclosedUrns(result).contains(HIDDEN_JOB.toString()));
   }
 
   @Test

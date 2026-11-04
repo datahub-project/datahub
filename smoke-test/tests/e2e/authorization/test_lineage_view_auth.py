@@ -5,11 +5,13 @@ Requires ``VIEW_AUTHORIZATION_ENABLED=true`` on GMS; skipped when view authoriza
 
 Covers:
   - ``dataset.lineage`` returns a neighbor the user may not view as a ``Restricted``
-    entity with an encrypted URN, never as a typed entity with its real URN
+    entity with an encrypted URN, never as a typed entity with its real URN, and the
+    real URN appears nowhere in the response, including relationship paths
   - VIEW_ENTITY_PAGE on the neighbor restores the real entity
   - Lineage requested on a dataset the user may not view is empty
 """
 
+import json
 import logging
 import uuid
 from typing import Any
@@ -77,6 +79,12 @@ query lineage($urn: String!, $direction: LineageDirection!) {
         entity {
           urn
           type
+        }
+        paths {
+          path {
+            urn
+            type
+          }
         }
       }
     }
@@ -171,7 +179,10 @@ def _assert_upstream_is_restricted() -> None:
     entity = lineage["relationships"][0]["entity"]
     assert entity["type"] == "RESTRICTED", res
     assert entity["urn"].startswith("urn:li:restricted:"), res
-    assert HIDDEN_DATASET_URN not in entity["urn"], res
+    path = lineage["relationships"][0]["paths"][0]["path"]
+    assert path[-1] == entity, res
+    # Catches leaks through paths or any field added to the query later.
+    assert HIDDEN_DATASET_URN not in json.dumps(res), res
 
 
 @with_test_retry(max_attempts=10)
