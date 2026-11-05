@@ -1,14 +1,19 @@
 package com.linkedin.gms.factory.entity.update.indices;
 
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_MOCKS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.linkedin.common.Status;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.ProductionConfigContextRunner;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -18,6 +23,7 @@ import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.search.SettingsBuilderFactory;
 import com.linkedin.gms.factory.search.filter.QueryFilterRewriterChainFactory;
+import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
@@ -30,10 +36,15 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Map;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.ApplicationContext;
@@ -49,6 +60,8 @@ import org.testng.annotations.Test;
  */
 public class UpdateIndicesServiceFactoryTest {
 
+  private static final Urn DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)");
   private static final OperationContext OP_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
@@ -136,6 +149,7 @@ public class UpdateIndicesServiceFactoryTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   public void testEveryStrategyOnTheContextReceivesChangeEvents() {
     UpdateIndicesStrategy v2 = enabledStrategy();
     UpdateIndicesStrategy upgrade = enabledStrategy();
@@ -146,10 +160,27 @@ public class UpdateIndicesServiceFactoryTest {
         .withPropertyValues("structuredProperties.enabled=false")
         .run(
             context -> {
-              service(context).handleChangeEvents(OP_CONTEXT, List.of());
-              verify(v2).processBatch(any(), anyMap(), eq(false));
-              verify(upgrade).processBatch(any(), anyMap(), eq(false));
+              service(context).handleChangeEvents(OP_CONTEXT, List.of(statusChange()));
+              for (UpdateIndicesStrategy strategy : List.of(v2, upgrade)) {
+                ArgumentCaptor<Map<Urn, List<MCLItem>>> grouped =
+                    ArgumentCaptor.forClass(Map.class);
+                verify(strategy).processBatch(any(), grouped.capture(), eq(false));
+                assertThat(grouped.getValue()).containsOnlyKeys(DATASET_URN);
+                assertThat(grouped.getValue().get(DATASET_URN))
+                    .extracting(MCLItem::getAspectName)
+                    .contains(STATUS_ASPECT_NAME);
+              }
             });
+  }
+
+  private static MetadataChangeLog statusChange() {
+    return new MetadataChangeLog()
+        .setEntityType(DATASET_ENTITY_NAME)
+        .setEntityUrn(DATASET_URN)
+        .setChangeType(ChangeType.UPSERT)
+        .setAspectName(STATUS_ASPECT_NAME)
+        .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)))
+        .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
   }
 
   private static UpdateIndicesService service(ApplicationContext context) {

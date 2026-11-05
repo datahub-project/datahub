@@ -131,15 +131,17 @@ public class CassandraSessionFactoriesTest {
   @Test
   public void testReadPoolWithoutItsOwnHostsSplitsThePrimaryHosts() {
     runWithBuilders(
-        runner().withPropertyValues(CASSANDRA, PRIMARY_HOSTS, READ_POOL_ON),
+        // Both ports fall back to the CASSANDRA_PORT key; pin it so the environment can't move
+        // them.
+        runner().withPropertyValues(CASSANDRA, PRIMARY_HOSTS, READ_POOL_ON, "CASSANDRA_PORT=9142"),
         (context, builders) -> {
           assertThat(context).hasNotFailed().hasBean("cassandraReadPoolSession");
           assertThat(builders).hasSize(2);
           for (CqlSessionBuilder builder : builders) {
             assertThat(contactPoints(builder))
                 .containsExactly(
-                    new InetSocketAddress("127.0.0.1", 9042),
-                    new InetSocketAddress("127.0.0.2", 9042));
+                    new InetSocketAddress("127.0.0.1", 9142),
+                    new InetSocketAddress("127.0.0.2", 9142));
           }
         });
   }

@@ -15,6 +15,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.ProductionConfigContextRunner;
 import com.linkedin.gms.factory.buffer.CoalesceBufferFactoryConfig;
+import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
 import com.linkedin.metadata.entity.retention.buffer.CoalesceRetentionBuffer;
@@ -120,7 +121,11 @@ public class RetentionBufferFactoryTest {
   public void testEnqueuedRetentionIsAppliedByTheDrainer() {
     RetentionService<?> retentionService = mock(RetentionService.class);
     when(retentionService.applyRetentionBatchWithPolicyDefaults(any(), anyList()))
-        .thenReturn(List.of());
+        .thenAnswer(
+            invocation ->
+                invocation.<List<RetentionBatchEntry>>getArgument(1).stream()
+                    .map(RetentionBatchEntry::key)
+                    .toList());
 
     retentionRunner(retentionService)
         .withPropertyValues(BUFFER_ON, POST_COMMIT_ON)
@@ -147,6 +152,9 @@ public class RetentionBufferFactoryTest {
               assertThat(entry.context().getUrn()).isEqualTo(DATASET_URN);
               assertThat(entry.context().getAspectName()).isEqualTo("datasetProperties");
               assertThat(entry.context().getMaxVersion()).contains(3L);
+
+              // Applied keys are cleared, so the next tick has nothing to drain.
+              assertThat(context.getBean(CoalesceBuffer.class).drain(10)).isEmpty();
             });
   }
 
