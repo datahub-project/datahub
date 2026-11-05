@@ -368,6 +368,30 @@ def test_field_edge_with_several_downstreams_is_kept(aws: None) -> None:
     assert source.get_report().column_lineage_edges_removed == 0
 
 
+def test_failed_glue_lookup_does_not_fall_back_to_datahub(aws: None) -> None:
+    # The mapped schema can't be read from Glue this run; DataHub's copy may be
+    # stale, so the hop's field lineage is unknown and its field edges stay.
+    source = _dead_letter_source()
+    assert source.registry is not None
+    source.registry.config.queue_schema_map["orders"] = "not-there"
+    graph = source.schemas.graph
+    assert isinstance(graph, MagicMock)
+    graph.get_schema_metadata.side_effect = lambda urn: _queue_schema_in_datahub()
+    _lineage_in_datahub(
+        source,
+        [
+            _field_edge(
+                make_schema_field_urn(QUEUE_URN, "order_id"),
+                make_schema_field_urn(DLQ_URN, "order_id"),
+            )
+        ],
+    )
+    assert fine_grained(list(source.get_workunits())) == []
+    report = source.get_report()
+    assert report.column_lineage_skipped == {"schema missing on one side": 1}
+    assert report.column_lineage_edges_removed == 0
+
+
 def test_bad_field_urn_does_not_block_table_edge_removal(aws: None) -> None:
     # The redrive policy was removed; a malformed field edge from another writer
     # stays, while the table edge and the valid field edge go.

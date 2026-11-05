@@ -68,12 +68,15 @@ class SchemaLookup:
         self.graph = graph
         self.report = report
         self.fetched: Dict[str, SchemaMetadataClass] = {}
+        # Schemas Glue couldn't give this run; DataHub's copy may be stale, so
+        # these count as unknown rather than falling back.
+        self.unreadable: Set[str] = set()
         self._from_graph: Dict[str, Optional[SchemaMetadataClass]] = {}
 
     def get(self, urn: str) -> Optional[SchemaMetadataClass]:
         if urn in self.fetched:
             return self.fetched[urn]
-        if self.graph is None:
+        if urn in self.unreadable or self.graph is None:
             return None
         if urn not in self._from_graph:
             try:

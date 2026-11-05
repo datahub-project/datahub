@@ -4,6 +4,15 @@ from typing import List, Optional
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.metadata.schema_classes import SchemaFieldClass
+from datahub.utilities.str_enum import StrEnum
+
+
+class GlueSchemaDataFormat(StrEnum):
+    """Glue Schema Registry's DataFormat values."""
+
+    AVRO = "AVRO"
+    JSON = "JSON"
+    PROTOBUF = "PROTOBUF"
 
 
 def parse_glue_schema_fields(
@@ -13,17 +22,17 @@ def parse_glue_schema_fields(
 
     Returns None for a format other than AVRO, JSON or PROTOBUF. Parse errors are
     raised (their types differ per format) for the caller to report."""
-    if data_format == "AVRO":
+    if data_format == GlueSchemaDataFormat.AVRO:
         return schema_util.avro_schema_to_mce_fields(
             schema_def, is_key_schema=False, swallow_exceptions=False
         )
-    if data_format == "JSON":
+    if data_format == GlueSchemaDataFormat.JSON:
         return list(
             JsonSchemaTranslator.get_fields_from_schema(
                 json.loads(schema_def), is_key_schema=False
             )
         )
-    if data_format == "PROTOBUF":
+    if data_format == GlueSchemaDataFormat.PROTOBUF:
         # Imported here so the sqs and sns extras don't need grpcio for the
         # default (no Glue) setup; PROTOBUF schemas need the kafka extra.
         from datahub.ingestion.extractor import protobuf_util

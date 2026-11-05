@@ -38,7 +38,7 @@ Field-level lineage is only added where a message reaches the next hop unchanged
 
 `include_column_lineage` defaults to `glue_schema_registry.enabled` and needs `include_subscription_attributes` to see raw delivery. With it on, each distinct raw-delivery topic-to-queue hop may cost a DataHub lookup for a schema not read from Glue this run; repeated hops are added once and lookups are cached. Set it to `true` without Glue to use schemas already in DataHub, or `false` to turn it off.
 
-Field edges are retracted along with table-level ones (`remove_stale_lineage`): when a field is renamed or dropped, or a subscription turns raw delivery off, field edges from that upstream that this run no longer emits are removed. A hop whose field lineage was skipped this run (no schema on one side, `include_subscription_attributes` off, or `include_column_lineage` off) keeps its field edges.
+Field edges are retracted along with table-level ones (`remove_stale_lineage`): when a field is renamed or dropped, or a subscription turns raw delivery off, field edges from that upstream that this run no longer emits are removed. A hop whose field lineage was skipped this run (no schema on one side, a Glue schema that couldn't be read, `include_subscription_attributes` off, or `include_column_lineage` off) keeps its field edges.
 
 #### Tags and data protection
 

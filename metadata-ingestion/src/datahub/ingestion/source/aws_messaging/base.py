@@ -133,9 +133,13 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         self, registry: Optional[MessagingSchemaRegistry], name: str, urn: str
     ) -> Optional[SchemaMetadataClass]:
         """A queue or topic's Glue schema, remembered for column lineage."""
-        schema = registry.get_schema_metadata(name) if registry is not None else None
+        if registry is None:
+            return None
+        schema = registry.get_schema_metadata(name)
         if schema is not None:
             self.schemas.fetched[urn] = schema
+        elif name in registry.failed:
+            self.schemas.unreadable.add(urn)
         return schema
 
     def first_resource_arn(self) -> Optional[str]:

@@ -1,11 +1,14 @@
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Set
 
 from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.emitter.mce_builder import make_data_platform_urn
 from datahub.ingestion.source.aws.aws_common import aws_error_code
-from datahub.ingestion.source.aws.glue_schema_registry import parse_glue_schema_fields
+from datahub.ingestion.source.aws.glue_schema_registry import (
+    GlueSchemaDataFormat,
+    parse_glue_schema_fields,
+)
 from datahub.ingestion.source.aws_messaging.config import GlueSchemaRegistryConfigBase
 from datahub.ingestion.source.aws_messaging.constants import GLUE_ENTITY_NOT_FOUND
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
@@ -30,6 +33,13 @@ class MessagingSchemaRegistry:
         self._glue = glue_client
         self.platform = platform
         self.report = report
+        # Names whose schema Glue has (or should have) but couldn't be used this
+        # run, as opposed to names with no schema at all.
+        self.failed: Set[str] = set()
+
+    def _failed(self, name: str, entry: str) -> None:
+        self.failed.add(name)
+        self.report.schema_resolution_failures.append(entry)
 
     def get_schema_metadata(self, name: str) -> Optional[SchemaMetadataClass]:
         explicit = self.config.schema_map().get(name)
@@ -41,6 +51,7 @@ class MessagingSchemaRegistry:
                 message="The schema map gives an empty schema name; no schema is attached.",
                 context=name,
             )
+            self.failed.add(name)
             return None
         schema_name = explicit or (name if self.config.use_naming_convention else None)
         if not schema_name:
@@ -60,7 +71,7 @@ class MessagingSchemaRegistry:
                 logger.debug(f"No Glue schema named {schema_name} for {name}")
                 self.report.schema_naming_convention_misses.append(name)
                 return None
-            self.report.schema_resolution_failures.append(f"{name}: {code}")
+            self._failed(name, f"{name}: {code}")
             self.report.warning(
                 title="Glue schema fetch failed",
                 message="glue:GetSchemaVersion failed; emitting without a schema.",
@@ -74,9 +85,7 @@ class MessagingSchemaRegistry:
         try:
             fields = parse_glue_schema_fields(schema_def, data_format, name)
         except ImportError as e:
-            self.report.schema_resolution_failures.append(
-                f"{name}: parser not installed ({data_format})"
-            )
+            self._failed(name, f"{name}: parser not installed ({data_format})")
             self.report.warning(
                 title="Glue schema parser not installed",
                 message=(
@@ -90,9 +99,7 @@ class MessagingSchemaRegistry:
         except (
             Exception
         ) as e:  # schema parsers raise different exception types per format
-            self.report.schema_resolution_failures.append(
-                f"{name}: parse failed ({data_format})"
-            )
+            self._failed(name, f"{name}: parse failed ({data_format})")
             self.report.warning(
                 title="Glue schema parse failed",
                 message="The schema definition could not be parsed; emitting without a schema.",
@@ -101,22 +108,18 @@ class MessagingSchemaRegistry:
             )
             return None
         if fields is None:
-            self.report.schema_resolution_failures.append(
-                f"{name}: unsupported format ({data_format})"
-            )
+            self._failed(name, f"{name}: unsupported format ({data_format})")
             self.report.warning(
                 title="Unsupported Glue schema format",
                 message="Only AVRO, JSON and PROTOBUF schemas are supported; emitting without a schema.",
                 context=f"{name}: schema={schema_name} format={data_format}",
             )
             return None
-        if not fields and data_format == "PROTOBUF":
+        if not fields and data_format == GlueSchemaDataFormat.PROTOBUF:
             # The protobuf converter returns no fields when compilation fails or
             # the schema is cyclic; an empty schema would read as "no columns".
             # An AVRO or JSON schema with no fields is attached as it is.
-            self.report.schema_resolution_failures.append(
-                f"{name}: no fields parsed ({data_format})"
-            )
+            self._failed(name, f"{name}: no fields parsed ({data_format})")
             self.report.warning(
                 title="Glue schema has no usable fields",
                 message="The schema parsed to no fields, so none is attached.",
