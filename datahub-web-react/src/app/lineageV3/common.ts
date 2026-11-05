@@ -3,9 +3,9 @@ import React, { Dispatch, SetStateAction } from 'react';
 
 import { hashString } from '@components/components/Avatar/utils';
 
+import { TRANSFORMATION_PLATFORM_URNS, isTransformationPlatform } from '@app/entityV2/shared/transformationPlatforms';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { LINEAGE_HANDLE_OFFSET } from '@app/lineageV3/lineageLayout';
-import { TRANSFORMATION_PLATFORM_URNS, isTransformationPlatform } from '@app/lineageV3/transformationPlatforms';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';

@@ -31,7 +31,7 @@ export function isSourceSubtype(subtype?: string | null): boolean {
 }
 
 /** Whether lineage draws this source as its warehouse sibling, per its tool's feature flag (dbt only). */
-export function isSourceMergedIntoSibling(dataset?: Dataset | null, flags?: FeatureFlagsConfig): boolean {
+export function isSourceMergedIntoSibling(dataset?: Dataset | null, flags?: Partial<FeatureFlagsConfig>): boolean {
     // Lineage query must include platform and typeNames on dataset and its sibling
     return TRANSFORMATION_PLATFORMS.some(
         ({ platformUrn, hideSourcesFlag }) =>
