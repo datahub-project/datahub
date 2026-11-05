@@ -158,7 +158,9 @@ export class DocumentPage extends BasePage {
 
   async navigateToDocument(urn: string): Promise<void> {
     await this.navigate(`/document/${encodeURIComponent(urn)}`);
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // Not networkidle: it has no timeout, and a just-created document's page can keep the network
+    // busy long enough to hang the test.
+    await expect(this.titleInput).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   async expectSidebarVisible(): Promise<void> {
