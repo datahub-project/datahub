@@ -38,7 +38,7 @@ source:
 
 #### Large sites
 
-Each app is opened in the Engine without its data. `max_workers` (default 4) sets how many apps are read at the same time. Each worker holds one Engine session.
+Each app is opened in the Engine without its data. `max_workers` (default 4) sets how many apps are read at the same time. Each worker holds one Engine session. `max_workers` applies to Qlik Cloud too, where rate-limited requests are retried with back-off.
 
 With `skip_unchanged_apps: true` and stateful ingestion enabled, later runs only open apps that changed in the Engine. An app is read again when the app or any of its sheets, stories or master items is saved, when it is reloaded, published or moves stream, when its owner changes, when the recipe or a data connection changes, or after a connector upgrade. It is also read again if the last read of it failed or its metadata is no longer in DataHub. Entities of a skipped app stay in place and are not soft-deleted.
 
