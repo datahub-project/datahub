@@ -4,16 +4,17 @@ import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Editor } from '@components/components/Editor/EditorImpl';
+import { EditorMentionsPickerProps } from '@components/components/Editor/types';
 
 import themeV2 from '@conf/theme/themeV2';
-
-vi.mock('@components/components/Editor/extensions/mentions/MentionsComponent', () => ({
-    MentionsComponent: () => React.createElement('div', { 'data-testid': 'default-mentions' }),
-}));
 
 vi.mock('@components/components/Editor/toolbar/Toolbar', () => ({
     Toolbar: () => null,
 }));
+
+const MentionsPicker = ({ renderOutsideEditor }: EditorMentionsPickerProps) => (
+    <div data-testid="default-mentions" data-outside={String(!!renderOutsideEditor)} />
+);
 
 function renderEditor(props: Partial<React.ComponentProps<typeof Editor>> = {}) {
     return render(
@@ -47,25 +48,46 @@ describe('Editor', () => {
         expect(getSurface()).toHaveTextContent('Hello');
     });
 
-    it('renders the default mentions dropdown when no mentionsComponent is given', () => {
+    it('renders no mentions picker without mentionsPicker', () => {
         renderEditor();
 
-        expect(screen.getByTestId('default-mentions')).toBeInTheDocument();
+        expect(screen.queryByTestId('default-mentions')).not.toBeInTheDocument();
     });
 
-    it('renders mentionsComponent instead of the default dropdown', () => {
-        renderEditor({ mentionsComponent: <div data-testid="custom-mentions" /> });
+    it('renders mentionsPicker, outside the editor in compact mode', () => {
+        renderEditor({ compact: true, mentionsPicker: MentionsPicker });
+
+        expect(screen.getByTestId('default-mentions')).toHaveAttribute('data-outside', 'true');
+    });
+
+    it('renders mentionsComponent instead of mentionsPicker', () => {
+        renderEditor({ mentionsComponent: <div data-testid="custom-mentions" />, mentionsPicker: MentionsPicker });
 
         expect(screen.getByTestId('custom-mentions')).toBeInTheDocument();
         expect(screen.queryByTestId('default-mentions')).not.toBeInTheDocument();
     });
 
-    it('falls back to the default dropdown when mentionsComponent throws', () => {
+    it('falls back to mentionsPicker when mentionsComponent throws', () => {
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        renderEditor({ mentionsComponent: <Throws /> });
+        renderEditor({ mentionsComponent: <Throws />, mentionsPicker: MentionsPicker });
 
         expect(screen.getByTestId('default-mentions')).toBeInTheDocument();
         consoleError.mockRestore();
+    });
+
+    it('renders mentions as @name without mentionNodeView', async () => {
+        renderEditor({ content: '[@Alice](urn:li:corpuser:alice)' });
+
+        await waitFor(() => expect(getSurface()).toHaveTextContent('@Alice'));
+    });
+
+    it('renders mentions with mentionNodeView', async () => {
+        renderEditor({
+            content: '[@Alice](urn:li:corpuser:alice)',
+            mentionNodeView: ({ node }) => <span data-testid="mention-view">{node.attrs.urn}</span>,
+        });
+
+        expect(await screen.findByTestId('mention-view')).toHaveTextContent('urn:li:corpuser:alice');
     });
 });

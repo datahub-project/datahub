@@ -1,7 +1,14 @@
+import type { NodeViewComponentProps } from '@remirror/react';
+
 // Transaction meta key used by DetailsExtension to mark a details open/close toggle.
 // OnChangeMarkdown ignores transactions carrying this key so that expanding/collapsing
 // a section does not trigger an autosave or mark the document as dirty.
 export const DETAILS_TOGGLE_META = 'detailsToggle';
+
+export type EditorMentionsPickerProps = {
+    /** When true, renders the dropdown outside the editor to avoid overflow clipping */
+    renderOutsideEditor?: boolean;
+};
 
 export type FileUploadSource = 'drag-and-drop' | 'button';
 
@@ -59,4 +66,14 @@ export type EditorProps = {
      * drive the `datahubMention` autocomplete itself.
      */
     mentionsComponent?: React.ReactNode;
+    /**
+     * The default @-mentions picker, also the fallback when `mentionsComponent` fails. Rendered inside
+     * the Remirror context, so it can drive the `datahubMention` autocomplete. Without it typing @
+     * opens no picker.
+     */
+    mentionsPicker?: React.ComponentType<EditorMentionsPickerProps>;
+    /** Renders a `datahubMention` node while editing. Without it a mention renders as `@name`. */
+    mentionNodeView?: React.ComponentType<NodeViewComponentProps>;
+    /** Lets the toolbar's image button upload files when `uploadFileProps.onFileUpload` is set. */
+    imageUploadEnabled?: boolean;
 };
