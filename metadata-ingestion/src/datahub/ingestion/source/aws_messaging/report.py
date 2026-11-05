@@ -17,6 +17,7 @@ class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
     region: Optional[str] = None
     lineage_edges_emitted: int = 0
     lineage_edges_removed: int = 0
+    job_edges_removed: int = 0
     # True when tag:GetResources was unavailable and tags were read per resource.
     tags_read_per_resource: bool = False
     schemas_attached: int = 0
@@ -24,6 +25,9 @@ class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
     schema_resolution_failures: LossyList[str] = field(default_factory=LossyList)
     schema_naming_convention_misses: LossyList[str] = field(default_factory=LossyList)
     column_lineage_edges_emitted: int = 0
+    lambda_functions_emitted: int = 0
+    eventbridge_rules_emitted: int = 0
+    eventbridge_pipes_emitted: int = 0
     column_lineage_edges_removed: int = 0
     # Reason -> count for edges that got table-level lineage only.
     column_lineage_skipped: Dict[str, int] = field(
