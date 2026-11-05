@@ -32,7 +32,7 @@ test.describe('SearchV2 Features', () => {
   });
 
   test('should show no results message when search returns empty', async () => {
-    await searchPage.search('zzznonexistentqueryyy123');
+    await searchPage.search('zzznonexistentqueryyy1234');
     await searchPage.expectNoResults();
   });
 

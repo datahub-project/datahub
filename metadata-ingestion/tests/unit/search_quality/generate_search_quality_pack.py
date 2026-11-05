@@ -148,6 +148,14 @@ def dataset_urn(platform: str, name: str, origin: str = "PROD") -> str:
 
 AUTOCOMPLETE_NAME = "zzprefixprobe"
 AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", AUTOCOMPLETE_NAME)
+PHRASE_AUTOCOMPLETE_QUERY = "Xylarvene Orders Model"
+PHRASE_AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", "xylarvene_orders_model")
+REORDERED_AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", "orders_model_xylarvene")
+DESCRIPTION_CONTAIN_DELETED = dataset_urn("catalogprobe", "users_deleted_asset")
+DESCRIPTION_CONTAIN_CREATED = dataset_urn("catalogprobe", "users_created_asset")
+SHARED_TOKEN_APPLE = dataset_urn("catalogprobe", "shared_token_apple")
+SHARED_TOKEN_BANANA = dataset_urn("catalogprobe", "shared_token_banana")
+SHARED_TOKEN_QUERY = "xylarvene sources search apple"
 
 STRING_OPT_IN_DATASET = dataset_urn(
     "dbt", "long_tail_companions.analytics.dogs_in_movies"
@@ -536,6 +544,42 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             AUTOCOMPLETE_NAME,
             AUTOCOMPLETE_NAME,
         ),
+        (
+            PHRASE_AUTOCOMPLETE_DATASET,
+            PHRASE_AUTOCOMPLETE_QUERY,
+            "catalogprobe.xylarvene_orders_model",
+            "Phrase-named catalog probe for autocomplete.",
+        ),
+        (
+            REORDERED_AUTOCOMPLETE_DATASET,
+            "Catalogprobe Reordered Name",
+            "orders_model.xylarvene",
+            "Tokens from the phrase query, stored out of order.",
+        ),
+        (
+            DESCRIPTION_CONTAIN_DELETED,
+            "Catalogprobe Users Deleted",
+            "catalogprobe.users_deleted_asset",
+            "fct_users_deleted",
+        ),
+        (
+            DESCRIPTION_CONTAIN_CREATED,
+            "Catalogprobe Users Created",
+            "catalogprobe.users_created_asset",
+            "fct_users_created",
+        ),
+        (
+            SHARED_TOKEN_APPLE,
+            SHARED_TOKEN_QUERY,
+            "catalogprobe.shared_token_apple",
+            "Shared-token name probe, distinguished by apple.",
+        ),
+        (
+            SHARED_TOKEN_BANANA,
+            "xylarvene sources search banana",
+            "catalogprobe.shared_token_banana",
+            "Shared-token name probe, distinguished by banana.",
+        ),
     ]
     proposals: list[dict[str, Any]] = []
     proposals.append(
@@ -893,6 +937,54 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             fulltext,
         ),
     ]
+    judgments.extend(
+        [
+            {
+                "id": "description-contain-stacked-token",
+                "group": "keyword-probe",
+                "query": "*",
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [{"urn": DESCRIPTION_CONTAIN_DELETED, "relevance": 1}],
+                "filter": {
+                    "field": "description",
+                    "condition": "CONTAIN",
+                    "value": "fct_users_deleted",
+                },
+                "candidateUrns": [
+                    DESCRIPTION_CONTAIN_DELETED,
+                    DESCRIPTION_CONTAIN_CREATED,
+                ],
+                "expectedOrder": [DESCRIPTION_CONTAIN_DELETED],
+            },
+            {
+                "id": "shared-token-name",
+                "group": "keyword-probe",
+                "query": SHARED_TOKEN_QUERY,
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [
+                    {"urn": SHARED_TOKEN_APPLE, "relevance": 1},
+                    {"urn": SHARED_TOKEN_BANANA, "relevance": 1},
+                ],
+                "candidateUrns": [SHARED_TOKEN_APPLE, SHARED_TOKEN_BANANA],
+                "rankAbove": {
+                    "urn": SHARED_TOKEN_APPLE,
+                    "above": [SHARED_TOKEN_BANANA],
+                },
+            },
+            {
+                "id": "shared-token-name-quoted",
+                "group": "keyword-probe",
+                "query": f'"{SHARED_TOKEN_QUERY}"',
+                "surfaces": ["keyword"],
+                "entityTypes": ["dataset"],
+                "grades": [{"urn": SHARED_TOKEN_APPLE, "relevance": 1}],
+                "candidateUrns": [SHARED_TOKEN_APPLE, SHARED_TOKEN_BANANA],
+                "expectedOrder": [SHARED_TOKEN_APPLE],
+            },
+        ]
+    )
     proposals.extend(sort_probe_entities())
     judgments.extend(sort_judgments())
     proposals.extend(field_probe_entities())
@@ -1217,6 +1309,16 @@ def autocomplete_judgments() -> list[dict[str, Any]]:
             "entityTypes": ["dataset"],
             "grades": [],
             "expectedUrns": [],
+        },
+        {
+            "id": "autocomplete-phrase-not-reordered",
+            "group": "autocomplete",
+            "query": PHRASE_AUTOCOMPLETE_QUERY,
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+            "expectedUrns": [PHRASE_AUTOCOMPLETE_DATASET],
+            "absentUrns": [REORDERED_AUTOCOMPLETE_DATASET],
         },
     ]
 
@@ -2154,6 +2256,11 @@ def assert_probe_judgment(judgment: dict[str, Any], seen: set[str]) -> None:
                 raise AssertionError(
                     f"Judgment {judgment['id']} expects unloaded {urn}"
                 )
+        for urn in judgment.get("absentUrns") or []:
+            if urn not in seen:
+                raise AssertionError(
+                    f"Judgment {judgment['id']} excludes unloaded {urn}"
+                )
     if judgment["group"] == "field-probe":
         if judgment.get("grades"):
             raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
@@ -2261,9 +2368,9 @@ def _validate_pack(directory: Path) -> None:
     autocomplete = [
         item for item in judgments["judgments"] if item["group"] == "autocomplete"
     ]
-    if len(autocomplete) != 3:
+    if len(autocomplete) != 4:
         raise AssertionError(
-            f"Expected 3 autocomplete probes, found {len(autocomplete)}"
+            f"Expected 4 autocomplete probes, found {len(autocomplete)}"
         )
     assert_fulltext_probe_tokens_absent(loaded)
     assert_field_probe_tokens_absent(loaded)

@@ -604,8 +604,16 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
                   + urns);
         }
       }
+      List<String> absent = new ArrayList<>();
+      judgment.path("absentUrns").forEach(node -> absent.add(node.asText()));
+      for (String urn : absent) {
+        if (urns.contains(urn)) {
+          failures.add(
+              judgment.path("id").asText() + " should not suggest " + urn + " got " + urns);
+        }
+      }
     }
-    assertEquals(seen, 3, "autocomplete probes were not loaded");
+    assertEquals(seen, 4, "autocomplete probes were not loaded");
     assertTrue(failures.isEmpty(), String.join("\n", failures));
   }
 
@@ -687,31 +695,25 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
   }
 
   private RankedSearchResult run(JsonNode judgment, boolean javaBuilder) throws Exception {
-    Filter filter = null;
+    CriterionArray criteria = new CriterionArray();
     if (judgment.hasNonNull("filter")) {
       JsonNode criterion = judgment.get("filter");
-      filter =
-          new Filter()
-              .setOr(
-                  new ConjunctiveCriterionArray(
-                      new ConjunctiveCriterion()
-                          .setAnd(
-                              new CriterionArray(
-                                  buildCriterion(
-                                      criterion.path("field").asText(),
-                                      Condition.valueOf(criterion.path("condition").asText()),
-                                      criterion.path("value").asText())))));
+      criteria.add(
+          buildCriterion(
+              criterion.path("field").asText(),
+              Condition.valueOf(criterion.path("condition").asText()),
+              criterion.path("value").asText()));
     }
     if (judgment.has("candidateUrns")) {
       List<String> urns = new ArrayList<>();
       judgment.get("candidateUrns").forEach(node -> urns.add(node.asText()));
+      criteria.add(buildCriterion("urn", Condition.EQUAL, urns));
+    }
+    Filter filter = null;
+    if (!criteria.isEmpty()) {
       filter =
           new Filter()
-              .setOr(
-                  new ConjunctiveCriterionArray(
-                      new ConjunctiveCriterion()
-                          .setAnd(
-                              new CriterionArray(buildCriterion("urn", Condition.EQUAL, urns)))));
+              .setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criteria)));
     }
     List<String> entityTypes = new ArrayList<>();
     judgment.path("entityTypes").forEach(node -> entityTypes.add(node.asText()));

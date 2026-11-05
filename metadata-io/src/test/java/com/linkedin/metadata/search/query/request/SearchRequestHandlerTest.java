@@ -1033,6 +1033,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(description.contains("\"description.text\""), description);
     assertTrue(description.contains("\"description.stemmed\""), description);
     assertTrue(description.contains("\"operator\" : \"AND\""), description);
+    assertTrue(description.contains("\"analyzer\" : \"standard\""), description);
     assertFalse(description.contains("wildcard"), description);
 
     String fieldDescriptions =
@@ -1056,6 +1057,34 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         editedFieldDescriptions.contains("\"editedFieldDescriptions.text\""),
         editedFieldDescriptions);
     assertFalse(editedFieldDescriptions.contains("wildcard"), editedFieldDescriptions);
+  }
+
+  /**
+   * A stacked identifier matches its preserved original token, so {@code fct_users_deleted} does
+   * not match {@code fct_users_created}. Its parts are also required together, so {@code fct_users}
+   * matches a description that contains {@code fct_users_deleted}.
+   */
+  @Test
+  public void testV3ContainOnStackedTokenMatchesOriginalOrAllParts() {
+    String description =
+        v3Filter(buildCriterion("description", Condition.CONTAIN, "fct_users_deleted"));
+    assertTrue(description.contains("\"description.text\""), description);
+    assertTrue(description.contains("\"query\" : \"fct_users_deleted\""), description);
+    assertTrue(description.contains("\"query\" : \"fct\""), description);
+    assertTrue(description.contains("\"query\" : \"users\""), description);
+    assertTrue(description.contains("\"query\" : \"deleted\""), description);
+    assertTrue(description.contains("\"analyzer\" : \"standard\""), description);
+    assertTrue(description.contains("\"must\""), description);
+    assertTrue(description.contains("\"operator\" : \"AND\""), description);
+    assertFalse(description.contains("wildcard"), description);
+
+    String prefix = v3Filter(buildCriterion("description", Condition.CONTAIN, "fct_users"));
+    assertTrue(prefix.contains("\"query\" : \"fct_users\""), prefix);
+    assertTrue(prefix.contains("\"query\" : \"fct\""), prefix);
+    assertTrue(prefix.contains("\"query\" : \"users\""), prefix);
+    assertTrue(prefix.contains("\"analyzer\" : \"standard\""), prefix);
+    assertTrue(prefix.contains("\"must\""), prefix);
+    assertFalse(prefix.contains("\"query\" : \"deleted\""), prefix);
   }
 
   @Test
