@@ -93,7 +93,7 @@ public class EbeanEntityServiceOptimizationTest {
             aspectDao,
             mock(EventProducer.class),
             preProcessHooks,
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false),
             mock(MetricUtils.class));
     entityService.setUpdateIndicesService(mock(UpdateIndicesService.class));
     entityService.setRetentionService(null);

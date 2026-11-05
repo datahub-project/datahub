@@ -1,18 +1,14 @@
 package com.linkedin.metadata.aspect.utils;
 
-import static com.linkedin.metadata.Constants.BROWSE_PATHS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.BROWSE_PATHS_V2_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
 import static com.linkedin.metadata.search.utils.BrowsePathUtils.buildDataPlatformUrn;
-import static com.linkedin.metadata.search.utils.BrowsePathUtils.getDefaultBrowsePath;
 import static com.linkedin.metadata.search.utils.BrowsePathV2Utils.getDefaultBrowsePathV2;
 
-import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.Aspect;
@@ -64,8 +60,7 @@ public class DefaultAspectsUtil {
   public static AspectsBatch withAdditionalChanges(
       @Nonnull OperationContext opContext,
       @Nonnull final AspectsBatch inputBatch,
-      @Nonnull EntityService<?> entityService,
-      boolean enableBrowseV2) {
+      @Nonnull EntityService<?> entityService) {
     /*
      * 1. When deadlock occurs within the transaction the default entity key may need to be removed. This cannot happen
      *    if the batch is fixed with a key aspect prior to the transaction.
@@ -82,8 +77,7 @@ public class DefaultAspectsUtil {
             .collect(Collectors.toCollection(LinkedList::new));
     // Key aspect restored if needed
     List<MCPItem> additionalChanges =
-        DefaultAspectsUtil.getAdditionalChanges(
-            opContext, inputBatch.getMCPItems(), entityService, enableBrowseV2);
+        DefaultAspectsUtil.getAdditionalChanges(opContext, inputBatch.getMCPItems(), entityService);
 
     // `result` was already validated upstream as part of original inputBatch;
     // Only additionalChanges needs validation here
@@ -105,8 +99,7 @@ public class DefaultAspectsUtil {
   public static List<MCPItem> getAdditionalChanges(
       @Nonnull OperationContext opContext,
       @Nonnull Collection<MCPItem> batch,
-      @Nonnull EntityService<?> entityService,
-      boolean browsePathV2) {
+      @Nonnull EntityService<?> entityService) {
 
     Map<Urn, List<MCPItem>> itemsByUrn =
         batch.stream()
@@ -130,11 +123,7 @@ public class DefaultAspectsUtil {
               // Generate key aspect and defaults
               List<Pair<String, RecordTemplate>> defaultAspects =
                   generateDefaultAspects(
-                      opContext,
-                      entityService,
-                      aspectsEntry.getKey(),
-                      currentBatchAspectNames,
-                      browsePathV2);
+                      opContext, entityService, aspectsEntry.getKey(), currentBatchAspectNames);
 
               // First is the key aspect
               RecordTemplate entityKeyAspect = defaultAspects.get(0).getSecond();
@@ -171,8 +160,7 @@ public class DefaultAspectsUtil {
       @Nonnull OperationContext opContext,
       @Nonnull EntityService<?> entityService,
       @Nonnull final Urn urn,
-      @Nonnull Set<String> currentBatchAspectNames,
-      boolean browsePathV2) {
+      @Nonnull Set<String> currentBatchAspectNames) {
 
     final List<Pair<String, RecordTemplate>> defaultAspects = new LinkedList<>();
 
@@ -188,8 +176,7 @@ public class DefaultAspectsUtil {
             entityService,
             urn,
             defaultAspects.get(0).getSecond(),
-            currentBatchAspectNames,
-            browsePathV2));
+            currentBatchAspectNames));
 
     return defaultAspects;
   }
@@ -210,17 +197,11 @@ public class DefaultAspectsUtil {
       @Nonnull EntityService<?> entityService,
       @Nonnull final Urn urn,
       RecordTemplate entityKeyAspect,
-      @Nonnull Set<String> currentAspectNames,
-      boolean browsePathV2) {
+      @Nonnull Set<String> currentAspectNames) {
     EntityRegistry entityRegistry = opContext.getEntityRegistry();
 
     Set<String> fetchAspects =
-        Stream.of(
-                BROWSE_PATHS_ASPECT_NAME,
-                BROWSE_PATHS_V2_ASPECT_NAME,
-                DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-            // If browsePathV2 then exclude v1
-            .filter(aspectName -> !(BROWSE_PATHS_ASPECT_NAME.equals(aspectName) && browsePathV2))
+        Stream.of(BROWSE_PATHS_V2_ASPECT_NAME, DATA_PLATFORM_INSTANCE_ASPECT_NAME)
             // Exclude currently ingesting aspects
             .filter(aspectName -> !currentAspectNames.contains(aspectName))
             // Exclude in case when we have limited test entity registry which doesn't include these
@@ -242,10 +223,6 @@ public class DefaultAspectsUtil {
           .map(
               aspectName -> {
                 switch (aspectName) {
-                  case BROWSE_PATHS_ASPECT_NAME:
-                    return Pair.of(
-                        BROWSE_PATHS_ASPECT_NAME,
-                        (RecordTemplate) buildDefaultBrowsePath(opContext, urn));
                   case BROWSE_PATHS_V2_ASPECT_NAME:
                     return Pair.of(
                         BROWSE_PATHS_V2_ASPECT_NAME,
@@ -267,25 +244,6 @@ public class DefaultAspectsUtil {
     }
 
     return Collections.emptyList();
-  }
-
-  /**
-   * Builds the default browse path aspects for a subset of well-supported entities.
-   *
-   * <p>This method currently supports datasets, charts, dashboards, data flows, data jobs, and
-   * glossary terms.
-   */
-  @Nonnull
-  public static BrowsePaths buildDefaultBrowsePath(
-      @Nonnull OperationContext opContext, final @Nonnull Urn urn) {
-    Character dataPlatformDelimiter = getDataPlatformDelimiter(opContext, urn);
-    String defaultBrowsePath =
-        getDefaultBrowsePath(urn, opContext.getEntityRegistry(), dataPlatformDelimiter);
-    StringArray browsePaths = new StringArray();
-    browsePaths.add(defaultBrowsePath);
-    BrowsePaths browsePathAspect = new BrowsePaths();
-    browsePathAspect.setPaths(browsePaths);
-    return browsePathAspect;
   }
 
   /**

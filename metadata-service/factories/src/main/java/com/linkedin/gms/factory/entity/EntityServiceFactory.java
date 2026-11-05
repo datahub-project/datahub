@@ -39,7 +39,6 @@ public class EntityServiceFactory {
       @Qualifier("kafkaEventProducer") final EventProducer eventProducer,
       @Qualifier("entityAspectDao") final AspectDao aspectDao,
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
-      @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
       @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
       @Value("${entityService.syncIngestStamping:false}") final boolean syncIngestStamping,
       @Value("${entityService.semanticNoOp.enabled:false}") final boolean semanticNoOpEnabled,
@@ -66,7 +65,6 @@ public class EntityServiceFactory {
                 .setAlwaysEmitChangeLog(featureFlags.isAlwaysEmitChangeLog())
                 .setCdcModeChangeLog(featureFlags.isCdcModeChangeLog())
                 .setRetry(_ebeanMaxTransactionRetry)
-                .setEnableBrowseV2(enableBrowsePathV2)
                 .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled())
                 // Without this line the yaml/env value never reaches the service and
                 // stamping is silently dead regardless of DATAHUB_HONOR_SYNC_INGEST_FLAG.

@@ -131,8 +131,7 @@ public class EbeanEntityServiceScopedRetryGateConcurrencyTest {
             preProcessHooks,
             new EntityServiceConfiguration()
                 .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(false)
-                .setEnableBrowseV2(true),
+                .setCdcModeChangeLog(false),
             null);
     entityService.setUpdateIndicesService(mockUpdateIndicesService);
 

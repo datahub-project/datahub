@@ -64,7 +64,7 @@ public class MockEntityService extends EntityServiceImpl {
         aspectDao,
         producer,
         preProcessHooks,
-        new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+        new EntityServiceConfiguration().setAlwaysEmitChangeLog(true),
         mock(MetricUtils.class));
     setUpdateIndicesService(mock(UpdateIndicesService.class));
   }

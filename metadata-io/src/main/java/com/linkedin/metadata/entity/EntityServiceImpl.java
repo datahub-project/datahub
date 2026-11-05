@@ -201,7 +201,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   protected static final int MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE = 500;
 
   private final Integer ebeanMaxTransactionRetry;
-  private final boolean enableBrowseV2;
   // When true, retention runs after upsert commit (best-effort). When false, legacy in-tx path.
   private final boolean postCommitRetentionEnabled;
   private final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils;
@@ -243,7 +242,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         entityServiceConfiguration.getRetry() != null
             ? entityServiceConfiguration.getRetry()
             : DEFAULT_MAX_TRANSACTION_RETRY;
-    this.enableBrowseV2 = entityServiceConfiguration.isEnableBrowseV2();
     this.postCommitRetentionEnabled = entityServiceConfiguration.isPostCommitRetentionEnabled();
     this.syncIngestStampingEnabled = entityServiceConfiguration.isSyncIngestStamping();
     this.metricUtils = metricUtils;
@@ -1574,7 +1572,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               // retry)
                               AspectsBatch batchWithDefaults =
                                   DefaultAspectsUtil.withAdditionalChanges(
-                                      opContext, inputBatch, this, enableBrowseV2);
+                                      opContext, inputBatch, this);
 
                               // First pass over the full batch: read latest -> compute versions ->
                               // run
@@ -1899,7 +1897,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               // byte-identical to the legacy path.
                               AspectsBatch batchWithDefaults =
                                   DefaultAspectsUtil.withAdditionalChanges(
-                                      opContext, inputBatch, this, enableBrowseV2);
+                                      opContext, inputBatch, this);
 
                               final Map<String, Set<String>> urnAspects =
                                   batchWithDefaults.getUrnAspectsMap();

@@ -78,7 +78,7 @@ public class DataGenerator {
             mock(AspectDao.class),
             mock(EventProducer.class),
             mock(PreProcessHooks.class),
-            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(false),
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false),
             mock(MetricUtils.class));
     return new DataGenerator(opContext, mockEntityServiceImpl);
   }
@@ -174,8 +174,7 @@ public class DataGenerator {
                                     .mcps(List.of(mcp), auditStamp, opContext.getRetrieverContext())
                                     .build(opContext)
                                     .getMCPItems(),
-                                entityService,
-                                true)
+                                entityService)
                             .stream()
                             .map(MCPItem::getMetadataChangeProposal))
                     .collect(Collectors.toList());
