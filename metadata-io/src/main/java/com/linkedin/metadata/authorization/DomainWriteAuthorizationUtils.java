@@ -47,8 +47,8 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Helpers for domain-separated writers: privilege selection by entity existence, proposed-domain
  * resolution (including PATCH apply), and authorizing {@code domains} writes against domain-scoped
- * Create/Edit Entity policies or the aspect-specific Edit Domain privilege (including before/after
- * reconciliation for {@code domains} PATCH).
+ * Create/Edit Entity policies, Data Product Manage Data Products grants, or the aspect-specific
+ * Edit Domain privilege (including before/after reconciliation for {@code domains} PATCH).
  */
 @Slf4j
 public final class DomainWriteAuthorizationUtils {
@@ -405,24 +405,31 @@ public final class DomainWriteAuthorizationUtils {
    * applied against an earlier UPSERT in the same request (matching ingest order). {@code
    * batchItems} must be a {@link List} because chaining depends on that order; a bare {@link
    * Collection} is not enough.
+   *
+   * @return the proposed domains per URN, for callers that need them beyond seeding
    */
-  public static void seedProposedDomainsForApiAuth(
+  @Nonnull
+  public static Map<Urn, Domains> seedProposedDomainsForApiAuth(
       @Nonnull OperationContext opContext,
       @Nonnull OperationFingerprint operationContext,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull List<? extends BatchItem> batchItems) {
     if (batchItems.isEmpty()) {
-      return;
+      return Map.of();
     }
-    seedProposedDomainsForApiAuth(
-        opContext,
-        operationContext,
-        aspectRetriever,
-        accumulateProposedDomainsFromBatchItems(aspectRetriever, batchItems));
+    Map<Urn, Domains> proposed =
+        accumulateProposedDomainsFromBatchItems(aspectRetriever, batchItems);
+    seedProposedDomainsForApiAuth(opContext, operationContext, aspectRetriever, proposed);
+    return proposed;
   }
 
-  /** Seed proposed domains extracted from raw MCPs (RestLi / Platform OpenAPI ingest path). */
-  public static void seedProposedDomainsFromMcps(
+  /**
+   * Seed proposed domains extracted from raw MCPs (RestLi / Platform OpenAPI ingest path).
+   *
+   * @return the proposed domains per URN, for callers that need them beyond seeding
+   */
+  @Nonnull
+  public static Map<Urn, Domains> seedProposedDomainsFromMcps(
       @Nonnull OperationContext opContext,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull Collection<MetadataChangeProposal> mcps) {
@@ -430,9 +437,10 @@ public final class DomainWriteAuthorizationUtils {
         accumulateProposedDomainsFromMcps(
             opContext, entityRegistry, opContext.getAspectRetriever(), mcps);
     if (proposed.isEmpty()) {
-      return;
+      return Map.of();
     }
     seedProposedDomainsForApiAuth(opContext, opContext, opContext.getAspectRetriever(), proposed);
+    return proposed;
   }
 
   private static void seedProposedDomainsForApiAuth(
@@ -518,8 +526,9 @@ public final class DomainWriteAuthorizationUtils {
    * domains (plus ancestors) as a request-scoped DOMAIN override so domain-scoped policies can
    * match.
    *
-   * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient; Create still
-   * requires Create/Edit Entity.
+   * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient. Creating a
+   * DataProduct may also be authorized by {@code MANAGE_DATA_PRODUCTS} on one of its proposed
+   * domains, matching the GraphQL DataProduct create path.
    */
   public static boolean isAuthorizedEntityWrite(
       @Nonnull AuthorizationSession session,
@@ -534,11 +543,40 @@ public final class DomainWriteAuthorizationUtils {
       seedProposedDomainsForResourceSpec((OperationContext) session, resourceSpec, proposedDomains);
     }
 
-    return AuthUtil.isAuthorized(
-        session,
-        AuthUtil.buildDisjunctivePrivilegeGroup(
-            lookupDomainsAspectPrivileges(apiOperation, urn.getEntityType())),
-        resourceSpec);
+    boolean authorized =
+        AuthUtil.isAuthorized(
+            session,
+            AuthUtil.buildDisjunctivePrivilegeGroup(
+                lookupDomainsAspectPrivileges(apiOperation, urn.getEntityType())),
+            resourceSpec);
+    if (authorized) {
+      return true;
+    }
+
+    return apiOperation == CREATE
+        && useProposedDomains
+        && isAuthorizedToCreateDataProductInDomains(session, urn, proposedDomains);
+  }
+
+  /**
+   * Whether {@code MANAGE_DATA_PRODUCTS} on every proposed domain authorizes creating {@code urn}.
+   * Only applies to DataProducts with at least one proposed domain; matches the GraphQL DataProduct
+   * create permission. Callers must only use this for entities that do not exist yet.
+   */
+  public static boolean isAuthorizedToCreateDataProductInDomains(
+      @Nonnull AuthorizationSession session, @Nonnull Urn urn, @Nullable Domains proposedDomains) {
+    if (!com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())
+        || !hasDomainMembership(proposedDomains)) {
+      return false;
+    }
+    // Every domain must be managed, otherwise a manager of A could attach the product to B too.
+    Set<Urn> domainUrns = EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(proposedDomains);
+    return !domainUrns.isEmpty()
+        && domainUrns.stream()
+            .allMatch(
+                domainUrn ->
+                    EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
+                        session, Set.of(domainUrn)));
   }
 
   /**

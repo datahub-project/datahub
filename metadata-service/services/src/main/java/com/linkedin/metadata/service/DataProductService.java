@@ -90,6 +90,25 @@ public class DataProductService {
       @Nullable String name,
       @Nullable String description,
       @Nullable Urn parentDataProduct) {
+    return createDataProduct(opContext, id, name, description, parentDataProduct, null);
+  }
+
+  /**
+   * Creates a new Data Product with an optional parent and domain. When {@code domainUrn} is set,
+   * properties and domains are written in one batch so authorization sees a single create into that
+   * domain (e.g. {@code MANAGE_DATA_PRODUCTS} on the domain) rather than a create followed by a
+   * domain edit on an existing entity.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   */
+  public Urn createDataProduct(
+      @Nonnull OperationContext opContext,
+      @Nullable String id,
+      @Nullable String name,
+      @Nullable String description,
+      @Nullable Urn parentDataProduct,
+      @Nullable Urn domainUrn) {
 
     // 1. Generate a unique id for the new DataProduct.
     final DataProductKey key = new DataProductKey();
@@ -117,12 +136,21 @@ public class DataProductService {
     try {
       final Urn entityUrn =
           EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DATA_PRODUCT_ENTITY_NAME);
-      return UrnUtils.getUrn(
-          _entityClient.ingestProposal(
-              opContext,
+      final MetadataChangeProposal propertiesProposal =
+          AspectUtils.buildMetadataChangeProposal(
+              entityUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, properties);
+      if (domainUrn == null) {
+        return UrnUtils.getUrn(_entityClient.ingestProposal(opContext, propertiesProposal, false));
+      }
+      final Domains domains = new Domains().setDomains(new UrnArray(List.of(domainUrn)));
+      _entityClient.batchIngestProposals(
+          opContext,
+          List.of(
+              propertiesProposal,
               AspectUtils.buildMetadataChangeProposal(
-                  entityUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, properties),
-              false));
+                  entityUrn, Constants.DOMAINS_ASPECT_NAME, domains)),
+          false);
+      return entityUrn;
     } catch (Exception e) {
       throw new RuntimeException("Failed to create DataProduct", e);
     }
