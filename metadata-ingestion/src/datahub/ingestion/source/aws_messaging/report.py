@@ -1,5 +1,6 @@
+from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -18,6 +19,16 @@ class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
     lineage_edges_removed: int = 0
     # True when tag:GetResources was unavailable and tags were read per resource.
     tags_read_per_resource: bool = False
+    schemas_attached: int = 0
+    # "<name>: <reason>" for schema lookups that failed (not naming-convention misses).
+    schema_resolution_failures: LossyList[str] = field(default_factory=LossyList)
+    schema_naming_convention_misses: LossyList[str] = field(default_factory=LossyList)
+    column_lineage_edges_emitted: int = 0
+    column_lineage_edges_removed: int = 0
+    # Reason -> count for edges that got table-level lineage only.
+    column_lineage_skipped: Dict[str, int] = field(
+        default_factory=lambda: defaultdict(int)
+    )
     # "<from> -> <to>: <reason>" for edges left out because one end could not
     # be resolved to an entity that exists.
     lineage_edges_skipped: LossyList[str] = field(default_factory=LossyList)
