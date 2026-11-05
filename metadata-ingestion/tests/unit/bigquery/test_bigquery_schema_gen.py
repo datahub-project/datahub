@@ -202,7 +202,9 @@ class TestProjectProcessing:
             include_table_snapshots=False,
             include_table_constraints=False,
         )
-        as_mock(schema_gen.schema_api.get_columns_for_dataset).side_effect = lambda *_, **__: _columns({})
+        as_mock(schema_gen.schema_api.get_columns_for_dataset).side_effect = (
+            lambda *_, **__: _columns({})
+        )
         broken = BigqueryDataset(name="broken")
         good = BigqueryDataset(name="good")
         denied = BigqueryDataset(name="denied_ds")
