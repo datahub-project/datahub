@@ -1132,12 +1132,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities(),
         ORDERS_CHART);
 
-    // _entityName sorts ignoring case. The dataset name holds both "orders" and the key
-    // "sales.orders", so the dataset comes first in both directions: ascending uses "orders",
-    // and descending uses "sales.orders", which sorts above "Orders by region".
+    // Keyword roots sort in raw UTF-8 order. "Orders by region" sorts before "orders" and
+    // "sales.orders". Descending uses the dataset's "sales.orders", which sorts after the chart.
     for (Map.Entry<SortOrder, List<Urn>> sort :
         Map.of(
-                SortOrder.ASCENDING, List.of(ORDERS, ORDERS_CHART),
+                SortOrder.ASCENDING, List.of(ORDERS_CHART, ORDERS),
                 SortOrder.DESCENDING, List.of(ORDERS, ORDERS_CHART))
             .entrySet()) {
       assertEquals(
@@ -1160,48 +1159,34 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * Matched fields ("Matched on" in the UI) are opt-in. A shipped template names no highlight
-   * field, so a hit of the default query reports none.
+   * Highlighting is opt-in, but matched fields are not. The light query reads name and id, and the
+   * stored values that contain the query are reported with highlighting off. The exact name term is
+   * named {@code matchedField:name}, the same label the source scan already recorded, so it is not
+   * reported again with an empty value.
    */
   @Test
   public void testSearchReportsNoMatchedFieldsWithoutOptIn() {
     SearchEntity hit = onlyHit("customers", flags -> flags);
     assertEquals(hit.getEntity(), CUSTOMERS);
-    assertEquals(matchedFieldNames(hit), List.of());
+    assertCustomersQueriedFields(hit);
   }
 
   /**
-   * A request opts fields in for that call. Both the name and the description of this hit hold the
-   * query, and only the opted-in field is reported, with the value the document stores. Opting the
-   * name in reads every source of that label, which for a dataset includes the key id.
+   * Opting a field in adds it only when the query read it. This light query reads name and id, so
+   * description stays out. The dataset key {@code sales.customers} is reported as id because the
+   * query searched id and that stored value contains the query.
    */
   @Test
   public void testSearchReportsOptedInMatchedFields() {
-    SearchEntity byName = onlyHit("customers", optIn("name"));
-    assertEqualsNoOrder(
-        matchedFieldNames(byName).toArray(),
-        new String[] {"name", "id"},
-        byName.getMatchedFields().toString());
-    assertEquals(matchedFieldValue(byName, "name"), "customers");
-    assertEquals(matchedFieldValue(byName, "id"), "sales.customers");
-
-    SearchEntity byDescription = onlyHit("customers", optIn("description"));
-    assertEquals(
-        matchedFieldNames(byDescription),
-        List.of("description"),
-        byDescription.getMatchedFields().toString());
-    assertEquals(matchedFieldValue(byDescription, "description"), CUSTOMERS_DESCRIPTION);
-
-    SearchEntity both = onlyHit("customers", optIn("name", "description"));
-    assertEqualsNoOrder(
-        matchedFieldNames(both).toArray(),
-        new String[] {"name", "id", "description"},
-        both.getMatchedFields().toString());
+    assertCustomersQueriedFields(onlyHit("customers", optIn("name")));
+    assertCustomersQueriedFields(onlyHit("customers", optIn("description")));
+    assertCustomersQueriedFields(onlyHit("customers", optIn("name", "description")));
   }
 
   /**
    * A structured property is read where it is stored: {@code copy_to} fills the shared field the
-   * query reads, which {@code _source} does not hold.
+   * query reads, which {@code _source} does not hold. The property is reported because the query
+   * read it, including when the request opts in a different field.
    */
   @Test
   public void testSearchReportsOptedInStructuredPropertyMatchedFields() {
@@ -1211,11 +1196,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(matchedFieldNames(withProperty), List.of(field));
     assertEquals(matchedFieldValue(withProperty, field), "nightjar");
 
-    // The query matched the property, not the name, so opting the name in reports nothing
-    assertEquals(matchedFieldNames(onlyHit("nightjar", optIn("name"))), List.of());
+    SearchEntity byName = onlyHit("nightjar", optIn("name"));
+    assertEquals(matchedFieldNames(byName), List.of(field), byName.getMatchedFields().toString());
+    assertEquals(matchedFieldValue(byName, field), "nightjar");
   }
 
-  /** A field the query does not read is dropped, as are an aspect path and a wildcard. */
+  /**
+   * A field the query does not read is not added. Owners, an aspect path, a wildcard, and a
+   * structured property whose value does not contain the query leave the queried-field report
+   * unchanged.
+   */
   @Test
   public void testSearchDropsMatchedFieldsTheQueryDoesNotRead() {
     for (String field :
@@ -1224,26 +1214,35 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             "_aspects.datasetProperties.name",
             "*",
             "structuredProperties." + HIDDEN_LABEL.getId())) {
-      assertEquals(matchedFieldNames(onlyHit("customers", optIn(field))), List.of(), field);
+      SearchEntity hit = onlyHit("customers", optIn(field));
+      assertFalse(matchedFieldNames(hit).contains(field), hit.getMatchedFields().toString());
+      assertCustomersQueriedFields(hit);
     }
   }
 
-  /** {@code skipHighlighting} clears the set a request opted in. */
+  /** {@code skipHighlighting} clears highlights. Fields the query read are still reported. */
   @Test
   public void testSkipHighlightingClearsOptedInMatchedFields() {
-    SearchEntity hit =
-        onlyHit("customers", flags -> optIn("name").apply(flags).setSkipHighlighting(true));
-    assertEquals(matchedFieldNames(hit), List.of());
+    assertCustomersQueriedFields(
+        onlyHit("customers", flags -> optIn("name").apply(flags).setSkipHighlighting(true)));
   }
 
-  /** {@code customHighlightingFields} replaces the set instead of adjusting it. */
+  /**
+   * {@code customHighlightingFields} replaces the highlight set. It does not drop fields the query
+   * read, and description is not among them for this light query.
+   */
   @Test
   public void testCustomHighlightingFieldsReplaceMatchedFields() {
-    SearchEntity hit =
+    assertCustomersQueriedFields(
         onlyHit(
             "customers",
-            flags -> optIn("name").apply(flags).setCustomHighlightingFields(names("description")));
-    assertEquals(matchedFieldNames(hit), List.of("description"));
+            flags -> optIn("name").apply(flags).setCustomHighlightingFields(names("description"))));
+  }
+
+  private static void assertCustomersQueriedFields(@Nonnull SearchEntity hit) {
+    assertEquals(matchedFieldNames(hit), List.of("name", "id"), hit.getMatchedFields().toString());
+    assertEquals(matchedFieldValue(hit, "name"), "customers");
+    assertEquals(matchedFieldValue(hit, "id"), "sales.customers");
   }
 
   @Nonnull
@@ -1656,7 +1655,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         ORDERS_CHART);
   }
 
-  /** A structured query on a normalized root field matches ignoring case. */
+  /** A structured query on a keyword root matches ignoring case. */
   @Test
   public void testStructuredQueryIgnoresCase() {
     OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
@@ -2090,11 +2089,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * Root fields that are not shared labels are normalized keywords for filters, facets and sorts,
-   * without V2's analyzed subfields. Full text lives on the root field its label names: {@code
-   * text} and {@code stemmed} on each one, and a case-preserving {@code keyword} on indexed exact
-   * roots. System metadata is the root {@code _system} object. Search V3 does not map an
-   * autocomplete field.
+   * Root fields that are not shared labels are raw keywords for filters, facets and sorts, without
+   * V2's analyzed subfields. Full text lives on the root field its label names: {@code text} and
+   * {@code stemmed} on each one. The keyword root keeps the stored casing. System metadata is the
+   * root {@code _system} object. Search V3 does not map an autocomplete field.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -2103,10 +2101,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     Map<String, Object> name = (Map<String, Object>) properties.get("name");
     assertEquals(name.get("type"), "keyword");
     Map<String, Object> nameFields = (Map<String, Object>) name.get("fields");
-    assertEquals(nameFields.keySet(), Set.of("text", "stemmed", "keyword"));
+    assertEquals(nameFields.keySet(), Set.of("text", "stemmed", "lowercase"));
     assertEquals(((Map<String, Object>) nameFields.get("text")).get("analyzer"), "v3_text");
-    // The name keeps its stored casing for case-sensitive exact match
-    assertFalse(((Map<String, Object>) nameFields.get("keyword")).containsKey("normalizer"));
+    assertEquals(
+        ((Map<String, Object>) nameFields.get("lowercase")).get("normalizer"),
+        "keyword_normalizer");
+    // The name root keeps the stored casing for case-sensitive exact match
+    assertFalse(name.containsKey("normalizer"), name.toString());
 
     Map<String, Object> description = (Map<String, Object>) properties.get("description");
     assertEquals(description.get("type"), "keyword");

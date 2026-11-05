@@ -391,6 +391,10 @@ module.exports = {
         },
         redirects: [
           {
+            from: '/docs/how/updating-datahub',
+            to: '/docs/how/breaking-changes',
+          },
+          {
             from: '/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor',
             to: '/docs/managed-datahub/remote-executor/about',
           },

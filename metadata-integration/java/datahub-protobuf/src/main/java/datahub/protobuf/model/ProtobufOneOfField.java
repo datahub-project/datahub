@@ -48,10 +48,18 @@ public class ProtobufOneOfField extends ProtobufField {
   public String comment() {
     return messageLocations()
         .filter(
-            loc ->
-                loc.getPathCount() > 3
-                    && loc.getPath(2) == DescriptorProto.ONEOF_DECL_FIELD_NUMBER
-                    && oneOfProto() == messageProto().getOneofDecl(loc.getPath(3)))
+            loc -> {
+              if (loc.getPathCount() <= 3
+                  || loc.getPath(2) != DescriptorProto.ONEOF_DECL_FIELD_NUMBER) {
+                return false;
+              }
+              // messageLocations() spans every top-level message in the file, so resolve the
+              // message this location belongs to before looking up the oneof by index.
+              DescriptorProto messageType = fileProto().getMessageType(loc.getPath(1));
+              int oneofIndex = loc.getPath(3);
+              return oneofIndex < messageType.getOneofDeclCount()
+                  && oneOfProto() == messageType.getOneofDecl(oneofIndex);
+            })
         .map(ProtobufUtils::collapseLocationComments)
         .collect(Collectors.joining("\n"))
         .trim();

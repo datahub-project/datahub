@@ -38,6 +38,8 @@ public class V3SearchDocumentProjector {
   public static final String URN_FIELD = MappingConstants.URN_FIELD;
   public static final String ENTITY_TYPE_FIELD = MappingConstants.ENTITY_TYPE_FIELD;
   public static final String SYSTEM_METADATA_FIELD = "_systemMetadata";
+  public static final String REMOVED_FIELD = "removed";
+  public static final String TOMBSTONE_FIELD = MappingConstants.TOMBSTONE_FIELD;
 
   /**
    * Aspect JSON stored in {@code _source} and not indexed. This is the same serialization written
@@ -69,6 +71,14 @@ public class V3SearchDocumentProjector {
     if (entityRegistry != null) {
       putParsedUrnName(document, urn, entityRegistry);
     }
+    return document;
+  }
+
+  public ObjectNode newTombstoneDocument(
+      @Nonnull final Urn urn, @Nonnull final EntitySpec entitySpec) {
+    final ObjectNode document = newEntityDocument(urn, entitySpec);
+    document.put(REMOVED_FIELD, true);
+    document.put(TOMBSTONE_FIELD, true);
     return document;
   }
 
@@ -119,7 +129,7 @@ public class V3SearchDocumentProjector {
 
     final ProjectedAspect projected =
         buildProjectedAspect(
-            aspectSpec.getName(),
+            aspectSpec,
             projectedFields,
             event.getSystemMetadata(),
             STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()),
@@ -170,6 +180,7 @@ public class V3SearchDocumentProjector {
       @Nonnull final MCLItem event,
       @Nonnull final AspectSpec aspectSpec) {
     try {
+      SearchDocumentTransformer.beginV3Projection();
       final boolean isDelete = ChangeType.DELETE.equals(event.getChangeType());
       Optional<ObjectNode> transformed =
           searchDocumentTransformer
@@ -194,6 +205,8 @@ public class V3SearchDocumentProjector {
     } catch (Exception e) {
       throw propagate(
           "Failed to transform V3 aspect " + aspectSpec.getName() + " for " + event.getUrn(), e);
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
     }
   }
 
@@ -224,6 +237,7 @@ public class V3SearchDocumentProjector {
       return Optional.empty();
     }
     try {
+      SearchDocumentTransformer.beginV3Projection();
       Optional<ObjectNode> transformed =
           searchDocumentTransformer.transformAspect(
               opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
@@ -231,6 +245,27 @@ public class V3SearchDocumentProjector {
     } catch (Exception e) {
       throw propagate(
           "Failed to transform previous V3 aspect " + aspectSpec.getName() + " for " + urn, e);
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+  }
+
+  /**
+   * A field with no searchLabel does not index a has* boolean. Drop the value the V2 transformer
+   * wrote, and do not null the root: a partial update must not clear a name this index no longer
+   * maps.
+   */
+  private static void omitDedicatedHasValues(
+      @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode aspectFields) {
+    for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+      if (!resolved.isV3Searchable() || resolved.indexedFieldName().isPresent()) {
+        continue;
+      }
+      final Optional<String> declared = resolved.getHasValuesFieldName();
+      if (declared != null && declared.isPresent()) {
+        aspectFields.remove(declared.get());
+      }
     }
   }
 
@@ -319,7 +354,7 @@ public class V3SearchDocumentProjector {
     final Map<String, ArrayNode> names = new LinkedHashMap<>();
     final Set<String> rootFields = new LinkedHashSet<>();
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-      if (!V3SearchFields.contributesParsedUrn(fieldSpec)) {
+      if (!V3SearchFields.keepsAspectParsedName(fieldSpec, searchableEntities)) {
         continue;
       }
       final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation().resolvedForV3();
@@ -421,7 +456,7 @@ public class V3SearchDocumentProjector {
   }
 
   private static ProjectedAspect buildProjectedAspect(
-      @Nonnull final String aspectName,
+      @Nonnull final AspectSpec aspectSpec,
       @Nonnull final ObjectNode projectedFields,
       @Nullable final SystemMetadata systemMetadata,
       final boolean rootOnly,
@@ -429,12 +464,15 @@ public class V3SearchDocumentProjector {
       @Nonnull final ParsedUrnNames parsedUrns,
       @Nonnull final Urn urn,
       @Nonnull final OperationContext opContext) {
+    final String aspectName = aspectSpec.getName();
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
     rootFields.remove(ASPECT_JSON_FIELD);
 
     final ObjectNode aspectFields = projectedFields.deepCopy();
     aspectFields.remove(URN_FIELD);
+    omitDedicatedHasValues(aspectSpec, rootFields);
+    omitDedicatedHasValues(aspectSpec, aspectFields);
     for (String name : sharedHasValues) {
       // Drop a stored root true or false. The indexed term comes from copy_to.
       rootFields.putNull(name);

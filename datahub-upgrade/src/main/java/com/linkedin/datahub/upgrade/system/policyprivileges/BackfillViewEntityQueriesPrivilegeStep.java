@@ -25,7 +25,7 @@ import io.datahubproject.metadata.context.OperationContext;
  * VIEW_ENTITY_QUERIES} onto it is not perfectly surgical — it also grants visibility into other
  * query-derived content for the same datasets (Query entities, view definitions, transform logic) —
  * but that is the same compatibility trade-off the {@code VIEW_ENTITY_PAGE} trigger already makes;
- * see {@code docs/how/updating-datahub.md}.
+ * see {@code docs/how/breaking-changes.md}.
  *
  * <p>Scrolling, batching, and policy-mutation logic live in {@link
  * AbstractBackfillQueryPrivilegeStep}, shared with {@link BackfillViewAllQueriesPrivilegeStep}.

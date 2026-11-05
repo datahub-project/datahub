@@ -14,7 +14,10 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.entity.Aspect;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -23,6 +26,7 @@ import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -59,9 +63,24 @@ public final class StructuredPropertyUrnIdentity {
   }
 
   /**
-   * Indexed keyword of the parsed name, in its original case. {@code .lowercase} folds it. Analyzed
-   * subfields and {@code copy_to} are added when the property is in full text.
+   * The parsed-name sibling is mapped when a full-text query reads it, which is what matches the
+   * tokens of a URN value, or when {@code copyTo} feeds a shared search field. A property that is
+   * only filtered on stays the exact URN and does not get this field.
    */
+  public static boolean indexesParsedName(
+      @Nonnull final StructuredPropertyDefinition definition,
+      @Nonnull final Collection<EntitySpec> entitySpecs) {
+    if (!definition.hasSearchConfiguration()) {
+      return false;
+    }
+    final DataHubSearchConfig searchConfiguration = definition.getSearchConfiguration();
+    if (searchConfiguration.isQueryByDefault()) {
+      return true;
+    }
+    return searchConfiguration.hasCopyTo()
+        && !V3SearchFields.copyDestinations(entitySpecs, searchConfiguration.getCopyTo()).isEmpty();
+  }
+
   @Nonnull
   public static Map<String, Object> mapping(
       @Nonnull final StructuredPropertyDefinition definition,
@@ -109,7 +128,10 @@ public final class StructuredPropertyUrnIdentity {
         definitions(opContext, assignments.keySet());
     for (Map.Entry<Urn, Set<StructuredPropertyValueAssignment>> entry : assignments.entrySet()) {
       StructuredPropertyDefinition definition = definitions.get(entry.getKey());
-      if (definition == null || !applies(getLogicalValueType(definition.getValueType()))) {
+      if (definition == null
+          || !applies(getLogicalValueType(definition.getValueType()))
+          || !indexesParsedName(
+              definition, V3SearchFields.searchableEntitySpecs(opContext.getEntityRegistry()))) {
         continue;
       }
       String valueField =
@@ -160,13 +182,29 @@ public final class StructuredPropertyUrnIdentity {
     return identities;
   }
 
+  /**
+   * The parsed name only needs {@code propertyDefinition}. That aspect is already retained by the
+   * entity-client cache. This class runs on the V3 write after the projection window has closed, so
+   * the cache is selected here rather than through that window.
+   */
+  @Nonnull
+  private static AspectRetriever definitionRetriever(@Nonnull final OperationContext opContext) {
+    RetrieverContext retrieverContext = opContext.getRetrieverContext();
+    if (retrieverContext != null) {
+      AspectRetriever caching = retrieverContext.getCachingAspectRetriever();
+      if (caching instanceof EntityClientAspectRetriever) {
+        return caching;
+      }
+    }
+    return opContext.getAspectRetriever();
+  }
+
   @Nonnull
   private static Map<Urn, StructuredPropertyDefinition> definitions(
       @Nonnull final OperationContext opContext, @Nonnull final Set<Urn> propertyUrns) {
     try {
       Map<Urn, Map<String, Aspect>> aspects =
-          opContext
-              .getAspectRetriever()
+          definitionRetriever(opContext)
               .getLatestAspectObjects(
                   opContext, propertyUrns, Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
       Map<Urn, StructuredPropertyDefinition> definitions = new HashMap<>();

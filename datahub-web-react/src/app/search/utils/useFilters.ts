@@ -1,7 +1,7 @@
 import * as QueryString from 'query-string';
 import { useMemo } from 'react';
 
-import { decodeComma } from '@app/entity/shared/utils';
+import { decodeComma } from '@app/entityV2/shared/utils';
 import { ENTITY_FILTER_NAME, FILTER_URL_PREFIX, LEGACY_ENTITY_FILTER_NAME } from '@app/search/utils/constants';
 import { URL_PARAM_SEPARATOR } from '@app/search/utils/filtersToQueryStringParams';
 

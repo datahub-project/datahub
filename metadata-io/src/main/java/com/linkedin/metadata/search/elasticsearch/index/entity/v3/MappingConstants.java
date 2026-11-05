@@ -22,6 +22,11 @@ public final class MappingConstants {
   public static final String RUN_ID_FIELD = "runId";
   public static final String ENTITY_TYPE_FIELD = "_entityType";
 
+  /**
+   * Present only while a fill's tombstone is keeping a hard-deleted entity from being recreated.
+   */
+  public static final String TOMBSTONE_FIELD = "_v3Tombstone";
+
   /** Elasticsearch meta field used to select an index. Not stored from an aspect. */
   public static final String INDEX_FIELD = "_index";
 
@@ -39,6 +44,7 @@ public final class MappingConstants {
           URN_NAME_FIELD,
           ENTITY_TYPE_FIELD,
           ASPECTS_FIELD_NAME,
+          TOMBSTONE_FIELD,
           "_system",
           RUN_ID_FIELD,
           "structuredProperties",
