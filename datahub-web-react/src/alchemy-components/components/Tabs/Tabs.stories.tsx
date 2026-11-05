@@ -90,7 +90,8 @@ const meta = {
             description: 'The default tab to select when the URL does not match any tab',
         },
         getCurrentUrl: {
-            description: 'A custom function to get the current URL. Defaults to window.location.pathname',
+            description:
+                'A custom function to get the current URL. Defaults to window.location.pathname without the runtime base path',
         },
         secondary: {
             description: 'Whether to render the tabs in a secondary style',
@@ -143,13 +144,15 @@ export const sandbox: Story = {
     ),
 };
 
+// Keeps the URL in local state so the demo doesn't rewrite the Storybook iframe URL.
 const UrlAwareTabsDemo = () => {
     const [selectedTab, setSelectedTab] = React.useState('overview');
+    const [currentUrl, setCurrentUrl] = React.useState(urlMap.overview);
 
     return (
         <div style={{ width: 225 }}>
             <div style={{ marginBottom: '1rem' }}>
-                <p>Current URL: {window.location.pathname}</p>
+                <p>Current URL: {currentUrl}</p>
                 <p>Selected Tab: {selectedTab}</p>
             </div>
             <Tabs
@@ -158,6 +161,8 @@ const UrlAwareTabsDemo = () => {
                 onChange={setSelectedTab}
                 urlMap={urlMap}
                 defaultTab="overview"
+                getCurrentUrl={() => currentUrl}
+                onUrlChange={setCurrentUrl}
             />
         </div>
     );

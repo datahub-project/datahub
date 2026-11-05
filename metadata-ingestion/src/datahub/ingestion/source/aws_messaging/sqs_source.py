@@ -47,11 +47,21 @@ from datahub.sdk import Dataset
     SourceCapability.TAGS, "From AWS resource tags, added without removing UI tags"
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.LINEAGE_COARSE, "Queue to dead-letter queue")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Dead-letter queues, Lambda triggers and destinations, EventBridge rules and Pipes",
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Defaults to the AWS account id")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@capability(SourceCapability.SCHEMA_METADATA, "SQS has no schema", supported=False)
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.queue_schema_map`, or found by `use_naming_convention`",
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Queue to dead-letter queue, when both have schemas",
+)
 @capability(SourceCapability.DESCRIPTIONS, "SQS has no description", supported=False)
 class SqsSource(AwsMessagingSourceBase):
     """Catalogs Amazon SQS queues of one region as datasets on the `sqs` platform,
@@ -68,6 +78,7 @@ class SqsSource(AwsMessagingSourceBase):
         super().__init__(config, ctx, report)
         self.report = report
         self.queues: List[SqsQueue] = []
+        self.registry = self.schema_registry(config.glue_schema_registry)
         # Listed but unreadable this run: still in AWS, so kept out of stale removal.
         self.unreadable_queue_urls: List[str] = []
 
@@ -86,6 +97,9 @@ class SqsSource(AwsMessagingSourceBase):
 
     def owned_relationships(self) -> FrozenSet[LineageRelationship]:
         return frozenset({LineageRelationship.DEAD_LETTER})
+
+    def resource_allowed(self, name: str) -> bool:
+        return self.config.queue_pattern.allowed(name)
 
     def first_resource_arn(self) -> Optional[str]:
         # The queue URL carries the account id, so this needs only sqs:ListQueues.
@@ -110,6 +124,8 @@ class SqsSource(AwsMessagingSourceBase):
         # Dead-letter targets are checked once every queue in the region is known.
         for queue in self.queues:
             self._add_dead_letter_edge(queue)
+        self.collect_s3_notifications()
+        yield from self.service_lineage_workunits()
         yield from self.lineage.workunits()
 
     def list_queues(self) -> Iterator[SqsQueue]:
@@ -150,6 +166,7 @@ class SqsSource(AwsMessagingSourceBase):
             self.queues.append(queue)
             self.resolver.add(queue.arn)
             urn = self.urns.queue_urn(queue.arn)
+            schema = self.glue_schema(self.registry, queue.name, urn)
             self.lineage.owned.add(urn)
             self.lineage.complete.add(urn)
             yield from Dataset(
@@ -167,6 +184,7 @@ class SqsSource(AwsMessagingSourceBase):
                     queue, QueueAttribute.LAST_MODIFIED_TIMESTAMP
                 ),
                 domain=domain_for(queue.name, self.config.domain),
+                schema=schema,
             ).as_workunits()
             yield from tag_patch_workunits(urn, queue.tags)
 
@@ -227,6 +245,9 @@ class SqsSource(AwsMessagingSourceBase):
             downstream=dlq_urn,
             relationship=LineageRelationship.DEAD_LETTER,
         )
+        # SQS moves the failed message itself to the dead-letter queue.
+        if self.config.include_column_lineage:
+            self.add_identity_column_lineage(source_urn, dlq_urn)
 
     def get_report(self) -> SqsSourceReport:
         return self.report
