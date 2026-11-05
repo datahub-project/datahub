@@ -50,6 +50,7 @@ import {
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
+import { isSourceMergedIntoSibling } from '@app/entityV2/shared/transformationPlatforms';
 import { EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
@@ -58,7 +59,6 @@ import {
     isOutputPort,
 } from '@app/entityV2/shared/utils';
 import { useShowDatasetSummaryPage } from '@app/entityV2/summary/useShowDatasetSummaryPage';
-import { isSourceMergedIntoSibling } from '@app/lineageV3/transformationPlatforms';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';

@@ -1,7 +1,7 @@
 import { useCallback, useContext, useRef } from 'react';
 
+import { TRANSFORMATION_PLATFORM_URNS } from '@app/entityV2/shared/transformationPlatforms';
 import { LineageNodesContext, generateIgnoreAsHops, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
-import { TRANSFORMATION_PLATFORM_URNS } from '@app/lineageV3/transformationPlatforms';
 import { ColumnAsset } from '@app/lineageV3/types';
 import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';

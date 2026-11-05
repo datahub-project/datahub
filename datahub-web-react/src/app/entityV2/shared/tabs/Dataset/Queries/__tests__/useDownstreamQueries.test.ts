@@ -8,7 +8,7 @@ import { EntityType } from '@types';
 
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)';
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useBaseEntity: () => ({ dataset: { urn: DATASET_URN } }),
 }));
 vi.mock('@app/lineageV3/utils/useGetLineageTimeParams', () => ({

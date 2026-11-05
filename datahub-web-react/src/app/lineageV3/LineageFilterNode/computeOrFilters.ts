@@ -1,4 +1,4 @@
-import { TRANSFORMATION_PLATFORM_URNS } from '@app/lineageV3/transformationPlatforms';
+import { TRANSFORMATION_PLATFORM_URNS } from '@app/entityV2/shared/transformationPlatforms';
 import { ENTITY_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 
 import { AndFilterInput, EntityType, FacetFilterInput } from '@types';

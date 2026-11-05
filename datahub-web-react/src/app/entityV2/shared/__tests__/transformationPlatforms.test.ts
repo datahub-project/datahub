@@ -1,10 +1,10 @@
-import { DBT_URN, SQLMESH_URN } from '@app/ingestV2/source/builder/constants';
 import {
     TRANSFORMATION_PLATFORM_URNS,
     isSourceMergedIntoSibling,
     isSourceSubtype,
     isTransformationPlatform,
-} from '@app/lineageV3/transformationPlatforms';
+} from '@app/entityV2/shared/transformationPlatforms';
+import { DBT_URN, SQLMESH_URN } from '@app/ingestV2/source/builder/constants';
 
 import { Dataset, EntityType, FeatureFlagsConfig } from '@types';
 
