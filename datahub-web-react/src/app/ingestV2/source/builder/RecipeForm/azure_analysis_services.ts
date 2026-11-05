@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import get from 'lodash/get';
 
 import {
@@ -10,10 +11,15 @@ import {
 
 export const AAS_SERVER: RecipeField = {
     name: 'server',
-    label: 'Server',
-    helper: 'Azure Analysis Services or Power BI Premium XMLA endpoint',
-    tooltip:
-        'The connection string for the endpoint, e.g. asazure://<region>.asazure.windows.net/<server> or powerbi://api.powerbi.com/v1.0/myorg/<workspace>.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.server.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.server.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.server.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.server',
     placeholder: 'asazure://westus.asazure.windows.net/myserver',
@@ -23,27 +29,52 @@ export const AAS_SERVER: RecipeField = {
 
 export const AAS_AUTH_TYPE: RecipeField = {
     name: 'auth_type',
-    label: 'Authentication Type',
-    helper: 'How to authenticate against Azure AD',
-    tooltip:
-        'Service principal uses a client id and secret. Device code and interactive drive a user login. Username & password uses resource owner credentials.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.authType.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.authType.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.authType.tooltip');
+    },
     type: FieldType.SELECT,
     fieldPath: 'source.config.auth_type',
-    options: [
-        { label: 'Service Principal', value: 'service_principal' },
-        { label: 'Device Code', value: 'device_code' },
-        { label: 'Interactive', value: 'interactive' },
-        { label: 'Username & Password', value: 'username_password' },
-    ],
+    get options() {
+        return [
+            {
+                label: i18next.t('ingestion.sourceBuilder:azureAnalysisServices.authType.servicePrincipal'),
+                value: 'service_principal',
+            },
+            {
+                label: i18next.t('ingestion.sourceBuilder:azureAnalysisServices.authType.deviceCode'),
+                value: 'device_code',
+            },
+            {
+                label: i18next.t('ingestion.sourceBuilder:azureAnalysisServices.authType.interactive'),
+                value: 'interactive',
+            },
+            {
+                label: i18next.t('ingestion.sourceBuilder:azureAnalysisServices.authType.usernamePassword'),
+                value: 'username_password',
+            },
+        ];
+    },
     placeholder: 'service_principal',
     rules: null,
 };
 
 export const AAS_TENANT_ID: RecipeField = {
     name: 'tenant_id',
-    label: 'Tenant ID',
-    helper: 'Azure AD tenant (directory) id',
-    tooltip: 'The Azure AD tenant id. Required for service principal authentication.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tenantId.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tenantId.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tenantId.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.tenant_id',
     placeholder: 'a949d688-67c0-4bf1-a344-e939411c6c0a',
@@ -52,9 +83,15 @@ export const AAS_TENANT_ID: RecipeField = {
 
 export const AAS_CLIENT_ID: RecipeField = {
     name: 'client_id',
-    label: 'Client ID',
-    helper: 'Azure AD application (client) id',
-    tooltip: 'The Azure AD application (client) id used to authenticate.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.clientId.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.clientId.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.clientId.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.client_id',
     placeholder: 'client id',
@@ -63,9 +100,15 @@ export const AAS_CLIENT_ID: RecipeField = {
 
 export const AAS_CLIENT_SECRET: RecipeField = {
     name: 'client_secret',
-    label: 'Client Secret',
-    helper: 'Client secret for the service principal',
-    tooltip: 'The client secret for the service principal. Add it in the Secrets tab and reference it by name.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.clientSecret.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.clientSecret.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.clientSecret.tooltip');
+    },
     type: FieldType.SECRET,
     fieldPath: 'source.config.client_secret',
     placeholder: 'client secret',
@@ -74,9 +117,15 @@ export const AAS_CLIENT_SECRET: RecipeField = {
 
 export const AAS_USERNAME: RecipeField = {
     name: 'username',
-    label: 'Username',
-    helper: 'Azure AD username',
-    tooltip: 'The Azure AD username. Required when the authentication type is Username & Password.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.username.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.username.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.username.tooltip');
+    },
     type: FieldType.TEXT,
     fieldPath: 'source.config.username',
     placeholder: 'user@contoso.com',
@@ -85,10 +134,15 @@ export const AAS_USERNAME: RecipeField = {
 
 export const AAS_PASSWORD: RecipeField = {
     name: 'password',
-    label: 'Password',
-    helper: 'Azure AD password',
-    tooltip:
-        'The Azure AD password. Required when the authentication type is Username & Password. Add it in the Secrets tab and reference it by name.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.password.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.password.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.password.tooltip');
+    },
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     placeholder: 'password',
@@ -98,9 +152,15 @@ export const AAS_PASSWORD: RecipeField = {
 const extractLineagePath = 'source.config.extract_lineage';
 export const AAS_EXTRACT_LINEAGE: RecipeField = {
     name: 'extract_lineage',
-    label: 'Extract Lineage',
-    helper: 'Extract upstream lineage',
-    tooltip: 'Extract upstream lineage from partition M/Power Query and native SQL.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.extractLineage.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.extractLineage.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.extractLineage.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: extractLineagePath,
     getValueFromRecipeOverride: (recipe: any) => {
@@ -116,9 +176,15 @@ export const AAS_EXTRACT_LINEAGE: RecipeField = {
 const extractColumnLineagePath = 'source.config.extract_column_level_lineage';
 export const AAS_EXTRACT_COLUMN_LINEAGE: RecipeField = {
     name: 'extract_column_level_lineage',
-    label: 'Extract Column-Level Lineage',
-    helper: 'Extract column-level lineage',
-    tooltip: 'Extract column-level lineage, including intra-model DAX dependencies.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.extractColumnLineage.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.extractColumnLineage.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.extractColumnLineage.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: extractColumnLineagePath,
     getValueFromRecipeOverride: (recipe: any) => {
@@ -134,13 +200,20 @@ export const AAS_EXTRACT_COLUMN_LINEAGE: RecipeField = {
 const databaseAllowFieldPath = 'source.config.database_pattern.allow';
 export const AAS_DATABASE_ALLOW: FilterRecipeField = {
     name: 'database_pattern.allow',
-    label: 'Allow Patterns',
-    helper: 'Include specific models',
-    tooltip:
-        'Only include specific tabular models (catalogs) by name or Regular Expression (REGEX). If not provided, all models are included.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.allowPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.databaseAllow.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.databaseAllow.tooltip');
+    },
     type: FieldType.LIST,
     rule: FilterRule.INCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: databaseAllowFieldPath,
     rules: null,
     section: 'Models',
@@ -153,13 +226,20 @@ export const AAS_DATABASE_ALLOW: FilterRecipeField = {
 const databaseDenyFieldPath = 'source.config.database_pattern.deny';
 export const AAS_DATABASE_DENY: FilterRecipeField = {
     name: 'database_pattern.deny',
-    label: 'Deny Patterns',
-    helper: 'Exclude specific models',
-    tooltip:
-        'Exclude specific tabular models (catalogs) by name or Regular Expression (REGEX). Deny patterns always take precedence over allow patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.denyPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.databaseDeny.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.databaseDeny.tooltip');
+    },
     type: FieldType.LIST,
     rule: FilterRule.EXCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: databaseDenyFieldPath,
     rules: null,
     section: 'Models',
@@ -172,13 +252,20 @@ export const AAS_DATABASE_DENY: FilterRecipeField = {
 const tableAllowFieldPath = 'source.config.table_pattern.allow';
 export const AAS_TABLE_ALLOW: FilterRecipeField = {
     name: 'table_pattern.allow',
-    label: 'Allow Patterns',
-    helper: 'Include specific tables',
-    tooltip:
-        'Only include specific tables by name or Regular Expression (REGEX). If not provided, all tables are included.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.allowPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tableAllow.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tableAllow.tooltip');
+    },
     type: FieldType.LIST,
     rule: FilterRule.INCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: tableAllowFieldPath,
     rules: null,
     section: 'Tables',
@@ -191,13 +278,20 @@ export const AAS_TABLE_ALLOW: FilterRecipeField = {
 const tableDenyFieldPath = 'source.config.table_pattern.deny';
 export const AAS_TABLE_DENY: FilterRecipeField = {
     name: 'table_pattern.deny',
-    label: 'Deny Patterns',
-    helper: 'Exclude specific tables',
-    tooltip:
-        'Exclude specific tables by name or Regular Expression (REGEX). Deny patterns always take precedence over allow patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:fields.denyPatterns');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tableDeny.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tableDeny.tooltip');
+    },
     type: FieldType.LIST,
     rule: FilterRule.EXCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: tableDenyFieldPath,
     rules: null,
     section: 'Tables',
