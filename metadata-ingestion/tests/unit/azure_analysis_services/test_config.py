@@ -116,3 +116,31 @@ def test_unknown_platform_value_rejected():
         AzureAnalysisServicesConfig.model_validate(
             _service_principal(platform="azure-analysis-service")
         )
+
+
+def test_empty_secret_rejected():
+    with pytest.raises(ValidationError, match="client_secret"):
+        AzureAnalysisServicesConfig.model_validate(_service_principal(client_secret=""))
+
+
+def test_case_insensitive_duplicate_server_keys_rejected():
+    with pytest.raises(ValidationError, match="case-insensitive duplicate"):
+        AzureAnalysisServicesConfig.model_validate(
+            _service_principal(
+                server_to_platform_instance={
+                    "EDWPSFN": {"platform_instance": "a"},
+                    "edwpsfn": {"platform_instance": "b"},
+                }
+            )
+        )
+
+
+def test_athena_override_unknown_platform_rejected():
+    with pytest.raises(ValidationError, match="not a recognized DataHub platform"):
+        AzureAnalysisServicesConfig.model_validate(
+            _service_principal(
+                athena_table_platform_override=[
+                    {"database": "db", "table": "t", "platform": "mysqll"}
+                ]
+            )
+        )

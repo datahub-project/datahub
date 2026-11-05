@@ -13,14 +13,14 @@ column-level lineage for DAX measures and calculated columns, derived from
 
 #### Power BI URN alignment
 
-Set `platform: powerbi` to make the emitted URNs mirror the Power BI connector's table naming
+Set `platform: powerbi` (requires `server` to be a Power BI Premium `powerbi://api.powerbi.com/v1.0/myorg/<workspace>` endpoint) to make the emitted URNs mirror the Power BI connector's table naming
 (`<dataset>.<table>`). This lets an AAS-backed Power BI semantic model merge with the entities
 produced by the Power BI connector instead of appearing as a separate platform.
 
 ### Limitations
 
 - Only tabular models are supported. Multidimensional (MDX) cubes are out of scope.
-- Row-level security expressions are surfaced as role custom properties, not evaluated.
+- Security role descriptions are surfaced as model custom properties; row-level security filters are not ingested.
 
 ### Troubleshooting
 

@@ -34,9 +34,7 @@ class _FakeResponse:
     def __init__(self, text: str) -> None:
         self.text = text
         self.status_code = 200
-
-    def raise_for_status(self) -> None:
-        return None
+        self.ok = True
 
 
 def _fixture(name: str) -> str:

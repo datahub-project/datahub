@@ -3,6 +3,7 @@ from typing import Dict
 import pytest
 
 from datahub.emitter import mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure_analysis_services import constants
 from datahub.ingestion.source.azure_analysis_services.config import (
@@ -11,6 +12,8 @@ from datahub.ingestion.source.azure_analysis_services.config import (
 from datahub.ingestion.source.azure_analysis_services.lineage import AasLineageExtractor
 from datahub.ingestion.source.azure_analysis_services.mapper import AasMapper
 from datahub.ingestion.source.azure_analysis_services.models import (
+    AasCalcDependency,
+    AasColumn,
     AasMeasure,
     AasPartition,
     AasRelationship,
@@ -22,8 +25,12 @@ from datahub.ingestion.source.azure_analysis_services.report import (
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
+    ContainerPropertiesClass,
+    DatasetPropertiesClass,
+    NullTypeClass,
     SchemaMetadataClass,
     SubTypesClass,
+    UpstreamLineageClass,
     ViewPropertiesClass,
 )
 
@@ -358,3 +365,59 @@ def test_map_model_does_not_swallow_consumer_errors() -> None:
         raise AssertionError("table work unit was never yielded")
 
     assert mapper.report.tables_skipped == 0
+
+
+def test_model_named_by_catalog_and_dax_edges_get_dataset_upstreams() -> None:
+    mapper = _mapper()
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Model",
+        tables=[
+            AasTable(
+                name="Sales",
+                columns=[AasColumn(name="Amount", datahub_data_type=NullTypeClass())],
+            ),
+            AasTable(
+                name="SalesSummary",
+                columns=[
+                    AasColumn(name="TotalAmount", datahub_data_type=NullTypeClass())
+                ],
+            ),
+        ],
+        calc_dependencies=[
+            AasCalcDependency(
+                object_type="CALC_COLUMN",
+                table="SalesSummary",
+                object_name="TotalAmount",
+                referenced_object_type="COLUMN",
+                referenced_table="Sales",
+                referenced_object="Amount",
+            )
+        ],
+    )
+    aspects = [
+        (wu.metadata.entityUrn, wu.metadata.aspect)
+        for wu in mapper.map_model(model)
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    ]
+
+    # TMSCHEMA_MODEL.Name is usually "Model"; the catalog names the model.
+    container_names = [
+        a.name for _, a in aspects if isinstance(a, ContainerPropertiesClass)
+    ]
+    assert container_names == ["myserver", "SalesModel"]
+    cube_urn = mapper._cube_dataset_urn("SalesModel")
+    [cube_props] = [
+        a for u, a in aspects if u == cube_urn and isinstance(a, DatasetPropertiesClass)
+    ]
+    assert cube_props.name == "SalesModel"
+
+    summary_urn = mapper._table_dataset_urn("SalesModel", "SalesSummary")
+    [lineage] = [
+        a
+        for u, a in aspects
+        if u == summary_urn and isinstance(a, UpstreamLineageClass)
+    ]
+    assert [u.dataset for u in lineage.upstreams] == [
+        mapper._table_dataset_urn("SalesModel", "Sales")
+    ]

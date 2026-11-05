@@ -93,8 +93,7 @@ ASAZURE_CLUSTER_FQDN_KEY = "clusterFQDN"
 POWERBI_XMLA_SCOPE = "https://analysis.windows.net/powerbi/api/.default"
 
 # DMV / rowset queries
-# Tabular metadata DMVs. Selecting explicit columns keeps the rowset stable
-# across engine versions (SELECT * ordering is not guaranteed).
+# Tabular metadata DMVs, queried with SELECT * and mapped to models by column name.
 
 DMV_MODEL = "$SYSTEM.TMSCHEMA_MODEL"
 DMV_TABLES = "$SYSTEM.TMSCHEMA_TABLES"
@@ -197,4 +196,14 @@ ASAZURE_ENDPOINT_RE: Pattern[str] = re.compile(
 POWERBI_ENDPOINT_RE: Pattern[str] = re.compile(
     r"^powerbi://api\.powerbi\.com/v1\.0/myorg/(?P<workspace>[^/?#]+)",
     re.IGNORECASE,
+)
+
+# Credentials redacted from the TMSL/ASSL model definition before it is emitted.
+REDACTED = "********"
+PASSWORD_ELEMENT_RE = re.compile(
+    r"(<(?:[\w-]+:)?Password(?:\s[^>]*)?>)[^<]*(</(?:[\w-]+:)?Password>)",
+    re.IGNORECASE,
+)
+CONNECTION_STRING_PASSWORD_RE = re.compile(
+    r"((?:Password|Pwd)\s*=\s*)(?:\"[^\"]*\"|'[^']*'|[^;<\"]*)", re.IGNORECASE
 )

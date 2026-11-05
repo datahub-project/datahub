@@ -2,7 +2,7 @@ from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformDetail,
@@ -10,8 +10,12 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.azure_analysis_services import constants
 from datahub.ingestion.source.common.m_query.config import (
+    AthenaPlatformOverride,
+    BigQueryExternalQueryPlatformDetail,
     DataBricksPlatformDetail,
     OraclePlatformDetail,
+    reject_case_insensitive_duplicate_server_keys,
+    validate_athena_platform_overrides,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -27,23 +31,6 @@ class AasAuthType(StrEnum):
     DEVICE_CODE = "device_code"
     INTERACTIVE = "interactive"
     USERNAME_PASSWORD = "username_password"
-
-
-class AthenaPlatformOverride(ConfigModel):
-    # Structural match for the shared engine's AthenaTableOverride protocol,
-    # used only when an M/Power Query partition reaches an Athena federated
-    # source and lineage should point at the real upstream platform.
-    database: str = Field(
-        min_length=1, description="Athena database matched in the M/Power Query source."
-    )
-    table: str = Field(min_length=1, description="Athena table to override.")
-    platform: str = Field(
-        min_length=1,
-        description="DataHub platform the Athena federated table actually resolves to.",
-    )
-    dsn: Optional[str] = Field(
-        default=None, description="Optional DSN qualifier for the override."
-    )
 
 
 class AzureAnalysisServicesConfig(
@@ -163,6 +150,17 @@ class AzureAnalysisServicesConfig(
     athena_table_platform_override: HiddenFromDocs[List[AthenaPlatformOverride]] = (
         Field(default_factory=list)
     )
+    bigquery_external_query_connection_to_platform: Dict[
+        str, BigQueryExternalQueryPlatformDetail
+    ] = Field(
+        default_factory=dict,
+        description=(
+            "Map a BigQuery ``EXTERNAL_QUERY`` connection id "
+            "(``project.region.connection``) to the external source it federates to, "
+            "so lineage points at the real upstream table. Needs "
+            "``native_query_parsing`` and ``enable_advance_lineage_sql_construct``."
+        ),
+    )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
@@ -187,6 +185,18 @@ class AzureAnalysisServicesConfig(
             "'powerbi://api.powerbi.com/v1.0/myorg/<workspace>' endpoint; "
             f"got: {value}"
         )
+
+    @field_validator("server_to_platform_instance", mode="after")
+    @classmethod
+    def _reject_case_insensitive_duplicate_server_keys(cls, value: Dict) -> Dict:
+        return reject_case_insensitive_duplicate_server_keys(value)
+
+    @model_validator(mode="after")
+    def _validate_athena_table_platform_override(
+        self,
+    ) -> "AzureAnalysisServicesConfig":
+        validate_athena_platform_overrides(self.athena_table_platform_override)
+        return self
 
     @model_validator(mode="after")
     def _validate_platform_endpoint(self) -> "AzureAnalysisServicesConfig":

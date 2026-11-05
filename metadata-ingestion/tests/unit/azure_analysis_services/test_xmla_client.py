@@ -470,3 +470,33 @@ def test_build_relationships_drops_unresolvable(client: XmlaClient) -> None:
     )
     assert relationships == []
     assert len(client.report.warnings) == 1
+
+
+def test_http_error_surfaces_soap_fault(client: XmlaClient) -> None:
+    resp = mock.Mock(ok=False, status_code=500, reason="Internal Server Error")
+    resp.text = _FAULT_DESCRIPTION
+    with (
+        mock.patch.object(client, "_get_xmla_url", return_value="https://x"),
+        mock.patch.object(client, "_bearer_token", return_value="t"),
+        mock.patch.object(client._session, "post", return_value=resp),
+    ):
+        with pytest.raises(XmlaClientError, match="HTTP 500.*Database not found"):
+            client._post_soap(constants.SOAP_ACTION_EXECUTE, "<x/>")
+
+
+def test_model_definition_redacts_credentials(client: XmlaClient) -> None:
+    response = """<?xml version="1.0"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <DiscoverResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
+      <return><root><row><METADATA><Database>
+        <DataSourceImpersonationInfo><Password>hunter2</Password></DataSourceImpersonationInfo>
+        <ConnectionString>Data Source=db;User ID=u;Password=hunter2;</ConnectionString>
+      </Database></METADATA></row></root></return>
+    </DiscoverResponse>
+  </soap:Body>
+</soap:Envelope>"""
+    definition = client._extract_metadata_definition(response)
+    assert definition is not None
+    assert "hunter2" not in definition
+    assert "User ID=u" in definition

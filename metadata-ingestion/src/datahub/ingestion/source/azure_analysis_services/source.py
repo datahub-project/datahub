@@ -101,7 +101,10 @@ class AzureAnalysisServicesSource(StatefulIngestionSourceBase, TestableSource):
         try:
             config = AzureAnalysisServicesConfig.model_validate(config_dict)
             client = XmlaClient(config, AzureAnalysisServicesReport())
-            client.test_connection()
+            try:
+                client.test_connection()
+            finally:
+                client.close()
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
