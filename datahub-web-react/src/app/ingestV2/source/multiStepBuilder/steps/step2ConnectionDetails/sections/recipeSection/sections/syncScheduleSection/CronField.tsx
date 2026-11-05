@@ -2,6 +2,7 @@ import { Input, Switch, Text } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Cron from 'react-js-cron';
+import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 
 import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';

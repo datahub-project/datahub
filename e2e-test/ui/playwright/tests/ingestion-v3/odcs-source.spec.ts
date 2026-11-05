@@ -1,21 +1,21 @@
 import { OdcsSource } from '@pages/ingestion/base/sources/OdcsSource';
 import { test } from '../../fixtures/base-test';
-import { IngestionV2Page } from '../../pages/ingestion/v2/ingestion-v2.page';
+import { IngestionV3Page } from '../../pages/ingestion/v3/ingestion-v3.page';
 import { DomainTag, TestTag } from '../../utils/test-tags';
 
-test.use({ featureName: 'ingestion-v2' });
+test.use({ featureName: 'ingestion-v3' });
 
 test.describe('odcs ingestion source', () => {
-  let ingestionPage: IngestionV2Page;
+  let ingestionPage: IngestionV3Page;
 
   test.beforeEach(async ({ page, apiMock, logger, logDir }) => {
-    ingestionPage = new IngestionV2Page(page, logger, logDir);
+    ingestionPage = new IngestionV3Page(page, logger, logDir);
 
     await apiMock.setFeatureFlags({
-      showIngestionPageRedesign: true,
-      ingestionOnboardingRedesignV1: false,
       showNavBarRedesign: true,
     });
+
+    await apiMock.suppressOnboardingModals();
 
     await ingestionPage.goto();
   });
