@@ -574,8 +574,9 @@ public class SearchTestUtils {
 
   /**
    * Creates a DelegatingMappingsBuilder with the appropriate mappings builders based on the entity
-   * index configuration. This utility method encapsulates the common pattern of creating a list of
-   * MappingsBuilder implementations and passing them to DelegatingMappingsBuilder constructor.
+   * index configuration, using the default (OpenSearch) partial-ngram mapping shape. Tests that
+   * create indices on a real cluster should use {@link #createDelegatingMappingsBuilder(
+   * EntityIndexConfiguration, SearchClientShim)} so the mappings match what that engine stores.
    *
    * @param entityIndexConfiguration the entity index configuration to determine which builders to
    *     include
@@ -584,6 +585,17 @@ public class SearchTestUtils {
    */
   public static DelegatingMappingsBuilder createDelegatingMappingsBuilder(
       EntityIndexConfiguration entityIndexConfiguration) {
+    return createDelegatingMappingsBuilder(entityIndexConfiguration, null);
+  }
+
+  /**
+   * Creates a DelegatingMappingsBuilder as the GMS factories do: the partial-ngram mapping shape
+   * comes from the search client, since engines differ in what they store (ES8 drops {@code
+   * doc_values: false} from {@code search_as_you_type}). A null client uses the default shape.
+   */
+  public static DelegatingMappingsBuilder createDelegatingMappingsBuilder(
+      EntityIndexConfiguration entityIndexConfiguration,
+      @Nullable SearchClientShim<?> searchClient) {
 
     List<MappingsBuilder> builders = new ArrayList<>();
 
@@ -591,8 +603,10 @@ public class SearchTestUtils {
       builders.add(
           new V2MappingsBuilder(
               entityIndexConfiguration,
-              com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim
-                  .PARTIAL_NGRAM_CONFIG));
+              searchClient != null
+                  ? searchClient.partialNgramConfig()
+                  : com.linkedin.metadata.search.elasticsearch.client.shim.impl
+                      .OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
@@ -600,7 +614,7 @@ public class SearchTestUtils {
         builders.add(
             new DocumentIdSchemeStampingMappingsBuilder(
                 new MultiEntityMappingsBuilder(
-                    entityIndexConfiguration, null, ESUtils.KEYWORD_MAXLENGTH, List.of()),
+                    entityIndexConfiguration, searchClient, ESUtils.KEYWORD_MAXLENGTH, List.of()),
                 new V3DocumentIdScheme(new Sha256UrnEntityDocumentIdHasher())));
       } catch (IOException e) {
         throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);

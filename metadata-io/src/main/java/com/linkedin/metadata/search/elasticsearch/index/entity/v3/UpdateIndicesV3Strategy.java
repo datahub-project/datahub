@@ -30,6 +30,7 @@ import com.linkedin.metadata.service.UpdateIndicesUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -96,7 +97,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   /**
    * Built through {@link #builder()}. Unset optional parts take their defaults: the URN hasher, no
    * document contributors, V2 not dual-written, no semantic search configuration, no rollback
-   * targets, no timeseries throttle, no structured-property restate nulls.
+   * targets, no timeseries throttle, no structured-property restate nulls, and the default
+   * partial-ngram mapping shape when no V3 search client is given.
    */
   @Builder
   public UpdateIndicesV3Strategy(
@@ -110,7 +112,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       boolean v2Enabled,
       @Nullable SemanticSearchConfiguration semanticSearchConfiguration,
       @Nullable IncrementalReindexWriteTargets incrementalReindexWriteTargets,
-      @Nullable StructuredPropertyMappingCache structuredPropertyMappingCache) {
+      @Nullable StructuredPropertyMappingCache structuredPropertyMappingCache,
+      @Nullable SearchClientShim<?> v3SearchClient) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentProjector = new V3SearchDocumentProjector(searchDocumentTransformer);
@@ -134,7 +137,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
               com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
                   .v3(v3Config)
                   .build(),
-              null,
+              v3SearchClient,
               ESUtils.KEYWORD_MAXLENGTH,
               List.of());
     } catch (IOException e) {
