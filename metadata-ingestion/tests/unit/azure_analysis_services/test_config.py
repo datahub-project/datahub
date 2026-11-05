@@ -144,3 +144,23 @@ def test_athena_override_unknown_platform_rejected():
                 ]
             )
         )
+
+
+def test_athena_override_values_are_stripped_and_blanks_rejected():
+    config = AzureAnalysisServicesConfig.model_validate(
+        _service_principal(
+            athena_table_platform_override=[
+                {"database": " sales ", "table": "orders ", "platform": "mysql"}
+            ]
+        )
+    )
+    [override] = config.athena_table_platform_override
+    assert (override.database, override.table) == ("sales", "orders")
+    with pytest.raises(ValidationError):
+        AzureAnalysisServicesConfig.model_validate(
+            _service_principal(
+                athena_table_platform_override=[
+                    {"database": "  ", "table": "orders", "platform": "mysql"}
+                ]
+            )
+        )

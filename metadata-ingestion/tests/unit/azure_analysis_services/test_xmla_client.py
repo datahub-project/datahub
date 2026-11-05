@@ -491,7 +491,7 @@ def test_model_definition_redacts_credentials(client: XmlaClient) -> None:
     <DiscoverResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
       <return><root><row><METADATA><Database>
         <DataSourceImpersonationInfo><Password>hunter2</Password></DataSourceImpersonationInfo>
-        <ConnectionString>Data Source=db;User ID=u;Password=hunter2;</ConnectionString>
+        <ConnectionString>Data Source=db;User ID=u;Password=hun&amp;ter&lt;2;</ConnectionString>
       </Database></METADATA></row></root></return>
     </DiscoverResponse>
   </soap:Body>
@@ -499,4 +499,5 @@ def test_model_definition_redacts_credentials(client: XmlaClient) -> None:
     definition = client._extract_metadata_definition(response)
     assert definition is not None
     assert "hunter2" not in definition
+    assert "ter" not in definition
     assert "User ID=u" in definition

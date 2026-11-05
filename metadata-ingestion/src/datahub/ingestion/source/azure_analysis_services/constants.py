@@ -204,6 +204,10 @@ PASSWORD_ELEMENT_RE = re.compile(
     r"(<(?:[\w-]+:)?Password(?:\s[^>]*)?>)[^<]*(</(?:[\w-]+:)?Password>)",
     re.IGNORECASE,
 )
+# The definition is serialized XML, so `&`, `<` and `>` in a password appear as
+# entity references whose `;` must not end the value.
 CONNECTION_STRING_PASSWORD_RE = re.compile(
-    r"((?:Password|Pwd)\s*=\s*)(?:\"[^\"]*\"|'[^']*'|[^;<\"]*)", re.IGNORECASE
+    r"((?:Password|Pwd)\s*=\s*)"
+    r"(?:\"[^\"]*\"|'[^']*'|(?:&(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);|[^;<\"])*)",
+    re.IGNORECASE,
 )

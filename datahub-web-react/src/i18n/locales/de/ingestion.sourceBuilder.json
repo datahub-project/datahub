@@ -4,7 +4,7 @@
     "azureAnalysisServices.authType.interactive": "Interaktiv",
     "azureAnalysisServices.authType.label": "Authentifizierungstyp",
     "azureAnalysisServices.authType.servicePrincipal": "Dienstprinzipal",
-    "azureAnalysisServices.authType.tooltip": "Ein Dienstprinzipal verwendet eine Client-ID und ein Geheimnis. Gerätecode und interaktiv führen eine Benutzeranmeldung durch. Benutzername & Passwort verwendet die Anmeldedaten des Ressourcenbesitzers.",
+    "azureAnalysisServices.authType.tooltip": "Ein Dienstprinzipal verwendet eine Client-ID und ein Geheimnis. Gerätecode und interaktiv führen eine Benutzeranmeldung durch. Benutzername & Passwort verwenden die Anmeldedaten des Ressourcenbesitzers.",
     "azureAnalysisServices.authType.usernamePassword": "Benutzername & Passwort",
     "azureAnalysisServices.clientId.helper": "Azure AD-Anwendungs-ID (Client-ID)",
     "azureAnalysisServices.clientId.label": "Client-ID",

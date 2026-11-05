@@ -217,14 +217,18 @@ class AasLineageExtractor:
         # would otherwise dangle as unresolvable schema-field URNs in the golden.
         # Keyed case-insensitively, valued by the name the schema emits, since
         # DISCOVER_CALC_DEPENDENCY and the TMSCHEMA DMVs can disagree on casing.
-        fields_by_table: Dict[str, Dict[str, str]] = {
-            table.name.lower(): {
-                name.lower(): name
-                for name in [col.name for col in table.columns]
-                + [measure.name for measure in table.measures]
-            }
-            for table in model.tables
-        }
+        # First wins, like the mapper, which only emits the first of tables or
+        # fields whose names collide case-insensitively.
+        fields_by_table: Dict[str, Dict[str, str]] = {}
+        for table in model.tables:
+            if table.name.lower() in fields_by_table:
+                continue
+            fields: Dict[str, str] = {}
+            for name in [col.name for col in table.columns] + [
+                measure.name for measure in table.measures
+            ]:
+                fields.setdefault(name.lower(), name)
+            fields_by_table[table.name.lower()] = fields
 
         upstreams_by_downstream: Dict[str, List[str]] = {}
         for dependency in model.calc_dependencies:
