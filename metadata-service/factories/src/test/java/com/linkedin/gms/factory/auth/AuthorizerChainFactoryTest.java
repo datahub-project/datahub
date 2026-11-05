@@ -47,6 +47,9 @@ public class AuthorizerChainFactoryTest {
           .withBean(
               "systemEntityClient", SystemEntityClient.class, () -> mock(SystemEntityClient.class))
           .withBean("groupService", GroupService.class, () -> mock(GroupService.class))
+          // DataHubAuthorizer has no shutdown hook; 0 keeps it from starting a policy refresh
+          // thread per context that outlives the test.
+          .withPropertyValues("authorization.defaultAuthorizer.cacheRefreshIntervalSecs=0")
           // Production points at /etc/datahub/plugins/auth; keep tests off the host filesystem.
           .withPropertyValues("datahub.plugin.auth.path=" + emptyDir("no-auth-plugins"));
 

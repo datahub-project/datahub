@@ -151,6 +151,7 @@ public class EntityGraphCacheFactoryTest {
                     .hasFailed()
                     .getFailure()
                     .rootCause()
-                    .isInstanceOf(NullPointerException.class));
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessageContaining("requires Hazelcast"));
   }
 }

@@ -114,7 +114,8 @@ public class SettingsBuilderFactoryTest {
                     .hasFailed()
                     .getFailure()
                     .rootCause()
-                    .isInstanceOf(IllegalStateException.class));
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("elasticsearch.entityIndex.v2.enabled"));
   }
 
   private static Map<String, Object> settingsFor(ApplicationContext context, String indexName) {

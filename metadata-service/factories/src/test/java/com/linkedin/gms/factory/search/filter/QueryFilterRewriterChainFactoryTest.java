@@ -58,6 +58,7 @@ public class QueryFilterRewriterChainFactoryTest {
   public void testProductionDefaultsExpandEveryHierarchyField() {
     contextRunner.run(
         context -> {
+          assertThat(context).hasNotFailed();
           assertThat(context.getBeansOfType(QueryFilterRewriter.class)).hasSize(3);
           assertExpanded(context, CONTAINER_FIELD, PARENT_CONTAINER, CHILD_CONTAINER);
           assertExpanded(context, DOMAIN_FIELD, PARENT_DOMAIN, CHILD_DOMAIN);
@@ -71,6 +72,7 @@ public class QueryFilterRewriterChainFactoryTest {
         .withPropertyValues("searchService.queryFilterRewriter.containerExpansion.enabled=false")
         .run(
             context -> {
+              assertThat(context).hasNotFailed();
               assertNotExpanded(context, CONTAINER_FIELD, PARENT_CONTAINER, CHILD_CONTAINER);
               assertExpanded(context, DOMAIN_FIELD, PARENT_DOMAIN, CHILD_DOMAIN);
               assertExpanded(context, DOCUMENT_FIELD, PARENT_DOCUMENT, CHILD_DOCUMENT);
@@ -79,6 +81,7 @@ public class QueryFilterRewriterChainFactoryTest {
         .withPropertyValues("searchService.queryFilterRewriter.domainExpansion.enabled=false")
         .run(
             context -> {
+              assertThat(context).hasNotFailed();
               assertExpanded(context, CONTAINER_FIELD, PARENT_CONTAINER, CHILD_CONTAINER);
               assertNotExpanded(context, DOMAIN_FIELD, PARENT_DOMAIN, CHILD_DOMAIN);
               assertExpanded(context, DOCUMENT_FIELD, PARENT_DOCUMENT, CHILD_DOCUMENT);
@@ -87,6 +90,7 @@ public class QueryFilterRewriterChainFactoryTest {
         .withPropertyValues("searchService.queryFilterRewriter.documentExpansion.enabled=false")
         .run(
             context -> {
+              assertThat(context).hasNotFailed();
               assertExpanded(context, CONTAINER_FIELD, PARENT_CONTAINER, CHILD_CONTAINER);
               assertExpanded(context, DOMAIN_FIELD, PARENT_DOMAIN, CHILD_DOMAIN);
               assertNotExpanded(context, DOCUMENT_FIELD, PARENT_DOCUMENT, CHILD_DOCUMENT);
@@ -116,6 +120,7 @@ public class QueryFilterRewriterChainFactoryTest {
         .withPropertyValues("searchService.queryFilterRewriter.containerExpansion.pageSize=7")
         .run(
             context -> {
+              assertThat(context).hasNotFailed();
               OneHopGraphRetriever graph = new OneHopGraphRetriever();
               rewrite(context, graph, CONTAINER_FIELD, PARENT_CONTAINER);
               assertThat(graph.requestedPageSizes).isNotEmpty().containsOnly(7);
