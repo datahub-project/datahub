@@ -18,21 +18,21 @@ from unittest import mock
 
 import pytest
 
-from datahub.ingestion.source.powerbi.m_query import (
+from datahub.ingestion.source.common.m_query import (
     _bridge,
     parser as mquery_parser,
     resolver as mquery_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query._bridge import (
+from datahub.ingestion.source.common.m_query._bridge import (
     MQueryBridge,
     MQueryBridgeError,
     MQueryParseError,
     get_bridge,
 )
-from datahub.ingestion.source.powerbi.m_query.data_classes import (
+from datahub.ingestion.source.common.m_query.data_classes import (
     DataAccessFunctionDetail,
 )
-from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
+from datahub.ingestion.source.common.m_query.pattern_handler import (
     MSSqlLineage,
     SupportedPattern,
     _data_platform_pair_for,
