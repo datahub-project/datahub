@@ -785,6 +785,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             oldBackingIndices.size() == 1 ? oldBackingIndices.iterator().next() : null;
         physicalIndex =
             ESIndexBuilder.getIncrementalNextIndexName(config.name(), upgradeVersion, startTime);
+        // No fallback to the live structured property fields, unlike a _reindex destination: the
+        // fill writes every value from primary storage, so fields left out would leave values
+        // unsearchable. A rejection fails the step and leaves writes open.
         indexBuilder.createIndex(opContext, physicalIndex, config);
         indexBuilder.markMigrationIncomplete(opContext, physicalIndex);
         fillTarget = physicalIndex;
