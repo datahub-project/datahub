@@ -23,6 +23,17 @@ LinkedPlatform = Literal["s3"]
 
 
 class LinkedPlatformDetail(DestinationPlatformDetail):
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description=(
+            "platform_instance of that platform's own recipe. If unset, the dataset "
+            "URN has no platform_instance."
+        ),
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="env of that platform's own recipe. If unset, inherits this recipe's env.",
+    )
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description=(
@@ -120,10 +131,10 @@ class AwsMessagingLineageConfig(ConfigModel):
         description=(
             "Add S3 datasets as upstreams of the queues or topics their bucket's "
             "event notifications target: every S3 dataset already in DataHub under "
-            "the notification's bucket and key prefix, up to 100. Reads every "
-            "bucket's notification configuration (one call per bucket), so turn it "
-            "on in one of the sqs and sns recipes per account; needs a DataHub "
-            "graph connection."
+            "the notification's bucket and key prefix, up to 100. Reads the "
+            "notification configuration of each bucket in the recipe's region (one "
+            "call per bucket); a source only links its own queues or topics. Needs "
+            "a DataHub graph connection."
         ),
     )
 
