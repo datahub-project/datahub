@@ -192,12 +192,21 @@ export class DocumentPage extends BasePage {
     await expect(editor).toBeVisible();
     await editor.click();
     await editor.clear({ force: true });
-    // The editor auto-saves 3s after the last keystroke.
     const saved = this.graphql.waitForGraphQLResponse(
       'updateDocumentContents',
       (variables) => (variables.input as { contents?: unknown } | undefined)?.contents !== undefined,
     );
     await editor.fill(text);
+    // By default the editor auto-saves 3s after the last keystroke. With documentExplicitSaveEnabled
+    // on, it shows a Save button instead and never auto-saves, so click it when it appears.
+    const saveButton = this.page.getByTestId('document-save-button');
+    const explicitSave = await saveButton.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT }).then(
+      () => true,
+      () => false,
+    );
+    if (explicitSave) {
+      await saveButton.click();
+    }
     await this.expectMutationSucceeded(saved, 'updateDocumentContents');
   }
 
