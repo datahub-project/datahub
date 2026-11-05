@@ -42,6 +42,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.StreamSupport;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.ApplicationContext;
 import org.testng.annotations.Test;
@@ -187,9 +188,7 @@ public class SearchDocumentTransformerFactoryTest {
     JsonNode field = document.get("customProperties");
     return field == null
         ? List.of()
-        : java.util.stream.StreamSupport.stream(field.spliterator(), false)
-            .map(JsonNode::asText)
-            .toList();
+        : StreamSupport.stream(field.spliterator(), false).map(JsonNode::asText).toList();
   }
 
   private static JsonNode structuredPropertyField(ApplicationContext context, String value)

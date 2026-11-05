@@ -12,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import javax.net.ssl.SSLContext;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.ApplicationContext;
 import org.testng.annotations.Test;
 
 /**
@@ -122,8 +123,7 @@ public class ElasticsearchSSLContextFactoryTest {
                     .hasRootCauseInstanceOf(FileNotFoundException.class));
   }
 
-  private static SSLContext sslContext(
-      org.springframework.context.ApplicationContext applicationContext) {
+  private static SSLContext sslContext(ApplicationContext applicationContext) {
     return applicationContext.getBean("elasticSearchSSLContext", SSLContext.class);
   }
 
