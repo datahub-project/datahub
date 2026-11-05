@@ -198,12 +198,19 @@ export class DocumentPage extends BasePage {
     );
     await editor.fill(text);
     // By default the editor auto-saves 3s after the last keystroke. With documentExplicitSaveEnabled
-    // on, it shows a Save button instead and never auto-saves, so click it when it appears.
+    // on, it shows a Save button instead and never auto-saves, so click it when it appears. Race the
+    // two so auto-save mode returns as soon as its save lands; a failed save is reported below.
     const saveButton = this.page.getByTestId('document-save-button');
-    const explicitSave = await saveButton.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT }).then(
-      () => true,
-      () => false,
-    );
+    const explicitSave = await Promise.race([
+      saveButton.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT }).then(
+        () => true,
+        () => false,
+      ),
+      saved.then(
+        () => false,
+        () => false,
+      ),
+    ]);
     if (explicitSave) {
       await saveButton.click();
     }
