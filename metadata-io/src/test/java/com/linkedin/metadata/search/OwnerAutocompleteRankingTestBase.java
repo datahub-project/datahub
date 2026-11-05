@@ -21,7 +21,8 @@ import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -102,10 +103,13 @@ public abstract class OwnerAutocompleteRankingTestBase extends AbstractTestNGSpr
             .build();
 
     operationContext =
-        testOpContext.toBuilder()
-            .searchContext(searchContext)
-            .build(testOpContext.getSessionAuthentication(), true)
-            .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
+        TestOperationContexts.withFixedSearchClient(
+            testOpContext.toBuilder()
+                .searchContext(searchContext)
+                .build(testOpContext.getSessionAuthentication(), true)
+                .asSession(
+                    RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH),
+            getSearchClient());
 
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
@@ -117,20 +121,19 @@ public abstract class OwnerAutocompleteRankingTestBase extends AbstractTestNGSpr
         TEST_OS_SEARCH_CONFIG.toBuilder().search(getSearchConfiguration()).build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             esConfig.getSearch().isPointInTimeCreationEnabled(),
             esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(
-            getSearchClient(),
+        new ESBrowseDAO(esConfig, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(
             esConfig,
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(esConfig, getSearchClient(), getBulkProcessor());
+            getSearchClient(),
+            getBulkProcessor(),
+            SearchWriteAccess.fixed(getBulkProcessor()));
     elasticSearchService =
         new ElasticSearchService(
             getIndexBuilder(),
@@ -138,7 +141,7 @@ public abstract class OwnerAutocompleteRankingTestBase extends AbstractTestNGSpr
             TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
             settingsBuilder,
             searchDAO,
             browseDAO,
