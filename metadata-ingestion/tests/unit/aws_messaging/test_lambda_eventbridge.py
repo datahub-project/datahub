@@ -57,7 +57,7 @@ DLQ_URN = (
 TOPIC_URN = (
     f"urn:li:dataset:(urn:li:dataPlatform:sns,{ACCOUNT}.{REGION}.order-events,PROD)"
 )
-RULE_JOB = f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.default.new-orders,PROD),route)"
+RULE_JOB = f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.default/new-orders,PROD),route)"
 PIPE_JOB = f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge-pipes,{ACCOUNT}.{REGION}.orders-to-topic,PROD),pipe)"
 BUS_URN = (
     f"urn:li:dataset:(urn:li:dataPlatform:eventbridge,{ACCOUNT}.{REGION}.default,PROD)"
@@ -342,8 +342,39 @@ def test_partner_event_bus_keeps_its_full_name(
 
     assert seen_buses == [bus_name]
     bus_urn = f"urn:li:dataset:(urn:li:dataPlatform:eventbridge,{ACCOUNT}.{REGION}.{bus_name},PROD)"
-    rule_job = f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.{bus_name}.new-orders,PROD),route)"
+    rule_job = f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.{bus_name}/new-orders,PROD),route)"
     assert edges[rule_job]["inputDatasetEdges"] == {bus_urn}
+
+
+def test_dotted_bus_and_rule_names_get_separate_jobs(aws: None) -> None:
+    # Bus "orders.eu" with rule "new" and bus "orders" with rule "eu.new" must not
+    # share a job.
+    queue_arn = create_queue("orders")
+    events = boto3.client("events", region_name=REGION)
+    for bus, rule in (("orders.eu", "new"), ("orders", "eu.new")):
+        events.create_event_bus(Name=bus)
+        events.put_rule(
+            Name=rule,
+            EventBusName=bus,
+            EventPattern=json.dumps({"source": ["shop"]}),
+        )
+        events.put_targets(
+            Rule=rule, EventBusName=bus, Targets=[{"Id": "q", "Arn": queue_arn}]
+        )
+
+    edges = run(
+        SqsSource, lineage={"lambda_functions": False, "eventbridge_pipes": False}
+    )
+
+    jobs = {
+        urn
+        for urn in edges
+        if urn.startswith("urn:li:dataJob:(urn:li:dataFlow:(eventbridge,")
+    }
+    assert jobs == {
+        f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.orders.eu/new,PROD),route)",
+        f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.orders/eu.new,PROD),route)",
+    }
 
 
 def test_shared_entities_get_status(aws: None) -> None:
@@ -365,7 +396,7 @@ def test_shared_entities_get_status(aws: None) -> None:
     }
     lambda_flow = f"urn:li:dataFlow:(lambda,{ACCOUNT}.{REGION}.worker,PROD)"
     rule_flow = (
-        f"urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.default.new-orders,PROD)"
+        f"urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.default/new-orders,PROD)"
     )
     assert {
         lambda_flow,
@@ -431,7 +462,7 @@ def test_scheduled_rule_has_no_event_bus_input(aws: None) -> None:
     events = boto3.client("events", region_name=REGION)
     events.put_rule(Name="nightly", ScheduleExpression="rate(1 day)")
     events.put_targets(Rule="nightly", Targets=[{"Id": "q", "Arn": queue_arn}])
-    nightly_job = f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.default.nightly,PROD),route)"
+    nightly_job = f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.default/nightly,PROD),route)"
     source = SqsSource.create(
         base_config(lineage={"lambda_functions": False}),
         PipelineContext(run_id="lineage"),

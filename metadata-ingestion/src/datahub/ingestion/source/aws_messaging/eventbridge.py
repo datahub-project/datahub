@@ -222,7 +222,9 @@ class EventBridgeLineage:
                     ).as_workunits()
                 )
                 yield shared_status(bus_urn)
-            flow_id = f"{self.urns.event_bus_id(bus)}.{rule.name}"
+            # Bus names may contain dots and slashes, rule names never a slash, so
+            # the slash keeps rules on different buses apart.
+            flow_id = f"{self.urns.event_bus_id(bus)}/{rule.name}"
             rule_job = self._job_urn(
                 EVENTBRIDGE_PLATFORM, flow_id, EVENTBRIDGE_RULE_JOB_ID, bus
             )
