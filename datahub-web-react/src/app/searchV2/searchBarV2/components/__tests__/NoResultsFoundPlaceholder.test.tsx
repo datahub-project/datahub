@@ -1,16 +1,18 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
 
 import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
-import themeV2 from '@conf/theme/themeV2';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 function renderPlaceholder(props: React.ComponentProps<typeof NoResultsFoundPlaceholder>) {
     render(
-        <ThemeProvider theme={themeV2}>
-            <NoResultsFoundPlaceholder {...props} />
-        </ThemeProvider>,
+        <MockedProvider>
+            <TestPageContainer>
+                <NoResultsFoundPlaceholder {...props} />
+            </TestPageContainer>
+        </MockedProvider>,
     );
 }
 

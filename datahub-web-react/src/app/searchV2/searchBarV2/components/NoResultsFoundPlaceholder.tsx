@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
-import { NoResultsFound } from '@components/components/Select';
+import { NoResultsFound } from '@components/components/Select/NoResultsFound';
 
 const InlineButton = styled(Button)`
     display: inline;
