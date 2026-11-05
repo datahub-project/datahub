@@ -1,13 +1,20 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
+import com.linkedin.search.template.EntityTypeBoostArray;
+import com.linkedin.search.template.FieldFactorArray;
+import com.linkedin.search.template.FieldValueScoreArray;
 import com.linkedin.search.template.HighlightFieldOverrides;
 import com.linkedin.search.template.SearchFieldOverrides;
 import com.linkedin.search.template.SearchTemplateBoostArray;
+import com.linkedin.search.template.SearchTemplateBoostMode;
 import com.linkedin.search.template.SearchTemplateLadder;
 import com.linkedin.search.template.SearchTemplateNormalization;
 import com.linkedin.search.template.SearchTemplateRanking;
 import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateScoreMode;
+import com.linkedin.search.template.SearchTemplateSearchType;
 import com.linkedin.search.template.StructuredPropertyQuery;
+import com.linkedin.search.template.TermWeightArray;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -38,9 +45,26 @@ public class MergedSearchTemplate {
 
   @Nullable String clauses;
   @Nullable String functionScore;
+
+  /** Function combination. Null leaves the mode in {@code functionScore}. */
+  @Nullable SearchTemplateScoreMode scoreMode;
+
+  /** Query combination. Null leaves the mode in {@code functionScore}. */
+  @Nullable SearchTemplateBoostMode boostMode;
+
+  /** Resolved search type. Null means the template request uses query-then-fetch. */
+  @Nullable SearchTemplateSearchType searchType;
+
+  /** Field factors appended inside the function score. Null when the template sets none. */
+  @Nullable FieldFactorArray fieldFactors;
+
+  /** Term weights appended after field factors. Null when the template sets none. */
+  @Nullable TermWeightArray termWeights;
+
   @Nullable String rescore;
   @Nullable String knn;
   @Nullable SearchTemplateRanking ranking;
+  @Nullable com.linkedin.search.template.SearchTemplateComponent component;
   @Nullable SearchTemplateRetrieval retrieval;
   @Nullable SearchTemplateLadder ladder;
   @Nullable String aggregations;
@@ -48,11 +72,18 @@ public class MergedSearchTemplate {
   @Nullable SearchFieldOverrides fields;
   @Nullable StructuredPropertyQuery structuredPropertyQuery;
 
+  /** Numeric field multipliers. Null when the template sets none. */
+  @Nullable FieldValueScoreArray fieldValueScores;
+
+  /** Entity-type multipliers. Null when the template sets none. */
+  @Nullable EntityTypeBoostArray entityTypeBoosts;
+
   /** Wildcard, synonym, fuzzy, and broad-query limits. Null uses the historical defaults. */
   @Nullable SearchTemplateNormalization normalization;
 
   @Nullable SearchTemplateBoostArray boosts;
   @Nullable HighlightFieldOverrides highlightFields;
+  @Builder.Default boolean matchedFields = true;
   @Nonnull Map<String, String> parameters;
 
   /**

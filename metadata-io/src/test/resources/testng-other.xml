@@ -22,8 +22,13 @@
                     <exclude name=".*" />
                 </methods>
             </class>
-            <!-- PostgreSQL Testcontainers IT; runs in testng-postgresql.xml, not the default suite -->
+            <!-- PostgreSQL Testcontainers ITs; run in testng-postgresql.xml, not the default suite -->
             <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoLockingPostgresIT">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoOptimisticLockingPostgresIT">
                 <methods>
                     <exclude name=".*" />
                 </methods>
@@ -35,6 +40,114 @@
                 </methods>
             </class>
             <class name="com.linkedin.metadata.entity.ebean.optimistic.EbeanOptimisticLockingPostgresIT">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <!-- These switch the process-wide UnknownDataHandlings strategy (TolerantHandling before
+                 each test, strict after), which would leak into classes running alongside them here
+                 (parallel="classes"). They run one class at a time in testng-opensearch.xml. -->
+            <class name="com.linkedin.metadata.aspect.consistency.ConsistencyServiceTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.aspect.consistency.CheckContextTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.aspect.consistency.check.assertion.AssertionTypeMismatchCheckTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.aspect.consistency.check.InvalidEnumCheckTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidatorTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.aspect.validation.UrnAnnotationValidatorTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffectTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.DeleteEntityServiceTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.EntityServiceImplTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.EbeanEntityServiceTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.EntityUtilsTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.retention.buffer.RetentionDrainerTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidatorTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.search.SearchServiceUnknownEntityTypeTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.search.indexbuilder.ReindexConfigTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.search.query.ESSearchDAORawEntityTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.service.UpdateGraphIndicesServiceTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.service.UpdateIndicesServiceTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffectTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.timeseries.search.TimeseriesAspectServiceUnitTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.trace.TraceServiceImplTest">
                 <methods>
                     <exclude name=".*" />
                 </methods>

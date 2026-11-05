@@ -14,6 +14,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Mapping,
     NoReturn,
     Optional,
     Tuple,
@@ -27,8 +28,9 @@ from unittest.mock import patch
 import oracledb
 import sqlalchemy.engine
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
-from sqlalchemy import create_engine, event, inspect, sql
+from sqlalchemy import create_engine, event, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
+from sqlalchemy.engine import RowMapping
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
@@ -66,6 +68,7 @@ from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     get_schema_metadata,
     make_sqlalchemy_type,
+    register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
@@ -395,12 +398,16 @@ VSQL_DML_COMMAND_TYPES = (
     OracleSQLCommandType.MERGE,
 )
 
+# sql_text is VARCHAR2(1000) and cuts long statements mid-token; sql_fulltext is the
+# CLOB holding the complete statement. The cheap VARCHAR2 column still drives the
+# V$SQL self-filter below.
 VSQL_USAGE_QUERY = (
     """
     SELECT * FROM (
-        SELECT 
+        SELECT
             sql_id,
             sql_text,
+            sql_fulltext,
             parsing_schema_name,
             executions,
             elapsed_time/1000000 as elapsed_seconds,
@@ -420,6 +427,16 @@ VSQL_USAGE_QUERY = (
     )
     WHERE ROWNUM <= :max_queries
 """
+)
+
+# sqlglot's Oracle dialect fails on an empty optimizer hint ("Failed to parse ' '
+# into Hint"), which ETL tools emit routinely. A hint is only meaningful right
+# after the statement verb, so only that position is matched and string literals
+# elsewhere in the statement are left alone.
+# Oracle also accepts the hint with no whitespace after the verb (INSERT/*+ */),
+# so the whitespace on both sides is optional and replaced by a single space.
+_EMPTY_HINT_PATTERN = re.compile(
+    r"\b(SELECT|INSERT|UPDATE|DELETE|MERGE)\s*/\*\+\s*\*/\s*", re.IGNORECASE
 )
 
 
@@ -534,6 +551,19 @@ extra_oracle_types = {
     make_sqlalchemy_type("XMLTYPE"),
 }
 assert ischema_names
+
+# These types are only known to SQLAlchemy through the ischema_names patch in
+# get_workunits. Without a mapping, every such column logs "Unable to map column
+# types" and is emitted with an empty parsed type. XMLTYPE is stored and rendered
+# as text, matching the xml mapping in sql_types; the spatial object types are
+# structured, so they map to a record.
+for _oracle_type in extra_oracle_types:
+    register_custom_type(
+        _oracle_type,
+        models.StringTypeClass
+        if _oracle_type.__name__ == "XMLTYPE"
+        else models.RecordTypeClass,
+    )
 
 
 def _raise_err(exc: Exception) -> NoReturn:
@@ -762,16 +792,30 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
 
         return url
 
+    def urn_database_name(self) -> Optional[str]:
+        """Database component of entity URNs, or None when URNs are two-part.
+
+        Single source of truth for everything that must agree with the crawl's
+        URNs: get_identifier, get_db_schema and the default_db handed to the SQL
+        parser. Note this is the recipe's value, not the name looked up in
+        Oracle (get_db_name); with service_name and no urn_db_name, URNs stay
+        two-part even though a database name could be detected.
+        """
+        if not self.add_database_name_to_urn:
+            return None
+        if self.database:
+            return self.database
+        if self.urn_db_name:
+            # get_db_name normalises via the dialect; replicate that here so
+            # entity URNs and lineage URNs share the same db casing.
+            return normalize_db_name(self.urn_db_name)
+        return None
+
     def get_identifier(self, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
-        if self.add_database_name_to_urn:
-            db = self.database
-            if not db and self.urn_db_name:
-                # get_db_name normalises via the dialect; replicate that here so
-                # entity URNs and lineage URNs share the same db casing.
-                db = normalize_db_name(self.urn_db_name)
-            if db:
-                return f"{db}.{regular}"
+        db = self.urn_database_name()
+        if db:
+            return f"{db}.{regular}"
         return regular
 
     @classmethod
@@ -1572,8 +1616,40 @@ class OracleSource(SQLAlchemySource):
                 not (self.config.include_tables and self.config.include_views)
                 and not self.config.lazy_schema_resolver
             ),
+            is_allowed_table=self._is_allowed_table,
         )
         self.report.sql_aggregator = self.aggregator.report
+
+    def _is_allowed_table(self, name: str) -> bool:
+        """Apply the recipe's schema/table filters to tables referenced by parsed SQL.
+
+        The aggregator calls this for every table the SQL parser resolves from
+        V$SQL statements and view definitions (procedure lineage has its own
+        parser and does not pass through here). Without this gate it emits
+        usage, operations and query subjects for tables the schema crawl never
+        visited, creating container-less datasets outside schema_pattern /
+        table_pattern. V$SQL's SQL-level system-schema exclusion only covers the
+        parsing schema, not the tables a statement references.
+
+        `name` is the URN name without platform instance, in the same shape
+        get_identifier produces, so get_db_schema is reused to split it rather
+        than re-implementing the add_database_name_to_urn branching.
+
+        Only the recipe patterns decide. Oracle system schemas are not rejected
+        here: the crawl ingests them when schema_pattern allows it, and lineage
+        on those entities must follow. Because the parser cannot tell tables
+        from views, a name passes when either table_pattern or view_pattern
+        allows it; a table denied by table_pattern is let back in by a
+        permissive view_pattern.
+        """
+        if "." not in name:
+            return False
+        _, schema = self.get_db_schema(name)
+        if not self.config.schema_pattern.allowed(schema):
+            return False
+        return self.config.table_pattern.allowed(
+            name
+        ) or self.config.view_pattern.allowed(name)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -1665,17 +1741,10 @@ class OracleSource(SQLAlchemySource):
                 if len(parts) >= 3:
                     return parts[-3], parts[-2]  # db, schema
                 elif len(parts) >= 2:
-                    # Identifier is missing the db component — fall back to config.
-                    # Using str(None) here would produce "None.schema.table" URNs.
-                    # Normalise urn_db_name the same way as get_identifier so that
-                    # view-lineage default_db matches entity URN db components.
-                    urn_db = (
-                        normalize_db_name(self.config.urn_db_name)
-                        if self.config.urn_db_name
-                        else None
-                    )
-                    db_name = self.config.database or urn_db or None
-                    return db_name, parts[-2]  # db (or None), schema
+                    # Identifier is missing the db component — fall back to the
+                    # recipe's database so view-lineage default_db matches entity
+                    # URN db components (None rather than "None.schema.table").
+                    return self.config.urn_database_name(), parts[-2]
             else:
                 if len(parts) >= 2:
                     return None, parts[-2]  # schema only; no db in URNs
@@ -1810,11 +1879,11 @@ class OracleSource(SQLAlchemySource):
         - "": Explicitly exclude database from URNs (two-tier: schema.table)
         - str: Use specific database name in URNs (three-tier: database.schema.table)
 
-        This ensures procedure lineage URNs match the URN format of tables/views.
+        This ensures procedure lineage URNs match the URN format of tables/views,
+        including the urn_db_name case, by deriving the database the same way
+        get_identifier does.
         """
-        if self.config.add_database_name_to_urn and self.config.database:
-            return self.config.database
-        return ""
+        return self.config.urn_database_name() or ""
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
@@ -2318,6 +2387,36 @@ class OracleSource(SQLAlchemySource):
         url = self.config.get_sql_alchemy_url()
         return create_engine(url, **self.config.options)
 
+    def _vsql_query_text(self, row: Union[RowMapping, Mapping[str, Any]]) -> str:
+        """Return the complete statement text for a V$SQL row.
+
+        Prefers sql_fulltext and falls back to sql_text, which Oracle caps at
+        1000 characters. SQLAlchemy's Oracle dialect fetches the CLOB as a string
+        (auto_convert_lobs, on by default); when that is disabled a LOB object
+        arrives and is read here. A failed read falls back to sql_text with a
+        warning so one bad row cannot stop extraction for the whole run.
+
+        Empty optimizer hints are removed before parsing. The aggregator
+        reformats query text before storing it, so the stored text is never
+        byte-identical to what ran in any case.
+        """
+        text = row.get("sql_fulltext")
+        if text is not None and not isinstance(text, str):
+            try:
+                text = text.read()
+            except oracledb.DatabaseError as e:
+                self.report.warning(
+                    title="Could not read full SQL text from V$SQL",
+                    message="Falling back to sql_text, which Oracle caps at 1000 "
+                    "characters; longer statements may fail to parse.",
+                    context=f"sql_id={row.get('sql_id')}",
+                    exc=e,
+                )
+                text = None
+        if not text:
+            text = row.get("sql_text") or ""
+        return _EMPTY_HINT_PATTERN.sub(r"\1 ", text)
+
     def _check_vsql_prerequisites(
         self, engine: sqlalchemy.engine.Engine
     ) -> VSqlPrerequisiteCheckResult:
@@ -2357,13 +2456,17 @@ class OracleSource(SQLAlchemySource):
 
         try:
             with engine.connect() as conn:
-                inspector = inspect(conn)
-                # Get database name once outside the loop since it doesn't change per row
-                db_name = self.get_db_name(inspector)
+                # The parser fills a missing database from default_db, so it must
+                # be exactly the database component of entity URNs (None when they
+                # are two-part). Anything else, including the name detected via
+                # get_db_name, puts usage on a second, container-less set of URNs.
+                default_db = self.config.urn_database_name()
                 result = conn.execute(sql.text(VSQL_USAGE_QUERY), params).mappings()
 
                 for row in result:
-                    sql_text = row["sql_text"]
+                    sql_text = self._vsql_query_text(row)
+                    if not sql_text:
+                        continue
 
                     if self.config.query_exclude_patterns:
                         should_exclude = False
@@ -2396,7 +2499,7 @@ class OracleSource(SQLAlchemySource):
 
                     yield ObservedQuery(
                         query=sql_text,
-                        default_db=db_name,
+                        default_db=default_db,
                         default_schema=row["parsing_schema_name"],
                         timestamp=timestamp,
                         session_id=f"sql_id:{row['sql_id']}",

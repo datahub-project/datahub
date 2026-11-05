@@ -4,6 +4,7 @@ from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.subtypes import DocumentSubTypes
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
@@ -45,6 +46,12 @@ def parse_drive_id(value: str) -> str:
 class GoogleDriveSourceConfig(
     StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], ConfigModel
 ):
+    datahub: Optional[DatahubClientConfig] = Field(
+        default=None,
+        description="DataHub connection for embedding capability checks. When omitted, "
+        "provider datahub uses the SDK connection defaults (environment or datahub init).",
+    )
+
     credential: Optional[GCPCredential] = Field(
         default=None,
         description="Service account key used to call the Google Drive API. "

@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -39,8 +40,9 @@ import lombok.extern.slf4j.Slf4j;
  * deleted whatever the replayed row says: one RESTATE per stored aspect, or a DELETE of the key
  * aspect when the entity has none, each carrying the replayed event's headers so the writer still
  * treats the batch as a replay. The read goes to primary storage itself: a lagging read replica
- * could hand back the very state the replay is meant to correct. Batches without the catch-up mark
- * are returned as they are.
+ * could hand back the very state the replay is meant to correct. A baseline fill batch that does
+ * not carry the whole entity is replaced by the stored state the same way, since the fill creates
+ * each document once. Other batches are returned as they are.
  *
  * <p>The rebuilt events can only write what storage holds. What the index holds for an aspect
  * storage no longer has, after a removal nothing mirrored, would survive the writer's merge, so the
@@ -81,43 +83,97 @@ public final class CatchUpBatchRebuilder {
     this.documentIdHasher = documentIdHasher;
   }
 
-  /** The batches to process in place of {@code groupedEvents}; a batch without the mark is kept. */
+  /**
+   * The batches to process in place of {@code groupedEvents}. A catch-up batch, and a baseline
+   * batch that does not carry the whole entity, is replaced by the entity's stored state; any other
+   * batch is kept.
+   */
   @Nonnull
   public RebuiltBatches rebuild(
       @Nonnull OperationContext opContext, @Nonnull Map<Urn, List<MCLItem>> groupedEvents) {
-    Map<Urn, Set<String>> storedAspectNames = new HashMap<>();
+    Map<Urn, Set<String>> catchUpAspectNames = new HashMap<>();
+    Map<Urn, Set<String>> baselineAspectNames = new HashMap<>();
     for (Map.Entry<Urn, List<MCLItem>> entry : groupedEvents.entrySet()) {
       if (entry.getValue().stream().anyMatch(CatchUpBatchRebuilder::isCatchUpEvent)) {
-        storedAspectNames.put(
+        catchUpAspectNames.put(
+            entry.getKey(), storedAspectNames(entry.getValue().get(0).getEntitySpec()));
+      } else if (isIncompleteBaseline(entry.getValue())) {
+        baselineAspectNames.put(
             entry.getKey(), storedAspectNames(entry.getValue().get(0).getEntitySpec()));
       }
     }
-    if (storedAspectNames.isEmpty()) {
+    if (catchUpAspectNames.isEmpty() && baselineAspectNames.isEmpty()) {
       return new RebuiltBatches(groupedEvents, Map.of(), Map.of());
     }
+    Map<Urn, Set<String>> storedAspectNames = new LinkedHashMap<>(catchUpAspectNames);
+    storedAspectNames.putAll(baselineAspectNames);
     OperationContext primary = primaryStorageContext(opContext);
-    List<Map<Urn, Set<String>>> slices = reads(storedAspectNames);
     Map<Urn, Map<String, SystemAspect>> stored = new HashMap<>();
-    for (Map<Urn, Set<String>> slice : slices) {
+    for (Map<Urn, Set<String>> slice : reads(storedAspectNames)) {
       stored.putAll(
           Optional.ofNullable(primary.getAspectRetriever().getLatestSystemAspects(primary, slice))
               .orElse(Map.of()));
     }
+    // A baseline fill writes only documents the index does not hold, so there is nothing in the
+    // index for it to clear.
     Map<Urn, Map<String, Set<String>>> removedAspects = new HashMap<>();
     Map<Urn, Map<String, Set<String>>> indexedFields = new HashMap<>();
-    for (Map<Urn, Set<String>> slice : slices) {
+    for (Map<Urn, Set<String>> slice : reads(catchUpAspectNames)) {
       IndexFields read = indexFields(opContext, slice, stored);
       removedAspects.putAll(read.removed());
       indexedFields.putAll(read.indexed());
     }
     Map<Urn, List<MCLItem>> rebuilt = new LinkedHashMap<>(groupedEvents);
-    for (Urn urn : storedAspectNames.keySet()) {
+    for (Urn urn : catchUpAspectNames.keySet()) {
       rebuilt.put(
           urn,
           storedStateEvents(
               opContext, urn, groupedEvents.get(urn), stored.getOrDefault(urn, Map.of())));
     }
+    for (Urn urn : baselineAspectNames.keySet()) {
+      rebuilt.put(
+          urn,
+          baselineStoredStateEvents(
+              opContext, urn, groupedEvents.get(urn), stored.getOrDefault(urn, Map.of())));
+    }
     return new RebuiltBatches(rebuilt, removedAspects, indexedFields);
+  }
+
+  /**
+   * A baseline fill batch that does not carry every stored aspect of the entity, as when an
+   * operator load filters by aspect or time. The fill creates the document once and never
+   * overwrites it, so the partial batch would otherwise become the whole document.
+   */
+  private static boolean isIncompleteBaseline(@Nonnull List<MCLItem> events) {
+    List<MCLItem> backfillEvents =
+        events.stream()
+            .filter(event -> header(event, BackfillHeaders.MODE_HEADER_NAME) != null)
+            .collect(Collectors.toList());
+    return !backfillEvents.isEmpty()
+        && backfillEvents.stream().allMatch(CatchUpBatchRebuilder::isBaselineEvent)
+        && !backfillEvents.stream().allMatch(CatchUpBatchRebuilder::isCompleteEntityEvent);
+  }
+
+  /**
+   * A baseline batch processed as the entity's stored state: one RESTATE per stored aspect, marked
+   * as carrying the whole entity, or nothing when the entity is gone, since a fill has no document
+   * to remove.
+   */
+  @Nonnull
+  private static List<MCLItem> baselineStoredStateEvents(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull List<MCLItem> replayed,
+      @Nonnull Map<String, SystemAspect> storedAspects) {
+    MCLItem replayedEvent =
+        replayed.stream().filter(CatchUpBatchRebuilder::isBaselineEvent).findFirst().orElseThrow();
+    if (!isStored(storedAspects, replayedEvent.getEntitySpec().getKeyAspectName())) {
+      log.info("Baseline fill finds no key aspect in primary storage for {}; skipping it", urn);
+      return List.of();
+    }
+    StringMap headers = new StringMap(replayedEvent.getMetadataChangeLog().getHeaders());
+    headers.put(BackfillHeaders.COMPLETE_ENTITY_HEADER_NAME, Boolean.TRUE.toString());
+    return restates(opContext, urn, replayedEvent.getEntitySpec(), headers, storedAspects);
   }
 
   /** One slice's index read: aspects storage has lost, and the raw field map for every hit. */
@@ -257,6 +313,17 @@ public final class CatchUpBatchRebuilder {
       delete.setHeaders(headers);
       return List.of(MCLItemImpl.builder().build(delete, aspectRetriever));
     }
+    return restates(opContext, urn, entitySpec, headers, storedAspects);
+  }
+
+  @Nonnull
+  private static List<MCLItem> restates(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull StringMap headers,
+      @Nonnull Map<String, SystemAspect> storedAspects) {
+    AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     return storedAspects.entrySet().stream()
         .filter(entry -> isStored(storedAspects, entry.getKey()))
         .sorted(Map.Entry.comparingByKey())
@@ -290,10 +357,24 @@ public final class CatchUpBatchRebuilder {
   }
 
   private static boolean isCatchUpEvent(@Nonnull MCLItem event) {
+    return BackfillHeaders.MODE_CATCH_UP.equalsIgnoreCase(
+        header(event, BackfillHeaders.MODE_HEADER_NAME));
+  }
+
+  private static boolean isBaselineEvent(@Nonnull MCLItem event) {
+    return BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(
+        header(event, BackfillHeaders.MODE_HEADER_NAME));
+  }
+
+  private static boolean isCompleteEntityEvent(@Nonnull MCLItem event) {
+    return Boolean.parseBoolean(header(event, BackfillHeaders.COMPLETE_ENTITY_HEADER_NAME));
+  }
+
+  @Nullable
+  private static String header(@Nonnull MCLItem event, @Nonnull String name) {
     MetadataChangeLog changeLog = event.getMetadataChangeLog();
-    return changeLog != null
-        && changeLog.getHeaders() != null
-        && BackfillHeaders.MODE_CATCH_UP.equalsIgnoreCase(
-            changeLog.getHeaders().get(BackfillHeaders.MODE_HEADER_NAME));
+    return changeLog != null && changeLog.getHeaders() != null
+        ? changeLog.getHeaders().get(name)
+        : null;
   }
 }

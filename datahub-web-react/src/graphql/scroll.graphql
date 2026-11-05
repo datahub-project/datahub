@@ -248,6 +248,7 @@ fragment downloadSearchResults on Entity {
                 value
             }
         }
+        ...glossaryTermLifecycleFields
         deprecation {
             ...deprecationFields
         }

@@ -2,7 +2,7 @@ import { FileUploadFailureType } from '@components/components/Editor/types';
 
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
-import { Direction } from '@app/lineage/types';
+import { Direction } from '@app/lineageV3/types';
 import { FilterMode } from '@app/search/utils/constants';
 
 import {
@@ -80,7 +80,6 @@ export enum EventType {
     MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
-    IngestionSourceConfigurationImpressionEvent,
     IngestionViewAllClickEvent,
     IngestionViewAllClickWarningEvent,
     CreateIngestionSourceEvent,
@@ -184,6 +183,7 @@ export enum EventType {
     GoToPhysicalChildEvent,
     GoToLogicalParentColumnEvent,
     GoToPhysicalChildColumnEvent,
+    LanguageChangeEvent,
 }
 
 /**
@@ -662,7 +662,6 @@ export interface IngestionTestConnectionClickEvent extends BaseEvent {
     type: EventType.IngestionTestConnectionClickEvent;
     sourceType: string;
     sourceUrn?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface IngestionTestConnectionCloseEvent extends BaseEvent {
@@ -671,7 +670,6 @@ export interface IngestionTestConnectionCloseEvent extends BaseEvent {
     sourceUrn?: string;
     hasCompleted?: boolean;
     status?: 'success' | 'failure' | 'partialSuccess' | 'running';
-    ingestionOnboardingRedesignV1?: boolean;
     failedCapabilities?: string[];
     durationMs?: number;
 }
@@ -694,13 +692,6 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
     sourceType?: string;
 }
 
-export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
-    type: EventType.IngestionSourceConfigurationImpressionEvent;
-    viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
-    sourceType?: string;
-    sourceUrn?: string;
-}
-
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
@@ -708,7 +699,6 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
@@ -718,7 +708,6 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -1395,6 +1384,17 @@ interface GoToPhysicalChildColumnEvent extends BaseEvent {
 }
 
 /**
+ * A user changed their UI language in Settings. `newLanguage` is null when they cleared their
+ * choice; `browserLanguage` is what browser detection would pick, so overrides can be counted.
+ */
+export interface LanguageChangeEvent extends BaseEvent {
+    type: EventType.LanguageChangeEvent;
+    previousLanguage: string;
+    newLanguage: string | null;
+    browserLanguage: string | null;
+}
+
+/**
  * Event consisting of a union of specific event types.
  */
 export type Event =
@@ -1528,7 +1528,6 @@ export type Event =
     | ProductTourButtonClickEvent
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
-    | IngestionSourceConfigurationImpressionEvent
     | IngestionViewAllClickEvent
     | IngestionViewAllClickWarningEvent
     | AssetPageAddSummaryElementEvent
@@ -1556,4 +1555,5 @@ export type Event =
     | GoToLogicalParentEvent
     | GoToPhysicalChildEvent
     | GoToLogicalParentColumnEvent
-    | GoToPhysicalChildColumnEvent;
+    | GoToPhysicalChildColumnEvent
+    | LanguageChangeEvent;

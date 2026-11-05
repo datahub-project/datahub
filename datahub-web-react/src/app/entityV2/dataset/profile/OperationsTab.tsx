@@ -6,7 +6,7 @@ import styled, { useTheme } from 'styled-components';
 
 import { Column } from '@components/components/Table/types';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { notEmpty } from '@app/entityV2/shared/utils';
 import {
     getExecutionRequestStatusDisplayColor,

@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields
 import com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.RenderedQueryFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchClauseBudget;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlightSelection;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredPropertySearchCatalog;
@@ -169,7 +170,6 @@ public class SearchV3QueryBuilder {
     List<String> highlights =
         SearchHighlightSelection.resolve(
             SearchTemplateFields.applyHighlight(Set.of(), template.getHighlightFields()), flags);
-    List<String> queriedFields = searchedFields(queried);
 
     TemplateContext builtContext = context(opContext, entitySpecs, query, template, queried);
     Map<String, Object> context = builtContext.values();
@@ -203,8 +203,12 @@ public class SearchV3QueryBuilder {
         template.isClasspathBridge()
             ? List.of()
             : renderBoosts(template.getBoosts(), opContext, resolver);
-    if (functionScore != null || !boosts.isEmpty()) {
-      built = SearchTemplateJson.wrapFunctionScore(built, functionScore, boosts);
+    SearchTemplateJson.FunctionScoreTail tail =
+        template.isClasspathBridge()
+            ? SearchTemplateJson.FunctionScoreTail.none()
+            : TemplateConfiguredScores.functionScoreTail(opContext, template);
+    if (functionScore != null || !boosts.isEmpty() || tail.applies()) {
+      built = SearchTemplateJson.wrapFunctionScore(built, functionScore, boosts, tail);
     }
 
     String renderedRescore = null;
@@ -245,16 +249,43 @@ public class SearchV3QueryBuilder {
           "knn");
     }
     rejectLeafCap(built, renderedRescore);
+    Map<String, RenderedSearchTemplate.NamedClause> named =
+        SearchTemplateMatchReport.namedClauses(built, properties);
+    built = TemplateConfiguredScores.apply(opContext, template, entitySpecs, built);
+    List<String> queriedRoots = RenderedQueryFields.roots(built);
     return new RenderedSearchTemplate(
         built,
         rescore,
         aggregations,
         sorts,
         highlights,
-        queriedFields,
+        template.isMatchedFields(),
+        queriedRoots,
         query,
-        SearchTemplateMatchReport.namedClauses(built, properties),
-        estimatedClauses);
+        named,
+        estimatedClauses,
+        queriedFieldSources(opContext, queriedRoots),
+        template.getSearchType());
+  }
+
+  /**
+   * Stored paths for the labels this render reads. {@link V3SearchFieldModel#fullTextFields()} is
+   * the mapping from label to source, so this filters that cache instead of walking the registry
+   * again.
+   */
+  @Nonnull
+  private static Map<String, List<String>> queriedFieldSources(
+      @Nonnull OperationContext opContext, @Nonnull List<String> queriedRoots) {
+    Map<String, List<String>> fullText =
+        V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).fullTextFields();
+    Map<String, List<String>> selected = new LinkedHashMap<>();
+    for (String root : queriedRoots) {
+      List<String> sources = fullText.get(root);
+      if (sources != null) {
+        selected.put(root, sources);
+      }
+    }
+    return selected;
   }
 
   private record TemplateContext(@Nonnull Map<String, Object> values, int estimatedClauses) {}
@@ -290,7 +321,8 @@ public class SearchV3QueryBuilder {
       @Nonnull MergedSearchTemplate template,
       @Nonnull Set<SearchFieldConfig> queried) {
     String text = query == null ? "" : query;
-    boolean structured = structuredTemplate(template);
+    String blob = templateBlob(template);
+    boolean structured = blob.contains(SearchTemplateContextVariables.STRUCTURED_QUERY);
     if (structured && text.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)) {
       text = text.substring(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX.length());
     }
@@ -352,7 +384,20 @@ public class SearchV3QueryBuilder {
     List<SearchFieldConfig> queriedFields = withoutStructuredProperties(queried);
     List<String> analyzed = defaultQueryFields(queried);
     List<String> identityFields = SearchTemplateFields.identityAnalyzedFields(queriedFields);
-    List<String> lightFields = shape.nameOnly ? identityFields : analyzed;
+    List<String> defaultWithoutIdentity =
+        SearchTemplateFields.withoutLabels(analyzed, Set.of("name", "qualifiedName", "id"));
+    List<String> lightFields = shape.nameOnly ? List.of() : defaultWithoutIdentity;
+    // A spaceless path scores qualifiedName only through the bounded clause. Leaving it in this
+    // best_fields list lets one earlier token on a shorter name outrank that segment match.
+    if (shape.spacelessDotted) {
+      lightFields = SearchTemplateFields.withoutLabel(lightFields, "qualifiedName");
+    }
+    List<String> nameFields =
+        SearchTemplateFields.labelAnalyzedFields(
+            queriedFields, SearchTemplateFields.ENTITY_NAME_FIELD);
+    List<String> qualifiedNameFields =
+        SearchTemplateFields.labelAnalyzedFields(queriedFields, "qualifiedName");
+    List<String> idFields = SearchTemplateFields.labelAnalyzedFields(queriedFields, "id");
     SearchFieldResolver fieldResolver =
         V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
     Map<String, Object> context = new LinkedHashMap<>();
@@ -361,8 +406,27 @@ public class SearchV3QueryBuilder {
         SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS_JSON,
         SearchTemplateMustache.json(analyzed));
     context.put(
+        SearchTemplateContextVariables.DEFAULT_FIELDS_WITHOUT_IDENTITY_JSON,
+        SearchTemplateMustache.json(defaultWithoutIdentity));
+    context.put(
         SearchTemplateContextVariables.IDENTITY_QUERY_FIELDS_JSON,
         SearchTemplateMustache.json(identityFields));
+    context.put(
+        SearchTemplateContextVariables.NAME_FIELDS_JSON, SearchTemplateMustache.json(nameFields));
+    if (!nameFields.isEmpty()) {
+      context.put(SearchTemplateContextVariables.NAME_FIELDS, Boolean.TRUE);
+    }
+    context.put(
+        SearchTemplateContextVariables.QUALIFIED_NAME_FIELDS_JSON,
+        SearchTemplateMustache.json(qualifiedNameFields));
+    if (!qualifiedNameFields.isEmpty()) {
+      context.put(SearchTemplateContextVariables.QUALIFIED_NAME_FIELDS, Boolean.TRUE);
+    }
+    context.put(
+        SearchTemplateContextVariables.ID_FIELDS_JSON, SearchTemplateMustache.json(idFields));
+    if (!idFields.isEmpty()) {
+      context.put(SearchTemplateContextVariables.ID_FIELDS, Boolean.TRUE);
+    }
     context.put(
         SearchTemplateContextVariables.LIGHT_FIELDS_JSON, SearchTemplateMustache.json(lightFields));
     context.put(
@@ -372,7 +436,7 @@ public class SearchV3QueryBuilder {
     putPrefixFields(context, queriedFields, exact);
     context.put(
         SearchTemplateContextVariables.ENTITY_NAME_FIELD,
-        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name.keyword"));
+        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name"));
     context.put(
         SearchTemplateContextVariables.DESCRIPTION_FIELD,
         analyzedPath(fieldResolver, "description"));
@@ -381,7 +445,7 @@ public class SearchV3QueryBuilder {
         exactPath(fieldResolver, "platform", SearchFieldResolver.Intent.FILTER, "platform_urn"));
     context.put(
         SearchTemplateContextVariables.COLUMN_NAME_FIELD,
-        exactPath(fieldResolver, "fieldPaths", SearchFieldResolver.Intent.EXACT, "name_1.keyword"));
+        exactPath(fieldResolver, "fieldPaths", SearchFieldResolver.Intent.EXACT, "name_1"));
     String urnExact = exactPath(fieldResolver, "urn", SearchFieldResolver.Intent.EXACT, "urn");
     context.put(SearchTemplateContextVariables.URN_FIELD, urnExact);
     context.put(SearchTemplateContextVariables.URN_EXACT_FIELD, urnExact);
@@ -394,16 +458,13 @@ public class SearchV3QueryBuilder {
         SearchTemplateContextVariables.NORMALIZED_KEYWORD, ESUtils.keywordNormalize(unquoted));
     context.put(
         SearchTemplateContextVariables.NAME_KEYWORD,
-        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name.keyword"));
+        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name"));
     context.put(SearchTemplateContextVariables.NAME_TEXT, analyzedPath(fieldResolver, "name"));
     context.put(SearchTemplateContextVariables.PREFIX_FIELD, analyzedPath(fieldResolver, "name"));
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_KEYWORD,
         exactPath(
-            fieldResolver,
-            "qualifiedName",
-            SearchFieldResolver.Intent.EXACT,
-            "qualifiedName.keyword"));
+            fieldResolver, "qualifiedName", SearchFieldResolver.Intent.EXACT, "qualifiedName"));
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_TEXT,
         analyzedPath(fieldResolver, "qualifiedName"));
@@ -415,7 +476,7 @@ public class SearchV3QueryBuilder {
         analyzedPath(fieldResolver, "description"));
     context.put(
         SearchTemplateContextVariables.ID_KEYWORD,
-        exactPath(fieldResolver, "id", SearchFieldResolver.Intent.EXACT, "id.keyword"));
+        exactPath(fieldResolver, "id", SearchFieldResolver.Intent.EXACT, "id"));
     context.put(SearchTemplateContextVariables.URN_KEYWORD, urnExact);
     context.put(SearchTemplateContextVariables.ENTITY_TYPES, entityTypeNames(entitySpecs));
     putScoreFunctions(context, entitySpecs);
@@ -460,14 +521,10 @@ public class SearchV3QueryBuilder {
     context.put(SearchTemplateContextVariables.URN_FACTOR, exactNumber(partial.getUrnFactor()));
     context.put(SearchTemplateContextVariables.PARTIAL_FACTOR, exactNumber(partial.getFactor()));
     putQueryShape(context, shape, normalization.synonymCap());
+    if (shape.nameOnly) {
+      context.put(SearchTemplateContextVariables.NAME_ONLY, Boolean.TRUE);
+    }
     context.putAll(template.getParameters());
-    String blob =
-        String.join(
-            "\n",
-            template.getQuery() == null ? "" : template.getQuery(),
-            template.getClauses() == null ? "" : template.getClauses(),
-            template.getFunctionScore() == null ? "" : template.getFunctionScore(),
-            String.join("\n", template.getQueryFragments().values()));
     if (template.isClasspathBridge()) {
       context.put(SearchTemplateViewer.URN, SearchTemplateViewer.urn(opContext));
       context.put(SearchTemplateViewer.GROUPS, "[]");
@@ -670,10 +727,19 @@ public class SearchV3QueryBuilder {
     return new SearchClauseBudget.FieldCounts(fields, wordGramFields);
   }
 
-  private static boolean structuredTemplate(@Nonnull MergedSearchTemplate template) {
-    String urn = template.getUrn();
-    return "urn:li:searchTemplate:structured".equals(urn)
-        || "urn:li:searchTemplate:structuredExact".equals(urn);
+  /**
+   * Every Mustache-rendered section of the template, joined. A variable only has to be produced
+   * when some section references it. The section text is the signal: the template URN is not,
+   * because a copy or a child keeps the hole and changes the URN.
+   */
+  @Nonnull
+  private static String templateBlob(@Nonnull MergedSearchTemplate template) {
+    return String.join(
+        "\n",
+        template.getQuery() == null ? "" : template.getQuery(),
+        template.getClauses() == null ? "" : template.getClauses(),
+        template.getFunctionScore() == null ? "" : template.getFunctionScore(),
+        String.join("\n", template.getQueryFragments().values()));
   }
 
   private static void putQueryShape(
@@ -686,7 +752,9 @@ public class SearchV3QueryBuilder {
     }
     if (!synonyms.isEmpty()) {
       context.put(SearchTemplateContextVariables.SYNONYM_QUERIES, synonyms);
-      context.put(SearchTemplateContextVariables.SYNONYMS, synonyms);
+      context.put(
+          SearchTemplateContextVariables.SYNONYMS,
+          SearchTemplateMustache.synonymElements(synonyms));
     }
     if (shape.wildcardTerm != null) {
       context.put(SearchTemplateContextVariables.WILDCARD_TERM, shape.wildcardTerm);
@@ -728,6 +796,59 @@ public class SearchV3QueryBuilder {
       context.put(SearchTemplateContextVariables.FQN_PARTS, Boolean.TRUE);
       context.put(SearchTemplateContextVariables.FQN_QUERY, shape.fqnQuery);
     }
+    putSpacelessDotted(context, shape);
+  }
+
+  /**
+   * Completeness tiers for a spaceless dotted query. The full path and the qualifier prefix are
+   * each one bounded keyword match, so a deeper name does not add clauses. Patterns treat {@code
+   * *}, {@code ?}, and {@code \} as literals. The name whole-identifier clause uses the full-path
+   * patterns as a filter: the dataset key is indexed on {@code name}, and a shorter key that merely
+   * contains the same tokens would otherwise outrank the bounded path. Patterns keep the written
+   * case. A keyword-root wildcard cannot set {@code case_insensitive}: OpenSearch 3 fails that
+   * shard. {@link SearchTemplateJson#parseQuery} drops the flag and adds the lowercase pattern.
+   */
+  private static void putSpacelessDotted(
+      @Nonnull Map<String, Object> context, @Nonnull SearchTemplateQueryShape shape) {
+    if (!shape.spacelessDotted) {
+      return;
+    }
+    String terminal = shape.terminalSegment;
+    List<String> qualifiers = new ArrayList<>(shape.qualifierSegments);
+    List<String> segments = new ArrayList<>(qualifiers);
+    segments.add(terminal);
+    context.put(SearchTemplateContextVariables.SPACELESS_DOTTED, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.TERMINAL_SEGMENT, terminal);
+    putBoundedPath(
+        context,
+        String.join(".", segments),
+        SearchTemplateContextVariables.DOTTED_PATH,
+        SearchTemplateContextVariables.DOTTED_PATH_PREFIX,
+        SearchTemplateContextVariables.DOTTED_PATH_SUFFIX,
+        SearchTemplateContextVariables.DOTTED_PATH_CONTAINS);
+    // One joined prefix, not one clause set per segment. The query size stays fixed as the path
+    // gets deeper, and a single shared segment is not enough context.
+    putBoundedPath(
+        context,
+        String.join(".", qualifiers),
+        SearchTemplateContextVariables.QUALIFIER_PATH,
+        SearchTemplateContextVariables.QUALIFIER_PATH_PREFIX,
+        SearchTemplateContextVariables.QUALIFIER_PATH_SUFFIX,
+        SearchTemplateContextVariables.QUALIFIER_PATH_CONTAINS);
+  }
+
+  private static void putBoundedPath(
+      @Nonnull Map<String, Object> context,
+      @Nonnull String path,
+      @Nonnull String exact,
+      @Nonnull String prefix,
+      @Nonnull String suffix,
+      @Nonnull String contains) {
+    String literal = SearchTemplateQueryShape.wildcardLiteral(path);
+    context.put(exact, path);
+    context.put(prefix, literal + ".*");
+    context.put(suffix, "*." + literal);
+    context.put(contains, "*." + literal + ".*");
   }
 
   @Nonnull
@@ -1000,11 +1121,7 @@ public class SearchV3QueryBuilder {
     }
     selected.forEach(
         (property, boost) -> {
-          String termField =
-              StructuredPropertyUtils.usesKeywordSubfield(property.valueType())
-                  ? property.fieldPath() + StructuredPropertySubfields.KEYWORD_SUFFIX
-                  : property.fieldPath();
-          terms.add(QueryBuilders.termQuery(termField, termValue).boost(boost));
+          terms.add(QueryBuilders.termQuery(property.fieldPath(), termValue).boost(boost));
         });
     return terms;
   }
@@ -1028,18 +1145,6 @@ public class SearchV3QueryBuilder {
       return null;
     }
     return StructuredPropertyNameValue.disMax(query, queried, properties, weight);
-  }
-
-  @Nonnull
-  private static List<String> searchedFields(@Nonnull Set<SearchFieldConfig> queried) {
-    List<String> names = new ArrayList<>();
-    Set<String> seen = new HashSet<>();
-    for (SearchFieldConfig field : queried) {
-      if (seen.add(field.fieldName())) {
-        names.add(field.fieldName());
-      }
-    }
-    return names;
   }
 
   @Nonnull

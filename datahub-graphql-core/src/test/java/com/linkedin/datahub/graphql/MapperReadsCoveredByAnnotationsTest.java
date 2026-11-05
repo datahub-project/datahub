@@ -92,7 +92,8 @@ public class MapperReadsCoveredByAnnotationsTest {
     "runs.graphql",
     "lifecycle.graphql",
     "dataProduct.graphql",
-    "api.graphql"
+    "api.graphql",
+    "repository.graphql"
   };
 
   /**
@@ -485,6 +486,13 @@ public class MapperReadsCoveredByAnnotationsTest {
             (c, ctx) ->
                 new com.linkedin.datahub.graphql.types.role.DataHubRoleType(c)
                     .batchLoad(List.of("urn:li:dataHubRole:guard"), ctx)));
+    cases.add(
+        new Case(
+            "Repository",
+            "urn:li:repository:guard",
+            (c, ctx) ->
+                new com.linkedin.datahub.graphql.types.repository.RepositoryType(c)
+                    .batchLoad(List.of("urn:li:repository:guard"), ctx)));
     cases.add(
         new Case(
             "Role",

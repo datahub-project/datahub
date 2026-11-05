@@ -7,7 +7,7 @@ import { EntityTab } from '@app/entityV2/shared/types';
 
 const routeToTab = vi.fn();
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({ entityData: {}, loading: false }),
     useBaseEntity: () => ({}),
     useRouteToTab: () => routeToTab,

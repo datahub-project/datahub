@@ -9,7 +9,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/glossaryNode/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -28,7 +28,7 @@ import {
 } from '@app/entityV2/shared/profileChunks';
 import { EntityTab } from '@app/entityV2/shared/types';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
-import { FetchedEntity } from '@app/lineage/types';
+import { FetchedEntity } from '@app/lineageV3/types';
 
 import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '@types';
@@ -39,6 +39,7 @@ const ChildrenTabWrapper = lazyProfileComponent(
 );
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.EDIT_GLOSSARY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
@@ -173,6 +174,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),

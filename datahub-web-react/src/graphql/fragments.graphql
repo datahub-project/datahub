@@ -5,6 +5,9 @@ fragment globalTagsFields on GlobalTags {
             type
             name
             description
+            status {
+                removed
+            }
             properties {
                 name
                 colorHex
@@ -173,6 +176,9 @@ fragment glossaryTerm on GlossaryTerm {
     name
     type
     hierarchicalName
+    status {
+        removed
+    }
     properties {
         name
         description
@@ -1628,6 +1634,11 @@ fragment entityDisplayNameFields on Entity {
             name
         }
     }
+    ... on Repository {
+        properties {
+            name
+        }
+    }
     ... on Api {
         properties {
             name
@@ -1957,6 +1968,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetProfile
     canViewDatasetOperations
     canManageAssetSummary
+    canEditLifecycleStage
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {
@@ -1980,6 +1992,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
                 tags {
                     tag {
                         urn
+                        status {
+                            removed
+                        }
                         name
                         properties {
                             name
@@ -1992,6 +2007,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
                 terms {
                     term {
                         urn
+                        status {
+                            removed
+                        }
                         type
                         properties {
                             name

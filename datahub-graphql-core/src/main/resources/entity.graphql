@@ -1439,6 +1439,11 @@ enum EntityType {
   A Semantic Model entity that groups datasets and defines metrics context.
   """
   SEMANTIC_MODEL
+
+  """
+  A source-code repository (GitHub, GitLab, internal SCM, etc.)
+  """
+  REPOSITORY
 }
 
 """
@@ -5309,6 +5314,11 @@ type Tag implements Entity {
   The deprecation status of the Tag
   """
   deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
+
+  """
+  The soft-deletion status of the Tag
+  """
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Granular API for querying edges extending from this entity
@@ -10645,6 +10655,11 @@ input ListUsersInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 """
@@ -10690,6 +10705,11 @@ input ListGroupsInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 type EntityCountResults {
@@ -12881,7 +12901,9 @@ Input provided when getting an invite token
 """
 input GetInviteTokenInput {
   """
-  The urn of the role to get the invite token for
+  The urn of the role to get the invite token for. Reading or creating a link for a role requires
+  the Manage Policies privilege. Omit it to invite a user with no role, which requires only Manage
+  User Credentials.
   """
   roleUrn: String
 }
@@ -12891,7 +12913,9 @@ Input provided when creating an invite token
 """
 input CreateInviteTokenInput {
   """
-  The urn of the role to create the invite token for
+  The urn of the role to create the invite token for. Creating a link for a role requires the
+  Manage Policies privilege. Omit it to invite a user with no role, which requires only Manage User
+  Credentials.
   """
   roleUrn: String
 }

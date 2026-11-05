@@ -466,6 +466,157 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     clearCache();
   }
 
+  /**
+   * With non-primary siblings hidden, an unfiltered search shows only the primary of a dbt +
+   * Snowflake pair, while a platform filter that only the Snowflake table matches still returns it.
+   */
+  @Test
+  public void testHideNonPrimarySiblingsOnlyWithoutFilters() throws Exception {
+    Urn dbtUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD)");
+    Urn tableUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD)");
+    indexSiblingDocument(dbtUrn, "dbt", true, "Orders model");
+    indexSiblingDocument(tableUrn, "snowflake", false, null);
+    syncAfterWrite(getBulkProcessor());
+
+    ElasticSearchService hidingElasticSearchService =
+        buildEntitySearchService(
+            getSearchConfiguration().toBuilder().hideNonPrimarySiblings(true).build());
+    SearchService hidingSearchService =
+        new SearchService(
+            new EntityDocCountCache(
+                operationContext.getEntityRegistry(),
+                elasticSearchService,
+                new EntityDocCountCacheConfiguration()),
+            new CachingEntitySearchService(
+                new ConcurrentMapCacheManager(), hidingElasticSearchService, 100, false),
+            new SimpleRanker(),
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResult unfiltered = searchSiblings(hidingSearchService, null);
+    assertEquals(unfiltered.getNumEntities().intValue(), 1);
+    assertEquals(unfiltered.getEntities().get(0).getEntity(), dbtUrn);
+
+    // GraphQL search adds the document visibility defaults to every request; they must not stop
+    // hiding.
+    Filter visibilityDefaults =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion(
+                                        "lifecycleStage",
+                                        Condition.EQUAL,
+                                        "urn:li:lifecycleStageType:PUBLISHED"),
+                                    buildCriterion(
+                                        "showInGlobalContext", Condition.EQUAL, true, "false")))),
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("lifecycleStage")
+                                        .setCondition(Condition.IS_NULL),
+                                    buildCriterion("state", Condition.EQUAL, true, "UNPUBLISHED"),
+                                    buildCriterion(
+                                        "showInGlobalContext", Condition.EQUAL, true, "false"))))));
+    SearchResult withDefaults = searchSiblings(hidingSearchService, visibilityDefaults);
+    assertEquals(withDefaults.getNumEntities().intValue(), 1);
+    assertEquals(withDefaults.getEntities().get(0).getEntity(), dbtUrn);
+
+    // A view made only of exclusions keeps hiding on.
+    Filter exclusionView =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion("platform", Condition.EQUAL, true, "hive"))))));
+    SearchResult withExclusions = searchSiblings(hidingSearchService, exclusionView);
+    assertEquals(withExclusions.getNumEntities().intValue(), 1);
+    assertEquals(withExclusions.getEntities().get(0).getEntity(), dbtUrn);
+
+    // "Does not exist" selects the member lacking the field: here only the hidden table.
+    Filter lacksNote =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion("siblingNote", Condition.EXISTS, true))))));
+    SearchResult withoutNote = searchSiblings(hidingSearchService, lacksNote);
+    assertEquals(withoutNote.getNumEntities().intValue(), 1);
+    assertEquals(withoutNote.getEntities().get(0).getEntity(), tableUrn);
+
+    Filter platformFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion("platform", Condition.EQUAL, "snowflake"))))));
+    SearchResult filtered = searchSiblings(hidingSearchService, platformFilter);
+    assertEquals(filtered.getNumEntities().intValue(), 1);
+    assertEquals(filtered.getEntities().get(0).getEntity(), tableUrn);
+
+    // Browse v1 follows the same rule: unfiltered it counts only the primary, and a platform
+    // filter that only the table matches still finds it.
+    assertEquals(browseSiblingCount(hidingElasticSearchService, null), 1);
+    assertEquals(browseSiblingCount(hidingElasticSearchService, platformFilter), 1);
+
+    // The default service leaves hiding off, so both members appear.
+    assertEquals(searchSiblings(searchService, null).getNumEntities().intValue(), 2);
+    clearCache();
+  }
+
+  private void indexSiblingDocument(Urn urn, String platform, boolean primary, String siblingNote) {
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    if (siblingNote != null) {
+      document.set("siblingNote", JsonNodeFactory.instance.textNode(siblingNote));
+    }
+    document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+    document.set("keyPart1", JsonNodeFactory.instance.textNode("orders"));
+    document.set("platform", JsonNodeFactory.instance.textNode(platform));
+    document.set("browsePaths", JsonNodeFactory.instance.textNode("/prod/orders"));
+    document.set("hasSiblings", JsonNodeFactory.instance.booleanNode(true));
+    document.set("siblingsPrimary", JsonNodeFactory.instance.booleanNode(primary));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
+  }
+
+  private long browseSiblingCount(ElasticSearchService service, Filter filter) {
+    return service
+        .browse(
+            operationContext.withSearchFlags(flags -> flags.setSkipCache(true)),
+            ENTITY_NAME,
+            "",
+            filter,
+            0,
+            10)
+        .getMetadata()
+        .getTotalNumEntities();
+  }
+
+  private SearchResult searchSiblings(SearchService service, Filter filter) {
+    return service.searchAcrossEntities(
+        operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+        ImmutableList.of(ENTITY_NAME),
+        "orders",
+        filter,
+        null,
+        0,
+        10);
+  }
+
   @Test
   public void testAdvancedSearchSoftDelete() throws Exception {
     final Criterion filterCriterion = buildCriterion("platform", Condition.EQUAL, "hive");

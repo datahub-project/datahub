@@ -32,7 +32,12 @@ public final class SearchTemplateFields {
 
   private static final Set<String> TEXT_FIELDS =
       Set.of("name", "qualifiedName", "description", "other");
-  private static final Set<String> NAME_FIELDS = Set.of("name", "qualifiedName");
+
+  /**
+   * Labels that each keep their own query group, so a hit in name, qualifiedName, and id does not
+   * add those scores together. Every other label shares one group.
+   */
+  public static final Set<String> IDENTITY_FIELDS = Set.of("name", "qualifiedName", "id");
 
   private SearchTemplateFields() {}
 
@@ -53,27 +58,61 @@ public final class SearchTemplateFields {
     return names;
   }
 
-  /** Identity fields for a single word or a dotted name. */
+  /**
+   * Analyzed subfields of one indexed label. The label is already one degree: {@code qualifiedName}
+   * does not include {@code qualifiedName_1}. A higher degree is its own list.
+   */
+  @Nonnull
+  public static List<String> labelAnalyzedFields(
+      @Nonnull List<SearchFieldConfig> fields, @Nonnull String label) {
+    List<SearchFieldConfig> matched = new ArrayList<>();
+    for (SearchFieldConfig field : fields) {
+      if (label.equals(field.shortName()) && analyzedText(field.fieldName())) {
+        matched.add(field);
+      }
+    }
+    return analyzedFields(matched);
+  }
+
+  /**
+   * Drops one indexed label and its degree copies from a shared best_fields list. {@code
+   * qualifiedName_1} is not added to the degree-0 {@code qualifiedNameFields} list; that degree
+   * needs its own list. Leaving the copy here lets a related field outrank the bounded degree-0
+   * clause.
+   */
+  @Nonnull
+  public static List<String> withoutLabel(@Nonnull List<String> analyzed, @Nonnull String label) {
+    return withoutLabels(analyzed, Set.of(label));
+  }
+
+  /** Drops indexed labels and their degree copies from a shared best_fields list. */
+  @Nonnull
+  public static List<String> withoutLabels(
+      @Nonnull List<String> analyzed, @Nonnull Set<String> labels) {
+    List<String> kept = new ArrayList<>();
+    for (String entry : analyzed) {
+      if (!labels.contains(textBase(analyzedRoot(entry)))) {
+        kept.add(entry);
+      }
+    }
+    return kept;
+  }
+
+  /** Degree-zero identity fields for a single word or a dotted name. */
   @Nonnull
   public static List<String> identityAnalyzedFields(@Nonnull List<SearchFieldConfig> fields) {
     List<SearchFieldConfig> identity = new ArrayList<>();
     for (SearchFieldConfig field : fields) {
-      if (NAME_FIELDS.contains(textBase(field.fieldName()))
-          || NAME_FIELDS.contains(field.shortName())) {
+      if (IDENTITY_FIELDS.contains(field.shortName())) {
         identity.add(field);
       }
     }
     return analyzedFields(identity);
   }
 
+  /** The exact field for an indexed name. A V3 keyword root is the exact field. */
   @Nonnull
   public static String keywordPath(@Nonnull String indexedName) {
-    if (URN_FIELD.equals(indexedName)) {
-      return URN_FIELD;
-    }
-    if (TEXT_FIELDS.contains(textBase(indexedName))) {
-      return indexedName + StructuredPropertySubfields.KEYWORD_SUFFIX;
-    }
     return indexedName;
   }
 
@@ -99,6 +138,14 @@ public final class SearchTemplateFields {
   public static boolean analyzedText(@Nonnull String indexedName) {
     return indexedName.endsWith(StructuredPropertySubfields.TEXT_SUFFIX)
         || indexedName.endsWith(StructuredPropertySubfields.STEMMED_SUFFIX);
+  }
+
+  @Nonnull
+  private static String analyzedRoot(@Nonnull String analyzedEntry) {
+    int caret = analyzedEntry.lastIndexOf('^');
+    String name = caret > 0 ? analyzedEntry.substring(0, caret) : analyzedEntry;
+    int dot = name.indexOf('.');
+    return dot < 0 ? name : name.substring(0, dot);
   }
 
   @Nonnull

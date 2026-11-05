@@ -6,7 +6,7 @@ import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sid
 // Shared mutable state so each test can set the owners returned by the mocked entity context.
 const mockState = vi.hoisted(() => ({ owners: [] as any[] }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({
         entityType: 'DATASET',
         entityData: { ownership: { owners: mockState.owners }, privileges: {} },
