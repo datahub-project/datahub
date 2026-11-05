@@ -172,8 +172,7 @@ public class Es8BulkListener
     int unrecovered = 0;
     if (objects != null) {
       for (Object context : objects) {
-        DocWriteRequest<?> writeRequest =
-            context instanceof DocWriteRequest ? (DocWriteRequest<?>) context : null;
+        DocWriteRequest<?> writeRequest = writeRequestFrom(context);
         if (writeRequest != null
             && requeueSupport != null
             && requeueSupport.tryRequeue(writeRequest)) {
@@ -282,8 +281,9 @@ public class Es8BulkListener
       return;
     }
     for (Object context : objects) {
-      if (context instanceof DocWriteRequest) {
-        requeueSupport.clearAttempts((DocWriteRequest<?>) context);
+      DocWriteRequest<?> writeRequest = writeRequestFrom(context);
+      if (writeRequest != null) {
+        requeueSupport.clearAttempts(writeRequest);
       }
     }
   }
@@ -293,8 +293,22 @@ public class Es8BulkListener
     if (objects == null || index >= objects.size()) {
       return null;
     }
-    Object context = objects.get(index);
-    return context instanceof DocWriteRequest ? (DocWriteRequest<?>) context : null;
+    return writeRequestFrom(objects.get(index));
+  }
+
+  /**
+   * The ES8 ingester context is the completion {@link BulkProcessorCompletionTracker.Submission}.
+   * Older callers still pass the write request itself.
+   */
+  @Nullable
+  private static DocWriteRequest<?> writeRequestFrom(@Nullable final Object context) {
+    if (context instanceof DocWriteRequest) {
+      return (DocWriteRequest<?>) context;
+    }
+    if (context instanceof BulkProcessorCompletionTracker.Submission) {
+      return ((BulkProcessorCompletionTracker.Submission) context).getRequest();
+    }
+    return null;
   }
 
   private boolean isDocumentMissing(ElasticsearchException failure) {

@@ -634,6 +634,12 @@ public final class BulkProcessorCompletionTracker {
       this.request = request;
       this.batchThread = Thread.currentThread();
     }
+
+    /** The write this submission is waiting on. The ES8 bulk context is this object. */
+    @Nonnull
+    public DocWriteRequest<?> getRequest() {
+      return request;
+    }
   }
 
   public static final class DrainBoundary {
