@@ -1,7 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.ViewAuthorizationTestContexts.contextHiding;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -10,10 +13,15 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
+import com.linkedin.datahub.graphql.generated.LineageSearchPath;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageInput;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
+import com.linkedin.metadata.config.shared.LimitConfig;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.AggregationMetadataArray;
@@ -160,5 +168,46 @@ public class SearchAcrossLineageResolverTest {
     final SearchAcrossLineageResult entity = entities.get(0);
     assertEquals(entity.getEntity().getUrn(), TARGET_URN_STRING);
     assertEquals(entity.getEntity().getType(), EntityType.DATASET);
+  }
+
+  @Test
+  public void testUnviewableStartAnswersAsMissing() throws Exception {
+    final QueryContext mockContext = contextHiding(UrnUtils.getUrn(SOURCE_URN_STRING));
+    when(mockContext.getDataHubAppConfig()).thenReturn(appConfigWithGraphLimit());
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    final SearchAcrossLineageInput input = new SearchAcrossLineageInput();
+    input.setCount(COUNT);
+    input.setDirection(LineageDirection.DOWNSTREAM);
+    input.setQuery(QUERY);
+    input.setStart(5);
+    input.setUrn(SOURCE_URN_STRING);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    final SearchAcrossLineageResults results = _resolver.get(_dataFetchingEnvironment).join();
+
+    assertEquals(results.getStart(), 5);
+    assertEquals(results.getCount(), COUNT);
+    assertEquals(results.getTotal(), 0);
+    assertTrue(results.getSearchResults().isEmpty());
+    assertEquals(results.getFacets().size(), 1);
+    assertEquals(results.getFacets().get(0).getField(), "degree");
+    assertEquals(results.getLineageSearchPath(), LineageSearchPath.TORTOISE);
+    assertFalse(results.getIsPartial());
+    verify(_entityClient, never())
+        .searchAcrossLineage(
+            any(), any(), any(), anyList(), any(), any(), any(), any(), anyInt(), any());
+  }
+
+  private static DataHubAppConfiguration appConfigWithGraphLimit() {
+    final DataHubAppConfiguration appConfig = new DataHubAppConfiguration();
+    appConfig.setGraphService(
+        GraphServiceConfiguration.builder()
+            .limit(
+                LimitConfig.builder()
+                    .results(
+                        ResultsLimitConfig.builder().apiDefault(10).max(1000).strict(false).build())
+                    .build())
+            .build());
+    return appConfig;
   }
 }

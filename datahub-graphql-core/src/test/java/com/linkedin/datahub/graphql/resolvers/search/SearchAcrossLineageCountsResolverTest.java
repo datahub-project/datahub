@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.ViewAuthorizationTestContexts.contextHiding;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -332,5 +334,20 @@ public class SearchAcrossLineageCountsResolverTest {
       }
     }
     return false;
+  }
+
+  @Test
+  public void testUnviewableStartCountsNothing() throws Exception {
+    final QueryContext context =
+        contextHiding(
+            UrnUtils.getUrn(SOURCE_URN),
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD)"));
+    when(_environment.getContext()).thenReturn(context);
+    when(_environment.getArgument(eq("input"))).thenReturn(input());
+
+    assertEquals(_resolver.get(_environment).join().getTotal(), 0);
+    verify(_entityClient, never())
+        .searchAcrossLineage(
+            any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt());
   }
 }

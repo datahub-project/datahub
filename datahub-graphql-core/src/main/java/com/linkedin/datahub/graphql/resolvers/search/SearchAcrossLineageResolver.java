@@ -172,6 +172,10 @@ public class SearchAcrossLineageResolver
               searchFlags = new SearchFlags().setFulltext(true).setSkipHighlighting(true);
             }
             List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
+            if (UnviewableLineageStart.isUnviewable(context, urn)) {
+              return UrnSearchAcrossLineageResultsMapper.map(
+                  context, UnviewableLineageStart.emptySearchResult(context, start, count));
+            }
             LineageSearchResult salResults =
                 _entityClient.searchAcrossLineage(
                     context

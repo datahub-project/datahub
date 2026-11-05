@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.post;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.ViewAuthorizationTestContexts.contextHiding;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -13,6 +14,10 @@ import com.linkedin.common.MediaType;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.ViewAuthorizationSearchUtils;
+import com.linkedin.datahub.graphql.generated.AndFilterInput;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListPostsInput;
 import com.linkedin.datahub.graphql.generated.ListPostsResult;
 import com.linkedin.entity.Aspect;
@@ -20,6 +25,9 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -31,7 +39,12 @@ import com.linkedin.post.PostInfo;
 import com.linkedin.post.PostType;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -128,5 +141,81 @@ public class ListPostsResolverTest {
     assertEquals(result.getCount(), 10);
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getPosts().size(), 1);
+  }
+
+  private static final String RESOURCE_URN = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.t,PROD)";
+
+  @Test
+  public void testViewableResourceFiltersOnIt() throws Exception {
+    final ListPostsInput input = new ListPostsInput();
+    input.setResourceUrn(RESOURCE_URN);
+
+    final Filter filter = listPostsAndCaptureFilter(input, getMockAllowContext());
+
+    assertTrue(filterFields(filter).contains("target"));
+  }
+
+  @Test
+  public void testUnviewableResourceAnswersAsMissing() throws Exception {
+    final ListPostsInput input = new ListPostsInput();
+    input.setResourceUrn(RESOURCE_URN);
+
+    final Filter filter =
+        listPostsAndCaptureFilter(input, contextHiding(Urn.createFromString(RESOURCE_URN)));
+
+    assertEquals(filter, ViewAuthorizationSearchUtils.matchNothingFilter());
+  }
+
+  @Test
+  public void testUnviewableResourceKeepsOtherFilters() throws Exception {
+    final ListPostsInput input = new ListPostsInput();
+    input.setResourceUrn(RESOURCE_URN);
+    input.setOrFilters(
+        new ArrayList<>(
+            List.of(
+                new AndFilterInput(
+                    List.of(
+                        new FacetFilterInput(
+                            "type",
+                            List.of("HOME_PAGE_ANNOUNCEMENT"),
+                            false,
+                            FilterOperator.EQUAL))))));
+
+    final Filter filter =
+        listPostsAndCaptureFilter(input, contextHiding(Urn.createFromString(RESOURCE_URN)));
+
+    final Set<String> fields = filterFields(filter);
+    assertFalse(fields.isEmpty());
+    assertFalse(fields.contains("target"));
+  }
+
+  private Filter listPostsAndCaptureFilter(final ListPostsInput input, final QueryContext context)
+      throws Exception {
+    when(_dataFetchingEnvironment.getContext()).thenReturn(context);
+    when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
+    when(_entityClient.search(any(), eq(POST_ENTITY_NAME), any(), any(), any(), anyInt(), anyInt()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setMetadata(new SearchResultMetadata())
+                .setFrom(0)
+                .setPageSize(20)
+                .setNumEntities(0));
+    when(_entityClient.batchGetV2(any(), eq(POST_ENTITY_NAME), any(), any())).thenReturn(Map.of());
+
+    _resolver.get(_dataFetchingEnvironment).join();
+
+    final ArgumentCaptor<Filter> filter = ArgumentCaptor.forClass(Filter.class);
+    verify(_entityClient)
+        .search(any(), eq(POST_ENTITY_NAME), any(), filter.capture(), any(), anyInt(), anyInt());
+    return filter.getValue();
+  }
+
+  private static Set<String> filterFields(final Filter filter) {
+    return filter.getOr().stream()
+        .map(ConjunctiveCriterion::getAnd)
+        .flatMap(List::stream)
+        .map(Criterion::getField)
+        .collect(Collectors.toSet());
   }
 }

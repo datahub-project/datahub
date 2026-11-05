@@ -119,6 +119,11 @@ public class ScrollAcrossLineageResolver
               searchFlags = null;
             }
 
+            if (UnviewableLineageStart.isUnviewable(context, urn)) {
+              return UrnScrollAcrossLineageResultsMapper.map(
+                  context, UnviewableLineageStart.emptyScrollResult(context, count));
+            }
+
             return UrnScrollAcrossLineageResultsMapper.map(
                 context,
                 _entityClient.scrollAcrossLineage(

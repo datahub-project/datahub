@@ -1,14 +1,19 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.ViewAuthorizationTestContexts.contextHiding;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyList;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Authentication;
@@ -23,6 +28,10 @@ import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageResults;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
+import com.linkedin.metadata.config.shared.LimitConfig;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.AggregationMetadataArray;
@@ -152,5 +161,41 @@ public class ScrollAcrossLineageResolverTest {
     final SearchAcrossLineageResult entity = entities.get(0);
     assertEquals(entity.getEntity().getUrn(), TARGET_URN_STRING);
     assertEquals(entity.getEntity().getType(), EntityType.DATASET);
+  }
+
+  @Test
+  public void testUnviewableStartAnswersAsMissing() throws Exception {
+    final QueryContext mockContext = contextHiding(UrnUtils.getUrn(SOURCE_URN_STRING));
+    final DataHubAppConfiguration appConfig = new DataHubAppConfiguration();
+    appConfig.setGraphService(
+        GraphServiceConfiguration.builder()
+            .limit(
+                LimitConfig.builder()
+                    .results(
+                        ResultsLimitConfig.builder().apiDefault(10).max(1000).strict(false).build())
+                    .build())
+            .build());
+    when(mockContext.getDataHubAppConfig()).thenReturn(appConfig);
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    final ScrollAcrossLineageInput input = new ScrollAcrossLineageInput();
+    input.setCount(COUNT);
+    input.setDirection(LineageDirection.DOWNSTREAM);
+    input.setQuery(QUERY);
+    input.setUrn(SOURCE_URN_STRING);
+    input.setTypes(List.of(EntityType.DATASET));
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    final ScrollAcrossLineageResults results = _resolver.get(_dataFetchingEnvironment).join();
+
+    assertEquals(results.getCount(), COUNT);
+    assertEquals(results.getTotal(), 0);
+    assertNull(results.getNextScrollId());
+    assertTrue(results.getSearchResults().isEmpty());
+    assertEquals(results.getFacets().size(), 1);
+    assertEquals(results.getFacets().get(0).getField(), "degree");
+    assertFalse(results.getIsPartial());
+    verify(_entityClient, never())
+        .scrollAcrossLineage(
+            any(), any(), any(), anyList(), any(), any(), any(), any(), any(), any(), anyInt());
   }
 }
