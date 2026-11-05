@@ -103,12 +103,11 @@ from datahub.ingestion.source.aws.tag_entities import (
     LakeFormationTagPlatformResourceId,
 )
 from datahub.ingestion.source.common.presto_view_decoder import (
-    FALLBACK_HIVE_TYPE,
     PrestoViewColumn,
     decode_presto_view,
+    get_presto_view_column_schema,
     get_presto_view_columns,
     is_presto_view,
-    trino_type_to_hive_type,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -148,7 +147,6 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataAttributionClass,
-    NullTypeClass,
     OperationClass,
     OperationTypeClass,
     OwnerClass,
@@ -3175,38 +3173,18 @@ class GlueSource(StatefulIngestionSourceBase):
         fields: List[SchemaField] = []
         unconverted_columns: List[str] = []
         for column in view_columns:
-            try:
-                hive_type = trino_type_to_hive_type(column["type"])
-                conversion_failed = False
-            except ValueError:
-                # Too long or too deeply nested to convert; keep the column.
-                hive_type = FALLBACK_HIVE_TYPE
-                conversion_failed = True
-            schema_fields = get_schema_fields_for_hive_column(
-                hive_column_name=column["name"],
-                hive_column_type=hive_type,
-                default_nullable=True,
-            )
-            if schema_fields:
-                # The Hive parser falls back to NullType instead of raising when it
-                # cannot read a type (for a nested field too), so surface those
-                # columns rather than count the view as fully recovered.
-                if conversion_failed or any(
-                    isinstance(field.type.type, NullTypeClass)
-                    for field in schema_fields
-                ):
-                    unconverted_columns.append(f"{column['name']} ({column['type']})")
-                # Keep the engine's own type (e.g. `timestamp(3) with time zone`)
-                # rather than the Hive approximation used to build the field.
-                schema_fields[0].nativeDataType = column["type"]
+            column_schema = get_presto_view_column_schema(column)
+            if column_schema.type_unresolved:
+                unconverted_columns.append(f"{column['name']} ({column['type']})")
+            if column_schema.fields:
                 self._apply_column_lf_tags(
-                    schema_fields,
+                    column_schema.fields,
                     column["name"],
                     column_tags,
                     column_parent_tags,
                     column_parent_origin,
                 )
-                fields.extend(schema_fields)
+                fields.extend(column_schema.fields)
 
         if unconverted_columns:
             self.report.num_view_columns_type_unresolved += len(unconverted_columns)

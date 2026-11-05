@@ -30,36 +30,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
 )
 from datahub.ingestion.source.profiling.config import ProfilingConfig
-
-
-def make_config(**profiling_overrides: Any) -> BigQueryV2Config:
-    return BigQueryV2Config.parse_obj(
-        {
-            "project_id": "test-project-123456",
-            "profiling": {"enabled": True, **profiling_overrides},
-        }
-    )
-
-
-def make_table(
-    name: str = "test_table",
-    rows_count: Optional[int] = 10000,
-    external: bool = False,
-    max_partition_id: Optional[str] = None,
-    **kwargs: Any,
-) -> BigqueryTable:
-    now = datetime.now(timezone.utc)
-    return BigqueryTable(
-        name=name,
-        comment="",
-        rows_count=rows_count,
-        size_in_bytes=1_000_000 if rows_count else None,
-        last_altered=now - timedelta(days=1),
-        created=now - timedelta(days=30),
-        external=external,
-        max_partition_id=max_partition_id,
-        **kwargs,
-    )
+from tests.unit.bigquery.conftest import make_profiling_config, make_table
 
 
 def make_partition_info(type_: str, field: str, fields: List[str]) -> SimpleNamespace:
@@ -75,7 +46,7 @@ def make_partition_info(type_: str, field: str, fields: List[str]) -> SimpleName
 
 
 def test_partition_discovery_strategic_dates():
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     dates = discovery._get_strategic_candidate_dates()
 
     assert len(dates) == 2
@@ -91,7 +62,7 @@ def test_partition_filters_from_max_partition_id():
     Verifies that a valid YYYYMMDD max_partition_id is converted directly to a DATE filter,
     and that sentinel values (__NULL__, __UNPARTITIONED__) are treated as "no partition info".
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     filters = discovery._get_partition_filters_from_max_partition_id(
         make_table(max_partition_id="20241115"),
@@ -129,7 +100,7 @@ def test_max_partition_id_skipped_for_range_partition():
     RANGE partition it is a lexicographic max ("9000" > "19000"). The zero-scan fast path
     must be skipped for RANGE tables so the floor is resolved numerically downstream.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     table = make_table(max_partition_id="9000")
     table.partition_info = make_partition_info("RANGE", "bucket_id", ["bucket_id"])  # type: ignore[assignment]
@@ -150,7 +121,7 @@ def test_max_partition_id_skipped_when_partition_info_absent():
     Interpreting it would build an equality on the floor and profile only that bucket, so
     the zero-scan fast path must be skipped and the value resolved by query discovery.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     table = make_table(max_partition_id="9000")
     table.partition_info = None  # type: ignore[assignment]
@@ -170,7 +141,7 @@ def test_max_partition_id_fills_type_from_partition_info_columns():
     back to the type the schema extractor recorded on partition_info.columns so a
     TIMESTAMP id widens to a half-open range instead of a midnight equality.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     table = make_table(max_partition_id="20241115")
     table.partition_info = SimpleNamespace(  # type: ignore[assignment]
@@ -198,7 +169,7 @@ def test_ingestion_time_pseudo_columns_collapse_to_partitiontime():
     alias for its single partition; they must collapse to one canonical column so the
     single-column discovery paths still apply.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     error = (
         "Cannot query over table 'p.d.t' without a filter over column(s) "
@@ -223,7 +194,7 @@ def test_probe_uses_partition_fetch_job_config():
     """The require-filter probe must carry the partition-fetch timeout so it cannot run
     unbounded on a non-require-filter table (where the probe scans until the LIMIT).
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     captured: List[Any] = []
 
@@ -242,7 +213,7 @@ def test_sampling_projects_only_partition_columns():
     """Sampling reads only the partition columns, so the sample query must project exactly
     those columns rather than `SELECT *`, which would scan every column of a wide table.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     captured: List[str] = []
 
@@ -272,7 +243,7 @@ def test_column_types_resolved_once_when_passed_down():
     the way down, including the sampling last resort, rather than re-querying
     INFORMATION_SCHEMA.COLUMNS, which previously ran several times per table.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     queries_sent: List[str] = []
 
@@ -295,7 +266,7 @@ def test_column_types_resolved_once_when_passed_down():
 
 def test_max_partition_id_used_before_information_schema():
     """When max_partition_id is present it should short-circuit INFORMATION_SCHEMA queries."""
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     query_calls: list = []
 
@@ -325,7 +296,7 @@ def test_partition_detection_via_query_error():
 
     Real BigQuery error format: "filter over column(s) 'event_date'"  (column in quotes).
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     bq_error = (
         "Error 400: Cannot query over table 'my-project.ds.t' without a filter "
@@ -362,7 +333,7 @@ def test_unpartitioned_table_returns_empty_list():
     partitioning columns. That authoritative-empty result means genuinely unpartitioned,
     so get_required_partition_filters returns [] (empty, not None).
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     # Return a real (empty) result shape: no partitioning-column rows. Earlier this mock
     # returned an object lacking `column_name`, so the COLUMNS read raised AttributeError
@@ -387,7 +358,7 @@ def test_require_filter_table_skipped_when_only_is_not_null_fallback():
     but full-scans every partition, which is exactly the inaccurate whole-table profile
     the require-filter skip exists to prevent.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     partition_err = (
         "Cannot query over table 'my-project.ds.t' without a filter. "
@@ -419,7 +390,7 @@ def test_non_require_filter_table_keeps_is_not_null_fallback():
     require-filter tables are skipped on an all-unpruned fallback; external tables keep
     the documented full-scan warning instead.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
         # Authoritative COLUMNS lookup names the partition column without requiring a
@@ -455,7 +426,7 @@ def test_non_date_table_samples_once_in_find_real_values():
             sample_calls += 1
             return ["`region` = 'us'"]
 
-    discovery = CountingSamplingDiscovery(make_config())
+    discovery = CountingSamplingDiscovery(make_profiling_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
         # Authoritative COLUMNS lookup names a non-date partition column; direct value
@@ -480,7 +451,7 @@ def test_non_date_partition_columns_find_most_frequent_value():
     get_required_partition_filters should return a concrete equality filter rather than
     a useless IS NOT NULL placeholder.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
         if "INFORMATION_SCHEMA.COLUMNS" in query:
@@ -510,7 +481,7 @@ def test_max_partition_id_infers_pseudo_column_type_for_hourly_range():
     must infer the TIMESTAMP pseudo-type so the id widens to a half-open hour range instead
     of a date-truncated point equality.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(name="ingestion_hourly", max_partition_id="2024011513")
     table.partition_info = make_partition_info(  # type: ignore[assignment]
         "HOUR", "_PARTITIONTIME", ["_PARTITIONTIME"]
@@ -554,7 +525,7 @@ def test_date_named_string_column_reaches_strategic_dates():
         ) -> Optional[List[str]]:
             return None
 
-    discovery = StrategicOnlyDiscovery(make_config())
+    discovery = StrategicOnlyDiscovery(make_profiling_config())
     table = make_table(name="hive_style")
 
     def execute(query: str, job_config: Any, context: str) -> list:
@@ -593,7 +564,7 @@ def test_non_date_only_table_applies_configured_fallback():
     table = make_table(name="region_tbl")
 
     configured = NonDateDiscovery(
-        make_config(fallback_partition_values={"region": "emea"})
+        make_profiling_config(fallback_partition_values={"region": "emea"})
     )
     filters = configured._find_real_partition_values(
         table, "test-project-123456", "ds", ["region"], lambda *a, **k: []
@@ -601,7 +572,7 @@ def test_non_date_only_table_applies_configured_fallback():
     assert filters == ["`region` = 'emea'"]
 
     # No configured fallback: a non-date-only table can't pin a partition, so skip it.
-    unconfigured = NonDateDiscovery(make_config())
+    unconfigured = NonDateDiscovery(make_profiling_config())
     assert (
         unconfigured._find_real_partition_values(
             table, "test-project-123456", "ds", ["region"], lambda *a, **k: []
@@ -640,7 +611,7 @@ def test_strategic_candidates_prefer_latest_over_completion_order():
         ) -> Optional[List[str]]:
             return None
 
-    discovery = OrderingDiscovery(make_config())
+    discovery = OrderingDiscovery(make_profiling_config())
     table = make_table(name="date_tbl")
 
     filters = discovery._find_real_partition_values(
@@ -655,7 +626,7 @@ def test_compound_partition_date_plus_string():
     The date filter is a real date value; the string filter is the most-common value
     found in the data scoped to that date.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
         if "INFORMATION_SCHEMA.COLUMNS" in query:
@@ -693,7 +664,7 @@ def test_compound_partition_non_date_query_failure_still_returns_date_filter():
     date filter should still be returned so profiling can proceed (with a less
     targeted scan for the string column rather than crashing entirely).
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
         if "INFORMATION_SCHEMA.COLUMNS" in query:
@@ -748,7 +719,7 @@ def test_information_schema_partitions_path():
     """Verify the INFORMATION_SCHEMA.PARTITIONS path: the most recent non-empty partition
     ID is picked and converted to a filter, without scanning actual table data.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
         if "INFORMATION_SCHEMA.COLUMNS" in query and "is_partitioning_column" in query:
@@ -778,7 +749,7 @@ def test_schema_fallback_preserves_ordinal_column_order():
     ordinal_position order (as the query yields them), not sorted alphabetically — a
     composite key is positional and reordering would bind values to the wrong columns.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     # Rows arrive in ordinal_position order (region, then event_date). Alphabetical
     # sorting would swap them to (event_date, region).
@@ -800,7 +771,7 @@ def test_partition_columns_from_table_info_preserves_order_and_dedups():
     """Composite partition columns are positional, so declared order must be preserved
     (not sorted) and duplicates collapsed.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(
         partition_info=PartitionInfo(fields=("region", "event_date", "region"))
     )
@@ -824,7 +795,7 @@ def test_inconclusive_detection_skips_partitioned_table():
         ) -> Tuple[List[str], Optional[str]]:
             return [], "query timed out"
 
-    discovery = ProbeErrorDiscovery(make_config())
+    discovery = ProbeErrorDiscovery(make_profiling_config())
 
     filters = discovery.get_required_partition_filters(
         make_table(name="unknown_state"), "test-project-123456", "ds", execute
@@ -871,7 +842,7 @@ def test_probe_recovered_require_filter_table_skipped_when_values_unavailable():
         ) -> Optional[List[str]]:
             return None
 
-    discovery = ProbeRequireFilterDiscovery(make_config())
+    discovery = ProbeRequireFilterDiscovery(make_profiling_config())
 
     filters = discovery.get_required_partition_filters(
         make_table(name="probe_require_filter"),  # no partition_info / max_partition_id
@@ -899,7 +870,7 @@ def test_authoritative_empty_columns_skips_probe():
                 "probe must not run after an authoritative COLUMNS result"
             )
 
-    discovery = ProbeGuardDiscovery(make_config())
+    discovery = ProbeGuardDiscovery(make_profiling_config())
 
     filters = discovery.get_required_partition_filters(
         make_table(name="authoritative_unpartitioned"),
@@ -915,7 +886,7 @@ def test_date_components_without_year_marked_incomplete():
     """A month/day component without a year can't pin a single partition, so the
     hierarchy must be flagged incomplete (not silently dropped as a complete empty set).
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
         raise AssertionError("no query should run when year is absent")
@@ -938,7 +909,7 @@ def test_value_filter_ranges_for_temporal_columns():
     is the shared range logic that _test_date_candidate's strategic path also delegates
     to, so the exact-bounds assertions here guard both discovery paths.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(partition_info=PartitionInfo(fields=("ts",), type="DAY"))
 
     ts_filter = discovery._value_filter(
@@ -965,7 +936,7 @@ def test_ingestion_time_partition_datetime_override_applies():
     the configured partition_datetime must still apply by inferring the pseudo-column type.
     """
     discovery = PartitionDiscovery(
-        make_config(partition_datetime=datetime(2025, 1, 15))
+        make_profiling_config(partition_datetime=datetime(2025, 1, 15))
     )
     table = make_table(
         partition_info=PartitionInfo(fields=("_PARTITIONTIME",), type="DAY")
@@ -1002,7 +973,7 @@ def test_first_complete_row_requires_coexisting_tuple():
 def test_direct_discovery_timestamp_value_yields_range():
     """A TIMESTAMP value discovered from the latest row must widen to a half-open range
     covering the whole day, not an equality to the single instant."""
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(name="ts_partitioned")
     table.partition_info = make_partition_info("DAY", "ts", ["ts"])  # type: ignore[assignment]
 
@@ -1018,7 +989,7 @@ def test_direct_discovery_timestamp_value_yields_range():
 
 
 def test_profiler_staleness_check():
-    config = make_config(skip_stale_tables=True, staleness_threshold_days=30)
+    config = make_profiling_config(skip_stale_tables=True, staleness_threshold_days=30)
     profiler = BigqueryProfiler(config, BigQueryV2Report())
 
     now = datetime.now(timezone.utc)
@@ -1050,7 +1021,9 @@ def test_batch_kwargs_sampling_threshold():
     inline TABLESAMPLE would double-sample. The partition path never samples (see
     test_batch_kwargs_sampling_with_partition_filter).
     """
-    config = make_config(use_sampling=True, sample_size=1000, profiling_row_limit=10000)
+    config = make_profiling_config(
+        use_sampling=True, sample_size=1000, profiling_row_limit=10000
+    )
     profiler = BigqueryProfiler(config, BigQueryV2Report())
 
     with patch.object(
@@ -1071,11 +1044,15 @@ def test_batch_kwargs_sampling_threshold():
 
 
 def test_batch_kwargs_rejects_invalid_identifier():
-    config = make_config()
+    # Identifiers are validated when they go into generated SQL, here the
+    # partition-filtered SELECT.
+    config = make_profiling_config()
     profiler = BigqueryProfiler(config, BigQueryV2Report())
 
     with patch.object(
-        profiler.partition_discovery, "get_required_partition_filters", return_value=[]
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=["`date_col` = '2023-12-25'"],
     ):
         profiler.get_batch_kwargs(
             make_table(), "valid_dataset", "valid-project-123"
@@ -1093,7 +1070,7 @@ def test_batch_kwargs_partition_spec_classification():
     partitionSpec matches the data actually scanned."""
     # Windowing off, single partition column -> the scan is exactly one partition, so
     # the partition key is set.
-    config = make_config(partition_datetime_window_days=None)
+    config = make_profiling_config(partition_datetime_window_days=None)
     profiler = BigqueryProfiler(config, BigQueryV2Report())
     with patch.object(
         profiler.partition_discovery,
@@ -1137,7 +1114,7 @@ def test_batch_kwargs_partition_spec_classification():
 
     # Windowing on (default) widens the scan to a range, so labeling it with the single
     # anchor partition id would misdescribe the data — the key must be omitted.
-    windowed_config = make_config(partition_datetime_window_days=30)
+    windowed_config = make_profiling_config(partition_datetime_window_days=30)
     windowed_profiler = BigqueryProfiler(windowed_config, BigQueryV2Report())
     with patch.object(
         windowed_profiler.partition_discovery,
@@ -1173,7 +1150,7 @@ def test_batch_kwargs_safety_limit_for_large_unsampled_table():
     """Without sampling enabled or an explicit row limit, a table with >1M rows should
     get a 100k safety LIMIT in the custom_sql to avoid accidentally full-scanning it.
     """
-    config = make_config(use_sampling=False, profiling_row_limit=0)
+    config = make_profiling_config(use_sampling=False, profiling_row_limit=0)
     profiler = BigqueryProfiler(config, BigQueryV2Report())
 
     with patch.object(
@@ -1196,7 +1173,7 @@ def test_batch_kwargs_sampling_with_partition_filter():
     partition of a large table could come back empty; the downstream profiler samples the
     materialized partition instead.
     """
-    config = make_config(use_sampling=True, sample_size=5000)
+    config = make_profiling_config(use_sampling=True, sample_size=5000)
     profiler = BigqueryProfiler(config, BigQueryV2Report())
 
     with patch.object(
@@ -1217,7 +1194,9 @@ def test_external_table_deferred_in_get_workunits():
     """External tables must be routed to deferred partition discovery (wrapped in a
     DeferredExternalTable), not profiled synchronously in the main loop.
     """
-    config = make_config(profile_external_tables=True, partition_profiling_enabled=True)
+    config = make_profiling_config(
+        profile_external_tables=True, partition_profiling_enabled=True
+    )
     profiler = BigqueryProfiler(config, BigQueryV2Report())
     table = make_table(name="ext_table", external=True)
 
@@ -1379,7 +1358,7 @@ def test_partition_discovery_cache_avoids_repeat_info_schema_queries():
     INFORMATION_SCHEMA.COLUMNS query for the whole dataset, so per-table calls hit
     the cache and don't issue further queries.
     """
-    profiler = BigqueryProfiler(make_config(), BigQueryV2Report())
+    profiler = BigqueryProfiler(make_profiling_config(), BigQueryV2Report())
 
     call_count = 0
 
@@ -1412,7 +1391,7 @@ def test_sampling_uses_known_columns_when_info_schema_unavailable():
     run using the partition columns the caller already resolved (from partition_info or
     the require-filter probe error), rather than bailing out.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(name="sampled")
 
     def execute(query: str, job_config: Any, context: str) -> list:
@@ -1445,7 +1424,7 @@ def test_sampling_projects_ingestion_time_pseudo_column():
     never carries the value and sampling silently recovers nothing for ingestion-time
     tables (falling back to a yesterday guess instead of the real latest partition).
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(name="ingestion_time")
     seen_queries = []
 
@@ -1483,7 +1462,7 @@ def test_sampling_infers_temporal_type_for_untyped_datetime():
     partition's half-open range, not emitted as a single-instant equality that profiles
     only one row of the partition.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(name="untyped_ts")
 
     def execute(query: str, job_config: Any, context: str) -> list:
@@ -1531,7 +1510,7 @@ def test_strategic_candidate_path_emits_half_open_range_for_timestamp():
             # Isolate the candidate-filter construction from the co-occurrence enhancement.
             return initial_filters
 
-    discovery = NoEnhanceDiscovery(make_config())
+    discovery = NoEnhanceDiscovery(make_profiling_config())
     table = make_table(partition_info=PartitionInfo(fields=("event_ts",), type="DAY"))
 
     def execute(query: str, job_config: Any, context: str) -> list:
@@ -1566,7 +1545,7 @@ def test_failed_columns_lookup_with_clean_probe_skips_table():
 
     # Default _probe_required_partition_columns stub returns ([], None): a clean probe
     # that discovered no columns. That must not be read as "unpartitioned".
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     filters = discovery.get_required_partition_filters(
         make_table(name="failed_columns_clean_probe"),
@@ -1609,7 +1588,7 @@ def test_probe_fallback_preserves_column_order():
     def execute(query: str, job_config: Any, context: str) -> list:
         raise RuntimeError("INFORMATION_SCHEMA unavailable")
 
-    discovery = OrderedProbeDiscovery(make_config())
+    discovery = OrderedProbeDiscovery(make_profiling_config())
     discovery.get_required_partition_filters(
         make_table(name="composite_probe"), "test-project-123456", "ds", execute
     )
@@ -1623,7 +1602,7 @@ def test_ddl_columns_survive_type_lookup_failure():
     columns: an empty dict is indistinguishable from an unpartitioned table and would
     trigger a full scan. The column is kept with an unknown ("") type instead.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
         raise RuntimeError("INFORMATION_SCHEMA.COLUMNS unavailable")
@@ -1647,7 +1626,7 @@ def test_fallback_uses_range_for_temporal_column_not_full_scan():
     the exact scan this feature exists to avoid; previously fallback_date was only applied
     to year/month/day component columns and real temporal columns silently got IS NOT NULL.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     filters = discovery._get_fallback_partition_filters(
         make_table(name="daily_events"),
@@ -1677,7 +1656,7 @@ def test_configured_iso_string_fallback_widens_temporal_partition():
     handling and must not be misread as a date.
     """
     discovery = PartitionDiscovery(
-        make_config(fallback_partition_values={"event_ts": "2025-01-15"})
+        make_profiling_config(fallback_partition_values={"event_ts": "2025-01-15"})
     )
     table = make_table(partition_info=PartitionInfo(fields=("event_ts",), type="DAY"))
 
@@ -1705,7 +1684,9 @@ def test_configured_iso_string_fallback_widens_temporal_partition():
     # A tz-bearing DATETIME config value is not widened into a naive range; it defers to
     # create_safe_filter (which rejects it), so the column falls back to IS NOT NULL.
     discovery_tz = PartitionDiscovery(
-        make_config(fallback_partition_values={"dt": "2025-01-15T10:00:00+05:00"})
+        make_profiling_config(
+            fallback_partition_values={"dt": "2025-01-15T10:00:00+05:00"}
+        )
     )
     tz_result = discovery_tz._create_fallback_filter_for_column(
         make_table(), "dt", datetime(2025, 1, 15), "DATETIME"
@@ -1718,7 +1699,7 @@ def test_value_filter_widens_date_string_at_month_granularity():
     so a configured DATE string must be widened to the month's half-open range rather than
     emitted as a single-day equality that matches only one day of the partition.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(partition_info=PartitionInfo(fields=("d",), type="MONTH"))
 
     result = discovery._value_filter(table, "d", "2025-01-15", "DATE")
@@ -1734,7 +1715,9 @@ def test_partition_datetime_override_rejects_offset_bearing_datetime():
     """
     report = BigQueryV2Report()
     offset_dt = datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone(timedelta(hours=5)))
-    discovery = PartitionDiscovery(make_config(partition_datetime=offset_dt), report)
+    discovery = PartitionDiscovery(
+        make_profiling_config(partition_datetime=offset_dt), report
+    )
 
     filters = discovery._get_partition_datetime_override_filters(
         make_table(name="tz_override"), ["dt"], {"dt": "DATETIME"}
@@ -1752,7 +1735,7 @@ def test_datetime_column_accepts_utc_aware_moment():
     datetime.now(timezone.utc)-based) has a zero offset, so dropping it is a no-op: it
     must still widen to a range rather than degrade to a full scan.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(partition_info=PartitionInfo(fields=("dt",), type="DAY"))
 
     # Direct value: a UTC-aware datetime object widens like a naive one.
@@ -1774,7 +1757,7 @@ def test_fallback_date_component_unknown_type_scans_all():
     literal — an untyped `year = '2026'` string is rejected against an INT64 column — so
     the fallback must degrade to a full scan (IS NOT NULL) rather than emit that literal.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     result = discovery._create_fallback_filter_for_column(
         make_table(name="component_no_type"), "year", datetime(2026, 3, 1), ""
@@ -1788,7 +1771,9 @@ def test_configured_int_fallback_infers_int64_for_untyped_column():
     `col = 5` (INT64), not `col = '5'` — BigQuery rejects INT64 = STRING. Covers the
     fallback-filter builder path (_create_fallback_filter_for_column -> _value_filter).
     """
-    discovery = PartitionDiscovery(make_config(fallback_partition_values={"shard": 5}))
+    discovery = PartitionDiscovery(
+        make_profiling_config(fallback_partition_values={"shard": 5})
+    )
 
     result = discovery._create_fallback_filter_for_column(
         make_table(name="int_fallback"), "shard", datetime(2026, 3, 1), ""
@@ -1802,7 +1787,7 @@ def test_process_non_date_columns_infers_int64_for_composite_constraint():
     `col = 5`, not `col = '5'`: an untyped int would be quoted, BigQuery rejects
     INT64 = STRING, and later composite-key columns would end up unconstrained.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     queries: List[str] = []
 
     def execute(query: str, job_config: Any, context: str) -> list:
@@ -1923,7 +1908,7 @@ def test_cache_empty_metadata_skips_per_table_schema_query():
         ) -> Tuple[List[str], bool]:
             raise AssertionError("per-table COLUMNS query should have been skipped")
 
-    discovery = GuardDiscovery(make_config())
+    discovery = GuardDiscovery(make_profiling_config())
     table = make_table(name="plain")
 
     result = discovery.get_required_partition_filters(
@@ -1942,7 +1927,7 @@ def test_date_column_hour_granularity_degrades_to_day():
     is HOUR, an hourly range would floor both bounds to the same YYYY-MM-DD and match zero
     rows; the filter must degrade to a full-day range (mirroring FilterBuilder's guard).
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(
         partition_info=PartitionInfo(fields=("event_date",), type="HOUR")
     )
@@ -1960,7 +1945,7 @@ def test_guessed_fallback_date_emits_warning():
     so the fallback must warn operators to pin a known-populated partition.
     """
     report = BigQueryV2Report()
-    discovery = PartitionDiscovery(make_config(), report)
+    discovery = PartitionDiscovery(make_profiling_config(), report)
 
     filters = discovery._get_fallback_partition_filters(
         make_table(name="weekly_events"),
@@ -1989,7 +1974,7 @@ def test_unresolved_date_column_keeps_is_not_null_placeholder():
         ) -> Dict[str, str]:
             return {"event_date": "DATE", "other_date": "DATE"}
 
-    discovery = TypedDiscovery(make_config(), report)
+    discovery = TypedDiscovery(make_profiling_config(), report)
 
     def execute(query: str, job_config: Any, context: str) -> list:
         return []
@@ -2023,7 +2008,7 @@ def test_enhance_infers_int64_for_untyped_discovered_component():
         ) -> Dict[str, str]:
             return {"event_date": "DATE"}  # month has no known type
 
-    discovery = TypedDiscovery(make_config())
+    discovery = TypedDiscovery(make_profiling_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
         if context == "discover values for month":
@@ -2049,14 +2034,16 @@ def test_partition_fetch_job_config_applies_timeout_and_byte_cap():
     partition_fetch_max_bytes_billed must cap bytes billed only when configured.
     """
     capped = PartitionDiscovery(
-        make_config(partition_fetch_timeout=45, partition_fetch_max_bytes_billed=1024)
+        make_profiling_config(
+            partition_fetch_timeout=45, partition_fetch_max_bytes_billed=1024
+        )
     )
     job_config = capped._partition_fetch_job_config()
     # The BigQuery client round-trips job_timeout_ms as a string; compare numerically.
     assert int(job_config.job_timeout_ms) == 45000
     assert int(job_config.maximum_bytes_billed) == 1024
 
-    uncapped = PartitionDiscovery(make_config(partition_fetch_timeout=10))
+    uncapped = PartitionDiscovery(make_profiling_config(partition_fetch_timeout=10))
     job_config = uncapped._partition_fetch_job_config()
     assert int(job_config.job_timeout_ms) == 10000
     assert job_config.maximum_bytes_billed is None
@@ -2104,7 +2091,7 @@ def test_filters_from_partition_values_infers_int64_for_untyped_int():
     (INT64), not `col = '5'` (BigQuery rejects INT64 = STRING). A string value stays
     quoted.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     filters = discovery._filters_from_partition_values(
         make_table(),
         {"month": 5, "region": "emea"},
@@ -2119,7 +2106,7 @@ def test_find_max_component_orders_numerically_for_string_components():
     max month is '12', not lexicographic '9'. The generated query casts to INT64 in ORDER
     BY while the discovered value stays a quoted string.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     captured: Dict[str, str] = {}
 
     def execute(query: str, job_config: Any, context: str) -> list:
@@ -2166,7 +2153,7 @@ def test_test_date_candidate_untyped_component_scans_column():
         ) -> Optional[List[str]]:
             return initial_filters
 
-    discovery = LiveProbe(make_config())
+    discovery = LiveProbe(make_profiling_config())
     when = datetime(2024, 3, 9, tzinfo=timezone.utc)
     pinned = discovery._test_date_candidate(
         make_table(),
@@ -2201,7 +2188,9 @@ def test_verify_partition_has_data_bounds_probe_with_fetch_config():
     guardrails.
     """
     discovery = PartitionDiscovery(
-        make_config(partition_fetch_timeout=30, partition_fetch_max_bytes_billed=2048)
+        make_profiling_config(
+            partition_fetch_timeout=30, partition_fetch_max_bytes_billed=2048
+        )
     )
     captured: Dict[str, Any] = {}
 
@@ -2229,7 +2218,9 @@ def test_sampling_probe_bounds_job_config():
     unbounded.
     """
     discovery = PartitionDiscovery(
-        make_config(partition_fetch_timeout=25, partition_fetch_max_bytes_billed=4096)
+        make_profiling_config(
+            partition_fetch_timeout=25, partition_fetch_max_bytes_billed=4096
+        )
     )
     captured: Dict[str, Any] = {}
 
@@ -2277,7 +2268,7 @@ def test_test_date_candidate_int_fallback_infers_int64():
         ) -> Optional[List[str]]:
             return initial_filters
 
-    discovery = LiveProbe(make_config(fallback_partition_values={"shard": 5}))
+    discovery = LiveProbe(make_profiling_config(fallback_partition_values={"shard": 5}))
     result = discovery._test_date_candidate(
         make_table(),
         "test-project-123456",
@@ -2294,7 +2285,7 @@ def test_test_date_candidate_int_fallback_infers_int64():
 def test_max_partition_id_needs_a_resolved_type_even_with_partition_info():
     # An untyped id would become a midnight equality on a TIMESTAMP column or an
     # uncastable literal, so the zero-scan path must defer to query-based discovery.
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(max_partition_id="20241115")
     table.partition_info = make_partition_info("DAY", "event_ts", ["event_ts"])  # type: ignore[assignment]
 
@@ -2307,7 +2298,7 @@ def test_max_partition_id_needs_a_resolved_type_even_with_partition_info():
 def test_external_table_unpruned_fallback_is_skipped():
     # The orchestrator skips an external table with no usable values (the scan is
     # unbounded), so an all-IS NOT NULL fallback must not full-scan it instead.
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     filters = discovery._get_fallback_partition_filters(
         make_table(name="ext", external=True),
@@ -2345,7 +2336,7 @@ def test_strategic_value_lookup_runs_only_for_the_winning_candidate():
             looked_up.append(initial_filters)
             return initial_filters
 
-    discovery = CountingDiscovery(make_config())
+    discovery = CountingDiscovery(make_profiling_config())
 
     filters = discovery._find_real_partition_values(
         make_table(name="date_tbl"),
@@ -2363,7 +2354,7 @@ def test_strategic_value_lookup_runs_only_for_the_winning_candidate():
 def test_tablesample_is_skipped_on_a_require_filter_table():
     # BigQuery rejects a query without a partition predicate on these tables, and
     # TABLESAMPLE has none, so on a non-date (RANGE) partition it could only fail.
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(name="t")
     table.partition_info = make_partition_info("RANGE", "region_id", ["region_id"])  # type: ignore[assignment]
     sent: List[str] = []
@@ -2389,7 +2380,7 @@ def test_tablesample_is_skipped_on_a_require_filter_table():
 def test_date_sample_still_runs_on_a_require_filter_table():
     # The date sample filters `WHERE <date col> IS NOT NULL`, a predicate on the
     # partitioning column, so BigQuery accepts it on a require-filter table.
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(name="t")
     table.partition_info = make_partition_info("DAY", "event_date", ["event_date"])  # type: ignore[assignment]
     sent: List[str] = []

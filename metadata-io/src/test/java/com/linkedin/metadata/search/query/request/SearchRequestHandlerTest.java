@@ -64,6 +64,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
@@ -1359,6 +1360,30 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           "fieldGlossaryTerms",
           "editedFieldGlossaryTerms");
 
+  private Set<String> fetchedIncluding(Set<String> sources, String... fields) {
+    Set<String> fetched = new HashSet<>(Set.of(fields));
+    fetched.addAll(sources);
+    return fetched;
+  }
+
+  /** Stored paths of these queried labels, without the {@code other} sink or column arrays. */
+  private Set<String> storedSourcesOf(String... labels) {
+    Map<String, List<String>> fields =
+        V3SearchFieldModel.forSearchableEntities(operationContext.getEntityRegistry())
+            .fullTextFields();
+    Set<String> paths = new HashSet<>();
+    for (String label : labels) {
+      for (String path : fields.getOrDefault(label, List.of())) {
+        int separator = path.lastIndexOf('.');
+        String fieldName = separator < 0 ? path : path.substring(separator + 1);
+        if (!V3SearchFields.OTHER.equals(path) && !COLUMN_ARRAYS.contains(fieldName)) {
+          paths.add(path);
+        }
+      }
+    }
+    return paths;
+  }
+
   /**
    * V3 runs the Stage 1 query, with a dis_max root, where V2 runs the V2 query. V3 finds matched
    * fields from the fetched values instead of highlighting.
@@ -1419,8 +1444,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         Set.of(getDatasetSearchSource(skipped, V3_READ_CONFIG, "test").fetchSource().includes()),
         Set.of("urn"));
 
-    // Naming a column array or an aspect path does not fetch it. Selecting name fetches the
-    // stored fields copied into that shared field.
+    // Naming a column array does not fetch it. Selecting name fetches the label and every stored
+    // path that fills it, including the aspect paths.
     OperationContext custom =
         operationContext.withSearchFlags(
             flags ->
@@ -1432,7 +1457,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                             List.of("name", "notSearched", "fieldPaths", "fieldDescriptions"))));
     assertEquals(
         Set.of(getDatasetSearchSource(custom, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name", "id", "title"));
+        fetchedIncluding(storedSourcesOf("name"), "urn", "name", "id", "title"));
     // V2 highlight fields name subfields, which V3 reads from their root field
     OperationContext v2Subfields =
         operationContext.withSearchFlags(
@@ -1446,7 +1471,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(
         Set.of(
             getDatasetSearchSource(v2Subfields, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name", "id", "title", "description"));
+        fetchedIncluding(
+            storedSourcesOf("name", "description"), "urn", "name", "id", "title", "description"));
 
     CustomSearchConfiguration highlightConfig =
         CustomSearchConfiguration.builder()
@@ -1482,9 +1508,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     for (Map.Entry<String, Set<String>> expected :
         Map.of(
                 "names",
-                Set.of("urn", "name", "id", "title"),
+                fetchedIncluding(storedSourcesOf("name"), "urn", "name", "id", "title"),
                 "subfields",
-                Set.of("urn", "name", "id", "title"),
+                fetchedIncluding(storedSourcesOf("name"), "urn", "name", "id", "title"),
                 "off",
                 Set.of("urn"))
             .entrySet()) {
