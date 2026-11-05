@@ -253,8 +253,10 @@ public class KafkaPropertyGoldenTest {
           ctx.getBean("schemaRegistryConfig", KafkaConfiguration.SerDeKeyValueConfig.class);
       sections.put("schemaRegistry.schemaRegistryConfig", flattenSerDe(schemaRegistryConfig));
 
-      // Producers: intercept KafkaProducer construction so nothing connects to a broker. The bean
-      // order matches the order beans are declared in DataHubKafkaProducerFactory.
+      // Producers: intercept KafkaProducer construction so nothing connects to a broker. Beans are
+      // lazy, so each getBean constructs exactly one producer and the capture is tied to its bean.
+      // Request order matters: kafkaProducer mutates the shared KafkaProperties that
+      // dataHubUsageProducer then reads; this order is the one the goldens pin.
       List<Map<String, Object>> producerConfigs = new ArrayList<>();
       try (var ignored =
           mockConstruction(
@@ -262,12 +264,18 @@ public class KafkaPropertyGoldenTest {
               (mockProducer, context) ->
                   producerConfigs.add(
                       new LinkedHashMap<>((Map<String, Object>) context.arguments().get(0))))) {
-        ctx.getBean("kafkaProducer");
-        ctx.getBean("dataHubUsageProducer");
+        for (String producerBean : List.of("kafkaProducer", "dataHubUsageProducer")) {
+          int before = producerConfigs.size();
+          ctx.getBean(producerBean);
+          assertEquals(
+              producerConfigs.size(),
+              before + 1,
+              "expected " + producerBean + " to construct exactly one KafkaProducer");
+          sections.put(
+              "producer." + producerBean,
+              stringify(producerConfigs.get(producerConfigs.size() - 1)));
+        }
       }
-      assertEquals(producerConfigs.size(), 2, "expected exactly two KafkaProducer constructions");
-      sections.put("producer.kafkaProducer", stringify(producerConfigs.get(0)));
-      sections.put("producer.dataHubUsageProducer", stringify(producerConfigs.get(1)));
 
       // Consumers: DefaultKafkaConsumerFactory only holds the config; it never connects.
       Map<String, Object> consumer =
