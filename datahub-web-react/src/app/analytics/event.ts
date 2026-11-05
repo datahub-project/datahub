@@ -80,7 +80,6 @@ export enum EventType {
     MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
-    IngestionSourceConfigurationImpressionEvent,
     IngestionViewAllClickEvent,
     IngestionViewAllClickWarningEvent,
     CreateIngestionSourceEvent,
@@ -663,7 +662,6 @@ export interface IngestionTestConnectionClickEvent extends BaseEvent {
     type: EventType.IngestionTestConnectionClickEvent;
     sourceType: string;
     sourceUrn?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface IngestionTestConnectionCloseEvent extends BaseEvent {
@@ -672,7 +670,6 @@ export interface IngestionTestConnectionCloseEvent extends BaseEvent {
     sourceUrn?: string;
     hasCompleted?: boolean;
     status?: 'success' | 'failure' | 'partialSuccess' | 'running';
-    ingestionOnboardingRedesignV1?: boolean;
     failedCapabilities?: string[];
     durationMs?: number;
 }
@@ -695,13 +692,6 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
     sourceType?: string;
 }
 
-export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
-    type: EventType.IngestionSourceConfigurationImpressionEvent;
-    viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
-    sourceType?: string;
-    sourceUrn?: string;
-}
-
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
@@ -709,7 +699,6 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
@@ -719,7 +708,6 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
-    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -1540,7 +1528,6 @@ export type Event =
     | ProductTourButtonClickEvent
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
-    | IngestionSourceConfigurationImpressionEvent
     | IngestionViewAllClickEvent
     | IngestionViewAllClickWarningEvent
     | AssetPageAddSummaryElementEvent
