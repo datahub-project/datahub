@@ -142,6 +142,9 @@ export function resolveDocumentationSurface(entity: CoreEntity, flags: Documenta
  */
 export const MATRIX_TAG = { name: 'PW Matrix Tag' } as const;
 
+/** The glossary term the matrix specs assign, seeded with the same key-differs-from-name trick. */
+export const MATRIX_TERM = { name: 'PW Matrix Term' } as const;
+
 /**
  * Write one aspect of a core entity directly, so a test starts from known state regardless of
  * what an earlier (possibly failed) run left behind. Uses the same ingest path as the seeder.
@@ -184,4 +187,12 @@ export async function writeEditableDescription(
 /** Clear every tag on the entity. */
 export async function clearTags(gmsRequest: APIRequestContext, entity: CoreEntity): Promise<void> {
   await writeAspect(gmsRequest, entity, 'globalTags', { tags: [] });
+}
+
+/** Clear every glossary term on the entity. */
+export async function clearGlossaryTerms(gmsRequest: APIRequestContext, entity: CoreEntity): Promise<void> {
+  await writeAspect(gmsRequest, entity, 'glossaryTerms', {
+    terms: [],
+    auditStamp: { time: 0, actor: 'urn:li:corpuser:datahub' },
+  });
 }
