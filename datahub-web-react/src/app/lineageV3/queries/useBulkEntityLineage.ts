@@ -91,7 +91,6 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                 showGhostEntities || (rootType === EntityType?.SchemaField && ignoreSchemaFieldStatus),
         },
         onCompleted: (data) => {
-            errorShownRef.current = false;
             const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
             let changed = false;
             // Results are positional & 1:1 with the requested urns. A neighbor the user
@@ -167,6 +166,9 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         ignoreSchemaFieldStatus,
         hideTransformations,
         loading,
+        // Re-select after a time-range change so urns cleared from failedUrnsRef are retried.
+        startTimeMillis,
+        endTimeMillis,
     ]);
 
     return useCallback(

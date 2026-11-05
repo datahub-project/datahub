@@ -10,8 +10,15 @@ import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
 import { GetBulkEntityLineageV2Document } from '@graphql/lineage.generated';
 import { EntityType, LineageDirection } from '@types';
 
+const timeParams = vi.hoisted(() => ({
+    current: { startTimeMillis: undefined, endTimeMillis: undefined } as {
+        startTimeMillis?: number;
+        endTimeMillis?: number;
+    },
+}));
+
 vi.mock('@app/lineageV3/utils/useGetLineageTimeParams', () => ({
-    useGetLineageTimeParams: () => ({ startTimeMillis: undefined, endTimeMillis: undefined }),
+    useGetLineageTimeParams: () => timeParams.current,
 }));
 
 vi.mock('@app/useAppConfig', async (importOriginal) => ({
@@ -78,6 +85,7 @@ function makeContext(): NodeContext {
 
 describe('useBulkEntityLineage', () => {
     beforeEach(() => {
+        timeParams.current = { startTimeMillis: undefined, endTimeMillis: undefined };
         notificationError.mockClear();
     });
 
@@ -104,5 +112,33 @@ describe('useBulkEntityLineage', () => {
         await waitFor(() => expect(notificationError).toHaveBeenCalled());
         // The failed urn is not re-requested in a loop.
         expect(requestCount).toBe(1);
+    });
+
+    it('retries a failed urn after the time range changes', async () => {
+        let requestCount = 0;
+        const mocks = Array.from({ length: 4 }).map(() => ({
+            request: { query: GetBulkEntityLineageV2Document },
+            variableMatcher: () => {
+                requestCount += 1;
+                return true;
+            },
+            error: new Error('backend stalled'),
+        }));
+
+        const context = makeContext();
+        const wrapper = ({ children }: { children?: ReactNode }) => (
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <LineageNodesContext.Provider value={context}>{children}</LineageNodesContext.Provider>
+            </MockedProvider>
+        );
+
+        const { rerender } = renderHook(() => useBulkEntityLineage([URN]), { wrapper });
+        await waitFor(() => expect(notificationError).toHaveBeenCalled());
+        expect(requestCount).toBe(1);
+
+        timeParams.current = { startTimeMillis: 1_000, endTimeMillis: 2_000 };
+        rerender();
+
+        await waitFor(() => expect(requestCount).toBe(2));
     });
 });

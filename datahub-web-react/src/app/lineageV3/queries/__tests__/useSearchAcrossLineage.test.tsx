@@ -146,6 +146,6 @@ describe('useSearchAcrossLineage', () => {
         // nodeVersion bump) but stays retryable — COMPLETE would hide the expand control.
         expect(node.fetchStatus[LineageDirection.Upstream]).toBe(FetchStatus.UNFETCHED);
         expect(context.setNodeVersion).toHaveBeenCalled();
-        expect(notificationError).toHaveBeenCalled();
+        expect(notificationError).toHaveBeenCalledWith(expect.objectContaining({ key: 'lineage-load-error' }));
     });
 });
