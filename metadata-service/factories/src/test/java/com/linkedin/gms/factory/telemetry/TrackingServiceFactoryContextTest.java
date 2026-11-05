@@ -28,8 +28,6 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.testng.annotations.Test;
 
 /**
@@ -49,8 +47,8 @@ public class TrackingServiceFactoryContextTest {
         .withUserConfiguration(
             MixpanelApiFactory.class,
             MixpanelMessageBuilderFactory.class,
-            TrackingServiceFactory.class,
-            OfflineMixpanel.class)
+            TrackingServiceFactory.class)
+        .withInitializer(context -> context.getBeanFactory().addBeanPostProcessor(OFFLINE_MIXPANEL))
         .withBean(
             "dataHubSecretService", SecretService.class, () -> new SecretService("secret", false))
         .withBean("entityService", EntityService.class, () -> mock(EntityService.class))
@@ -142,12 +140,13 @@ public class TrackingServiceFactoryContextTest {
     return JsonNodeFactory.instance.objectNode().put("type", EVENT);
   }
 
-  /** Spies the factory-built Mixpanel client and stops it from sending over the network. */
-  @Configuration(proxyBeanMethods = false)
-  static class OfflineMixpanel {
-    @Bean
-    static BeanPostProcessor offlineMixpanelPostProcessor() {
-      return new BeanPostProcessor() {
+  /**
+   * Spies the factory-built Mixpanel client and stops it from sending over the network. Registered
+   * through an initializer, not a nested {@code @Configuration}, so the component scan in {@link
+   * TrackingServiceFactoryTest} does not pick it up.
+   */
+  private static final BeanPostProcessor OFFLINE_MIXPANEL =
+      new BeanPostProcessor() {
         @Override
         public Object postProcessAfterInitialization(Object bean, String beanName) {
           if (!(bean instanceof MixpanelAPI mixpanel)) {
@@ -162,6 +161,4 @@ public class TrackingServiceFactoryContextTest {
           return offline;
         }
       };
-    }
-  }
 }
