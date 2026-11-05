@@ -148,20 +148,8 @@
     "duration": "42.430s"
   },
   {
-    "filePath": "ingestion-v2/odcs-source.spec.ts",
+    "filePath": "ingestion-v3/odcs-source.spec.ts",
     "duration": "9.118s"
-  },
-  {
-    "filePath": "ingestion-v2/run-history.spec.ts",
-    "duration": "17.254s"
-  },
-  {
-    "filePath": "ingestion-v2/secrets-tab.spec.ts",
-    "duration": "40.549s"
-  },
-  {
-    "filePath": "ingestion-v2/sources.spec.ts",
-    "duration": "53.237s"
   },
   {
     "filePath": "ingestion-v3/run-history.spec.ts",

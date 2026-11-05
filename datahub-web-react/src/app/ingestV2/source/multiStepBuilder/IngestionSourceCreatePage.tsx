@@ -121,7 +121,6 @@ export function IngestionSourceCreatePage() {
                     interval: input.schedule?.interval,
                     numOwners: data.owners?.length,
                     outcome: shouldRun ? 'save_and_run' : 'save',
-                    ingestionOnboardingRedesignV1: true,
                 });
 
                 analytics.event({
@@ -159,8 +158,8 @@ export function IngestionSourceCreatePage() {
             type: EventType.IngestionExitConfigurationEvent,
             exitType: 'cancel',
         });
-        history.push(PageRoutes.INGESTION);
-    }, [history]);
+        history.push(location.state?.backUrl ?? PageRoutes.INGESTION);
+    }, [history, location.state?.backUrl]);
 
     return (
         <DiscardUnsavedChangesConfirmationProvider
