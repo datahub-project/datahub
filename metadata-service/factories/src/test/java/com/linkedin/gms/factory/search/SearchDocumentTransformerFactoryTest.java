@@ -30,6 +30,7 @@ import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
@@ -130,9 +131,12 @@ public class SearchDocumentTransformerFactoryTest {
             "structuredProperties.dropOversizedKeywordValuesFromIndex=true",
             "structuredProperties.keywordMaxLength=0")
         .run(
-            context ->
-                assertThat(structuredPropertyField(context, "a".repeat(17)).get(0).asText())
-                    .isEqualTo("a".repeat(17)));
+            context -> {
+              String atLimit = "a".repeat(ESUtils.KEYWORD_MAXLENGTH);
+              assertThat(structuredPropertyField(context, atLimit).get(0).asText())
+                  .isEqualTo(atLimit);
+              assertThat(structuredPropertyField(context, atLimit + "a").isNull()).isTrue();
+            });
   }
 
   @Test
