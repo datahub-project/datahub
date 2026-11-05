@@ -112,15 +112,6 @@ const BoldText = styled(Text).attrs({ type: 'span', weight: 'semiBold' })`
     word-break: break-word;
 `;
 
-// Matches antd Typography.Paragraph's bottom margin
-const ParagraphText = styled(Text).attrs({ type: 'div' })`
-    color: ${(props) => props.theme.colors.text};
-    font-size: inherit;
-    line-height: inherit;
-    margin-bottom: 1em;
-    word-break: break-word;
-`;
-
 const ThinDivider = styled(Divider)`
     margin: 12px 0px;
     padding: 0px;
@@ -290,7 +281,7 @@ const MessageSection = ({
                     <SecondaryHeader>
                         {t('resultPopover.recommendedAction', { defaultValue: 'Recommended action' })}
                     </SecondaryHeader>
-                    <ParagraphText>{recommendedAction}</ParagraphText>
+                    <Typography.Paragraph>{recommendedAction}</Typography.Paragraph>
                 </ContextRow>
             )}
         </>
