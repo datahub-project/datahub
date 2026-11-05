@@ -71,7 +71,7 @@ from datahub.specific.dataset import DatasetPatchBuilder
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
     SourceCapability.SCHEMA_METADATA,
-    "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+    "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.topic_schema_map`, or found by `use_naming_convention`",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -208,13 +208,7 @@ class SnsSource(AwsMessagingSourceBase):
             self.topics.append(topic)
             self.resolver.add(topic.arn)
             urn = self.urns.topic_urn(topic.arn)
-            schema = (
-                self.registry.get_schema_metadata(topic.name)
-                if self.registry is not None
-                else None
-            )
-            if schema is not None:
-                self.schemas.fetched[urn] = schema
+            schema = self.glue_schema(self.registry, topic.name, urn)
             self.lineage.owned.add(urn)
             subscriptions_listed = str(topic.arn) not in self.incomplete_topics
             dataset = Dataset(

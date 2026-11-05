@@ -4837,7 +4837,7 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+          "description": "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.topic_schema_map`, or found by `use_naming_convention`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -5038,7 +5038,7 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+          "description": "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.queue_schema_map`, or found by `use_naming_convention`",
           "subtype_modifier": null,
           "supported": true
         },

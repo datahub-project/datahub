@@ -31,6 +31,7 @@ from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.schema_classes import SchemaMetadataClass
 
 
 class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
@@ -127,6 +128,15 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             report=self.base_report,
         )
+
+    def glue_schema(
+        self, registry: Optional[MessagingSchemaRegistry], name: str, urn: str
+    ) -> Optional[SchemaMetadataClass]:
+        """A queue or topic's Glue schema, remembered for column lineage."""
+        schema = registry.get_schema_metadata(name) if registry is not None else None
+        if schema is not None:
+            self.schemas.fetched[urn] = schema
+        return schema
 
     def first_resource_arn(self) -> Optional[str]:
         """One resource ARN of this service, used only to read the account id; None

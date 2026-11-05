@@ -1,6 +1,6 @@
 import json
 import sys
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 from unittest.mock import MagicMock
 
 import boto3
@@ -100,6 +100,17 @@ def fine_grained(workunits: List[Any]) -> List[Dict[str, Any]]:
     return result
 
 
+def field_pairs(lineage: List[Dict[str, Any]]) -> List[Tuple[str, str]]:
+    # Path: /fineGrainedLineages/<transform>/<downstream field>/<query>/<upstream field>
+    return sorted(
+        (
+            op["path"].rsplit(",", 1)[-1].rstrip(")"),
+            op["path"].split("/")[3].rsplit(",", 1)[-1].rstrip(")"),
+        )
+        for op in lineage
+    )
+
+
 def test_queue_schema_from_glue(aws: None) -> None:
     sqs_client().create_queue(QueueName="orders")
     register_schema("order-v1")
@@ -178,17 +189,38 @@ def _subscribe(raw: bool) -> SnsSource:
 def test_raw_delivery_gets_field_lineage_for_shared_fields(aws: None) -> None:
     source = _subscribe(raw=True)
     lineage = fine_grained(list(source.get_workunits()))
-    # Path: /fineGrainedLineages/<transform>/<downstream field>/<query>/<upstream field>
-    pairs = sorted(
-        (
-            op["path"].rsplit(",", 1)[-1].rstrip(")"),
-            op["path"].split("/")[3].rsplit(",", 1)[-1].rstrip(")"),
-        )
-        for op in lineage
-    )
     # Matched case-insensitively: the topic's `Amount` feeds the queue's `amount`.
-    assert pairs == [("Amount", "amount"), ("order_id", "order_id")]
+    assert field_pairs(lineage) == [("Amount", "amount"), ("order_id", "order_id")]
     assert source.get_report().column_lineage_edges_emitted == 2
+
+
+def test_raw_delivery_uses_a_topic_schema_already_in_datahub(aws: None) -> None:
+    # No Glue: both schemas come from DataHub.
+    url = sqs_client().create_queue(QueueName="orders")["QueueUrl"]
+    queue_arn = sqs_client().get_queue_attributes(
+        QueueUrl=url, AttributeNames=["QueueArn"]
+    )["Attributes"]["QueueArn"]
+    topic = sns_client().create_topic(Name="order-events")["TopicArn"]
+    sns_client().subscribe(
+        TopicArn=topic,
+        Protocol="sqs",
+        Endpoint=queue_arn,
+        Attributes={"RawMessageDelivery": "true"},
+    )
+    graph = MagicMock()
+    graph.get_schema_metadata.side_effect = lambda urn: (
+        _queue_schema_in_datahub() if urn in (QUEUE_URN, TOPIC_URN) else None
+    )
+    source = SnsSource.create(
+        base_config(include_column_lineage=True, include_subscription_attributes=True),
+        PipelineContext(run_id="schemas-test", graph=graph),
+    )
+    lineage = fine_grained(list(source.get_workunits()))
+    assert field_pairs(lineage) == [
+        ("amount", "amount"),
+        ("order_id", "order_id"),
+        ("unrelated", "unrelated"),
+    ]
 
 
 def test_enveloped_delivery_gets_table_lineage_only(aws: None) -> None:
@@ -230,9 +262,22 @@ def _dead_letter_source(include_column_lineage: bool = True) -> SqsSource:
 def test_dead_letter_queue_gets_identity_field_lineage(aws: None) -> None:
     source = _dead_letter_source()
     lineage = fine_grained(list(source.get_workunits()))
-    assert len(lineage) == 2
     assert all(f"({DLQ_URN}," in op["path"] for op in lineage)
+    assert field_pairs(lineage) == [("Amount", "amount"), ("order_id", "order_id")]
     assert source.get_report().column_lineage_edges_emitted == 2
+
+
+def test_schemas_with_no_shared_fields_get_table_lineage_only(aws: None) -> None:
+    source = _dead_letter_source()
+    graph = source.schemas.graph
+    assert isinstance(graph, MagicMock)
+    disjoint = _queue_schema_in_datahub()
+    disjoint.fields = [f for f in disjoint.fields if f.fieldPath == "unrelated"]
+    graph.get_schema_metadata.side_effect = lambda urn: (
+        disjoint if urn == DLQ_URN else None
+    )
+    assert fine_grained(list(source.get_workunits())) == []
+    assert source.get_report().column_lineage_skipped == {"no fields in common": 1}
 
 
 def _lineage_in_datahub(

@@ -18,12 +18,12 @@ SQS stores opaque messages, so there is no schema by default. If producers regis
 
 Field-level lineage is only added where a message reaches the next hop unchanged, for fields present in both schemas (matched case-insensitively on the simple field path). Schemas come from Glue Schema Registry in the same run or from DataHub. Without a schema on both sides, the edge stays table-level. Most deployments have no schema on one side and see table-level lineage only. The report counts the reason for each hop it skips under `column_lineage_skipped`; with `include_column_lineage` off, nothing is attempted or counted, and existing field edges are left alone.
 
-| Hop                                                 | Column lineage           | Why                                                                           |
-| --------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
-| Queue to its dead-letter queue (`sqs`)              | Yes, field to same field | SQS moves the failed message itself                                           |
-| Topic to queue, raw message delivery (`sns`)        | Yes, field to same field | The queue receives the published message as is                                |
-| Topic to queue, without raw delivery (`sns`)        | No                       | SNS wraps the message in its JSON envelope                                    |
-| Topic to a subscription's dead-letter queue (`sns`) | No                       | AWS doesn't document whether that queue holds the raw message or the envelope |
+| Hop                                                                                  | Column lineage           | Why                                                                           |
+| ------------------------------------------------------------------------------------ | ------------------------ | ----------------------------------------------------------------------------- |
+| Queue to its dead-letter queue (`sqs`)                                               | Yes, field to same field | SQS moves the failed message itself                                           |
+| Topic to queue, raw message delivery (`sns`, with `include_subscription_attributes`) | Yes, field to same field | The queue receives the published message as is                                |
+| Topic to queue, without raw delivery (`sns`)                                         | No                       | SNS wraps the message in its JSON envelope                                    |
+| Topic to a subscription's dead-letter queue (`sns`)                                  | No                       | AWS doesn't document whether that queue holds the raw message or the envelope |
 
 `include_column_lineage` defaults to `glue_schema_registry.enabled`. With it on, each queue with a dead-letter queue costs a DataHub lookup for any schema not read from Glue this run. Set it to `true` without Glue to use schemas already in DataHub, or `false` to turn it off.
 

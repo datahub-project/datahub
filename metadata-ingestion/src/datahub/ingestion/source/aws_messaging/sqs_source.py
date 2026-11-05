@@ -53,7 +53,7 @@ from datahub.sdk import Dataset
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
     SourceCapability.SCHEMA_METADATA,
-    "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+    "Opt-in: AWS Glue Schema Registry schemas listed in `glue_schema_registry.queue_schema_map`, or found by `use_naming_convention`",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -158,13 +158,7 @@ class SqsSource(AwsMessagingSourceBase):
             self.queues.append(queue)
             self.resolver.add(queue.arn)
             urn = self.urns.queue_urn(queue.arn)
-            schema = (
-                self.registry.get_schema_metadata(queue.name)
-                if self.registry is not None
-                else None
-            )
-            if schema is not None:
-                self.schemas.fetched[urn] = schema
+            schema = self.glue_schema(self.registry, queue.name, urn)
             self.lineage.owned.add(urn)
             self.lineage.complete.add(urn)
             yield from Dataset(
