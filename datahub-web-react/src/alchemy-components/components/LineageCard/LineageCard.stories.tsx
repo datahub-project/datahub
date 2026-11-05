@@ -22,14 +22,6 @@ const StyledMenuIcon = styled(Icon)`
     margin: 0 -8px;
 `;
 
-const ContentsWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1.5;
-    padding: 8px;
-`;
-
 const ChildrenTextWrapper = styled.span`
     display: flex;
     gap: 8px;
@@ -151,9 +143,7 @@ export const sandbox: Story = {
                                 {...props}
                                 childrenOpen={childrenOpen}
                                 toggleChildren={() => setChildrenOpen(!childrenOpen)}
-                            >
-                                <ContentsWrapper>Contents!</ContentsWrapper>
-                            </LineageCard>
+                            />
                         </NodeWrapper>
                     </EntityRegistryContext.Provider>
                 </Router>
