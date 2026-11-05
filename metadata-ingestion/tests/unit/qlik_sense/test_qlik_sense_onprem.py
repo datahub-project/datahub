@@ -145,6 +145,8 @@ def test_onprem_lists_stream_and_opens_app(
     assert app.qTitle == "Sales"
     assert [sheet.title for sheet in app.sheets] == ["Overview"]
     assert app.script == LOAD_SCRIPT
+    open_doc = websocket.websocket_send_request.call_args_list[0].kwargs
+    assert open_doc["params"]["qNoData"] is True
     connection = api.get_data_connections()["Sales SQL"]
     assert (connection.platform, connection.database) == ("mssql", "sales_db")
     mock_engine.assert_called_once()
