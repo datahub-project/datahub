@@ -1,7 +1,5 @@
 package io.datahubproject.test.boot;
 
-import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.search.SearchClientShims;
 import io.datahubproject.test.boot.ProcessBoot.Messaging;
 import java.util.Arrays;
 import java.util.List;
@@ -59,17 +57,6 @@ public final class MessagingContract {
           if (!ctx.containsBean("searchClientShims")
               || !ExternalBoundaryStubs.isStub(ctx.getBean("searchClientShims"))) {
             v.add("searchClientShims is not the boot-test stub (bean renamed?)");
-          }
-          if (ctx.containsBean("searchClientShims")) {
-            Set<String> stubbed =
-                new TreeSet<>(
-                    ctx.getBean("searchClientShims", SearchClientShims.class).byCluster().keySet());
-            Set<String> configured =
-                ExternalBoundaryStubs.configuredClusters(
-                    ctx.getBean(ConfigurationProvider.class).getElasticSearch());
-            if (!stubbed.equals(configured)) {
-              v.add("search clusters stubbed " + stubbed + " but configured " + configured);
-            }
           }
         });
     if (messaging == Messaging.KAFKA) {

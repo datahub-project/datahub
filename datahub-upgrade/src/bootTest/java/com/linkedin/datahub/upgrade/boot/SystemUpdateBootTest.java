@@ -8,8 +8,10 @@ import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaSetup;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import io.datahubproject.test.boot.AspectMigrationMutators;
 import io.datahubproject.test.boot.BootContract;
@@ -47,18 +49,51 @@ public class SystemUpdateBootTest {
     boot(Messaging.PGQUEUE);
   }
 
-  private static void boot(Messaging messaging) {
+  /**
+   * A second search cluster with the graph routed to it: the registry must hold both clusters and
+   * route the graph to the secondary one, each with its own client.
+   */
+  @Test
+  public void bootsWithSecondarySearchCluster() {
     try (ConfigurableApplicationContext ctx =
-        ProcessBoot.of(UpgradeConfigurationSelector.class)
-            .profiles("upgrade")
-            .web(WebApplicationType.NONE)
-            .args("-u", "SystemUpdate")
-            .messaging(messaging)
-            // Chain membership is only populated with the flag on; check the full set.
-            .property("featureFlags.aspectMigrationMutatorEnabled", "true")
+        process(Messaging.KAFKA)
+            .property("elasticsearch.clusters.secondary.uri", "http://127.0.0.1:1")
+            .property("elasticsearch.componentCluster.graph", "secondary")
             .start()) {
+      contract(Messaging.KAFKA)
+          .check(
+              (c, v) -> {
+                SearchClusterRegistry registry = c.getBean(SearchClusterRegistry.class);
+                if (!registry.clusterNames().equals(Set.of("primary", "secondary"))) {
+                  v.add(
+                      "search clusters "
+                          + registry.clusterNames()
+                          + ", expected primary+secondary");
+                } else if (!"secondary".equals(registry.clusterNameFor(SearchComponent.GRAPH))) {
+                  v.add("graph routed to " + registry.clusterNameFor(SearchComponent.GRAPH));
+                } else if (registry.clientFor(SearchComponent.GRAPH)
+                    == registry.clientFor(SearchComponent.SEARCH_V2)) {
+                  v.add("graph and search share one client despite different clusters");
+                }
+              })
+          .verify(ctx);
+    }
+  }
+
+  private static void boot(Messaging messaging) {
+    try (ConfigurableApplicationContext ctx = process(messaging).start()) {
       contract(messaging).verify(ctx);
     }
+  }
+
+  private static ProcessBoot process(Messaging messaging) {
+    return ProcessBoot.of(UpgradeConfigurationSelector.class)
+        .profiles("upgrade")
+        .web(WebApplicationType.NONE)
+        .args("-u", "SystemUpdate")
+        .messaging(messaging)
+        // Chain membership is only populated with the flag on; check the full set.
+        .property("featureFlags.aspectMigrationMutatorEnabled", "true");
   }
 
   private static BootContract contract(Messaging messaging) {

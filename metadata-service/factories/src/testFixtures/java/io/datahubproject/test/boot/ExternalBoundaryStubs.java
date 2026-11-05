@@ -3,13 +3,12 @@ package io.datahubproject.test.boot;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.SearchClientShims;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.time.Duration;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -137,25 +136,25 @@ public class ExternalBoundaryStubs
     registry.registerBeanDefinition(name, replacement);
   }
 
-  /** One mock client per configured cluster, mirroring {@code SearchClientShimFactory}. */
+  /**
+   * One mock client per cluster that has a uri, the set {@code SearchClientShimFactory} builds
+   * clients for. Unlike the factory it does not share one client between clusters on the same
+   * endpoint, and it skips the factory's uri, IAM and TLS validation (no real connection is made).
+   */
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static SearchClientShims searchShims(ElasticSearchConfiguration esConfig) {
     Map<String, SearchClientShim<?>> shims = new LinkedHashMap<>();
-    for (Map.Entry<String, SearchClusterSettings> cluster :
-        esConfig.resolvedClusters().entrySet()) {
-      if (cluster.getValue().isConfigured()) {
-        SearchClientShim shim = Mockito.mock(SearchClientShim.class);
-        Mockito.when(shim.getEngineType())
-            .thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-        shims.put(cluster.getKey(), shim);
-      }
+    for (String cluster : configuredClusters(esConfig)) {
+      SearchClientShim shim = Mockito.mock(SearchClientShim.class);
+      Mockito.when(shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+      shims.put(cluster, shim);
     }
     return new SearchClientShims(shims);
   }
 
   /** Names of the clusters the production search configuration defines with a uri. */
-  public static Set<String> configuredClusters(ElasticSearchConfiguration esConfig) {
-    Set<String> names = new TreeSet<>();
+  private static Set<String> configuredClusters(ElasticSearchConfiguration esConfig) {
+    Set<String> names = new LinkedHashSet<>();
     esConfig
         .resolvedClusters()
         .forEach(
