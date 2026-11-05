@@ -94,10 +94,9 @@ const EntityNameText = styled(OverflowText)`
     white-space: nowrap;
 `;
 
-// Truncates with a tooltip on overflow; `ellipsis` mirrors the old antd Typography call sites.
-const EntityName = ({ children }: { children: string; ellipsis?: { tooltip: boolean } }) => (
-    <EntityNameText text={children} />
-);
+// With `ellipsis`, truncates and shows the full name in a tooltip when it overflows.
+const EntityName = ({ children, ellipsis }: { children: string; ellipsis?: { tooltip: boolean } }) =>
+    ellipsis ? <EntityNameText text={children} /> : <span>{children}</span>;
 
 const HighlightedValue = styled.span`
     line-height: 1.5;
