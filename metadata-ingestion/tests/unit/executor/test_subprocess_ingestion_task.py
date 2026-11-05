@@ -6,7 +6,7 @@ import sys
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import AsyncMock, Mock, call, mock_open, patch
 
 import pydantic
@@ -815,8 +815,12 @@ class TestSubProcessIngestionTaskCompletion:
             assert "last reported a peak memory usage of 59.1 GB" in error_message
             assert "datahub-actions" not in error_message
 
+    @pytest.mark.parametrize("peak", [None, "10.86 GB"])
     def test_handle_subprocess_completion_oom_exit_code_137(
-        self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        mock_execution_context: Mock,
+        peak: Optional[str],
     ) -> None:
         mock_process = Mock()
         mock_process.returncode = 137  # OOM killer
@@ -835,6 +839,7 @@ class TestSubProcessIngestionTaskCompletion:
                     {},
                     "/tmp/exec",
                     LogHolder(),
+                    memory_info=IngestionMemoryInfo(last_reported_peak=peak),
                 )
 
             mock_execution_context.get_report().report_error.assert_called_once()
@@ -843,8 +848,10 @@ class TestSubProcessIngestionTaskCompletion:
             ][0]
             assert "exit code 137" in error_message
             assert "ran out of memory" in error_message
-            # Nothing reported, nothing quoted.
-            assert "peak memory usage" not in error_message
+            if peak is None:
+                assert "peak memory usage" not in error_message
+            else:
+                assert f"last reported a peak memory usage of {peak}" in error_message
 
     def test_handle_subprocess_completion_cancelled_does_not_raise(
         self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
@@ -1873,3 +1880,18 @@ class TestIngestionMemoryInfo:
         info = IngestionMemoryInfo()
         info.record_log_line(" 'peak_memory_usage': None,\n")
         assert info.last_reported_peak is None
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            " 'peak_memory_usage': 'hunter2-secret-token',\n",
+            "connector says 'peak_memory_usage': '1.5 GB', password=abc\n",
+            " 'peak_memory_usage': '1.5 GB password=abc',\n",
+        ],
+    )
+    def test_only_a_whole_report_line_with_a_size_is_captured(self, line: str) -> None:
+        # The value ends up in an error message that is printed unmasked, so
+        # nothing but a size from a CLI report line may get through.
+        info = IngestionMemoryInfo(last_reported_peak="2 GB")
+        info.record_log_line(line)
+        assert info.last_reported_peak == "2 GB"

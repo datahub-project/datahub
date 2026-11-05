@@ -56,7 +56,12 @@ from datahub.masking.masking_filter import SecretMaskingFilter
 logger = logging.getLogger(__name__)
 
 # Matches the pipeline's periodic CLI report, e.g. "'peak_memory_usage': '12.3 GB',".
-_PEAK_MEMORY_RE = re.compile(r"'peak_memory_usage': '([^']+)'")
+# Only a humanfriendly size is accepted: the value is quoted in the OOM error,
+# which is printed unmasked, so anything a connector could put in a matching
+# log line must not reach it.
+_PEAK_MEMORY_RE = re.compile(
+    r"^\s*'peak_memory_usage': '(\d{1,6}(?:\.\d{1,2})? (?:bytes?|[KMGTPEZY]B))',?\s*$"
+)
 
 
 @dataclass
