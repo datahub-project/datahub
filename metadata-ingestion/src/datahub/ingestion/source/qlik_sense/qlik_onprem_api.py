@@ -124,7 +124,11 @@ class QlikOnPremAPI:
         # QRS rejects the call unless this 16-character key is in both places.
         query = dict(params or {})
         query["xrfkey"] = self.xrfkey
-        response = self.session.get(f"{self.qrs_url}{path}", params=query)
+        # Passed per request because REQUESTS_CA_BUNDLE / CURL_CA_BUNDLE, common
+        # on executors, otherwise override session.verify and drop the Qlik CA.
+        response = self.session.get(
+            f"{self.qrs_url}{path}", params=query, verify=self.session.verify
+        )
         response.raise_for_status()
         return response
 

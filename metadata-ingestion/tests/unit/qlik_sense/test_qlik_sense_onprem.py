@@ -128,6 +128,7 @@ def test_onprem_lists_stream_and_opens_app(
 
     assert session.cert == ("/secrets/client.pem", "/secrets/client_key.pem")
     assert session.verify == "/secrets/root.pem"
+    assert session.get.call_args.kwargs["verify"] == "/secrets/root.pem"
     assert session.headers["X-Qlik-Xrfkey"] == api.xrfkey
     assert session.headers["X-Qlik-User"] == (
         "UserDirectory=INTERNAL; UserId=sa_repository"
