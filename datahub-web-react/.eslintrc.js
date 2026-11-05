@@ -212,7 +212,6 @@ const ALCHEMY_APP_IMPORT_EXCLUDED_FILES = [
     'src/alchemy-components/components/Avatar/utils.ts',
     'src/alchemy-components/components/IncidentStagePill/IncidentStagePill.tsx',
     'src/alchemy-components/components/IncidentStagePill/constant.ts',
-    'src/alchemy-components/components/Timeline/types.ts',
 ];
 
 // Base `@typescript-eslint/no-restricted-imports` paths. The alchemy override
