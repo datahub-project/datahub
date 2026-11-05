@@ -95,6 +95,8 @@ public class ElasticSearchUpgradeUtils {
    */
   public static Set<Pair<Urn, StructuredPropertyDefinition>>
       getActiveStructuredPropertiesDefinitions(AspectDao aspectDao) {
+    // On Cassandra each read below scans the aspect table, so its cost shows here.
+    long startMillis = System.currentTimeMillis();
 
     // First, get all removed structured property URNs
     Set<String> removedStructuredPropertyUrns;
@@ -108,16 +110,24 @@ public class ElasticSearchUpgradeUtils {
     }
 
     // Then, get all structured property definitions and filter out removed ones
+    Set<Pair<Urn, StructuredPropertyDefinition>> definitions;
     try (Stream<EntityAspect> stream =
         aspectDao.streamAspects(
             STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)) {
-      return stream
-          .map(ElasticSearchUpgradeUtils::toMappableDefinition)
-          .flatMap(Optional::stream)
-          .filter(
-              definition -> !removedStructuredPropertyUrns.contains(definition.getKey().toString()))
-          .collect(Collectors.toSet());
+      definitions =
+          stream
+              .map(ElasticSearchUpgradeUtils::toMappableDefinition)
+              .flatMap(Optional::stream)
+              .filter(
+                  definition ->
+                      !removedStructuredPropertyUrns.contains(definition.getKey().toString()))
+              .collect(Collectors.toSet());
     }
+    log.info(
+        "Read {} active structured property definitions in {} ms",
+        definitions.size(),
+        System.currentTimeMillis() - startMillis);
+    return definitions;
   }
 
   // An unreadable status keeps its property: leaving an active property out of the mappings would

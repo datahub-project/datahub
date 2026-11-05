@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -23,14 +24,17 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReinde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
@@ -86,27 +90,22 @@ public class CleanIndicesStepTest {
   }
 
   @Test
-  public void testFailedDefinitionsReadSkipsCleanupWithoutFailing() {
+  public void testFailedDefinitionsReadSkipsCleanupWithoutFailing() throws Exception {
     // Orphan cleanup needs only index names; failing it would end the non-blocking run.
-    UpgradeContext upgradeContext = mock(UpgradeContext.class);
-    when(upgradeContext.opContext()).thenReturn(TestOperationContexts.systemContextNoValidate());
-    when(upgradeContext.upgrade()).thenReturn(mock(Upgrade.class));
-    BuildIndicesConfiguration buildIndicesConfig = new BuildIndicesConfiguration();
-    buildIndicesConfig.setIncrementalReindexEnabled(false);
+    ElasticSearchIndexed indexedService = mock(ElasticSearchIndexed.class);
+    ReindexConfig reindexConfig = mock(ReindexConfig.class);
+    when(reindexConfig.name()).thenReturn("datasetindex_v2");
+    // Without the failed read, this config would reach the cleanup.
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(reindexConfig));
     CleanIndicesStep step =
-        new CleanIndicesStep(
-            mock(SearchClientShim.class),
-            mock(ElasticSearchConfiguration.class),
-            List.of(mock(ElasticSearchIndexed.class)),
+        stepWithIncrementalReindexDisabled(
+            indexedService,
             () -> {
               throw new IllegalStateException("database unavailable");
-            },
-            mock(EntityService.class),
-            UPGRADE_VERSION,
-            buildIndicesConfig);
+            });
 
     try (MockedStatic<ESIndexBuilder> esIndexBuilder = Mockito.mockStatic(ESIndexBuilder.class)) {
-      UpgradeStepResult result = step.executable().apply(upgradeContext);
+      UpgradeStepResult result = step.executable().apply(upgradeContext());
       assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
       esIndexBuilder.verifyNoInteractions();
     }
@@ -114,25 +113,34 @@ public class CleanIndicesStepTest {
 
   @Test
   public void testSearchEngineFailureBuildingConfigsStillFailsTheStep() throws Exception {
-    UpgradeContext upgradeContext = mock(UpgradeContext.class);
-    when(upgradeContext.opContext()).thenReturn(TestOperationContexts.systemContextNoValidate());
-    when(upgradeContext.upgrade()).thenReturn(mock(Upgrade.class));
-    BuildIndicesConfiguration buildIndicesConfig = new BuildIndicesConfiguration();
-    buildIndicesConfig.setIncrementalReindexEnabled(false);
     ElasticSearchIndexed indexedService = mock(ElasticSearchIndexed.class);
     when(indexedService.buildReindexConfigs(any(), any()))
         .thenThrow(new RuntimeException("search engine unavailable"));
-    CleanIndicesStep step =
-        new CleanIndicesStep(
-            mock(SearchClientShim.class),
-            mock(ElasticSearchConfiguration.class),
-            List.of(indexedService),
-            Set::of,
-            mock(EntityService.class),
-            UPGRADE_VERSION,
-            buildIndicesConfig);
+    CleanIndicesStep step = stepWithIncrementalReindexDisabled(indexedService, Set::of);
 
-    assertEquals(step.executable().apply(upgradeContext).result(), DataHubUpgradeState.FAILED);
+    assertEquals(step.executable().apply(upgradeContext()).result(), DataHubUpgradeState.FAILED);
+  }
+
+  private static UpgradeContext upgradeContext() {
+    UpgradeContext upgradeContext = mock(UpgradeContext.class);
+    when(upgradeContext.opContext()).thenReturn(TestOperationContexts.systemContextNoValidate());
+    when(upgradeContext.upgrade()).thenReturn(mock(Upgrade.class));
+    return upgradeContext;
+  }
+
+  private static CleanIndicesStep stepWithIncrementalReindexDisabled(
+      ElasticSearchIndexed indexedService,
+      Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties) {
+    BuildIndicesConfiguration buildIndicesConfig = new BuildIndicesConfiguration();
+    buildIndicesConfig.setIncrementalReindexEnabled(false);
+    return new CleanIndicesStep(
+        mock(SearchClientShim.class),
+        mock(ElasticSearchConfiguration.class),
+        List.of(indexedService),
+        structuredProperties,
+        mock(EntityService.class),
+        UPGRADE_VERSION,
+        buildIndicesConfig);
   }
 
   @Test

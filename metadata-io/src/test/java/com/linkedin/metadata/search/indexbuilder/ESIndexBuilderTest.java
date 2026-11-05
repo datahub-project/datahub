@@ -1425,6 +1425,40 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  void testReindex_DestinationFailureOtherThanARejectionPropagates() throws Exception {
+    // Only a rejection falls back to the structured property fields the index maps now.
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetSettings()).thenReturn(Map.of("index", Map.of("number_of_shards", "6")));
+    org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse taskListResponse =
+        mock(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse.class);
+    when(taskListResponse.getTasks()).thenReturn(new ArrayList<>());
+    when(searchClient.listTasks(
+            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class), any()))
+        .thenReturn(taskListResponse);
+    OpenSearchStatusException unavailable =
+        new OpenSearchStatusException(
+            "process_cluster_event_timeout_exception", RestStatus.SERVICE_UNAVAILABLE);
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(unavailable);
+
+    RuntimeException thrown =
+        assertThrows(RuntimeException.class, () -> indexBuilder.buildIndex(opContext, indexState));
+    Assert.assertSame(thrown.getCause(), unavailable);
+    verify(searchClient, times(1))
+        .createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
   void testAddUnmappedStructuredPropertyFields_RejectionPropagates() throws IOException {
     // Before a fill, a rejected put fails instead of leaving the filled values unsearchable.
     ReindexConfig indexState = structuredPropertyAdditionState(Settings.EMPTY, new HashMap<>());

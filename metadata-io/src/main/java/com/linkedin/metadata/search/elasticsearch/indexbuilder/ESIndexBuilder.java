@@ -1844,7 +1844,7 @@ public class ESIndexBuilder {
         result = ReindexResult.REINDEXING_ALREADY;
       } else {
         // Create new index
-        createIndex(opContext, tempIndexName, indexState);
+        createReindexDestination(opContext, tempIndexName, indexState);
         long curDocCount = getSourceDocCount(opContext, indexState.name());
         if (curDocCount == 0) {
           reindexTaskCompleted = true;
@@ -1940,6 +1940,54 @@ public class ESIndexBuilder {
         requestOptionsLong);
     log.info("Finished setting up {}", indexState.name());
     return result;
+  }
+
+  /**
+   * Creates the destination of a reindex. A target built from the definitions can declare more
+   * structured property fields than the index's total-fields limit allows, and the engine then
+   * rejects the destination. The index being reindexed still serves, and system-update may have
+   * blocked its writes, so instead of failing, the destination takes the structured property fields
+   * that index maps now, as a reindex did before targets came from the definitions. Any other
+   * failure propagates.
+   */
+  private void createReindexDestination(
+      @Nonnull OperationContext opContext, String destination, ReindexConfig indexState)
+      throws IOException {
+    try {
+      createIndex(opContext, destination, indexState);
+    } catch (IOException | RuntimeException e) {
+      if (!isMappingRejection(e)) {
+        throw e;
+      }
+      // Against itself every structured property field counts as mapped, so this empties the
+      // container before the live fields go in.
+      Map<String, Object> liveStructuredPropertyMappings =
+          mergeStructuredPropertyMappings(
+              ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(
+                  indexState.targetMappings(), indexState.targetMappings()),
+              indexState.currentMappings());
+      Set<String> leftOut =
+          new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(indexState.targetMappings()));
+      leftOut.removeAll(ReindexConfig.structuredPropertyFieldIds(liveStructuredPropertyMappings));
+      if (leftOut.isEmpty()) {
+        throw e;
+      }
+      log.error(
+          "Index: {} - The engine rejected reindex destination {}; creating it with the structured"
+              + " property fields the index maps now, leaving out {}. If the rejection names the"
+              + " total-fields limit, raise it in the settings overrides; a later reindex adds them.",
+          indexState.name(),
+          destination,
+          leftOut,
+          e);
+      try {
+        createIndex(
+            opContext, destination, liveStructuredPropertyMappings, indexState.targetSettings());
+      } catch (IOException | RuntimeException retryFailure) {
+        retryFailure.addSuppressed(e);
+        throw retryFailure;
+      }
+    }
   }
 
   public void deleteActionWithRetry(@Nonnull OperationContext opContext, String tempIndexName)
@@ -3605,9 +3653,16 @@ public class ESIndexBuilder {
   public void createIndex(
       @Nonnull OperationContext opContext, String indexName, ReindexConfig state)
       throws IOException {
+    createIndex(opContext, indexName, state.targetMappings(), state.targetSettings());
+  }
+
+  private void createIndex(
+      @Nonnull OperationContext opContext,
+      String indexName,
+      Map<String, Object> mappings,
+      Map<String, Object> settings)
+      throws IOException {
     log.info("Index {} does not exist. Creating", indexName);
-    Map<String, Object> mappings = state.targetMappings();
-    Map<String, Object> settings = state.targetSettings();
     if (EntityIndexVersion.V3.matches(indexName)) {
       logV3MappingsOnce(mappings);
     } else {

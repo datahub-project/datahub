@@ -1441,6 +1441,45 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .get("properties"));
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testReindexFallsBackToLiveStructuredPropertyFieldsOnRejection() throws Exception {
+    // The engine rejects a destination with the new structured property fields; the reindex
+    // completes with the fields the index maps now instead of failing with its writes blocked.
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultConfig.toBuilder()
+                .index(testDefaultConfig.getIndex().toBuilder().enableMappingsReindex(true).build())
+                .build(),
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(false)
+                .build(),
+            Map.of(),
+            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
+    buildIndex(builder, TEST_INDEX_NAME, structuredPropertyTestMappings(false, Map.of()), settings);
+    // Only a reindex changes field1's type; the two new fields take the destination past the limit.
+    Map<String, Object> target =
+        structuredPropertyTestMappings(
+            false, Map.of("propA", Map.of("type", "keyword"), "propB", Map.of("type", "keyword")));
+    ((Map<String, Object>) target.get("properties")).put("field1", Map.of(ESUtils.TYPE, "text"));
+
+    ReindexConfig config = builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
+    assertTrue(config.requiresReindex());
+    builder.buildIndex(opContext, config);
+
+    Map<String, Object> properties =
+        (Map<String, Object>)
+            builder
+                .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
+                .currentMappings()
+                .get("properties");
+    assertEquals(((Map<String, Object>) properties.get("field1")).get(ESUtils.TYPE), "text");
+    assertNoStructuredPropertyFields(properties);
+  }
+
   private static Map<String, Object> structuredPropertyTestMappings(
       boolean withField2, Map<String, Object> structuredPropertyFields) {
     Map<String, Object> properties = new HashMap<>();
