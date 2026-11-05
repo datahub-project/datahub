@@ -20,7 +20,8 @@ on:
       - "**/src/main/java/**/factories/**"
       - "**/src/main/java/**/config/**"
       - "metadata-service/war/src/main/**"
-      - "metadata-service/factories/src/main/java/com/linkedin/metadata/boot/**"
+      # All of factories: every package in it is component-scanned by some process
+      - "metadata-service/factories/src/main/**"
       # Servlets, controllers and filters mounted by GMS (route mappings, servlet registration)
       - "metadata-service/*servlet*/src/main/**"
       - "metadata-service/iceberg-catalog/src/main/**"
@@ -30,8 +31,10 @@ on:
       - "metadata-service/schema-registry-api/generated/**"
       # Rest.li API (IDL, snapshots, pegasus request/response models) served by the Rest.li servlet
       - "metadata-service/restli-api/src/main/**"
-      # Standalone consumer applications (dispatcher servlet, app-level beans)
-      - "metadata-jobs/*-job/src/main/**"
+      # Consumer applications and the listener/hook/poller modules they scan
+      - "metadata-jobs/*/src/main/**"
+      # system-update entry point and its upgrade components
+      - "datahub-upgrade/src/main/**"
       # Application yaml and configuration POJOs
       - "metadata-service/configuration/**"
       - "**/src/main/resources/application*.yaml"
@@ -44,7 +47,14 @@ on:
       - "datahub-upgrade/build.gradle"
       - "datahub-upgrade/gradle.lockfile"
       - "datahub-graphql-core/build.gradle"
+      - "datahub-graphql-core/gradle.lockfile"
       - "entity-registry/build.gradle"
+      - "entity-registry/gradle.lockfile"
+      - "ingestion-scheduler/build.gradle"
+      - "ingestion-scheduler/gradle.lockfile"
+      - "settings.gradle"
+      - "gradle.properties"
+      - "buildSrc/**"
       # The suite itself
       - "**/src/bootTest/**"
       - "metadata-service/factories/src/testFixtures/**"
@@ -94,7 +104,7 @@ jobs:
             !**/binary/**
           junit-file-globs: |
             **/build/test-results/bootTest/**/*.xml
-      - name: Notify on nightly failure
+      - name: Annotate nightly failure
         if: failure() && github.event_name == 'schedule'
         run: |
           echo "::error::Nightly process boot tests failed on ${GITHUB_SHA}. A process no longer boots or its bean contract changed; see the test summary."
