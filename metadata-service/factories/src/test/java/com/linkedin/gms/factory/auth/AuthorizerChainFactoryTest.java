@@ -15,11 +15,15 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.jar.JarOutputStream;
+import java.util.stream.Stream;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.ApplicationContext;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 /**
@@ -28,6 +32,8 @@ import org.testng.annotations.Test;
  * and {@code datahub.plugin.auth.path} shape the chain every request is authorized against.
  */
 public class AuthorizerChainFactoryTest {
+
+  private static final List<Path> TEMP_DIRS = new CopyOnWriteArrayList<>();
 
   private static final String PLUGIN_JAR = "authorizer.jar";
 
@@ -149,10 +155,22 @@ public class AuthorizerChainFactoryTest {
   private static Path emptyDir(String prefix) {
     try {
       Path dir = Files.createTempDirectory(prefix);
-      dir.toFile().deleteOnExit();
+      TEMP_DIRS.add(dir);
       return dir;
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  @AfterClass(alwaysRun = true)
+  public void deleteTempDirs() throws IOException {
+    for (Path dir : TEMP_DIRS) {
+      try (Stream<Path> paths = Files.walk(dir)) {
+        for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+          Files.deleteIfExists(path);
+        }
+      }
+    }
+    TEMP_DIRS.clear();
   }
 }

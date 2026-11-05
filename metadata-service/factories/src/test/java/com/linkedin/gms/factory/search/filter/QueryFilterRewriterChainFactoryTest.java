@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.search.filter;
 
+import static com.linkedin.metadata.Constants.IS_CHILD_OF_RELATIONSHIP_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.linkedin.gms.factory.ProductionConfigContextRunner;
@@ -58,9 +59,9 @@ public class QueryFilterRewriterChainFactoryTest {
     contextRunner.run(
         context -> {
           assertThat(context.getBeansOfType(QueryFilterRewriter.class)).hasSize(3);
-          assertExpanded(context, CONTAINER_FIELD, CHILD_CONTAINER, PARENT_CONTAINER);
-          assertExpanded(context, DOMAIN_FIELD, CHILD_DOMAIN, PARENT_DOMAIN);
-          assertExpanded(context, DOCUMENT_FIELD, CHILD_DOCUMENT, PARENT_DOCUMENT);
+          assertExpanded(context, CONTAINER_FIELD, PARENT_CONTAINER, CHILD_CONTAINER);
+          assertExpanded(context, DOMAIN_FIELD, PARENT_DOMAIN, CHILD_DOMAIN);
+          assertExpanded(context, DOCUMENT_FIELD, PARENT_DOCUMENT, CHILD_DOCUMENT);
         });
   }
 
@@ -70,25 +71,25 @@ public class QueryFilterRewriterChainFactoryTest {
         .withPropertyValues("searchService.queryFilterRewriter.containerExpansion.enabled=false")
         .run(
             context -> {
-              assertNotExpanded(context, CONTAINER_FIELD, CHILD_CONTAINER, PARENT_CONTAINER);
-              assertExpanded(context, DOMAIN_FIELD, CHILD_DOMAIN, PARENT_DOMAIN);
-              assertExpanded(context, DOCUMENT_FIELD, CHILD_DOCUMENT, PARENT_DOCUMENT);
+              assertNotExpanded(context, CONTAINER_FIELD, PARENT_CONTAINER, CHILD_CONTAINER);
+              assertExpanded(context, DOMAIN_FIELD, PARENT_DOMAIN, CHILD_DOMAIN);
+              assertExpanded(context, DOCUMENT_FIELD, PARENT_DOCUMENT, CHILD_DOCUMENT);
             });
     contextRunner
         .withPropertyValues("searchService.queryFilterRewriter.domainExpansion.enabled=false")
         .run(
             context -> {
-              assertExpanded(context, CONTAINER_FIELD, CHILD_CONTAINER, PARENT_CONTAINER);
-              assertNotExpanded(context, DOMAIN_FIELD, CHILD_DOMAIN, PARENT_DOMAIN);
-              assertExpanded(context, DOCUMENT_FIELD, CHILD_DOCUMENT, PARENT_DOCUMENT);
+              assertExpanded(context, CONTAINER_FIELD, PARENT_CONTAINER, CHILD_CONTAINER);
+              assertNotExpanded(context, DOMAIN_FIELD, PARENT_DOMAIN, CHILD_DOMAIN);
+              assertExpanded(context, DOCUMENT_FIELD, PARENT_DOCUMENT, CHILD_DOCUMENT);
             });
     contextRunner
         .withPropertyValues("searchService.queryFilterRewriter.documentExpansion.enabled=false")
         .run(
             context -> {
-              assertExpanded(context, CONTAINER_FIELD, CHILD_CONTAINER, PARENT_CONTAINER);
-              assertExpanded(context, DOMAIN_FIELD, CHILD_DOMAIN, PARENT_DOMAIN);
-              assertNotExpanded(context, DOCUMENT_FIELD, CHILD_DOCUMENT, PARENT_DOCUMENT);
+              assertExpanded(context, CONTAINER_FIELD, PARENT_CONTAINER, CHILD_CONTAINER);
+              assertExpanded(context, DOMAIN_FIELD, PARENT_DOMAIN, CHILD_DOMAIN);
+              assertNotExpanded(context, DOCUMENT_FIELD, PARENT_DOCUMENT, CHILD_DOCUMENT);
             });
   }
 
@@ -103,9 +104,9 @@ public class QueryFilterRewriterChainFactoryTest {
             context -> {
               assertThat(context).hasNotFailed();
               assertThat(context.getBeansOfType(QueryFilterRewriter.class)).isEmpty();
-              assertNotExpanded(context, CONTAINER_FIELD, CHILD_CONTAINER, PARENT_CONTAINER);
-              assertNotExpanded(context, DOMAIN_FIELD, CHILD_DOMAIN, PARENT_DOMAIN);
-              assertNotExpanded(context, DOCUMENT_FIELD, CHILD_DOCUMENT, PARENT_DOCUMENT);
+              assertNotExpanded(context, CONTAINER_FIELD, PARENT_CONTAINER, CHILD_CONTAINER);
+              assertNotExpanded(context, DOMAIN_FIELD, PARENT_DOMAIN, CHILD_DOMAIN);
+              assertNotExpanded(context, DOCUMENT_FIELD, PARENT_DOCUMENT, CHILD_DOCUMENT);
             });
   }
 
@@ -116,23 +117,24 @@ public class QueryFilterRewriterChainFactoryTest {
         .run(
             context -> {
               OneHopGraphRetriever graph = new OneHopGraphRetriever();
-              rewrite(context, graph, CONTAINER_FIELD, CHILD_CONTAINER);
+              rewrite(context, graph, CONTAINER_FIELD, PARENT_CONTAINER);
               assertThat(graph.requestedPageSizes).isNotEmpty().containsOnly(7);
             });
   }
 
+  /** A filter on {@code parent} also matches its descendants (the default condition). */
   private static void assertExpanded(
-      ApplicationContext context, String field, String child, String parent) {
-    TermsQueryBuilder rewritten = rewrite(context, new OneHopGraphRetriever(), field, child);
+      ApplicationContext context, String field, String parent, String child) {
+    TermsQueryBuilder rewritten = rewrite(context, new OneHopGraphRetriever(), field, parent);
     assertThat(rewritten.fieldName()).isEqualTo(field);
-    assertThat(rewritten.values()).containsExactlyInAnyOrder(child, parent);
+    assertThat(rewritten.values()).containsExactlyInAnyOrder(parent, child);
   }
 
   private static void assertNotExpanded(
-      ApplicationContext context, String field, String child, String parent) {
+      ApplicationContext context, String field, String parent, String child) {
     OneHopGraphRetriever graph = new OneHopGraphRetriever();
-    TermsQueryBuilder rewritten = rewrite(context, graph, field, child);
-    assertThat(rewritten.values()).containsExactly(child).doesNotContain(parent);
+    TermsQueryBuilder rewritten = rewrite(context, graph, field, parent);
+    assertThat(rewritten.values()).containsExactly(parent).doesNotContain(child);
     assertThat(graph.requestedPageSizes).isEmpty();
   }
 
@@ -160,13 +162,20 @@ public class QueryFilterRewriterChainFactoryTest {
         () -> entityRegistry, () -> retrieverContext, null);
   }
 
-  /** Each child urn has exactly one related urn one hop away; nothing beyond it. */
+  /**
+   * Each parent has exactly one child, linked by the relationship type its hierarchy uses. The
+   * child is returned only for an INCOMING walk (child -> parent edges, read from the parent) over
+   * that relationship type, so a rewriter wired with the wrong direction or relationship expands
+   * nothing.
+   */
   private static final class OneHopGraphRetriever implements GraphRetriever {
-    private static final Map<String, String> RELATED =
+    private record Child(String urn, String relationshipType) {}
+
+    private static final Map<String, Child> CHILD_OF =
         Map.of(
-            CHILD_CONTAINER, PARENT_CONTAINER,
-            CHILD_DOMAIN, PARENT_DOMAIN,
-            CHILD_DOCUMENT, PARENT_DOCUMENT);
+            PARENT_CONTAINER, new Child(CHILD_CONTAINER, "IsPartOf"),
+            PARENT_DOMAIN, new Child(CHILD_DOMAIN, "IsPartOf"),
+            PARENT_DOCUMENT, new Child(CHILD_DOCUMENT, IS_CHILD_OF_RELATIONSHIP_NAME));
 
     final List<Integer> requestedPageSizes = new ArrayList<>();
 
@@ -186,25 +195,23 @@ public class QueryFilterRewriterChainFactoryTest {
         @Nullable Long endTimeMillis) {
       requestedPageSizes.add(count);
       List<RelatedEntities> related = new ArrayList<>();
-      sourceEntityFilter
-          .getOr()
-          .forEach(
-              conjunction ->
-                  conjunction
-                      .getAnd()
-                      .forEach(
-                          criterion ->
-                              criterion.getValues().stream()
-                                  .filter(RELATED::containsKey)
-                                  .forEach(
-                                      urn ->
-                                          related.add(
-                                              new RelatedEntities(
-                                                  "IsPartOf",
-                                                  RELATED.get(urn),
-                                                  RELATED.get(urn),
-                                                  RelationshipDirection.INCOMING,
-                                                  null)))));
+      if (relationshipFilter.getDirection() == RelationshipDirection.INCOMING) {
+        sourceEntityFilter.getOr().stream()
+            .flatMap(conjunction -> conjunction.getAnd().stream())
+            .flatMap(criterion -> criterion.getValues().stream())
+            .filter(CHILD_OF::containsKey)
+            .map(CHILD_OF::get)
+            .filter(child -> relationshipTypes.contains(child.relationshipType()))
+            .forEach(
+                child ->
+                    related.add(
+                        new RelatedEntities(
+                            child.relationshipType(),
+                            child.urn(),
+                            child.urn(),
+                            RelationshipDirection.INCOMING,
+                            null)));
+      }
       return new RelatedEntitiesScrollResult(related.size(), related.size(), null, related);
     }
   }

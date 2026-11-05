@@ -119,8 +119,12 @@ public class UpdateIndicesUpgradeStrategyFactoryContextTest {
   }
 
   @Test
-  public void testRollbackDualWriteIsOffInProductionDefaults() {
+  public void testRollbackDualWriteOff() {
+    // Set explicitly: the yaml default reads
+    // ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED
+    // and ZDU_STAGE_20 from the environment.
     contextRunner()
+        .withPropertyValues(ROLLBACK_DUAL_WRITE + "=false")
         .run(
             context -> {
               assertThat(context).hasNotFailed();
@@ -156,7 +160,9 @@ public class UpdateIndicesUpgradeStrategyFactoryContextTest {
 
               // The first rollback write records dualWriteStartTime on the same upgrade result,
               // which Phase 2 reads as the end of its catch-up window.
+              long before = System.currentTimeMillis();
               targets.recordDualWriteStarted(SWAPPED_INDEX);
+              long after = System.currentTimeMillis();
               ArgumentCaptor<MetadataChangeProposal> proposal =
                   ArgumentCaptor.forClass(MetadataChangeProposal.class);
               verify(systemEntityClient)
@@ -167,10 +173,16 @@ public class UpdateIndicesUpgradeStrategyFactoryContextTest {
                       proposal.getValue().getAspect().getValue(),
                       proposal.getValue().getAspect().getContentType(),
                       DataHubUpgradeResult.class);
+              assertThat(
+                      Long.parseLong(
+                          written
+                              .getResult()
+                              .get(
+                                  IncrementalReindexState.key(
+                                      SWAPPED_INDEX,
+                                      IncrementalReindexState.DUAL_WRITE_START_TIME))))
+                  .isBetween(before, after);
               assertThat(written.getResult())
-                  .containsKey(
-                      IncrementalReindexState.key(
-                          SWAPPED_INDEX, IncrementalReindexState.DUAL_WRITE_START_TIME))
                   .containsEntry(
                       IncrementalReindexState.key(
                           SWAPPED_INDEX, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
