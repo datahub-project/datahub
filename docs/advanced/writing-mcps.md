@@ -83,11 +83,6 @@ The process is similar to exporting from an ingestion source, with the only diff
 Create a recipe file (e.g., `export_mcps.yaml`) with this configuration:
 
 ```yaml
-pipeline_name: datahub_export_mcps
-datahub_api:
-  server: "http://localhost:8080"
-  token: "your-access-token" # If authentication is required
-
 source:
   type: datahub
   config:
@@ -98,6 +93,8 @@ source:
       username: "<username>"
       password: "<password>"
       database: "<database>"
+    stateful_ingestion:
+      enabled: false
 
 sink:
   type: "file"
