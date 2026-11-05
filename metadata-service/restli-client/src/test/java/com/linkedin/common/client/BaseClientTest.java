@@ -37,7 +37,6 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
@@ -704,43 +703,6 @@ public class BaseClientTest {
     assertEquals(result.getQuery(), "search");
     assertEquals(result.getSuggestions().size(), 2);
     verify(mockRestliClient, times(1)).sendRequest(any(Request.class));
-  }
-
-  @Test
-  public void testBrowse() throws RemoteInvocationException {
-    // Setup
-    BrowseResult mockBrowseResult = new BrowseResult();
-    mockBrowseResult.setFrom(0);
-    mockBrowseResult.setPageSize(10);
-    mockBrowseResult.setNumEntities(2);
-
-    Response<BrowseResult> mockBrowseResponse = mock(Response.class);
-    ResponseFuture<BrowseResult> mockBrowseFuture = mock(ResponseFuture.class);
-
-    when(mockBrowseResponse.getEntity()).thenReturn(mockBrowseResult);
-    when(mockBrowseFuture.getResponse()).thenReturn(mockBrowseResponse);
-    when(mockRestliClient.sendRequest(any(ActionRequest.class))).thenReturn(mockBrowseFuture);
-
-    testClient =
-        new RestliEntityClient(
-            mockRestliClient,
-            EntityClientConfig.builder()
-                .backoffPolicy(new ExponentialBackoff(1))
-                .retryCount(0)
-                .batchGetV2Size(10)
-                .batchGetV2Concurrency(2)
-                .build(),
-            mockMetricUtils);
-
-    // Execute
-    Map<String, String> filters = new HashMap<>();
-    filters.put("platform", "hdfs");
-    BrowseResult result = testClient.browse(opContext, "dataset", "/prod", filters, 0, 10);
-
-    // Verify
-    assertEquals(result.getFrom(), 0);
-    assertEquals(result.getPageSize(), 10);
-    verify(mockRestliClient, times(1)).sendRequest(any(ActionRequest.class));
   }
 
   @Test
@@ -1657,37 +1619,6 @@ public class BaseClientTest {
     // Verify
     assertEquals(result.getScrollId(), "lineage-scroll-123");
     assertEquals(result.getNumEntities(), 5);
-    verify(mockRestliClient, times(1)).sendRequest(any(Request.class));
-  }
-
-  @Test
-  public void testGetBrowsePaths() throws RemoteInvocationException, URISyntaxException {
-    // Setup
-    StringArray mockPaths = new StringArray();
-    mockPaths.add("/prod/data");
-    mockPaths.add("/test/data");
-
-    setupMockClientResponse(mockPaths);
-
-    testClient =
-        new RestliEntityClient(
-            mockRestliClient,
-            EntityClientConfig.builder()
-                .backoffPolicy(new ExponentialBackoff(1))
-                .retryCount(0)
-                .batchGetV2Size(10)
-                .batchGetV2Concurrency(2)
-                .build(),
-            mockMetricUtils);
-
-    // Execute
-    Urn testUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,test,PROD)");
-    StringArray result = testClient.getBrowsePaths(opContext, testUrn);
-
-    // Verify
-    assertEquals(result.size(), 2);
-    assertTrue(result.contains("/prod/data"));
-    assertTrue(result.contains("/test/data"));
     verify(mockRestliClient, times(1)).sendRequest(any(Request.class));
   }
 

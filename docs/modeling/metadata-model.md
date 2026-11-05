@@ -339,12 +339,12 @@ and its corresponding Urn would be
 urn:li:corpuser:johnsmith
 ```
 
-#### BrowsePaths aspect
+#### BrowsePathsV2 aspect
 
-The BrowsePaths aspect allows you to define a custom "browse path" for an Entity. A browse path is a way to hierarchically organize
-entities. They manifest within the "Explore" features on the UI, allowing users to navigate through trees of related entities of a given type.
+The BrowsePathsV2 aspect defines where an Entity appears in the browse sidebar. A browse path is a way to hierarchically
+organize entities, allowing users to navigate through trees of related entities of a given type.
 
-To support browsing a particular entity, add the "browsePaths" aspect to the entity in your `entity-registry.yml` file.
+To support browsing a particular entity, add the "browsePathsV2" aspect to the entity in your `entity-registry.yml` file.
 
 ```aidl
 /// entity-registry.yml
@@ -354,27 +354,11 @@ entities:
     keyAspect: datasetKey
     aspects:
       ...
-      - browsePaths
+      - browsePathsV2
 ```
 
-By declaring this aspect, you can produce custom browse paths as well as query for browse paths manually using a CURL like the following:
-
-```aidl
-curl --location --request POST 'http://localhost:8080/entities?action=browse' \
---header 'X-RestLi-Protocol-Version: 2.0.0' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "path": "/my/custom/browse/path",
-    "entity": "dataset",
-    "start": 0,
-    "limit": 10
-}'
-```
-
-Please note you must provide:
-
-- The "/"-delimited root path for which to fetch results.
-- An entity "type" using its common name ("dataset" in the example above).
+Browse results are served by the `browseV2` GraphQL query. See [Generating Browse Paths (V2)](../browseV2/browse-paths-v2.md)
+for how to produce browse paths.
 
 ### Types of Aspect
 

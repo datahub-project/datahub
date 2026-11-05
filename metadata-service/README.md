@@ -1056,53 +1056,6 @@ curl 'http://localhost:8080/entities/urn%3Ali%3AglossaryTerm%3A(instruments,inst
 }
 ```
 
-##### Browse an Entity
-
-To browse (explore) for an Entity of a particular type (e.g. dataset, chart, etc), you can use the following query format:
-
-```
-curl -X POST 'http://localhost:8080/entities?action=browse' \
---data '{
-    "path": "<slash-delimited-browse-path>",
-    "entity": "<entity name>",
-    "start": 0,
-    "limit": 10
-}'
-```
-
-For example, to browse the "charts" entity, you could use the following query:
-
-```
-curl -X POST 'http://localhost:8080/entities?action=browse' \
---data '{
-    "path": "/looker",
-    "entity": "chart",
-    "start": 0,
-    "limit": 10
-}'
-
-{
-   "value":{
-      "numEntities":1,
-      "pageSize":1,
-      "metadata":{
-         "totalNumEntities":1,
-         "groups":[
-
-         ],
-         "path":"/looker"
-      },
-      "from":0,
-      "entities":[
-         {
-            "name":"baz1",
-            "urn":"urn:li:chart:(looker,baz1)"
-         }
-      ]
-   }
-}
-```
-
 ##### Search an Entity
 
 To search for an Entity of a particular type (e.g. dataset, chart, etc), you can use the following query format:
