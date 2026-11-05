@@ -42,11 +42,6 @@ fragment versionsSearchResults on SearchResults {
         entity {
             urn
             type
-            ... on SupportsVersions {
-                versionProperties {
-                    ...versionProperties
-                }
-            }
             ... on HasStatus {
                 status {
                     lifecycleStage {
@@ -54,6 +49,11 @@ fragment versionsSearchResults on SearchResults {
                         name
                         description
                     }
+                }
+            }
+            ... on SupportsVersions {
+                versionProperties {
+                    ...versionProperties
                 }
             }
         }

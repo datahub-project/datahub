@@ -10,6 +10,14 @@ fragment incidentLinkedAssetPreview on Entity {
             ...platformFields
         }
     }
+    ... on HasDescription {
+        description
+    }
+    ... on HasDeprecation {
+        deprecation {
+            ...deprecationFields
+        }
+    }
     ... on Dataset {
         origin
         uri
@@ -70,9 +78,6 @@ fragment incidentLinkedAssetPreview on Entity {
             project
         }
     }
-    ... on HasDescription {
-        description
-    }
     ... on MLFeature {
         featureNamespace
     }
@@ -87,11 +92,6 @@ fragment incidentLinkedAssetPreview on Entity {
             mlPrimaryKeys {
                 urn
             }
-        }
-    }
-    ... on HasDeprecation {
-        deprecation {
-            ...deprecationFields
         }
     }
     ... on MLModel {

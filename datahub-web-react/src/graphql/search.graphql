@@ -62,6 +62,11 @@ fragment searchResultCardFields on Entity {
             ...browsePathV2Fields
         }
     }
+    ... on HasDisplayProperties {
+        displayProperties {
+            ...displayPropertiesFields
+        }
+    }
     ... on Dataset {
         exists
         platform {
@@ -175,11 +180,6 @@ fragment searchResultCardFields on Entity {
         jobId
         properties {
             name
-        }
-    }
-    ... on HasDisplayProperties {
-        displayProperties {
-            ...displayPropertiesFields
         }
     }
     ... on GlossaryTerm {
@@ -607,6 +607,72 @@ fragment searchResultsWithoutSchemaField on Entity {
             }
         }
     }
+    ... on HasInstitutionalMemory {
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+    }
+    ... on HasName {
+        name
+    }
+    ... on HasOwnership {
+        ownership {
+            ...ownershipFields
+        }
+    }
+    ... on HasGlossaryTerms {
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on HasEditableProperties {
+        editableProperties {
+            description
+        }
+    }
+    ... on HasDataPlatformInstance {
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on HasDeprecation {
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on HasParentContainers {
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on HasSubTypes {
+        subTypes {
+            typeNames
+        }
+    }
+    ... on HasHealth {
+        health {
+            ...entityHealth
+        }
+    }
+    ... on HasDomain {
+        domain {
+            ...entityDomainWithoutCounts
+        }
+    }
+    ... on HasTags {
+        tags {
+            ...globalTagsFields
+        }
+    }
+    ... on HasDisplayProperties {
+        displayProperties {
+            ...displayPropertiesFields
+        }
+    }
+    ... on HasDescription {
+        description
+    }
     ... on Dataset {
         ...nonSiblingsDatasetSearchFields
         siblings {
@@ -629,11 +695,6 @@ fragment searchResultsWithoutSchemaField on Entity {
                     }
                 }
             }
-        }
-    }
-    ... on HasInstitutionalMemory {
-        institutionalMemory {
-            ...institutionalMemoryFields
         }
     }
     ... on DataPlatformInstance {
@@ -676,9 +737,6 @@ fragment searchResultsWithoutSchemaField on Entity {
             pictureLink
         }
     }
-    ... on HasName {
-        name
-    }
     ... on CorpGroup {
         info {
             displayName
@@ -688,46 +746,6 @@ fragment searchResultsWithoutSchemaField on Entity {
             input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
         ) {
             total
-        }
-    }
-    ... on HasOwnership {
-        ownership {
-            ...ownershipFields
-        }
-    }
-    ... on HasGlossaryTerms {
-        glossaryTerms {
-            ...glossaryTerms
-        }
-    }
-    ... on HasEditableProperties {
-        editableProperties {
-            description
-        }
-    }
-    ... on HasDataPlatformInstance {
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-    }
-    ... on HasDeprecation {
-        deprecation {
-            ...deprecationFields
-        }
-    }
-    ... on HasParentContainers {
-        parentContainers {
-            ...parentContainersFields
-        }
-    }
-    ... on HasSubTypes {
-        subTypes {
-            typeNames
-        }
-    }
-    ... on HasHealth {
-        health {
-            ...entityHealth
         }
     }
     ... on Dashboard {
@@ -870,21 +888,6 @@ fragment searchResultsWithoutSchemaField on Entity {
             }
         }
     }
-    ... on HasDomain {
-        domain {
-            ...entityDomainWithoutCounts
-        }
-    }
-    ... on HasTags {
-        tags {
-            ...globalTagsFields
-        }
-    }
-    ... on HasDisplayProperties {
-        displayProperties {
-            ...displayPropertiesFields
-        }
-    }
     ... on GlossaryTerm {
         name
         hierarchicalName
@@ -945,9 +948,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         privileges {
             ...entityPrivileges
         }
-    }
-    ... on HasDescription {
-        description
     }
     ... on MLFeatureTable {
         featureTableProperties {

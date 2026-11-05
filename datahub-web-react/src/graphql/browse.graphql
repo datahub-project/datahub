@@ -37,6 +37,9 @@ query getBrowseResults($input: BrowseInput!) {
                     ...entityDomain
                 }
             }
+            ... on HasDescription {
+                description
+            }
             ... on Dataset {
                 origin
                 properties {
@@ -51,11 +54,6 @@ query getBrowseResults($input: BrowseInput!) {
                     ...globalTagsFields
                 }
                 ...entityDataProduct
-            }
-            ... on HasEditableProperties {
-                editableProperties {
-                    description
-                }
             }
             ... on Dashboard {
                 urn
@@ -75,6 +73,9 @@ query getBrowseResults($input: BrowseInput!) {
                     ...globalTagsFields
                 }
                 ...entityDataProduct
+                editableProperties {
+                    description
+                }
             }
             ... on GlossaryTerm {
                 properties {
@@ -109,6 +110,9 @@ query getBrowseResults($input: BrowseInput!) {
                     ...globalTagsFields
                 }
                 ...entityDataProduct
+                editableProperties {
+                    description
+                }
             }
             ... on DataFlow {
                 urn
@@ -125,6 +129,9 @@ query getBrowseResults($input: BrowseInput!) {
                     ...globalTagsFields
                 }
                 ...entityDataProduct
+                editableProperties {
+                    description
+                }
             }
             ... on DataJob {
                 urn
@@ -141,9 +148,9 @@ query getBrowseResults($input: BrowseInput!) {
                     ...globalTagsFields
                 }
                 ...entityDataProduct
-            }
-            ... on HasDescription {
-                description
+                editableProperties {
+                    description
+                }
             }
             ... on MLFeatureTable {
                 urn

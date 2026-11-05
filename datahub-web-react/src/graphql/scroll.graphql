@@ -44,6 +44,14 @@ fragment downloadSearchResults on Entity {
             ...deprecationFields
         }
     }
+    ... on HasTags {
+        tags {
+            ...globalTagsFields
+        }
+    }
+    ... on HasDescription {
+        description
+    }
     ... on Dataset {
         origin
         uri
@@ -192,20 +200,12 @@ fragment downloadSearchResults on Entity {
             description
         }
     }
-    ... on HasTags {
-        tags {
-            ...globalTagsFields
-        }
-    }
     ... on Container {
         properties {
             name
             description
             externalUrl
         }
-    }
-    ... on HasDescription {
-        description
     }
     ... on MLFeatureTable {
         featureTableProperties {

@@ -34,6 +34,9 @@ fragment entityPreview on Entity {
             ...entityHealth
         }
     }
+    ... on HasDescription {
+        description
+    }
     ... on Dataset {
         origin
         uri
@@ -85,11 +88,6 @@ fragment entityPreview on Entity {
             total
         }
     }
-    ... on HasEditableProperties {
-        editableProperties {
-            description
-        }
-    }
     ... on Dashboard {
         urn
         type
@@ -111,6 +109,9 @@ fragment entityPreview on Entity {
             ...platformFields
         }
         ...entityDataProduct
+        editableProperties {
+            description
+        }
     }
     ... on Chart {
         urn
@@ -134,6 +135,9 @@ fragment entityPreview on Entity {
             ...platformFields
         }
         ...entityDataProduct
+        editableProperties {
+            description
+        }
     }
     ... on DataFlow {
         urn
@@ -153,6 +157,9 @@ fragment entityPreview on Entity {
             ...platformFields
         }
         ...entityDataProduct
+        editableProperties {
+            description
+        }
     }
     ... on DataJob {
         urn
@@ -169,6 +176,9 @@ fragment entityPreview on Entity {
             ...globalTagsFields
         }
         ...entityDataProduct
+        editableProperties {
+            description
+        }
     }
     ... on GlossaryTerm {
         name
@@ -191,9 +201,6 @@ fragment entityPreview on Entity {
             name
             description
         }
-    }
-    ... on HasDescription {
-        description
     }
     ... on MLFeatureTable {
         urn

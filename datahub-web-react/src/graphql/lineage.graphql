@@ -61,6 +61,22 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...browsePathV2Fields
         }
     }
+    ... on HasParentContainers {
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on HasName {
+        name
+    }
+    ... on HasDescription {
+        description
+    }
+    ... on HasTags {
+        tags {
+            ...globalTagsFields
+        }
+    }
     ... on DataJob {
         urn
         type
@@ -138,11 +154,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         ...entityDataProduct
     }
-    ... on HasParentContainers {
-        parentContainers {
-            ...parentContainersFields
-        }
-    }
     ... on Dashboard {
         urn
         type
@@ -180,9 +191,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         ...entityDataProduct
     }
-    ... on HasName {
-        name
-    }
     ... on Dataset {
         properties {
             name
@@ -203,14 +211,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
             }
             query
             transformOperation
-        }
-    }
-    ... on HasDescription {
-        description
-    }
-    ... on HasTags {
-        tags {
-            ...globalTagsFields
         }
     }
     ... on MLModelGroup {
