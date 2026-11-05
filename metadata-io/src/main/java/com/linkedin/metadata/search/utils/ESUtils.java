@@ -1662,7 +1662,14 @@ public class ESUtils {
     for (String value : criterion.getValues()) {
       BoolQueryBuilder fields = QueryBuilders.boolQuery().minimumShouldMatch(1);
       for (String path : paths) {
-        fields.should(QueryBuilders.matchQuery(path, value.trim()).operator(Operator.AND));
+        // The V3 search analyzer emits identifier parts at the same position as the original
+        // token. OpenSearch treats those as synonyms, and AND does not apply inside a synonym
+        // group, so "fct_users_deleted" would also match "fct_users_created". The standard
+        // analyzer keeps the identifier as separate tokens and AND holds.
+        fields.should(
+            QueryBuilders.matchQuery(path, value.trim())
+                .analyzer("standard")
+                .operator(Operator.AND));
       }
       values.should(fields);
     }
