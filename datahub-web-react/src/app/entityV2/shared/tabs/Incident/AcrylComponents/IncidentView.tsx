@@ -27,10 +27,10 @@ import {
 import { getOnOpenAssertionLink } from '@app/entityV2/shared/tabs/Incident/hooks';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { getAssigneeNamesWithAvatarUrl } from '@app/entityV2/shared/tabs/Incident/utils';
+import { IncidentPriorityLabel } from '@app/sharedV2/incidentPriorityLabel';
 import { Avatar } from '@src/alchemy-components';
 import { IconLabel } from '@src/alchemy-components/components/IconLabel';
 import { IconType } from '@src/alchemy-components/components/IconLabel/types';
-import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 // eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens

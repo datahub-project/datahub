@@ -1,9 +1,9 @@
 import { Meta, StoryObj } from '@storybook/react';
 
-import { IncidentPriorityLabel } from '@components/components/IncidentPriorityLabel/IncidentPriorityLabel';
+import { IncidentPriorityLabel } from '@app/sharedV2/incidentPriorityLabel/IncidentPriorityLabel';
 
 const meta: Meta<typeof IncidentPriorityLabel> = {
-    title: 'Components / IncidentPriorityLabel',
+    title: 'Incidents / IncidentPriorityLabel',
     component: IncidentPriorityLabel,
 
     // Component-level parameters
