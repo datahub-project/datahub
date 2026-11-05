@@ -4492,7 +4492,7 @@ public class GmsGraphQLEngine {
    * Entity types that declare {@code relationships} in the schema but whose own wiring doesn't
    * register it. They resolve it from the graph like every other entity type.
    */
-  static final List<String> GENERIC_RELATIONSHIPS_TYPES =
+  private static final List<String> GENERIC_RELATIONSHIPS_TYPES =
       List.of(
           "AccessTokenMetadata",
           "BusinessAttribute",
