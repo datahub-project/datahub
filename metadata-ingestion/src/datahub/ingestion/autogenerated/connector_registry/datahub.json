@@ -263,7 +263,7 @@
       "classname": "datahub.ingestion.source.azure_analysis_services.source.AzureAnalysisServicesSource",
       "platform_id": "azure-analysis-services",
       "platform_name": "Azure Analysis Services",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "azure-data-factory": {
       "capabilities": [

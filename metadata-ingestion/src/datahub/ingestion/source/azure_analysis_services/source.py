@@ -41,7 +41,7 @@ _STAGE_EXTRACT_MODEL = "Extract tabular model"
 
 @platform_name("Azure Analysis Services", id="azure-analysis-services")
 @config_class(AzureAnalysisServicesConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.CONTAINERS,

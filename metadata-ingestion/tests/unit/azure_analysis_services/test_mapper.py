@@ -1,10 +1,11 @@
-from typing import Dict
+from typing import Dict, Generator, cast
 
 import pytest
 
 from datahub.emitter import mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.azure_analysis_services import constants
 from datahub.ingestion.source.azure_analysis_services.config import (
     AzureAnalysisServicesConfig,
@@ -354,7 +355,7 @@ def test_map_model_does_not_swallow_consumer_errors() -> None:
     )
     sales_urn = mapper._table_dataset_urn("SalesModel", "Sales")
 
-    gen = mapper.map_model(model)
+    gen = cast(Generator[MetadataWorkUnit, None, None], mapper.map_model(model))
     for wu in gen:
         if wu.get_urn() == sales_urn:
             # Simulate the consumer (a sink) raising while pulling this work unit.
