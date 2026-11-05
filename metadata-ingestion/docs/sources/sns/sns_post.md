@@ -27,7 +27,7 @@ SNS stores opaque messages, so there is no schema by default. If producers regis
 
 #### When column lineage is emitted
 
-Field-level lineage is only added where a message reaches the next hop unchanged, for fields present in both schemas (matched case-insensitively on the simple field path). Schemas come from Glue Schema Registry in the same run or from DataHub. Without a schema on both sides, the edge stays table-level. Most deployments have no schema on one side and see table-level lineage only. The report counts each skip reason under `column_lineage_skipped`.
+Field-level lineage is only added where a message reaches the next hop unchanged (or, for a pipe, where its input template maps body fields to keys), for fields present in both schemas (matched case-insensitively on the simple field path). Schemas come from Glue Schema Registry in the same run or from DataHub. Without a schema on both sides, the edge stays table-level. Most deployments have no schema on one side and see table-level lineage only. The report counts each skip reason under `column_lineage_skipped`.
 
 | Hop                                                                                                        | Column lineage                            | Why                                                                                               |
 | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -51,13 +51,13 @@ With the `lineage` options on (the default), the connector follows the services 
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Topic to Lambda function   | SNS subscription, protocol `lambda`                                                                                                      |
 | Lambda function to topic   | event source mapping `OnFailure` destination; asynchronous invocation destinations (`lineage.lambda_async_destinations`, off by default) |
-| Event bus to rule to topic | `events:ListRules`, `events:ListTargetsByRule`                                                                                           |
+| Event bus (none for a scheduled rule) to rule to topic | `events:ListRules`, `events:ListTargetsByRule`                                                                                           |
 | Pipe from or to a topic    | `pipes:ListPipes`                                                                                                                        |
 
 - A Lambda function is a DataFlow (platform `lambda`) with one `invoke` DataJob, the shape the `kinesis` source uses for Firehose. Functions appear only when one of these edges involves one of the run's topics, and only for the recipe's own account and region.
-- A rule (platform `eventbridge`) is a DataFlow with one `route` DataJob from its event bus, emitted as an `Event Bus` dataset, to its targets. A pipe (platform `eventbridge-pipes`) is a DataFlow with one `pipe` DataJob from source to target. A rule or pipe that targets a function becomes an upstream job of that function.
+- A rule (platform `eventbridge`) is a DataFlow with one `route` DataJob from its event bus, emitted as an `Event Bus` dataset, to its targets. A scheduled rule has no event bus input, so its job has outputs only. A pipe (platform `eventbridge-pipes`) is a DataFlow with one `pipe` DataJob from source to target. A rule or pipe that targets a function becomes an upstream job of that function.
 - The `sqs` and `sns` sources each add only the edges whose dataset end they own, as patches, so a rule targeting both a queue and a topic gets both outputs once both have run.
-- Some pipes also get field-level lineage; see the table below.
+- Some pipes also get field-level lineage; see the table above.
 
 #### Tags and data protection
 

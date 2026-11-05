@@ -36,24 +36,35 @@ SNS topics are ingested by the separate `sns` source. Run both with the same `en
     {
       "Sid": "LambdaRead",
       "Effect": "Allow",
+      "Action": ["lambda:ListEventSourceMappings"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "LambdaAsyncDestinationsRead",
+      "Effect": "Allow",
       "Action": [
-        "lambda:ListEventSourceMappings",
         "lambda:ListFunctions",
         "lambda:ListFunctionEventInvokeConfigs"
       ],
       "Resource": "*"
     },
     {
+      "Sid": "EventBridgeList",
+      "Effect": "Allow",
+      "Action": ["events:ListEventBuses", "events:ListRules", "pipes:ListPipes"],
+      "Resource": "*"
+    },
+    {
       "Sid": "EventBridgeRead",
       "Effect": "Allow",
-      "Action": [
-        "events:ListEventBuses",
-        "events:ListRules",
-        "events:ListTargetsByRule",
-        "pipes:ListPipes",
-        "pipes:DescribePipe"
-      ],
-      "Resource": "*"
+      "Action": ["events:ListTargetsByRule"],
+      "Resource": "arn:aws:events:<region>:<account-id>:rule/*"
+    },
+    {
+      "Sid": "PipesRead",
+      "Effect": "Allow",
+      "Action": ["pipes:DescribePipe"],
+      "Resource": "arn:aws:pipes:<region>:<account-id>:pipe/*"
     },
     {
       "Sid": "TagsRead",
@@ -73,4 +84,4 @@ Credentials come from `aws_config` or the standard boto3 chain: environment vari
 
 `glue:GetSchemaVersion` is only needed with `glue_schema_registry.enabled`.
 
-`LambdaRead` is used with `lineage.lambda_functions` (`lambda:ListFunctions` and `lambda:ListFunctionEventInvokeConfigs` only with `lineage.lambda_async_destinations` too), and `EventBridgeRead` with `lineage.eventbridge_rules` or `lineage.eventbridge_pipes`. `pipes:DescribePipe` is only called for a pipe that could get column lineage. `lineage.lambda_async_destinations` is off by default because it makes one `lambda:ListFunctionEventInvokeConfigs` call per function in the region, from both sources; it stops at the first `AccessDenied`, and so does the `events:ListTargetsByRule` loop.
+`LambdaRead` is used with `lineage.lambda_functions`, and `LambdaAsyncDestinationsRead` only with `lineage.lambda_async_destinations` too; leave it out otherwise. `EventBridgeList` is used with `lineage.eventbridge_rules` or `lineage.eventbridge_pipes`, `EventBridgeRead` with `lineage.eventbridge_rules`, and `PipesRead` with `lineage.eventbridge_pipes`. The `ListEventBuses`, `ListRules` and `ListPipes` actions don't support resource-level scoping, so they need `*`. `pipes:DescribePipe` is only called for a pipe that could get column lineage. `lineage.lambda_async_destinations` is off by default because it makes one `lambda:ListFunctionEventInvokeConfigs` call per function in the region, from both sources; it stops at the first `AccessDenied`, and so does the `events:ListTargetsByRule` loop.

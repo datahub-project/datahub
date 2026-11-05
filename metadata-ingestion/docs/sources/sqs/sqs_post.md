@@ -18,21 +18,21 @@ SQS stores opaque messages, so there is no schema by default. If producers regis
 
 With the `lineage` options on (the default), the connector follows the services around its queues:
 
-| Edge                       | Read from                                                                                                                                |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Queue to Lambda function   | `lambda:ListEventSourceMappings`                                                                                                         |
-| Lambda function to queue   | event source mapping `OnFailure` destination; asynchronous invocation destinations (`lineage.lambda_async_destinations`, off by default) |
-| Event bus to rule to queue | `events:ListRules`, `events:ListTargetsByRule`                                                                                           |
-| Pipe from or to a queue    | `pipes:ListPipes`                                                                                                                        |
+| Edge                                                   | Read from                                                                                                                                |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Queue to Lambda function                               | `lambda:ListEventSourceMappings`                                                                                                         |
+| Lambda function to queue                               | event source mapping `OnFailure` destination; asynchronous invocation destinations (`lineage.lambda_async_destinations`, off by default) |
+| Event bus (none for a scheduled rule) to rule to queue | `events:ListRules`, `events:ListTargetsByRule`                                                                                           |
+| Pipe from or to a queue                                | `pipes:ListPipes`                                                                                                                        |
 
 - A Lambda function is a DataFlow (platform `lambda`) with one `invoke` DataJob, the shape the `kinesis` source uses for Firehose. Functions appear only when one of these edges involves one of the run's queues, and only for the recipe's own account and region.
-- A rule (platform `eventbridge`) is a DataFlow with one `route` DataJob from its event bus, emitted as an `Event Bus` dataset, to its targets. A pipe (platform `eventbridge-pipes`) is a DataFlow with one `pipe` DataJob from source to target. A rule or pipe that targets a function becomes an upstream job of that function.
+- A rule (platform `eventbridge`) is a DataFlow with one `route` DataJob from its event bus, emitted as an `Event Bus` dataset, to its targets. A scheduled rule has no event bus input, so its job has outputs only. A pipe (platform `eventbridge-pipes`) is a DataFlow with one `pipe` DataJob from source to target. A rule or pipe that targets a function becomes an upstream job of that function.
 - The `sqs` and `sns` sources each add only the edges whose dataset end they own, as patches, so a rule targeting both a queue and a topic gets both outputs once both have run.
 - Some pipes also get field-level lineage; see the table below.
 
 #### When column lineage is emitted
 
-Field-level lineage is only added where a message reaches the next hop unchanged, for fields present in both schemas (matched case-insensitively on the simple field path). Schemas come from Glue Schema Registry in the same run or from DataHub. Without a schema on both sides, the edge stays table-level. Most deployments have no schema on one side and see table-level lineage only. The report counts the reason for each hop it skips under `column_lineage_skipped`; with `include_column_lineage` off, nothing is attempted or counted, and existing field edges are left alone.
+Field-level lineage is only added where a message reaches the next hop unchanged (or, for a pipe, where its input template maps body fields to keys), for fields present in both schemas (matched case-insensitively on the simple field path). Schemas come from Glue Schema Registry in the same run or from DataHub. Without a schema on both sides, the edge stays table-level. Most deployments have no schema on one side and see table-level lineage only. The report counts the reason for each hop it skips under `column_lineage_skipped`; with `include_column_lineage` off, nothing is attempted or counted, and existing field edges are left alone.
 
 | Hop                                                                                                        | Column lineage                            | Why                                                                                               |
 | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
