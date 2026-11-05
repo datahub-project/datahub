@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql;
 
-import static com.linkedin.datahub.graphql.Constants.INTERFACE_SCHEMA_FILES;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
@@ -25,15 +24,10 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import graphql.ExecutionResult;
-import java.io.File;
-import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.mockito.Answers;
 import org.testng.annotations.Test;
 
@@ -41,21 +35,6 @@ public class CommonInterfacesTest {
 
   private static final String DATASET = "urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)";
   private static final String TAG = "urn:li:tag:pii";
-
-  @Test
-  public void testEveryInterfaceSchemaFileIsRegistered() throws URISyntaxException {
-    File dir =
-        new File(
-            Objects.requireNonNull(getClass().getClassLoader().getResource("interfaces")).toURI());
-
-    Set<String> onDisk =
-        Arrays.stream(Objects.requireNonNull(dir.list()))
-            .filter(name -> name.endsWith(".graphql"))
-            .map(name -> "interfaces/" + name)
-            .collect(Collectors.toSet());
-
-    assertEquals(Set.copyOf(INTERFACE_SCHEMA_FILES), onDisk);
-  }
 
   @Test
   public void testFieldsResolveThroughInterfaceFragments() throws Exception {

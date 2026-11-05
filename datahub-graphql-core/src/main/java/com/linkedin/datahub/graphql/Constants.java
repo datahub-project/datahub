@@ -1,8 +1,6 @@
 package com.linkedin.datahub.graphql;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.util.List;
 import java.util.Set;
 
 /** Constants relating to GraphQL type system & execution. */
@@ -52,41 +50,7 @@ public class Constants {
   public static final String DATA_PRODUCT_SCHEMA_FILE = "dataProduct.graphql";
   public static final String API_SCHEMA_FILE = "api.graphql";
   public static final String REPOSITORY_SCHEMA_FILE = "repository.graphql";
-  public static final List<String> INTERFACE_SCHEMA_FILES =
-      ImmutableList.of(
-          "interfaces/access.graphql",
-          "interfaces/aiContext.graphql",
-          "interfaces/applications.graphql",
-          "interfaces/browsePathV2.graphql",
-          "interfaces/container.graphql",
-          "interfaces/customProperties.graphql",
-          "interfaces/dataPlatformInstance.graphql",
-          "interfaces/deprecation.graphql",
-          "interfaces/description.graphql",
-          "interfaces/displayProperties.graphql",
-          "interfaces/documentation.graphql",
-          "interfaces/domain.graphql",
-          "interfaces/editableProperties.graphql",
-          "interfaces/embed.graphql",
-          "interfaces/entityProperties.graphql",
-          "interfaces/exists.graphql",
-          "interfaces/externalUrl.graphql",
-          "interfaces/forms.graphql",
-          "interfaces/glossaryTerms.graphql",
-          "interfaces/health.graphql",
-          "interfaces/incidents.graphql",
-          "interfaces/institutionalMemory.graphql",
-          "interfaces/lastIngested.graphql",
-          "interfaces/name.graphql",
-          "interfaces/ownership.graphql",
-          "interfaces/platform.graphql",
-          "interfaces/privileges.graphql",
-          "interfaces/rawAspects.graphql",
-          "interfaces/relatedDocuments.graphql",
-          "interfaces/status.graphql",
-          "interfaces/structuredProperties.graphql",
-          "interfaces/subTypes.graphql",
-          "interfaces/tags.graphql");
+  public static final String INTERFACE_SCHEMA_DIRECTORY = "interfaces";
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";

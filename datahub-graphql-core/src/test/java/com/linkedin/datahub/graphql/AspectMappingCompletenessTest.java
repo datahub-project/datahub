@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql;
 
-import static com.linkedin.datahub.graphql.Constants.INTERFACE_SCHEMA_FILES;
+import static com.linkedin.datahub.graphql.GmsGraphQLEngine.interfaceSchemaFiles;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.Iterables;
@@ -76,7 +76,7 @@ public class AspectMappingCompletenessTest {
     SchemaParser parser = new SchemaParser();
     typeRegistry = new TypeDefinitionRegistry();
     ClassLoader cl = Thread.currentThread().getContextClassLoader();
-    for (String file : Iterables.concat(List.of(SCHEMA_FILES), INTERFACE_SCHEMA_FILES)) {
+    for (String file : Iterables.concat(List.of(SCHEMA_FILES), interfaceSchemaFiles())) {
       try (Reader reader =
           new InputStreamReader(
               Objects.requireNonNull(cl.getResourceAsStream(file), "Missing schema: " + file),

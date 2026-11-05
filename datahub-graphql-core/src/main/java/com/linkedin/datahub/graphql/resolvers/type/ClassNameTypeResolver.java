@@ -8,7 +8,7 @@ import graphql.schema.TypeResolver;
  * Resolves an interface to the object type whose name matches the simple name of the generated Java
  * class backing the value, e.g. {@code Dataset} or {@code DatasetProperties}.
  */
-public class GeneratedClassTypeResolver implements TypeResolver {
+public class ClassNameTypeResolver implements TypeResolver {
 
   @Override
   public GraphQLObjectType getType(TypeResolutionEnvironment env) {
