@@ -113,6 +113,45 @@ class SubProcessIngestionTaskArgs(SubProcessRecipeTaskArgs):
         return str(v).lower()
 
 
+# A run that asks for `datahub ingest run` flags carries them under this top-level
+# recipe key, not as a task argument. The task arguments model ignores keys it
+# does not know, so an older executor would drop the flags and run for real. A
+# key left in the recipe fails the CLI's recipe validation instead, so an older
+# executor refuses the run before anything is written.
+RUN_OPTIONS_RECIPE_KEY = "__run_options__"
+
+
+class IngestionRunOptions(ConfigModel):
+    """The `datahub ingest run` flags a run asks for."""
+
+    dry_run: bool = Field(
+        default=False, description="Run without writing anything to the sink."
+    )
+    preview: bool = Field(
+        default=False,
+        description=(
+            "Stop after the first `preview_workunits`. Those are still written "
+            "to the sink unless `dry_run` is also set."
+        ),
+    )
+    preview_workunits: int = Field(
+        default=10, ge=1, description="How many work units a preview processes."
+    )
+
+
+def split_run_options(recipe: dict) -> tuple[dict, IngestionRunOptions]:
+    """The recipe without its run options, and the options it carried."""
+    # By key, not value: a null left in the recipe would reach the CLI, which
+    # would fail with an unrelated-looking "extra fields not permitted".
+    if RUN_OPTIONS_RECIPE_KEY not in recipe:
+        return recipe, IngestionRunOptions()
+    try:
+        options = IngestionRunOptions.model_validate(recipe[RUN_OPTIONS_RECIPE_KEY])
+    except pydantic.ValidationError as e:
+        raise TaskError(f"Invalid {RUN_OPTIONS_RECIPE_KEY} in the recipe: {e}") from e
+    return {k: v for k, v in recipe.items() if k != RUN_OPTIONS_RECIPE_KEY}, options
+
+
 class SubProcessIngestionTask(Task):
     # How long to wait for the monitoring tasks to wind down after a cancellation
     # or a monitoring failure, before falling back to killing the subprocess.
@@ -259,6 +298,7 @@ class SubProcessIngestionTask(Task):
         exec_out_dir: str,
         shared_logs: LogHolder,
         secret_values: dict[str, str],
+        run_options: IngestionRunOptions,
     ) -> asyncio.subprocess.Process:
         """Create and return the ingestion subprocess.
 
@@ -305,6 +345,7 @@ class SubProcessIngestionTask(Task):
                 "__secrets__": {**user_env_secrets, **secret_values},
                 "__report_out_file__": report_out_file,
                 "__debug_mode__": debug_mode,
+                "__run_options__": run_options.model_dump(),
             }
         )
 
@@ -355,6 +396,8 @@ class SubProcessIngestionTask(Task):
             validated_args.recipe, ctx, self.ctx
         )
         check_credential_redirects(recipe, validated_args, secret_values)
+        # Before any directory or log file exists, like the check above.
+        recipe, run_options = split_run_options(recipe)
         plugin: str = SubProcessTaskUtil._get_plugin_from_recipe(recipe)
 
         # 2. Setup directories
@@ -390,6 +433,7 @@ class SubProcessIngestionTask(Task):
             exec_out_dir,
             shared_logs,
             secret_values,
+            run_options,
         )
 
         # Publish the artifact directory on the context so callers can locate this run's

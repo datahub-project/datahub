@@ -533,6 +533,7 @@ restart.
 | `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED` | `false` | Read document vectors from the V3 document index instead of the V2 semantic indices. Independent of keyword read. Requires V3 write. Needs OpenSearch 3.5+ or Elasticsearch 8.18+ on the Search V3 cluster. Refuses to start on older OpenSearch.         | GMS, MAE Consumer, MCE Consumer, System Update |
 | `ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED`   | `false` | Rerank full-text keyword results with V3 document vectors. Off leaves keyword ranking unchanged. On refuses to start unless V3 write, keyword read, semantic read, and semantic search are on, with an embedding provider and the active model's mapping. | GMS, MAE Consumer, MCE Consumer, System Update |
 | `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED`               | `false` | Enable semantic search. See [Semantic Search Configuration](../how-to/semantic-search-configuration.md).                                                                                                                                                  | GMS, MAE Consumer, MCE Consumer, System Update |
+| `SEARCH_V3_BUSINESS_ATTRIBUTE_EXPANSION_ENABLED`      | `false` | While indexing a Search V3 document, copy a referenced business attribute's searchable fields onto that document. Off stores the attribute URN from the event and does not read the attribute. V2 indexing is unchanged.                                  | GMS, MAE Consumer, MCE Consumer, System Update |
 | `SEARCH_V3_TEMPLATES_ENABLED`                         | `false` | Rank keyword search with Search V3 query templates. Off keeps the Java query builder even when keyword read is on. On serves templates only when keyword reads use V3. See [Search V3 query templates](../how/search.md#search-v3-query-templates).       | GMS                                            |
 
 With `ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED` set to `false` and V3 write on, keyword reads use V3
@@ -670,26 +671,27 @@ upstream filter-chain changes continue to apply on upgrades.
 
 #### Search Configuration
 
-| Environment Variable                                    | Default              | Description                                     | Components |
-| ------------------------------------------------------- | -------------------- | ----------------------------------------------- | ---------- |
-| `ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE`              | `60`                 | Maximum term bucket size                        | GMS        |
-| `ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS`        | `false`              | Hide non-primary dataset siblings from search   | GMS        |
-| `LINEAGE_COUNT_ONLY_ENABLED`                            | `false`              | Count-only lineage requests use one aggregation | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`             | `false`              | Only return exact matches when using quotes     | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`           | `true`               | Include prefix match in exact match results     | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`                | `16.0`               | Multiply by this number on true exact match     | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR`         | `1.1`                | Multiply by this number when prefix match       | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR`           | `0.0`                | Stacked boost multiplier when case mismatch     | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED`     | `true`               | Enable exact match on structured search         | GMS        |
-| `ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR`                   | `1.2`                | Boost multiplier when match on 2-gram tokens    | GMS        |
-| `ELASTICSEARCH_QUERY_THREE_GRAM_FACTOR`                 | `1.5`                | Boost multiplier when match on 3-gram tokens    | GMS        |
-| `ELASTICSEARCH_QUERY_FOUR_GRAM_FACTOR`                  | `1.8`                | Boost multiplier when match on 4-gram tokens    | GMS        |
-| `ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR`                | `0.5`                | Multiplier on Urn token match                   | GMS        |
-| `ELASTICSEARCH_QUERY_PARTIAL_FACTOR`                    | `0.4`                | Multiplier on possible non-Urn token match      | GMS        |
-| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED`             | `true`               | Enable search query and ranking customization   | GMS        |
-| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE`                | `search_config.yaml` | Location of search customization configuration  | GMS        |
-| `ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT`       | `legacy`             | Default field configuration for search          | GMS        |
-| `ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT` | `legacy`             | Default field configuration for autocomplete    | GMS        |
+| Environment Variable                                    | Default              | Description                                                                                                                                                             | Components |
+| ------------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE`              | `60`                 | Maximum term bucket size                                                                                                                                                | GMS        |
+| `ELASTICSEARCH_QUERY_DEFAULT_MAX_AGG_VALUES`            | `20`                 | Default number of values returned per search facet (filter dropdown) when the request does not set `maxAggValues`; capped by `ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE` | GMS        |
+| `ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS`        | `false`              | Hide non-primary dataset siblings from search                                                                                                                           | GMS        |
+| `LINEAGE_COUNT_ONLY_ENABLED`                            | `false`              | Count-only lineage requests use one aggregation                                                                                                                         | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`             | `false`              | Only return exact matches when using quotes                                                                                                                             | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`           | `true`               | Include prefix match in exact match results                                                                                                                             | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`                | `16.0`               | Multiply by this number on true exact match                                                                                                                             | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR`         | `1.1`                | Multiply by this number when prefix match                                                                                                                               | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR`           | `0.0`                | Stacked boost multiplier when case mismatch                                                                                                                             | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED`     | `true`               | Enable exact match on structured search                                                                                                                                 | GMS        |
+| `ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR`                   | `1.2`                | Boost multiplier when match on 2-gram tokens                                                                                                                            | GMS        |
+| `ELASTICSEARCH_QUERY_THREE_GRAM_FACTOR`                 | `1.5`                | Boost multiplier when match on 3-gram tokens                                                                                                                            | GMS        |
+| `ELASTICSEARCH_QUERY_FOUR_GRAM_FACTOR`                  | `1.8`                | Boost multiplier when match on 4-gram tokens                                                                                                                            | GMS        |
+| `ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR`                | `0.5`                | Multiplier on Urn token match                                                                                                                                           | GMS        |
+| `ELASTICSEARCH_QUERY_PARTIAL_FACTOR`                    | `0.4`                | Multiplier on possible non-Urn token match                                                                                                                              | GMS        |
+| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED`             | `true`               | Enable search query and ranking customization                                                                                                                           | GMS        |
+| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE`                | `search_config.yaml` | Location of search customization configuration                                                                                                                          | GMS        |
+| `ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT`       | `legacy`             | Default field configuration for search                                                                                                                                  | GMS        |
+| `ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT` | `legacy`             | Default field configuration for autocomplete                                                                                                                            | GMS        |
 
 #### Graph Search Configuration
 
@@ -994,7 +996,6 @@ Reference Links:
 | `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                                                                         | GMS        |
 | `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                                                                | GMS        |
 | `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                                                                    | GMS        |
-| `SHOW_INGESTION_PAGE_REDESIGN`          | `true`  | Show re-designed Ingestion page                                                                                 | GMS        |
 | `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                                                                        | GMS        |
 | `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                                                                      | GMS        |
 | `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                                                                  | GMS        |

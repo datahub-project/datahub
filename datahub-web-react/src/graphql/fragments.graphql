@@ -5,6 +5,9 @@ fragment globalTagsFields on GlobalTags {
             type
             name
             description
+            status {
+                removed
+            }
             properties {
                 name
                 colorHex
@@ -173,6 +176,9 @@ fragment glossaryTerm on GlossaryTerm {
     name
     type
     hierarchicalName
+    status {
+        removed
+    }
     properties {
         name
         description
@@ -1986,6 +1992,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
                 tags {
                     tag {
                         urn
+                        status {
+                            removed
+                        }
                         name
                         properties {
                             name
@@ -1998,6 +2007,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
                 terms {
                     term {
                         urn
+                        status {
+                            removed
+                        }
                         type
                         properties {
                             name

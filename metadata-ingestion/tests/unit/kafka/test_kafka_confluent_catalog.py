@@ -472,3 +472,12 @@ class TestCatalogMetadataOnTopics:
             "Confluent Cloud only" in warning.message
             for warning in source.report.warnings
         )
+
+
+def test_catalog_close_releases_the_client() -> None:
+    catalog = make_catalog([], KafkaSourceReport())
+
+    catalog.close()
+
+    assert isinstance(catalog.client, Mock)
+    catalog.client.close.assert_called_once()

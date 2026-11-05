@@ -27,6 +27,8 @@ export const PARAM_OLD_PARENT = 'oldParent';
 export const PARAM_NEW_PARENT = 'newParent';
 export const PARAM_OLD_STATE = 'oldState';
 export const PARAM_NEW_STATE = 'newState';
+// DeprecationChangeEventGenerator emits the decommission time under the generic key "timestamp".
+export const PARAM_DECOMMISSION_TIME = 'timestamp';
 export const DEPRECATION_STATUS_ACTIVE = 'ACTIVE';
 
 // ──────────────────────────────────────────────────────────────────────────────

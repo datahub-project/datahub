@@ -275,7 +275,7 @@ public class PgQueueMaePollerSourcesConfiguration {
             try {
               GenericRecord record = ctx.decodeAvro(msg, logicalTopic);
               MetadataChangeLog mcl = EventUtils.avroToPegasusMCL(record);
-              if (!MCLKafkaListener.shouldSkipMcl(mcl, aspectsToDrop)) {
+              if (!MCLKafkaListener.shouldSkipMcl(mcl, aspectsToDrop, systemOperationContext)) {
                 mcls.add(mcl);
               }
               handles.add(msg.handle());

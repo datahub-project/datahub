@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, tzinfo
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
@@ -17,6 +18,8 @@ from datahub_airflow_plugin._airflow_version_specific import (
     get_task_instance_attributes,
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from airflow import DAG
@@ -135,6 +138,34 @@ class AirflowGenerator:
         return [owner.strip() for owner in dag.owner.split(",")]
 
     @staticmethod
+    def _get_schedule(dag: "DagType") -> Optional[str]:
+        """Return the DAG's timetable summary, as shown in the Airflow UI.
+
+        Task SDK timetables (Airflow 3.2+) have no `summary` and are coerced to
+        core first. `"None"` means unscheduled; Python `None` means unknown.
+        """
+        timetable = dag.timetable
+        summary = getattr(timetable, "summary", None)
+        if summary is None:
+            try:
+                from airflow.serialization.encoders import coerce_to_core_timetable
+            except ImportError:
+                # Airflow < 3.2: core timetables always expose `summary`.
+                return None
+            try:
+                summary = coerce_to_core_timetable(timetable).summary
+            except Exception:
+                logger.warning(
+                    "Could not derive schedule for DAG %s from timetable %s; omitting `schedule`",
+                    getattr(dag, "dag_id", "<unknown>"),
+                    type(timetable).__name__,
+                    exc_info=True,
+                )
+                return None
+        # NullTimetable.summary is the string "None" (unscheduled DAG).
+        return summary if isinstance(summary, str) else None
+
+    @staticmethod
     def generate_dataflow(
         config: DatahubLineageConfig,
         dag: "DagType",
@@ -199,6 +230,10 @@ class AirflowGenerator:
             if hasattr(dag, key):
                 value = getattr(dag, key)
                 flow_property_bag[key] = _serialize_dag_property(value)
+
+        schedule = AirflowGenerator._get_schedule(dag)
+        if schedule is not None:
+            flow_property_bag["schedule"] = schedule
 
         data_flow.properties = flow_property_bag
         base_url = _get_base_url()

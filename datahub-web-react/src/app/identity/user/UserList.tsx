@@ -7,7 +7,7 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import UserListItem from '@app/identity/user/UserListItem';
 import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from '@app/identity/user/cacheUtils';

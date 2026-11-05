@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -39,6 +41,17 @@ public class MCLItemImpl implements MCLItem {
   // derived
   private final EntitySpec entitySpec;
   private final AspectSpec aspectSpec;
+
+  /**
+   * This item with {@code previousRecordTemplate} as its previous value. Used when the previous
+   * value was left out of the build because it can't be validated here (a newer version wrote it),
+   * so readers of the item can still diff against it.
+   */
+  public MCLItemImpl withPreviousRecordTemplate(
+      @Nullable final RecordTemplate previousRecordTemplate) {
+    return new MCLItemImpl(
+        metadataChangeLog, recordTemplate, previousRecordTemplate, entitySpec, aspectSpec);
+  }
 
   public static class MCLItemImplBuilder {
 
@@ -105,6 +118,13 @@ public class MCLItemImpl implements MCLItem {
       // validate new
       ValidationApiUtils.validateRecordTemplate(
           this.entitySpec, urn, aspects.getFirst(), aspectRetriever);
+      // Validating the new aspect removed its references to entity types this registry doesn't
+      // know (written by a newer version). Remove them from the previous aspect too, so the index
+      // diff doesn't read them as removed and delete the newer version's edges and values. A
+      // DELETE has no new aspect, and its previous aspect is removed in full.
+      if (aspects.getFirst() != null && aspects.getSecond() != null) {
+        handling().stripUnknownReferences(aspects.getSecond(), entityRegistry);
+      }
 
       return new MCLItemImpl(
           this.metadataChangeLog,

@@ -4,14 +4,14 @@ import { MemoryRouter } from 'react-router';
 import { ThemeProvider } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { AssetsSection } from '@app/entityV2/application/AssetsSections';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
 }));
 vi.mock('@graphql/search.generated', async (importOriginal) => {

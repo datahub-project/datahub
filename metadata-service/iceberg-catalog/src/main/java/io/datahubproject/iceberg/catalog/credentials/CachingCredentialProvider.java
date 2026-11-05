@@ -2,6 +2,7 @@ package io.datahubproject.iceberg.catalog.credentials;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -25,7 +26,11 @@ public class CachingCredentialProvider implements CredentialProvider {
     try {
       return credentialCache.get(
           key, () -> credentialProvider.getCredentials(key, storageProviderCredentials));
-    } catch (ExecutionException e) {
+    } catch (UncheckedExecutionException | ExecutionException e) {
+      Throwable cause = e.getCause();
+      if (cause instanceof RuntimeException runtimeCause) {
+        throw runtimeCause;
+      }
       throw new RuntimeException("Error during cache lookup for credentials", e);
     }
   }

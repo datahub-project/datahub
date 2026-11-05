@@ -1,8 +1,16 @@
+import json
+import pathlib
+import re
+from typing import Set
+
 import pytest
+from sqlglot import exp
 
 from datahub.ingestion.agent.sql_gate import (
+    _CLOCK_FUNCTIONS,
     CatalogScope,
     SqlScopeError,
+    _check_server_state,
     check_query_scope,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_probe import BigQueryMetadataProbe
@@ -10,6 +18,7 @@ from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres.source import PostgresConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 
 CATALOG_QUERY = (
     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
@@ -248,6 +257,203 @@ def test_rejects_a_vendor_function_with_no_table_reference():
     # data without naming a table at all, so walking tables never sees it.
     with pytest.raises(SqlScopeError, match="pg_read_file"):
         check_query_scope("SELECT pg_read_file('/etc/passwd')", platform="postgres")
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT secret('my_scope', 'my_key') AS s "
+        "FROM system.information_schema.tables LIMIT 1",
+        # Not selected, but the row count still answers a guess about the value.
+        "SELECT table_name FROM system.information_schema.tables "
+        "WHERE secret('my_scope', 'my_key') LIKE 'a%'",
+    ],
+)
+def test_rejects_databricks_secret(sql):
+    # sqlglot 30.22 models secret() as exp.Secret, so the vendor-function rule,
+    # which only sees exp.Anonymous, no longer refuses it; the refused-class rule does.
+    with pytest.raises(SqlScopeError, match="(?i)secret"):
+        check_query_scope(sql, platform="databricks")
+
+
+_MODELED_FUNCTIONS_BASELINE = (
+    pathlib.Path(__file__).parent / "sqlglot_modeled_functions_baseline.json"
+)
+
+
+def _modeled_functions() -> Set[str]:
+    def subclasses(cls: type) -> Set[type]:
+        found: Set[type] = set()
+        for sub in cls.__subclasses__():
+            found |= {sub} | subclasses(sub)
+        return found
+
+    return {
+        cls.__name__
+        for cls in subclasses(exp.Func)
+        if cls.__module__.startswith("sqlglot.")
+    }
+
+
+def test_sqlglot_upgrade_reviews_newly_modeled_functions():
+    # The vendor-function rule refuses what sqlglot leaves as exp.Anonymous, so each
+    # function sqlglot learns to model slips past it. The baseline is what sqlglot
+    # 30.22 models; it is not an allowlist, and only the functions added since
+    # 30.12 were checked against the gate. On a sqlglot upgrade, check each new
+    # function: refuse it in sql_gate._REFUSED_FUNCTION_CLASSES if it reads anything
+    # but its arguments (secrets, files, models, sequences), and classify any new
+    # CURRENT_* one (test_every_modeled_current_function_is_classified), then add it
+    # to the baseline.
+    baseline = set(json.loads(_MODELED_FUNCTIONS_BASELINE.read_text()))
+    new = sorted(_modeled_functions() - baseline)
+    assert not new, f"sqlglot models functions the SQL gate hasn't checked: {new}"
+
+
+@pytest.mark.parametrize(
+    "platform, expression, label",
+    [
+        # Session and account state.
+        ("snowflake", "CURRENT_ACCOUNT()", "CURRENT_ACCOUNT"),
+        ("snowflake", "CURRENT_ROLE()", "CURRENT_ROLE"),
+        ("snowflake", "CURRENT_IP_ADDRESS()", "CURRENT_IP_ADDRESS"),
+        ("snowflake", "CURRENT_SESSION()", "CURRENT_SESSION"),
+        ("snowflake", "CURRENT_WAREHOUSE()", "CURRENT_WAREHOUSE"),
+        ("databricks", "current_catalog()", "CURRENT_CATALOG"),
+        ("postgres", "current_database()", "CURRENT_DATABASE"),
+        # Model invocations, which also cost money.
+        ("snowflake", "AI_CLASSIFY(table_name, ['a', 'b'])", "AI_CLASSIFY"),
+        ("snowflake", "AI_EMBED('model', table_name)", "AI_EMBED"),
+        # Decryption.
+        ("snowflake", "DECRYPT(table_name, 'passphrase')", "DECRYPT"),
+        ("snowflake", "DECRYPT_RAW(table_name, 'k', 'iv')", "DECRYPT_RAW"),
+        # Sequence increments, which write.
+        ("snowflake", "my_seq.NEXTVAL", "NEXTVAL"),
+        ("oracle", "my_seq.CURRVAL", "CURRVAL"),
+        ("tsql", "NEXT VALUE FOR dbo.my_seq", "NEXT VALUE FOR"),
+        # Files.
+        ("duckdb", "read_csv('/etc/passwd')", "READ_CSV"),
+        ("duckdb", "read_parquet('/tmp/data.parquet')", "READ_PARQUET"),
+        ("snowflake", "TO_FILE('@my_stage/data.csv')", "TO_FILE"),
+    ],
+)
+def test_rejects_modeled_functions_beyond_catalog_metadata(platform, expression, label):
+    # sqlglot models these, so the vendor-function rule, which only sees
+    # exp.Anonymous, never refused them. Matching is by class name, so each
+    # refused class needs a case: a rename in sqlglot would reopen the gate.
+    with pytest.raises(SqlScopeError, match=f"(?i){re.escape(label)}"):
+        check_query_scope(
+            f"SELECT {expression} AS x FROM information_schema.tables",
+            platform=platform,
+        )
+
+
+@pytest.mark.parametrize(
+    "expression, label",
+    [
+        ("AI.GENERATE_BOOL(table_name)", "AI.GENERATE_BOOL"),
+        ("AI.GENERATE_INT(table_name)", "AI.GENERATE_INT"),
+        ("AI.GENERATE_DOUBLE(table_name)", "AI.GENERATE_DOUBLE"),
+        ("AI.GENERATE(table_name)", "AI.GENERATE"),
+        ("AI.GENERATE_TABLE(MODEL my_dataset.m, (SELECT 1))", "AI.GENERATE_TABLE"),
+        (
+            "AI.FORECAST(TABLE my_dataset.t, data_col => 'x', timestamp_col => 'y')",
+            "AI.FORECAST",
+        ),
+        ("ML.GENERATE_TEXT(MODEL my_dataset.m, (SELECT 1))", "ML.GENERATE_TEXT"),
+        (
+            "ML.GENERATE_EMBEDDING(MODEL my_dataset.m, (SELECT 1))",
+            "ML.GENERATE_EMBEDDING",
+        ),
+        (
+            "ML.FEATURES_AT_TIME(TABLE my_dataset.f, time => CURRENT_TIMESTAMP())",
+            "ML.FEATURES_AT_TIME",
+        ),
+        ("ML.PREDICT(MODEL my_dataset.m, (SELECT 1))", "ML.PREDICT"),
+        ("ML.FORECAST(MODEL my_dataset.m, STRUCT(3 AS horizon))", "ML.FORECAST"),
+        (
+            "ML.TRANSLATE(MODEL my_dataset.m, TABLE my_dataset.t, "
+            "STRUCT('TRANSLATE_TEXT' AS translate_mode))",
+            "ML.TRANSLATE",
+        ),
+        ("VECTOR_SEARCH(TABLE my_dataset.e, 'col', (SELECT 1))", "VECTOR_SEARCH"),
+    ],
+)
+def test_rejects_bigquery_model_calls(expression, label):
+    # Refused by the function rule itself, not only because a model reference
+    # falls outside the catalog scope.
+    with pytest.raises(SqlScopeError, match=re.escape(f"'{label}' reaches beyond")):
+        check_query_scope(
+            f"SELECT {expression} AS x FROM my_dataset.INFORMATION_SCHEMA.TABLES",
+            platform="bigquery",
+            scope=BigQueryMetadataProbe.catalog_scope,
+        )
+
+
+# Every CURRENT_* builtin sqlglot models that is not a clock, as of sqlglot 30.22.
+_REVIEWED_SESSION_STATE_FUNCTIONS = frozenset(
+    {
+        "CurrentAccount",
+        "CurrentAccountName",
+        "CurrentAvailableRoles",
+        "CurrentCatalog",
+        "CurrentClient",
+        "CurrentDatabase",
+        "CurrentIpAddress",
+        "CurrentOrganizationName",
+        "CurrentOrganizationUser",
+        "CurrentRegion",
+        "CurrentRole",
+        "CurrentRoleType",
+        "CurrentSchema",
+        "CurrentSchemas",
+        "CurrentSecondaryRoles",
+        "CurrentSession",
+        "CurrentStatement",
+        "CurrentTransaction",
+        "CurrentUser",
+        "CurrentUserId",
+        "CurrentVersion",
+        "CurrentWarehouse",
+    }
+)
+
+
+def test_every_modeled_current_function_is_classified():
+    # A sqlglot upgrade that models a new CURRENT_* builtin fails here until it
+    # is classified: a clock goes in sql_gate._CLOCK_FUNCTIONS, anything else in
+    # the set above, where the gate refuses it.
+    modeled = {
+        name
+        for name, node in vars(exp).items()
+        if isinstance(node, type)
+        and issubclass(node, exp.Func)
+        and name.startswith("Current")
+    }
+    unclassified = modeled - _CLOCK_FUNCTIONS - _REVIEWED_SESSION_STATE_FUNCTIONS
+    assert not unclassified, f"classify these CURRENT_* builtins: {unclassified}"
+    for name in sorted(modeled & _REVIEWED_SESSION_STATE_FUNCTIONS):
+        statement = exp.select(getattr(exp, name)().as_("x")).from_("t")
+        with pytest.raises(SqlScopeError):
+            _check_server_state(statement, get_dialect("snowflake"))
+
+
+@pytest.mark.parametrize(
+    "platform, expression",
+    [
+        ("snowflake", "CURRENT_DATE"),
+        ("snowflake", "CURRENT_TIMESTAMP"),
+        ("snowflake", "CURRENT_TIMEZONE()"),
+        ("databricks", "current_timezone()"),
+        ("snowflake", "LOWER(table_name)"),
+        # Same Generate prefix as the model calls, but plain functions.
+        ("snowflake", "GENERATE_SERIES(1, 3)"),
+    ],
+)
+def test_permits_clocks_and_plain_functions(platform, expression):
+    check_query_scope(
+        f"SELECT {expression} AS x FROM information_schema.tables",
+        platform=platform,
+    )
 
 
 def test_permits_standard_functions_over_catalog_tables():
@@ -650,6 +856,30 @@ def test_the_rest_of_the_relation_stays_readable(sql):
 def test_rejects_a_server_or_session_variable(sql):
     with pytest.raises(SqlScopeError, match="server"):
         check_query_scope(sql, platform="mysql")
+
+
+@pytest.mark.parametrize(
+    "platform, expression",
+    [
+        # T-SQL parses these as a Parameter, not a SessionParameter.
+        ("tsql", "@@SERVERNAME"),
+        ("tsql", "@@VERSION"),
+        ("tsql", "@@SPID"),
+        ("tsql", "@my_var"),
+        ("mysql", "@my_var"),
+        ("snowflake", "$my_var"),
+        ("bigquery", "@my_param"),
+    ],
+)
+def test_rejects_a_variable_beside_a_catalog_table(platform, expression):
+    with pytest.raises(SqlScopeError, match=re.escape(f"'{expression}' reads")):
+        check_query_scope(
+            f"SELECT {expression} AS x FROM information_schema.tables",
+            platform=platform,
+            scope=BigQueryMetadataProbe.catalog_scope
+            if platform == "bigquery"
+            else None,
+        )
 
 
 @pytest.mark.parametrize(

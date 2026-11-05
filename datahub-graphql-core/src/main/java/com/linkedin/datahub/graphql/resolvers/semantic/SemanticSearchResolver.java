@@ -48,7 +48,6 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
   private static final SearchFlags SEARCH_RESOLVER_DEFAULTS =
       new SearchFlags()
           .setFulltext(true)
-          .setMaxAggValues(20)
           .setSkipCache(false)
           .setSkipAggregates(false)
           .setSkipHighlighting(false)
