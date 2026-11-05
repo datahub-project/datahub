@@ -13,14 +13,13 @@ import org.springframework.context.annotation.Scope;
 
 @Configuration
 public class MixpanelApiFactory {
-  private static final String EVENTS_ENDPOINT = "https://track.datahubproject.io/mp/track";
-  private static final String PEOPLE_ENDPOINT = "https://track.datahubproject.io/mp/engage";
 
   @Bean(name = "mixpanelApi")
   @ConditionalOnProperty("telemetry.enabledServer")
   @Scope("singleton")
   protected MixpanelAPI getInstance() throws Exception {
-    return new MixpanelAPI(EVENTS_ENDPOINT, PEOPLE_ENDPOINT);
+    return new MixpanelAPI(
+        TelemetryUtils.DATAHUB_EVENTS_ENDPOINT, TelemetryUtils.DATAHUB_ENGAGE_ENDPOINT);
   }
 
   /** Spring infers {@code close()} as the destroy method, which stops the sender's worker. */

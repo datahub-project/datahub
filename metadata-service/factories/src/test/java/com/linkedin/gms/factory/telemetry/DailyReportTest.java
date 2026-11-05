@@ -4,6 +4,8 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
+import com.datahub.telemetry.MixpanelEventSender;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
@@ -16,6 +18,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.telemetry.TelemetryClientId;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -192,7 +195,35 @@ public class DailyReportTest {
    */
   private DailyReport createDailyReportForTesting() {
     return new DailyReport(
-        mockOperationContext, mockConfigurationProvider, mockEntityService, mockGitVersion, null);
+        mockOperationContext,
+        mockConfigurationProvider,
+        mockEntityService,
+        mockGitVersion,
+        mock(MixpanelEventSender.class));
+  }
+
+  @Test
+  public void testProfileUpdateAndPingAreHandedToTheSender() {
+    when(mockEntityService.getLatestAspect(
+            any(OperationContext.class), any(Urn.class), anyString()))
+        .thenReturn(new TelemetryClientId().setClientId("test-client-id"));
+    MixpanelEventSender sender = mock(MixpanelEventSender.class);
+
+    DailyReport dailyReport =
+        new DailyReport(
+            mockOperationContext,
+            mockConfigurationProvider,
+            mockEntityService,
+            mockGitVersion,
+            sender);
+    // The startup profile update is queued on the sender, never sent from the constructor.
+    verify(sender, times(1)).submit(any(JSONObject.class));
+
+    dailyReport.ping("service-daily", new JSONObject());
+    verify(sender, times(2)).submit(any(JSONObject.class));
+
+    dailyReport.close();
+    verify(sender).close();
   }
 
   @Test

@@ -5,7 +5,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.mixpanel.mixpanelapi.ClientDelivery;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
 import com.mixpanel.mixpanelapi.MixpanelMessageException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -147,7 +146,10 @@ public class MixpanelEventSender implements AutoCloseable {
         deliveryFailing = false;
         log.info("Mixpanel sender {}: delivery recovered", name);
       }
-    } catch (IOException | RuntimeException e) {
+    } catch (Throwable e) {
+      // Catch everything, Errors included: this thread is the queue's only consumer, so if it died
+      // every later event would be dropped without a trace. Telemetry must never take a thread
+      // down with it.
       count(RESULT_FAILED, accepted);
       if (!deliveryFailing) {
         deliveryFailing = true;

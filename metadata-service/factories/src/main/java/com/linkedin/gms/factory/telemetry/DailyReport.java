@@ -20,13 +20,10 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
-import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,8 +53,6 @@ public class DailyReport {
   private final GitVersion _gitVersion;
 
   private static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
-  private static final String DATAHUB_EVENTS_ENDPOINT = "https://track.datahubproject.io/mp/track";
-  private static final String DATAHUB_ENGAGE_ENDPOINT = "https://track.datahubproject.io/mp/engage";
 
   private static final String DAU = "dau";
   private static final String WAU = "wau";
@@ -97,7 +92,7 @@ public class DailyReport {
           EntityType.INCIDENT,
           EntityType.CONTAINER);
 
-  private MixpanelEventSender mixpanelSender;
+  private final MixpanelEventSender mixpanelSender;
   private MessageBuilder mixpanelBuilder;
 
   public DailyReport(
@@ -105,23 +100,15 @@ public class DailyReport {
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion,
-      @Nullable MetricUtils metricUtils) {
+      @Nonnull MixpanelEventSender mixpanelSender) {
     this.systemOperationContext = systemOperationContext;
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
     this._gitVersion = gitVersion;
+    this.mixpanelSender = mixpanelSender;
     try {
       String clientId = getClientId(systemOperationContext, entityService);
 
-      // The daily report always goes to DataHub's own collector with DataHub's token, on a
-      // client of its own rather than the one TrackingService uses. Delivery runs on the
-      // sender's background thread, so an unreachable collector cannot delay GMS startup or
-      // the scheduler thread this job shares with other scheduled tasks.
-      mixpanelSender =
-          new MixpanelEventSender(
-              "daily-report",
-              new MixpanelAPI(DATAHUB_EVENTS_ENDPOINT, DATAHUB_ENGAGE_ENDPOINT),
-              metricUtils);
       mixpanelBuilder = new MessageBuilder(MIXPANEL_TOKEN);
 
       // set user-level properties
@@ -129,6 +116,8 @@ public class DailyReport {
       props.put("java_version", System.getProperty("java.version"));
       props.put("os", System.getProperty("os.name"));
       props.put("server_version", _gitVersion.getVersion());
+      // Queued, never sent inline: the sender's thread owns the network call, so an
+      // unreachable collector cannot delay startup or the scheduler thread.
       mixpanelSender.submit(mixpanelBuilder.set(clientId, props));
     } catch (Exception e) {
       log.warn("Unable to set up telemetry.", e);
@@ -274,7 +263,7 @@ public class DailyReport {
   }
 
   public void ping(String eventName, JSONObject properties) {
-    if (mixpanelSender == null || mixpanelBuilder == null) {
+    if (mixpanelBuilder == null) {
       log.error("Unable to send telemetry metrics, MixPanel API not initialized");
       return;
     }
@@ -287,9 +276,7 @@ public class DailyReport {
 
   /** Spring infers this as the bean's destroy method; it stops the sender's worker thread. */
   public void close() {
-    if (mixpanelSender != null) {
-      mixpanelSender.close();
-    }
+    mixpanelSender.close();
   }
 
   /**

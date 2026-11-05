@@ -4,10 +4,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -17,7 +20,9 @@ import com.mixpanel.mixpanelapi.MixpanelAPI;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.json.JSONObject;
+import org.mockito.InOrder;
 import org.testng.annotations.Test;
 
 public class MixpanelEventSenderTest {
@@ -32,11 +37,21 @@ public class MixpanelEventSenderTest {
   @Test
   public void testSubmitDeliversOnBackgroundThread() throws Exception {
     MixpanelAPI api = mock(MixpanelAPI.class);
+    AtomicReference<Thread> deliveryThread = new AtomicReference<>();
+    doAnswer(
+            invocation -> {
+              deliveryThread.set(Thread.currentThread());
+              return null;
+            })
+        .when(api)
+        .deliver(any(ClientDelivery.class));
     MetricUtils metricUtils = mock(MetricUtils.class);
     MixpanelEventSender sender = new MixpanelEventSender("test", api, metricUtils);
     try {
       assertTrue(sender.submit(event("one")));
       verify(api, timeout(WAIT_MILLIS)).deliver(any(ClientDelivery.class));
+      assertNotNull(deliveryThread.get());
+      assertNotEquals(deliveryThread.get(), Thread.currentThread());
       verify(metricUtils, timeout(WAIT_MILLIS))
           .incrementMicrometer(
               eq(MixpanelEventSender.MESSAGES_METRIC),
@@ -48,7 +63,9 @@ public class MixpanelEventSenderTest {
     }
   }
 
-  @Test
+  // The timeout is the non-blocking assertion: a submit that waited on the stuck worker would
+  // hang until the delivery is released, which only happens in the finally block.
+  @Test(timeOut = WAIT_MILLIS)
   public void testSubmitNeverBlocksAndDropsWhenQueueIsFull() throws Exception {
     // Simulate an endpoint that accepts the connection but never answers: the worker is stuck in
     // deliver() for the whole test.
@@ -107,6 +124,51 @@ public class MixpanelEventSenderTest {
               eq(1.0),
               eq(MixpanelEventSender.RESULT_TAG),
               eq(MixpanelEventSender.RESULT_FAILED));
+    } finally {
+      sender.close();
+    }
+  }
+
+  @Test
+  public void testRecoveryAfterFailureCountsSent() throws Exception {
+    MixpanelAPI api = mock(MixpanelAPI.class);
+    doThrow(new IOException("connect timed out"))
+        .doNothing()
+        .when(api)
+        .deliver(any(ClientDelivery.class));
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    MixpanelEventSender sender = new MixpanelEventSender("test", api, metricUtils);
+    try {
+      assertTrue(sender.submit(event("fails")));
+      verify(metricUtils, timeout(WAIT_MILLIS))
+          .incrementMicrometer(
+              eq(MixpanelEventSender.MESSAGES_METRIC),
+              eq(1.0),
+              eq(MixpanelEventSender.RESULT_TAG),
+              eq(MixpanelEventSender.RESULT_FAILED));
+
+      assertTrue(sender.submit(event("recovers")));
+      verify(metricUtils, timeout(WAIT_MILLIS))
+          .incrementMicrometer(
+              eq(MixpanelEventSender.MESSAGES_METRIC),
+              eq(1.0),
+              eq(MixpanelEventSender.RESULT_TAG),
+              eq(MixpanelEventSender.RESULT_SENT));
+      InOrder inOrder = inOrder(metricUtils);
+      inOrder
+          .verify(metricUtils)
+          .incrementMicrometer(
+              eq(MixpanelEventSender.MESSAGES_METRIC),
+              eq(1.0),
+              eq(MixpanelEventSender.RESULT_TAG),
+              eq(MixpanelEventSender.RESULT_FAILED));
+      inOrder
+          .verify(metricUtils)
+          .incrementMicrometer(
+              eq(MixpanelEventSender.MESSAGES_METRIC),
+              eq(1.0),
+              eq(MixpanelEventSender.RESULT_TAG),
+              eq(MixpanelEventSender.RESULT_SENT));
     } finally {
       sender.close();
     }
