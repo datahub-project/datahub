@@ -27,6 +27,34 @@ def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
     )
 
 
+def is_stage_or_uri_table(table: sqlglot.exp.Table) -> bool:
+    # A COPY file operand is not a dataset.
+    table_name = table.this
+    if isinstance(table_name, sqlglot.exp.Literal):
+        return True
+    if isinstance(table_name, sqlglot.exp.Var) and table_name.name.startswith("@"):
+        return True
+    return False
+
+
+def is_copy_load(expression: sqlglot.exp.Expr) -> bool:
+    if not isinstance(expression, sqlglot.exp.Copy):
+        return False
+    if not expression.args.get("kind"):
+        return False
+
+    copy_target = expression.this
+    if isinstance(copy_target, sqlglot.exp.Table):
+        return not is_stage_or_uri_table(copy_target)
+    if isinstance(copy_target, sqlglot.exp.Schema):
+        inner = copy_target.this
+        if isinstance(inner, sqlglot.exp.Table):
+            return not is_stage_or_uri_table(inner)
+        if isinstance(inner, sqlglot.exp.Identifier):
+            return True
+    return False
+
+
 def _get_create_type_from_kind(kind: Optional[str]) -> QueryType:
     if kind and "TABLE" in kind:
         return QueryType.CREATE_TABLE_AS_SELECT
@@ -61,6 +89,9 @@ def get_query_type_of_sql(
 
         query_type = _get_create_type_from_kind(kind)
         return query_type, query_type_props
+
+    if is_copy_load(expression):
+        return QueryType.INSERT, query_type_props
 
     # UPGRADE: Once we use Python 3.10, replace this with a match expression.
     mapping = {
