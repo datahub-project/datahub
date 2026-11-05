@@ -51,10 +51,14 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
       final List<SortCriterion> sortCriteria =
           new ArrayList<>(SearchUtils.getSortCriteria(input.getSortInput()));
-      sortCriteria.add(
-          new SortCriterion()
-              .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
-              .setOrder(SortOrder.DESCENDING));
+      // Newest-first only when browsing. With a query, a created-time sort overrides relevance
+      // and buries the exact match pages deep among loose fulltext hits.
+      if (query.isBlank()) {
+        sortCriteria.add(
+            new SortCriterion()
+                .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
+                .setOrder(SortOrder.DESCENDING));
+      }
 
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {

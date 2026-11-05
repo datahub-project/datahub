@@ -1856,8 +1856,16 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
           new UpdateAction.Builder()
               .detectNoop(update.detectNoop())
               .docAsUpsert(update.docAsUpsert())
-              .script(script)
-              .upsert(update.upsert());
+              .scriptedUpsert(update.scriptedUpsert())
+              .script(script);
+
+      // upsert() on the OpenSearch request is a varargs setter, not a getter: calling it would give
+      // every update an upsert body and let an update-only write create the document.
+      if (update.upsertRequest() != null) {
+        actionBuilder.upsert(
+            XContentHelper.convertToMap(update.upsertRequest().source(), true, XContentType.JSON)
+                .v2());
+      }
 
       // Only set doc if it exists (not present for script-only updates)
       if (update.doc() != null) {

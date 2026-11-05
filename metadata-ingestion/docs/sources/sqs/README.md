@@ -6,10 +6,12 @@ The `sqs` source plugin catalogs the queues of one AWS region as datasets, group
 
 ## Concept Mapping
 
-| Source Concept | DataHub Concept                                     | Notes                                                         |
-| -------------- | --------------------------------------------------- | ------------------------------------------------------------- |
-| AWS account    | [Platform Instance](../../../platform-instances.md) | Defaults to the account id read from a queue ARN              |
-| AWS region     | [Container](../../metamodel/entities/container.md)  | Subtype `Region`                                              |
-| Queue          | [Dataset](../../metamodel/entities/dataset.md)      | Platform `sqs`, subtype `Queue`; name `<region>.<queue name>` |
-| Redrive policy | Upstream lineage (patch)                            | Queue to its dead-letter queue                                |
-| Resource tag   | [Tag](../../metamodel/entities/tag.md)              | `Key:Value`, or `Key` for an empty value                      |
+| Source Concept                            | DataHub Concept                                                                                   | Notes                                                                                 |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| AWS account                               | [Platform Instance](../../../platform-instances.md)                                               | Defaults to the account id read from a queue ARN                                      |
+| AWS region                                | [Container](../../metamodel/entities/container.md)                                                | Subtype `Region`                                                                      |
+| Queue                                     | [Dataset](../../metamodel/entities/dataset.md)                                                    | Platform `sqs`, subtype `Queue`; name `<region>.<queue name>`                         |
+| Redrive policy                            | Upstream lineage (patch)                                                                          | Queue to its dead-letter queue                                                        |
+| Lambda function wired to a queue          | [DataFlow](../../metamodel/entities/dataFlow.md) + [DataJob](../../metamodel/entities/dataJob.md) | Platform `lambda`; one `invoke` job per function                                      |
+| EventBridge rule or Pipe touching a queue | [DataFlow](../../metamodel/entities/dataFlow.md) + [DataJob](../../metamodel/entities/dataJob.md) | Platforms `eventbridge` and `eventbridge-pipes`; event buses are `Event Bus` datasets |
+| Resource tag                              | [Tag](../../metamodel/entities/tag.md)                                                            | `Key:Value`, or `Key` for an empty value                                              |
