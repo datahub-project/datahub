@@ -322,16 +322,18 @@ class QlikOnPremAPI:
             for i, chart_dict in enumerate(
                 sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
             ):
+                # Only drop the handle the chart call added; a failed call adds none.
+                depth = len(websocket_connection.handle)
                 chart = self._get_chart(
                     websocket_connection,
                     chart_dict[Constant.QINFO][Constant.QID],
                     sheet_id,
                 )
+                del websocket_connection.handle[depth:]
                 if chart:
                     if not chart.title:
                         chart.title = f"Object {i + 1} of Sheet '{sheet.title}'"
                     sheet.charts.append(chart)
-                websocket_connection.handle.pop()
             return sheet
         except Exception as e:
             self._log_http_error(
@@ -349,13 +351,14 @@ class QlikOnPremAPI:
                 params={"qOptions": {"qTypes": ["sheet"]}},
             )
             for sheet_dict in response[Constant.QLIST]:
+                depth = len(websocket_connection.handle)
                 sheet = self._get_sheet(
                     websocket_connection=websocket_connection,
                     sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
                 )
+                del websocket_connection.handle[depth:]
                 if sheet:
                     sheets.append(sheet)
-                websocket_connection.handle.pop()
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch sheets for app {app_id}. Exception: {e}"
@@ -404,7 +407,10 @@ class QlikOnPremAPI:
                 message=f"Unable to open app {app.id} in the Engine. Exception: {e}"
             )
         finally:
-            websocket_connection.close_websocket()
+            try:
+                websocket_connection.close_websocket()
+            except Exception as e:
+                logger.debug(f"Unable to close Engine session of app {app.id}: {e}")
         app.read_complete = not self._thread_state.read_failed
         return app
 
@@ -459,7 +465,7 @@ class QlikOnPremAPI:
                 name = connection.get(Constant.NAME)
                 if not name:
                     continue
-                descriptor = " ".join(
+                descriptor = ";".join(
                     str(connection.get(key) or "")
                     for key in (Constant.CONNECTIONSTRING, Constant.TYPE)
                 )
