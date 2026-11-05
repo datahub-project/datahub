@@ -114,17 +114,15 @@ export class WelcomeModalPage extends BasePage {
   }
 
   async pressArrowRight(): Promise<void> {
+    const slideCommitted = this.waitForSlideCommitted((await this.getActiveSlideIndex()) + 1);
     await this.page.keyboard.press('ArrowRight');
-    // react-slick afterChange fires via setTimeout(speed=500ms). Match the
-    // wait used by clickCarouselDot for consistency.
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(500);
+    await slideCommitted;
   }
 
   async pressArrowLeft(): Promise<void> {
+    const slideCommitted = this.waitForSlideCommitted((await this.getActiveSlideIndex()) - 1);
     await this.page.keyboard.press('ArrowLeft');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(500);
+    await slideCommitted;
   }
 
   async closeViaOutsideClick(): Promise<void> {
@@ -133,12 +131,33 @@ export class WelcomeModalPage extends BasePage {
     await this.modal.waitFor({ state: 'hidden' });
   }
 
+  /** Clicks a dot other than the active one: the wait needs a slide change to complete. */
   async clickCarouselDot(index: number): Promise<void> {
+    const slideCommitted = this.waitForSlideCommitted(index);
     await this.carouselDots.nth(index).click();
-    // react-slick does not emit a DOM signal when the slide CSS transition finishes (~300 ms).
-    // There is no reliable locator to await, so a short fixed delay is the least-fragile option.
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(500);
+    await slideCommitted;
+  }
+
+  /**
+   * Resolves when the modal has committed `index` as its current slide.
+   *
+   * react-slick marks the target dot `slick-active` when the slide animation starts, but the
+   * modal only updates its own current slide (which arrow keys, the CTA buttons and the next
+   * slide change read) in `afterChange`, about 500 ms later. That handler has no DOM signal of
+   * its own; it is the one place the modal sends WelcomeToDataHubModalInteractEvent, so wait for
+   * that tracking request. Register the wait before the action that changes the slide.
+   */
+  private async waitForSlideCommitted(index: number, timeout?: number): Promise<void> {
+    await this.page.waitForRequest(
+      (request) => {
+        if (request.method() !== 'POST' || !request.url().includes('/track')) {
+          return false;
+        }
+        const body = request.postDataJSON() as { type?: string; currentSlide?: number } | null;
+        return body?.type === 'WelcomeToDataHubModalInteractEvent' && body.currentSlide === index + 1;
+      },
+      { timeout },
+    );
   }
 
   async clickLastCarouselDot(): Promise<void> {
@@ -167,17 +186,18 @@ export class WelcomeModalPage extends BasePage {
     if (!buttonReady) {
       // Move to slide 0 so the carousel's internal currentSlide != lastIndex,
       // ensuring the next click triggers a full slideHandler run (not early-return).
-      await this.carouselDots.first().click({ force: true });
-      // slick-active is set at animation START, not when afterChange fires.
-      // We must wait for afterChange to complete for slide 0 before re-clicking the
-      // last dot — otherwise react-slick's internal currentSlide has not committed yet
-      // and the subsequent click may trigger slideHandler while still mid-animation,
-      // causing afterChange to be dropped again by the ResizeObserver race.
-      // react-slick's default animation speed is 500 ms, so 700 ms covers the
-      // setTimeout(afterChange, speed) call with margin.
-      await this.waitForSlideChange(0, 5000).catch(() => {});
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await this.page.waitForTimeout(700);
+      // If the carousel never left slide 0, clicking its dot is a no-op, so skip it.
+      if ((await this.getActiveSlideIndex()) !== 0) {
+        // slick-active is set at animation START, not when afterChange fires.
+        // We must wait for afterChange to complete for slide 0 before re-clicking the
+        // last dot — otherwise react-slick's internal currentSlide has not committed yet
+        // and the subsequent click may trigger slideHandler while still mid-animation,
+        // causing afterChange to be dropped again by the ResizeObserver race. If it is
+        // dropped for slide 0 too, carry on and let the re-click below be the test.
+        const slideCommitted = this.waitForSlideCommitted(0, 5000).catch(() => {});
+        await this.carouselDots.first().click({ force: true });
+        await slideCommitted;
+      }
       await this.lastCarouselDot.click({ force: true });
       await this.getStartedButton.waitFor({ state: 'attached', timeout: 20000 });
     }
