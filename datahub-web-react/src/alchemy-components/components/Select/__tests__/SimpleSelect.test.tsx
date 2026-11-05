@@ -66,3 +66,39 @@ describe('SimpleSelect autoFocusSearch', () => {
         expect(screen.getByTestId('dropdown-search-input')).not.toHaveFocus();
     });
 });
+
+describe('SimpleSelect empty state', () => {
+    function search(query: string) {
+        fireEvent.change(screen.getByTestId('dropdown-search-input'), { target: { value: query } });
+    }
+
+    it('shows the default no-results message when nothing matches', () => {
+        renderSelect();
+
+        toggle();
+        search('nothing matches this');
+
+        expect(screen.getByTestId('no-results-found')).toBeInTheDocument();
+        expect(screen.getByText('No results found')).toBeInTheDocument();
+        expect(screen.getByText("Try adjusting your search to find what you're looking for")).toBeInTheDocument();
+    });
+
+    it('renders a custom emptyState instead of the default', () => {
+        render(
+            <ThemeProvider theme={themeV2}>
+                <SimpleSelect
+                    options={OPTIONS}
+                    placeholder="Select an asset"
+                    showSearch
+                    emptyState={<div>Nothing here</div>}
+                />
+            </ThemeProvider>,
+        );
+
+        toggle();
+        search('nothing matches this');
+
+        expect(screen.getByText('Nothing here')).toBeInTheDocument();
+        expect(screen.queryByTestId('no-results-found')).not.toBeInTheDocument();
+    });
+});

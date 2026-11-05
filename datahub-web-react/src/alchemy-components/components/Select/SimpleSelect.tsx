@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Dropdown } from '@components/components/Dropdown';
 import { Loader } from '@components/components/Loader/Loader';
+import { NoResultsFound } from '@components/components/Select/NoResultsFound';
 import {
     ActionButtonsContainer,
     Container,
@@ -26,8 +27,6 @@ import SelectLabelRenderer from '@components/components/Select/private/SelectLab
 import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
 import { SelectOption, SelectProps } from '@components/components/Select/types';
 import { Text } from '@components/components/Text';
-
-import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
 
 const selectDefaults: Partial<SelectProps> = {
     label: '',
@@ -247,7 +246,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                 {isLoading ? (
                                     <Loader size="sm" />
                                 ) : (
-                                    !filteredOptions.length && (emptyState ?? <NoResultsFoundPlaceholder />)
+                                    !filteredOptions.length && (emptyState ?? <NoResultsFound />)
                                 )}
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
