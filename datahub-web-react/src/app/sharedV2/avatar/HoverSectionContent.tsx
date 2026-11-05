@@ -45,6 +45,7 @@ const HoverSectionContent = ({ avatars, entityRegistry, size, maxVisible = 4, ty
                             imageUrl={user.imageUrl}
                             name={user.name}
                             type={type}
+                            icon={user.icon}
                         />
                     );
                     return (
