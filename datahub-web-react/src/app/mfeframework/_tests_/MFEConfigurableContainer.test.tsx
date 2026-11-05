@@ -55,15 +55,15 @@ vi.mock('react-router-dom', async () => {
     };
 });
 
-// Mock federation methods
-const { setRemoteMock } = vi.hoisted(() => ({ setRemoteMock: vi.fn() }));
-const { getRemoteMock } = vi.hoisted(() => ({ getRemoteMock: vi.fn() }));
-const { unwrapModuleMock } = vi.hoisted(() => ({ unwrapModuleMock: vi.fn() }));
+// Mock the Module Federation runtime API
+const { registerRemotesMock, loadRemoteMock } = vi.hoisted(() => ({
+    registerRemotesMock: vi.fn(),
+    loadRemoteMock: vi.fn(),
+}));
 
-vi.mock('virtual:__federation__', () => ({
-    __federation_method_getRemote: getRemoteMock,
-    __federation_method_setRemote: setRemoteMock,
-    __federation_method_unwrapDefault: unwrapModuleMock,
+vi.mock('@module-federation/enhanced/runtime', () => ({
+    registerRemotes: registerRemotesMock,
+    loadRemote: loadRemoteMock,
 }));
 
 describe('MFEBaseConfigurablePage', () => {
@@ -103,8 +103,7 @@ describe('MFEBaseConfigurablePage', () => {
         const yaml = validParsedYaml.microFrontends[0];
         // Setup mocks for federation methods
         const mountFn = vi.fn(() => vi.fn()); // returns cleanup function
-        getRemoteMock.mockResolvedValue({ mount: mountFn });
-        unwrapModuleMock.mockResolvedValue({ mount: mountFn });
+        loadRemoteMock.mockResolvedValue({ mount: mountFn });
 
         await act(async () => {
             renderPage(yaml);
@@ -116,8 +115,7 @@ describe('MFEBaseConfigurablePage', () => {
     it('actually calls the mount function with the container and options', async () => {
         const yaml = validParsedYaml.microFrontends[0];
         const mountFn = vi.fn(() => vi.fn());
-        getRemoteMock.mockResolvedValue({ mount: mountFn });
-        unwrapModuleMock.mockResolvedValue({ mount: mountFn });
+        loadRemoteMock.mockResolvedValue({ mount: mountFn });
 
         await act(async () => {
             renderPage(yaml);
@@ -128,11 +126,80 @@ describe('MFEBaseConfigurablePage', () => {
         expect(mountFn).toHaveBeenCalledWith(mountTarget, {});
     });
 
+    it('registers the remote as a webpack var container and loads the exposed module', async () => {
+        const yaml = validParsedYaml.microFrontends[1];
+        const mountFn = vi.fn(() => vi.fn());
+        loadRemoteMock.mockResolvedValue({ mount: mountFn });
+
+        await act(async () => {
+            renderPage(yaml);
+        });
+
+        expect(registerRemotesMock).toHaveBeenCalledWith(
+            [{ name: 'myapp', entry: 'http://localhost:9111/remoteEntry.js', type: 'var', entryGlobalName: 'myapp' }],
+            { force: false },
+        );
+        expect(loadRemoteMock).toHaveBeenCalledWith('myapp/mount');
+        expect(mountFn).toHaveBeenCalled();
+    });
+
+    it('does not re-register an unchanged remote and force-registers a changed entry', async () => {
+        const yaml = { ...validParsedYaml.microFrontends[1], id: 'myapp-2', module: 'myappTwo/mount' };
+        loadRemoteMock.mockResolvedValue({ mount: vi.fn() });
+
+        await act(async () => {
+            renderPage(yaml);
+        });
+        await act(async () => {
+            renderPage(yaml);
+        });
+        expect(registerRemotesMock).toHaveBeenCalledTimes(1);
+
+        const movedYaml = { ...yaml, remoteEntry: 'http://localhost:9222/remoteEntry.js' };
+        await act(async () => {
+            renderPage(movedYaml);
+        });
+        expect(registerRemotesMock).toHaveBeenCalledTimes(2);
+        expect(registerRemotesMock).toHaveBeenLastCalledWith(
+            [
+                {
+                    name: 'myappTwo',
+                    entry: 'http://localhost:9222/remoteEntry.js',
+                    type: 'var',
+                    entryGlobalName: 'myappTwo',
+                },
+            ],
+            { force: true },
+        );
+    });
+
+    it('mounts the default export of an ES module remote', async () => {
+        const yaml = { ...validParsedYaml.microFrontends[0], id: 'esm-default' };
+        const mountFn = vi.fn(() => vi.fn());
+        loadRemoteMock.mockResolvedValue({ __esModule: true, default: mountFn });
+
+        await act(async () => {
+            renderPage(yaml);
+        });
+
+        expect(mountFn).toHaveBeenCalledWith(screen.getByTestId('mfe-configurable-container').querySelector('div'), {});
+    });
+
+    it('shows error UI when the remote fails to load', async () => {
+        const yaml = { ...validParsedYaml.microFrontends[0], id: 'broken' };
+        loadRemoteMock.mockRejectedValue(new Error('RUNTIME-008: failed to load script resources'));
+
+        await act(async () => {
+            renderPage(yaml);
+        });
+
+        expect(screen.getByText(`${yaml.label} is not available at this time`)).toBeInTheDocument();
+    });
+
     it('shows error UI when remote module times out', async () => {
         const yaml = validParsedYaml.microFrontends[0];
-        // Mock getRemote to never resolve
-        getRemoteMock.mockImplementation(() => new Promise(() => {}));
-        unwrapModuleMock.mockResolvedValue({});
+        // Mock loadRemote to never resolve
+        loadRemoteMock.mockImplementation(() => new Promise(() => {}));
 
         vi.useFakeTimers();
 
@@ -156,9 +223,8 @@ describe('MFEBaseConfigurablePage', () => {
 
     it('uses the loadTimeoutMs resolved from the MFE config yaml as the remote load timeout', async () => {
         const yaml = validParsedYaml.microFrontends[0];
-        // Mock getRemote to never resolve so only the timeout can settle the race
-        getRemoteMock.mockImplementation(() => new Promise(() => {}));
-        unwrapModuleMock.mockResolvedValue({});
+        // Mock loadRemote to never resolve so only the timeout can settle the race
+        loadRemoteMock.mockImplementation(() => new Promise(() => {}));
 
         vi.useFakeTimers();
 
@@ -186,8 +252,7 @@ describe('MFEBaseConfigurablePage', () => {
 
     it('falls back to a 10000ms load timeout when the yaml specifies no loadTimeoutMs', async () => {
         const yaml = validParsedYaml.microFrontends[0];
-        getRemoteMock.mockImplementation(() => new Promise(() => {}));
-        unwrapModuleMock.mockResolvedValue({});
+        loadRemoteMock.mockImplementation(() => new Promise(() => {}));
 
         vi.useFakeTimers();
 

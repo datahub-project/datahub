@@ -52,6 +52,11 @@ To ensure compatibility between the DataHub MFE configuration above and your act
   ]
 ```
 
+DataHub loads the remote with the [Module Federation runtime](https://module-federation.io/guide/basic/runtime/runtime-api.html)
+(`registerRemotes` + `loadRemote`) as a `var` container: `remoteEntry.js` must assign the container to a global
+named after the part of `module` before the `/` (`helloWorldMFE` above). Webpack's and Rspack's
+`ModuleFederationPlugin` do this by default when `name` matches.
+
 ### Tuning the Remote Load Timeout
 
 DataHub waits a fixed amount of time for an MFE's remote module to load before giving up and

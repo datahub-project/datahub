@@ -1,12 +1,8 @@
+import { loadRemote, registerRemotes } from '@module-federation/enhanced/runtime';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import {
-    __federation_method_getRemote as getRemote,
-    __federation_method_setRemote as setRemote,
-    __federation_method_unwrapDefault as unwrapModule,
-} from 'virtual:__federation__';
 
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
@@ -37,12 +33,36 @@ const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>
     }};
 `;
 
+// Remote entry registered for each remote name. The runtime ignores a second registration
+// of the same name, so a changed entry is re-registered with `force`.
+const registeredRemoteEntries = new Map<string, string>();
+
+function ensureRemoteRegistered(remoteName: string, remoteEntry: string) {
+    const registeredEntry = registeredRemoteEntries.get(remoteName);
+    if (registeredEntry === remoteEntry) {
+        return;
+    }
+    // MFEs are webpack ModuleFederationPlugin containers with the default `var` library type:
+    // remoteEntry.js assigns the container to a global named after the remote.
+    registerRemotes([{ name: remoteName, entry: remoteEntry, type: 'var', entryGlobalName: remoteName }], {
+        force: registeredEntry !== undefined,
+    });
+    registeredRemoteEntries.set(remoteName, remoteEntry);
+}
+
 interface MountMFEParams {
     config: MFEConfig;
     containerElement: HTMLDivElement | null;
     onError: () => void;
     aliveRef: { current: boolean };
     loadTimeoutMs: number;
+}
+
+// Prefer the ES module default export, like OriginJS's __federation_method_unwrapDefault did.
+// Falls back to the module namespace when there is no default, so a named `mount` export still works.
+function unwrapModule(remoteModule: any): unknown {
+    const isEsModule = remoteModule?.__esModule || remoteModule?.[Symbol.toStringTag] === 'Module';
+    return isEsModule ? (remoteModule.default ?? remoteModule) : remoteModule;
 }
 
 async function mountMFE({
@@ -74,12 +94,7 @@ async function mountMFE({
         }
 
         // Configure the dynamic remote
-        const remoteConfig = {
-            url: remoteEntry,
-            format: 'var' as const,
-            from: 'webpack' as const,
-        };
-        setRemote(remoteName, remoteConfig);
+        ensureRemoteRegistered(remoteName, remoteEntry);
 
         // Create a timeout promise that rejects once the configured load timeout elapses
         let timeoutHandle: number | undefined;
@@ -90,13 +105,17 @@ async function mountMFE({
             );
         });
 
-        // Race between getRemote and timeout
+        // Race between loadRemote and timeout
         const fetchStart = performance.now();
         if (import.meta.env.DEV) {
-            console.log('[HOST] Attempting to load remote module with config:', remoteConfig);
+            console.log('[HOST] Attempting to load remote module with config:', {
+                name: remoteName,
+                entry: remoteEntry,
+                type: 'var',
+            });
         }
         // Clear the timer once the race settles so it doesn't outlive a successful load or an unmount.
-        const remoteModule = await Promise.race([getRemote(remoteName, modulePathWithDot), timeoutPromise]).finally(
+        const remoteModule = await Promise.race([loadRemote(`${remoteName}/${modulePath}`), timeoutPromise]).finally(
             () => window.clearTimeout(timeoutHandle),
         );
         const fetchEnd = performance.now();
@@ -105,7 +124,7 @@ async function mountMFE({
             console.log('[HOST] Remote module loaded, unwrapping...');
         }
         const unwrapStart = performance.now();
-        const mod = await unwrapModule(remoteModule);
+        const mod = unwrapModule(remoteModule);
         const unwrapEnd = performance.now();
         if (import.meta.env.DEV) {
             console.log(`latency for module unwrap: ${config.id}`, unwrapEnd - unwrapStart, 'ms');

@@ -41,17 +41,23 @@ function srcMatches(actual, expected) {
     return actual.split('?')[0] === expected;
 }
 
-/** First `<script type="module" src>` in index.html. The manifest has no isEntry. */
-export function moduleScriptSrc(html) {
+/** Every `<script type="module" src>` in index.html, in document order. */
+export function moduleScriptSrcs(html) {
+    const srcs = [];
     const scriptRe = /<script\b([^>]*)>/gi;
     let match;
     while ((match = scriptRe.exec(html)) !== null) {
         const attrs = match[1];
         if (!/\btype\s*=\s*["']module["']/i.test(attrs)) continue;
         const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(attrs);
-        if (src) return normalizeAssetPath(src[1]);
+        if (src) srcs.push(normalizeAssetPath(src[1]));
     }
-    return null;
+    return srcs;
+}
+
+/** First `<script type="module" src>` in index.html. The manifest has no isEntry. */
+export function moduleScriptSrc(html) {
+    return moduleScriptSrcs(html)[0] ?? null;
 }
 
 /**
@@ -201,18 +207,36 @@ export function measureDist(distDir) {
     }
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     const html = fs.readFileSync(indexPath, 'utf8');
-    const entryFile = moduleScriptSrc(html);
-    if (!entryFile) {
+    const moduleScripts = moduleScriptSrcs(html);
+    if (!moduleScripts.length) {
         throw new Error(`No module script in ${indexPath}`);
     }
-    const measured = measureManifest(manifest, entryFile, (file) => gzipSize(path.join(distDir, file)));
+    // @module-federation/vite replaces the app entry script with a bootstrap module script that is not
+    // a manifest chunk (the app entry becomes a modulepreload). Measure from the first module script
+    // the manifest knows, else from the index.html entry chunk.
+    const entryFile =
+        moduleScripts.find((src) => findManifestKeyByFile(manifest, src)) ??
+        manifest['index.html']?.file ??
+        moduleScripts[0];
+    const sizeOf = (file) => gzipSize(path.join(distDir, file));
+    const measured = measureManifest(manifest, entryFile, sizeOf);
     const eagerFiles = eagerJsFilesFromHtml(html);
-    measured.indexHtmlEagerBytes = totalBytes(eagerFiles, (file) => gzipSize(path.join(distDir, file)));
+    measured.indexHtmlEagerBytes = totalBytes(eagerFiles, sizeOf);
     const manifestFiles = new Set(measured.files.indexHtml);
     measured.eagerMismatch = {
         onlyHtml: [...eagerFiles].filter((file) => !manifestFiles.has(file)),
         onlyManifest: [...manifestFiles].filter((file) => !eagerFiles.has(file)),
     };
+    // JS index.html loads that the entry's manifest closure misses (the federation bootstrap, host
+    // init and runtime) loads before first paint on every page too.
+    for (const id of ['indexHtml', 'shell', 'search', 'home']) {
+        const files = measured.files[id];
+        if (measured[id] == null || !files) continue;
+        const pageFiles = new Set(files);
+        const missing = measured.eagerMismatch.onlyHtml.filter((file) => !pageFiles.has(file));
+        measured[id] += totalBytes(missing, sizeOf);
+        measured.files[id] = [...files, ...missing];
+    }
     return measured;
 }
 
