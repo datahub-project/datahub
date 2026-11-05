@@ -134,5 +134,17 @@
         "typeNames": ["Database"]
       }
     }
+  },
+  {
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:pw_matrix_tag_key",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+      "json": {
+        "name": "PW Matrix Tag",
+        "description": "Seeded tag for the catalog matrix specs; key differs from name on purpose"
+      }
+    }
   }
 ]
