@@ -7,9 +7,9 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
-import { getIncidentStageLabel } from '@components/components/IncidentStagePill/constant';
 import { Pill } from '@components/components/Pills';
 
+import { getIncidentStageLabel } from '@app/sharedV2/incidentStagePill/constant';
 import { IncidentStage } from '@src/types.generated';
 
 export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string; showLabel?: boolean }) => {

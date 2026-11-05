@@ -1,9 +1,9 @@
 import { Meta, StoryObj } from '@storybook/react';
 
-import { IncidentStagePill } from '@components/components/IncidentStagePill/IncidentStagePill';
+import { IncidentStagePill } from '@app/sharedV2/incidentStagePill/IncidentStagePill';
 
 const meta: Meta<typeof IncidentStagePill> = {
-    title: 'Components / IncidentStagePill',
+    title: 'Incidents / IncidentStagePill',
     component: IncidentStagePill,
 
     // Component-level parameters
