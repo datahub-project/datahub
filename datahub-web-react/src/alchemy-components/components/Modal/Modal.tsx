@@ -5,10 +5,9 @@ import styled from 'styled-components';
 
 import { Button, type ButtonProps } from '@components/components/Button';
 import { Icon } from '@components/components/Icon';
+import { ModalContext } from '@components/components/Modal/ModalContext';
 import { Text } from '@components/components/Text';
 import { typography } from '@components/theme';
-
-import { ModalContext } from '@app/sharedV2/modals/ModalContext';
 
 const StyledModal = styled(AntModal)<{ hasChildren: boolean; hasFooter: boolean }>`
     font-family: ${typography.fonts.body};

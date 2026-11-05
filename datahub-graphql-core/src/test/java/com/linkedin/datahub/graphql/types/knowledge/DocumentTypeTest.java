@@ -2,6 +2,9 @@ package com.linkedin.datahub.graphql.types.knowledge;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -13,8 +16,10 @@ import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.entity.Aspect;
@@ -30,6 +35,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
 import java.util.HashSet;
 import java.util.List;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -87,24 +93,7 @@ public class DocumentTypeTest {
                 Mockito.eq(Constants.DOCUMENT_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(documentUrn1, documentUrn2))),
                 Mockito.eq(DocumentType.ASPECTS_TO_FETCH)))
-        .thenReturn(
-            ImmutableMap.of(
-                documentUrn1,
-                new EntityResponse()
-                    .setEntityName(Constants.DOCUMENT_ENTITY_NAME)
-                    .setUrn(documentUrn1)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            ImmutableMap.of(
-                                Constants.DOCUMENT_KEY_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(TEST_DOCUMENT_1_KEY.data())),
-                                Constants.DOCUMENT_INFO_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(TEST_DOCUMENT_1_INFO.data())),
-                                Constants.OWNERSHIP_ASPECT_NAME,
-                                new EnvelopedAspect()
-                                    .setValue(new Aspect(TEST_DOCUMENT_1_OWNERSHIP.data())))))));
+        .thenReturn(ImmutableMap.of(documentUrn1, documentResponse(documentUrn1)));
 
     DocumentType type = new DocumentType(client);
 
@@ -131,6 +120,54 @@ public class DocumentTypeTest {
 
     // Assert second element is null.
     assertNull(result.get(1));
+  }
+
+  @Test
+  public void testBatchLoadRestrictsUnauthorizedDocument() throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+    Urn readableUrn = Urn.createFromString(TEST_DOCUMENT_1_URN);
+    Urn restrictedUrn = Urn.createFromString(TEST_DOCUMENT_2_URN);
+    EntityResponse readableResponse = documentResponse(readableUrn);
+    EntityResponse restrictedResponse = documentResponse(restrictedUrn);
+    Mockito.when(
+            client.batchGetV2(
+                any(),
+                Mockito.eq(Constants.DOCUMENT_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(readableUrn, restrictedUrn)),
+                Mockito.eq(DocumentType.ASPECTS_TO_FETCH)))
+        .thenReturn(
+            ImmutableMap.of(readableUrn, readableResponse, restrictedUrn, restrictedResponse));
+
+    QueryContext context = getMockAllowContext();
+    try (MockedStatic<AuthorizationUtils> authorizationUtils =
+        Mockito.mockStatic(AuthorizationUtils.class, CALLS_REAL_METHODS)) {
+      authorizationUtils
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(readableUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
+          .thenReturn(true);
+      authorizationUtils
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(restrictedUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
+          .thenReturn(false);
+
+      List<DataFetcherResult<Document>> result =
+          new DocumentType(client)
+              .batchLoad(ImmutableList.of(TEST_DOCUMENT_1_URN, TEST_DOCUMENT_2_URN), context);
+
+      assertEquals(result.get(0).getData().getInfo().getContents().getText(), "Test content");
+      assertNull(result.get(1).getData().getInfo());
+      assertNull(result.get(1).getData().getOwnership());
+    }
   }
 
   @Test
@@ -224,5 +261,20 @@ public class DocumentTypeTest {
 
     String key = type.getKeyProvider().apply(document);
     assertEquals(key, "urn:li:document:test");
+  }
+
+  private static EntityResponse documentResponse(Urn urn) {
+    return new EntityResponse()
+        .setEntityName(Constants.DOCUMENT_ENTITY_NAME)
+        .setUrn(urn)
+        .setAspects(
+            new EnvelopedAspectMap(
+                ImmutableMap.of(
+                    Constants.DOCUMENT_KEY_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(TEST_DOCUMENT_1_KEY.data())),
+                    Constants.DOCUMENT_INFO_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(TEST_DOCUMENT_1_INFO.data())),
+                    Constants.OWNERSHIP_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(TEST_DOCUMENT_1_OWNERSHIP.data())))));
   }
 }

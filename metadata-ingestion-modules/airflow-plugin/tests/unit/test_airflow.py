@@ -1,11 +1,15 @@
 import json
+import logging
 from contextlib import contextmanager
-from typing import Iterator
+from datetime import datetime, timedelta
+from typing import Iterator, List, Optional, Union
 from unittest import mock
 
 import airflow.configuration
 import pytest
+from airflow import DAG
 from airflow.models import Connection, DagBag
+from airflow.sdk import Asset
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.graph.config import ClientMode
@@ -270,6 +274,89 @@ def test_get_base_url_prefers_api_over_webserver():
             side_effect=conf_get(values),
         ):
             assert _get_base_url() == expected
+
+
+@pytest.mark.parametrize(
+    ["schedule", "expected"],
+    [
+        pytest.param("0 6 * * *", "0 6 * * *", id="cron"),
+        pytest.param("@daily", "0 0 * * *", id="cron-preset"),
+        pytest.param(timedelta(hours=2), "2:00:00", id="timedelta"),
+        pytest.param("@once", "@once", id="once"),
+        pytest.param(None, "None", id="none"),
+        pytest.param([Asset("s3://bucket/key")], "Asset", id="assets"),
+    ],
+)
+def test_generate_dataflow_captures_schedule(
+    schedule: Optional[Union[str, timedelta, List[Asset]]],
+    expected: str,
+) -> None:
+    """The DAG-run hooks emit the DataFlow from a SerializedDAG, which has no
+    `schedule` attribute, while the task hooks emit it from a Task SDK DAG, whose
+    timetable has no `summary` on Airflow 3.2+. Both must produce the same
+    `schedule` property, or the value flips depending on which hook ran last."""
+    from datahub_airflow_plugin._config import get_lineage_config
+    from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+
+    dag = DAG(
+        dag_id="test_dag_schedule",
+        schedule=schedule,
+        start_date=datetime(2024, 1, 1),
+    )
+    try:
+        # Airflow 3.2+
+        from airflow.serialization.serialized_objects import DagSerialization
+
+        serialized_dag = DagSerialization.from_dict(DagSerialization.to_dict(dag))
+    except ImportError:
+        # Airflow 3.0 and 3.1 keep the (de)serializers on SerializedDAG itself.
+        # mypy checks against 3.2+, where they moved to DagSerialization, hence
+        # the attr-defined ignore.
+        from airflow.serialization.serialized_objects import SerializedDAG
+
+        serialized_dag = SerializedDAG.from_dict(SerializedDAG.to_dict(dag))  # type: ignore[attr-defined]
+
+    config = get_lineage_config()
+    for dag_object in (dag, serialized_dag):
+        properties = AirflowGenerator.generate_dataflow(config, dag_object).properties
+        assert properties["schedule"] == expected
+
+
+def test_generate_dataflow_omits_schedule_for_unregistered_timetable(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A Task SDK timetable that isn't registered as a plugin has no `summary`,
+    and converting it to a core timetable raises TimetableNotRegistered. That
+    must not propagate out of generate_dataflow and drop the DAG's metadata;
+    the `schedule` property is omitted and the failure logged at warning."""
+    try:
+        from airflow.sdk.bases.timetable import BaseTimetable
+    except ImportError:
+        pytest.skip("Task SDK timetables require Airflow 3.2+")
+
+    from datahub_airflow_plugin._config import get_lineage_config
+    from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+
+    class _Unregistered(BaseTimetable):
+        pass
+
+    dag = DAG(
+        dag_id="test_dag_unregistered_timetable",
+        schedule=_Unregistered(),
+        start_date=datetime(2024, 1, 1),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        properties = AirflowGenerator.generate_dataflow(
+            get_lineage_config(), dag
+        ).properties
+
+    assert "schedule" not in properties
+    assert any(
+        r.levelno == logging.WARNING
+        and "test_dag_unregistered_timetable" in r.getMessage()
+        for r in caplog.records
+    )
 
 
 def test_entities():

@@ -671,9 +671,10 @@ public class SpringStandardPluginConfiguration {
   }
 
   /**
-   * Aspect-level privilege floor on role, group membership, and group ownership writes. API
-   * authorization keys on entity type alone, so without this an entity-level edit privilege is
-   * enough to write a role grant on any user or group.
+   * Aspect-level privilege floor on role, group membership, group ownership, and role-scoped invite
+   * token writes. API authorization keys on entity type alone, so without this an entity-level edit
+   * privilege is enough to write a role grant on any user or group, and Manage User Credentials is
+   * enough to stamp a role onto an invite token.
    */
   @Bean
   @ConditionalOnProperty(
@@ -717,6 +718,13 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(CORP_GROUP_ENTITY_NAME)
                             .aspectName(OWNERSHIP_ASPECT_NAME)
+                            .build(),
+                        // Deferred role grant: acceptRole writes roleMembership as the system
+                        // actor, so the Manage Policies floor has to be applied when the role is
+                        // stored on the invite token.
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(INVITE_TOKEN_ENTITY_NAME)
+                            .aspectName(INVITE_TOKEN_ASPECT_NAME)
                             .build()))
                 .build());
   }

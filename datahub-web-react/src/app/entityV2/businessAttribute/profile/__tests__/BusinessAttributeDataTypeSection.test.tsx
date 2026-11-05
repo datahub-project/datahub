@@ -14,7 +14,7 @@ const entityData = {
     properties: { businessAttributeDataType: 'STRING' },
 };
 
-vi.mock('@src/app/entity/shared/EntityContext', () => ({
+vi.mock('@src/app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({
         urn: 'urn:li:businessAttribute:revenue',
         entityType: 'BUSINESS_ATTRIBUTE',
