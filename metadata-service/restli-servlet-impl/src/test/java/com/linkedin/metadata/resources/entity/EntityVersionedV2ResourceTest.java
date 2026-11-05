@@ -3,11 +3,13 @@ package com.linkedin.metadata.resources.entity;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -28,6 +30,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.parseq.Engine;
 import com.linkedin.parseq.EngineBuilder;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Map;
@@ -158,6 +162,23 @@ public class EntityVersionedV2ResourceTest {
           result.get(DATASET_URN).getAspects().containsKey(Constants.VIEW_PROPERTIES_ASPECT_NAME),
           "viewProperties must remain when the actor is authorized to view it");
     }
+  }
+
+  @Test
+  public void testBatchGetVersionedRejectsUrnRequestedAtTwoVersions() {
+    RestLiServiceException rejected =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                resource.batchGetVersioned(
+                    Set.of(
+                        new VersionedUrn(DATASET_URN.toString(), "datasetProperties:1"),
+                        new VersionedUrn(DATASET_URN.toString(), "datasetProperties:2")),
+                    Constants.DATASET_ENTITY_NAME,
+                    null));
+
+    assertEquals(rejected.getStatus(), HttpStatus.S_400_BAD_REQUEST);
+    verifyNoInteractions(entityService);
   }
 
   private static EntityResponse entityResponseWithViewProperties(Urn urn) {

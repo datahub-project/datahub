@@ -17,7 +17,6 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
-import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -28,6 +27,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -179,7 +179,8 @@ public class RelationshipsController {
             true);
 
     if (!AuthUtil.isAPIAuthorizedUrns(opContext, RELATIONSHIP, READ, List.of(entityUrn))) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to get relationships.");
+      return ResponseEntity.ok(
+          new RelatedEntitiesResult(start == null ? 0 : start, 0, 0, Collections.emptyList()));
     }
 
     Throwable exceptionally = null;

@@ -20,9 +20,11 @@ import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.resources.restli.RestliUtils;
@@ -44,6 +46,7 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -127,19 +130,16 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "getRelationships", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
-    if (!isAPIAuthorizedUrns(
-            opContext,
-            LINEAGE, READ,
-            List.of(urn))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + rawUrn);
-    }
+    final boolean canRead = isAPIAuthorizedUrns(opContext, LINEAGE, READ, List.of(urn));
     RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
     final Set<String> relationshipTypes = Set.of(relationshipTypesParam);
     return RestliUtils.toTask(opContext,
         () -> {
           final RelatedEntitiesResult relatedEntitiesResult =
-              getRelatedEntities(opContext, rawUrn, relationshipTypes, direction, start, count);
+              canRead
+                  ? getRelatedEntities(opContext, rawUrn, relationshipTypes, direction, start, count)
+                  : new RelatedEntitiesResult(
+                      start == null ? 0 : start, 0, 0, Collections.emptyList());
           final EntityRelationshipArray entityArray =
               new EntityRelationshipArray(
                   relatedEntitiesResult.getEntities().stream()
@@ -206,21 +206,24 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "getLineage", urn.getEntityType()).withUsageOperation(UsageOperation.LINEAGE_QUERY), _authorizer, auth, true);
 
-    if (!isAPIAuthorizedUrns(
-            opContext,
-            LINEAGE, READ,
-            List.of(urn))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + urnStr);
-    }
+    final boolean canRead = isAPIAuthorizedUrns(opContext, LINEAGE, READ, List.of(urn));
     return RestliUtils.toTask(opContext,
-        () ->
-            _graphService.getLineage(opContext,
-                urn,
-                LineageDirection.valueOf(direction),
-                start != null ? start : 0,
-                count != null ? count : 100,
-                maxHops != null ? maxHops : 1),
+        () -> {
+          final LineageDirection lineageDirection = LineageDirection.valueOf(direction);
+          final int finalStart = start != null ? start : 0;
+          final int finalCount = count != null ? count : 100;
+          if (!canRead) {
+            return new EntityLineageResult()
+                .setRelationships(new LineageRelationshipArray())
+                .setStart(finalStart)
+                .setCount(
+                    ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), finalCount))
+                .setTotal(0)
+                .setPartial(false);
+          }
+          return _graphService.getLineage(
+              opContext, urn, lineageDirection, finalStart, finalCount, maxHops != null ? maxHops : 1);
+        },
         MetricRegistry.name(this.getClass(), "getLineage"));
   }
 }

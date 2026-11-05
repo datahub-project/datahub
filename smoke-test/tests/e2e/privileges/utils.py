@@ -421,8 +421,13 @@ def create_metadata_policy(
     user_urn: str,
     resource_urn: Optional[str] = None,
     resource_type: Optional[str] = None,
+    resource_condition: str = "EQUALS",
 ):
-    """Create an active METADATA policy scoped to a user and optional resource URN."""
+    """Create an active METADATA policy scoped to a user and optional resource URN.
+
+    With ``resource_condition="NOT_EQUALS"`` the policy covers every resource except
+    ``resource_urn``.
+    """
     resources: dict
     if resource_urn:
         resources = {
@@ -431,7 +436,7 @@ def create_metadata_policy(
                     {
                         "field": "URN",
                         "values": [resource_urn],
-                        "condition": "EQUALS",
+                        "condition": resource_condition,
                     }
                 ]
             }

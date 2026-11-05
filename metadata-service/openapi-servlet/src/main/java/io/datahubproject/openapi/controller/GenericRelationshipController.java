@@ -196,17 +196,20 @@ public abstract class GenericRelationshipController {
                                 : null,
                             SetMode.IGNORE_NULL));
 
-    if (!AuthUtil.isAPIAuthorizedUrns(
-        opContext, RELATIONSHIP, READ, List.of(UrnUtils.getUrn(entityUrn)))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr()
-              + " is unauthorized to "
-              + READ
-              + " "
-              + RELATIONSHIP);
+    final RelationshipDirection relationshipDirection =
+        RelationshipDirection.valueOf(direction.toUpperCase());
+    if (relationshipDirection != RelationshipDirection.INCOMING
+        && relationshipDirection != RelationshipDirection.OUTGOING) {
+      throw new IllegalArgumentException("Direction must be INCOMING or OUTGOING");
     }
 
-    switch (RelationshipDirection.valueOf(direction.toUpperCase())) {
+    if (!AuthUtil.isAPIAuthorizedUrns(
+        opContext, RELATIONSHIP, READ, List.of(UrnUtils.getUrn(entityUrn)))) {
+      return ResponseEntity.ok(
+          GenericScrollResult.<GenericRelationship>builder().results(List.of()).build());
+    }
+
+    switch (relationshipDirection) {
       case INCOMING ->
           result =
               graphService.scrollRelatedEntities(

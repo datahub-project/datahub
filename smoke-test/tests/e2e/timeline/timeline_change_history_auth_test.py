@@ -5,7 +5,8 @@ Smoke tests verifying entity-level authorization is enforced on Change History
 Covers:
   - GraphQL getTimeline denied for unauthorized user on Dataset and Domain
   - GraphQL getTimeline succeeds for admin on Dataset (happy path)
-  - REST /openapi/v2/timeline/v1/{urn} denied for unauthorized user (HTTP 401/403)
+  - REST /openapi/v2/timeline/v1/{urn} answers an unauthorized user exactly as it answers for an
+    entity that does not exist (HTTP 200 with no transactions)
 """
 
 import logging
@@ -21,7 +22,9 @@ from datahub.metadata.schema_classes import (
 )
 from tests.e2e.privileges.utils import (
     clear_polices,
+    create_metadata_policy,
     create_user,
+    remove_policy,
     remove_user,
     set_base_platform_privileges_policy_status,
     set_view_dataset_sensitive_info_policy_status,
@@ -237,9 +240,8 @@ def test_get_timeline_authorized_user_succeeds(auth_session):
     logger.info("test_get_timeline_authorized_user_succeeds: admin access confirmed")
 
 
-def test_get_timeline_rest_v2_unauthorized_user_is_denied():
-    """Unauthorized user must be denied on the REST /openapi/v2/timeline/v1/{urn} endpoint."""
-    encoded_urn = urllib.parse.quote(TEST_DATASET_URN, safe="")
+def _get_rest_timeline(session, urn):
+    encoded_urn = urllib.parse.quote(urn, safe="")
     # `categories` is a required query param on the REST endpoint; without it Spring
     # returns 400 before the auth check fires, which would mask the auth behaviour.
     #
@@ -251,16 +253,43 @@ def test_get_timeline_rest_v2_unauthorized_user_is_denied():
         f"{get_frontend_url()}/openapi/v2/timeline/v1/{encoded_urn}"
         f"?categories=TECHNICAL_SCHEMA"
     )
-    logger.info(f"test_get_timeline_rest_v2_unauthorized_user_is_denied: GET {url}")
+    logger.info(f"GET {url}")
+    return session.get(url)
 
-    user_session = login_as(TEST_USER_EMAIL, TEST_USER_PASSWORD)
-    response = user_session.get(url)
 
-    assert response.status_code in (401, 403), (
-        f"Expected HTTP 401 or 403 from REST timeline endpoint for unauthorized user, "
-        f"got {response.status_code}. Body: {response.text[:500]}"
+def test_get_timeline_rest_v2_unauthorized_user_answers_as_missing():
+    """An unauthorized user gets the same REST timeline answer as for a nonexistent entity.
+
+    The user may read everything except the test dataset, so the made-up urn passes the
+    authorization check and is answered by the timeline service itself.
+    """
+    admin_session = get_frontend_session()
+    policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"{TIMELINE_AUTH_POLICY_PREFIX} all but dataset {_UNIQUE}",
+        description="Grants timeline reads on every entity except the test dataset",
+        privileges=[
+            "VIEW_ENTITY_PAGE",
+            "GET_ENTITY_PRIVILEGE",
+            "GET_TIMELINE_PRIVILEGE",
+        ],
+        user_urn=TEST_USER_URN,
+        resource_urn=TEST_DATASET_URN,
+        resource_condition="NOT_EQUALS",
     )
-    logger.info(
-        f"test_get_timeline_rest_v2_unauthorized_user_is_denied: "
-        f"correctly denied with HTTP {response.status_code}"
+    missing_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:kafka,auth-test-missing-{_UNIQUE},PROD)"
     )
+    try:
+        user_session = login_as(TEST_USER_EMAIL, TEST_USER_PASSWORD)
+        denied = _get_rest_timeline(user_session, TEST_DATASET_URN)
+        missing = _get_rest_timeline(user_session, missing_urn)
+    finally:
+        remove_policy(policy_urn, admin_session)
+
+    assert denied.status_code == 200, (
+        f"Expected HTTP 200 from REST timeline endpoint for unauthorized user, "
+        f"got {denied.status_code}. Body: {denied.text[:500]}"
+    )
+    assert denied.json() == [], denied.text[:500]
+    assert (missing.status_code, missing.json()) == (denied.status_code, denied.json())

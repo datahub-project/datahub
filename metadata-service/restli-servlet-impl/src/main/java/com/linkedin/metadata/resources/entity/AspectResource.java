@@ -27,6 +27,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -134,6 +135,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     this.entitySearchService = entitySearchService;
   }
 
+  @VisibleForTesting
+  void setTimeseriesAspectService(TimeseriesAspectService timeseriesAspectService) {
+    this.timeseriesAspectService = timeseriesAspectService;
+  }
+
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
    * TODO: Get rid of this and migrate to getAspect.
@@ -154,17 +160,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     "get", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
         () -> {
-            if (!isAPIAuthorizedEntityUrns(
-                  opContext,
-                  READ,
-                  List.of(urn))) {
-            throw new RestLiServiceException(
-                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get aspect for " + urn);
-          }
           if (!SensitiveAspectAuthUtil.canReadAspect(opContext, urn, aspectName)) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN,
                 "User is unauthorized to get aspect " + aspectName + " for " + urn);
+          }
+          if (!isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
+            throw RestliUtils.nonExceptionResourceNotFound();
           }
 
           final VersionedAspect aspect =
@@ -211,12 +213,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
         () -> {
-            if (!TimeseriesAuthUtil.canReadAspect(opContext, urn, entityName, aspectName)) {
-            throw new RestLiServiceException(
-                HttpStatus.S_403_FORBIDDEN,
-                "User is unauthorized to get timeseries aspect for " + urn);
-          }
-
             GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
           response.setEntityName(entityName);
           response.setAspectName(aspectName);
@@ -231,9 +227,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
           } else {
             response.setLimit(limit);
           }
+          final Urn readUrn =
+              TimeseriesAuthUtil.canReadAspect(opContext, urn, entityName, aspectName)
+                  ? urn
+                  : EntityUtils.toMissingUrn(urn);
           List<EnvelopedAspect> values =
               timeseriesAspectService.getAspectValues(opContext,
-                  urn,
+                  readUrn,
                   entityName,
                   aspectName,
                   startTimeMillis,

@@ -48,6 +48,7 @@ import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
@@ -249,8 +250,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             opContext,
             READ,
             List.of(urn))) {
-      throw new RestLiServiceException(
-              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
+      final Entity missingEntity = EntityUtils.toMissingEntity(opContext.getEntityRegistry(), urn);
+      if (missingEntity == null) {
+        throw RestliUtils.resourceNotFoundException(String.format("Did not find %s", urnStr));
+      }
+      return Task.value(new AnyRecord(missingEntity.data()));
     }
 
     return RestliUtils.toTask(opContext,
@@ -295,13 +299,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "batchGet", urnStrs).withUsageOperation(UsageOperation.METADATA_READ), authorizer, auth, true);
 
-    if (!isAPIAuthorizedEntityUrns(
-            opContext,
-            READ,
-            urns)) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entities: " + urnStrs);
-    }
+    final Set<Urn> readableUrns =
+        new HashSet<>(EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(opContext, READ, urns));
 
     return RestliUtils.toTask(opContext,
         () -> {
@@ -317,7 +316,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           // set is resolved individually; urns that land on the same set (the common case) still
           // share a single getEntities call.
           final Map<Set<String>, Set<Urn>> urnsByProjectedAspects = new HashMap<>();
-          for (Urn urn : urns) {
+          for (Urn urn : readableUrns) {
             final Set<String> requestedAspects =
                 explicitAspects == null ? opContext.getEntityAspectNames(urn) : explicitAspects;
             final Set<String> projectedAspects =
@@ -328,6 +327,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           }
 
           final Map<String, AnyRecord> result = new HashMap<>();
+          for (Urn urn : urns) {
+            if (!readableUrns.contains(urn)) {
+              final Entity missingEntity =
+                  EntityUtils.toMissingEntity(opContext.getEntityRegistry(), urn);
+              if (missingEntity != null) {
+                result.put(urn.toString(), new AnyRecord(missingEntity.data()));
+              }
+            }
+          }
           for (Map.Entry<Set<String>, Set<Urn>> group : urnsByProjectedAspects.entrySet()) {
             entityService
                 .getEntities(opContext, group.getValue(), group.getKey(), true)
@@ -727,10 +735,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Urn urn = Urn.createFromString(urnStr);
     // Entity READ is independent of View Authorization: when REST API auth is enabled, the source
     // and returned lineage URNs must still be authorized.
-    if (!isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
-      throw new RestLiServiceException(
-              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urnStr);
-    }
+    final boolean canReadSource = isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn));
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.debug(
         "GET SEARCH RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
@@ -740,18 +745,22 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         input);
     return RestliUtils.toTask(opContext,
         () -> {
+          final LineageDirection lineageDirection = LineageDirection.valueOf(direction);
           LineageSearchResult result =
-              lineageSearchService.searchAcrossLineage(
-                  opContext,
-                  urn,
-                  LineageDirection.valueOf(direction),
-                  entityList,
-                  input,
-                  maxHops,
-                  filter,
-                  sortCriterionList,
-                  start,
-                  count);
+              canReadSource
+                  ? lineageSearchService.searchAcrossLineage(
+                      opContext,
+                      urn,
+                      lineageDirection,
+                      entityList,
+                      input,
+                      maxHops,
+                      filter,
+                      sortCriterionList,
+                      start,
+                      count)
+                  : lineageSearchService.searchAcrossEmptyLineage(
+                      opContext, entityList, input, filter, sortCriterionList, start, count);
           Set<Urn> authorizedUrns =
               authorizedResultUrns(
                   opContext,
@@ -805,10 +814,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     Urn urn = Urn.createFromString(urnStr);
-    if (!isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
-      throw new RestLiServiceException(
-              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urnStr);
-    }
+    final boolean canReadSource = isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn));
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.debug(
         "GET SCROLL RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
@@ -821,19 +827,30 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     return RestliUtils.toTask(opContext,
         () -> {
+          final LineageDirection lineageDirection = LineageDirection.valueOf(direction);
           LineageScrollResult result =
-              lineageSearchService.scrollAcrossLineage(
-                  opContext,
-                  urn,
-                  LineageDirection.valueOf(direction),
-                  entityList,
-                  input,
-                  maxHops,
-                  filter,
-                  sortCriterionList,
-                  scrollId,
-                  keepAlive,
-                  count);
+              canReadSource
+                  ? lineageSearchService.scrollAcrossLineage(
+                      opContext,
+                      urn,
+                      lineageDirection,
+                      entityList,
+                      input,
+                      maxHops,
+                      filter,
+                      sortCriterionList,
+                      scrollId,
+                      keepAlive,
+                      count)
+                  : lineageSearchService.scrollAcrossEmptyLineage(
+                      opContext,
+                      entityList,
+                      input,
+                      filter,
+                      sortCriterionList,
+                      scrollId,
+                      keepAlive,
+                      count);
           Set<Urn> authorizedUrns =
               authorizedResultUrns(
                   opContext,
@@ -1005,8 +1022,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             opContext,
              READ,
             List.of(urn))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity: " + urn);
+      return Task.value(new StringArray());
     }
     log.debug("GET BROWSE PATHS for {}", urn);
 
@@ -1458,8 +1474,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             opContext,
             EXISTS,
             List.of(urn))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized check entity existence: " + urnStr);
+      return Task.value(false);
     }
 
     log.debug("EXISTS for {}", urnStr);
@@ -1497,12 +1512,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             authorizer,
             auth,
             true);
-    if (!isAPIAuthorizedEntityUrns(opContext, EXISTS, urns)) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN,
-          "User is unauthorized to check entity existence for "
-              + urnStrs.length
-              + " urn(s)");
+    final Set<Urn> authorizedUrns =
+        new HashSet<>(EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(opContext, EXISTS, urns));
+    if (authorizedUrns.isEmpty()) {
+      return Task.value(new String[0]);
     }
 
     log.debug("FILTER_EXISTING_URNS for {} urns", urnStrs.length);
@@ -1511,7 +1524,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(
         opContext,
         () ->
-            entityService.exists(opContext, urns, includeRemoved).stream()
+            entityService.exists(opContext, authorizedUrns, includeRemoved).stream()
                 .map(Urn::toString)
                 .toArray(String[]::new),
         MetricRegistry.name(this.getClass(), "filterExistingUrns"));

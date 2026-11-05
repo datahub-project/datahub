@@ -64,6 +64,8 @@ public class FilesController {
   protected AuthorizerChain authorizationChain;
 
   private static final int MAX_EXPIRATION_SECONDS = 604800; // 7 days
+  private static final String FILE_PERMISSIONS_UNDETERMINED_MESSAGE =
+      "No dataHubFile entity associated with request to determine permissions";
 
   /**
    * Endpoint to serve files by generating presigned S3 URLs and redirecting to them.
@@ -164,8 +166,6 @@ public class FilesController {
    * @throws UnauthorizedException if the user doesn't have permission to access the file
    */
   private void validateFilePermissions(String fileId, OperationContext opContext) {
-    Authentication authentication = AuthenticationContext.getAuthentication();
-
     // Extract UUID from file ID
     String fileUUID = fileId.split(Constants.S3_FILE_ID_NAME_SEPARATOR)[0];
     Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:" + fileUUID);
@@ -187,8 +187,7 @@ public class FilesController {
 
     if (response == null
         || !response.getAspects().containsKey(Constants.DATAHUB_FILE_INFO_ASPECT_NAME)) {
-      throw new UnauthorizedException(
-          "No dataHubFile entity associated with request to determine permissions");
+      throw new UnauthorizedException(FILE_PERMISSIONS_UNDETERMINED_MESSAGE);
     }
 
     DataHubFileInfo fileInfo =
@@ -199,10 +198,10 @@ public class FilesController {
     FileUploadScenario scenario = fileInfo.getScenario();
     switch (scenario) {
       case ASSET_DOCUMENTATION:
-        validateAssetReadPermissions(fileInfo, opContext, authentication);
+        validateAssetReadPermissions(fileInfo, opContext);
         break;
       case ASSET_DOCUMENTATION_LINKS:
-        validateAssetReadPermissions(fileInfo, opContext, authentication);
+        validateAssetReadPermissions(fileInfo, opContext);
         break;
       // Add additional scenarios here as needed
       default:
@@ -218,20 +217,13 @@ public class FilesController {
    *
    * @param fileInfo The file info containing the referenced asset
    * @param opContext The operation context for the current user
-   * @param authentication The current user's authentication
    * @throws UnauthorizedException if the user doesn't have READ permission on the referenced asset
    */
-  private void validateAssetReadPermissions(
-      DataHubFileInfo fileInfo, OperationContext opContext, Authentication authentication) {
+  private void validateAssetReadPermissions(DataHubFileInfo fileInfo, OperationContext opContext) {
     Urn relatedUrn = fileInfo.getReferencedByAsset();
     if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext, READ, Collections.singleton(relatedUrn))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr()
-              + " is unauthorized to "
-              + READ
-              + " related entity to file with urn "
-              + relatedUrn);
+      throw new UnauthorizedException(FILE_PERMISSIONS_UNDETERMINED_MESSAGE);
     }
   }
 }
