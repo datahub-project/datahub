@@ -1,4 +1,4 @@
-import { css } from 'styled-components';
+import styled, { createGlobalStyle } from 'styled-components';
 
 /**
  * Repaints the backgrounds that `react-js-cron`'s shipped `dist/styles.css`
@@ -10,9 +10,12 @@ import { css } from 'styled-components';
  * no way to override the white — the wrapper itself has to be repainted. The
  * disabled (`#f5f5f5`) and error (`#fff6f6`) fills have the same problem.
  *
- * Compose this into the styled container that already wraps a `<Cron />`.
+ * `display: contents` keeps the wrapper out of layout, so callers lay out the
+ * cron fields exactly as if `<Cron />` were rendered directly.
  */
-export const cronBuilderStyles = css`
+export const CronBuilderContainer = styled.div`
+    display: contents;
+
     .react-js-cron-custom-select {
         background: ${(props) => props.theme.colors.bgInput};
     }
@@ -26,5 +29,19 @@ export const cronBuilderStyles = css`
     .react-js-cron-error .react-js-cron-select .ant-select-selector {
         background: ${(props) => props.theme.colors.bgSurfaceError};
         border-color: ${(props) => props.theme.colors.borderError};
+    }
+`;
+
+/**
+ * The cron dropdowns render in a portal outside the component tree, so they can
+ * only be styled globally. `react-js-cron` puts this class on every dropdown.
+ */
+export const CronDropdownGlobalStyles = createGlobalStyle`
+    .react-js-cron-select-dropdown {
+        .ant-select-item {
+            color: ${(props) => props.theme.colors.textSecondary};
+            font-size: 14px;
+            font-weight: 400;
+        }
     }
 `;
