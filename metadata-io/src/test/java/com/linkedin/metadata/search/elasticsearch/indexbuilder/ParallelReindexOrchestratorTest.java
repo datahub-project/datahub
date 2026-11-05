@@ -275,7 +275,8 @@ public class ParallelReindexOrchestratorTest {
     assertEquals(
         results.get("test_index"), ReindexResult.REINDEXED, "test_index should be reindexed");
 
-    // The destination goes through the fallback for a rejected definition target.
+    // The destination is created through createReindexDestination, whose fallback for a
+    // rejected definition target ESIndexBuilderStructuredPropertyMergeTest covers.
     verify(mockIndexBuilder)
         .createReindexDestination(any(OperationContext.class), anyString(), eq(config));
     verify(mockIndexBuilder, atLeastOnce())

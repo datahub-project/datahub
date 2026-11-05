@@ -1949,9 +1949,9 @@ public class ESIndexBuilder {
    * fields the index does not map are already unsearchable there, so instead of failing, perhaps
    * with the index's writes blocked, the destination takes the structured property fields that
    * index maps now, as a reindex did before targets came from the definitions. That holds only
-   * while structured property differences cannot start a reindex: otherwise the differences the
-   * live fields keep would start the same reindex on every run, so the rejection fails it, as it
-   * did before. Any other failure propagates.
+   * while the live fields' differences from the definitions cannot start a reindex: otherwise the
+   * same reindex would start on every run, so the rejection fails it, as it did before. Any other
+   * failure propagates.
    */
   void createReindexDestination(
       @Nonnull OperationContext opContext, String destination, ReindexConfig indexState)
@@ -1959,12 +1959,17 @@ public class ESIndexBuilder {
     try {
       createIndex(opContext, destination, indexState);
     } catch (IOException | RuntimeException e) {
-      boolean structuredPropertyDifferencesReindex =
+      // The destination would keep the index's differences from the definitions; these are the
+      // ones ReindexConfig starts a reindex for.
+      boolean liveFieldsStartAReindex =
           indexState.enableIndexMappingsReindex()
-              && (indexState.enableStructuredPropertiesReindex()
-                  || indexState.enableStructuredPropertyTypeMismatchReindex()
-                  || indexState.enableStructuredPropertyCopyToMismatchReindex());
-      if (structuredPropertyDifferencesReindex || !isMappingRejection(e)) {
+              && ((indexState.hasRemovedStructuredProperty()
+                      && indexState.enableStructuredPropertiesReindex())
+                  || (indexState.hasStructuredPropertyTypeMismatch()
+                      && indexState.enableStructuredPropertyTypeMismatchReindex())
+                  || (indexState.hasStructuredPropertyCopyToMismatch()
+                      && indexState.enableStructuredPropertyCopyToMismatchReindex()));
+      if (liveFieldsStartAReindex || !isMappingRejection(e)) {
         throw e;
       }
       // Against itself every structured property field counts as mapped, so this empties the

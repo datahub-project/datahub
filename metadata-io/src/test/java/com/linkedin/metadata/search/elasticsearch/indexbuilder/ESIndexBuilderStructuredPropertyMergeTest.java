@@ -370,10 +370,12 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
     SearchClientShim<?> searchClient = builder.getSearchClient();
     OpenSearchStatusException rejection = totalFieldsRejection();
     when(searchClient.createIndex(any(), any(), any())).thenThrow(rejection);
-    ReindexConfig indexState = reindexState(Map.of("propA", KEYWORD), Map.of());
-    // The live fields would keep a difference that starts the same reindex on every run.
+    ReindexConfig indexState =
+        reindexState(Map.of("propA", KEYWORD), Map.of("propRemoved", KEYWORD));
+    // The live fields would keep propRemoved, which starts the same reindex on every run.
     when(indexState.enableIndexMappingsReindex()).thenReturn(true);
     when(indexState.enableStructuredPropertiesReindex()).thenReturn(true);
+    when(indexState.hasRemovedStructuredProperty()).thenReturn(true);
 
     OpenSearchStatusException thrown =
         expectThrows(
@@ -385,6 +387,25 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
                     indexState));
     assertSame(thrown, rejection);
     verify(searchClient, times(1)).createIndex(any(), any(), any());
+  }
+
+  @Test
+  public void testRejectedReindexDestinationFallsBackWhenNoLiveDifferenceStartsAReindex()
+      throws Exception {
+    ESIndexBuilder builder = builderForExistingIndex(Map.of());
+    SearchClientShim<?> searchClient = builder.getSearchClient();
+    when(searchClient.createIndex(any(), any(), any()))
+        .thenThrow(totalFieldsRejection())
+        .thenReturn(null);
+    // Structured property reindexing is on, but the live fields only lack propA.
+    ReindexConfig indexState = reindexState(Map.of("propA", KEYWORD), Map.of());
+    when(indexState.enableIndexMappingsReindex()).thenReturn(true);
+    when(indexState.enableStructuredPropertiesReindex()).thenReturn(true);
+
+    builder.createReindexDestination(
+        TestOperationContexts.systemContextNoSearchAuthorization(), "destination", indexState);
+
+    verify(searchClient, times(2)).createIndex(any(), any(), any());
   }
 
   @Test

@@ -281,6 +281,65 @@ public class ReindexConfig {
     return CalculatedBuilder.structuredPropertyFieldMappings(mappings).keySet();
   }
 
+  /**
+   * Fields present in both current and target structured-property mappings with the same {@code
+   * type} whose {@code ignore_above}, or whose subfields other than {@code text} and {@code
+   * stemmed}, differ: for example after the keyword length limit changes.
+   */
+  static Set<String> structuredPropertyParameterDifferences(
+      Map<String, Object> current, Map<String, Object> target) {
+    Map<String, Object> targetFields = CalculatedBuilder.structuredPropertyFieldMappings(target);
+    Set<String> differences = new TreeSet<>();
+    CalculatedBuilder.structuredPropertyFieldMappings(current)
+        .forEach(
+            (field, currentMapping) -> {
+              Object targetMapping = targetFields.get(field);
+              if (targetMapping == null
+                  || !Objects.equals(
+                      CalculatedBuilder.extractMappingType(currentMapping),
+                      CalculatedBuilder.extractMappingType(targetMapping))) {
+                return;
+              }
+              Object currentIgnoreAbove = ignoreAbove(currentMapping);
+              Object targetIgnoreAbove = ignoreAbove(targetMapping);
+              Set<String> currentSubfields = otherSubfields(currentMapping);
+              Set<String> targetSubfields = otherSubfields(targetMapping);
+              if (!Objects.equals(currentIgnoreAbove, targetIgnoreAbove)
+                  || !currentSubfields.equals(targetSubfields)) {
+                differences.add(
+                    String.format(
+                        "%s (current ignore_above=%s subfields=%s, target ignore_above=%s"
+                            + " subfields=%s)",
+                        field,
+                        currentIgnoreAbove,
+                        currentSubfields,
+                        targetIgnoreAbove,
+                        targetSubfields));
+              }
+            });
+    return differences;
+  }
+
+  /** A field's {@code ignore_above} as a string, since engines may report it as one. */
+  @Nullable
+  private static String ignoreAbove(Object mapping) {
+    return mapping instanceof Map<?, ?> fieldMapping && fieldMapping.get(IGNORE_ABOVE) != null
+        ? String.valueOf(fieldMapping.get(IGNORE_ABOVE))
+        : null;
+  }
+
+  /** Keys under a field's {@code fields} map other than {@code text} and {@code stemmed}. */
+  private static Set<String> otherSubfields(Object mapping) {
+    if (!(mapping instanceof Map<?, ?> fieldMapping)
+        || !(fieldMapping.get("fields") instanceof Map<?, ?> fieldsMap)) {
+      return Set.of();
+    }
+    Set<String> subfields = new TreeSet<>();
+    fieldsMap.keySet().forEach(key -> subfields.add(String.valueOf(key)));
+    subfields.removeAll(Set.of("text", "stemmed"));
+    return subfields;
+  }
+
   public static boolean mappingHasProperties(@Nullable Map<String, Object> mappings) {
     if (mappings == null) {
       return false;
@@ -698,6 +757,17 @@ public class ReindexConfig {
               "Index: {} - Structured property copy_to mismatch(es): {}",
               super.name,
               mismatchedStructuredPropertyCopyTo);
+        }
+        // Put-mapping leaves mapped structured property fields alone, and these differences start
+        // no reindex, so only a reindex for another reason applies them.
+        Set<String> structuredPropertyParameterDifferences =
+            structuredPropertyParameterDifferences(super.currentMappings, super.targetMappings);
+        if (!structuredPropertyParameterDifferences.isEmpty()) {
+          log.info(
+              "Index: {} - Structured property field parameter difference(s), applied only by a"
+                  + " reindex: {}",
+              super.name,
+              structuredPropertyParameterDifferences);
         }
         // True when the only mapping change is adding structured properties.
         // Covers both cases: SP visible in mappingsDiff (no dynamic flag) and
