@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -589,10 +589,10 @@ def test_single_partition_label_keeps_shard_id_for_sharded_table():
     profiler = BigqueryProfiler(config, BigQueryV2Report())
 
     sharded = create_test_table(name="events_20240115", max_shard_id="20240115")
-    assert profiler._single_partition_label("", sharded) == "20240115"
+    assert profiler._single_partition_label("", sharded, windowed=False) == "20240115"
 
     partitioned = create_test_table(partitioned=True, max_partition_id="20240115")
-    assert profiler._single_partition_label("", partitioned) is None
+    assert profiler._single_partition_label("", partitioned, windowed=False) is None
 
 
 def test_execute_query_safely_bounds_result_fetch_with_timeout():
@@ -927,15 +927,114 @@ def test_profiler_get_batch_kwargs_sampling_deferred_downstream(mock_get_filters
     assert result["row_count"] == 100000
 
 
-def test_profiler_get_batch_kwargs_security_validation():
-    config = create_test_config()
-    report = BigQueryV2Report()
-    profiler = BigqueryProfiler(config, report)
-
-    table = create_test_table()
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_profiler_get_batch_kwargs_security_validation(mock_get_filters):
+    # Identifiers are validated when they go into generated SQL.
+    mock_get_filters.return_value = ["`date_col` = '2023-12-25'"]
+    profiler = BigqueryProfiler(create_test_config(), BigQueryV2Report())
 
     with pytest.raises(ValueError, match="Invalid dataset identifier"):
-        profiler.get_batch_kwargs(table, "invalid;dataset", "test-project")
+        profiler.get_batch_kwargs(
+            create_test_table(), "invalid;dataset", "test-project"
+        )
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_profiler_get_batch_kwargs_without_sql_keeps_names_validation_rejects(
+    mock_get_filters,
+):
+    # A legal BigQuery name the validator rejects (a space, Unicode) only matters when
+    # it goes into generated SQL; a table profiled without custom SQL keeps its profile.
+    mock_get_filters.return_value = []
+    profiler = BigqueryProfiler(create_test_config(), BigQueryV2Report())
+
+    result = profiler.get_batch_kwargs(
+        create_test_table(name="daily sales ü", rows_count=100),
+        "1dataset",
+        "test-project",
+    )
+
+    assert "custom_sql" not in result
+    assert result["table_name"] == "daily sales ü"
+
+
+@pytest.mark.parametrize(
+    "limits, table_kwargs",
+    [
+        ({"profile_table_size_limit": 1}, {"size_in_bytes": 2 * 2**30}),
+        ({"profile_table_row_limit": 1000}, {"rows_count": 5000}),
+        ({"profile_table_level_only": True}, {}),
+    ],
+    ids=["over-size-limit", "over-row-limit", "table-level-only-config"],
+)
+def test_table_level_only_request_skips_partition_discovery(
+    limits: Dict[str, Any], table_kwargs: Dict[str, Any]
+) -> None:
+    # A table-level profile reads no rows, so discovery (which queries the table the
+    # size limits protect) never runs and the identifiers are never validated.
+    config = create_test_config()
+    for key, value in limits.items():
+        setattr(config.profiling, key, value)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table(
+        name="big table", partitioned=True, max_partition_id="20240115"
+    )
+    for key, value in table_kwargs.items():
+        setattr(table, key, value)
+
+    with patch.object(
+        PartitionDiscovery, "get_required_partition_filters"
+    ) as discovery:
+        request = profiler.get_profile_request(table, "test_dataset", "test-project")
+
+    discovery.assert_not_called()
+    assert request is not None and request.profile_table_level_only
+    assert "custom_sql" not in request.batch_kwargs
+
+
+@pytest.mark.parametrize(
+    "partition_where, windowed, partition_datetime, expected",
+    [
+        # Discovery's single-partition shapes keep the label without windowing.
+        (
+            "`month_col` >= '2024-01-01' AND `month_col` < '2024-02-01'",
+            False,
+            None,
+            "202401",
+        ),
+        (
+            "`_PARTITIONTIME` >= TIMESTAMP('2024-01-15 10:00:00') AND `_PARTITIONTIME` < TIMESTAMP('2024-01-15 11:00:00')",
+            False,
+            None,
+            "202401",
+        ),
+        ("`bucket` >= 40", False, None, "202401"),
+        # A range windowing widened spans several partitions.
+        ("`day_col` >= '2024-01-08' AND `day_col` <= '2024-01-15'", True, None, None),
+        # partition_datetime scans the partition holding that time, not the max one.
+        (
+            "`month_col` >= '2023-06-01' AND `month_col` < '2023-07-01'",
+            False,
+            datetime(2023, 6, 1),
+            None,
+        ),
+    ],
+    ids=["month-range", "hour-range", "range-bucket", "windowed", "partition-datetime"],
+)
+def test_single_partition_label_trusts_discovery_unless_windowed(
+    partition_where: str,
+    windowed: bool,
+    partition_datetime: Optional[datetime],
+    expected: Optional[str],
+) -> None:
+    config = create_test_config()
+    config.profiling.partition_datetime = partition_datetime
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table(partitioned=True, max_partition_id="202401")
+
+    assert (
+        profiler._single_partition_label(partition_where, table, windowed) == expected
+    )
 
 
 @patch.object(PartitionDiscovery, "get_required_partition_filters")
@@ -989,7 +1088,7 @@ def test_build_custom_sql_bounds_unknown_row_count():
     profiler = BigqueryProfiler(config, BigQueryV2Report())
     table = create_test_table(rows_count=None)
 
-    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+    sql = profiler._build_custom_sql("proj-123456", "d", table)
 
     assert sql is not None
     assert "LIMIT 5000" in sql
@@ -1002,7 +1101,7 @@ def test_build_custom_sql_known_empty_native_table_profiles_normally():
     profiler = BigqueryProfiler(config, BigQueryV2Report())
     table = create_test_table(rows_count=0, external=False)
 
-    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+    sql = profiler._build_custom_sql("proj-123456", "d", table)
 
     assert sql is None
 
@@ -1015,7 +1114,7 @@ def test_build_custom_sql_external_zero_row_count_is_bounded():
     profiler = BigqueryProfiler(config, BigQueryV2Report())
     table = create_test_table(rows_count=0, external=True)
 
-    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+    sql = profiler._build_custom_sql("proj-123456", "d", table)
 
     assert sql is not None
     assert "LIMIT 5000" in sql
@@ -1028,7 +1127,7 @@ def test_build_custom_sql_unknown_row_count_uses_safety_limit_when_no_row_limit(
     profiler = BigqueryProfiler(config, BigQueryV2Report())
     table = create_test_table(rows_count=None)
 
-    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+    sql = profiler._build_custom_sql("proj-123456", "d", table)
 
     assert sql is not None
     assert f"LIMIT {BQ_SAFETY_ROW_LIMIT}" in sql

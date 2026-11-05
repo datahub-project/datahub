@@ -55,7 +55,6 @@ from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryE
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     build_safe_table_reference,
     validate_and_filter_expressions,
-    validate_bigquery_identifier,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
@@ -361,14 +360,23 @@ class BigqueryProfiler(GenericProfiler):
         return rows_count is None or (bq_table.external and not rows_count)
 
     def _build_custom_sql(
-        self, safe_table_ref: str, table_ref: str, bq_table: BigqueryTable
+        self, db_name: str, schema_name: str, bq_table: BigqueryTable
     ) -> Optional[str]:
         # Custom SQL for a table without a partition filter: cap at the row limit, or
         # apply the safety cap for very large tables. Returns None when the table should
         # be profiled without custom SQL (FULL_TABLE partitionSpec) — including when it
         # is large enough to sample, because sampling is applied downstream (see below).
+        # The identifiers are only validated once SQL is built, so a table whose name
+        # our validator rejects (spaces, Unicode) still gets a profile without it.
+        table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
         rows_count = getattr(bq_table, "rows_count", None)
-        select_all = queries.SELECT_ALL.format(table_ref=safe_table_ref)
+
+        def select_all() -> str:
+            return queries.SELECT_ALL.format(
+                table_ref=build_safe_table_reference(
+                    db_name, schema_name, bq_table.name
+                )
+            )
 
         if self._should_sample(rows_count):
             # Do NOT emit TABLESAMPLE here. The SQLAlchemy profiler adapter
@@ -398,7 +406,7 @@ class BigqueryProfiler(GenericProfiler):
                 f"Row count unavailable for {table_ref}; applying bounded limit "
                 f"({limit:,}) instead of an unbounded scan"
             )
-            return f"{select_all} {queries.LIMIT_CLAUSE.format(limit=limit)}"
+            return f"{select_all()} {queries.LIMIT_CLAUSE.format(limit=limit)}"
 
         # The unavailable guard above returns for any None row count, so the remaining
         # comparisons operate on a known integer.
@@ -409,16 +417,14 @@ class BigqueryProfiler(GenericProfiler):
                 f"Applied row limit ({limit:,}) to non-partitioned table "
                 f"{table_ref} ({rows_count:,} rows)"
             )
-            return f"{select_all} {queries.LIMIT_CLAUSE.format(limit=limit)}"
+            return f"{select_all()} {queries.LIMIT_CLAUSE.format(limit=limit)}"
 
         if row_limit == 0 and rows_count > BQ_SAFETY_ROW_LIMIT_THRESHOLD:
             logger.info(
                 f"Applied safety limit of {BQ_SAFETY_ROW_LIMIT:,} rows to large table "
                 f"{table_ref} ({rows_count:,} rows)"
             )
-            return (
-                f"{select_all} {queries.LIMIT_CLAUSE.format(limit=BQ_SAFETY_ROW_LIMIT)}"
-            )
+            return f"{select_all()} {queries.LIMIT_CLAUSE.format(limit=BQ_SAFETY_ROW_LIMIT)}"
 
         return None
 
@@ -433,11 +439,6 @@ class BigqueryProfiler(GenericProfiler):
     ) -> dict:
         bq_table = self._as_bq_table(table)
         table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
-
-        # Raises ValueError for invalid identifiers; callers should catch and skip the table.
-        safe_project = validate_bigquery_identifier(db_name, "project")
-        safe_schema = validate_bigquery_identifier(schema_name, "dataset")
-        safe_table = validate_bigquery_identifier(bq_table.name, "table")
 
         base_kwargs = {
             "schema": db_name,
@@ -455,6 +456,11 @@ class BigqueryProfiler(GenericProfiler):
             base_kwargs["is_external"] = "true"
             # Partition discovery for external tables is deferred to parallel threads in
             # generate_profile_workunits_with_deferred_partitions to avoid blocking.
+            return base_kwargs
+
+        if self._profiles_table_level_only(bq_table):
+            # A table-level profile reads no rows, so it needs no partition filter,
+            # and discovery would query the tables the size limits protect.
             return base_kwargs
 
         logger.debug(f"Starting partition discovery for {table_ref}")
@@ -488,6 +494,7 @@ class BigqueryProfiler(GenericProfiler):
 
         validated_filters: List[str] = []
         partition_where = ""
+        windowed = False
 
         if partition_filters:
             validated_filters = validate_and_filter_expressions(
@@ -502,9 +509,11 @@ class BigqueryProfiler(GenericProfiler):
                 validated_filters
                 and self.config.profiling.partition_datetime_window_days is not None
             ):
+                discovered_filters = validated_filters
                 validated_filters = self._apply_partition_date_windowing(
                     validated_filters, bq_table
                 )
+                windowed = validated_filters != discovered_filters
 
             if validated_filters:
                 partition_where = " AND ".join(validated_filters)
@@ -523,17 +532,17 @@ class BigqueryProfiler(GenericProfiler):
                     context=table_ref,
                 )
 
-        safe_table_ref = f"{safe_project}.{safe_schema}.{safe_table}"
-
         # A partitioned table gets the partition-filtered SELECT; otherwise fall back to
         # sampling / row-limit SQL (or None, so GE profiles the full table normally).
         if partition_where:
             custom_sql: Optional[str] = self._build_partition_profiling_sql(
-                safe_table_ref, partition_where, bq_table
+                build_safe_table_reference(db_name, schema_name, bq_table.name),
+                partition_where,
+                bq_table,
             )
             logger.info(f"Applied partition profiling SQL for {table_ref}")
         else:
-            custom_sql = self._build_custom_sql(safe_table_ref, table_ref, bq_table)
+            custom_sql = self._build_custom_sql(db_name, schema_name, bq_table)
 
         if custom_sql:
             base_kwargs.update(
@@ -548,14 +557,38 @@ class BigqueryProfiler(GenericProfiler):
         else:
             logger.debug(f"Generated batch kwargs for {table_ref} without custom_sql")
 
-        partition_label = self._single_partition_label(partition_where, bq_table)
+        partition_label = self._single_partition_label(
+            partition_where, bq_table, windowed
+        )
         if partition_label is not None:
             base_kwargs["partition"] = partition_label
 
         return base_kwargs
 
+    def _profiles_table_level_only(self, bq_table: BigqueryTable) -> bool:
+        # GenericProfiler.get_profile_request only calls get_batch_kwargs for a table
+        # that passed every other eligibility check, so here the request is table-level
+        # only exactly when it says so in config or the table is over a size limit.
+        # is_dataset_eligible_for_profiling isn't called again: it updates the report.
+        profiling = self.config.profiling
+        size_limit = profiling.profile_table_size_limit
+        row_limit = profiling.profile_table_row_limit
+        return bool(
+            profiling.profile_table_level_only
+            or (
+                size_limit is not None
+                and bq_table.size_in_bytes is not None
+                and bq_table.size_in_bytes / (2**30) > size_limit
+            )
+            or (
+                row_limit is not None
+                and bq_table.rows_count is not None
+                and bq_table.rows_count > row_limit
+            )
+        )
+
     def _single_partition_label(
-        self, partition_where: str, bq_table: BigqueryTable
+        self, partition_where: str, bq_table: BigqueryTable, windowed: bool
     ) -> Optional[str]:
         # The profile is labeled with the real partition ID (type=PARTITION rather than
         # type=QUERY) only when the generated predicate actually scanned exactly that
@@ -588,9 +621,14 @@ class BigqueryProfiler(GenericProfiler):
                 getattr(bq_table, "max_shard_id", None) and not bq_table.partition_info
             )
             return partition_id if is_sharded else None
-        # A non-empty predicate only keeps the label when it actually scanned that
-        # one partition — a widened multi-partition range drops it.
-        if not self._predicate_scans_single_partition(partition_where):
+        # profiling.partition_datetime makes discovery scan the partition holding
+        # that time, which max_partition_id doesn't name.
+        if self.config.profiling.partition_datetime is not None:
+            return None
+        # Discovery's own filters scan exactly the max partition, whatever their
+        # shape (a DAY equality, a MONTH or HOUR half-open range, a RANGE bucket's
+        # lower bound). Only a predicate that windowing rewrote can span several.
+        if windowed and not self._predicate_scans_single_partition(partition_where):
             return None
         return partition_id
 
@@ -722,7 +760,9 @@ class BigqueryProfiler(GenericProfiler):
                 profile_request = self.get_profile_request(table, dataset, project_id)
 
                 if profile_request is not None:
-                    if table.external:
+                    # A table-level profile needs no partition filter, so it skips
+                    # discovery, which would query a table the size limits protect.
+                    if table.external and not profile_request.profile_table_level_only:
                         # External tables still need partition discovery in a worker
                         # pool, which can drop the table. Defer the profiled/accepted
                         # accounting to generate_profile_workunits_with_deferred_partitions
@@ -847,6 +887,7 @@ class BigqueryProfiler(GenericProfiler):
                 )
 
             partition_where = ""
+            windowed = False
             if partition_filters:
                 validated_filters = validate_and_filter_expressions(
                     partition_filters, "external table profile request"
@@ -856,6 +897,7 @@ class BigqueryProfiler(GenericProfiler):
                     windowed_filters = self._apply_partition_date_windowing(
                         validated_filters, bq_table
                     )
+                    windowed = windowed_filters != validated_filters
                     partition_where = " AND ".join(windowed_filters)
                 else:
                     # Mirror the internal path: discovery produced filters but all
@@ -871,18 +913,21 @@ class BigqueryProfiler(GenericProfiler):
                         )
                     )
 
-            safe_table_ref = build_safe_table_reference(
-                deferred.db_name, deferred.schema_name, bq_table.name
-            )
             # A partition-filtered SELECT when we have a filter; otherwise fall back to the
             # sampling / row-limit SQL like the internal path (get_profile_request), so a
             # large unpartitioned external table is sampled instead of fully scanned.
             if partition_where:
                 custom_sql: Optional[str] = self._build_partition_profiling_sql(
-                    safe_table_ref, partition_where, bq_table
+                    build_safe_table_reference(
+                        deferred.db_name, deferred.schema_name, bq_table.name
+                    ),
+                    partition_where,
+                    bq_table,
                 )
             else:
-                custom_sql = self._build_custom_sql(safe_table_ref, table_ref, bq_table)
+                custom_sql = self._build_custom_sql(
+                    deferred.db_name, deferred.schema_name, bq_table
+                )
 
             if custom_sql:
                 if self._row_count_unavailable(bq_table):
@@ -905,7 +950,9 @@ class BigqueryProfiler(GenericProfiler):
             # exactly one partition, label the profile with the real partition ID
             # (type=PARTITION rather than type=QUERY). Without this the external profile
             # is always emitted as an unlabeled QUERY scan.
-            partition_label = self._single_partition_label(partition_where, bq_table)
+            partition_label = self._single_partition_label(
+                partition_where, bq_table, windowed
+            )
             if partition_label is not None:
                 request.batch_kwargs["partition"] = partition_label
 

@@ -1071,11 +1071,15 @@ def test_batch_kwargs_sampling_threshold():
 
 
 def test_batch_kwargs_rejects_invalid_identifier():
+    # Identifiers are validated when they go into generated SQL, here the
+    # partition-filtered SELECT.
     config = make_config()
     profiler = BigqueryProfiler(config, BigQueryV2Report())
 
     with patch.object(
-        profiler.partition_discovery, "get_required_partition_filters", return_value=[]
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=["`date_col` = '2023-12-25'"],
     ):
         profiler.get_batch_kwargs(
             make_table(), "valid_dataset", "valid-project-123"
