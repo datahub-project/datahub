@@ -85,6 +85,7 @@ TYPE_DECL_RE = re.compile(
     r"(class|interface|enum|record|object)\s+([^\W\d][\w$]*)"
 )
 JAVA_PACKAGE_RE = re.compile(r"^\s*package\s+([\w.]+)\s*;?", re.MULTILINE)
+JAVA_IMPORT_RE = re.compile(r"^\s*import\s+(?!static\b)([\w.]+(?:\.\*)?)\s*;?", re.MULTILINE)
 PY_TEST_FUNC_RE = re.compile(r"^\s*(?:async\s+)?def\s+test", re.MULTILINE)
 
 
@@ -131,7 +132,12 @@ def load_results(dirs: Sequence[str]) -> Results:
                     continue
                 skipped = case.find("skipped")
                 # pytest reports xfail as <skipped type="pytest.xfail">, but the test did run.
-                ran_anyway = skipped is not None and skipped.get("type") == "pytest.xfail"
+                # xfail(run=False) produces the same element with a "[NOTRUN]" reason.
+                ran_anyway = (
+                    skipped is not None
+                    and skipped.get("type") == "pytest.xfail"
+                    and "[NOTRUN]" not in (skipped.get("message") or "")
+                )
                 results.add(classname, skipped is not None and not ran_anyway)
     return results
 
@@ -179,6 +185,8 @@ class TypeDecl:
     abstract: bool
     has_tests: bool
     supertypes: Tuple[str, ...]  # simple names
+    package: Optional[str] = None
+    imports: Tuple[str, ...] = ()  # `a.b.C` and wildcard `a.b.*` imports of the file
 
 
 _BRACE_RE = re.compile(r"[{}]")
@@ -210,7 +218,7 @@ def _supertypes(header: str, kotlin: bool) -> Tuple[str, ...]:
     names: List[str] = []
     if kotlin:
         # Drop the primary constructor `(val x: Int)` so its `:` is not taken for the supertype list.
-        header = re.sub(r"^\s*(?:\w+\s+)*\([^)]*\)", "", header)
+        header = re.sub(r"^\s*(?:@?[\w.]+\s*)*\([^)]*\)", "", header)
         m = re.search(r":\s*(.+)$", header, re.DOTALL)
         if m:
             names += [p.strip() for p in m.group(1).split(",")]
@@ -232,6 +240,7 @@ def parse_jvm_types(text: str, kotlin: bool = False) -> Tuple[Optional[str], Lis
     code = strip_comments_and_strings(text)
     pkg_match = JAVA_PACKAGE_RE.search(code)
     package = pkg_match.group(1) if pkg_match else None
+    imports = tuple(JAVA_IMPORT_RE.findall(code))
 
     decls: List[TypeDecl] = []
     depth = 0
@@ -262,6 +271,8 @@ def parse_jvm_types(text: str, kotlin: bool = False) -> Tuple[Optional[str], Lis
                 abstract="abstract" in modifiers or kind == "interface",
                 has_tests=bool(TEST_ANNOTATION_RE.search(region)),
                 supertypes=_supertypes(code[m.end() : open_idx], kotlin),
+                package=package,
+                imports=imports,
             )
         )
         region_start = close_idx + 1
@@ -351,18 +362,41 @@ class SourceIndex:
         suite split drops, so it must be checked even though it has no @Test of its own.
         """
         self._build()
-        seen: Set[str] = set()
-        queue = list(decl.supertypes)
+        seen: Set[int] = set()
+        queue = [decl]
         while queue:
-            name = queue.pop()
-            if name in seen:
-                continue
-            seen.add(name)
-            for parent in self._by_name.get(name, []):
-                if parent.has_tests:
-                    return True
-                queue.extend(parent.supertypes)
+            child = queue.pop()
+            for name in child.supertypes:
+                for parent in self._resolve(name, child):
+                    if id(parent) in seen:
+                        continue
+                    seen.add(id(parent))
+                    if parent.has_tests:
+                        return True
+                    queue.append(parent)
         return False
+
+    def _resolve(self, simple_name: str, child: TypeDecl) -> List[TypeDecl]:
+        """Candidates for a supertype name, narrowed like javac would when names collide.
+
+        Explicit import, then wildcard import, then same package. If none of those match
+        (e.g. a main-source or library supertype that shares a test class's name), the
+        supertype is not a test-source class at all.
+        """
+        candidates = self._by_name.get(simple_name, [])
+        if len(candidates) <= 1:
+            return candidates
+
+        def fqcn(d: TypeDecl) -> str:
+            return f"{d.package}.{d.name}" if d.package else d.name
+
+        explicit = [d for d in candidates if fqcn(d) in child.imports]
+        if explicit:
+            return explicit
+        wildcard = [d for d in candidates if f"{d.package}.*" in child.imports]
+        if wildcard:
+            return wildcard
+        return [d for d in candidates if d.package == child.package]
 
     def concrete_subclasses(self, simple_name: str) -> List[str]:
         self._build()

@@ -127,9 +127,10 @@ class ParseTests(unittest.TestCase):
         )
 
     def test_kotlin_primary_constructor_is_not_a_supertype(self) -> None:
-        src = "package com.k\n\nclass KTest(val x: Int) : BaseTest() {\n  @Test fun t() {}\n}\n"
-        _, decls = cntr.parse_jvm_types(src, kotlin=True)
-        self.assertEqual(decls[0].supertypes, ("BaseTest",))
+        for ctor in ("(val x: Int)", " @Inject constructor(val x: Int)"):
+            src = f"package com.k\n\nclass KTest{ctor} : BaseTest() {{\n  @Test fun t() {{}}\n}}\n"
+            _, decls = cntr.parse_jvm_types(src, kotlin=True)
+            self.assertEqual(decls[0].supertypes, ("BaseTest",), ctor)
 
     def test_test_source_paths(self) -> None:
         self.assertTrue(cntr.is_jvm_test_source("a/src/test/java/X.java"))
@@ -230,6 +231,26 @@ class EvaluateTests(unittest.TestCase):
         report = run_eval(files, [("com.x.SearchEs8Test", "t", False)], changed=changed)
         self.assertEqual((report.failures, len(report.checked)), ([], 1))
 
+    def test_inherited_tests_resolve_colliding_names_by_import_or_package(self) -> None:
+        # Two `BaseFixture`s: only a.BaseFixture has tests. b.KafkaFixture extends its own
+        # package's helper, so it is not a test class; c.CTest imports a.BaseFixture, so it is.
+        files = {
+            "m/src/test/java/a/BaseFixture.java": java("BaseFixture").replace("com.x", "a"),
+            "m/src/test/java/b/BaseFixture.java": "package b;\npublic class BaseFixture {}\n",
+            "m/src/test/java/b/KafkaFixture.java": (
+                "package b;\npublic class KafkaFixture extends BaseFixture {}\n"
+            ),
+            "m/src/test/java/c/CTest.java": (
+                "package c;\nimport a.BaseFixture;\npublic class CTest extends BaseFixture {}\n"
+            ),
+        }
+        report = run_eval(
+            files,
+            [],
+            changed=["m/src/test/java/b/KafkaFixture.java", "m/src/test/java/c/CTest.java"],
+        )
+        self.assertEqual([c.name for c in report.failures], ["c.CTest"])
+
     def test_optout_by_name_glob_and_path(self) -> None:
         files = {
             f"{TEST_DIR}/ATest.java": java("ATest"),
@@ -287,10 +308,12 @@ class ResultsLoadingTests(unittest.TestCase):
                 '<testsuites><testsuite><testcase classname="tests.t" name="a">'
                 '<skipped type="pytest.xfail" message="known"/></testcase>'
                 '<testcase classname="tests.t" name="b"><skipped type="pytest.skip"/></testcase>'
+                '<testcase classname="tests.t" name="c">'
+                '<skipped type="pytest.xfail" message="[NOTRUN] never run"/></testcase>'
                 "</testsuite></testsuites>"
             )
             counts = cntr.load_results([d]).by_classname["tests.t"]
-        self.assertEqual((counts.executed, counts.skipped), (1, 1))
+        self.assertEqual((counts.executed, counts.skipped), (1, 2))
 
     def test_optout_reason_required(self) -> None:
         with tempfile.TemporaryDirectory() as d:
