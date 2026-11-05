@@ -1,3 +1,4 @@
+import { isSourceSubtype, isTransformationPlatform } from '@app/entityV2/shared/transformationPlatforms';
 import {
     LINEAGE_FILTER_PAGINATION,
     LINEAGE_FILTER_TYPE,
@@ -12,7 +13,6 @@ import {
     isTransformational,
     setDefault,
 } from '@app/lineageV3/common';
-import { isSourceSubtype, isTransformationPlatform } from '@app/lineageV3/transformationPlatforms';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 
 import { LineageDirection } from '@types';
