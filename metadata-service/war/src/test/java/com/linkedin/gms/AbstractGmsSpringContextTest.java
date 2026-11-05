@@ -1,16 +1,12 @@
 package com.linkedin.gms;
 
-import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.SearchClientShims;
-import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
 import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
 import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -33,10 +29,10 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 /**
  * Boots the GMS Spring context from the production {@code application.yaml}. Not production wiring:
  * the database, bootstrap manager, {@code Clock}, {@code MetricUtils} and the semantic search
- * factories are mocks; the search client is a mock OpenSearch shim (with matching cluster registry
- * and shims beans); and {@code systemOperationContext}, {@code entityRegistry} and {@code
- * meterRegistry} are test instances. Subclasses add one targeted override each; Spring caches a
- * context per distinct override.
+ * factories are mocks; the search client is a mock OpenSearch shim (with a matching shims bean; the
+ * production {@code SearchClusterRegistryFactory} builds the cluster registry over it); and {@code
+ * systemOperationContext}, {@code entityRegistry} and {@code meterRegistry} are test instances.
+ * Subclasses add one targeted override each; Spring caches a context per distinct override.
  *
  * <p>Subclasses must declare their own {@code @Test} methods: Gradle only detects a test class that
  * carries {@code @Test} itself.
@@ -109,17 +105,6 @@ public abstract class AbstractGmsSpringContextTest extends AbstractTestNGSpringC
     public SearchClientShims searchClientShims(SearchClientShim<?> searchClientShim) {
       return new SearchClientShims(
           Map.of(ElasticSearchConfiguration.PRIMARY_CLUSTER, searchClientShim));
-    }
-
-    @Bean(name = "searchClusterRegistry")
-    @Primary
-    public SearchClusterRegistry searchClusterRegistry(
-        ConfigurationProvider configurationProvider, SearchClientShim<?> searchClientShim) {
-      return SearchClusterRegistry.singleCluster(
-          configurationProvider.getElasticSearch(),
-          searchClientShim,
-          Mockito.mock(ESBulkProcessor.class),
-          Mockito.mock(ESIndexBuilder.class));
     }
   }
 }

@@ -142,6 +142,10 @@ public class SpringTest extends AbstractGmsSpringContextTest {
     return graphRetriever;
   }
 
+  /**
+   * The rebuilt retriever context keeps the default {@code EntityGraphCache.NO_OP}, so these
+   * rewriter tests exercise the graph-walk path only, not the entity-graph-cache path.
+   */
   private OperationContext withGraphRetriever(GraphRetriever graphRetriever) throws Exception {
     RetrieverContext current = systemOperationContext.getRetrieverContext();
     RetrieverContext retrieverContext =

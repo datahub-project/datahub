@@ -1,7 +1,10 @@
 package com.linkedin.gms;
 
+import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -41,10 +44,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.test.context.bean.override.mockito.MockReset;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.ContextConfiguration;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -54,6 +60,7 @@ import org.testng.annotations.Test;
  * view policy scoped to {@code container} and {@code schemaField} must grant on both types and on
  * nothing else.
  */
+@ContextConfiguration(classes = SpringAuthorizerChainTest.PolicySource.class)
 public class SpringAuthorizerChainTest extends AbstractGmsSpringContextTest {
 
   private static final Urn POLICY_URN = UrnUtils.getUrn("urn:li:dataHubPolicy:view-test");
@@ -64,18 +71,14 @@ public class SpringAuthorizerChainTest extends AbstractGmsSpringContextTest {
   private static final DataHubPolicyInfo VIEW_POLICY = viewPolicy();
 
   private static final EntitySpec CONTAINER =
-      new EntitySpec("container", "urn:li:container:view-test");
+      new EntitySpec(CONTAINER_ENTITY_NAME, "urn:li:container:view-test");
   private static final EntitySpec SCHEMA_FIELD =
       new EntitySpec(
-          "schemaField",
+          SCHEMA_FIELD_ENTITY_NAME,
           "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD),col_a)");
   private static final EntitySpec DATASET =
-      new EntitySpec("dataset", "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
-
-  // Spy, not mock: everything except the policy fetch stays on the production client. No reset:
-  // the authorizer refreshes its policy cache on a timer, which must keep seeing the test policy.
-  @MockitoSpyBean(name = "systemEntityClient", reset = MockReset.NONE)
-  private SystemEntityClient systemEntityClient;
+      new EntitySpec(
+          DATASET_ENTITY_NAME, "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
 
   @Autowired
   @Qualifier("authorizerChain")
@@ -86,31 +89,7 @@ public class SpringAuthorizerChainTest extends AbstractGmsSpringContextTest {
   private DataHubAuthorizer dataHubAuthorizer;
 
   @BeforeClass
-  public void servePolicy() throws Exception {
-    doReturn(
-            new ScrollResult()
-                .setNumEntities(1)
-                .setEntities(
-                    new SearchEntityArray(List.of(new SearchEntity().setEntity(POLICY_URN)))))
-        .when(systemEntityClient)
-        .scrollAcrossEntities(
-            any(OperationContext.class),
-            eq(List.of(POLICY_ENTITY_NAME)),
-            anyString(),
-            nullable(Filter.class),
-            nullable(String.class),
-            nullable(String.class),
-            anyList(),
-            anyInt());
-
-    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
-    aspects.put(
-        DATAHUB_POLICY_INFO_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(VIEW_POLICY.data())));
-    doReturn(Map.of(POLICY_URN, new EntityResponse().setUrn(POLICY_URN).setAspects(aspects)))
-        .when(systemEntityClient)
-        .batchGetV2(any(OperationContext.class), eq(POLICY_ENTITY_NAME), anySet(), anySet());
-
+  public void loadPolicy() throws Exception {
     dataHubAuthorizer.invalidateCache();
     awaitPolicyLoaded();
   }
@@ -159,6 +138,60 @@ public class SpringAuthorizerChainTest extends AbstractGmsSpringContextTest {
             new DataHubResourceFilter()
                 .setFilter(
                     FilterUtils.newFilter(
-                        Map.of(EntityFieldType.TYPE, List.of("container", "schemaField")))));
+                        Map.of(
+                            EntityFieldType.TYPE,
+                            List.of(CONTAINER_ENTITY_NAME, SCHEMA_FIELD_ENTITY_NAME)))));
+  }
+
+  /**
+   * Wraps the production {@code systemEntityClient} in a spy that serves the test policy. Stubbed
+   * here, before {@link DataHubAuthorizer} exists, so no refresh thread can call the spy while it
+   * is being stubbed; everything but the policy fetch stays on the production client.
+   */
+  @TestConfiguration
+  static class PolicySource {
+    @Bean
+    static BeanPostProcessor servePolicyFromSystemEntityClient() {
+      return new BeanPostProcessor() {
+        @Override
+        public Object postProcessAfterInitialization(Object bean, String beanName) {
+          return "systemEntityClient".equals(beanName)
+              ? servingPolicy((SystemEntityClient) bean)
+              : bean;
+        }
+      };
+    }
+
+    private static SystemEntityClient servingPolicy(SystemEntityClient client) {
+      SystemEntityClient spy = Mockito.spy(client);
+      try {
+        doReturn(
+                new ScrollResult()
+                    .setNumEntities(1)
+                    .setEntities(
+                        new SearchEntityArray(List.of(new SearchEntity().setEntity(POLICY_URN)))))
+            .when(spy)
+            .scrollAcrossEntities(
+                any(OperationContext.class),
+                eq(List.of(POLICY_ENTITY_NAME)),
+                anyString(),
+                nullable(Filter.class),
+                nullable(String.class),
+                nullable(String.class),
+                anyList(),
+                anyInt());
+
+        EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+        aspects.put(
+            DATAHUB_POLICY_INFO_ASPECT_NAME,
+            new EnvelopedAspect().setValue(new Aspect(VIEW_POLICY.data())));
+        doReturn(Map.of(POLICY_URN, new EntityResponse().setUrn(POLICY_URN).setAspects(aspects)))
+            .when(spy)
+            .batchGetV2(any(OperationContext.class), eq(POLICY_ENTITY_NAME), anySet(), anySet());
+      } catch (Exception e) {
+        throw new IllegalStateException(e);
+      }
+      return spy;
+    }
   }
 }
