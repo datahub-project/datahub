@@ -137,7 +137,9 @@ class AwsMessagingLineageConfig(ConfigModel):
             "the notification's bucket and key prefix, up to 100. Reads the "
             "notification configuration of each bucket in the recipe's region (one "
             "call per bucket); a source only links its own queues or topics. Needs "
-            "a DataHub graph connection."
+            "a DataHub graph connection, and s3:ListAllMyBuckets plus "
+            "s3:GetBucketNotification. ListAllMyBuckets only returns buckets the "
+            "recipe's account owns."
         ),
     )
 

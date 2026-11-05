@@ -16,7 +16,7 @@ from datahub.ingestion.source.aws_messaging.clients import S3NotificationClient
 from datahub.ingestion.source.aws_messaging.constants import (
     MIN_BOTOCORE_FOR_BUCKET_REGION,
 )
-from datahub.ingestion.source.aws_messaging.models import Arn
+from datahub.ingestion.source.aws_messaging.models import Arn, BucketNotification
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
@@ -551,3 +551,105 @@ def test_platform_map_sets_instance_and_env(aws: None) -> None:
         platform_map={"s3": {"platform_instance": "lake", "env": "dev"}}
     ) == {lake_orders}
     assert queue_upstreams() == {ORDERS_URN}
+
+
+def _s3_urn(name: str) -> str:
+    return f"urn:li:dataset:(urn:li:dataPlatform:s3,{name},PROD)"
+
+
+@pytest.mark.parametrize(
+    "prefix, suffix, matched",
+    [
+        # A plain prefix matches like S3 does, so `incoming2/` matches too.
+        (
+            "incoming",
+            None,
+            {
+                "landing/incoming",
+                "landing/incoming/orders",
+                "landing/incoming2/orders",
+                "landing/incoming/a.csv",
+                "landing/incoming/b.json",
+            },
+        ),
+        # A leading slash is part of the key, so it matches no dataset.
+        ("/incoming/", None, set()),
+        # A suffix filters file datasets; folder datasets are kept.
+        (
+            "incoming/",
+            ".csv",
+            {"landing/incoming", "landing/incoming/orders", "landing/incoming/a.csv"},
+        ),
+        # A suffix with no prefix applies across the whole bucket.
+        (
+            None,
+            ".csv",
+            {
+                "landing/incoming",
+                "landing/incoming/orders",
+                "landing/incoming2/orders",
+                "landing/incoming/a.csv",
+            },
+        ),
+    ],
+    ids=["plain-prefix", "leading-slash", "prefix-and-suffix", "suffix-only"],
+)
+def test_notification_filters_match_datasets(
+    prefix: Optional[str], suffix: Optional[str], matched: Set[str]
+) -> None:
+    names = [
+        "landing/incoming",
+        "landing/incoming/orders",
+        "landing/incoming2/orders",
+        "landing/incoming/a.csv",
+        "landing/incoming/b.json",
+    ]
+    graph = search_graph([_s3_urn(name) for name in names])
+    lineage = s3_notifications.S3NotificationLineage(
+        client=MagicMock(),
+        resolver=MagicMock(),
+        graph=graph,
+        env="PROD",
+        s3=None,
+        report=SqsSourceReport(),
+        target_allowed=lambda _name: True,
+    )
+
+    found = lineage._datasets(
+        BucketNotification(
+            bucket="landing", target_arn="arn", prefix=prefix, suffix=suffix
+        )
+    )
+
+    assert set(found or []) == {_s3_urn(name) for name in matched}
+
+
+def test_notification_suffix_rule_is_read(aws: None) -> None:
+    queue_arn = _queue_arn("uploads")
+    _bucket(
+        {
+            "QueueConfigurations": [
+                {
+                    "QueueArn": queue_arn,
+                    "Events": ["s3:ObjectCreated:*"],
+                    "Filter": {
+                        "Key": {
+                            "FilterRules": [
+                                {"Name": "prefix", "Value": "incoming/"},
+                                {"Name": "suffix", "Value": ".csv"},
+                            ]
+                        }
+                    },
+                }
+            ]
+        }
+    )
+    client = S3NotificationClient(
+        boto3.client("s3", region_name=REGION), SqsSourceReport()
+    )
+
+    assert client.get_notifications("landing") == [
+        BucketNotification(
+            bucket="landing", target_arn=queue_arn, prefix="incoming/", suffix=".csv"
+        )
+    ]

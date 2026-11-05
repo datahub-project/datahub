@@ -18,6 +18,7 @@ from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollect
 from datahub.ingestion.source.aws_messaging.models import BucketNotification
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.metadata.urns import DatasetUrn
 
 
 class S3NotificationLineage:
@@ -90,17 +91,35 @@ class S3NotificationLineage:
         A key prefix ending in `/` names a folder, and the s3 source names a
         folder dataset without the trailing slash (`bucket/orders`), so that
         folder and anything under it match, but not `bucket/orders2`. Any other
-        key prefix matches like S3 does, as a plain prefix. No prefix is the
-        whole bucket, which keeps `landing` from matching `landing-archive`."""
+        key prefix matches like S3 does, as a plain prefix, so `landing` also
+        matches `landing-archive`. No prefix is the whole bucket, so bucket
+        `landing` doesn't match bucket `landing-archive`.
+
+        A suffix filter can only be checked against a file dataset (one named
+        after a file, such as `bucket/orders/2024.csv`); a folder dataset is
+        kept, since the files in it aren't known here."""
         name = f"{notification.bucket}/{notification.prefix or ''}"
+        suffix = notification.suffix
+        if suffix and self.convert_urns_to_lowercase:
+            suffix = suffix.lower()
+
+        def suffix_matches(urn: str) -> bool:
+            if not suffix:
+                return True
+            leaf = DatasetUrn.from_string(urn).name.rsplit("/", 1)[-1]
+            return "." not in leaf or leaf.endswith(suffix)
+
         if not name.endswith("/"):
             plain = self._urn(name)[: -len(f",{self.env})")]
-            return plain, lambda urn: True
+            return plain, suffix_matches
         folder_urn = self._urn(name.rstrip("/"))
         folder_prefix = folder_urn[: -len(f",{self.env})")]
         return (
             folder_prefix,
-            lambda urn: urn == folder_urn or urn.startswith(f"{folder_prefix}/"),
+            lambda urn: (
+                (urn == folder_urn or urn.startswith(f"{folder_prefix}/"))
+                and suffix_matches(urn)
+            ),
         )
 
     def _datasets(self, notification: BucketNotification) -> Optional[List[str]]:
