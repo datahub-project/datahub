@@ -91,7 +91,7 @@ export const SelectItems: React.FC<SelectItemsProps> = ({
     handleSelectionChange,
     renderOption,
 }) => {
-    const { t } = useTranslation('alchemy');
+    const { t } = useTranslation('entity.shared.selectors');
     const { t: tc } = useTranslation('common.actions');
     const {
         filteredAddableOptions,
