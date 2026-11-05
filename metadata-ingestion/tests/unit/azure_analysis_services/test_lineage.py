@@ -336,6 +336,5 @@ def test_upstream_parses_only_m_partitions_of_mixed_table() -> None:
 
     assert mocked_parser.call_count == 1
     assert (
-        mocked_parser.call_args.kwargs["table"].expression
-        == "let Source = 1 in Source"
+        mocked_parser.call_args.kwargs["table"].expression == "let Source = 1 in Source"
     )
