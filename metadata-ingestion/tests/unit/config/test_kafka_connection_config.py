@@ -20,6 +20,17 @@ def test_auto_register_schemas_env_var(env: dict, expected: bool) -> None:
     with patch.dict(os.environ, env, clear=True):
         assert get_kafka_auto_register_schemas() == expected
         assert KafkaProducerConnectionConfig().auto_register_schemas == expected
+        assert (
+            KafkaProducerConnectionConfig.model_validate({}).auto_register_schemas
+            == expected
+        )
+        # Other recipe fields must not count as an explicit override.
+        assert (
+            KafkaProducerConnectionConfig.model_validate(
+                {"bootstrap": "broker:9092"}
+            ).auto_register_schemas
+            == expected
+        )
 
 
 def test_auto_register_schemas_recipe_overrides_env_var() -> None:
@@ -28,3 +39,22 @@ def test_auto_register_schemas_recipe_overrides_env_var() -> None:
             {"auto_register_schemas": True}
         )
     assert config.auto_register_schemas
+
+
+def test_auto_register_schemas_recipe_false_overrides_env_var() -> None:
+    with patch.dict(os.environ, {"DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS": "true"}):
+        config = KafkaProducerConnectionConfig.model_validate(
+            {"bootstrap": "broker:9092", "auto_register_schemas": False}
+        )
+    assert not config.auto_register_schemas
+
+
+def test_auto_register_schemas_json_schema_default_is_true() -> None:
+    # docs_config_table.py gates the "Default:" line on `"default" in json_props`.
+    # Field(default=True) emits that key; default_factory does not. The documented
+    # default stays True even when the env var would change the runtime value.
+    with patch.dict(os.environ, {"DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS": "false"}):
+        field = KafkaProducerConnectionConfig.model_fields["auto_register_schemas"]
+        schema = KafkaProducerConnectionConfig.model_json_schema()
+    assert field.default is True
+    assert schema["properties"]["auto_register_schemas"]["default"] is True

@@ -1,4 +1,6 @@
-from pydantic import Field, field_validator
+from typing import Any
+
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.env_vars import (
@@ -99,16 +101,29 @@ class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
     )
 
     auto_register_schemas: bool = Field(
-        default_factory=get_kafka_auto_register_schemas,
+        default=True,
         description=(
             "Whether to automatically register the MetadataChangeEvent and "
             "MetadataChangeProposal schemas with the Schema Registry. Set to false "
             "when the Schema Registry is read-only for the ingestion user; the schemas "
             "must then be pre-registered under the '<topic>-value' subjects, and the "
-            "emitter verifies they exist at startup. Defaults to the "
-            "DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS environment variable, or true."
+            "emitter verifies they exist at startup. "
+            "Can also be set via the DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS environment "
+            "variable; an explicit recipe value takes precedence."
         ),
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _apply_env_var_defaults(cls, values: Any) -> Any:
+        # Pydantic cannot serialize a default_factory into the config schema, so the
+        # field default is the literal True (what the docs table shows). The env var
+        # applies only when the recipe omits the field; an explicit value wins.
+        if isinstance(values, dict) and "auto_register_schemas" not in values:
+            # Copy so applying the env-var default does not mutate the caller's mapping.
+            values = dict(values)
+            values["auto_register_schemas"] = get_kafka_auto_register_schemas()
+        return values
 
     @field_validator("producer_config", mode="after")
     @classmethod
