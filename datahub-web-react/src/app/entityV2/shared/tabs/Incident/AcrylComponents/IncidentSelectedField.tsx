@@ -9,11 +9,11 @@ import { SelectFormItem, SelectWrapper } from '@app/entityV2/shared/tabs/Inciden
 import { INCIDENT_OPTION_LABEL_MAPPING } from '@app/entityV2/shared/tabs/Incident/constant';
 import { IncidentConstant } from '@app/entityV2/shared/tabs/Incident/types';
 import { IncidentPriorityLabel } from '@app/sharedV2/incidentPriorityLabel';
+import { IncidentStagePill } from '@app/sharedV2/incidentStagePill';
+import { getCapitalizeWord } from '@app/sharedV2/textUtil';
 import { SimpleSelect } from '@src/alchemy-components';
 import { IconLabel } from '@src/alchemy-components/components/IconLabel';
 import { IconType } from '@src/alchemy-components/components/IconLabel/types';
-import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { IncidentState } from '@src/types.generated';
 
