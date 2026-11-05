@@ -211,6 +211,16 @@ npx playwright test --grep @p0               # all P0 tests
 npx playwright test --grep @domain:observe   # one domain
 ```
 
+### Catalog matrix specs
+
+`tests/catalog-matrix/` holds one spec per catalog edit flow. Each spec loops over `CORE_ENTITIES` in
+`tests/catalog-matrix/entity-matrix.ts`, so the flow runs on every core entity type against a real
+GMS, one test per type. Every entry is its own seeded entity (`tests/catalog-matrix/fixtures/data.json`),
+so the per-type tests run in parallel without racing, and a test rewrites the aspect it mutates before
+it starts. To cover another entity type, add a row to the table and its MCPs to the seed file; to
+cover another flow, add a spec that loops the table. Page objects for these specs locate by test id
+only.
+
 ## Page Objects
 
 Page objects live in `pages/` and extend `BasePage`. All constructors accept
