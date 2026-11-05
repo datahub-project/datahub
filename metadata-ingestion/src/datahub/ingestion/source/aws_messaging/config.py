@@ -102,6 +102,19 @@ class AwsMessagingLineageConfig(ConfigModel):
         description="Emit EventBridge Pipes whose source or target is one of this source's queues or topics.",
     )
 
+    @pydantic.model_validator(mode="after")
+    def reject_async_destinations_without_functions(
+        self,
+    ) -> "AwsMessagingLineageConfig":
+        # Async destinations are read by the Lambda collector, which isn't built
+        # without lambda_functions, so the option would be silently ignored.
+        if self.lambda_async_destinations and not self.lambda_functions:
+            raise ValueError(
+                "lineage.lambda_async_destinations needs lineage.lambda_functions. "
+                "Set lambda_functions=True, or remove lambda_async_destinations."
+            )
+        return self
+
 
 class AwsMessagingConfigBase(
     StatefulIngestionConfigBase,

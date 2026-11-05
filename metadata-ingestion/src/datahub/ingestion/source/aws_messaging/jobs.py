@@ -273,7 +273,11 @@ class JobEdgeTracker:
         emitted = set() if edge_gone else self.fine_grained.get(job)
         if emitted is None or self.graph is None:
             return []
-        io = self.graph.get_aspect(job, DataJobInputOutputClass)
+        try:
+            io = self.graph.get_aspect(job, DataJobInputOutputClass)
+        except (GraphError, RequestException) as e:
+            self._not_checked(job, e)
+            return []
         stale: List[FineGrainedLineageClass] = []
         for existing in (io.fineGrainedLineages if io else None) or []:
             for downstream in existing.downstreams or []:

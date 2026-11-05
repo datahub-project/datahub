@@ -9,6 +9,7 @@ import pytest
 from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
+from datahub.configuration.common import GraphError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.openapi import RelationshipDirection
@@ -20,6 +21,7 @@ from datahub.ingestion.source.aws_messaging.clients import (
     SnsClient,
     SqsClient,
 )
+from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
 from datahub.ingestion.source.aws_messaging.eventbridge import (
     template_field_map,
 )
@@ -859,3 +861,92 @@ def test_stale_cross_account_job_edge_is_retracted() -> None:
     removed = job_removals(list(tracker.stale_workunits([])))
     # The sns source owns the topic edge; the live queue edge stays.
     assert removed == {removed_edge(RULE_JOB, "outputDatasetEdges", remote_queue)}
+
+
+def test_unreadable_pipe_field_edges_are_kept() -> None:
+    # The job's lineage was read once for its edges, then the field read failed;
+    # the gone table edge is still removed and no field edge is.
+    remote_topic = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sns,210987654321.{REGION}.refunds,PROD)"
+    )
+    io = DataJobInputOutputClass(
+        inputDatasets=[], outputDatasets=[TOPIC_URN, remote_topic]
+    )
+    reads = iter([io])
+
+    def get_aspect(urn: str, aspect: Any) -> DataJobInputOutputClass:
+        try:
+            return next(reads)
+        except StopIteration:
+            raise GraphError("GMS unavailable") from None
+
+    graph = stale_graph()
+    graph.get_aspect.side_effect = get_aspect
+    report = SqsSourceReport()
+    tracker = JobEdgeTracker(
+        report=report, graph=graph, instance=ACCOUNT, region=REGION, platform="sns"
+    )
+    tracker.record(PIPE_JOB, outputs=[TOPIC_URN])
+    assert job_removals(list(tracker.stale_workunits([]))) == {
+        removed_edge(PIPE_JOB, "outputDatasetEdges", remote_topic)
+    }
+    assert [w.title for w in report.warnings] == ["Stale lineage not checked"]
+
+
+def test_platform_instance_datasets_are_not_treated_as_remote() -> None:
+    # With a platform_instance, dataset names start with "<instance>.<region>.",
+    # so an own queue this run didn't link stays out of the remote pass.
+    def queue(instance: str, name: str) -> str:
+        return (
+            f"urn:li:dataset:(urn:li:dataPlatform:sqs,{instance}.{REGION}.{name},PROD)"
+        )
+
+    rule_job = RULE_JOB.replace(f"{ACCOUNT}.", "prod.")
+    remote = queue("210987654321", "refunds")
+    graph = stale_graph(
+        io=DataJobInputOutputClass(
+            inputDatasets=[],
+            outputDatasets=[queue("prod", "orders"), queue("prod", "gone"), remote],
+        )
+    )
+    tracker = JobEdgeTracker(
+        report=SqsSourceReport(),
+        graph=graph,
+        instance="prod",
+        region=REGION,
+        platform="sqs",
+    )
+    tracker.record(rule_job, outputs=[queue("prod", "orders")])
+    assert job_removals(list(tracker.stale_workunits([]))) == {
+        removed_edge(rule_job, "outputDatasetEdges", remote)
+    }
+
+
+@pytest.mark.parametrize("async_destinations", [False, True])
+def test_unread_lambda_outputs_keep_produces_edges(
+    aws: None, monkeypatch: pytest.MonkeyPatch, async_destinations: bool
+) -> None:
+    # Without async destinations, or when reading them fails, the function's
+    # outputs aren't fully known, so earlier output edges stay.
+    create_queue("orders")
+    if async_destinations:
+        monkeypatch.setattr(
+            LambdaClient, "list_functions", lambda self, on_error: throttled(on_error)
+        )
+    job = lambda_job("worker")
+    source = SqsSource.create(
+        base_config(lineage={"lambda_async_destinations": async_destinations}),
+        PipelineContext(
+            run_id="lineage", graph=stale_graph((job, "Produces", QUEUE_URN))
+        ),
+    )
+    assert job_removals(list(source.get_workunits())) == set()
+
+
+def test_async_destinations_need_lambda_functions() -> None:
+    with pytest.raises(ValueError, match="lambda_async_destinations"):
+        SqsSourceConfig.model_validate(
+            base_config(
+                lineage={"lambda_functions": False, "lambda_async_destinations": True}
+            )
+        )
