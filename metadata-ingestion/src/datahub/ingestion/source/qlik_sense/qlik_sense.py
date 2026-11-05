@@ -48,6 +48,13 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
+from datahub.ingestion.source.qlik_sense.script_lineage import (
+    DataConnectionInfo,
+    ScriptTableLineage,
+    connection_lookup_names,
+    infer_data_connection,
+    parse_load_script,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -126,6 +133,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.reporter = QlikSourceReport()
         self.ui_host = config.ui_hostname()
+        self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
         try:
             if config.deployment == QlikDeployment.ON_PREM:
                 self.qlik_api = QlikOnPremAPI(self.config)
@@ -271,17 +279,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _gen_charts_workunit(
-        self, charts: List[Chart], input_tables: List[QlikTable], app_id: str
+        self, charts: List[Chart], input_tables_urns: List[str], app_id: str
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Chart to Datahub Chart
         """
-        input_tables_urns: List[str] = []
-        for table in input_tables:
-            table_identifier = self._get_app_table_identifier(table)
-            if table_identifier:
-                input_tables_urns.append(self._gen_qlik_dataset_urn(table_identifier))
-
         for chart in charts:
             chart_urn = builder.make_chart_urn(
                 platform=self.platform,
@@ -313,7 +315,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=chart_urn,
             )
 
-    def _gen_sheets_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
+    def _gen_sheets_workunit(
+        self, app: App, input_tables_urns: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Sheet to Datahub dashboard
         """
@@ -338,7 +342,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.ingest_owner and owner_username:
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
-            yield from self._gen_charts_workunit(sheet.charts, app.tables, app.id)
+            yield from self._gen_charts_workunit(
+                sheet.charts, input_tables_urns, app.id
+            )
 
     def _gen_app_table_upstream_lineage(
         self, dataset_urn: str, table: QlikTable
@@ -356,15 +362,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             if not table.selectStatement:
                 return None
-            upstream_dataset_urn = create_lineage_sql_parsed_result(
+            result = create_lineage_sql_parsed_result(
                 query=table.selectStatement.strip(),
-                default_db=None,
-                platform=KNOWN_DATA_PLATFORM_MAPPING.get(
+                default_db=upstream_dataset_platform_detail.database
+                or table.databaseName,
+                default_schema=upstream_dataset_platform_detail.default_schema
+                or table.schemaName,
+                platform=upstream_dataset_platform_detail.platform
+                or KNOWN_DATA_PLATFORM_MAPPING.get(
                     table.dataconnectorPlatform, table.dataconnectorPlatform
                 ),
                 env=upstream_dataset_platform_detail.env,
                 platform_instance=upstream_dataset_platform_detail.platform_instance,
-            ).in_tables[0]
+            )
+            if not result.in_tables:
+                self.reporter.warning(
+                    title="Unable to parse Qlik table SQL",
+                    message="Upstream lineage for this Qlik table is skipped.",
+                    context=f"table={table.tableName}, connection={table.dataconnectorName}",
+                    exc=result.debug_info.table_error,
+                )
+                return None
+            upstream_dataset_urn = result.in_tables[0]
         elif table.type == BoxType.LOADFILE:
             upstream_dataset_urn = self._gen_qlik_dataset_urn(
                 f"{table.spaceId}.{table.databaseName}".lower()
@@ -422,6 +441,170 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return table.tableQri.lower()
         return None
 
+    def _gen_app_table_entity(
+        self,
+        table_identifier: str,
+        schema: List[QlikDatasetSchemaField],
+        app_id: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_urn = self._gen_qlik_dataset_urn(table_identifier)
+
+        yield self._gen_entity_status_aspect(dataset_urn)
+
+        yield self._gen_schema_metadata(table_identifier, schema)
+
+        yield from add_entity_to_container(
+            container_key=self._gen_app_key(app_id),
+            entity_type="dataset",
+            entity_urn=dataset_urn,
+        )
+
+        dpi_aspect = self._gen_dataplatform_instance_aspect(dataset_urn)
+        if dpi_aspect:
+            yield dpi_aspect
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_DATASET]),
+        ).as_workunit()
+
+    def _resolve_script_connection(
+        self, connection: Optional[str]
+    ) -> Optional[PlatformDetail]:
+        if not connection:
+            return None
+        if self._data_connections is None:
+            self._data_connections = self.qlik_api.get_data_connections()
+        names = connection_lookup_names(connection)
+        configured = next(
+            (
+                self.config.data_connection_to_platform_instance[name]
+                for name in names
+                if name in self.config.data_connection_to_platform_instance
+            ),
+            None,
+        )
+        # Inline ODBC/OLEDB connection strings carry the driver and database themselves.
+        inferred = next(
+            (
+                self._data_connections[name]
+                for name in names
+                if name in self._data_connections
+            ),
+            None,
+        ) or infer_data_connection(connection, connection)
+        platform = (configured.platform if configured else None) or inferred.platform
+        if not platform:
+            return None
+        return PlatformDetail(
+            platform=platform,
+            database=(configured.database if configured else None) or inferred.database,
+            default_schema=configured.default_schema if configured else None,
+            env=configured.env if configured else self.config.env,
+            platform_instance=configured.platform_instance if configured else None,
+        )
+
+    def _build_script_tables(self, app: App) -> List[ScriptTableLineage]:
+        if not app.script:
+            return []
+        tables: Dict[str, ScriptTableLineage] = {}
+        for script_table in parse_load_script(app.script):
+            self.reporter.script_tables_found += 1
+            detail = self._resolve_script_connection(script_table.connection)
+            logger.debug(
+                f"App {app.id} script table {script_table.label!r} via connection "
+                f"{script_table.connection!r} resolved to {detail}"
+            )
+            if not detail or not detail.platform:
+                self.reporter.unresolved_data_connections.append(
+                    f"{app.id}: {script_table.connection}"
+                )
+                continue
+            result = create_lineage_sql_parsed_result(
+                query=script_table.sql,
+                default_db=detail.database,
+                default_schema=detail.default_schema,
+                platform=detail.platform,
+                platform_instance=detail.platform_instance,
+                env=detail.env,
+                graph=self.ctx.graph,
+            )
+            if not result.in_tables:
+                self.reporter.warning(
+                    title="Unable to parse Qlik load script SQL",
+                    message="Upstream lineage for this script table is skipped.",
+                    context=f"app={app.id}, table={script_table.label}",
+                    exc=result.debug_info.table_error,
+                )
+                continue
+            lineage = tables.setdefault(
+                script_table.label,
+                ScriptTableLineage(
+                    label=script_table.label,
+                    identifier=f"{app.id}.{script_table.label}".lower(),
+                    connection=script_table.connection,
+                ),
+            )
+            lineage.upstream_urns.extend(
+                urn for urn in result.in_tables if urn not in lineage.upstream_urns
+            )
+            for column in result.column_lineage or []:
+                lineage.column_upstreams.setdefault(
+                    column.downstream.column, []
+                ).extend(
+                    builder.make_schema_field_urn(upstream.table, upstream.column)
+                    for upstream in column.upstreams
+                )
+        self.reporter.script_tables_with_lineage += len(tables)
+        return list(tables.values())
+
+    def _gen_script_tables_workunit(
+        self, tables: List[ScriptTableLineage], app_id: str
+    ) -> Iterable[MetadataWorkUnit]:
+        for table in tables:
+            dataset_urn = self._gen_qlik_dataset_urn(table.identifier)
+            yield from self._gen_app_table_entity(
+                table.identifier,
+                [
+                    QlikDatasetSchemaField(name=column)
+                    for column in table.column_upstreams
+                ],
+                app_id,
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DatasetProperties(
+                    name=table.label,
+                    qualifiedName=table.label,
+                    customProperties={
+                        Constant.TYPE: "Qlik Script Table",
+                        Constant.DATACONNECTORNAME: table.connection or "",
+                    },
+                ),
+            ).as_workunit()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineage(
+                    upstreams=[
+                        Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
+                        for urn in table.upstream_urns
+                    ],
+                    fineGrainedLineages=[
+                        FineGrainedLineage(
+                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                            upstreams=upstreams,
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            downstreams=[
+                                builder.make_schema_field_urn(dataset_urn, column)
+                            ],
+                        )
+                        for column, upstreams in table.column_upstreams.items()
+                        if upstreams
+                    ]
+                    or None,
+                ),
+            ).as_workunit()
+
     def _gen_app_tables_workunit(
         self, tables: List[QlikTable], app_id: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -431,26 +614,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             dataset_urn = self._gen_qlik_dataset_urn(table_identifier)
 
-            yield self._gen_entity_status_aspect(dataset_urn)
-
-            yield self._gen_schema_metadata(table_identifier, table.datasetSchema)
-
-            yield self._gen_app_table_properties(dataset_urn, table)
-
-            yield from add_entity_to_container(
-                container_key=self._gen_app_key(app_id),
-                entity_type="dataset",
-                entity_urn=dataset_urn,
+            yield from self._gen_app_table_entity(
+                table_identifier, table.datasetSchema, app_id
             )
 
-            dpi_aspect = self._gen_dataplatform_instance_aspect(dataset_urn)
-            if dpi_aspect:
-                yield dpi_aspect
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_DATASET]),
-            ).as_workunit()
+            yield self._gen_app_table_properties(dataset_urn, table)
 
             upstream_lineage_workunit = self._gen_app_table_upstream_lineage(
                 dataset_urn, table
@@ -463,6 +631,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         Map Qlik App to Datahub container
         """
         owner_username = self.qlik_api.get_user_name(app.ownerId)
+        if self.config.deployment == QlikDeployment.CLOUD and not app.tables:
+            self.reporter.apps_without_load_model.append(app.id)
+        script_tables = self._build_script_tables(app)
+        input_tables_urns = [
+            self._gen_qlik_dataset_urn(identifier)
+            for identifier in map(self._get_app_table_identifier, app.tables)
+            if identifier
+        ] + [self._gen_qlik_dataset_urn(table.identifier) for table in script_tables]
         yield from gen_containers(
             container_key=self._gen_app_key(app.id),
             name=app.qTitle,
@@ -479,8 +655,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             created=int(app.createdAt.timestamp() * 1000),
             last_modified=int(app.updatedAt.timestamp() * 1000),
         )
-        yield from self._gen_sheets_workunit(app)
+        yield from self._gen_sheets_workunit(app, input_tables_urns)
         yield from self._gen_app_tables_workunit(app.tables, app.id)
+        yield from self._gen_script_tables_workunit(script_tables, app.id)
 
     def _gen_qlik_dataset_urn(self, dataset_identifier: str) -> str:
         return builder.make_dataset_urn_with_platform_instance(

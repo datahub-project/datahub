@@ -2,9 +2,10 @@ import logging
 import secrets
 import sys
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from datahub.ingestion.source.qlik_sense.config import (
     QLIK_DATETIME_FORMAT,
@@ -19,6 +20,10 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Space,
     SpaceType,
 )
+from datahub.ingestion.source.qlik_sense.script_lineage import (
+    DataConnectionInfo,
+    infer_data_connection,
+)
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
 
 logger = logging.getLogger(__name__)
@@ -26,6 +31,18 @@ logger = logging.getLogger(__name__)
 UNPUBLISHED_APPS_ID = "unpublished-apps"
 UNPUBLISHED_APPS_NAME = "Unpublished"
 _XRFKEY_LENGTH = 16
+
+
+class _AssertHostnameAdapter(HTTPAdapter):
+    # Qlik server certificates are issued to the node name, so connecting by IP
+    # or alias fails the name check even though the chain verifies.
+    def __init__(self, assert_hostname: Union[str, Literal[False]]) -> None:
+        self._assert_hostname = assert_hostname
+        super().__init__()
+
+    def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
+        kwargs["assert_hostname"] = self._assert_hostname
+        super().init_poolmanager(*args, **kwargs)
 
 
 def normalize_qlik_timestamp(value: str) -> str:
@@ -59,6 +76,9 @@ class QlikOnPremAPI:
             }
         )
         self.qrs_url = f"https://{server}:{config.qrs_port}/qrs"
+        assert_hostname = config.tls_assert_hostname()
+        if assert_hostname is not None:
+            self.session.mount(self.qrs_url, _AssertHostnameAdapter(assert_hostname))
         logger.info(f"Trying to connect to {self.qrs_url}")
         self._get("/about")
 
@@ -180,6 +200,7 @@ class QlikOnPremAPI:
             client_cert=self.config.client_cert,
             client_key=self.config.client_key,
             root_cert=self.config.root_cert,
+            assert_hostname=self.config.tls_assert_hostname(),
         )
 
     def _get_chart(
@@ -283,12 +304,40 @@ class QlikOnPremAPI:
                 params={"qDocName": app.id},
             )
             app.sheets = self._get_app_sheets(websocket_connection, app.id)
+            try:
+                app.script = websocket_connection.get_script()
+                logger.debug(
+                    f"App {app.id} load script has {len(app.script)} characters"
+                )
+            except Exception as e:
+                self._log_http_error(
+                    message=f"Unable to fetch load script of app {app.id}. Exception: {e}"
+                )
             websocket_connection.close_websocket()
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to open app {app.id} in the Engine. Exception: {e}"
             )
         return app
+
+    def get_data_connections(self) -> Dict[str, DataConnectionInfo]:
+        connections: Dict[str, DataConnectionInfo] = {}
+        try:
+            for connection in self._get("/dataconnection/full").json():
+                name = connection.get(Constant.NAME)
+                if not name:
+                    continue
+                descriptor = " ".join(
+                    str(connection.get(key) or "")
+                    for key in (Constant.CONNECTIONSTRING, Constant.TYPE)
+                )
+                connections[name] = infer_data_connection(name, descriptor)
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch data connections. Exception: {e}"
+            )
+        logger.debug(f"QRS data connections: {list(connections.values())}")
+        return connections
 
     def get_items(self, space_id: str) -> List[Item]:
         items: List[Item] = []
