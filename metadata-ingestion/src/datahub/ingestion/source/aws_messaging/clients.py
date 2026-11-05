@@ -506,7 +506,7 @@ class CloudTrailLakeClient:
         except (ClientError, BotoCoreError) as e:
             self.report.warning(
                 title="CloudTrail Lake query not cancelled",
-                message="The timed-out query may keep scanning until it finishes.",
+                message="The query may keep scanning until it finishes.",
                 context=f"query={query_id}: {aws_error_code(e)}",
                 exc=e,
             )
@@ -519,12 +519,13 @@ class CloudTrailLakeClient:
         owner_account_id: Optional[str] = None,
     ) -> Optional[List[Dict[str, str]]]:
         """Rows as column-to-value dicts, or None if the query failed or timed out."""
+        owner: Dict[str, str] = (
+            {"EventDataStoreOwnerAccountId": owner_account_id}
+            if owner_account_id
+            else {}
+        )
+        query_id: Optional[str] = None
         try:
-            owner: Dict[str, str] = (
-                {"EventDataStoreOwnerAccountId": owner_account_id}
-                if owner_account_id
-                else {}
-            )
             query_id = self._client.start_query(QueryStatement=statement, **owner)[
                 "QueryId"
             ]
@@ -574,4 +575,6 @@ class CloudTrailLakeClient:
                 context=aws_error_code(e),
                 exc=e,
             )
+            if query_id is not None:
+                self._cancel(query_id, event_data_store, owner)
             return None

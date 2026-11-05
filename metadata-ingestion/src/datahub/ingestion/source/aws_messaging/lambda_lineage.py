@@ -58,16 +58,23 @@ class LambdaLineage:
         self.jobs = jobs
         self.functions: Dict[str, LambdaFunctionEdges] = {}
         self._function_arns: Optional[Dict[str, str]] = None
+        self._execution_roles: Dict[str, str] = {}
 
     def function_arns_by_name(self) -> Dict[str, str]:
         if self._function_arns is None:
-            self._function_arns = {
-                function["FunctionName"]: function["FunctionArn"]
-                for function in self.client.list_functions(
-                    on_error=self._outputs_unknown
-                )
-            }
+            self._function_arns = {}
+            for function in self.client.list_functions(on_error=self._outputs_unknown):
+                name = function["FunctionName"]
+                self._function_arns[name] = function["FunctionArn"]
+                # The role ARN may carry a path; a session ARN only has the name.
+                self._execution_roles[name] = (function.get("Role") or "").rsplit(
+                    "/", 1
+                )[-1]
         return self._function_arns
+
+    def execution_role_name(self, function_name: str) -> Optional[str]:
+        self.function_arns_by_name()
+        return self._execution_roles.get(function_name)
 
     def function(
         self, function_arn: str, context: str

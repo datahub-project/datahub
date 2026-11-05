@@ -35,7 +35,10 @@ def parse_arn(value: Optional[str]) -> Optional[Arn]:
 def parse_queue_url(url: str) -> Optional[Arn]:
     """The ARN for an SQS queue URL, or None when the host doesn't name a region
     (a VPC endpoint or custom domain): the region can't be guessed safely."""
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:  # e.g. an unbalanced bracket in the host
+        return None
     path = QUEUE_URL_PATTERN.search(parts.path or "")
     host = QUEUE_URL_HOST_PATTERN.match(parts.hostname or "")
     if path is None or host is None:

@@ -38,7 +38,8 @@ class ProducerLineage:
 
     A caller that is a Lambda function in this account and region becomes an
     upstream job of the queue or topic. Lambda's execution role session is named
-    after the function, which is how a caller is matched to a function; this has
+    after the function, so a caller is matched on that session name and the
+    function's execution role; this has
     not been checked against every runtime and invocation path. Any other caller
     (an ECS task role, a user) is only listed in the `observed_producers` property:
     a role is not a DataHub entity, and guessing the workload behind it would be
@@ -86,7 +87,7 @@ class ProducerLineage:
             f"FROM {store_id} "
             f"WHERE eventTime > '{since}' AND eventSource = '{event_source}' "
             f"AND awsRegion = '{self.resolver.region}' "
-            f"AND eventName IN ({names}) "
+            f"AND eventName IN ({names}) AND errorCode IS NULL "
             f"GROUP BY 1, 2"
         )
 
@@ -170,8 +171,9 @@ class ProducerLineage:
             edges = self.lambdas.function(function_arn, "cloudtrail producer")
             if edges is None:
                 continue
-            edges.outputs.add(target_urn)
-            self.report.producer_lambda_edges += 1
+            if target_urn not in edges.outputs:
+                edges.outputs.add(target_urn)
+                self.report.producer_lambda_edges += 1
 
     def _lambda_function_arn(self, producer: str) -> Optional[str]:
         match = ASSUMED_ROLE_PATTERN.match(producer)
@@ -179,7 +181,12 @@ class ProducerLineage:
             return None
         if self.urns.account_id and match.group("account") != self.urns.account_id:
             return None
-        return self.lambdas.function_arns_by_name().get(match.group("session"))
+        session = match.group("session")
+        # A session named after a function only counts when the role is that
+        # function's execution role; any role can pick its session name.
+        if self.lambdas.execution_role_name(session) != match.group("role"):
+            return None
+        return self.lambdas.function_arns_by_name().get(session)
 
     @staticmethod
     def _role_arn(producer: str) -> str:

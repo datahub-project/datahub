@@ -147,9 +147,9 @@ MIN_BOTOCORE_FOR_BUCKET_REGION = "1.35.42"
 
 # Values interpolated into the CloudTrail Lake SQL are checked against these
 # first, so nothing from the recipe can change the query's shape.
-AWS_REGION_PATTERN = re.compile(r"^[a-z]{2}(?:-[a-z]+)+-\d+$")
+AWS_REGION_PATTERN = re.compile(r"^[a-z]+(?:-[a-z]+)+-\d+\Z")
 EVENT_DATA_STORE_PATTERN = re.compile(
-    r"^(?:arn:aws[a-z-]*:cloudtrail:[a-z0-9-]+:\d{12}:eventdatastore/)?[A-Za-z0-9-]{1,128}$"
+    r"^(?:arn:aws[a-z-]*:cloudtrail:[a-z0-9-]+:\d{12}:eventdatastore/)?[A-Za-z0-9-]{1,128}\Z"
 )
 
 ACCESS_DENIED_CODES = frozenset({"AccessDenied", "AccessDeniedException"})

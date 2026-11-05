@@ -108,7 +108,31 @@ def test_failed_query_is_a_warning() -> None:
             CloudTrailLakeClient(client, report).run_query("SELECT 1", STORE, 60)
             is None
         )
-    assert report.warnings
+    assert [w.title for w in report.warnings] == ["CloudTrail Lake query failed"]
+
+
+def test_query_is_cancelled_when_reading_results_fails() -> None:
+    client = boto3.client(
+        "cloudtrail",
+        region_name=REGION,
+        aws_access_key_id="testing",
+        aws_secret_access_key="testing",
+    )
+    report = SqsSourceReport()
+    with Stubber(client) as stubber:
+        stubber.add_response("start_query", {"QueryId": QUERY_ID})
+        stubber.add_client_error("get_query_results", "ThrottlingException")
+        stubber.add_response(
+            "cancel_query",
+            {"QueryId": QUERY_ID, "QueryStatus": "CANCELLED"},
+            {"EventDataStore": STORE, "QueryId": QUERY_ID},
+        )
+        assert (
+            CloudTrailLakeClient(client, report).run_query("SELECT 1", STORE, 60)
+            is None
+        )
+        stubber.assert_no_pending_responses()
+    assert [w.title for w in report.warnings] == ["CloudTrail Lake query failed"]
 
 
 def test_timed_out_query_is_cancelled() -> None:
@@ -192,6 +216,7 @@ def _run(
     assert f"FROM {store.rsplit('/', 1)[-1]}" in statements[0]
     assert "'SendMessage', 'SendMessageBatch'" in statements[0]
     assert f"awsRegion = '{REGION}'" in statements[0]
+    assert "errorCode IS NULL" in statements[0]
     return workunits
 
 
@@ -210,6 +235,16 @@ def test_lambda_producer_becomes_an_upstream_job(
             {
                 "producer": f"arn:aws:sts::{ACCOUNT}:assumed-role/ecs-task/abc123",
                 "resource": QUEUE_URL,
+            },
+            # Named like the function, but not its execution role.
+            {
+                "producer": f"arn:aws:sts::{ACCOUNT}:assumed-role/other-role/checkout",
+                "resource": QUEUE_URL,
+            },
+            # A malformed URL is skipped, not fatal.
+            {
+                "producer": f"arn:aws:sts::{ACCOUNT}:assumed-role/ecs-task/abc123",
+                "resource": f"https://[sqs.{REGION}.amazonaws.com/{ACCOUNT}/orders",
             },
             # Same name and account, other region: not this run's queue.
             {
@@ -238,7 +273,8 @@ def test_lambda_producer_becomes_an_upstream_job(
     # The query runs before the queue is written, so the full write holds the
     # value and nothing is patched afterwards.
     assert upserted_properties(workunits)[0]["observed_producers"] == (
-        f"arn:aws:iam::{ACCOUNT}:role/arn-sender, arn:aws:iam::{ACCOUNT}:role/ecs-task"
+        f"arn:aws:iam::{ACCOUNT}:role/arn-sender, arn:aws:iam::{ACCOUNT}:role/ecs-task, "
+        f"arn:aws:iam::{ACCOUNT}:role/other-role"
     )
     assert not property_patches(workunits)
 
@@ -423,6 +459,7 @@ def test_lambda_producer_edges_are_kept_when_the_query_fails(
         "abc-123",
         STORE,
         "arn:aws-cn:cloudtrail:cn-north-1:123456789012:eventdatastore/x-1",
+        "arn:aws-eusc:cloudtrail:eusc-de-east-1:123456789012:eventdatastore/x-1",
     ],
 )
 def test_event_data_store_formats_accepted(store: str) -> None:
@@ -432,7 +469,8 @@ def test_event_data_store_formats_accepted(store: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "store", ["abc' OR '1'='1", "eds; DROP", f"{STORE} --", "arn:aws:s3:::bucket"]
+    "store",
+    ["abc' OR '1'='1", "eds; DROP", f"{STORE} --", "arn:aws:s3:::bucket", "abc-123\n"],
 )
 def test_event_data_store_that_could_change_the_query_is_rejected(store: str) -> None:
     with pytest.raises(ValueError):
@@ -492,3 +530,73 @@ def test_patched_topic_clears_observed_producers_after_a_successful_query(
         for op in json.loads(wu.metadata.aspect.value)
     ]
     assert ("remove", "/customProperties/observed_producers") in operations
+
+
+def test_statement_accepts_a_sovereign_cloud_region() -> None:
+    config = SqsSourceConfig.model_validate(
+        base_config(cloudtrail_producers={"enabled": True, "event_data_store": STORE})
+    )
+    urns = UrnBuilder(env="PROD", account_id=ACCOUNT, platform_instance=ACCOUNT)
+    producers = ProducerLineage(
+        config=config.cloudtrail_producers,
+        report=SqsSourceReport(),
+        client=MagicMock(),
+        urns=urns,
+        resolver=ResourceResolver(
+            urns=urns, region="eusc-de-east-1", service=AwsService.SQS
+        ),
+        lambdas=None,
+    )
+    statement = producers.statement(datetime(2026, 10, 28, tzinfo=timezone.utc))
+    assert "awsRegion = 'eusc-de-east-1'" in statement
+
+
+def test_topic_producers_from_publish_events(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    topic_arn = sns_client().create_topic(Name="order-events")["TopicArn"]
+    topic_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sns,{ACCOUNT}.{REGION}.order-events,PROD)"
+    )
+    create_function("checkout")
+    statements: List[str] = []
+
+    def fake_run_query(
+        self: CloudTrailLakeClient, statement: str, *args: Any, **kwargs: Any
+    ) -> List[Dict[str, str]]:
+        statements.append(statement)
+        return [
+            {
+                "producer": f"arn:aws:sts::{ACCOUNT}:assumed-role/checkout-role/checkout",
+                "resource": topic_arn,
+            },
+            {
+                "producer": f"arn:aws:sts::{ACCOUNT}:assumed-role/ecs-task/abc123",
+                "resource": topic_arn,
+            },
+            # Same name, other region.
+            {
+                "producer": f"arn:aws:sts::{ACCOUNT}:assumed-role/eu-role/x",
+                "resource": f"arn:aws:sns:eu-west-1:{ACCOUNT}:order-events",
+            },
+        ]
+
+    monkeypatch.setattr(CloudTrailLakeClient, "run_query", fake_run_query)
+    source = SnsSource.create(
+        base_config(
+            cloudtrail_producers={"enabled": True, "event_data_store": STORE},
+            lineage={"lambda_async_destinations": False},
+        ),
+        PipelineContext(run_id="cloudtrail-test"),
+    )
+    workunits = list(source.get_workunits())
+    assert "eventSource = 'sns.amazonaws.com'" in statements[0]
+    assert "'Publish', 'PublishBatch'" in statements[0]
+    assert "element_at(requestParameters, 'topicArn')" in statements[0]
+    assert job_edges(workunits) == {
+        lambda_job("checkout"): {"outputDatasetEdges": {topic_urn}}
+    }
+    assert upserted_properties(workunits)[0]["observed_producers"] == (
+        f"arn:aws:iam::{ACCOUNT}:role/ecs-task"
+    )
+    assert source.get_report().producer_lambda_edges == 1
