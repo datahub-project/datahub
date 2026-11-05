@@ -58,7 +58,7 @@ const InvalidEntityText = styled.span`
  * and the same {@link EntityIcon} treatment as the @-mention picker.
  */
 export const MentionsNodeView = ({ node }: NodeViewComponentProps) => {
-    const { t } = useTranslation('alchemy');
+    const { t } = useTranslation('entity.profile.editor');
     const { urn, name } = node.attrs;
 
     const registry = useEntityRegistry();
@@ -82,7 +82,7 @@ export const MentionsNodeView = ({ node }: NodeViewComponentProps) => {
 
     if (!data || !data.entity) {
         return (
-            <Tooltip title={t('editor.mentions.notFound')}>
+            <Tooltip title={t('mentions.notFound')}>
                 <InvalidEntityText>{name}</InvalidEntityText>
             </Tooltip>
         );

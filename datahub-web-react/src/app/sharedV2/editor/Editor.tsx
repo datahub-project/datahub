@@ -10,13 +10,10 @@ import { lazyNamed } from '@app/sharedV2/lazyPage';
 
 // Mentions UI pulls in search and entity rendering; load it with the first editable Editor.
 const MentionsComponent = lazyNamed(
-    () => import('@components/components/Editor/extensions/mentions/MentionsComponent'),
+    () => import('@app/sharedV2/editor/mentions/MentionsComponent'),
     'MentionsComponent',
 );
-const MentionsNodeView = lazyNamed(
-    () => import('@components/components/Editor/extensions/mentions/MentionsNodeView'),
-    'MentionsNodeView',
-);
+const MentionsNodeView = lazyNamed(() => import('@app/sharedV2/editor/mentions/MentionsNodeView'), 'MentionsNodeView');
 
 // A mentions chunk that fails to load leaves the editor without mentions UI instead of taking
 // the page down.
