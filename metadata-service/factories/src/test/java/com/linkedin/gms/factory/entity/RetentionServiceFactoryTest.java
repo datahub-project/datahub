@@ -14,6 +14,7 @@ import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.ebean.ScopedTransactionFactory;
 import io.ebean.Database;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.testng.annotations.Test;
 
@@ -73,6 +74,10 @@ public class RetentionServiceFactoryTest {
   public void testCassandraImplWithoutASessionFailsStartup() {
     runner(mock(EntityService.class))
         .withPropertyValues("entityService.impl=cassandra")
-        .run(context -> assertThat(context).hasFailed());
+        .run(
+            context ->
+                assertThat(context)
+                    .getFailure()
+                    .hasRootCauseInstanceOf(NoSuchBeanDefinitionException.class));
   }
 }
