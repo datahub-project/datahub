@@ -98,6 +98,9 @@ class SqsSource(AwsMessagingSourceBase):
     def owned_relationships(self) -> FrozenSet[LineageRelationship]:
         return frozenset({LineageRelationship.DEAD_LETTER})
 
+    def resource_allowed(self, name: str) -> bool:
+        return self.config.queue_pattern.allowed(name)
+
     def first_resource_arn(self) -> Optional[str]:
         # The queue URL carries the account id, so this needs only sqs:ListQueues.
         # Depending on GetQueueAttributes would leave the account unresolved

@@ -154,7 +154,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
     def collect_s3_notifications(self) -> None:
         if not self.base_config.lineage.s3_notifications:
             return
-        complete = S3NotificationLineage(
+        s3_lineage = S3NotificationLineage(
             client=S3NotificationClient(
                 self.base_config.make_client(self.session, AwsService.S3),
                 self.base_report,
@@ -164,13 +164,14 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             env=self.base_config.env,
             s3=self.base_config.platform_map.get("s3"),
             report=self.base_report,
-        ).collect(self.lineage)
-        if complete:
+            target_allowed=self.resource_allowed,
+        )
+        if s3_lineage.collect(self.lineage):
             # An S3 edge's upstream isn't this source's, so it can only be
             # checked from the queue or topic side.
-            self.lineage.downstream_relationships.add(
+            self.lineage.downstream_relationships[
                 LineageRelationship.S3_NOTIFICATION.value
-            )
+            ] = s3_lineage.from_listed_bucket
 
     def service_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Lambda functions, EventBridge rules and Pipes around this source's
@@ -258,6 +259,10 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         elif name in registry.failed:
             self.schemas.unreadable.add(urn)
         return schema
+
+    def resource_allowed(self, name: str) -> bool:
+        """Whether the queue or topic pattern lets a resource of this name in."""
+        raise NotImplementedError
 
     def first_resource_arn(self) -> Optional[str]:
         """One resource ARN of this service, used only to read the account id; None

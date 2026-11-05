@@ -38,6 +38,7 @@ class S3NotificationLineage:
         env: str,
         s3: Optional[LinkedPlatformDetail],
         report: AwsMessagingReportBase,
+        target_allowed: Callable[[str], bool],
     ):
         s3 = s3 or LinkedPlatformDetail()
         self.client = client
@@ -47,7 +48,9 @@ class S3NotificationLineage:
         self.platform_instance = s3.platform_instance
         self.convert_urns_to_lowercase = s3.convert_urns_to_lowercase
         self.report = report
+        self.target_allowed = target_allowed
         self.complete = True
+        self._listed_buckets: List[str] = []
 
     def _urn(self, name: str) -> str:
         if self.convert_urns_to_lowercase:
@@ -58,6 +61,18 @@ class S3NotificationLineage:
             platform_instance=self.platform_instance,
             env=self.env,
         )
+
+    def from_listed_bucket(self, urn: str) -> bool:
+        """Whether an S3 dataset is in a bucket this run read. A bucket in another
+        account can notify these queues and topics, but its notifications can't be
+        read from here."""
+        for bucket in self._listed_buckets:
+            bucket_urn = self._urn(bucket)
+            if urn == bucket_urn or urn.startswith(
+                f"{bucket_urn[: -len(f',{self.env})')]}/"
+            ):
+                return True
+        return False
 
     def _matcher(
         self, notification: BucketNotification
@@ -138,6 +153,7 @@ class S3NotificationLineage:
         for bucket in self.client.list_bucket_names(
             self.resolver.region, on_error=self._listing_failed
         ):
+            self._listed_buckets.append(bucket)
             notifications = self.client.get_notifications(bucket)
             if notifications is None:
                 self.complete = False
@@ -150,9 +166,12 @@ class S3NotificationLineage:
                         target is not None
                         and target.service == self.resolver.service
                         and self.resolver.is_local(target)
+                        and self.target_allowed(target.resource_name)
                     ):
                         # One of this source's own queues or topics that this run
-                        # didn't read, so earlier edges into it are kept.
+                        # didn't read, so earlier edges into it are kept. One the
+                        # pattern filters out is never this source's, so it
+                        # doesn't count.
                         self.complete = False
                     continue
                 upstreams = self._datasets(notification)

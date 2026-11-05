@@ -401,6 +401,54 @@ def test_unresolved_own_target_removes_nothing(
     assert _removals(S3_DATASETS) == []
 
 
+def _prior_s3_removals(prior: List[str], **config: Any) -> List[Tuple[str, str]]:
+    graph = search_graph(
+        S3_DATASETS, prior_upstreams=[_edge(urn, "s3_notification") for urn in prior]
+    )
+    source = SqsSource.create(
+        base_config(
+            lineage={"lambda_functions": False, "s3_notifications": True}, **config
+        ),
+        PipelineContext(run_id="s3-test", graph=graph),
+    )
+    return [op for op in upstream_ops(source) if op[0] == "remove"]
+
+
+def test_edge_from_a_bucket_this_run_did_not_list_is_kept(aws: None) -> None:
+    # A bucket in another account can notify this queue, but its notifications
+    # can't be read from here.
+    sqs_client().create_queue(QueueName="uploads")
+    boto3.client("s3", region_name=REGION).create_bucket(Bucket="landing")
+    foreign = "urn:li:dataset:(urn:li:dataPlatform:s3,partner-bucket/orders,PROD)"
+    assert _prior_s3_removals([ORDERS_URN, foreign]) == [
+        ("remove", "/upstreams/" + ORDERS_URN.replace("/", "~1"))
+    ]
+
+
+def test_notification_to_a_filtered_out_queue_still_retracts(aws: None) -> None:
+    # The bucket notifies a queue the pattern excludes; that queue is never this
+    # source's, so S3 edges into the queues it does ingest are still checked.
+    sqs_client().create_queue(QueueName="uploads")
+    url = sqs_client().create_queue(QueueName="uploads-tmp")["QueueUrl"]
+    tmp_arn = sqs_client().get_queue_attributes(
+        QueueUrl=url, AttributeNames=["QueueArn"]
+    )["Attributes"]["QueueArn"]
+    s3 = boto3.client("s3", region_name=REGION)
+    s3.create_bucket(Bucket="landing")
+    s3.put_bucket_notification_configuration(
+        Bucket="landing",
+        NotificationConfiguration={
+            "QueueConfigurations": [
+                {"QueueArn": tmp_arn, "Events": ["s3:ObjectCreated:*"]}
+            ]
+        },
+        SkipDestinationValidation=True,
+    )
+    assert _prior_s3_removals([ORDERS_URN], queue_pattern={"deny": [".*-tmp$"]}) == [
+        ("remove", "/upstreams/" + ORDERS_URN.replace("/", "~1"))
+    ]
+
+
 def test_platform_map_sets_instance_and_env(aws: None) -> None:
     _seed()
     lake_orders = (
