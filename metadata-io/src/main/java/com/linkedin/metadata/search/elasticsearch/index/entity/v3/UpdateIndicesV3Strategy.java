@@ -37,6 +37,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
@@ -699,11 +700,15 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       // non-retryable one. A removal that failed retryably is not skipped either: no later event
       // removes the entity or the aspect again, on the alias or in the index a rebuild is filling,
       // so the consumer must redeliver it. A removal that failed for good is skipped like any other
-      // live write: failing the batch would only drop the other entities' writes with it.
+      // live write: failing the batch would only drop the other entities' writes with it. A failed
+      // aspect read is redelivered too, including a live upsert while V2 is dual-written: nothing
+      // else writes that aspect, so skipping it leaves the document missing it. A transient index
+      // write stays skipped for a live upsert, because the entity's next event rebuilds it.
       final boolean replay = preparedBatch.baselineFill() || preparedBatch.catchUpReplay();
       final boolean redeliverableRemoval =
           carriesDelete(preparedBatch) && e instanceof RetryableIndexingException;
-      if (v2Enabled && !replay && !redeliverableRemoval) {
+      final boolean failedAspectRead = hasCause(e, RemoteInvocationException.class);
+      if (v2Enabled && !replay && !redeliverableRemoval && !failedAspectRead) {
         log.error(
             "V3 search write failed for URN {} while V2 dual-write is enabled; skipping V3 document",
             preparedBatch.urn(),
@@ -853,11 +858,13 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       try {
         projection = searchDocumentProjector.projectAspect(opContext, event, previous);
       } catch (RetryableIndexingException e) {
+        // A failed aspect read. Redeliver it; skipping the aspect commits the offset past a
+        // document this event never writes again.
         throw e;
       } catch (RuntimeException e) {
-        // One aspect's projection failure is not retryable, and failing the URN here drops every
-        // later URN in the MCL batch. The listener commits that batch, so those documents are
-        // never written. Skip the aspect; the rest of this URN and the batch still land.
+        // A deterministic projection failure is not retryable, and failing the URN here drops
+        // every later URN in the MCL batch. The listener commits that batch, so those documents
+        // are never written. Skip the aspect; the rest of this URN and the batch still land.
         log.error(
             "V3 search projection failed for aspect {} of URN {}; skipping this aspect",
             event.getAspectName(),

@@ -20,8 +20,10 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Iterator;
@@ -775,10 +777,33 @@ public class V3SearchDocumentProjector {
 
   private static RuntimeException propagate(
       @Nonnull final String message, @Nonnull final Exception exception) {
+    // A GMS read can fail transiently. Wrapping it as a plain illegal state makes the live
+    // batch skip the aspect and commit the offset, so the write is never retried.
+    if (hasRetryableRead(exception)) {
+      return exception instanceof RetryableIndexingException retryable
+          ? retryable
+          : new RetryableIndexingException(message, exception);
+    }
     if (exception instanceof RuntimeException runtimeException) {
       return runtimeException;
     }
     return new IllegalStateException(message, exception);
+  }
+
+  private static boolean hasRetryableRead(@Nonnull final Throwable exception) {
+    Throwable current = exception;
+    while (current != null) {
+      if (current instanceof RemoteInvocationException
+          || current instanceof RetryableIndexingException) {
+        return true;
+      }
+      Throwable cause = current.getCause();
+      if (cause == current) {
+        break;
+      }
+      current = cause;
+    }
+    return false;
   }
 
   private static ObjectNode getOrCreateObject(

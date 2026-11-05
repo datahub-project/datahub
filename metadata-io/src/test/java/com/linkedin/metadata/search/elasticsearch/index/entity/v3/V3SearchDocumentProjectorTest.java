@@ -43,8 +43,10 @@ import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -309,6 +311,19 @@ public class V3SearchDocumentProjectorTest {
     IllegalStateException exception =
         expectThrows(IllegalStateException.class, () -> projector.projectAspect(opContext, event));
     assertTrue(exception.getCause() instanceof URISyntaxException);
+  }
+
+  @Test
+  public void testProjectAspectRedeliversAFailedAspectRead() throws Exception {
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenThrow(new RemoteInvocationException("gms unavailable"));
+
+    RetryableIndexingException exception =
+        expectThrows(
+            RetryableIndexingException.class, () -> projector.projectAspect(opContext, event));
+    assertTrue(exception.getCause() instanceof RemoteInvocationException);
   }
 
   @Test

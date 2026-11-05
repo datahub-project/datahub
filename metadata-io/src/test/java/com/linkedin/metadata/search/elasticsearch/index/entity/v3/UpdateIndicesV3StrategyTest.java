@@ -86,6 +86,7 @@ import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -2342,6 +2343,55 @@ public class UpdateIndicesV3StrategyTest {
         ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
     verify(elasticSearchService).writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
     assertEquals(writeCaptor.getValue().urn(), sibling);
+  }
+
+  @Test
+  public void testLiveAspectReadFailureIsRedeliveredWhileV2IsDualWritten() throws Exception {
+    // A transient aspect read is not repaired by the entity's next event. Dual-write still skips
+    // a transient index write, but this failure has to reach the consumer so it redelivers.
+    strategy = createStrategy(true, (TimeseriesWriteThrottleCache) null);
+    when(mockEntitySpec.getAspectSpec(DATASET_PROPERTIES_ASPECT_NAME)).thenReturn(mockAspectSpec);
+    Urn sibling = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,SiblingDataset,PROD)");
+    MCLItem failing = aspectEvent(mockAspectSpec, mockAspect, ChangeType.UPSERT, null, null);
+    RecordTemplate siblingAspect = mock(RecordTemplate.class);
+    MCLItem siblingEvent =
+        aspectEvent(sibling, mockAspectSpec, siblingAspect, ChangeType.UPSERT, null, null);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            eq(testUrn),
+            any(),
+            eq(mockAspectSpec),
+            anyBoolean(),
+            any()))
+        .thenThrow(new RemoteInvocationException("gms unavailable"));
+
+    RetryableIndexingException thrown =
+        expectThrows(
+            RetryableIndexingException.class,
+            () -> {
+              Map<Urn, List<MCLItem>> batch = new LinkedHashMap<>();
+              batch.put(testUrn, List.of(failing));
+              batch.put(sibling, List.of(siblingEvent));
+              strategy.processBatch(operationContext, batch, false);
+            });
+
+    assertTrue(hasCause(thrown, RemoteInvocationException.class));
+    verify(elasticSearchService, never())
+        .writeV3SearchDocument(any(OperationContext.class), any(V3SearchDocumentWrite.class));
+  }
+
+  private static boolean hasCause(Throwable failure, Class<? extends Throwable> causeType) {
+    Throwable current = failure;
+    while (current != null) {
+      if (causeType.isInstance(current)) {
+        return true;
+      }
+      if (current == current.getCause()) {
+        break;
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   @Test
