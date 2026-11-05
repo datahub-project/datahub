@@ -372,8 +372,7 @@ def test_failed_glue_lookup_does_not_fall_back_to_datahub(aws: None) -> None:
     # The mapped schema can't be read from Glue this run; DataHub's copy may be
     # stale, so the hop's field lineage is unknown and its field edges stay.
     source = _dead_letter_source()
-    assert source.registry is not None
-    source.registry.config.queue_schema_map["orders"] = "not-there"
+    source.config.glue_schema_registry.queue_schema_map["orders"] = "not-there"
     graph = source.schemas.graph
     assert isinstance(graph, MagicMock)
     graph.get_schema_metadata.side_effect = lambda urn: _queue_schema_in_datahub()
