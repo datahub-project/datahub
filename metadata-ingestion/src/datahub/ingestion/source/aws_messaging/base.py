@@ -38,7 +38,6 @@ from datahub.ingestion.source.aws_messaging.lineage import (
 from datahub.ingestion.source.aws_messaging.mapper import (
     AwsRegionKey,
     secondary,
-    shared_status,
 )
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
@@ -171,7 +170,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             # checked from the queue or topic side.
             self.lineage.downstream_relationships[
                 LineageRelationship.S3_NOTIFICATION.value
-            ] = s3_lineage.from_listed_bucket
+            ] = s3_lineage.can_retract
 
     def service_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Lambda functions, EventBridge rules and Pipes around this source's
@@ -343,9 +342,9 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
                 else:
                     # Both sources emit the lambda and eventbridge region
                     # containers, so neither may soft-delete them when its own
-                    # run stops placing anything there.
+                    # run stops placing anything there. gen_containers already
+                    # writes their status.
                     yield from secondary(container)
-                    yield shared_status(key.as_urn())
                 first = False
             yield workunit
 

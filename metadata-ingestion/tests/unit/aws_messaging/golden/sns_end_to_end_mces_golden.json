@@ -383,22 +383,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:d11239748784fe229f005ca5b3a80e74",
     "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "sns-end-to-end",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d11239748784fe229f005ca5b3a80e74",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -894,22 +878,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:664609deecffa93dc3df83e6f6729058",
     "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "sns-end-to-end",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:664609deecffa93dc3df83e6f6729058",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1275,22 +1243,6 @@
             "typeNames": [
                 "Region"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "sns-end-to-end",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5d28e722aef4b9d6507d4222e0788e76",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {

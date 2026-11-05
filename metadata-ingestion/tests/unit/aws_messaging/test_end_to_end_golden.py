@@ -180,6 +180,9 @@ def _graph(
         urn
         for urn in existing.values()
         if urn.startswith(kwargs["extraFilters"][0]["values"][0])
+        and kwargs["entity_types"] == ["dataset"]
+        and urn.startswith(f"urn:li:dataset:(urn:li:dataPlatform:{kwargs['platform']},")
+        and urn.endswith(f",{kwargs['env']})")
     )
     graph.get_related_entities.return_value = []
     graph.get_aspect.return_value = None

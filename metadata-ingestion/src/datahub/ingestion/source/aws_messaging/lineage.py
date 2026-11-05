@@ -155,10 +155,10 @@ class DatasetLineageCollector:
         self.complete: Set[str] = set()
         # Relationships whose edges into owned datasets were all seen this run,
         # checked from the downstream side because the upstream isn't this
-        # source's (an S3 dataset, say). Each maps to the upstreams this run read,
-        # since an edge from anywhere else (another account's bucket) can't be
-        # called gone.
-        self.downstream_relationships: Dict[str, Callable[[str], bool]] = {}
+        # source's (an S3 dataset, say). Each maps to a check of (downstream,
+        # upstream): only an edge this run could have seen can be called gone, so
+        # not one from another account's bucket, say.
+        self.downstream_relationships: Dict[str, Callable[[str, str], bool]] = {}
         # Upstreams with an edge this run couldn't resolve (its other end wasn't
         # ingested). The edge may still exist in AWS, so it must not read as gone.
         self._unknown: Set[str] = set()
@@ -343,11 +343,13 @@ class DatasetLineageCollector:
                     )
                     if (
                         relationship in self.downstream_relationships
-                        and self.downstream_relationships[relationship](edge.dataset)
+                        and self.downstream_relationships[relationship](
+                            downstream, edge.dataset
+                        )
                         and edge.dataset not in self._edges.get(downstream, {})
                     ):
                         stale.edges[downstream].add(edge.dataset)
-            except Exception as e:
+            except (GraphError, RequestException) as e:
                 self.report.warning(
                     title="Stale lineage not checked",
                     message=(

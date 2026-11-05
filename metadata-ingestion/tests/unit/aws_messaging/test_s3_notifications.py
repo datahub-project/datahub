@@ -3,14 +3,19 @@ from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Type
 from unittest.mock import MagicMock
 
 import boto3
+import botocore
 import pytest
 from botocore.stub import Stubber
+from packaging.version import Version
 
 from datahub.configuration.common import GraphError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging import s3_notifications
 from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase
 from datahub.ingestion.source.aws_messaging.clients import S3NotificationClient
+from datahub.ingestion.source.aws_messaging.constants import (
+    MIN_BOTOCORE_FOR_BUCKET_REGION,
+)
 from datahub.ingestion.source.aws_messaging.models import Arn
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
@@ -54,17 +59,29 @@ S3_DATASETS = [
 ]
 
 
-def _seed() -> None:
-    url = sqs_client().create_queue(QueueName="uploads")["QueueUrl"]
-    queue_arn = sqs_client().get_queue_attributes(
-        QueueUrl=url, AttributeNames=["QueueArn"]
-    )["Attributes"]["QueueArn"]
-    topic_arn = sns_client().create_topic(Name="uploads-topic")["TopicArn"]
+def _queue_arn(name: str) -> str:
+    url = sqs_client().create_queue(QueueName=name)["QueueUrl"]
+    return sqs_client().get_queue_attributes(QueueUrl=url, AttributeNames=["QueueArn"])[
+        "Attributes"
+    ]["QueueArn"]
+
+
+def _bucket(notifications: Optional[Dict[str, Any]] = None) -> None:
     s3 = boto3.client("s3", region_name=REGION)
     s3.create_bucket(Bucket="landing")
-    s3.put_bucket_notification_configuration(
-        Bucket="landing",
-        NotificationConfiguration={
+    if notifications is not None:
+        s3.put_bucket_notification_configuration(
+            Bucket="landing",
+            NotificationConfiguration=notifications,
+            SkipDestinationValidation=True,
+        )
+
+
+def _seed() -> None:
+    queue_arn = _queue_arn("uploads")
+    topic_arn = sns_client().create_topic(Name="uploads-topic")["TopicArn"]
+    _bucket(
+        {
             "QueueConfigurations": [
                 {
                     "QueueArn": queue_arn,
@@ -79,8 +96,7 @@ def _seed() -> None:
             "TopicConfigurations": [
                 {"TopicArn": topic_arn, "Events": ["s3:ObjectRemoved:*"]}
             ],
-        },
-        SkipDestinationValidation=True,
+        }
     )
 
 
@@ -190,15 +206,9 @@ def test_off_by_default(aws: None) -> None:
 
 
 def test_lowercase_matches_the_s3_source_setting(aws: None) -> None:
-    url = sqs_client().create_queue(QueueName="uploads")["QueueUrl"]
-    queue_arn = sqs_client().get_queue_attributes(
-        QueueUrl=url, AttributeNames=["QueueArn"]
-    )["Attributes"]["QueueArn"]
-    s3 = boto3.client("s3", region_name=REGION)
-    s3.create_bucket(Bucket="landing")
-    s3.put_bucket_notification_configuration(
-        Bucket="landing",
-        NotificationConfiguration={
+    queue_arn = _queue_arn("uploads")
+    _bucket(
+        {
             "QueueConfigurations": [
                 {
                     "QueueArn": queue_arn,
@@ -210,8 +220,7 @@ def test_lowercase_matches_the_s3_source_setting(aws: None) -> None:
                     },
                 }
             ]
-        },
-        SkipDestinationValidation=True,
+        }
     )
     graph = search_graph(S3_DATASETS)
 
@@ -231,6 +240,10 @@ def test_lowercase_matches_the_s3_source_setting(aws: None) -> None:
     assert upstreams(source(lowercase=False)) == {}
 
 
+@pytest.mark.skipif(
+    Version(botocore.__version__) < Version(MIN_BOTOCORE_FOR_BUCKET_REGION),
+    reason="ListBuckets has no BucketRegion parameter in this botocore",
+)
 def test_bucket_listing_is_filtered_to_the_recipe_region() -> None:
     client = boto3.client(
         "s3",
@@ -321,7 +334,7 @@ def _removals(existing: List[str]) -> List[Tuple[str, str]]:
 
 def test_removed_notification_retracts_the_s3_edge(aws: None) -> None:
     sqs_client().create_queue(QueueName="uploads")
-    boto3.client("s3", region_name=REGION).create_bucket(Bucket="landing")
+    _bucket()
     # The sns source's subscription edge is left alone.
     assert _removals(S3_DATASETS) == [
         ("remove", "/upstreams/" + ORDERS_URN.replace("/", "~1"))
@@ -345,11 +358,16 @@ def test_no_dataset_found_removes_nothing(aws: None) -> None:
     assert _removals([]) == []
 
 
-def test_cap_removes_nothing(aws: None, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cap_links_the_first_datasets_by_name(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Every match is read and the cap applied by name, so each run links the same
+    # datasets and the earlier orders edge past the cap is removed.
     _seed()
     monkeypatch.setattr(s3_notifications, "MAX_S3_DATASETS_PER_NOTIFICATION", 1)
-    # Only the folder fits under the cap; the earlier orders edge is kept.
-    assert _removals(S3_DATASETS) == []
+    assert _removals(S3_DATASETS) == [
+        ("remove", "/upstreams/" + ORDERS_URN.replace("/", "~1"))
+    ]
 
 
 def test_failed_dataset_search_removes_nothing(aws: None) -> None:
@@ -418,7 +436,7 @@ def test_edge_from_a_bucket_this_run_did_not_list_is_kept(aws: None) -> None:
     # A bucket in another account can notify this queue, but its notifications
     # can't be read from here.
     sqs_client().create_queue(QueueName="uploads")
-    boto3.client("s3", region_name=REGION).create_bucket(Bucket="landing")
+    _bucket()
     foreign = "urn:li:dataset:(urn:li:dataPlatform:s3,partner-bucket/orders,PROD)"
     assert _prior_s3_removals([ORDERS_URN, foreign]) == [
         ("remove", "/upstreams/" + ORDERS_URN.replace("/", "~1"))
@@ -429,23 +447,56 @@ def test_notification_to_a_filtered_out_queue_still_retracts(aws: None) -> None:
     # The bucket notifies a queue the pattern excludes; that queue is never this
     # source's, so S3 edges into the queues it does ingest are still checked.
     sqs_client().create_queue(QueueName="uploads")
-    url = sqs_client().create_queue(QueueName="uploads-tmp")["QueueUrl"]
-    tmp_arn = sqs_client().get_queue_attributes(
-        QueueUrl=url, AttributeNames=["QueueArn"]
-    )["Attributes"]["QueueArn"]
-    s3 = boto3.client("s3", region_name=REGION)
-    s3.create_bucket(Bucket="landing")
-    s3.put_bucket_notification_configuration(
-        Bucket="landing",
-        NotificationConfiguration={
+    tmp_arn = _queue_arn("uploads-tmp")
+    _bucket(
+        {
             "QueueConfigurations": [
                 {"QueueArn": tmp_arn, "Events": ["s3:ObjectCreated:*"]}
             ]
-        },
-        SkipDestinationValidation=True,
+        }
     )
     assert _prior_s3_removals([ORDERS_URN], queue_pattern={"deny": [".*-tmp$"]}) == [
         ("remove", "/upstreams/" + ORDERS_URN.replace("/", "~1"))
+    ]
+
+
+def test_unmatched_notification_keeps_only_its_own_targets_edges(aws: None) -> None:
+    # The archive queue's notification matches no S3 dataset, so its earlier S3
+    # edges are unknown; the uploads queue's removed notification still retracts.
+    _queue_arn("uploads")
+    archive_arn = _queue_arn("archive")
+    _bucket(
+        {
+            "QueueConfigurations": [
+                {
+                    "QueueArn": archive_arn,
+                    "Events": ["s3:ObjectCreated:*"],
+                    "Filter": {
+                        "Key": {
+                            "FilterRules": [{"Name": "prefix", "Value": "nothing/"}]
+                        }
+                    },
+                }
+            ]
+        }
+    )
+    assert _prior_s3_removals([ORDERS_URN]) == [
+        ("remove", "/upstreams/" + ORDERS_URN.replace("/", "~1"))
+    ]
+
+
+def test_unreadable_lineage_keeps_s3_edges(aws: None) -> None:
+    sqs_client().create_queue(QueueName="uploads")
+    _bucket()
+    graph = search_graph(S3_DATASETS)
+    graph.get_aspect.side_effect = GraphError("GMS unavailable")
+    source = SqsSource.create(
+        base_config(lineage={"lambda_functions": False, "s3_notifications": True}),
+        PipelineContext(run_id="s3-test", graph=graph),
+    )
+    assert [op for op in upstream_ops(source) if op[0] == "remove"] == []
+    assert "Stale lineage not checked" in [
+        w.title for w in source.get_report().warnings
     ]
 
 

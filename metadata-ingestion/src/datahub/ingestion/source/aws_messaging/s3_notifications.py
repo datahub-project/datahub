@@ -1,5 +1,4 @@
-import itertools
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Set, Tuple, Union
 
 from botocore.exceptions import BotoCoreError, ClientError
 from requests.exceptions import RequestException
@@ -50,7 +49,10 @@ class S3NotificationLineage:
         self.report = report
         self.target_allowed = target_allowed
         self.complete = True
-        self._listed_buckets: List[str] = []
+        # Buckets whose notifications were read, and queues or topics whose S3
+        # upstreams this run couldn't work out.
+        self._read_buckets: List[str] = []
+        self._unknown_targets: Set[str] = set()
 
     def _urn(self, name: str) -> str:
         if self.convert_urns_to_lowercase:
@@ -62,11 +64,17 @@ class S3NotificationLineage:
             env=self.env,
         )
 
-    def from_listed_bucket(self, urn: str) -> bool:
-        """Whether an S3 dataset is in a bucket this run read. A bucket in another
-        account can notify these queues and topics, but its notifications can't be
-        read from here."""
-        for bucket in self._listed_buckets:
+    def can_retract(self, downstream: str, upstream: str) -> bool:
+        """Whether a missing S3 edge is really gone: its bucket's notifications
+        were read (a bucket in another account can notify these queues and topics,
+        but can't be read from here), and the target's S3 upstreams were all
+        worked out this run."""
+        return downstream not in self._unknown_targets and self._from_read_bucket(
+            upstream
+        )
+
+    def _from_read_bucket(self, urn: str) -> bool:
+        for bucket in self._read_buckets:
             bucket_urn = self._urn(bucket)
             if urn == bucket_urn or urn.startswith(
                 f"{bucket_urn[: -len(f',{self.env})')]}/"
@@ -84,7 +92,7 @@ class S3NotificationLineage:
         folder and anything under it match, but not `bucket/orders2`. Any other
         key prefix matches like S3 does, as a plain prefix. No prefix is the
         whole bucket, which keeps `landing` from matching `landing-archive`."""
-        name = f"{notification.bucket}/{(notification.prefix or '').lstrip('/')}"
+        name = f"{notification.bucket}/{notification.prefix or ''}"
         if not name.endswith("/"):
             plain = self._urn(name)[: -len(f",{self.env})")]
             return plain, lambda urn: True
@@ -95,10 +103,11 @@ class S3NotificationLineage:
             lambda urn: urn == folder_urn or urn.startswith(f"{folder_prefix}/"),
         )
 
-    def _datasets(self, notification: BucketNotification) -> List[str]:
-        """Live (not soft-deleted) S3 datasets under the notification's prefix."""
+    def _datasets(self, notification: BucketNotification) -> Optional[List[str]]:
+        """Live (not soft-deleted) S3 datasets under the notification's prefix, or
+        None when DataHub couldn't be searched."""
         if self.graph is None:
-            return []
+            return None
         urn_prefix, matches = self._matcher(notification)
         try:
             hits = self.graph.get_urns_by_filter(
@@ -110,37 +119,30 @@ class S3NotificationLineage:
                     {"field": "urn", "condition": "START_WITH", "values": [urn_prefix]}
                 ],
             )
-            found = sorted(
-                itertools.islice(
-                    (urn for urn in hits if matches(urn)),
-                    MAX_S3_DATASETS_PER_NOTIFICATION + 1,
-                )
-            )
+            # Search order isn't stable, so every match is read and the cap
+            # applied by name; otherwise each run would link a different subset.
+            found = sorted(urn for urn in hits if matches(urn))
         except (GraphError, RequestException) as e:
             self.report.warning(
                 title="S3 dataset search failed",
                 message=(
                     "Could not search DataHub for the S3 datasets under the "
-                    "notification's prefix; earlier S3 notification lineage is kept."
+                    "notification's prefix; earlier S3 notification lineage into its "
+                    "target is kept."
                 ),
                 context=f"s3://{notification.bucket}/{notification.prefix or ''}",
                 exc=e,
             )
-            self.complete = False
-            return []
+            return None
         if len(found) > MAX_S3_DATASETS_PER_NOTIFICATION:
             self.report.warning(
                 title="S3 notification matches too many datasets",
                 message=(
                     f"Only the first {MAX_S3_DATASETS_PER_NOTIFICATION} S3 datasets "
-                    "under the notification's prefix are linked, and no S3 "
-                    "notification lineage is removed this run."
+                    "by name under the notification's prefix are linked."
                 ),
                 context=f"s3://{notification.bucket}/{notification.prefix or ''}",
             )
-            # Search order isn't stable, so edges to datasets past the cap
-            # can't be told apart from gone ones.
-            self.complete = False
             found = found[:MAX_S3_DATASETS_PER_NOTIFICATION]
         return found
 
@@ -148,16 +150,16 @@ class S3NotificationLineage:
         self.complete = False
 
     def collect(self, lineage: DatasetLineageCollector) -> bool:
-        """Adds the edges; True when every bucket's notifications were read, so
-        edges missing this run are really gone."""
+        """Adds the edges; True when the buckets could be listed and every
+        notification's target resolved, so `can_retract` decides per edge."""
         for bucket in self.client.list_bucket_names(
             self.resolver.region, on_error=self._listing_failed
         ):
-            self._listed_buckets.append(bucket)
             notifications = self.client.get_notifications(bucket)
             if notifications is None:
-                self.complete = False
+                # Not read, so edges from this bucket are kept.
                 continue
+            self._read_buckets.append(bucket)
             for notification in notifications:
                 target = parse_arn(notification.target_arn)
                 target_urn = self.resolver.urn(target)
@@ -169,16 +171,16 @@ class S3NotificationLineage:
                         and self.target_allowed(target.resource_name)
                     ):
                         # One of this source's own queues or topics that this run
-                        # didn't read, so earlier edges into it are kept. One the
-                        # pattern filters out is never this source's, so it
-                        # doesn't count.
+                        # didn't read. Its URN isn't known here, so no S3 edge is
+                        # removed this run. One the pattern filters out is never
+                        # this source's, so it doesn't count.
                         self.complete = False
                     continue
                 upstreams = self._datasets(notification)
                 if not upstreams:
-                    # Index lag or a platform_map mismatch also look like this,
-                    # so earlier edges into the target are kept.
-                    self.complete = False
+                    # A failed search, index lag or a platform_map mismatch, so
+                    # earlier S3 edges into this target are kept.
+                    self._unknown_targets.add(target_urn)
                     self.report.report_edge_skipped(
                         f"s3://{bucket}",
                         target_urn,
