@@ -213,7 +213,7 @@ class QlikSourceConfig(
     max_workers: int = Field(
         default=4,
         ge=1,
-        description="On-prem only. Number of apps read from the Engine at the same time. "
+        description="Number of apps read from the Engine at the same time. "
         "Each worker holds one Engine session open.",
     )
     skip_unchanged_apps: bool = Field(
