@@ -574,8 +574,9 @@ public class BulkTelemetryTest {
     assertEquals(t.droppedOrigins(), 20_000L, "the cleared origins are counted");
     t.onRequeue(batches.get(0).get(0));
     assertEquals(t.pendingCount(), 0, "an origin recorded before the overflow was dropped");
-    t.onRequeue(batches.get(1).get(14_999));
-    assertEquals(t.pendingCount(), 1, "origins recorded after the overflow are kept");
+    // Which of batch 1's origins come after the clear depends on IdentityHashMap order.
+    batches.get(1).forEach(t::onRequeue);
+    assertEquals(t.pendingCount(), 10_000, "origins recorded after the overflow are kept");
   }
 
   @Test
