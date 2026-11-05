@@ -88,5 +88,5 @@ export const DATA_SOURCES = {
 // version keeps the executor's package resolution deterministic and fast enough
 // to finish within the test's status timeout. Must stay in sync with the
 // `config.version` pinned on the seeded execute sources in the
-// ingestion-v2/v3 fixtures.
+// ingestion-v3 fixtures.
 export const INGESTION_CLI_VERSION = '1.6.0.10';
