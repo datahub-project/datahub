@@ -312,8 +312,12 @@ public class SearchDocumentTransformer {
     }
 
     if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
-      setStructuredPropertiesSearchValue(
-          opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
+      // A delete MCL carries no record. The projector removes fields from the previous document,
+      // so there is nothing to read here. Dereferencing the record aborts the whole batch.
+      if (aspect != null) {
+        setStructuredPropertiesSearchValue(
+            opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
+      }
       result = Optional.of(searchDocument);
     }
 

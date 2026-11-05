@@ -446,6 +446,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       if (isCatchUpBackfillEvent(event)) {
         continue;
       }
+      // A delete carries no new definition. Mapping updates apply the surviving definition;
+      // there is nothing to put on the index for a null record.
+      if (event.getRecordTemplate() == null) {
+        continue;
+      }
       try {
         updateIndexMappings(
             opContext,
@@ -844,8 +849,22 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         }
       }
       final RecordTemplate previous = aspectEvents.get(0).getPreviousRecordTemplate();
-      final Optional<V3SearchDocumentProjector.ProjectedAspect> projection =
-          searchDocumentProjector.projectAspect(opContext, event, previous);
+      final Optional<V3SearchDocumentProjector.ProjectedAspect> projection;
+      try {
+        projection = searchDocumentProjector.projectAspect(opContext, event, previous);
+      } catch (RetryableIndexingException e) {
+        throw e;
+      } catch (RuntimeException e) {
+        // One aspect's projection failure is not retryable, and failing the URN here drops every
+        // later URN in the MCL batch. The listener commits that batch, so those documents are
+        // never written. Skip the aspect; the rest of this URN and the batch still land.
+        log.error(
+            "V3 search projection failed for aspect {} of URN {}; skipping this aspect",
+            event.getAspectName(),
+            preparedBatch.urn(),
+            e);
+        continue;
+      }
       if (projection.isPresent()) {
         searchDocumentProjector.applyProjection(document, projection.get());
         hasProjection = true;

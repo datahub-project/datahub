@@ -2235,6 +2235,116 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testStructuredPropertiesDeleteWithNullRecordWritesTheUrnAndItsSibling()
+      throws Exception {
+    AspectSpec structuredProperties =
+        operationContext
+            .getEntityRegistry()
+            .getEntitySpec(DATASET_ENTITY_NAME)
+            .getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEntitySpec.getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME))
+        .thenReturn(structuredProperties);
+    when(mockEntitySpec.getAspectSpec(DATASET_PROPERTIES_ASPECT_NAME)).thenReturn(mockAspectSpec);
+    Urn sibling = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,SiblingDataset,PROD)");
+    MCLItem delete =
+        aspectEvent(testUrn, structuredProperties, null, ChangeType.DELETE, "delete-run", null);
+    RecordTemplate siblingAspect = mock(RecordTemplate.class);
+    MCLItem siblingEvent =
+        aspectEvent(sibling, mockAspectSpec, siblingAspect, ChangeType.UPSERT, "sibling-run", null);
+    SearchDocumentTransformer real =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            eq(testUrn),
+            nullable(RecordTemplate.class),
+            eq(structuredProperties),
+            eq(true),
+            any()))
+        .thenAnswer(
+            invocation ->
+                real.transformAspect(
+                    invocation.getArgument(0),
+                    invocation.getArgument(1),
+                    invocation.getArgument(2),
+                    invocation.getArgument(3),
+                    invocation.getArgument(4),
+                    invocation.getArgument(5)));
+    ObjectNode siblingDocument = JsonNodeFactory.instance.objectNode();
+    siblingDocument.put("urn", sibling.toString());
+    siblingDocument.put("name", "sibling");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            eq(sibling),
+            eq(siblingAspect),
+            eq(mockAspectSpec),
+            eq(false),
+            any()))
+        .thenReturn(Optional.of(siblingDocument));
+
+    Map<Urn, List<MCLItem>> batch = new LinkedHashMap<>();
+    batch.put(testUrn, List.of(delete));
+    batch.put(sibling, List.of(siblingEvent));
+    strategy.processBatch(operationContext, batch, false);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService, times(2))
+        .writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    assertEquals(
+        writeCaptor.getAllValues().stream()
+            .map(V3SearchDocumentWrite::urn)
+            .collect(Collectors.toSet()),
+        Set.of(testUrn, sibling));
+    JsonNode deleted =
+        operationContext
+            .getObjectMapper()
+            .readTree(
+                writeCaptor.getAllValues().stream()
+                    .filter(write -> write.urn().equals(testUrn))
+                    .findFirst()
+                    .orElseThrow()
+                    .source());
+    assertEquals(deleted.get("urn").asText(), testUrn.toString());
+  }
+
+  @Test
+  public void testLiveProjectionFailureDoesNotDropSiblingUrns() throws Exception {
+    when(mockEntitySpec.getAspectSpec(DATASET_PROPERTIES_ASPECT_NAME)).thenReturn(mockAspectSpec);
+    Urn sibling = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,SiblingDataset,PROD)");
+    MCLItem failing = aspectEvent(mockAspectSpec, mockAspect, ChangeType.UPSERT, null, null);
+    RecordTemplate siblingAspect = mock(RecordTemplate.class);
+    MCLItem siblingEvent =
+        aspectEvent(sibling, mockAspectSpec, siblingAspect, ChangeType.UPSERT, null, null);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            eq(testUrn),
+            any(),
+            eq(mockAspectSpec),
+            anyBoolean(),
+            any()))
+        .thenThrow(new RuntimeException("Transform aspect error"));
+    ObjectNode siblingDocument = searchDocument("sibling");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            eq(sibling),
+            eq(siblingAspect),
+            eq(mockAspectSpec),
+            eq(false),
+            any()))
+        .thenReturn(Optional.of(siblingDocument));
+
+    Map<Urn, List<MCLItem>> batch = new LinkedHashMap<>();
+    batch.put(testUrn, List.of(failing));
+    batch.put(sibling, List.of(siblingEvent));
+    strategy.processBatch(operationContext, batch, false);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService).writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    assertEquals(writeCaptor.getValue().urn(), sibling);
+  }
+
+  @Test
   public void testDelayedLiveKeyDeleteRemovesWithoutReadingPrimary() throws Exception {
     // A live key DELETE removes immediately. It does not read primary storage, so a recreate
     // that landed after this delete was emitted does not keep the document. The catch-up twin
@@ -3802,6 +3912,28 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testStructuredPropertyDefinitionDeleteSkipsMappingUpdate() throws Exception {
+    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    when(mockEntitySpec.getAspectSpec(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+        .thenReturn(mockAspectSpec);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            nullable(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any()))
+        .thenReturn(Optional.of(mockSearchDocument));
+    MCLItem delete = aspectEvent(mockAspectSpec, null, ChangeType.DELETE, null, null);
+    UpdateIndicesV3Strategy spiedStrategy = spy(strategy);
+
+    spiedStrategy.processBatch(operationContext, Map.of(testUrn, List.of(delete)), true);
+
+    verify(spiedStrategy, never()).updateIndexMappings(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
   public void testGetIndexMappings() {
     // Execute
     Collection<MappingsBuilder.IndexMapping> mappings = strategy.getIndexMappings(operationContext);
@@ -4153,13 +4285,13 @@ public class UpdateIndicesV3StrategyTest {
 
   @Test
   public void testProcessBatch_ExceptionInTransformAspect() throws Exception {
-    // Setup for UPSERT event that will cause an exception during aspect transformation
+    // A live projection failure is not retryable. Skipping the aspect lets the rest of the batch
+    // be written; failing it would drop every later URN, and the listener still commits.
     when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
     when(mockEvent.getAspectName()).thenReturn("datasetProperties");
     when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
     when(mockEntitySpec.getSearchGroup()).thenReturn("dataset");
 
-    RuntimeException transformFailure = new RuntimeException("Transform aspect error");
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
             any(Urn.class),
@@ -4167,17 +4299,13 @@ public class UpdateIndicesV3StrategyTest {
             any(AspectSpec.class),
             anyBoolean(),
             any(AuditStamp.class)))
-        .thenThrow(transformFailure);
+        .thenThrow(new RuntimeException("Transform aspect error"));
 
-    Map<Urn, List<MCLItem>> groupedEvents =
-        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
 
-    RuntimeException thrown =
-        expectThrows(
-            RuntimeException.class,
-            () -> strategy.processBatch(operationContext, groupedEvents, true));
-
-    assertEquals(thrown, transformFailure);
     verify(searchDocumentTransformer, times(1))
         .transformAspect(
             any(OperationContext.class),
@@ -4191,7 +4319,7 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
-  public void testLiveBatchDoesNotDrainWhenProcessingThrows() throws Exception {
+  public void testLiveBatchDoesNotDrainWhenProjectionFails() throws Exception {
     when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
     when(mockEvent.getAspectName()).thenReturn("datasetProperties");
     when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
@@ -4205,14 +4333,13 @@ public class UpdateIndicesV3StrategyTest {
             any(AuditStamp.class)))
         .thenThrow(new RuntimeException("Transform aspect error"));
 
-    expectThrows(
-        RuntimeException.class,
-        () ->
-            strategy.processBatch(
-                operationContext,
-                Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
-                true));
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
 
+    verify(elasticSearchService, never())
+        .writeV3SearchDocument(any(OperationContext.class), any(V3SearchDocumentWrite.class));
     verify(bulkProcessor, never()).flushAndAwait();
   }
 
