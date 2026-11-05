@@ -307,3 +307,35 @@ def test_upstream_skips_calculated_table_dax_partition() -> None:
     assert result.upstreams == []
     assert result.fine_grained == []
     assert extractor.report.tables_without_upstream_lineage == 0
+
+
+def test_upstream_parses_only_m_partitions_of_mixed_table() -> None:
+    # An import table can carry a DAX partition next to its M partitions; only
+    # the M expression may reach the M-Query engine.
+    extractor = _extractor()
+    table = AasTable(
+        name="Sales",
+        partitions=[
+            AasPartition(name="m", query_definition="let Source = 1 in Source"),
+            AasPartition(
+                name="dax",
+                query_definition="SUMMARIZE(Sales, Sales[Region])",
+                partition_type=constants.PartitionType.CALCULATED,
+            ),
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.Sales"
+    )
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_analysis_services.lineage.parser.get_upstream_tables",
+        return_value=[],
+    ) as mocked_parser:
+        extractor.extract_upstream_for_table(table, dataset_urn)
+
+    assert mocked_parser.call_count == 1
+    assert (
+        mocked_parser.call_args.kwargs["table"].expression
+        == "let Source = 1 in Source"
+    )
