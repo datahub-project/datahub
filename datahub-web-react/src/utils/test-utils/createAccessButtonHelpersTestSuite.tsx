@@ -11,7 +11,6 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 // Expected tooltip text. The V1 implementation hardcodes this string; the V2
 // implementation resolves it via i18next, which returns the English value in tests.
 const ACCESS_GRANTED_TOOLTIP_TEXT = 'You already have access to this role';
-const TEST_BUTTON_LABEL = 'Test Button';
 
 /**
  * Shared test suite for AccessButtonHelpers components
@@ -187,25 +186,7 @@ export function createAccessButtonHelpersTestSuite(
             });
         });
 
-        describe('AccessButton styled component', () => {
-            it('should render with correct default styles', () => {
-                const roleData = {
-                    hasAccess: false,
-                    url: 'https://example.com/request',
-                    name: 'Test Role',
-                };
-
-                const result = AccessButtonHelpers.renderAccessButton(roleData);
-                render(<TestWrapper>{result}</TestWrapper>);
-
-                const button = screen.getByRole('button');
-                expect(button).toHaveClass('ant-btn');
-                expect(button).toHaveStyle({
-                    'min-width': '80px',
-                    height: '30px',
-                });
-            });
-
+        describe('access button state', () => {
             it('should have disabled styles when user has access', () => {
                 const roleData = {
                     hasAccess: true,
@@ -221,38 +202,6 @@ export function createAccessButtonHelpersTestSuite(
                 expect(button).toHaveAttribute('aria-label', 'Access already granted');
             });
 
-            it('should render AccessButton component directly', () => {
-                render(
-                    <TestWrapper>
-                        <AccessButtonHelpers.AccessButton disabled>
-                            {TEST_BUTTON_LABEL}
-                        </AccessButtonHelpers.AccessButton>
-                    </TestWrapper>,
-                );
-
-                const button = screen.getByRole('button');
-                expect(button).toBeInTheDocument();
-                expect(button).toBeDisabled();
-                expect(button).toHaveTextContent('Test Button');
-            });
-
-            it('should render AccessButton component in enabled state', () => {
-                const mockClick = vi.fn();
-                render(
-                    <TestWrapper>
-                        <AccessButtonHelpers.AccessButton onClick={mockClick}>
-                            {TEST_BUTTON_LABEL}
-                        </AccessButtonHelpers.AccessButton>
-                    </TestWrapper>,
-                );
-
-                const button = screen.getByRole('button');
-                expect(button).toBeInTheDocument();
-                expect(button).not.toBeDisabled();
-
-                fireEvent.click(button);
-                expect(mockClick).toHaveBeenCalledTimes(1);
-            });
         });
 
         describe('Edge cases and comprehensive coverage', () => {

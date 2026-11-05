@@ -1,15 +1,8 @@
-import { Button } from '@components';
-import { Modal } from 'antd';
+import { Modal } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
 
 import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
-
-const Footer = styled.div`
-    display: flex;
-    justify-content: flex-end;
-`;
 
 type Props = {
     logic: string;
@@ -18,18 +11,14 @@ type Props = {
 };
 
 export const DatasetAssertionLogicModal = ({ logic, visible, onClose }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const { t: tc } = useTranslation('common.actions');
+    if (!visible) return null;
     return (
         <Modal
-            visible={visible}
+            title={t('assertionSummary.detailsLogicTitle')}
             onCancel={onClose}
-            footer={
-                <Footer>
-                    <Button variant="outline" color="gray" onClick={onClose}>
-                        {tc('close')}
-                    </Button>
-                </Footer>
-            }
+            buttons={[{ text: tc('close'), variant: 'outline', color: 'gray', onClick: onClose }]}
         >
             <Query query={logic} />
         </Modal>

@@ -31,9 +31,7 @@ const ChartRow = styled.div`
         box-shadow: none;
         border-radius: 9px;
         border: 1px solid ${(props) => props.theme.colors.border};
-        .ant-card-body {
-            padding: 5px;
-        }
+        padding: 5px;
     }
 `;
 

@@ -1,7 +1,6 @@
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { Typography } from 'antd';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -10,7 +9,7 @@ import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/compo
 import { ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Tooltip } from '@src/alchemy-components';
+import { MatchText, OverflowText, Tooltip } from '@src/alchemy-components';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
 import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
 import ActorPill from '@src/app/sharedV2/owners/ActorPill';
@@ -91,25 +90,13 @@ const ViewerContainer = styled.div`
     max-width: calc(100% - 16px);
 `;
 
-const EntityName = styled(Typography.Text)`
-    overflow: hidden;
+const EntityName = styled(OverflowText)`
     white-space: nowrap;
-    text-overflow: ellipsis;
 `;
 
-const StyledHighlight = styled(Highlight)<{ truncateText?: boolean }>`
+const HighlightedValue = styled.span`
     line-height: 1.5;
     text-wrap: wrap;
-
-    ${(props) =>
-        props.truncateText &&
-        `
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 100%;
-        display: block;
-    `}
 `;
 
 interface Props {
@@ -160,9 +147,7 @@ export default function StructuredPropertyValue({
                     <IconWrapper>
                         <EntityIcon entity={value.entity} size={size} />
                     </IconWrapper>
-                    <EntityName ellipsis={{ tooltip: true }}>
-                        {entityRegistry.getDisplayName(value.entity.type, value.entity)}
-                    </EntityName>
+                    <EntityName text={entityRegistry.getDisplayName(value.entity.type, value.entity)} />
                     <Link to={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
                         <StyledIcon size={12} />
                     </Link>
@@ -204,9 +189,18 @@ export default function StructuredPropertyValue({
                                         {value.value?.toString() || <div style={{ minHeight: 22 }} />}
                                     </Typography.Text>
                                 ) : (
-                                    <StyledHighlight search={filterText} truncateText={truncateText}>
-                                        {value.value?.toString() || <div style={{ minHeight: 22 }} />}
-                                    </StyledHighlight>
+                                    <HighlightedValue>
+                                        {value.value?.toString() ? (
+                                            <MatchText
+                                                type="span"
+                                                size="inherit"
+                                                text={value.value.toString()}
+                                                highlight={filterText || ''}
+                                            />
+                                        ) : (
+                                            <div style={{ minHeight: 22 }} />
+                                        )}
+                                    </HighlightedValue>
                                 )}
                             </>
                         )}

@@ -1,16 +1,15 @@
-import { Button, Text, Tooltip } from '@components';
+import { Button, SimpleSelect, Text, Tooltip } from '@components';
 import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
 import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
-import { Select } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled, { keyframes, useTheme } from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
@@ -76,12 +75,6 @@ const ButtonLabel = styled(Text).attrs({ type: 'span' })`
     word-break: break-word;
 `;
 
-const StyledSelect = styled(Select)`
-    &:hover {
-        background-color: ${(props) => props.theme.colors.bgSurface};
-    }
-`;
-
 const RefreshCacheButton = styled(ToolbarActionButton)``;
 
 interface SchemaFieldEntityData extends GenericEntityProperties {
@@ -99,7 +92,6 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
     const { urn, entityType, entityData } = useEntityData();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
-    const theme = useTheme();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
@@ -130,40 +122,47 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
 
     const directionOptions = [
         {
-            label: (
-                <Tooltip placement="right" title={t('direction.downstreamTooltip', { entityName })} showArrow={false}>
-                    <span data-testid="lineage-tab-direction-select-option-downstream">
-                        <ArrowDown style={{ marginRight: 4 }} />
-                        <b>{t('direction.downstreams')}</b>
-                    </span>
-                </Tooltip>
-            ),
             value: LineageDirection.Downstream,
+            label: t('direction.downstreams'),
+            icon: <ArrowDown />,
+            tooltip: t('direction.downstreamTooltip', { entityName }),
+            testId: 'lineage-tab-direction-select-option-downstream',
         },
         {
-            label: (
-                <Tooltip placement="right" title={t('direction.upstreamTooltip', { entityName })} showArrow={false}>
-                    <span data-testid="lineage-tab-direction-select-option-upstream">
-                        <ArrowUp style={{ marginRight: 4 }} />
-                        <b>{t('direction.upstreams')}</b>
-                    </span>
-                </Tooltip>
-            ),
             value: LineageDirection.Upstream,
+            label: t('direction.upstreams'),
+            icon: <ArrowUp />,
+            tooltip: t('direction.upstreamTooltip', { entityName }),
+            testId: 'lineage-tab-direction-select-option-upstream',
         },
     ];
+    const selectedDirection = directionOptions.find((option) => option.value === lineageDirection);
 
     return (
         <>
             <StyledTabToolbar>
                 <LeftButtonsWrapper>
-                    <StyledSelect
-                        bordered={false}
-                        value={lineageDirection}
+                    <SimpleSelect
+                        dataTestId="lineage-tab-direction-select"
                         options={directionOptions}
-                        onChange={(value) => setLineageDirection(value as LineageDirection)}
-                        suffixIcon={<CaretDown style={{ color: theme.colors.text }} />}
-                        data-testid="lineage-tab-direction-select"
+                        values={[lineageDirection]}
+                        onUpdate={(values) => values[0] && setLineageDirection(values[0] as LineageDirection)}
+                        optionDataTestId={(option) => option.testId}
+                        renderCustomOptionText={(option) => (
+                            <Tooltip placement="right" title={option.tooltip} showArrow={false}>
+                                <span>{option.label}</span>
+                            </Tooltip>
+                        )}
+                        width="fit-content"
+                        renderSelectBase={({ onClick }) => (
+                            <ToolbarActionButton variant="text" onClick={onClick}>
+                                {selectedDirection?.icon}
+                                <ButtonLabel>
+                                    <b>{selectedDirection?.label}</b>
+                                </ButtonLabel>
+                                <StyledCaretDown />
+                            </ToolbarActionButton>
+                        )}
                     />
                 </LeftButtonsWrapper>
                 <RightButtonsWrapper>

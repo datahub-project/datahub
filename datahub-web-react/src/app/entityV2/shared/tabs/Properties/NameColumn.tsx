@@ -1,6 +1,5 @@
-import { Text, Tooltip } from '@components';
+import { MatchText, Text, Tooltip } from '@components';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import styled, { useTheme } from 'styled-components';
 
 import StructuredPropertyTooltip from '@app/entityV2/shared/tabs/Properties/StructuredPropertyTooltip';
@@ -62,7 +61,7 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
             {propertyRow.children ? (
                 <NameLabelWrapper>
                     <ParentNameText>
-                        <Highlight search={filterText}>{propertyRow.displayName}</Highlight>
+                        <MatchText type="span" size="inherit" text={propertyRow.displayName} highlight={filterText || ''} />
                     </ParentNameText>
                     {propertyRow.childrenCount ? (
                         <ChildCountText>&nbsp;({propertyRow.childrenCount})</ChildCountText>
@@ -79,7 +78,7 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
                         title={structuredProperty ? <StructuredPropertyTooltip propertyRow={propertyRow} /> : ''}
                     >
                         <ChildNameText>
-                            <Highlight search={filterText}>{propertyRow.displayName}</Highlight>
+                            <MatchText type="span" size="inherit" text={propertyRow.displayName} highlight={filterText || ''} />
                         </ChildNameText>
                     </Tooltip>
                 </NameLabelWrapper>

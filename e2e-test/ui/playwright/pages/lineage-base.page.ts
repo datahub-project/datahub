@@ -65,7 +65,6 @@ export class LineageBasePage extends BasePage {
   readonly lineageTabDirectionSelect: Locator;
   readonly lineageTabDownstreamOption: Locator;
   readonly lineageTabUpstreamOption: Locator;
-  readonly columnDropdownVirtualList: Locator;
   readonly resultTextLink: Locator;
   readonly lineageFiltersPanel: Locator;
   readonly lineageSidebar: Locator;
@@ -96,8 +95,6 @@ export class LineageBasePage extends BasePage {
     this.lineageTabDirectionSelect = page.getByTestId('lineage-tab-direction-select');
     this.lineageTabDownstreamOption = page.getByTestId('lineage-tab-direction-select-option-downstream');
     this.lineageTabUpstreamOption = page.getByTestId('lineage-tab-direction-select-option-upstream');
-    // eslint-disable-next-line playwright/no-raw-locators -- rc-virtual-list internal class; no data-testid or ARIA role
-    this.columnDropdownVirtualList = page.locator('.rc-virtual-list');
     // eslint-disable-next-line playwright/no-raw-locators -- CSS class substring match for generated class name; no data-testid on ResultText
     this.resultTextLink = page.locator('.ant-list-items [class*="ResultText"]').first();
     this.lineageFiltersPanel = page.getByTestId('lineage-filters-panel');
@@ -525,8 +522,8 @@ export class LineageBasePage extends BasePage {
 
   /** Open the column selector dropdown and pick a column by name. */
   async selectColumnFromDropdown(columnName: string): Promise<void> {
-    await this.page.getByText('Select column').click({ force: true });
-    await this.columnDropdownVirtualList.getByText(columnName, { exact: true }).click();
+    await this.page.getByTestId('column-selector-dropdown').click();
+    await this.page.getByTestId(`column-option-${columnName}`).click();
   }
 
   /**

@@ -1,5 +1,4 @@
 import { Text } from '@components';
-import { Card } from 'antd';
 import React, { useMemo } from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -22,7 +21,11 @@ const ChartTitle = styled(Text).attrs({ type: 'span' })`
  * Exported this styled card to enable width adjustment for better fit within the sidebar also for boxShadow.
  * This approach allows style updates without the need for unnecessary props.
  */
-export const ChartCard = styled(Card)<{ visible: boolean }>`
+export const ChartCard = styled.div<{ visible: boolean }>`
+    padding: 24px;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 8px;
+    background-color: ${(props) => props.theme.colors.bg};
     box-shadow: ${(props) => props.theme.colors.shadowSm};
     visibility: ${(props) => (props.visible ? 'visible' : 'hidden')};
 `;
