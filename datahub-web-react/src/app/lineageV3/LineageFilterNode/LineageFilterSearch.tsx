@@ -8,9 +8,9 @@ import { usePrevious } from 'react-js-cron/dist/cjs/utils';
 import { useDebounce } from 'react-use';
 import styled, { keyframes } from 'styled-components';
 
+import { TRANSFORMATION_PLATFORM_URNS } from '@app/entityV2/shared/transformationPlatforms';
 import computeOrFilters from '@app/lineageV3/LineageFilterNode/computeOrFilters';
 import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
-import { TRANSFORMATION_PLATFORM_URNS } from '@app/lineageV3/transformationPlatforms';
 import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 
