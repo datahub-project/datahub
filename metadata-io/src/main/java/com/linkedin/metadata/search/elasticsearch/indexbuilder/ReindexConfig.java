@@ -283,8 +283,10 @@ public class ReindexConfig {
 
   /**
    * Fields present in both current and target structured-property mappings with the same {@code
-   * type} whose {@code ignore_above}, or whose subfields other than {@code text} and {@code
-   * stemmed}, differ: for example after the keyword length limit changes.
+   * type} whose {@code ignore_above} differs, or whose subfields other than {@code text} and {@code
+   * stemmed} differ in name, {@code type} or {@code ignore_above}: for example after the keyword
+   * length limit changes. Other parameters are not compared, so how an engine reports a mapping
+   * cannot make every run log a difference.
    */
   static Set<String> structuredPropertyParameterDifferences(
       Map<String, Object> current, Map<String, Object> target) {
@@ -302,8 +304,8 @@ public class ReindexConfig {
               }
               Object currentIgnoreAbove = ignoreAbove(currentMapping);
               Object targetIgnoreAbove = ignoreAbove(targetMapping);
-              Set<String> currentSubfields = otherSubfields(currentMapping);
-              Set<String> targetSubfields = otherSubfields(targetMapping);
+              Map<String, String> currentSubfields = otherSubfields(currentMapping);
+              Map<String, String> targetSubfields = otherSubfields(targetMapping);
               if (!Objects.equals(currentIgnoreAbove, targetIgnoreAbove)
                   || !currentSubfields.equals(targetSubfields)) {
                 differences.add(
@@ -328,15 +330,26 @@ public class ReindexConfig {
         : null;
   }
 
-  /** Keys under a field's {@code fields} map other than {@code text} and {@code stemmed}. */
-  private static Set<String> otherSubfields(Object mapping) {
+  /**
+   * The subfields under a field's {@code fields} map other than {@code text} and {@code stemmed},
+   * each with its {@code type} and {@code ignore_above}.
+   */
+  private static Map<String, String> otherSubfields(Object mapping) {
     if (!(mapping instanceof Map<?, ?> fieldMapping)
         || !(fieldMapping.get("fields") instanceof Map<?, ?> fieldsMap)) {
-      return Set.of();
+      return Map.of();
     }
-    Set<String> subfields = new TreeSet<>();
-    fieldsMap.keySet().forEach(key -> subfields.add(String.valueOf(key)));
-    subfields.removeAll(Set.of("text", "stemmed"));
+    Map<String, String> subfields = new TreeMap<>();
+    fieldsMap.forEach(
+        (name, subfieldMapping) -> {
+          if (!"text".equals(name) && !"stemmed".equals(name)) {
+            String ignoreAbove = ignoreAbove(subfieldMapping);
+            subfields.put(
+                String.valueOf(name),
+                CalculatedBuilder.extractMappingType(subfieldMapping)
+                    + (ignoreAbove == null ? "" : " ignore_above=" + ignoreAbove));
+          }
+        });
     return subfields;
   }
 
