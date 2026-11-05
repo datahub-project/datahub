@@ -16,6 +16,24 @@ function renderVideo(props: Partial<React.ComponentProps<typeof LoadedVideo>> = 
 }
 
 describe('LoadedVideo', () => {
+    it('hides the video behind the spinner until data loads', () => {
+        const { container } = renderVideo();
+        const video = container.querySelector('video') as HTMLVideoElement;
+
+        expect(video).not.toBeVisible();
+
+        fireEvent.loadedData(video);
+
+        expect(video).toBeVisible();
+    });
+
+    it('shows the poster while loading instead of the spinner', () => {
+        const { container } = renderVideo({ posterSrc: '/poster.png' });
+
+        expect(container.querySelector('video')).toBeVisible();
+        expect(container.querySelector('.ant-spin')).toBeNull();
+    });
+
     it('shows the error state when the only source fails to load', () => {
         const onVideoError = vi.fn();
         const { container } = renderVideo({ onVideoError });

@@ -3,7 +3,7 @@ import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Star } from '@phosphor-icons/react/dist/csr/Star';
 import type { Meta, StoryObj } from '@storybook/react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { Select, selectDefaults } from '@components/components/Select/Select';
@@ -250,6 +250,7 @@ const sizeOptions: SelectSizeOptions[] = ['sm', 'md', 'lg'];
 // Select resets its selection to `values` on every change, so keep the selection in local state.
 const ControlledSelect = ({ values: initialValues, onUpdate, ...props }: SelectProps) => {
     const [values, setValues] = useState(initialValues ?? []);
+    useEffect(() => setValues(initialValues ?? []), [initialValues]);
     return (
         <Select
             {...props}

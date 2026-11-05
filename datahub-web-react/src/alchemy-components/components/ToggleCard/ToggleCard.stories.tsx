@@ -1,7 +1,7 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Text } from '@components/components/Text';
 import { ToggleCard } from '@components/components/ToggleCard';
@@ -62,6 +62,7 @@ type Story = StoryObj<typeof meta>;
 // ToggleCard is controlled, so the stories keep the switch value in local state.
 const ControlledToggleCard = ({ value, onToggle, ...props }: ToggleCardProps) => {
     const [checked, setChecked] = useState(value);
+    useEffect(() => setChecked(value), [value]);
     return (
         <div style={{ width: 400 }}>
             <ToggleCard

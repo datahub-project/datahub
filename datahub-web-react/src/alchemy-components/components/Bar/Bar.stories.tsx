@@ -19,7 +19,7 @@ const meta: Meta<typeof Bar> = {
     // Component-level argTypes
     argTypes: {
         color: {
-            description: 'Color of the filled bars.',
+            description: 'Color of the filled bars. The stories pass a sample hex value.',
             control: 'color',
             table: {
                 defaultValue: { summary: 'theme.colors.chartsBrandMedium' },

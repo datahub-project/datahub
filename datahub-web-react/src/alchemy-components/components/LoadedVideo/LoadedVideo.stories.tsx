@@ -174,6 +174,8 @@ export const WithPoster: Story = {
 };
 
 export const LoadingState: Story = {
+    // NeverLoadingVideo supplies its own source, so the mp4Src control has no effect here.
+    argTypes: { mp4Src: { control: false } },
     args: {
         mp4Src: SAMPLE_VIDEO_URL,
         width: '400px',

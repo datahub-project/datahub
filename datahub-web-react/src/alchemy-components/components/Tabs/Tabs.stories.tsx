@@ -147,7 +147,7 @@ export const sandbox: Story = {
 // Keeps the URL in local state so the demo doesn't rewrite the Storybook iframe URL.
 const UrlAwareTabsDemo = () => {
     const [selectedTab, setSelectedTab] = React.useState('overview');
-    const [currentUrl, setCurrentUrl] = React.useState('/overview');
+    const [currentUrl, setCurrentUrl] = React.useState(urlMap.overview);
 
     return (
         <div style={{ width: 225 }}>

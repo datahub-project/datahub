@@ -3,7 +3,7 @@ import { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
 import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import type { Meta, StoryObj } from '@storybook/react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { Input, inputDefaults } from '@components/components/Input/Input';
@@ -166,6 +166,7 @@ type Story = StoryObj<typeof meta>;
 // Input is controlled, so the sandbox keeps the typed value in local state.
 function ControlledInput({ value, setValue, ...props }: InputProps) {
     const [inputValue, setInputValue] = useState(value ?? '');
+    useEffect(() => setInputValue(value ?? ''), [value]);
     return (
         <Input
             {...props}

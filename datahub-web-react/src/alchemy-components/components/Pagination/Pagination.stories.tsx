@@ -1,6 +1,6 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Pagination } from '@components/components/Pagination/Pagination';
 import { PaginationProps, paginationDefaults } from '@components/components/Pagination/types';
@@ -82,6 +82,8 @@ type Story = StoryObj<typeof meta>;
 const PaginationWithState = (args: PaginationProps) => {
     const [page, setPage] = useState(args.currentPage);
     const [pageSize, setPageSize] = useState(args.itemsPerPage);
+    useEffect(() => setPage(args.currentPage), [args.currentPage]);
+    useEffect(() => setPageSize(args.itemsPerPage), [args.itemsPerPage]);
     return (
         <Pagination
             {...args}

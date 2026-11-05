@@ -23,13 +23,29 @@ import { ColorTokenTable } from './mdx-components';
     `;
     ```
 
-    In a component body, use the `useTheme` hook:
+    Alchemy components such as `Icon` and `Text` take the token name directly:
+
+    ```tsx
+    import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+
+    import { Icon } from '@components';
+
+    <Icon icon={Warning} color="iconWarning" />;
+    ```
+
+    Elsewhere in a component body, use the `useTheme` hook:
 
     ```tsx
     import { useTheme } from 'styled-components';
 
-    const theme = useTheme();
-    <Icon icon={Warning} color={theme.colors.iconWarning} />;
+    function StatusDot() {
+        const theme = useTheme();
+        return (
+            <svg width={8} height={8}>
+                <circle cx={4} cy={4} r={4} fill={theme.colors.iconWarning} />
+            </svg>
+        );
+    }
     ```
 
     Don't hardcode hex values or import the raw palette (`colors.gray[500]`) for styling: those don't change with the theme. The palette on the [Style Guide](/?path=/docs/style-guide--docs) page is what the tokens are built from, not something to style with directly.

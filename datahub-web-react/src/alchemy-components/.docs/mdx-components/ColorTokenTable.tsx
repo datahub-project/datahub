@@ -5,9 +5,14 @@ import themes from '@conf/theme/themes';
 
 import { CopyButton } from './CopyButton';
 
-// The theme also carries palette arrays (glossaryPalette, domainPalette); only single colors are tokens.
+// The theme also carries palette arrays (glossaryPalette, domainPalette) and shadow and gradient
+// strings; only single color values are listed.
+const SINGLE_COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([^()]*\)|transparent)$/i;
+
 function colorTokens(colors: object): Record<string, string> {
-    return Object.fromEntries(Object.entries(colors).filter(([, value]) => typeof value === 'string'));
+    return Object.fromEntries(
+        Object.entries(colors).filter(([, value]) => typeof value === 'string' && SINGLE_COLOR.test(value.trim())),
+    );
 }
 
 const LIGHT_COLORS = colorTokens(themes.themeV2.colors);
@@ -48,6 +53,14 @@ const Search = styled.input`
     width: 100%;
     padding: 0.5rem;
     margin-bottom: 0.5rem;
+    background: ${(props) => props.theme.colors.bgInput};
+    color: ${(props) => props.theme.colors.text};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 4px;
+
+    &::placeholder {
+        color: ${(props) => props.theme.colors.textTertiary};
+    }
 `;
 
 function ColorValue({ color }: { color?: string }) {
@@ -68,6 +81,7 @@ export const ColorTokenTable = () => {
         <>
             <Search
                 type="search"
+                aria-label="Filter color tokens"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Filter tokens, e.g. text, bgSurface, icon…"

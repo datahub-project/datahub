@@ -21,12 +21,15 @@ export const IconGalleryWithSearch = ({ icons }: Props) => {
     const [iconModule, setIconModule] = useState<IconModule | null>(null);
     const [search, setSearch] = useState('');
     const [weight, setWeight] = useState<PhosphorIconWeight>('regular');
+    const [loadFailed, setLoadFailed] = useState(false);
 
     useEffect(() => {
-        // The gallery is the one place that needs every icon, so it loads the whole set in a
-        // single async chunk rather than the per-icon CSR imports the app uses.
+        // The gallery needs every icon, so like the app's IconPicker it loads the whole set in one
+        // async chunk rather than using per-icon CSR imports.
         // eslint-disable-next-line rulesdir/no-phosphor-generic-imports
-        import('@phosphor-icons/react').then((mod) => setIconModule(mod as IconModule));
+        import('@phosphor-icons/react')
+            .then((mod) => setIconModule(mod as IconModule))
+            .catch(() => setLoadFailed(true));
     }, []);
 
     const filteredIcons = icons.filter((icon) => icon.toLowerCase().includes(search.toLowerCase()));
@@ -50,9 +53,9 @@ export const IconGalleryWithSearch = ({ icons }: Props) => {
                     Weight: {weight}
                 </Button>
             </div>
-            {!iconModule ? (
-                <p>Loading icons…</p>
-            ) : (
+            {loadFailed && <p>Icons failed to load. Reload the page to try again.</p>}
+            {!loadFailed && !iconModule && <p>Loading icons…</p>}
+            {iconModule && (
                 <IconGrid>
                     {filteredIcons.map((name) => {
                         const component = iconModule[name];

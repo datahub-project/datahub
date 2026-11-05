@@ -43,6 +43,17 @@ describe('RadioGroup', () => {
         expect(screen.getByLabelText('First')).not.toBeChecked();
         expect(setIsChecked).toHaveBeenCalledWith(true);
     });
+
+    it('selects radios that have no label', () => {
+        renderWithTheme(<RadioGroup radios={[{}, {}]} />);
+        const [first, second] = screen.getAllByRole('radio');
+
+        fireEvent.click(first);
+        fireEvent.click(second);
+
+        expect(first).not.toBeChecked();
+        expect(second).toBeChecked();
+    });
 });
 
 describe('Radio', () => {

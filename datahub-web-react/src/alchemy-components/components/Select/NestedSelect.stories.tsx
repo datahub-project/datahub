@@ -102,7 +102,8 @@ type Story = StoryObj<typeof meta>;
 
 export const sandbox: Story = {
     tags: ['dev'],
-    render: (args) => <NestedSelect {...args} />,
+    // Without this, NestedSelect reads `initialValues` only on mount, so the control would do nothing.
+    render: (args) => <NestedSelect {...args} shouldAlwaysSyncParentValues />,
 };
 
 export const singleSelect: Story = {
