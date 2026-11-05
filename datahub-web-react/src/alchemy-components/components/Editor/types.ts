@@ -54,4 +54,9 @@ export type EditorProps = {
     hideToolbar?: boolean;
     /** Enable compact mode with smaller min-height and adjusted padding */
     compact?: boolean;
+    /**
+     * Replaces the default @-mentions dropdown. Rendered inside the Remirror context, so it can
+     * drive the `datahubMention` autocomplete itself.
+     */
+    mentionsComponent?: React.ReactNode;
 };

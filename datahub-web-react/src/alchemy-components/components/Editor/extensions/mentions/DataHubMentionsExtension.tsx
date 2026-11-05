@@ -17,9 +17,12 @@ import { NodeViewComponentProps } from '@remirror/react';
 import autocomplete, {
     ActiveAutocompleteState,
     AutocompleteAction,
+    AutocompleteState,
+    KEEP_OPEN,
     pluginKey as acPluginKey,
 } from 'prosemirror-autocomplete';
-import type { Plugin } from 'prosemirror-state';
+import { Plugin, PluginKey } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import React, { ComponentType } from 'react';
 
 import { MentionsNodeView } from '@components/components/Editor/extensions/mentions/MentionsNodeView';
@@ -33,7 +36,13 @@ type DataHubAtomNodeAttributes = ProsemirrorAttributes & {
 };
 
 interface DataHubMentionsOptions {
-    handleEvents?: Handler<(action: AutocompleteAction) => boolean>;
+    /** Return `KEEP_OPEN` from an `enter` action to consume the key without closing the menu. */
+    handleEvents?: Handler<(action: AutocompleteAction) => boolean | typeof KEEP_OPEN>;
+    /**
+     * Sees key presses while an @-mention is being typed, before the autocomplete plugin does, e.g.
+     * to repurpose Backspace on an empty query. Return true to consume the key.
+     */
+    handleKeyDown?: Handler<(event: KeyboardEvent, state: ActiveAutocompleteState) => boolean>;
 }
 
 /**
@@ -55,13 +64,27 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
     }
 
     /**
-     * Add the 'prosemirror-autocomplete' plugin to the editor.
+     * Add the 'prosemirror-autocomplete' plugin to the editor, preceded by a key handler: ProseMirror
+     * asks plugins in order, so `handleKeyDown` sees keys before the autocomplete plugin does.
      */
     createExternalPlugins(): Plugin[] {
-        return autocomplete({
-            triggers: [{ name: 'mention', trigger: '@', cancelOnFirstSpace: false }],
-            reducer: (action) => this.options.handleEvents?.(action) || false,
+        const keyHandler = new Plugin({
+            key: new PluginKey('datahubMentionKeys'),
+            props: {
+                handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
+                    const autocompleteState: AutocompleteState | undefined = acPluginKey.getState(view.state);
+                    if (!autocompleteState?.active) return false;
+                    return this.options.handleKeyDown?.(event, autocompleteState) || false;
+                },
+            },
         });
+        return [
+            keyHandler,
+            ...autocomplete({
+                triggers: [{ name: 'mention', trigger: '@', cancelOnFirstSpace: false }],
+                reducer: (action) => this.options.handleEvents?.(action) || false,
+            }),
+        ];
     }
 
     createNodeSpec(extra: ApplySchemaAttributes, override: Partial<NodeSpecOverride>): NodeExtensionSpec {
@@ -86,7 +109,8 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
                         }
 
                         const urn = node.getAttribute(DATAHUB_MENTION_ATTRS.urn);
-                        const name = node.textContent?.replace(/^@/, '') || urn;
+                        const nameAttr = node.getAttribute(DATAHUB_MENTION_ATTRS.name);
+                        const name = nameAttr || node.textContent?.replace(/^@/, '') || urn;
 
                         return { ...extra.parse(node), urn, name };
                     },
@@ -100,6 +124,7 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
                     ...extra.dom(node),
                     class: 'mentions',
                     [DATAHUB_MENTION_ATTRS.urn]: urn,
+                    [DATAHUB_MENTION_ATTRS.name]: name,
                 };
 
                 return ['span', attrs, `@${name}`];
@@ -142,7 +167,7 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
 const decoratedExt = extension<DataHubMentionsOptions>({
     defaultOptions: {},
     staticKeys: [],
-    handlerKeys: ['handleEvents'],
+    handlerKeys: ['handleEvents', 'handleKeyDown'],
     customHandlerKeys: [],
 })(DataHubMentionsExtension);
 export { decoratedExt as DataHubMentionsExtension };

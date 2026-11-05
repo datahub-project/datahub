@@ -1,55 +1,46 @@
 import { NodeViewComponentProps } from '@remirror/react';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
-import { IconStyleType } from '@src/app/entityV2/Entity';
+import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntityMentionNodeQuery } from '@src/graphql/search.generated';
+import type { Entity } from '@src/types.generated';
 
-const InvalidEntityText = styled.span`
-    font-weight: 500;
-    color: ${(props) => props.theme.colors.textDisabled};
-`;
+/** Matches Avatar `sm` / mention chip icon slot. */
+const INLINE_ICON_SIZE = 18;
 
-const EntityName = styled.span`
-    font-weight: 400;
-    margin-left: 4px;
-    word-break: break-all;
-    color: ${(props) => props.theme.colors.textSecondary};
-`;
-
-const Container = styled.span`
+const ChipWrap = styled.span`
     display: inline-flex;
-    align-items: baseline;
-    vertical-align: baseline;
-    color: ${(props) => props.theme.colors.icon};
-    padding: 0 4px;
-    border-radius: 4px;
-    cursor: pointer;
-
-    &:hover {
-        background-color: ${(props) => props.theme.colors.bgHover};
-    }
+    max-width: 100%;
+    vertical-align: middle;
+    margin: 0 1px;
 `;
 
-const IconWrapper = styled.span`
+const IconSlot = styled.span`
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 14px;
-    height: 14px;
+    width: ${INLINE_ICON_SIZE}px;
+    height: ${INLINE_ICON_SIZE}px;
     flex-shrink: 0;
-    position: relative;
-    top: 2px;
+    line-height: 0;
 
-    svg {
-        display: block;
+    & .ant-image {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        width: ${INLINE_ICON_SIZE}px !important;
+        height: ${INLINE_ICON_SIZE}px !important;
+        margin: 0 !important;
     }
 
+    svg,
     img {
         display: block;
         max-width: 100%;
@@ -57,6 +48,15 @@ const IconWrapper = styled.span`
     }
 `;
 
+const InvalidEntityText = styled.span`
+    font-weight: 500;
+    color: ${(props) => props.theme.colors.textDisabled};
+`;
+
+/**
+ * Renders a datahubMention chip in the editor via alchemy {@link Pill} (`squareFilled`)
+ * and the same {@link EntityIcon} treatment as the @-mention picker.
+ */
 export const MentionsNodeView = ({ node }: NodeViewComponentProps) => {
     const { t } = useTranslation('alchemy');
     const { urn, name } = node.attrs;
@@ -67,8 +67,17 @@ export const MentionsNodeView = ({ node }: NodeViewComponentProps) => {
         fetchPolicy: 'cache-first',
     });
 
+    const renderIcon = useCallback(
+        (entity: Entity): React.ReactNode => (
+            <IconSlot aria-hidden>
+                <EntityIcon entity={entity} size={INLINE_ICON_SIZE} />
+            </IconSlot>
+        ),
+        [],
+    );
+
     if (loading) {
-        return <EntityName>{name}</EntityName>;
+        return <span>{name}</span>;
     }
 
     if (!data || !data.entity) {
@@ -79,16 +88,21 @@ export const MentionsNodeView = ({ node }: NodeViewComponentProps) => {
         );
     }
 
-    const { entity } = data;
+    const entity = data.entity as Entity;
     const displayName = registry.getDisplayName(entity.type, entity);
-    const icon = registry.getIcon(entity.type, 14, IconStyleType.ACCENT);
 
     return (
         <HoverEntityTooltip entity={entity}>
-            <Container>
-                <IconWrapper>{icon}</IconWrapper>
-                <EntityName>{displayName}</EntityName>
-            </Container>
+            <ChipWrap>
+                <Pill
+                    label={displayName}
+                    color="gray"
+                    size="sm"
+                    variant="squareFilled"
+                    clickable={false}
+                    customIconRenderer={() => renderIcon(entity)}
+                />
+            </ChipWrap>
         </HoverEntityTooltip>
     );
 };
