@@ -333,7 +333,9 @@ class QlikOnPremAPI:
             websocket_connection = self._open_engine(app.id)
             websocket_connection.websocket_send_request(
                 method="OpenDoc",
-                params={"qDocName": app.id},
+                # Only metadata is read, and loading each app's data into the
+                # Engine takes minutes per app on large sites.
+                params={"qDocName": app.id, "qNoData": True},
             )
             app.sheets = self._get_app_sheets(websocket_connection, app.id)
             try:
