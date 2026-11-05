@@ -51,7 +51,11 @@ SNS topics are ingested by the separate `sns` source. Run both with the same `en
     {
       "Sid": "EventBridgeList",
       "Effect": "Allow",
-      "Action": ["events:ListEventBuses", "events:ListRules", "pipes:ListPipes"],
+      "Action": [
+        "events:ListEventBuses",
+        "events:ListRules",
+        "pipes:ListPipes"
+      ],
       "Resource": "*"
     },
     {

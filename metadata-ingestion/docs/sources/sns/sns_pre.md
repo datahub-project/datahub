@@ -60,7 +60,11 @@ SQS queues are ingested by the separate `sqs` source. Topic-to-queue lineage is 
     {
       "Sid": "EventBridgeList",
       "Effect": "Allow",
-      "Action": ["events:ListEventBuses", "events:ListRules", "pipes:ListPipes"],
+      "Action": [
+        "events:ListEventBuses",
+        "events:ListRules",
+        "pipes:ListPipes"
+      ],
       "Resource": "*"
     },
     {

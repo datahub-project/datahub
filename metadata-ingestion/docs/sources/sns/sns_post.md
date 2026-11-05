@@ -47,12 +47,12 @@ Field edges are retracted along with table-level ones (`remove_stale_lineage`): 
 
 With the `lineage` options on (the default), the connector follows the services around its topics:
 
-| Edge                       | Read from                                                                                                                                |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Topic to Lambda function   | SNS subscription, protocol `lambda`                                                                                                      |
-| Lambda function to topic   | event source mapping `OnFailure` destination; asynchronous invocation destinations (`lineage.lambda_async_destinations`, off by default) |
+| Edge                                                   | Read from                                                                                                                                |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Topic to Lambda function                               | SNS subscription, protocol `lambda`                                                                                                      |
+| Lambda function to topic                               | event source mapping `OnFailure` destination; asynchronous invocation destinations (`lineage.lambda_async_destinations`, off by default) |
 | Event bus (none for a scheduled rule) to rule to topic | `events:ListRules`, `events:ListTargetsByRule`                                                                                           |
-| Pipe from or to a topic    | `pipes:ListPipes`                                                                                                                        |
+| Pipe from or to a topic                                | `pipes:ListPipes`                                                                                                                        |
 
 - A Lambda function is a DataFlow (platform `lambda`) with one `invoke` DataJob, the shape the `kinesis` source uses for Firehose. Functions appear only when one of these edges involves one of the run's topics, and only for the recipe's own account and region.
 - A rule (platform `eventbridge`) is a DataFlow with one `route` DataJob from its event bus, emitted as an `Event Bus` dataset, to its targets. A scheduled rule has no event bus input, so its job has outputs only. A pipe (platform `eventbridge-pipes`) is a DataFlow with one `pipe` DataJob from source to target. A rule or pipe that targets a function becomes an upstream job of that function.
