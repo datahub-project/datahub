@@ -12,9 +12,9 @@ import SelectActionButtons from '@components/components/Select/private/SelectAct
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import { SelectOption, SelectSizeOptions } from '@components/components/Select/types';
 
-import { extractTypeFromUrn } from '@app/entity/shared/utils';
 import { EntitySearchDropdown } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchDropdown';
 import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/shared/EntitySearchSelect/utils';
+import { extractTypeFromUrn } from '@app/entityV2/shared/utils';
 import { buildEntityCache, isEntityResolutionRequired } from '@app/entityV2/shared/utils/selectorUtils';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { getUserFilters } from '@app/sharedV2/userSearchUtils';

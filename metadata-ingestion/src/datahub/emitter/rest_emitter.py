@@ -311,7 +311,7 @@ class RequestsSessionConfig(ConfigModel):
 
     tcp_keepalive: bool = _DEFAULT_TCP_KEEPALIVE
 
-    def build_session(self) -> requests.Session:
+    def build_session(self, *, retry: Optional[Retry] = None) -> requests.Session:
         session = requests.Session()
 
         user_agent = self._get_user_agent_string(session)
@@ -376,7 +376,7 @@ class RequestsSessionConfig(ConfigModel):
         adapter = adapter_cls(
             pool_connections=self.pool_connections,
             pool_maxsize=self.pool_maxsize,
-            max_retries=retry_strategy,
+            max_retries=retry if retry is not None else retry_strategy,
         )
         session.mount("http://", adapter)
         session.mount("https://", adapter)
@@ -652,6 +652,13 @@ class DataHubRestEmitter(Closeable, Emitter):
         built from copied headers.
         """
         return self._session
+
+    def create_session(self, *, retry: Optional[Retry] = None) -> requests.Session:
+        """Create an owned transport with this client's settings and live auth hook."""
+        session = self._session_config.build_session(retry=retry)
+        session.headers.update(self.session.headers)
+        session.auth = self.session.auth
+        return session
 
     @property
     def server_config(self) -> RestServiceConfig:

@@ -35,6 +35,8 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuil
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -54,6 +56,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.opensearch.common.settings.Settings;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -67,6 +70,16 @@ public class MultiEntityMappingsBuilderTest {
   private EntitySpec mockEntitySpec;
 
   @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
+
+  @BeforeMethod
   public void setUp() throws IOException {
     // Setup mock configuration
     mockConfig = mock(EntityIndexConfiguration.class);
@@ -77,6 +90,7 @@ public class MultiEntityMappingsBuilderTest {
 
     // Setup mock entity registry and specs
     mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.findEntitySpec(any())).thenCallRealMethod();
     mockEntitySpec = createMockEntitySpec();
     stubEntitySpecs(mockEntitySpec);
 
@@ -836,8 +850,11 @@ public class MultiEntityMappingsBuilderTest {
                 .get("schemaFieldKey");
     Map<String, Object> schemaFieldKeyFields =
         (Map<String, Object>) schemaFieldKey.get("properties");
-    assertFalse(
-        schemaFieldKeyFields.containsKey("parent__urn_name"), schemaFieldKeyFields.toString());
+    Map<String, Object> schemaFieldParentName =
+        (Map<String, Object>) schemaFieldKeyFields.get("parent__urn_name");
+    assertEquals(
+        schemaFieldParentName.get("copy_to"), List.of("parent"), schemaFieldParentName.toString());
+    assertEquals(schemaFieldParentName.get("normalizer"), "keyword_normalizer");
     assertFalse(schemaFieldKeyFields.containsKey("urnName"), schemaFieldKeyFields.toString());
     Map<String, Object> schemaFieldParent =
         getAspectFieldMapping(
@@ -1416,6 +1433,26 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   @Test
+  public void testNewStructuredPropertySkipsEntityTypesUnknownToRegistry() {
+    // A property listing an entity type only a newer version registered (edited after a rollback)
+    // still gets its mapping update for the known types instead of failing as a whole.
+    when(mockEntityRegistry.getEntitySpec("entityFromNewerBuild"))
+        .thenThrow(new IllegalArgumentException("Failed to find entity with name"));
+    StructuredPropertyDefinition property = createMockStructuredProperty();
+    when(property.getEntityTypes())
+        .thenReturn(
+            new UrnArray(
+                UrnUtils.getUrn("urn:li:entityType:datahub.entityFromNewerBuild"),
+                UrnUtils.getUrn("urn:li:entityType:datahub.testEntity")));
+
+    Collection<IndexMapping> mappings =
+        mappingsBuilder.getIndexMappingsWithNewStructuredProperty(
+            operationContext, UrnUtils.getUrn("urn:li:structuredProperty:test:property"), property);
+
+    assertFalse(mappings.isEmpty(), "Known entity types still get the mapping update");
+  }
+
+  @Test
   public void testConflictResolutionBetweenEntities() {
     // Setup: Two entities with conflicting field names
     EntitySpec entitySpec1 = createMockEntitySpec("entity1", "conflictingField");
@@ -1920,22 +1957,26 @@ public class MultiEntityMappingsBuilderTest {
     assertTrue(resolver.falseIsMissing("hasParentNode"));
     assertTrue(resolver.contains("hasParentDomain"));
     assertNotNull(dataProductName);
-    assertEquals(dataProductName.get("copy_to"), List.of("other"), dataProductName.toString());
+    assertEquals(dataProductName.get("copy_to"), List.of("parent"), dataProductName.toString());
     assertNotNull(dataProductProperties);
     assertFalse(
         dataProductProperties.containsKey("parentDataProduct"), dataProductProperties.toString());
     assertEquals(
-        ((Map<String, Object>) dataProductProperties.get("parentDataProduct_urn")).get("type"),
-        "keyword");
-    assertNull(dataProductBoolean);
-    assertFalse(dataProductProperties.containsKey("hasParentDataProduct"));
+        ((Map<String, Object>) dataProductProperties.get("parent_urn")).get("type"), "keyword");
+    assertNotNull(dataProductBoolean);
+    assertEquals(dataProductBoolean.get("type"), "boolean");
+    assertEquals(dataProductBoolean.get("copy_to"), List.of("hasParentDataProduct", "hasParent"));
     assertEquals(
-        resolver.exactPath("parentDataProduct", SearchFieldResolver.Intent.EXACT),
-        "parentDataProduct_urn");
-    assertEquals(resolver.hasValuesFieldName("parentDataProduct"), Optional.empty());
+        ((Map<String, Object>) dataProductProperties.get("hasParentDataProduct")).get("type"),
+        "boolean");
     assertEquals(
-        resolver.unlabeledHasValuesSource("hasParentDataProduct"),
-        Optional.of("parentDataProduct"));
+        resolver.exactPath("parentDataProduct", SearchFieldResolver.Intent.EXACT), "parent_urn");
+    assertEquals(
+        resolver.exactPath("hasParentDataProduct", SearchFieldResolver.Intent.FILTER),
+        "hasParentDataProduct");
+    assertTrue(resolver.falseIsMissing("hasParentDataProduct"));
+    assertEquals(resolver.unlabeledHasValuesSource("hasParentDataProduct"), Optional.empty());
+    assertEquals(resolver.hasValuesFieldName("parent"), Optional.of("hasParent"));
   }
 
   @Test

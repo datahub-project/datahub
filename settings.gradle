@@ -178,7 +178,10 @@ include ':datahub-agent-context'
 include 'vendor:avroutil1-helper-all-fork'
 
 buildCache {
-    def depotSecret = System.getenv('DEPOT_TOKEN');
+    // DEPOT_TOKEN is the org secret a workflow passes explicitly. DEPOT_CACHE_TOKEN is
+    // the per-job token Depot GitHub Actions runners export, so every Gradle job on a
+    // depot-* runner gets the remote cache without plumbing the secret through its workflow.
+    def depotSecret = System.getenv('DEPOT_TOKEN') ?: System.getenv('DEPOT_CACHE_TOKEN');
     def isCi = System.getenv('CI');
 
 

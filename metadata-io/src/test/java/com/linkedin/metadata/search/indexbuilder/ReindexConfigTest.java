@@ -8,12 +8,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.util.*;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.common.settings.Settings;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -24,6 +28,11 @@ public class ReindexConfigTest {
   private static final String PROPERTIES_KEY = "properties";
   private static final String TYPE_KEY = "type";
   private static final String IGNORE_ABOVE_KEY = "ignore_above";
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
 
   private static SearchClientShim<?> es8SettingsComparisonShim() {
     SearchClientShim<?> shim = mock(SearchClientShim.class);
@@ -43,6 +52,11 @@ public class ReindexConfigTest {
   @BeforeMethod
   void setUp() {
     // Reset any static state if needed
+  }
+
+  @AfterMethod
+  void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -231,6 +245,141 @@ public class ReindexConfigTest {
     Assert.assertTrue(config.requiresApplyMappings());
     Assert.assertTrue(config.isPureMappingsAddition());
     Assert.assertFalse(config.requiresReindex()); // Pure addition should not require reindex
+  }
+
+  @Test
+  void testNestedFieldsOnlyInCurrentMappingDoNotRequireReindex() {
+    // After a rollback the live index was built by a newer version whose mapping is a superset,
+    // e.g. extra aspects under a nested object such as _aspects. They need no reindex here.
+    Map<String, Object> target =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of("status", Map.of("type", "keyword")))));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of(
+                        "status", Map.of("type", "keyword"),
+                        "aspectFromNewerBuild", Map.of("type", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertFalse(config.requiresApplyMappings());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testStrictHandlingComparesNestedFieldsOnlyInCurrentMapping() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    Map<String, Object> target =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of("status", Map.of("type", "keyword")))));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of(
+                        "status", Map.of("type", "keyword"),
+                        "aspectFromNewerBuild", Map.of("type", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresApplyMappings());
+  }
+
+  @Test
+  void testObjectChangedToKeywordStillRequiresReindex() {
+    // Pruning only drops field definitions the target lacks; a field the target now types
+    // differently (an object turned keyword) is still a change that needs a reindex.
+    Map<String, Object> target =
+        Map.of(PROPERTIES_KEY, Map.of("changed_field", Map.of("type", "keyword")));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "changed_field",
+                Map.of(
+                    "type", "object", PROPERTIES_KEY, Map.of("child", Map.of("type", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testRemovedFieldParameterStillRequiresReindex() {
+    // Only whole field definitions missing from the target are ignored; a parameter removed from
+    // a field both have is still a change.
+    Map<String, Object> target =
+        Map.of(PROPERTIES_KEY, Map.of("existing_field", Map.of("type", "keyword")));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of("existing_field", Map.of("type", "keyword", IGNORE_ABOVE_KEY, 256)));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresReindex());
   }
 
   @Test
@@ -2446,6 +2595,139 @@ public class ReindexConfigTest {
     Assert.assertTrue(config.isPureMappingsAddition());
     Assert.assertFalse(config.isInPlaceMappingParameterUpdate());
     Assert.assertFalse(config.requiresMappingReconciliation());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  // Versioned structured properties as each side really sees them: the mappings builder emits the
+  // field under one dotted key, Elasticsearch returns it as nested objects under "properties".
+  private static final String VERSIONED_NAME = "logicalDatasetBusinessName";
+  private static final String VERSION = "10000000000000";
+  private static final Map<String, Object> KEYWORD_FIELD =
+      ImmutableMap.of(
+          "type", "keyword",
+          "normalizer", "keyword_normalizer",
+          "fields", ImmutableMap.of("keyword", ImmutableMap.of("type", "keyword")));
+
+  private static Map<String, Object> builderVersionedMappings(
+      String name, Map<String, Object> field) {
+    return structuredPropertyContainer(
+        ImmutableMap.of(String.join(".", "_versioned", name, VERSION, "string"), field));
+  }
+
+  private static Map<String, Object> elasticsearchVersionedMappings(
+      String name, Map<String, Object> field) {
+    return structuredPropertyContainer(
+        ImmutableMap.of(
+            "_versioned",
+            ImmutableMap.of(
+                "properties",
+                ImmutableMap.of(
+                    name,
+                    ImmutableMap.of(
+                        "properties",
+                        ImmutableMap.of(
+                            VERSION,
+                            ImmutableMap.of("properties", ImmutableMap.of("string", field))))))));
+  }
+
+  private static Map<String, Object> structuredPropertyContainer(Map<String, Object> properties) {
+    return ImmutableMap.of(
+        "properties",
+        ImmutableMap.of(
+            STRUCTURED_PROPERTY_MAPPING_FIELD,
+            ImmutableMap.of("type", "object", "dynamic", false, "properties", properties)));
+  }
+
+  private static ReindexConfig versionedConfig(
+      Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
+    return ReindexConfig.builder()
+        .name(TEST_INDEX_NAME)
+        .exists(true)
+        .currentMappings(currentMappings)
+        .targetMappings(targetMappings)
+        .currentSettings(Settings.EMPTY)
+        .targetSettings(new HashMap<>())
+        .enableIndexMappingsReindex(true)
+        .enableStructuredPropertiesReindex(true)
+        .enableStructuredPropertyTypeMismatchReindex(true)
+        .enableStructuredPropertyCopyToMismatchReindex(true)
+        .build();
+  }
+
+  @Test
+  void testUnchangedVersionedStructuredPropertyDoesNotRequireReindex() {
+    ReindexConfig config =
+        versionedConfig(
+            elasticsearchVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD),
+            builderVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD));
+
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertFalse(config.hasNewStructuredProperty());
+    Assert.assertFalse(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertFalse(config.hasStructuredPropertyCopyToMismatch());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testTextMappedVersionedStructuredPropertyRequiresReindex() {
+    Map<String, Object> dynamicText =
+        ImmutableMap.of(
+            "type",
+            "text",
+            "fields",
+            ImmutableMap.of("keyword", ImmutableMap.of("type", "keyword", "ignore_above", 256)));
+
+    ReindexConfig config =
+        versionedConfig(
+            elasticsearchVersionedMappings(VERSIONED_NAME, dynamicText),
+            builderVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD));
+
+    Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testVersionedStructuredPropertyCopyToMismatchRequiresReindex() {
+    Map<String, Object> withCopyTo = new HashMap<>(KEYWORD_FIELD);
+    withCopyTo.put("copy_to", List.of("customFullTextSearchFields"));
+
+    ReindexConfig config =
+        versionedConfig(
+            elasticsearchVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD),
+            builderVersionedMappings(VERSIONED_NAME, withCopyTo));
+
+    Assert.assertTrue(config.hasStructuredPropertyCopyToMismatch());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testRemovedVersionedStructuredPropertyRequiresReindex() {
+    ReindexConfig config =
+        versionedConfig(
+            elasticsearchVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD),
+            structuredPropertyContainer(ImmutableMap.of()));
+
+    Assert.assertTrue(config.hasRemovedStructuredProperty());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testNewVersionedStructuredPropertyIsAppliedInPlace() {
+    ReindexConfig config =
+        versionedConfig(
+            elasticsearchVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD),
+            structuredPropertyContainer(
+                ImmutableMap.of(
+                    String.join(".", "_versioned", VERSIONED_NAME, VERSION, "string"),
+                    KEYWORD_FIELD,
+                    String.join(".", "_versioned", "otherProperty", VERSION, "string"),
+                    KEYWORD_FIELD)));
+
+    Assert.assertTrue(config.hasNewStructuredProperty());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertTrue(config.isPureStructuredPropertyAddition());
     Assert.assertFalse(config.requiresReindex());
   }
 }

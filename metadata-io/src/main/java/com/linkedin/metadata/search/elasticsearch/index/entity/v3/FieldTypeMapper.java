@@ -45,6 +45,12 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class FieldTypeMapper {
+  /** V3 source mapping only. The standard tokenizer caps a token at 255 characters. */
+  public static final String RICH_TEXT_ANALYZER = "rich_text_delimited";
+
+  public static final String RICH_TEXT_SEARCH_ANALYZER = "query_rich_text_delimited";
+  static final String RICH_TEXT_DELIMITER = "rich_text_delimiter";
+
   static final Map<String, String> DEFAULT_PARTIAL_NGRAM_CONFIG =
       OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG;
 
@@ -66,6 +72,8 @@ public class FieldTypeMapper {
       case TEXT:
       case TEXT_PARTIAL:
         return KEYWORD_FIELD_TYPE; // Treat text fields as keyword for simplicity
+      case RICH_TEXT:
+        return ESUtils.TEXT_FIELD_TYPE;
       case BOOLEAN:
         return BOOLEAN_FIELD_TYPE;
       case COUNT:
@@ -234,6 +242,15 @@ public class FieldTypeMapper {
       case URN:
       case URN_PARTIAL:
         return getMappingsForSearchText();
+      case RICH_TEXT:
+        // Analyzed text with no keyword parent, so a long body is not one Lucene term.
+        return Map.of(
+            "type",
+            ESUtils.TEXT_FIELD_TYPE,
+            ANALYZER,
+            RICH_TEXT_ANALYZER,
+            SEARCH_ANALYZER,
+            RICH_TEXT_SEARCH_ANALYZER);
       case BOOLEAN:
         return Map.of("type", BOOLEAN_FIELD_TYPE);
       case COUNT:
@@ -297,6 +314,7 @@ public class FieldTypeMapper {
       case TEXT:
       case TEXT_PARTIAL:
       case WORD_GRAM:
+      case RICH_TEXT:
       case BROWSE_PATH:
       case BROWSE_PATH_V2:
         return getMappingsForKeywordWithIgnoreAbove();
@@ -688,6 +706,7 @@ public class FieldTypeMapper {
       case URN_PARTIAL:
         return 50;
       case TEXT:
+      case RICH_TEXT:
       case URN:
         return 40;
       case KEYWORD:

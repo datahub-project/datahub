@@ -338,6 +338,26 @@ class ODCSSourceConfig(
         "product at `urn:li:dataProduct:<value>` — the same urn `datahub dataproduct upsert` "
         "derives from a product id — named after the value.",
     )
+    emit_domain_association: bool = Field(
+        default=False,
+        description="Whether to set the DataHub Domain named by the contract's `domain` field "
+        "on the contract's logical `odcs` datasets. Physical datasets are never touched. The "
+        "value is resolved against existing domains (as a full URN or `urn:li:domain:<value>`, "
+        "then by an exact, case-insensitive match on domain name); see `verify_domain_exists` "
+        "for what happens when nothing matches. With this on, the contract owns the logical "
+        "dataset's domain: a contract without `domain` clears it, while a value that does not "
+        "resolve leaves it unchanged. Off by default: the ODCS field is free text.",
+    )
+    verify_domain_exists: bool = Field(
+        default=False,
+        description="When a DataHub graph is available (datahub-rest sink), require the Domain "
+        "named by `domain` to exist; values matching no domain are reported and skipped. Off "
+        "by default (unlike `verify_data_product_exists`): ODCS creates a missing domain at "
+        "`urn:li:domain:<value>`, named after the value, with a description noting that the "
+        "ODCS connector created it. Only values that form a valid id are created; others "
+        "(e.g. containing commas or parentheses) must match an existing domain by name. With "
+        "no graph (file sink), the id-derived urn is set unverified and nothing is created.",
+    )
     physical_urn_overrides: Dict[str, Dict[str, str]] = Field(
         default_factory=dict,
         description="Map of ODCS contract `id` to a map of `schema[]` entry NAME to an explicit "

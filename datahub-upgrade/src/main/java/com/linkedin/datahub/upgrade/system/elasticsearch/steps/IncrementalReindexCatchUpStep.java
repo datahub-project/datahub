@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
@@ -27,9 +28,11 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState.CatchUpStatus;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -76,6 +79,8 @@ import org.opensearch.tasks.TaskInfo;
  */
 @Slf4j
 public class IncrementalReindexCatchUpStep implements UpgradeStep {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(IncrementalReindexCatchUpStep.class, "row (left unindexed)");
 
   public static final String UPGRADE_ID_PREFIX = IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX;
   public static final String LAST_URN_KEY = IncrementalReindexState.CATCH_UP_LAST_URN;
@@ -89,6 +94,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
   private final String upgradeVersion;
   private final BuildIndicesConfiguration buildIndicesConfig;
+  @Nonnull private final UpdateIndicesService updateIndicesService;
   private final Urn upgradeIdUrn;
   private final Urn phase1UpgradeIdUrn;
 
@@ -99,7 +105,8 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       List<ElasticSearchIndexed> indexedServices,
       Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
       String upgradeVersion,
-      @Nullable BuildIndicesConfiguration buildIndicesConfig) {
+      @Nullable BuildIndicesConfiguration buildIndicesConfig,
+      @Nonnull UpdateIndicesService updateIndicesService) {
     this.opContext = opContext;
     this.entityService = entityService;
     this.aspectDao = aspectDao;
@@ -108,6 +115,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
     this.upgradeVersion = upgradeVersion;
     this.buildIndicesConfig =
         buildIndicesConfig != null ? buildIndicesConfig : new BuildIndicesConfiguration();
+    this.updateIndicesService = updateIndicesService;
     this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
     this.phase1UpgradeIdUrn =
         BootstrapStep.getUpgradeUrn(
@@ -258,6 +266,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
+        cleanupV3FillTombstones(phase1State, catchUpState);
         persistCatchUpCheckpoint(context, catchUpState, DataHubUpgradeState.SUCCEEDED);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Throwable e) {
@@ -352,6 +361,26 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
     log.warn("Could not resolve index '{}' as entity, timeseries, or global, skipping", indexName);
     return CatchUpStatus.SKIPPED;
+  }
+
+  private void cleanupV3FillTombstones(
+      @Nonnull Map<String, String> phase1State, @Nonnull Map<String, String> catchUpState) {
+    for (String indexName : IncrementalReindexState.getAllIndexStates(phase1State).keySet()) {
+      if (opContext
+              .getSearchContext()
+              .getIndexConvention()
+              .entityIndexVersionOf(indexName)
+              .filter(EntityIndexVersion.V3::equals)
+              .isEmpty()
+          || IncrementalReindexState.getCatchUpStatus(catchUpState, indexName)
+              .filter(
+                  status -> status == CatchUpStatus.COMPLETED || status == CatchUpStatus.SKIPPED)
+              .isEmpty()) {
+        continue;
+      }
+      // A cleanup that does not finish throws. The step stays failed, so the next run retries it.
+      updateIndicesService.deleteV3Tombstones(opContext, indexName);
+    }
   }
 
   /**
@@ -517,7 +546,18 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
               .partition(sqlPageSize)
               .forEach(
                   page -> {
-                    List<EbeanAspectV2> pageAspects = page.collect(Collectors.toList());
+                    // Drop rows the registry does not know (written by a newer version) up front.
+                    List<EbeanAspectV2> pageAspects =
+                        page.filter(
+                                aspect ->
+                                    handling()
+                                        .admitUrn(
+                                            UNKNOWN_DATA,
+                                            opContext.getEntityRegistry(),
+                                            opContext.getMetricUtils(),
+                                            aspect.getUrn(),
+                                            aspect.getAspect()))
+                            .collect(Collectors.toList());
 
                     List<SystemAspect> systemAspects =
                         EntityUtils.toSystemAspectFromEbeanAspects(
