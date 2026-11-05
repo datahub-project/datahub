@@ -418,3 +418,28 @@ def test_intra_model_edges_use_the_first_of_colliding_tables() -> None:
     [edge] = extractor.extract_intra_model_lineage(model, {"sales": dataset_urn})
     assert edge.downstreams == [builder.make_schema_field_urn(dataset_urn, "Total")]
     assert edge.upstreams == [builder.make_schema_field_urn(dataset_urn, "Amount")]
+
+
+def test_intra_model_edges_prefer_exact_field_name() -> None:
+    # A column and a measure can differ only by case; both are emitted, so an
+    # exact name must not be folded into the other.
+    extractor = _extractor()
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Model",
+        tables=[
+            AasTable(
+                name="Sales",
+                columns=[AasColumn(name="amount", datahub_data_type=NullTypeClass())],
+                measures=[AasMeasure(name="Amount"), AasMeasure(name="Total")],
+            )
+        ],
+        calc_dependencies=[
+            _calc_dep("MEASURE", "Sales", "Total", "MEASURE", "Sales", "Amount")
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.Sales"
+    )
+    [edge] = extractor.extract_intra_model_lineage(model, {"sales": dataset_urn})
+    assert edge.upstreams == [builder.make_schema_field_urn(dataset_urn, "Amount")]
