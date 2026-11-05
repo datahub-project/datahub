@@ -79,7 +79,7 @@ usage_operations:
   search_query:
     description: >
       Full-text search, scroll, autocomplete, browse, semantic search, browse-path
-      lookup (Rest.li EntityResource getBrowsePaths, GraphQL browsePaths / browseV2),
+      lookup (GraphQL browsePaths / browseV2),
       audit log search (POST /openapi/v1/events/audit/search), and Rest.li
       Analytics.getTimeseriesStats (Elasticsearch aggregations).
     request_apis: [openapi, restli, graphql]

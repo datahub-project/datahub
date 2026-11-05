@@ -23,13 +23,11 @@ import com.linkedin.entity.EntitiesBatchGetRequestBuilder;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchIngestRequestBuilder;
-import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteReferencesRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoExistsRequestBuilder;
 import com.linkedin.entity.EntitiesDoFilterExistingUrnsRequestBuilder;
 import com.linkedin.entity.EntitiesDoFilterRequestBuilder;
-import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoListRequestBuilder;
 import com.linkedin.entity.EntitiesDoListUrnsRequestBuilder;
@@ -480,17 +478,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       int start,
       @Nullable Integer limit)
       throws RemoteInvocationException {
-    EntitiesDoBrowseRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS
-            .actionBrowse()
-            .pathParam(path)
-            .entityParam(entityType)
-            .startParam(start)
-            .limitParam(limit);
-    if (requestFilters != null) {
-      requestBuilder.filterParam(newFilter(requestFilters));
-    }
-    return sendClientRequest(requestBuilder, opContext).getEntity();
+    throw new UnsupportedOperationException(
+        "The Rest.li browse action has been removed. RestliEntityClient does not implement browseV2 "
+            + "either; use the GraphQL browseV2 query instead.");
   }
 
   /**
@@ -885,9 +875,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   public StringArray getBrowsePaths(@Nonnull OperationContext opContext, @Nonnull Urn urn)
       throws RemoteInvocationException {
-    EntitiesDoGetBrowsePathsRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS.actionGetBrowsePaths().urnParam(urn);
-    return sendClientRequest(requestBuilder, opContext).getEntity();
+    throw new UnsupportedOperationException(
+        "The Rest.li getBrowsePaths action has been removed. Read the browsePathsV2 aspect instead.");
   }
 
   @Override
