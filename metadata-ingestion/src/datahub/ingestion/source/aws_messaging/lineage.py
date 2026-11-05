@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from requests.exceptions import RequestException
 
@@ -30,16 +30,17 @@ from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 
-def identity_field_lineage(
+def mapped_field_lineage(
     *,
     upstream_urn: str,
     upstream_schema: SchemaMetadataClass,
     downstream_urn: str,
     downstream_schema: SchemaMetadataClass,
+    upstream_path_for: Callable[[str], Optional[str]],
 ) -> List[FineGrainedLineageClass]:
-    """Field-to-field lineage for a hop that passes the message through unchanged:
-    every field present on both sides, matched case-insensitively on its simple
-    path."""
+    """Field-to-field lineage where each downstream field comes from one known
+    upstream path. Only fields present on both sides, matched case-insensitively
+    on the simple field path."""
     upstream_paths: Dict[str, str] = {}
     for upstream_field in upstream_schema.fields:
         path = get_simple_field_path_from_v2_field_path(upstream_field.fieldPath)
@@ -47,7 +48,8 @@ def identity_field_lineage(
     lineages: List[FineGrainedLineageClass] = []
     for downstream_field in downstream_schema.fields:
         path = get_simple_field_path_from_v2_field_path(downstream_field.fieldPath)
-        upstream_path = upstream_paths.get(path.lower())
+        source_path = upstream_path_for(path)
+        upstream_path = upstream_paths.get(source_path.lower()) if source_path else None
         if upstream_path is None:
             continue
         lineages.append(
@@ -59,6 +61,23 @@ def identity_field_lineage(
             )
         )
     return lineages
+
+
+def identity_field_lineage(
+    *,
+    upstream_urn: str,
+    upstream_schema: SchemaMetadataClass,
+    downstream_urn: str,
+    downstream_schema: SchemaMetadataClass,
+) -> List[FineGrainedLineageClass]:
+    """Lineage for a hop that passes the message through unchanged."""
+    return mapped_field_lineage(
+        upstream_urn=upstream_urn,
+        upstream_schema=upstream_schema,
+        downstream_urn=downstream_urn,
+        downstream_schema=downstream_schema,
+        upstream_path_for=lambda path: path,
+    )
 
 
 class SchemaLookup:
@@ -134,6 +153,12 @@ class DatasetLineageCollector:
         # Upstreams whose outgoing edges this run read in full. An unreadable queue
         # is owned but not complete: its edges are unknown, not gone.
         self.complete: Set[str] = set()
+        # Relationships whose edges into owned datasets were all seen this run,
+        # checked from the downstream side because the upstream isn't this
+        # source's (an S3 dataset, say). Each maps to a check of (downstream,
+        # upstream): only an edge this run could have seen can be called gone, so
+        # not one from another account's bucket, say.
+        self.downstream_relationships: Dict[str, Callable[[str, str], bool]] = {}
         # Upstreams with an edge this run couldn't resolve (its other end wasn't
         # ingested). The edge may still exist in AWS, so it must not read as gone.
         self._unknown: Set[str] = set()
@@ -246,6 +271,8 @@ class DatasetLineageCollector:
                     context=upstream,
                     exc=e,
                 )
+        if self.downstream_relationships:
+            self._stale_into_owned(stale, lineage_cache)
         # Outside the graph-read loop so a malformed field edge can't block
         # table-level removal for its upstream.
         for upstream, downstream, lineage in field_checks:
@@ -296,6 +323,42 @@ class DatasetLineageCollector:
                         )
                     )
         return stale
+
+    def _stale_into_owned(
+        self,
+        stale: StaleLineage,
+        lineage_cache: Dict[str, Optional[UpstreamLineageClass]],
+    ) -> None:
+        assert self.graph is not None
+        for downstream in sorted(self.owned):
+            try:
+                if downstream not in lineage_cache:
+                    lineage_cache[downstream] = self.graph.get_aspect(
+                        downstream, UpstreamLineageClass
+                    )
+                lineage = lineage_cache[downstream]
+                for edge in lineage.upstreams if lineage else []:
+                    relationship = (edge.properties or {}).get(
+                        LINEAGE_RELATIONSHIP_PROPERTY
+                    )
+                    if (
+                        relationship in self.downstream_relationships
+                        and self.downstream_relationships[relationship](
+                            downstream, edge.dataset
+                        )
+                        and edge.dataset not in self._edges.get(downstream, {})
+                    ):
+                        stale.edges[downstream].add(edge.dataset)
+            except (GraphError, RequestException) as e:
+                self.report.warning(
+                    title="Stale lineage not checked",
+                    message=(
+                        "Could not read existing lineage from DataHub; stale edges "
+                        "into this resource are kept this run."
+                    ),
+                    context=downstream,
+                    exc=e,
+                )
 
     def _written_by_this_source(
         self, lineage: UpstreamLineageClass, upstream: str
