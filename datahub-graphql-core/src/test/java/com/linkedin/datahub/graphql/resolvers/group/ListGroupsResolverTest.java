@@ -61,6 +61,25 @@ public class ListGroupsResolverTest {
     assertEquals(sortCriteriaSentToSearch(input), List.of(NAME_ASC, CREATED_TIME_DESC));
   }
 
+  @Test
+  public void testQueryRanksByRelevance() throws Exception {
+    ListGroupsInput input = new ListGroupsInput();
+    input.setQuery("platform-team");
+
+    assertEquals(sortCriteriaSentToSearch(input), List.of());
+  }
+
+  @Test
+  public void testQueryKeepsRequestedSortWithoutTheDefault() throws Exception {
+    SearchSortInput sortInput = new SearchSortInput();
+    sortInput.setSortCriteria(List.of(nameAscending()));
+    ListGroupsInput input = new ListGroupsInput();
+    input.setQuery("platform-team");
+    input.setSortInput(sortInput);
+
+    assertEquals(sortCriteriaSentToSearch(input), List.of(NAME_ASC));
+  }
+
   private static SortCriterion nameAscending() {
     SortCriterion sortCriterion = new SortCriterion();
     sortCriterion.setField("name");

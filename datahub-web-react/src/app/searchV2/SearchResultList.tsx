@@ -12,19 +12,28 @@ import { useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
 import { PreviewSection } from '@app/sharedV2/MatchesContext';
+import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 import { SearchResult, SearchSuggestion } from '@types';
 
 export const MATCHES_CONTAINER_HEIGHT = 52;
+/** Room around the result cards for their 1px hover / selected outline. */
+export const CARD_OUTLINE_ROOM_PX = 2;
 
 const ResultList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
     &&& {
-        margin-top: 8px;
+        margin-top: ${(props) => (props.$isShowNavBarRedesign ? '0' : '8px')};
         width: 100%;
         border-color: ${(props) => props.theme.colors.border};
-        padding: ${(props) => (props.$isShowNavBarRedesign ? '0px 3px 0px 12px' : '0px 12px 0px 16px')};
+        /* Redesign: page gap to the Navigate sidebar on the left (also room for the selected card's
+           5px left shift), and CARD_OUTLINE_ROOM_PX elsewhere so the scroll container doesn't clip
+           the hovered / selected card outline. */
+        padding: ${(props) =>
+            props.$isShowNavBarRedesign
+                ? `${CARD_OUTLINE_ROOM_PX}px ${CARD_OUTLINE_ROOM_PX}px ${CARD_OUTLINE_ROOM_PX}px ${PAGE_GAP_PX}px`
+                : '0px 12px 0px 16px'};
         border-radius: 0px;
     }
 `;

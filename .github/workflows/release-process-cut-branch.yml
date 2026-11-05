@@ -193,9 +193,10 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
+          java: false
+          gradle: false
 
       # N is the just-cut branch tip. N-1 is left to the script, which picks the
       # latest stable release tag for this repo (v*-cloud in acryl-fork, v* in OSS).
