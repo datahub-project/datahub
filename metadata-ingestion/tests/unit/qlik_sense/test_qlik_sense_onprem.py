@@ -486,6 +486,27 @@ def test_onprem_qrs_rejecting_the_connection_check_fails_fast(
         QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api._presented_certificate")
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_logs_presented_certificate_when_tls_fails(
+    mock_session_cls: MagicMock,
+    mock_presented: MagicMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = requests.exceptions.SSLError("certificate verify failed")
+    mock_presented.return_value = "-----BEGIN CERTIFICATE-----"
+
+    with pytest.raises(requests.exceptions.SSLError):
+        QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+
+    mock_presented.assert_called_once_with(
+        "qlik.example.com", 4242, "/secrets/client.pem", "/secrets/client_key.pem"
+    )
+    assert "-----BEGIN CERTIFICATE-----" in caplog.text
+
+
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_verify_server_hostname_false_skips_name_checks(
@@ -502,6 +523,7 @@ def test_onprem_verify_server_hostname_false_skips_name_checks(
     api._open_engine("app-1")
 
     assert config.tls_assert_hostname() is False
+    assert session.verify == "/secrets/root.pem"
     _, adapter = session.mount.call_args.args
     assert adapter._assert_hostname is False
     sslopt = mock_connect.call_args.kwargs["sslopt"]
