@@ -894,7 +894,15 @@
     }, {
       "name" : "note",
       "type" : "string",
-      "doc" : "Additional information about the entity deprecation plan, such as the wiki, doc, RB."
+      "doc" : "Additional information about the entity deprecation plan, such as the wiki, doc, RB.",
+      "Searchable" : {
+        "fieldType" : "TEXT",
+        "queryByDefault" : false,
+        "sanitizeRichText" : true,
+        "v3" : {
+          "queryByDefault" : true
+        }
+      }
     }, {
       "name" : "actor",
       "type" : "Urn",
@@ -905,7 +913,8 @@
       "optional" : true
     } ],
     "Aspect" : {
-      "name" : "deprecation"
+      "name" : "deprecation",
+      "schemaVersion" : 2
     }
   }, "com.linkedin.common.Edge", {
     "type" : "typeref",

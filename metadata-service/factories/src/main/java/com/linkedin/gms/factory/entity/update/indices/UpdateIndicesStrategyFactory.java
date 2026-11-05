@@ -121,6 +121,7 @@ public class UpdateIndicesStrategyFactory {
       @Autowired(required = false) @Nullable List<V3SearchDocumentContributor> documentContributors,
       @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
       @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled,
+      @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") String idHashAlgo,
       @Value("${entityService.impl:ebean}") String entityServiceImpl,
       final SearchClusterRegistry searchClusterRegistry,
       @Qualifier("incrementalReindexWriteTargets") @Nullable
@@ -143,6 +144,7 @@ public class UpdateIndicesStrategyFactory {
         .searchDocumentTransformer(searchDocumentTransformer)
         .timeseriesAspectService(timeseriesAspectService)
         .v2Enabled(v2Enabled)
+        .idHashAlgo(idHashAlgo)
         .timeseriesThrottleCache(timeseriesWriteThrottleCache)
         .searchClientShim(searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3))
         .vectorProjectionEnabled(vectorProjectionEnabled)

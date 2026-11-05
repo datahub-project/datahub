@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -27,6 +28,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.metadata.service.SearchIndexFailureClassifier;
+import com.linkedin.metadata.service.TimeseriesIndexWriter;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesUtil;
@@ -118,6 +120,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final EntityDocumentIdHasher entityDocumentIdHasher;
   private final List<V3SearchDocumentContributor> documentContributors;
   private final boolean v2Enabled;
+  private final String idHashAlgo;
   @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
   @Nullable private final IncrementalReindexWriteTargets incrementalReindexWriteTargets;
   // Accepted for builder parity with V2; V3 does not read it.
@@ -131,6 +134,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       final boolean v2Enabled,
+      @Nullable String idHashAlgo,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
       @Nullable SearchClientShim<?> searchClientShim,
       final boolean vectorProjectionEnabled,
@@ -161,6 +165,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     this.documentContributors =
         documentContributors == null ? List.of() : List.copyOf(documentContributors);
     this.v2Enabled = v2Enabled;
+    this.idHashAlgo = idHashAlgo == null || idHashAlgo.isBlank() ? "MD5" : idHashAlgo;
     this.semanticSearchConfiguration = semanticSearchConfiguration;
     this.incrementalReindexWriteTargets = incrementalReindexWriteTargets;
     this.structuredPropertyMappingCache = structuredPropertyMappingCache;
@@ -251,6 +256,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     final boolean drainWrites = preparedBatches.stream().anyMatch(this::requiresDurableDrain);
     RuntimeException processingFailure = null;
     try {
+      // The timeseries index is not versioned with the entity index. V2 writes it when that
+      // strategy is enabled; otherwise this strategy writes the same documents.
+      if (!v2Enabled) {
+        writeSharedTimeseriesIndex(opContext, groupedEvents, throttleSummary);
+      }
       for (PreparedUrnBatch preparedBatch : preparedBatches) {
         processUrnBatch(
             opContext,
@@ -288,6 +298,70 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     if (processingFailure != null) {
       throw processingFailure;
     }
+  }
+
+  /**
+   * Upserts each timeseries update into the shared timeseries index. Entity-index throttling is
+   * applied later and does not suppress this write; only the timeseries-index throttle does.
+   */
+  private void writeSharedTimeseriesIndex(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Map<Urn, List<MCLItem>> groupedEvents,
+      @Nullable final TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+    for (List<MCLItem> urnEvents : groupedEvents.values()) {
+      for (MCLItem event : urnEvents) {
+        if (event.getAspectSpec() == null
+            || !event.getAspectSpec().isTimeseries()
+            || !UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+          continue;
+        }
+        if (suppressTimeseriesIndexWrite(event, throttleSummary)) {
+          continue;
+        }
+        TimeseriesIndexWriter.upsert(opContext, timeseriesAspectService, idHashAlgo, event);
+        if (throttleSummary != null
+            && timeseriesThrottleCache != null
+            && timeseriesThrottleCache.isEnabled()) {
+          throttleSummary.recordWritten(
+              TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+        }
+      }
+    }
+  }
+
+  private boolean suppressTimeseriesIndexWrite(
+      @Nonnull final MCLItem event,
+      @Nullable final TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+    if (timeseriesThrottleCache == null) {
+      return false;
+    }
+    boolean timeseriesIndexEnabled = timeseriesThrottleCache.isTimeseriesIndexEnabled();
+    boolean observeEnabled = timeseriesThrottleCache.isObserveEnabled();
+    if (!timeseriesIndexEnabled && !observeEnabled) {
+      return false;
+    }
+
+    long eventTimeMs =
+        event.getAuditStamp() == null
+            ? System.currentTimeMillis()
+            : event.getAuditStamp().getTime();
+    boolean throttled =
+        timeseriesThrottleCache.shouldThrottle(
+            event.getEntitySpec().getName(),
+            event.getUrn().toString(),
+            event.getAspectName(),
+            eventTimeMs);
+    if (throttled && timeseriesIndexEnabled) {
+      if (throttleSummary != null) {
+        throttleSummary.recordSuppressed(
+            TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+      }
+      return true;
+    }
+    if (throttled && observeEnabled && throttleSummary != null) {
+      throttleSummary.recordObserved();
+    }
+    return false;
   }
 
   /**

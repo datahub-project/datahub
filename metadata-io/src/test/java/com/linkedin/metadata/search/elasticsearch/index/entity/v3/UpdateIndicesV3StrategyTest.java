@@ -50,6 +50,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
@@ -767,6 +768,7 @@ public class UpdateIndicesV3StrategyTest {
                 null,
                 true));
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    stubTimeseriesAspectForIndexWrite(mockAspect, 1L);
     when(mockSystemMetadata.hasRunId()).thenReturn(true);
     when(mockSystemMetadata.getRunId()).thenReturn("run-ts");
     mockSearchDocument.put("rowCount", 1);
@@ -801,6 +803,9 @@ public class UpdateIndicesV3StrategyTest {
     verify(elasticSearchService)
         .appendRunIdToExistingDocument(
             eq(operationContext), eq(oldBacking), eq(live.docId()), eq("run-ts"));
+    verify(timeseriesAspectService)
+        .upsertDocument(
+            eq(operationContext), eq("dataset"), nullable(String.class), anyString(), any());
   }
 
   @Test
@@ -3632,6 +3637,11 @@ public class UpdateIndicesV3StrategyTest {
                     DATASET_USAGE_STATISTICS_ASPECT_NAME,
                     timeseriesEnvelope(new DatasetUsageStatistics()))));
     RecordTemplate newProfile = org.mockito.Mockito.mock(RecordTemplate.class);
+    DataMap newProfileData = new DataMap();
+    newProfileData.put("timestampMillis", 1L);
+    when(newProfile.data()).thenReturn(newProfileData);
+    when(profileSpec.getTimeseriesFieldSpecs()).thenReturn(List.of());
+    when(profileSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(List.of());
     MCLItem profileEvent =
         aspectEvent(
             profileSpec,
@@ -3699,6 +3709,7 @@ public class UpdateIndicesV3StrategyTest {
   public void testProcessBatch_TimeseriesAspect() throws Exception {
     // Setup for timeseries aspect
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    stubTimeseriesAspectForIndexWrite(mockAspect, 1L);
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
             any(Urn.class),
@@ -3718,6 +3729,32 @@ public class UpdateIndicesV3StrategyTest {
     // aspects in V3)
     verify(elasticSearchService)
         .writeV3SearchDocument(eq(operationContext), any(V3SearchDocumentWrite.class));
+    verify(timeseriesAspectService)
+        .upsertDocument(
+            eq(operationContext), eq("dataset"), nullable(String.class), anyString(), any());
+  }
+
+  @Test
+  public void testTimeseriesIndexWriteIsLeftToV2WhenThatStrategyIsEnabled() throws Exception {
+    UpdateIndicesV3Strategy dualWriting = createStrategy(true, null);
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    stubTimeseriesAspectForIndexWrite(mockAspect, 1L);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    dualWriting.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    verify(timeseriesAspectService, never())
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
   }
 
   @Test
@@ -4265,6 +4302,14 @@ public class UpdateIndicesV3StrategyTest {
 
   // ==================== Timeseries throttle tests ====================
 
+  private void stubTimeseriesAspectForIndexWrite(RecordTemplate aspect, long timestampMillis) {
+    DataMap data = new DataMap();
+    data.put("timestampMillis", timestampMillis);
+    when(aspect.data()).thenReturn(data);
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(List.of());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(List.of());
+  }
+
   private TimeseriesWriteThrottleCache buildThrottleCache(
       boolean entityEnabled, boolean tsEnabled, boolean observeEnabled) {
     return new TimeseriesWriteThrottleCache(
@@ -4298,6 +4343,7 @@ public class UpdateIndicesV3StrategyTest {
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
     when(mockEvent.getAspectName()).thenReturn("datasetProfile");
     when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    stubTimeseriesAspectForIndexWrite(mockAspect, 1_000_001_000L);
 
     // Prime cache
     cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
@@ -4320,6 +4366,9 @@ public class UpdateIndicesV3StrategyTest {
     // Since it's the only aspect, no upsert should happen
     verify(elasticSearchService, never())
         .writeV3SearchDocument(any(OperationContext.class), any(V3SearchDocumentWrite.class));
+    verify(timeseriesAspectService)
+        .upsertDocument(
+            eq(operationContext), eq("dataset"), eq("datasetProfile"), anyString(), any());
   }
 
   @Test
@@ -4331,7 +4380,9 @@ public class UpdateIndicesV3StrategyTest {
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
     RecordTemplate earlierRecord = mock(RecordTemplate.class);
+    stubTimeseriesAspectForIndexWrite(earlierRecord, 1_000_000_000L);
     RecordTemplate throttledRecord = mock(RecordTemplate.class);
+    stubTimeseriesAspectForIndexWrite(throttledRecord, 1_000_001_000L);
     MCLItem earlier = aspectEvent(mockAspectSpec, earlierRecord, ChangeType.UPSERT, null, null);
     MCLItem throttled = aspectEvent(mockAspectSpec, throttledRecord, ChangeType.UPSERT, null, null);
     AuditStamp earlierAuditStamp = mock(AuditStamp.class);
@@ -4349,6 +4400,8 @@ public class UpdateIndicesV3StrategyTest {
         .writeV3SearchDocument(any(OperationContext.class), any(V3SearchDocumentWrite.class));
     verify(searchDocumentTransformer, never())
         .transformAspect(any(), any(), any(), any(), anyBoolean(), any());
+    verify(timeseriesAspectService, times(2))
+        .upsertDocument(eq(operationContext), eq("dataset"), anyString(), anyString(), any());
   }
 
   @Test
@@ -4360,6 +4413,7 @@ public class UpdateIndicesV3StrategyTest {
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
     when(mockEvent.getAspectName()).thenReturn("datasetProfile");
     when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    stubTimeseriesAspectForIndexWrite(mockAspect, 1_000_001_000L);
 
     cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
 
@@ -4380,6 +4434,9 @@ public class UpdateIndicesV3StrategyTest {
     // Observe mode should NOT suppress — the write should proceed
     verify(elasticSearchService)
         .writeV3SearchDocument(eq(operationContext), any(V3SearchDocumentWrite.class));
+    verify(timeseriesAspectService)
+        .upsertDocument(
+            eq(operationContext), eq("dataset"), eq("datasetProfile"), anyString(), any());
   }
 
   @Test
@@ -4391,6 +4448,7 @@ public class UpdateIndicesV3StrategyTest {
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
     when(mockEvent.getAspectName()).thenReturn("datasetProfile");
     when(mockAuditStamp.getTime()).thenReturn(1_000_000_000L);
+    stubTimeseriesAspectForIndexWrite(mockAspect, 1_000_000_000L);
     // No prior cache entry → not throttled
 
     when(searchDocumentTransformer.transformAspect(
@@ -4410,6 +4468,9 @@ public class UpdateIndicesV3StrategyTest {
     // First write should not be throttled
     verify(elasticSearchService)
         .writeV3SearchDocument(eq(operationContext), any(V3SearchDocumentWrite.class));
+    verify(timeseriesAspectService)
+        .upsertDocument(
+            eq(operationContext), eq("dataset"), eq("datasetProfile"), anyString(), any());
   }
 
   @Test
@@ -4421,6 +4482,7 @@ public class UpdateIndicesV3StrategyTest {
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
     when(mockEvent.getAspectName()).thenReturn("datasetProfile");
     when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    stubTimeseriesAspectForIndexWrite(mockAspect, 1_000_001_000L);
 
     cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
 
@@ -4438,9 +4500,13 @@ public class UpdateIndicesV3StrategyTest {
 
     throttledStrategy.processBatch(operationContext, groupedEvents, true);
 
-    // Entity index enabled suppresses the write, observe mode logs but doesn't write
+    // Entity index enabled suppresses the entity document. Observe mode does not suppress the
+    // shared timeseries index.
     verify(elasticSearchService, never())
         .writeV3SearchDocument(any(OperationContext.class), any(V3SearchDocumentWrite.class));
+    verify(timeseriesAspectService)
+        .upsertDocument(
+            eq(operationContext), eq("dataset"), eq("datasetProfile"), anyString(), any());
   }
 
   @Test
@@ -4450,6 +4516,7 @@ public class UpdateIndicesV3StrategyTest {
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
     when(mockEvent.getAspectName()).thenReturn("datasetProfile");
     when(mockAuditStamp.getTime()).thenReturn(1_000_000_000L);
+    stubTimeseriesAspectForIndexWrite(mockAspect, 1_000_000_000L);
 
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
@@ -4466,6 +4533,37 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(operationContext, groupedEvents, true);
 
     // With null throttle cache, all writes proceed
+    verify(elasticSearchService)
+        .writeV3SearchDocument(eq(operationContext), any(V3SearchDocumentWrite.class));
+    verify(timeseriesAspectService)
+        .upsertDocument(
+            eq(operationContext), eq("dataset"), eq("datasetProfile"), anyString(), any());
+  }
+
+  @Test
+  public void testThrottle_TimeseriesIndexSuppressesSharedIndexWrite() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(false, true, false);
+    UpdateIndicesV3Strategy throttledStrategy = createStrategy(false, cache);
+
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    stubTimeseriesAspectForIndexWrite(mockAspect, 1_000_001_000L);
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    throttledStrategy.processBatch(operationContext, Map.of(testUrn, List.of(mockEvent)), true);
+
+    verify(timeseriesAspectService, never())
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
     verify(elasticSearchService)
         .writeV3SearchDocument(eq(operationContext), any(V3SearchDocumentWrite.class));
   }
