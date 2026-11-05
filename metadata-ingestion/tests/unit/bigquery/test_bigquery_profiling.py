@@ -1246,7 +1246,7 @@ def test_external_table_undetermined_ddl_skips_not_full_scans():
     rather than [] (which the profiler treats as confirmed-unpartitioned and full-scans).
     A cleanly-parsed DDL with no partitioning still returns [] (genuinely unpartitioned).
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
         return []  # no INFORMATION_SCHEMA / sample rows
@@ -1280,7 +1280,7 @@ def test_discover_preserves_info_schema_columns_when_type_lookup_and_ddl_empty()
     the caller still treats the table as partitioned, rather than returning {} and
     full-scanning a known-partitioned table.
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(name="typeless")
 
     def execute(query: str, job_config: Any, context: str) -> list:
@@ -1329,7 +1329,7 @@ def test_external_path_discovers_partition_columns_once():
     them into both the sampling pass and the fallback, rather than discovering once for
     sampling and again for the fallback (two INFORMATION_SCHEMA/DDL round-trips per table).
     """
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     table = make_table(name="ext_counted", external=True, ddl="")
 
     def execute(query: str, job_config: Any, context: str) -> list:
