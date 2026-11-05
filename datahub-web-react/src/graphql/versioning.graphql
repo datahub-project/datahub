@@ -47,16 +47,7 @@ fragment versionsSearchResults on SearchResults {
                     ...versionProperties
                 }
             }
-            ... on GlossaryTerm {
-                status {
-                    lifecycleStage {
-                        urn
-                        name
-                        description
-                    }
-                }
-            }
-            ... on Dataset {
+            ... on HasStatus {
                 status {
                     lifecycleStage {
                         urn

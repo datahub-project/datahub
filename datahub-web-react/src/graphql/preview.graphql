@@ -1,8 +1,40 @@
 fragment entityPreview on Entity {
     urn
     type
-    ... on Dataset {
+    ... on HasName {
         name
+    }
+    ... on HasOwnership {
+        ownership {
+            ...ownershipFields
+        }
+    }
+    ... on HasGlossaryTerms {
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on HasSubTypes {
+        subTypes {
+            typeNames
+        }
+    }
+    ... on HasDomain {
+        domain {
+            ...entityDomainWithoutCounts
+        }
+    }
+    ... on HasDeprecation {
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on HasHealth {
+        health {
+            ...entityHealth
+        }
+    }
+    ... on Dataset {
         origin
         uri
         platform {
@@ -21,28 +53,10 @@ fragment entityPreview on Entity {
                 value
             }
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        domain {
-            ...entityDomainWithoutCounts
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
-        health {
-            ...entityHealth
-        }
     }
     ... on CorpUser {
         username
@@ -61,7 +75,6 @@ fragment entityPreview on Entity {
         }
     }
     ... on CorpGroup {
-        name
         info {
             displayName
             description
@@ -70,6 +83,11 @@ fragment entityPreview on Entity {
             input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
         ) {
             total
+        }
+    }
+    ... on HasEditableProperties {
+        editableProperties {
+            description
         }
     }
     ... on Dashboard {
@@ -86,34 +104,13 @@ fragment entityPreview on Entity {
                 time
             }
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
         }
         platform {
             ...platformFields
         }
-        domain {
-            ...entityDomainWithoutCounts
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
-        subTypes {
-            typeNames
-        }
-        health {
-            ...entityHealth
-        }
     }
     ... on Chart {
         urn
@@ -130,34 +127,13 @@ fragment entityPreview on Entity {
                 time
             }
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
         }
         platform {
             ...platformFields
         }
-        domain {
-            ...entityDomainWithoutCounts
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
-        subTypes {
-            typeNames
-        }
-        health {
-            ...entityHealth
-        }
     }
     ... on DataFlow {
         urn
@@ -170,34 +146,13 @@ fragment entityPreview on Entity {
             description
             project
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
         }
         platform {
             ...platformFields
         }
-        domain {
-            ...entityDomainWithoutCounts
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
-        health {
-            ...entityHealth
-        }
-        subTypes {
-            typeNames
-        }
     }
     ... on DataJob {
         urn
@@ -206,9 +161,6 @@ fragment entityPreview on Entity {
             ...nonRecursiveDataFlowFields
         }
         jobId
-        ownership {
-            ...ownershipFields
-        }
         properties {
             name
             description
@@ -216,25 +168,7 @@ fragment entityPreview on Entity {
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
-        }
-        domain {
-            ...entityDomainWithoutCounts
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
-        subTypes {
-            typeNames
-        }
-        health {
-            ...entityHealth
-        }
     }
     ... on GlossaryTerm {
         name
@@ -251,9 +185,6 @@ fragment entityPreview on Entity {
                 value
             }
         }
-        deprecation {
-            ...deprecationFields
-        }
     }
     ... on GlossaryNode {
         properties {
@@ -261,11 +192,12 @@ fragment entityPreview on Entity {
             description
         }
     }
+    ... on HasDescription {
+        description
+    }
     ... on MLFeatureTable {
         urn
         type
-        name
-        description
         featureTableProperties {
             description
             mlFeatures {
@@ -275,52 +207,20 @@ fragment entityPreview on Entity {
                 urn
             }
         }
-        ownership {
-            ...ownershipFields
-        }
         platform {
             ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
         }
     }
     ... on MLModel {
-        name
-        description
         origin
-        ownership {
-            ...ownershipFields
-        }
         platform {
             ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
-    }
-    ... on MLFeature {
-        name
-        description
-        ownership {
-            ...ownershipFields
-        }
-        deprecation {
-            ...deprecationFields
         }
     }
     ... on MLModelGroup {
-        name
         origin
-        description
-        ownership {
-            ...ownershipFields
-        }
         platform {
             ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
         }
     }
     ... on Tag {

@@ -38,6 +38,7 @@ New Features:
 
 Fixes:
 
+- **(UI / Structured properties)** Search results and lineage graph nodes now load structured properties for every entity type that supports them. Previously the queries listed entity types one by one, so APIs, applications, users, groups, documents, data contracts, metrics, repositories and semantic models were returned without their structured properties.
 - **(GMS rate limiting)** Mounted `RATE_LIMITS_CONFIG_FILE` rule lists now apply: policy is loaded once by `RateLimitEffectiveConfig` (Binder + classpath default, file replaces it, `RATE_LIMITS_CONFIG_JSON` overlays) and shared by Hazelcast bootstrap and the engine. Previously `@PropertySource` sat below packaged `application.yaml` and Boot kept the bundled empty `endpoint.rules` list. **Action:** none if the file URI already has a `file:` prefix. Confirm `GET /openapi/v1/rate-limits/config` shows the mounted rules after upgrade.
 
 ## Known Issues
