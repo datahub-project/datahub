@@ -150,8 +150,8 @@ class S3NotificationLineage:
         self.complete = False
 
     def collect(self, lineage: DatasetLineageCollector) -> bool:
-        """Adds the edges; True when the buckets could be listed and every
-        notification's target resolved, so `can_retract` decides per edge."""
+        """Adds the edges; True when the buckets could be listed, so
+        `can_retract` decides per edge."""
         for bucket in self.client.list_bucket_names(
             self.resolver.region, on_error=self._listing_failed
         ):
@@ -171,10 +171,9 @@ class S3NotificationLineage:
                         and self.target_allowed(target.resource_name)
                     ):
                         # One of this source's own queues or topics that this run
-                        # didn't read. Its URN isn't known here, so no S3 edge is
-                        # removed this run. One the pattern filters out is never
-                        # this source's, so it doesn't count.
-                        self.complete = False
+                        # didn't read, so its earlier S3 edges are kept. One the
+                        # pattern filters out is never this source's.
+                        self._unknown_targets.add(self.resolver.urn_of(target))
                     continue
                 upstreams = self._datasets(notification)
                 if not upstreams:

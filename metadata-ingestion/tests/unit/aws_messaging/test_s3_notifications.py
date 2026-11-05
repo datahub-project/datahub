@@ -489,6 +489,32 @@ def test_unmatched_notification_keeps_only_its_own_targets_edges(aws: None) -> N
     ]
 
 
+def test_unresolved_own_target_keeps_only_its_own_edges(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The archive queue this run couldn't resolve keeps its earlier S3 edges, but
+    # the uploads queue's removed notification still retracts.
+    _queue_arn("uploads")
+    _bucket(
+        {
+            "QueueConfigurations": [
+                {"QueueArn": _queue_arn("archive"), "Events": ["s3:ObjectCreated:*"]}
+            ]
+        }
+    )
+    original = ResourceResolver.urn
+
+    def unresolved(self: ResourceResolver, arn: Optional[Arn]) -> Optional[str]:
+        if arn is not None and arn.resource_name == "archive":
+            return None
+        return original(self, arn)
+
+    monkeypatch.setattr(ResourceResolver, "urn", unresolved)
+    assert _prior_s3_removals([ORDERS_URN]) == [
+        ("remove", "/upstreams/" + ORDERS_URN.replace("/", "~1"))
+    ]
+
+
 def test_unreadable_lineage_keeps_s3_edges(aws: None) -> None:
     sqs_client().create_queue(QueueName="uploads")
     _bucket()
