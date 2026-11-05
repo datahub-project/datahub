@@ -1,5 +1,9 @@
 """Define ssl.PROTOCOL_TLSv1 on OpenSSL 4.
 
+Installed as sitecustomize.py in the interpreter stdlib, so the image venv,
+bundled ingestion venvs, and `uv venv --python` subprocesses all load it.
+A .pth copied into venvs that already exist does not cover venvs created later.
+
 Wolfi's Python 3.11 is built against OpenSSL 4, which drops ssl.PROTOCOL_TLSv1.
 snowflake-connector-python's vendored urllib3 reads that name while importing,
 so the executor and integrations processes die before serving. pyOpenSSL still

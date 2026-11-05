@@ -5,9 +5,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -15,6 +18,23 @@ import javax.annotation.Nullable;
 
 /** Adds entity/aspect cache and assumes **system** authentication */
 public interface SystemEntityClient extends EntityClient {
+
+  /**
+   * Ingests proposals for a queue consumer, whose batches hold unrelated proposals: proposals that
+   * fail proposal validation, or cannot be read as a proposal at all, are returned with their
+   * errors instead of failing every proposal, and the rest are written. A proposal a validator
+   * filters out is neither written nor returned. Any other failure is thrown.
+   *
+   * <p>This default cannot tell which proposal failed: it writes the proposals as {@link
+   * #batchIngestProposals} does and throws on any failure.
+   */
+  @Nonnull
+  default List<Pair<MetadataChangeProposal, Exception>> ingestValidProposals(
+      @Nonnull OperationContext opContext, @Nonnull List<MetadataChangeProposal> proposals)
+      throws RemoteInvocationException {
+    batchIngestProposals(opContext, proposals, false);
+    return List.of();
+  }
 
   EntityClientCache getEntityClientCache();
 

@@ -1,11 +1,12 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import EntityContext from '@app/entity/shared/EntityContext';
 import { DocumentSummaryTab } from '@app/entityV2/document/summary/DocumentSummaryTab';
+import EntityContext from '@app/entityV2/shared/EntityContext';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
@@ -17,10 +18,11 @@ import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/uti
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { TabContextType } from '@app/entityV2/shared/types';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
-import CompactContext from '@app/shared/CompactContext';
-import { EntityHead } from '@app/shared/EntityHead';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
 import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
+import useEntitySidebarWidth from '@app/sharedV2/sidebar/useEntitySidebarWidth';
 
 import { EntityType, PageTemplateSurfaceType } from '@types';
 
@@ -43,7 +45,6 @@ const ContentArea = styled.div`
 `;
 
 const ContentWrapper = styled.div`
-    padding: 4px 8px 4px 4px;
     height: 100%;
     overflow: hidden;
     display: flex;
@@ -59,9 +60,8 @@ const ContentCard = styled.div`
     flex-direction: column;
     flex: 1;
     /* shadowSm matches what other entity-profile cards use (glossary, domain).
-       shadowMd has a 24px blur that gets clipped by the parent's
-       overflow:hidden + 4-8px padding, producing visible "shadow stripes" on
-       the top/right edges of the document card. */
+       shadowMd has a 24px blur that gets clipped by the shell's 8px inset,
+       producing visible "shadow stripes" on the top/right edges of the document card. */
     box-shadow: ${(props) => props.theme.colors.shadowSm};
     height: 100%;
     overflow: hidden;
@@ -137,9 +137,13 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
     const { t } = useTranslation('entity.types');
     const [sidebarClosed, setSidebarClosed] = useState(true); // Start closed by default
     const isCompact = useContext(CompactContext);
+    // Compact mode renders inside a host (search, lineage, ...) that owns the sidebar width.
+    const { width: hostSidebarWidth } = useContext(EntitySidebarContext);
+    const { width: sidebarWidth, setWidth: setSidebarWidth } = useEntitySidebarWidth();
 
     const sidebarTabs = [
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: t('tab.properties'),
             component: PropertiesTab,
             icon: ListBullets,
@@ -181,7 +185,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                     lineage: undefined,
                 }}
             >
-                <EntityProfileSidebar tabs={finalSidebarTabs} type="card" focused width={400} />
+                <EntityProfileSidebar tabs={finalSidebarTabs} type="card" focused width={hostSidebarWidth} />
             </EntityContext.Provider>
         );
     }
@@ -207,6 +211,8 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                         ...entitySidebarContextDefaults,
                         isClosed: sidebarClosed,
                         setSidebarClosed,
+                        width: sidebarWidth,
+                        setWidth: setSidebarWidth,
                     }}
                 >
                     <EntityHead />
@@ -216,7 +222,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                                 <ContentCard>
                                     {loading ? (
                                         <LoadingWrapper>
-                                            <LoadingOutlined />
+                                            <Loader size="sm" />
                                         </LoadingWrapper>
                                     ) : (
                                         <MainContent>
@@ -229,7 +235,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                                 </ContentCard>
                             </ContentWrapper>
                         </ContentArea>
-                        <EntityProfileSidebar tabs={finalSidebarTabs} type="card" width={400} />
+                        <EntityProfileSidebar tabs={finalSidebarTabs} type="card" width={sidebarWidth} />
                     </Container>
                 </EntitySidebarContext.Provider>
             </PageTemplateProvider>

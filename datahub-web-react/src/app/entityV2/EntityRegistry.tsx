@@ -1,16 +1,20 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import DefaultEntity from '@app/entityV2/DefaultEntity';
 import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import PreviewContext, { PreviewContextProps } from '@app/entityV2/shared/PreviewContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
-import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
+import { EntitySidebarSection, EntitySidebarTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entityV2/shared/utils';
-import { FetchedEntity } from '@app/lineage/types';
-import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '@app/lineageV3/types';
-import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
+import {
+    FetchedEntity,
+    FetchedEntityV2,
+    FetchedEntityV2Relationship,
+    LineageAsset,
+    LineageAssetType,
+} from '@app/lineageV3/types';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
 
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
@@ -149,7 +153,7 @@ export default class EntityRegistry {
         const previewData = entity.getGenericEntityProperties(searchResult.entity);
         return (
             <SearchResultProvider searchResult={searchResult}>
-                <PreviewContext.Provider value={{ previewData }}>
+                <PreviewContext.Provider value={{ previewData, previewType: PreviewType.SEARCH }}>
                     {entity.renderSearch(searchResult)}
                 </PreviewContext.Provider>
             </SearchResultProvider>

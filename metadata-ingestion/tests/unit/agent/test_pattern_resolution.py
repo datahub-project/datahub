@@ -11,14 +11,16 @@ from pydantic import Field
 
 import datahub.ingestion.source as srcpkg
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.ingestion.agent.config_fields import is_pattern_field
+from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import (
     _pattern_field_for_config_class,
     _reset_convention_warnings,
     describe_source,
-    is_pattern_field,
     pattern_field_for_config,
 )
 from datahub.ingestion.agent.probe_methods import config_class_for
+from datahub.ingestion.agent.verdicts import ProbeInternalError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -137,7 +139,9 @@ def test_two_fields_hinting_the_same_kind_raise_naming_both():
             default=AllowDenyPattern.allow_all()
         )
 
-    with pytest.raises(ValueError, match="a_pattern.*b_pattern|b_pattern.*a_pattern"):
+    with pytest.raises(
+        ProbeInternalError, match="a_pattern.*b_pattern|b_pattern.*a_pattern"
+    ):
         _pattern_field_for_config_class(_Conflict, DatasetSubTypes.TABLE)
 
 
@@ -145,7 +149,7 @@ def test_a_hint_on_a_non_pattern_field_raises():
     class _Bad(ConfigModel):
         thing: Annotated[str, Filters(DatasetSubTypes.TABLE)] = "nope"
 
-    with pytest.raises(ValueError, match="not an AllowDenyPattern"):
+    with pytest.raises(ProbeInternalError, match="not an AllowDenyPattern"):
         _pattern_field_for_config_class(_Bad, DatasetSubTypes.TABLE)
 
 
@@ -304,12 +308,45 @@ def test_an_annotated_connector_stays_silent(caplog):
     _pattern_field_for_config_class.cache_clear()
     _reset_convention_warnings()
     with caplog.at_level(logging.WARNING, logger="datahub.ingestion.agent.introspect"):
+        config_cls = config_class_for("postgres")
+        assert config_cls is not None
         resolved = pattern_field_for_config(
-            config_class_for("postgres")(
-                host_port="localhost:5432", username="u", password="p", database="d"
+            config_cls.model_validate(
+                {
+                    "host_port": "localhost:5432",
+                    "username": "u",
+                    "password": "p",
+                    "database": "d",
+                }
             ),
             "Schema",
         )
 
     assert resolved == "schema_pattern"
     assert caplog.text == "", caplog.text
+
+
+def test_sql_server_declares_the_pattern_its_databases_are_filtered_by(caplog):
+    _pattern_field_for_config_class.cache_clear()
+    _reset_convention_warnings()
+    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.agent.introspect"):
+        result = check_filters(
+            "mssql",
+            {
+                "host_port": "h:1433",
+                "username": "u",
+                "password": "p",
+                "database_pattern": {"deny": ["^dropped$"]},
+            },
+            str(DatasetContainerSubTypes.DATABASE),
+            [],
+            ["kept", "dropped", "master"],
+        )
+
+    assert "not by declaration" not in caplog.text, caplog.text
+    assert result.pattern_field == "database_pattern"
+    assert [(v.name, v.included, v.excluded_by) for v in result.results] == [
+        ("kept", True, None),
+        ("dropped", False, "database_pattern"),
+        ("master", False, "default_database"),
+    ]

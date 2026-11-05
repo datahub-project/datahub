@@ -34,7 +34,7 @@ fragment entityPreview on Entity {
             typeNames
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -102,7 +102,7 @@ fragment entityPreview on Entity {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -146,7 +146,7 @@ fragment entityPreview on Entity {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -186,7 +186,7 @@ fragment entityPreview on Entity {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -223,7 +223,7 @@ fragment entityPreview on Entity {
             description
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {

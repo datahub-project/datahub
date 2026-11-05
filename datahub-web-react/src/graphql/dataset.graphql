@@ -78,7 +78,7 @@ fragment nonSiblingDatasetFields on Dataset {
         typeNames
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     ...entityDataProduct
     parentContainers {

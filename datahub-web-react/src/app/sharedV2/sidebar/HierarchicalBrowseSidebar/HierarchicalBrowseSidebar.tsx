@@ -2,7 +2,7 @@ import { Button, Tooltip } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
     Content,
@@ -24,7 +24,11 @@ import SidebarCollapsedIconRail, {
     type SidebarCollapsedIconRailProps,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarCollapsedIconRail';
 import SidebarResizer from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarResizer';
-import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
+import {
+    SIDEBAR_MAX_WIDTH,
+    SIDEBAR_MIN_WIDTH,
+    TREE_ROW_ENTITY_ICON_SIZE,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import useHierarchicalBrowseSidebarWidth from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/useHierarchicalBrowseSidebarWidth';
 import {
     resolveCollapsedBodyMode,
@@ -143,6 +147,7 @@ export default function HierarchicalBrowseSidebar({
     const canResize = widthOverride == null;
 
     const [isResizing, setIsResizing] = useState(false);
+    const sidebarRef = useRef<HTMLDivElement>(null);
     const [uncontrolledCollapsed, setUncontrolledCollapsed] = useState(defaultCollapsed);
     const isControlled = controlledCollapsed !== undefined;
     const isCollapsed = isControlled ? controlledCollapsed : uncontrolledCollapsed;
@@ -237,7 +242,11 @@ export default function HierarchicalBrowseSidebar({
             ) : (
                 tree
             );
-        return <TreeContainer data-testid="hierarchical-browse-tree-scroll">{treeBody}</TreeContainer>;
+        return (
+            <TreeContainer $isCollapsed={isCollapsed} data-testid="hierarchical-browse-tree-scroll">
+                {treeBody}
+            </TreeContainer>
+        );
     };
 
     const renderExpandedBody = (tree: React.ReactNode) => (
@@ -271,6 +280,7 @@ export default function HierarchicalBrowseSidebar({
     return (
         <SidebarShell>
             <SidebarContainer
+                ref={sidebarRef}
                 $isCollapsed={isCollapsed}
                 $width={width}
                 $isShowNavBarRedesign={isShowNavBarRedesign}
@@ -297,7 +307,9 @@ export default function HierarchicalBrowseSidebar({
             </SidebarContainer>
             {canResize && !isCollapsed && (
                 <SidebarResizer
-                    width={width}
+                    minWidth={SIDEBAR_MIN_WIDTH}
+                    maxWidth={SIDEBAR_MAX_WIDTH}
+                    targetRef={sidebarRef}
                     onWidthChange={handleResizeWidth}
                     onResizeStart={() => setIsResizing(true)}
                     onResizeEnd={() => setIsResizing(false)}

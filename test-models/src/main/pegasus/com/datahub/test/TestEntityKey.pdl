@@ -14,6 +14,9 @@ record TestEntityKey {
    * Key part 1
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldName": "keyPart1",
     "fieldType": "TEXT",
     "enableAutocomplete": true,

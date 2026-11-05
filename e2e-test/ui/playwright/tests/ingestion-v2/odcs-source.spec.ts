@@ -1,6 +1,7 @@
 import { OdcsSource } from '@pages/ingestion/base/sources/OdcsSource';
 import { test } from '../../fixtures/base-test';
 import { IngestionV2Page } from '../../pages/ingestion/v2/ingestion-v2.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'ingestion-v2' });
 
@@ -19,20 +20,24 @@ test.describe('odcs ingestion source', () => {
     await ingestionPage.goto();
   });
 
-  test('is selectable in the source picker and produces an odcs recipe', async ({ page, logger, logDir }) => {
-    const odcs = new OdcsSource(page, logger, logDir);
+  test(
+    'is selectable in the source picker and produces an odcs recipe',
+    { tag: [TestTag.P0, DomainTag.Ingestion] },
+    async ({ page, logger, logDir }) => {
+      const odcs = new OdcsSource(page, logger, logDir);
 
-    await ingestionPage.sourcesTab.openCreateSourceModal();
-    // selectSourceType fails if the ODCS option is absent from the picker, which
-    // guards the sources.json entry + logo wiring.
-    await ingestionPage.sourcesTab.selectSourceType('Open Data Contract Standard');
+      await ingestionPage.sourcesTab.openCreateSourceModal();
+      // selectSourceType fails if the ODCS option is absent from the picker, which
+      // guards the sources.json entry + logo wiring.
+      await ingestionPage.sourcesTab.selectSourceType('Open Data Contract Standard');
 
-    // The structured Path field must write back into the generated recipe.
-    await odcs.fillPath('/tmp/contracts');
-    await odcs.expectYamlRecipe(['type: odcs', 'path: /tmp/contracts']);
+      // The structured Path field must write back into the generated recipe.
+      await odcs.fillPath('/tmp/contracts');
+      await odcs.expectYamlRecipe(['type: odcs', 'path: /tmp/contracts']);
 
-    await ingestionPage.sourcesTab.cancelCreateSourceModal();
-  });
+      await ingestionPage.sourcesTab.cancelCreateSourceModal();
+    },
+  );
 
   test('accepts a remote object-store URI as the path', async ({ page, logger, logDir }) => {
     const odcs = new OdcsSource(page, logger, logDir);

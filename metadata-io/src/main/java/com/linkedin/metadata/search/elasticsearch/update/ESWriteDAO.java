@@ -11,6 +11,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -26,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -33,7 +36,9 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
@@ -66,6 +71,33 @@ public class ESWriteDAO {
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
     this.writeAccess = writeAccess;
+  }
+
+  /** Every bulk processor a write through this DAO can land on, one per distinct cluster. */
+  @Nonnull
+  public Collection<ESBulkProcessor> bulkProcessors() {
+    return writeAccess.bulkProcessors();
+  }
+
+  /**
+   * Flushes every bulk processor a write can land on and waits for each tracked item to reach a
+   * terminal outcome. Fails when any item ended in an unrecovered failure, so a caller that
+   * checkpoints what it has written can trust the checkpoint.
+   */
+  public void flushAndWait() {
+    for (ESBulkProcessor bulkProcessor : bulkProcessors()) {
+      try {
+        bulkProcessor.flushAndWait(
+            Duration.ofSeconds(bulkProcessor.getAckAfterTransferTimeoutSeconds()));
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException("Interrupted while waiting for bulk transfer", e);
+      } catch (TimeoutException e) {
+        throw new RuntimeException("Timed out waiting for bulk transfer", e);
+      } catch (BulkTransferException e) {
+        throw new RuntimeException("Bulk transfer failed", e);
+      }
+    }
   }
 
   @Nonnull
@@ -288,6 +320,46 @@ public class ESWriteDAO {
         .add(opContext, docId, new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
   }
 
+  /**
+   * Writes a V3 search document as its {@link V3SearchDocumentWrite.Kind} says. No write carries an
+   * external version: live and catch-up writes for one entity reach the index in change-log order,
+   * and the baseline fill, which does not, only creates documents that are absent.
+   */
+  public void writeV3SearchDocument(
+      @Nonnull OperationContext opContext, @Nonnull final V3SearchDocumentWrite write) {
+    if (!isV3Enabled()) {
+      log.debug("V3 entity index disabled, skipping write to {}", write.indexName());
+      return;
+    }
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
+
+    // Stable-id bulk-thread routing — docId is stable per entity. See
+    // upsertDocumentBySearchGroup above.
+    final DocWriteRequest<?> request =
+        switch (write.kind()) {
+          case MERGE, MERGE_EXISTING ->
+              new UpdateRequest(write.indexName(), write.docId())
+                  .doc(write.source(), XContentType.JSON)
+                  .docAsUpsert(write.kind() == V3SearchDocumentWrite.Kind.MERGE)
+                  .detectNoop(false)
+                  .retryOnConflict(config.getBulkProcessor().getNumRetries());
+          case CREATE ->
+              new IndexRequest(write.indexName())
+                  .id(write.docId())
+                  .source(write.source(), XContentType.JSON)
+                  .opType(DocWriteRequest.OpType.CREATE);
+          case REPLACE, TOMBSTONE ->
+              new IndexRequest(write.indexName())
+                  .id(write.docId())
+                  .source(write.source(), XContentType.JSON);
+          case DELETE -> new DeleteRequest(write.indexName()).id(write.docId());
+        };
+    bulkProcessorFor(opContext, SearchComponent.SEARCH_V3).add(opContext, write.docId(), request);
+  }
+
   /** Applies a script to a particular document */
   public void applyScriptUpdate(
       @Nonnull OperationContext opContext,
@@ -308,7 +380,8 @@ public class ESWriteDAO {
    * @param docId the document ID
    * @param scriptSource the script source code
    * @param scriptParams the script parameters
-   * @param upsert the document to upsert if it doesn't exist
+   * @param upsert the document to upsert if it doesn't exist, or null to update only an existing
+   *     document
    */
   public void applyScriptUpdateByIndexName(
       @Nonnull OperationContext opContext,
@@ -316,7 +389,7 @@ public class ESWriteDAO {
       @Nonnull String docId,
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
-      Map<String, Object> upsert) {
+      @Nullable Map<String, Object> upsert) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
@@ -332,10 +405,11 @@ public class ESWriteDAO {
     UpdateRequest updateRequest =
         new UpdateRequest(indexName, docId)
             .detectNoop(false)
-            .scriptedUpsert(true)
             .retryOnConflict(config.getBulkProcessor().getNumRetries())
-            .script(script)
-            .upsert(upsert);
+            .script(script);
+    if (upsert != null) {
+      updateRequest.scriptedUpsert(true).upsert(upsert);
+    }
     // Stable-id routing via docId — see upsertDocumentBySearchGroup above.
     bulkProcessorForIndex(opContext, indexName).add(opContext, docId, updateRequest);
   }
@@ -348,7 +422,8 @@ public class ESWriteDAO {
    * @param docId the document ID
    * @param scriptSource the script source code
    * @param scriptParams the script parameters
-   * @param upsert the document to upsert if it doesn't exist
+   * @param upsert the document to upsert if it doesn't exist, or null to update only an existing
+   *     document
    */
   public void applyScriptUpdateBySearchGroup(
       @Nonnull OperationContext opContext,
@@ -356,7 +431,7 @@ public class ESWriteDAO {
       @Nonnull String docId,
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
-      Map<String, Object> upsert) {
+      @Nullable Map<String, Object> upsert) {
     if (!isV3Enabled()) {
       log.debug("V3 entity index disabled, skipping script update for searchGroup {}", searchGroup);
       return;
@@ -816,6 +891,9 @@ public class ESWriteDAO {
 
     // Set conflicts strategy to proceed (skip conflicting documents)
     request.setConflicts("proceed");
+    // Progress is measured by counting what remains, which only sees the deletes after a refresh.
+    // Without it an index with a long or disabled refresh interval reports no progress.
+    request.setRefresh(true);
 
     return request;
   }

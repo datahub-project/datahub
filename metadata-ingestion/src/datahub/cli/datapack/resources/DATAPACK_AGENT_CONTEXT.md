@@ -44,6 +44,7 @@ datahub datapack unload showcase-ecommerce
 | -------------------- | ---------------------------------------------------------------------------------- | ------- |
 | `bootstrap`          | Lightweight bootstrap data (datasets, dashboards, users, tags)                     | ~100 KB |
 | `showcase-ecommerce` | Rich e-commerce demo with 1049 entities across Snowflake, Looker, PowerBI, Tableau | ~2.7 MB |
+| `search-quality`     | Search-test corpus. Load with `file://` until the pack is on `master`              | ~9 MB   |
 
 ## Agent Workflow
 

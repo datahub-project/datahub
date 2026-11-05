@@ -2,6 +2,8 @@ import type { Icon, IconWeight } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { coloredIconBackground, coloredIconForeground } from '@app/sharedV2/icons/coloredIconMix';
+
 const Container = styled.div<{ $color: string; $size: number; $radius: number }>`
     display: flex;
     align-items: center;
@@ -10,8 +12,8 @@ const Container = styled.div<{ $color: string; $size: number; $radius: number }>
     height: ${(props) => props.$size}px;
     width: ${(props) => props.$size}px;
     min-width: ${(props) => props.$size}px;
-    color: ${(props) => `color-mix(in srgb, ${props.$color} 75%, ${props.theme.colors.text})`};
-    background-color: ${(props) => `color-mix(in srgb, ${props.$color} 12%, ${props.theme.colors.bg})`};
+    color: ${(props) => coloredIconForeground(props.$color, props.theme.colors.text)};
+    background-color: ${(props) => coloredIconBackground(props.$color, props.theme.colors.bg)};
     flex-shrink: 0;
 `;
 

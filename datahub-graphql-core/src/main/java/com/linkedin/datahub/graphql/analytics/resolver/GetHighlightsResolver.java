@@ -71,10 +71,19 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
   private List<Highlight> getHighlights(@Nonnull final OperationContext opContext) {
     final List<Highlight> highlights = new ArrayList<>();
 
-    final DateTime endDate = DateTime.now();
+    // Every window on this page hangs off one canonical clock read, so a dashboard refresh inside
+    // the same bucket re-issues an identical aggregation.
+    //
+    // Both bounds come from the floored reference rather than ceiling the current window's end.
+    // These highlights render a percent change between the current and previous period, which is
+    // only meaningful if the two windows are the same width - so a fair comparison is worth more
+    // here than EXPAND's superset guarantee. The effect is that the newest partial bucket is
+    // excluded from both windows equally. With canonicalization off this is the raw clock reading,
+    // i.e. today's behavior exactly.
+    final DateTime anchor = new DateTime(opContext.canonicalNow().reference());
     final Map<String, DateRange> ranges = new LinkedHashMap<>();
-    addPeriod(ranges, WEEKLY, endDate, date -> date.minusWeeks(1));
-    addPeriod(ranges, MONTHLY, endDate, date -> date.minusMonths(1));
+    addPeriod(ranges, WEEKLY, anchor, date -> date.minusWeeks(1));
+    addPeriod(ranges, MONTHLY, anchor, date -> date.minusMonths(1));
 
     final Map<String, Integer> activeUsers =
         _analyticsService.getUniqueCountsByRange(

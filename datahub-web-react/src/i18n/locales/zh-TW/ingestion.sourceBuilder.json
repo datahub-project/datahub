@@ -102,7 +102,6 @@
     "multiStep.builder.discard.confirm": "繼續設定",
     "multiStep.builder.discard.description": "現在離開將捨棄你的設定。你可以繼續設定，或先離開之後再重新開始",
     "multiStep.builder.discard.title": "你有尚未儲存的變更",
-    "multiStep.chat.placeholder": "AI 對話預留位置",
     "multiStep.connection.addOwners": "新增擁有者",
     "multiStep.connection.advancedSettings": "進階設定",
     "multiStep.connection.cannotChangeSourceType": "無法變更既有資料擷取來源的來源類型",

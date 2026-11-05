@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -13,31 +14,47 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentProjector;
 import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.index.query.QueryBuilders;
 
 @Slf4j
 public class UpdateIndicesService implements SearchIndicesService {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(UpdateIndicesService.class, "MCL");
 
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
   private final ElasticSearchService elasticSearchService;
@@ -55,6 +72,9 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   private static final String DOCUMENT_TRANSFORM_FAILED_METRIC = "document_transform_failed";
   private static final String SEARCH_DIFF_MODE_SKIPPED_METRIC = "search_diff_no_changes_detected";
+  private static final String INVALID_MCL_SKIPPED_METRIC = "invalid_mcl_skipped";
+  private static final String PREVIOUS_FROM_NEWER_VERSION_OMITTED_METRIC =
+      "mcl_previous_from_newer_version_omitted";
 
   public static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
@@ -92,23 +112,8 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Override
   public void handleChangeEvents(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
-    // Convert MetadataChangeLog events to MCLItems for batch processing
-    List<MCLItem> mclItems =
-        events.stream()
-            .map(event -> MCLItemImpl.builder().build(event, opContext.getAspectRetriever()))
-            .collect(Collectors.toList());
-
-    // Apply side effects to generate additional MCLItems
-    List<MCLItem> sideEffects =
-        AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext())
-            .collect(Collectors.toList());
-
-    // Group events by URN for batch processing while preserving order. Cross-routing-key mixing
-    // is segregated upstream in the Kafka batch listener (see MCLBatchKafkaListener.consumeBatch),
-    // so every call to this method already arrives under a single routing identity — grouping by
-    // URN alone is sufficient here.
-    LinkedHashMap<Urn, List<MCLItem>> groupedEvents =
-        UpdateIndicesUtil.groupEventsByUrn(Stream.concat(mclItems.stream(), sideEffects.stream()));
+    final GroupedEvents grouped = groupForStrategies(opContext, events);
+    LinkedHashMap<Urn, List<MCLItem>> groupedEvents = grouped.byUrn();
 
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
@@ -131,7 +136,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       if (!updateEvents.isEmpty()) {
         // Update graph indices for each event individually for now
         for (MCLItem event : updateEvents) {
-          updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
+          updateGraph(opContext, event, grouped);
         }
 
         handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
@@ -148,12 +153,220 @@ public class UpdateIndicesService implements SearchIndicesService {
         boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
 
         // graph update first
-        updateGraphIndicesService.handleChangeEvent(opContext, deleteEvent.getMetadataChangeLog());
+        updateGraph(opContext, deleteEvent, grouped);
 
         // system metadata is last for tracing
         handleSystemMetadataDeleteChangeEvent(
             opContext, deleteEvent.getUrn(), specPair, isDeletingKey);
       }
+    }
+  }
+
+  /**
+   * Writes {@code events} through the strategies that fill new indices from primary storage, and
+   * nothing else. A fill rebuilds one search index from state that the graph and system-metadata
+   * indices already hold, and the other generation's index is already current, so their writes are
+   * skipped. Throttle state is left alone for the same reason.
+   */
+  public void fillSearchIndices(
+      @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
+    LinkedHashMap<Urn, List<MCLItem>> groupedEvents = groupForStrategies(opContext, events).byUrn();
+    for (UpdateIndicesStrategy strategy : updateStrategies) {
+      if (strategy.isEnabled() && strategy.fillsNewIndicesFromPrimaryStorage()) {
+        strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
+      }
+    }
+  }
+
+  /**
+   * Removes temporary V3 fill guards after the corresponding catch-up window has converged. A
+   * cleanup that does not finish throws, so catch-up stays incomplete and the next run retries.
+   */
+  public void deleteV3Tombstones(@Nonnull OperationContext opContext, @Nonnull String indexName) {
+    ESWriteDAO.DeleteByQueryResult result =
+        elasticSearchService
+            .getEsWriteDAO()
+            .deleteByQuerySync(
+                opContext,
+                indexName,
+                QueryBuilders.termQuery(V3SearchDocumentProjector.TOMBSTONE_FIELD, true),
+                null);
+    if (!result.isSuccess()) {
+      throw new IllegalStateException(
+          String.format(
+              "Removing V3 tombstones from %s did not finish (%d remaining): %s",
+              indexName, result.getRemainingDocuments(), result.getFailureReason()));
+    }
+  }
+
+  /**
+   * Events grouped by URN in order, and the previous value of each event that was built without it
+   * because a newer version wrote that value (see {@link #buildValidMCLItem}), keyed by identity.
+   */
+  private record GroupedEvents(
+      @Nonnull LinkedHashMap<Urn, List<MCLItem>> byUrn,
+      @Nonnull Map<MCLItem, RecordTemplate> unvalidatedPrevious) {}
+
+  /**
+   * Converts change logs to {@link MCLItem}s, expands MCL side effects, and groups by URN in order.
+   * Cross-routing-key mixing is segregated upstream in the Kafka batch listener (see
+   * MCLBatchKafkaListener.consumeBatch), so every call already arrives under a single routing
+   * identity and grouping by URN alone is sufficient.
+   */
+  @Nonnull
+  private GroupedEvents groupForStrategies(
+      @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
+    // While unknown data is tolerated, skip MCLs with unknown entities/aspects (can happen after
+    // rollback when older build encounters rows written by the newer one).
+    EntityRegistry entityRegistry = opContext.getAspectRetriever().getEntityRegistry();
+    final Map<MCLItem, RecordTemplate> unvalidatedPrevious = new IdentityHashMap<>();
+    List<MCLItem> mclItems =
+        events.stream()
+            .filter(
+                event -> {
+                  return handling()
+                      .admitEvent(
+                          UNKNOWN_DATA,
+                          entityRegistry,
+                          opContext.getMetricUtils(),
+                          event.getEntityUrn(),
+                          event.hasEntityType() ? event.getEntityType() : null,
+                          event.hasAspectName() ? event.getAspectName() : null);
+                })
+            .map(event -> buildValidMCLItem(opContext, event, unvalidatedPrevious))
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+    List<MCLItem> sideEffects =
+        AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext())
+            .collect(Collectors.toList());
+    return new GroupedEvents(
+        UpdateIndicesUtil.groupEventsByUrn(Stream.concat(mclItems.stream(), sideEffects.stream())),
+        unvalidatedPrevious);
+  }
+
+  private void updateGraph(
+      @Nonnull OperationContext opContext,
+      @Nonnull final MCLItem event,
+      @Nonnull final GroupedEvents grouped) {
+    if (grouped.unvalidatedPrevious().containsKey(event)) {
+      updateGraphIndicesService.handleChangeEventWithUnvalidatedPrevious(
+          opContext, event.getMetadataChangeLog(), grouped.unvalidatedPrevious().get(event));
+    } else {
+      updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
+    }
+  }
+
+  /**
+   * Builds an MCLItem. An event whose new value fails validation because a newer version wrote it
+   * (e.g. read after a rollback) is dropped on its own instead of failing the whole batch, and
+   * counted in {@link #INVALID_MCL_SKIPPED_METRIC}. An event whose new value is valid but whose
+   * previous value a newer version wrote (e.g. a change away from an enum value only that version
+   * defines) is built without the previous value, so its new value is still indexed. The item then
+   * carries that previous value, without its unknown references, for the search diff, and the value
+   * as read goes in {@code unvalidatedPrevious} for the graph update. Any other invalid payload
+   * fails as before.
+   */
+  @Nullable
+  private static MCLItem buildValidMCLItem(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MetadataChangeLog event,
+      @Nonnull final Map<MCLItem, RecordTemplate> unvalidatedPrevious) {
+    try {
+      return MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
+    } catch (ValidationException e) {
+      // Checked first so strict handling does no deserialization and fails as before.
+      if (!handling().toleratesUnknownData()) {
+        throw e;
+      }
+      final EntityRegistry registry = opContext.getEntityRegistry();
+      final AspectSpec aspectSpec =
+          registry.findAspectSpec(event.getEntityType(), event.getAspectName()).orElse(null);
+      if (handling()
+          .isFromNewerVersion(
+              deserializeOrNull(event.hasAspect() ? event.getAspect() : null, aspectSpec),
+              event.getSystemMetadata(),
+              aspectSpec,
+              registry)) {
+        opContext
+            .getMetricUtils()
+            .ifPresent(m -> m.increment(UpdateIndicesService.class, INVALID_MCL_SKIPPED_METRIC, 1));
+        UNKNOWN_DATA.skippedBecause(
+            Optional.empty(),
+            "invalid:" + event.getEntityType() + "/" + event.getAspectName(),
+            "its payload from a newer version fails validation here: " + e.getMessage(),
+            event.getEntityUrn());
+        return null;
+      }
+      final RecordTemplate previous = deserializeOrNull(event.getPreviousAspectValue(), aspectSpec);
+      if (!event.hasPreviousAspectValue()
+          || !handling()
+              .isFromNewerVersion(
+                  previous, event.getPreviousSystemMetadata(), aspectSpec, registry)) {
+        throw e;
+      }
+      // Blame the previous value only when the new one is valid on its own, so an event whose new
+      // value is invalid for another reason still fails.
+      final MCLItemImpl withoutPrevious = buildWithoutPrevious(opContext, event);
+      if (withoutPrevious == null) {
+        throw e;
+      }
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              m ->
+                  m.increment(
+                      UpdateIndicesService.class, PREVIOUS_FROM_NEWER_VERSION_OMITTED_METRIC, 1));
+      UNKNOWN_DATA.invalid(
+          "previous:" + event.getEntityType() + "/" + event.getAspectName(),
+          event.getAspectName()
+              + "'s previous value, from a newer version (indexing the new value without it): "
+              + e.getMessage(),
+          event.getEntityUrn());
+      // The search diff needs the previous value too: an upsert nulls the fields only it had. It
+      // gets its own copy, stripped as a valid previous value is when the item is built, so its
+      // transform doesn't meet references to entity types this version doesn't know. The graph
+      // update strips its copy only for an upsert.
+      final RecordTemplate previousForSearch =
+          deserializeOrNull(event.getPreviousAspectValue(), aspectSpec);
+      if (previousForSearch != null) {
+        handling().stripUnknownReferences(previousForSearch, registry);
+      }
+      final MCLItem indexed = withoutPrevious.withPreviousRecordTemplate(previousForSearch);
+      unvalidatedPrevious.put(indexed, previous);
+      return indexed;
+    }
+  }
+
+  @Nullable
+  private static RecordTemplate deserializeOrNull(
+      @Nullable final GenericAspect value, @Nullable final AspectSpec aspectSpec) {
+    if (value == null || aspectSpec == null) {
+      return null;
+    }
+    try {
+      return GenericRecordUtils.deserializeAspect(
+          value.getValue(), value.getContentType(), aspectSpec);
+    } catch (RuntimeException deserializationFailure) {
+      // Unreadable payloads aren't attributed to a newer version.
+      return null;
+    }
+  }
+
+  @Nullable
+  private static MCLItemImpl buildWithoutPrevious(
+      @Nonnull final OperationContext opContext, @Nonnull final MetadataChangeLog event) {
+    final MetadataChangeLog withoutPrevious;
+    try {
+      withoutPrevious = event.copy();
+    } catch (CloneNotSupportedException e) {
+      return null;
+    }
+    withoutPrevious.removePreviousAspectValue();
+    withoutPrevious.removePreviousSystemMetadata();
+    try {
+      return MCLItemImpl.builder().build(withoutPrevious, opContext.getAspectRetriever());
+    } catch (RuntimeException invalid) {
+      return null;
     }
   }
 
@@ -282,50 +495,76 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   /**
-   * Flushes any pending operations in the bulk processor to ensure all data is written to
+   * Flushes pending operations on every cluster's bulk processor to ensure all data is written to
    * Elasticsearch. This is particularly important for loadIndices operations where we want to
    * ensure all data is persisted.
    */
   public void flush() {
     try {
-      // Access the bulk processor through the ElasticSearchService's ESWriteDAO
-      ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
-      ESBulkProcessor bulkProcessor = writeDAO.getBulkProcessor();
-
-      bulkProcessor.flush();
-      log.info("Successfully flushed bulk processor");
+      for (ESBulkProcessor bulkProcessor : elasticSearchService.getEsWriteDAO().bulkProcessors()) {
+        bulkProcessor.flush();
+      }
+      log.info("Successfully flushed bulk processors");
     } catch (Exception e) {
-      log.error("Failed to flush bulk processor", e);
-      throw new RuntimeException("Failed to flush bulk processor", e);
+      log.error("Failed to flush bulk processors", e);
+      throw new RuntimeException("Failed to flush bulk processors", e);
     }
   }
 
   /**
-   * When {@code ES_BULK_ACK_AFTER_TRANSFER} is enabled, flush and wait for bulk transfer before the
-   * caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when the flag is false or when the write
-   * path is unavailable (e.g. unit tests with a mocked search service).
+   * When {@code ES_BULK_ACK_AFTER_TRANSFER} is enabled, flush and wait for bulk transfer on every
+   * cluster before the caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when the flag is
+   * false or when the write path is unavailable (e.g. unit tests with a mocked search service).
    */
   public void flushAndWaitIfConfigured() {
     ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
     if (writeDAO == null) {
       return;
     }
-    ESBulkProcessor bulkProcessor = writeDAO.getBulkProcessor();
-    if (bulkProcessor == null || !bulkProcessor.isAckAfterTransfer()) {
+    for (ESBulkProcessor bulkProcessor : writeDAO.bulkProcessors()) {
+      if (bulkProcessor == null || !bulkProcessor.isAckAfterTransfer()) {
+        continue;
+      }
+      try {
+        Duration timeout = Duration.ofSeconds(bulkProcessor.getAckAfterTransferTimeoutSeconds());
+        bulkProcessor.flushAndWait(timeout);
+        log.debug("Bulk transfer acknowledged after flush-and-wait");
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException("Interrupted while waiting for bulk transfer", e);
+      } catch (TimeoutException e) {
+        throw new RuntimeException("Timed out waiting for bulk transfer", e);
+      } catch (BulkTransferException e) {
+        throw new RuntimeException("Bulk transfer failed before offset ack", e);
+      }
+    }
+  }
+
+  /**
+   * Flushes pending operations on every cluster's bulk processor and waits for each to reach a
+   * terminal outcome, whatever the ack-after-transfer setting. Fails when any tracked item ended in
+   * an unrecovered failure, so a caller that checkpoints what it has written can trust the
+   * checkpoint.
+   */
+  public void flushAndWait() {
+    ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
+    if (writeDAO == null) {
       return;
     }
-    try {
-      java.time.Duration timeout =
-          java.time.Duration.ofSeconds(bulkProcessor.getAckAfterTransferTimeoutSeconds());
-      bulkProcessor.flushAndWait(timeout);
-      log.debug("Bulk transfer acknowledged after flush-and-wait");
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new RuntimeException("Interrupted while waiting for bulk transfer", e);
-    } catch (java.util.concurrent.TimeoutException e) {
-      throw new RuntimeException("Timed out waiting for bulk transfer", e);
-    } catch (BulkTransferException e) {
-      throw new RuntimeException("Bulk transfer failed before offset ack", e);
-    }
+    writeDAO.flushAndWait();
+  }
+
+  /**
+   * Names of the entity indices whose owning strategy fills new indices from primary storage. See
+   * {@link UpdateIndicesStrategy#fillsNewIndicesFromPrimaryStorage()}.
+   */
+  @Nonnull
+  public Set<String> indicesFilledFromPrimaryStorage(@Nonnull OperationContext opContext) {
+    return updateStrategies.stream()
+        .filter(UpdateIndicesStrategy::isEnabled)
+        .filter(UpdateIndicesStrategy::fillsNewIndicesFromPrimaryStorage)
+        .flatMap(strategy -> strategy.getIndexMappings(opContext).stream())
+        .map(MappingsBuilder.IndexMapping::getIndexName)
+        .collect(Collectors.toSet());
   }
 }

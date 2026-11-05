@@ -1,4 +1,9 @@
 #!/bin/sh
+# Unused by docker/datahub-actions/Dockerfile. That image installs
+# openssl4_ssl_compat.py as sitecustomize.py in the interpreter stdlib, which
+# covers venvs created after this image is built. This script only patches
+# venvs that already exist, so a later `uv venv --python` does not see it.
+#
 # Copy the OpenSSL 4 ssl.PROTOCOL_TLSv1 shim into every venv that can import
 # snowflake.connector. A .pth file is required so the shim loads even when a
 # subprocess clears PYTHONPATH. Each install uses that venv's Python so

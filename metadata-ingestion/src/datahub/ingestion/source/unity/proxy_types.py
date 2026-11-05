@@ -151,6 +151,23 @@ class Schema(CommonProperty):
     owner: Optional[str]
 
 
+def make_schema(
+    catalog: Catalog,
+    name: str,
+    comment: Optional[str] = None,
+    owner: Optional[str] = None,
+) -> Schema:
+    """The Schema UnityCatalogApiProxy builds for one schema of `catalog`,
+    with the id schema_pattern is matched against."""
+    return Schema(
+        id=f"{catalog.id}.{escape_unity_name(name)}",
+        name=name,
+        catalog=catalog,
+        comment=comment,
+        owner=owner,
+    )
+
+
 @dataclass
 class Column(CommonProperty):
     type_text: str
@@ -182,8 +199,8 @@ def escape_unity_name(value: str) -> str:
     catalog_pattern and schema_pattern are matched against.
 
     Shared by UnityCatalogApiProxy, which builds those ids, and by the recipe
-    probe's UnityCatalogSourceConfig.probe_container_match_target, so both
-    sides filter on the same string.
+    probe's UnityCatalogSourceConfig.probe_match_target, so both sides filter
+    on the same string.
     """
     return value.replace(" ", "_")
 
@@ -270,7 +287,7 @@ class ExternalTableReference:
 
             return cls(
                 path=d["path"],
-                has_permission=d.get("has_permission") or True,
+                has_permission=bool(d.get("has_permission", True)),
                 name=d.get("securable_name"),
                 type=securable_type,
                 storage_location=d.get("storage_location"),

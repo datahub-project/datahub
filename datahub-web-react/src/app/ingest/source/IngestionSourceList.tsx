@@ -7,7 +7,7 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { INGESTION_TAB_QUERY_PARAMS } from '@app/ingest/constants';
 import IngestionSourceTable from '@app/ingest/source/IngestionSourceTable';
@@ -24,8 +24,8 @@ import {
     removeFromListIngestionSourcesCache,
 } from '@app/ingest/source/utils';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { OnboardingTour } from '@src/app/onboarding/OnboardingTour';
 
 import {

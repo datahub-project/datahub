@@ -52,6 +52,7 @@ export function LineChart({
     renderGradients: renderGradientsProp,
     toolbarVerticalCrosshairStyle: toolbarVerticalCrosshairStyleProp,
     renderTooltipGlyph: renderTooltipGlyphProp,
+    showSeriesGlyphs = true,
     showGlyphOnSingleDataPoint: showGlyphOnSingleDataPointProp,
     renderGlyphOnSingleDataPoint: renderGlyphOnSingleDataPointProp,
 
@@ -258,7 +259,7 @@ export function LineChart({
                                 snapTooltipToDatumY
                                 showVerticalCrosshair
                                 applyPositionStyle
-                                showSeriesGlyphs
+                                showSeriesGlyphs={showSeriesGlyphs}
                                 verticalCrosshairStyle={toolbarVerticalCrosshairStyle}
                                 renderGlyph={renderTooltipGlyph}
                                 unstyled
@@ -272,6 +273,10 @@ export function LineChart({
                                         <Popover
                                             open
                                             defaultOpen
+                                            // The tooltip tracks the cursor; if it could receive
+                                            // hover itself, reaching it would end the chart hover
+                                            // and flicker the tooltip closed and open.
+                                            overlayStyle={{ pointerEvents: 'none' }}
                                             placement="topLeft"
                                             key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
                                             content={popoverRenderer?.(tooltipData.nearestDatum.datum, ctx)}

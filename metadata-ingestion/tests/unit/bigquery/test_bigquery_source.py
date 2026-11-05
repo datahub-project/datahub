@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.introspect import declares_qualifier
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
@@ -2277,48 +2278,6 @@ def test_parse_external_table_options(ddl: str, expected: ExternalTableOptions) 
     assert ExternalTableOptions.from_ddl(ddl) == expected
 
 
-@patch.object(BigQueryV2Config, "get_bigquery_client")
-@patch.object(BigQueryV2Config, "get_projects_client")
-def test_biglake_dataset_skipped_for_region_autodetect(
-    get_projects_client, get_bq_client_mock
-):
-    # BigLake/Omni datasets report locations like
-    # `aws-us-east-1` that are NOT valid INFORMATION_SCHEMA region qualifiers.
-    # If we add them to discovered_locations, the queries extractor would try
-    # to scan `region-aws-us-east-1` and emit a spurious failure every run.
-    config = BigQueryV2Config.model_validate(
-        {"project_id": "test-project", "include_schema_metadata": False}
-    )
-    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    schema_gen = source.bq_schema_extractor
-
-    biglake_dataset = BigqueryDataset(name="ds-biglake", location="aws-us-east-1")
-    gcp_dataset = BigqueryDataset(name="ds-gcp", location="europe-west1")
-
-    list(
-        schema_gen._process_schema(
-            project_id="test-project",
-            bigquery_dataset=biglake_dataset,
-            db_tables={},
-            db_views={},
-            db_snapshots={},
-        )
-    )
-    list(
-        schema_gen._process_schema(
-            project_id="test-project",
-            bigquery_dataset=gcp_dataset,
-            db_tables={},
-            db_views={},
-            db_snapshots={},
-        )
-    )
-
-    assert "aws-us-east-1" not in schema_gen.discovered_locations
-    assert "europe-west1" in schema_gen.discovered_locations
-    assert source.report.num_biglake_datasets_skipped_for_region_autodetect == 1
-
-
 @patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
@@ -2965,3 +2924,10 @@ def test_linked_dataset_lineage_without_schema_metadata_does_not_warn(
             }
         )
     assert not any("include_schema_metadata" in r.msg for r in caplog.records)
+
+
+def test_probe_qualifies_tables_through_the_project_ids_field():
+    # BigqueryV2Source is not a SQLAlchemySource, so the probe's
+    # get_identifier shim cannot build `project.dataset.table`; the Qualifier
+    # on `project_ids` declares it.
+    assert declares_qualifier(BigQueryV2Config.model_construct())

@@ -48,12 +48,6 @@ const COLOR_ENFORCEMENT_RULES = {
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
                 {
-                    name: '@app/entity/shared/constants',
-                    importNames: ['ANTD_GRAY', 'ANTD_GRAY_V2', 'REDESIGN_COLORS'],
-                    message:
-                        'ANTD_GRAY / REDESIGN_COLORS are deprecated. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`.',
-                },
-                {
                     name: '@app/entityV2/shared/constants',
                     importNames: ['ANTD_GRAY', 'ANTD_GRAY_V2', 'REDESIGN_COLORS', 'LINEAGE_COLORS'],
                     message:
@@ -80,9 +74,8 @@ const I18N_RULE_EXCLUDED_FILES = [
     // live and dead code interleave (no clean glob) — same rationale as this
     // directory's exclusion from COLOR_RULE_EXCLUDED_FILES below.
     'src/app/ingest/**',
-    // Generated GraphQL types/mocks — not authored, not user-facing UI copy.
+    // Generated GraphQL types — not authored, not user-facing UI copy.
     'src/graphql/**',
-    'src/graphql-mock/**',
     // Mock fixtures, tests, and Storybook demos — never production UI.
     '**/__tests__/**',
     '**/*.test.ts',
@@ -191,16 +184,13 @@ const COLOR_RULE_EXCLUDED_FILES = [
     'src/alchemy-components/theme/**',
     // Legacy v1 UI superseded by the V2 redesign (entityV2/searchV2/lineageV3/glossaryV2/…).
     // Migration is deferred here because live and dead code interleave (no clean glob).
-    // NOTE: app/entity is mostly dead v1 pages, but its `shared/**` layer is still imported and
-    // rendered by V2, so do not assume app/entity is fully dead.
-    'src/app/entity/**',
     'src/app/search/**',
-    'src/app/lineage/**',
-    'src/app/glossary/**',
-    'src/app/analyticsDashboard/**',
+    // Moved from the old analyticsDashboard folder; chart crosshair color not yet migrated.
+    'src/app/analyticsDashboardV2/components/TimeSeriesChart.tsx',
+    // Moved from app/entity; colors not yet migrated to semantic tokens.
+    'src/app/entityV2/shared/tabs/Dataset/Governance/TestResultsSummary.tsx',
     'src/app/ingest/**',
-    // Mock fixtures, tests, and Storybook demos — never production UI.
-    'src/graphql-mock/**',
+    // Tests and Storybook demos — never production UI.
     '**/*.test.ts',
     '**/*.test.tsx',
     '**/__tests__/**',
@@ -317,7 +307,6 @@ module.exports = {
                     { alias: '@app/', matcher: '^src/app/' },
                     { alias: '@conf/', matcher: '^src/conf/' },
                     { alias: '@graphql/', matcher: '^src/graphql/' },
-                    { alias: '@graphql-mock/', matcher: '^src/graphql-mock/' },
                     { alias: '@images/', matcher: '^src/images/' },
                     { alias: '@providers/', matcher: '^src/providers/' },
                     { alias: '@utils/', matcher: '^src/utils/' },

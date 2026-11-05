@@ -5,7 +5,7 @@ import { ViewBuilderForm } from '@app/entityV2/view/builder/ViewBuilderForm';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '@app/entityV2/view/types';
 import { hasAtLeastOneValidCondition } from '@app/entityV2/view/utils';
-import ClickOutside from '@app/shared/ClickOutside';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Modal } from '@src/alchemy-components';
 import { ModalButton } from '@src/alchemy-components/components/Modal/Modal';
@@ -22,7 +22,13 @@ const MODAL_WIDTH = '60%';
 const MODAL_WRAP_CLASS = 'view-builder-modal';
 const CLICK_OUTSIDE_CLASS = 'test-builder-modal';
 const MODAL_WRAP_PROPS = { style: { overflow: 'hidden' } };
-const MODAL_BODY_STYLE = { overflow: 'hidden', maxHeight: '75vh' };
+// Flex column so the inner result lists shrink to fit on short viewports instead of being clipped
+const MODAL_BODY_STYLE = {
+    overflow: 'hidden',
+    maxHeight: '75vh',
+    display: 'flex',
+    flexDirection: 'column' as const,
+};
 
 export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
     const { t } = useTranslation('entity.views');

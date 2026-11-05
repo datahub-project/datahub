@@ -75,6 +75,8 @@ public class DeleteDomainResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
+    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
     DeleteDomainResolver resolver = new DeleteDomainResolver(mockClient);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -86,12 +88,14 @@ public class DeleteDomainResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(any(), Mockito.eq(Urn.createFromString(TEST_URN)));
+        .deleteEntityThenReferences(any(), Mockito.eq(Urn.createFromString(TEST_URN)));
   }
 
   @Test
   public void testDeleteWithChildDomains() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
+    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
     DeleteDomainResolver resolver = new DeleteDomainResolver(mockClient);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -102,12 +106,14 @@ public class DeleteDomainResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(any(), Mockito.any());
+    Mockito.verify(mockClient, Mockito.times(0)).deleteEntityThenReferences(any(), Mockito.any());
   }
 
   @Test
   public void testDeleteAfterChildRemovedFromPrimaryStore() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
+    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
     DeleteDomainResolver resolver = new DeleteDomainResolver(mockClient);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -135,12 +141,14 @@ public class DeleteDomainResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(any(), Mockito.eq(Urn.createFromString(TEST_URN)));
+        .deleteEntityThenReferences(any(), Mockito.eq(Urn.createFromString(TEST_URN)));
   }
 
   @Test
   public void testGetUnauthorized() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient.ReferencesCleanup references = Mockito.mock(EntityClient.ReferencesCleanup.class);
+    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
     DeleteDomainResolver resolver = new DeleteDomainResolver(mockClient);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -149,7 +157,7 @@ public class DeleteDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(any(), Mockito.any());
+    Mockito.verify(mockClient, Mockito.times(0)).deleteEntityThenReferences(any(), Mockito.any());
   }
 
   private static EntityResponse domainResponse(Urn urn, Urn parentUrn) {

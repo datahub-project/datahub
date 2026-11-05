@@ -1608,6 +1608,22 @@ public class ApplicationTest extends WithBrowser {
     }
   }
 
+  @Test
+  public void testFilterChainClosesConnectionsOnlyOnceShuttingDown() {
+    GracefulShutdownModule shutdownModule = app.injector().instanceOf(GracefulShutdownModule.class);
+
+    Result serving = route(app, fakeRequest(Helpers.GET, "/health"));
+    assertFalse(serving.headers().containsKey(Http.HeaderNames.CONNECTION));
+
+    shutdownModule.setShuttingDown(true);
+    try {
+      Result draining = route(app, fakeRequest(Helpers.GET, "/health"));
+      assertEquals("close", draining.headers().get(Http.HeaderNames.CONNECTION));
+    } finally {
+      shutdownModule.setShuttingDown(false);
+    }
+  }
+
   /**
    * Test module that provides a mock Application controller that simulates resource loading failure
    */

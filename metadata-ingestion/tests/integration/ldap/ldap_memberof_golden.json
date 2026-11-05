@@ -1,0 +1,156 @@
+[
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hbevan",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "Hester Bevan",
+            "firstName": "Hester",
+            "lastName": "Bevan",
+            "fullName": "Hester Bevan",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hbevan",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1615443388097,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hbevan",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:HR Department",
+                "urn:li:corpGroup:Finance Department"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:ehaas",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "Evalyn Haas",
+            "firstName": "Evalyn",
+            "lastName": "Haas",
+            "fullName": "Evalyn Haas",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:ehaas",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1615443388097,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:ehaas",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:HR Department",
+                "urn:li:corpGroup:Finance Department"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:ehaas",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hbevan",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

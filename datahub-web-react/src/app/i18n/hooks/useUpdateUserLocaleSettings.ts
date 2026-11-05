@@ -11,7 +11,15 @@ export function useUpdateUserLocaleSettings() {
     return useCallback(
         async (language: string | null) => {
             await updateLocaleSettings({ variables: { input: { language } } });
-            await refetchUser?.();
+            // The language is saved once the mutation succeeds. A failed refetch only leaves the
+            // cached user stale, so it must not stop the caller from switching the UI or tracking
+            // the change. useLanguageSync only re-applies the language when the cached value
+            // changes, so the stale value does not switch the user back.
+            try {
+                await refetchUser?.();
+            } catch (error) {
+                console.error('Failed to refetch user after updating locale settings', error);
+            }
         },
         [updateLocaleSettings, refetchUser],
     );

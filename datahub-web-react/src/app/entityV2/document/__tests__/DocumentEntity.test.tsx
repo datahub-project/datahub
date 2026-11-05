@@ -4,11 +4,11 @@ import React from 'react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import EntityContext from '@app/entity/shared/EntityContext';
 import { PreviewType } from '@app/entityV2/Entity';
 import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import { DocumentNativeProfile } from '@app/entityV2/document/DocumentNativeProfile';
 import { Preview } from '@app/entityV2/document/preview/Preview';
+import EntityContext from '@app/entityV2/shared/EntityContext';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { mocks } from '@src/Mocks';
@@ -44,6 +44,7 @@ const mockEntityRegistry = {
     getCollectionName: () => 'Documents',
     getEntityName: () => 'Document',
     getGenericEntityProperties: () => null,
+    getCreatedTime: () => undefined,
     getSupportedEntityCapabilities: () => new Set(),
     hasEntity: () => true,
     renderPreview: () => null,
@@ -65,7 +66,6 @@ const mockEntityRegistry = {
 // Mock the useEntityRegistry hooks to return a mock entity registry
 vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: () => mockEntityRegistry,
-    useEntityRegistryV2: () => mockEntityRegistry,
 }));
 
 // Mock react-helmet-async to avoid context issues in tests
@@ -1202,7 +1202,7 @@ describe('Document Profile Rendering', () => {
         it('should render native profile loading state', async () => {
             const mockDocument = createMockNativeDocument();
 
-            const { container } = render(
+            render(
                 <ProfileTestWrapper document={mockDocument} urn={mockDocument.urn}>
                     <DocumentNativeProfile
                         urn={mockDocument.urn}
@@ -1213,10 +1213,8 @@ describe('Document Profile Rendering', () => {
                 </ProfileTestWrapper>,
             );
 
-            // Should show loading indicator
             await waitFor(() => {
-                const loadingIcon = container.querySelector('.anticon-loading');
-                expect(loadingIcon).toBeInTheDocument();
+                expect(screen.getByLabelText('Loading...')).toBeInTheDocument();
             });
         });
 

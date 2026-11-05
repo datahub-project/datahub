@@ -2,7 +2,7 @@ import { FileUploadFailureType } from '@components/components/Editor/types';
 
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
-import { Direction } from '@app/lineage/types';
+import { Direction } from '@app/lineageV3/types';
 import { FilterMode } from '@app/search/utils/constants';
 
 import {
@@ -74,8 +74,6 @@ export enum EventType {
     ActivatePolicyEvent,
     ShowSimplifiedHomepageEvent,
     ShowStandardHomepageEvent,
-    ShowV2ThemeEvent,
-    RevertV2ThemeEvent,
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
@@ -186,6 +184,7 @@ export enum EventType {
     GoToPhysicalChildEvent,
     GoToLogicalParentColumnEvent,
     GoToPhysicalChildColumnEvent,
+    LanguageChangeEvent,
 }
 
 /**
@@ -612,14 +611,6 @@ export interface ShowSimplifiedHomepageEvent extends BaseEvent {
 
 export interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
-}
-
-export interface ShowV2ThemeEvent extends BaseEvent {
-    type: EventType.ShowV2ThemeEvent;
-}
-
-export interface RevertV2ThemeEvent extends BaseEvent {
-    type: EventType.RevertV2ThemeEvent;
 }
 
 export interface HomePageExploreAllClickEvent extends BaseEvent {
@@ -1083,7 +1074,7 @@ export interface HomePageClickEvent extends BaseEvent {
 export interface SearchBarFilterEvent extends BaseEvent {
     type: EventType.SearchBarFilter;
     field: string; // the filter field
-    values: string[]; // the values being filtered for
+    filterValues: string[]; // the values being filtered for
 }
 
 export interface NavBarExpandCollapseEvent extends BaseEvent {
@@ -1405,6 +1396,17 @@ interface GoToPhysicalChildColumnEvent extends BaseEvent {
 }
 
 /**
+ * A user changed their UI language in Settings. `newLanguage` is null when they cleared their
+ * choice; `browserLanguage` is what browser detection would pick, so overrides can be counted.
+ */
+export interface LanguageChangeEvent extends BaseEvent {
+    type: EventType.LanguageChangeEvent;
+    previousLanguage: string;
+    newLanguage: string | null;
+    browserLanguage: string | null;
+}
+
+/**
  * Event consisting of a union of specific event types.
  */
 export type Event =
@@ -1468,8 +1470,6 @@ export type Event =
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
     | ShowStandardHomepageEvent
-    | ShowV2ThemeEvent
-    | RevertV2ThemeEvent
     | SsoEvent
     | CreateViewEvent
     | UpdateViewEvent
@@ -1568,4 +1568,5 @@ export type Event =
     | GoToLogicalParentEvent
     | GoToPhysicalChildEvent
     | GoToLogicalParentColumnEvent
-    | GoToPhysicalChildColumnEvent;
+    | GoToPhysicalChildColumnEvent
+    | LanguageChangeEvent;

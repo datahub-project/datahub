@@ -4,6 +4,7 @@ import pytest
 import time_machine
 from tableauserverclient.models import SiteItem
 
+import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.tableau.tableau_constant as c
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.tableau.tableau import (
@@ -20,7 +21,7 @@ from datahub.ingestion.source.tableau.tableau_virtual_connections import (
     VirtualConnectionProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
-from tests.unit.tableau.test_tableau_config import default_config
+from tests.unit.tableau.conftest import default_config
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 
@@ -337,13 +338,6 @@ class TestVirtualConnectionProcessor:
 
     def test_error_handling_and_exception_scenarios(self):
         """Test comprehensive error handling"""
-        problematic_urn = mock.MagicMock()
-        problematic_urn.split.side_effect = AttributeError("Mock exception")
-
-        result = self.vc_processor.create_datasource_vc_lineage(str(problematic_urn))
-        assert result.upstream_tables == []
-        assert result.fine_grained_lineages == []
-
         malformed_datasource = {
             c.ID: "malformed-ds",
             c.FIELDS: "not_a_list",
@@ -716,33 +710,6 @@ class TestVirtualConnectionProcessor:
         match = FIELD_TABLE_REFERENCE_PATTERN.search(field_name)
         assert match is None
 
-    def test_vc_table_name_override(self):
-        """Test that field names with table references override the default table ID"""
-        self.vc_processor.datasource_vc_relationships = {
-            "ds-override": [
-                {
-                    "vc_table_id": "vc-table-default",
-                    "field_name": "customer_id (customers)",
-                    "column_name": "id",
-                    "vc_table_name": "default_table",
-                }
-            ]
-        }
-        self.vc_processor.vc_table_id_to_vc_id = {
-            "vc-table-default": "vc-1",
-            "vc-table-customers": "vc-1",
-        }
-        self.vc_processor.vc_table_id_to_name = {
-            "vc-table-default": "default_table",
-            "vc-table-customers": "customers",
-        }
-
-        datasource_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,ds-override,PROD)"
-
-        result = self.vc_processor.create_datasource_vc_lineage(datasource_urn)
-
-        assert isinstance(result, LineageResult)
-
     def test_snowflake_column_normalization(self):
         """Test Snowflake column name normalization in lineage"""
         table_info = {
@@ -789,6 +756,120 @@ class TestVirtualConnectionProcessor:
             )
 
             assert len(result.upstream_tables) == 1
+
+    def test_vc_snowflake_lineage_adopts_the_ingested_field_path(self):
+        # The virtual-connection path carried its own copy of the lowercase
+        # assumption, so column lineage into a Snowflake source that preserves
+        # the warehouse's casing pointed at a field path that does not exist.
+        # The sibling test above asserts only the upstream table count, so it
+        # never covered the column name it is named for.
+        table_info = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            c.COLUMNS: [
+                {c.ID: "col1", c.NAME: "CUSTOMER_ID", c.REMOTE_TYPE: "STRING"},
+            ],
+        }
+        table_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc.test_table,PROD)"
+        mock_db_table = {
+            c.ID: "db-table-1",
+            c.NAME: "test_table",
+            c.COLUMNS: [
+                {c.ID: "db-col1", c.NAME: "CUSTOMER_ID"},
+            ],
+        }
+        snowflake_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+        )
+
+        # The schema DataHub already holds kept the warehouse's casing.
+        resolver = mock.MagicMock()
+        resolver.resolve_urn.return_value = (snowflake_urn, {"CUSTOMER_ID": "VARCHAR"})
+        self.tableau_source.__dict__["_upstream_schema_resolver"] = resolver
+
+        with (
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_find_matching_database_table",
+                return_value=mock_db_table,
+            ),
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_create_database_table_urn",
+                return_value=snowflake_urn,
+            ),
+            # default_config turns this on, which skips the Snowflake branch
+            # entirely -- the shipped default is off.
+            mock.patch.object(
+                self.vc_processor.config, "ingest_tables_external", False
+            ),
+        ):
+            result = self.vc_processor._create_table_upstream_lineage(
+                table_info, table_urn
+            )
+
+        assert len(result.fine_grained_lineages) == 1
+        assert result.fine_grained_lineages[0].upstreams == [
+            builder.make_schema_field_urn(snowflake_urn, "CUSTOMER_ID")
+        ]
+
+    def test_a_case_only_pair_keeps_its_own_upstream_column(self):
+        # A source that allows case-distinct identifiers can hold both `col` and
+        # `COL`. The VC-to-database column map is keyed on the folded name, so it
+        # keeps only one of them and both VC columns end up pointing at whichever
+        # survived. Nothing here is Snowflake-specific: the map is built before
+        # the platform is consulted, so a plain Postgres upstream shows it.
+        table_info = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            c.COLUMNS: [
+                {c.ID: "col1", c.NAME: "col", c.REMOTE_TYPE: "STRING"},
+                {c.ID: "col2", c.NAME: "COL", c.REMOTE_TYPE: "STRING"},
+            ],
+        }
+        table_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc.test_table,PROD)"
+        mock_db_table = {
+            c.ID: "db-table-1",
+            c.NAME: "test_table",
+            c.COLUMNS: [
+                {c.ID: "db-col1", c.NAME: "col"},
+                {c.ID: "db-col2", c.NAME: "COL"},
+            ],
+        }
+        postgres_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.table,PROD)"
+        )
+
+        with (
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_find_matching_database_table",
+                return_value=mock_db_table,
+            ),
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_create_database_table_urn",
+                return_value=postgres_urn,
+            ),
+        ):
+            result = self.vc_processor._create_table_upstream_lineage(
+                table_info, table_urn
+            )
+
+        # Each column keeps its own upstream rather than sharing one.
+        assert len(result.fine_grained_lineages) == 2
+        emitted = {}
+        for lineage in result.fine_grained_lineages:
+            assert lineage.downstreams and lineage.upstreams
+            emitted[lineage.downstreams[0]] = lineage.upstreams[0]
+        assert emitted == {
+            builder.make_schema_field_urn(table_urn, "col"): (
+                builder.make_schema_field_urn(postgres_urn, "col")
+            ),
+            builder.make_schema_field_urn(table_urn, "COL"): (
+                builder.make_schema_field_urn(postgres_urn, "COL")
+            ),
+        }
 
     @pytest.mark.parametrize(
         "malformed_data,description",

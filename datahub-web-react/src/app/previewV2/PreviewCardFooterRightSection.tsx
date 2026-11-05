@@ -29,11 +29,21 @@ const StyledDivider = styled(Divider)`
     color: ${(props) => props.theme.colors.border};
 `;
 
+/** Matches LineageBadge's 16px icon so the footer does not shift when counts arrive. */
+const LineageBadgePlaceholder = styled.div`
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    visibility: hidden;
+`;
+
 interface Props {
     entityType: EntityType;
     urn: string;
     entityRegistry: EntityRegistry;
     showLineageBadge: boolean;
+    /** Invisible slot for the deferred search badge while counts are in flight. */
+    reserveLineageBadge?: boolean;
     lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
     tier?: PopularityTier;
     statsSummary?: DatasetStatsSummary | null;
@@ -44,6 +54,7 @@ const PreviewCardFooterRightSection = ({
     urn,
     entityRegistry,
     showLineageBadge,
+    reserveLineageBadge = false,
     lastUpdatedMs,
     tier,
     statsSummary,
@@ -51,6 +62,7 @@ const PreviewCardFooterRightSection = ({
     const { previewData } = usePreviewData();
 
     const status = tier !== undefined ? getBarsStatusFromPopularityTier(tier) : 0;
+    const showLineageSlot = showLineageBadge || reserveLineageBadge;
 
     return (
         <>
@@ -58,21 +70,22 @@ const PreviewCardFooterRightSection = ({
                 {!!statsSummary?.queryCountLast30Days && (
                     <>
                         <QueryStat queryCountLast30Days={statsSummary?.queryCountLast30Days} />
-                        {showLineageBadge && <StyledDivider type="vertical" />}
+                        {showLineageSlot && <StyledDivider type="vertical" />}
                     </>
                 )}
                 {showLineageBadge && (
-                    <>
-                        <LineageBadge
-                            upstreamTotal={(previewData?.upstream?.total || 0) - (previewData?.upstream?.filtered || 0)}
-                            downstreamTotal={
-                                (previewData?.downstream?.total || 0) - (previewData?.downstream?.filtered || 0)
-                            }
-                            entityRegistry={entityRegistry}
-                            entityType={entityType}
-                            urn={urn}
-                        />
-                    </>
+                    <LineageBadge
+                        upstreamTotal={(previewData?.upstream?.total || 0) - (previewData?.upstream?.filtered || 0)}
+                        downstreamTotal={
+                            (previewData?.downstream?.total || 0) - (previewData?.downstream?.filtered || 0)
+                        }
+                        entityRegistry={entityRegistry}
+                        entityType={entityType}
+                        urn={urn}
+                    />
+                )}
+                {reserveLineageBadge && !showLineageBadge && (
+                    <LineageBadgePlaceholder data-testid="lineage-badge-placeholder" />
                 )}
                 {!!lastUpdatedMs?.lastUpdatedMs && (
                     <>

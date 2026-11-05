@@ -5,9 +5,9 @@ import styled from 'styled-components/macro';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { LineageDisplayContext, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
-import CompactContext from '@app/shared/CompactContext';
+import CompactContext from '@app/sharedV2/CompactContext';
 import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import useEntitySidebarWidth from '@app/sharedV2/sidebar/useEntitySidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -34,7 +34,7 @@ export default function LineageSidebar() {
     const { selectedNode, setSelectedNode } = useContext(LineageDisplayContext);
     const resetSelectedElements = useStore((actions) => actions.resetSelectedElements);
     const queryDetails = useQueryDetails(selectedNode);
-    const width = useSidebarWidth();
+    const { width, setWidth } = useEntitySidebarWidth();
 
     const setSidebarClosed = useCallback(
         (closed) => {
@@ -65,6 +65,7 @@ export default function LineageSidebar() {
         <EntitySidebarContext.Provider
             value={{
                 width,
+                setWidth,
                 isClosed: false,
                 setSidebarClosed,
                 forLineage: true,

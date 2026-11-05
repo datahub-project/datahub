@@ -94,7 +94,7 @@ If the people asking questions can't read SQL, build a domain agent. See [Key Co
 
 ## Before you start
 
-- **DataHub Cloud with the Context add-on.** Steps 1, 3, 4, and 5 use features from the Context add-on, currently in Public Beta. If you don't see **Context** in DataHub's left sidebar, contact your DataHub account team, or [sign up for the Public Beta](https://datahub.com/public-beta-request/).
+- **DataHub Cloud with the Context add-on.** Steps 1, 3, 4, and 5 use features from the Context add-on. Context Generation and Context Feedback, used in steps 3 and 5, are still in Public Beta. If you don't see **Context** in DataHub's left sidebar, contact your DataHub account team, or [sign up for the Public Beta](https://datahub.com/public-beta-request/).
 - **Your warehouse, connected with query history.** In DataHub, go to **Data Sources**, click **+ Create source**, and select Snowflake, Databricks, BigQuery, or Redshift. Make sure query history is enabled: it shows DataHub how your team actually uses the data, and it powers step 3. See [Ingestion](../../ui-ingestion.md) and the [example recipes](../../features/feature-guides/context/context-generation.md#reference-recipes). If your warehouse is on a private network, use a [Remote Executor](../remote-executor/about.md).
 - **A domain to start with**, and an owner for it.
 - **Three roles:**

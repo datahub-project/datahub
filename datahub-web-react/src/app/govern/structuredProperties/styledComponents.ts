@@ -13,13 +13,9 @@ export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex-direction: column;
     gap: 20px;
     background-color: ${(props) => props.theme.colors.bg};
-    ${(props) => props.$isShowNavBarRedesign && 'max-height: calc(100vh - 88px);'};
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
-        box-shadow: ${props.theme.colors.shadowSm};
-        margin: 5px;
-    `}
+    /* Fills the app shell (which owns the 8px inset) and scrolls inside, instead of a fixed max-height. */
+    ${(props) => props.$isShowNavBarRedesign && 'min-height: 0;'}
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm};`}
 `;
 
 export const HeaderContainer = styled.div`
