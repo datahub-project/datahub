@@ -53,6 +53,11 @@ const dataset = {
     upstream: { total: 3, filtered: 0, relationships: [] },
 } as unknown as Dataset;
 
+const SIXTY_DAYS_AGO = Date.now() - 60 * 24 * 60 * 60 * 1000;
+const AGE_RED = 'rgb(245, 34, 45)';
+const NEUTRAL = `rgb(${hexToRgb(lightTheme.icon).join(', ')})`;
+const clockColor = () => getComputedStyle(screen.getByTestId('freshness').querySelector('svg') as SVGElement).color;
+
 function renderCard(entity: Entity) {
     return render(
         <MockedProvider mocks={[]}>
@@ -205,10 +210,6 @@ describe('EntityHoverCard', () => {
 });
 
 describe('EntityHoverCard freshness clock', () => {
-    const SIXTY_DAYS_AGO = Date.now() - 60 * 24 * 60 * 60 * 1000;
-    const AGE_RED = 'rgb(245, 34, 45)';
-    const NEUTRAL = `rgb(${hexToRgb(lightTheme.icon).join(', ')})`;
-    const clockColor = () => getComputedStyle(screen.getByTestId('freshness').querySelector('svg') as SVGElement).color;
     const withKind = (typeNames: string[], viewProperties?: { materialized: boolean }) =>
         ({
             ...dataset,
@@ -234,10 +235,6 @@ describe('EntityHoverCard freshness clock', () => {
 });
 
 describe('EntityHoverCard freshness clock for rows of the home asset modules', () => {
-    const SIXTY_DAYS_AGO = Date.now() - 60 * 24 * 60 * 60 * 1000;
-    const AGE_RED = 'rgb(245, 34, 45)';
-    const NEUTRAL = `rgb(${hexToRgb(lightTheme.icon).join(', ')})`;
-
     // The home asset modules load their rows with this query and pass each row to the hover card.
     // Apollo returns only the fields that the query selects.
     const loadWithCardQuery = (materialized: boolean): Dataset => {
@@ -276,7 +273,6 @@ describe('EntityHoverCard freshness clock for rows of the home asset modules', (
         });
         return result.searchAcrossEntities.searchResults[0].entity;
     };
-    const clockColor = () => getComputedStyle(screen.getByTestId('freshness').querySelector('svg') as SVGElement).color;
 
     it('shows the time of a view in the neutral icon color', () => {
         renderCard(loadWithCardQuery(false));
