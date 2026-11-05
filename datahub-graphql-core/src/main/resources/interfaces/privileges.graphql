@@ -1,5 +1,7 @@
 """
-An entity whose privileges for the current user can be resolved
+An entity whose privileges for the current user can be resolved.
+Resolving privileges runs around 17 authorization checks per entity, so avoid selecting it
+through this interface in queries that return many entities, such as search results or lineage.
 """
 interface HasPrivileges {
   """
