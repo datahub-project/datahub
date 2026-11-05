@@ -1,4 +1,4 @@
-import { toast } from '@components';
+import { Modal, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
@@ -6,8 +6,6 @@ import styled, { useTheme } from 'styled-components';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
-import { StopPropagation } from '@app/sharedV2/StopPropagation';
-import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { TagProfileDrawer } from '@app/sharedV2/tags/TagProfileDrawer';
 import { StyledTag } from '@app/sharedV2/tags/tag/StyledTag';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -65,38 +63,41 @@ export default function Tag({
         setTagProfileDrawerVisible(false);
     };
 
-    const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
-
-    const removeTag = () => {
+    const removeTag = (tagAssociationToRemove: TagAssociation) => {
+        const tagToRemove = tagAssociationToRemove.tag;
         onOpenModal?.();
-        setIsRemoveModalOpen(true);
-    };
-
-    const confirmRemoveTag = () => {
-        setIsRemoveModalOpen(false);
-        const tagToRemove = tag.tag;
-        if (tag.associatedUrn || entityUrn) {
-            removeTagMutation({
-                variables: {
-                    input: {
-                        tagUrn: tagToRemove.urn,
-                        resourceUrn: tag.associatedUrn || entityUrn || '',
-                        subResource: entitySubresource,
-                        subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-                    },
-                },
-            })
-                .then(({ errors }) => {
-                    if (!errors) {
-                        toast.success(t('removeTagSuccess'), { duration: 2 });
-                    }
-                })
-                .then(refetch)
-                .catch((e) => {
-                    toast.destroy();
-                    toast.error(t('removeTagError', { error: e.message || '' }), { duration: 3 });
-                });
-        }
+        Modal.confirm({
+            title: t('removeTagConfirmTitle', { name: tagToRemove?.name }),
+            content: t('removeTagConfirmContent', { name: tagToRemove?.name }),
+            onOk() {
+                if (tagAssociationToRemove.associatedUrn || entityUrn) {
+                    removeTagMutation({
+                        variables: {
+                            input: {
+                                tagUrn: tagToRemove.urn,
+                                resourceUrn: tagAssociationToRemove.associatedUrn || entityUrn || '',
+                                subResource: entitySubresource,
+                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                            },
+                        },
+                    })
+                        .then(({ errors }) => {
+                            if (!errors) {
+                                message.success({ content: t('removeTagSuccess'), duration: 2 });
+                            }
+                        })
+                        .then(refetch)
+                        .catch((e) => {
+                            message.destroy();
+                            message.error({ content: t('removeTagError', { error: e.message || '' }), duration: 3 });
+                        });
+                }
+            },
+            onCancel() {},
+            okText: tc('yes'),
+            maskClosable: true,
+            closable: true,
+        });
     };
 
     const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
@@ -113,7 +114,7 @@ export default function Tag({
                         closable={canRemove && !readOnly}
                         onClose={(e) => {
                             e.preventDefault();
-                            removeTag();
+                            removeTag(tag);
                         }}
                         fontSize={fontSize}
                         $highlightTag={highlightTag}
@@ -128,18 +129,6 @@ export default function Tag({
                     </StyledTag>
                 </TagLink>
             </HoverEntityTooltip>
-            {isRemoveModalOpen && (
-                <StopPropagation>
-                    <ConfirmationModal
-                        isOpen
-                        handleClose={() => setIsRemoveModalOpen(false)}
-                        handleConfirm={confirmRemoveTag}
-                        modalTitle={t('removeTagConfirmTitle', { name: tag.tag?.name })}
-                        modalText={t('removeTagConfirmContent', { name: tag.tag?.name })}
-                        confirmButtonText={tc('yes')}
-                    />
-                </StopPropagation>
-            )}
             {tagProfileDrawerVisible && (
                 <TagProfileDrawer
                     closeTagProfileDrawer={closeTagProfileDrawer}

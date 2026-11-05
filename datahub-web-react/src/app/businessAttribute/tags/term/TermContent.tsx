@@ -1,15 +1,12 @@
-import { toast } from '@components';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Lightning } from '@phosphor-icons/react/dist/csr/Lightning';
-import { Tag } from 'antd';
-import React, { useState } from 'react';
+import { Modal, Tag, message } from 'antd';
+import React from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
-import { StopPropagation } from '@app/sharedV2/StopPropagation';
-import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
@@ -79,73 +76,62 @@ export default function TermContent({
     const [removeTermMutation] = useRemoveTermMutation();
     const highlightTerm = useHasMatchedFieldByUrn(term.term.urn, 'glossaryTerms');
 
-    const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
-    const termName = entityRegistry.getDisplayName(term.term.type, term.term);
-
-    const removeTerm = () => {
+    const removeTerm = (termToRemove: GlossaryTermAssociation) => {
         onOpenModal?.();
-        setIsRemoveModalOpen(true);
-    };
-
-    const confirmRemoveTerm = () => {
-        setIsRemoveModalOpen(false);
-        if (term.associatedUrn || entityUrn) {
-            removeTermMutation({
-                variables: {
-                    input: {
-                        termUrn: term.term.urn,
-                        resourceUrn: term.associatedUrn || entityUrn || '',
-                        subResource: entitySubresource,
-                        subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-                    },
-                },
-            })
-                .then(({ errors }) => {
-                    if (!errors) {
-                        toast.success(t('removeTermSuccess'), { duration: 2 });
-                    }
-                })
-                .then(refetch)
-                .catch((e) => {
-                    toast.destroy();
-                    toast.error(t('removeTermError', { error: e.message || '' }), { duration: 3 });
-                });
-        }
+        const termName = termToRemove && entityRegistry.getDisplayName(termToRemove.term.type, termToRemove.term);
+        Modal.confirm({
+            title: t('removeTermConfirmTitle', { name: termName }),
+            content: t('removeTermConfirmContent', { name: termName }),
+            onOk() {
+                if (termToRemove.associatedUrn || entityUrn) {
+                    removeTermMutation({
+                        variables: {
+                            input: {
+                                termUrn: termToRemove.term.urn,
+                                resourceUrn: termToRemove.associatedUrn || entityUrn || '',
+                                subResource: entitySubresource,
+                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                            },
+                        },
+                    })
+                        .then(({ errors }) => {
+                            if (!errors) {
+                                message.success({ content: t('removeTermSuccess'), duration: 2 });
+                            }
+                        })
+                        .then(refetch)
+                        .catch((e) => {
+                            message.destroy();
+                            message.error({ content: t('removeTermError', { error: e.message || '' }), duration: 3 });
+                        });
+                }
+            },
+            onCancel() {},
+            okText: tc('yes'),
+            maskClosable: true,
+            closable: true,
+        });
     };
 
     return (
-        <>
-            <StyledTag
-                style={{ cursor: 'pointer' }}
-                closable={canRemove && !readOnly}
-                onClose={(e) => {
-                    e.preventDefault();
-                    removeTerm();
-                }}
-                fontSize={fontSize}
-                $highlightTerm={highlightTerm}
-                $showOneAndCount={showOneAndCount}
-            >
-                <BookmarkSimple
-                    style={{ fill: theme.colors.icon, marginRight: '4px', marginBottom: 4, verticalAlign: 'middle' }}
-                />
-                <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
-                    {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                </Highlight>
-                {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
-            </StyledTag>
-            {isRemoveModalOpen && (
-                <StopPropagation>
-                    <ConfirmationModal
-                        isOpen
-                        handleClose={() => setIsRemoveModalOpen(false)}
-                        handleConfirm={confirmRemoveTerm}
-                        modalTitle={t('removeTermConfirmTitle', { name: termName })}
-                        modalText={t('removeTermConfirmContent', { name: termName })}
-                        confirmButtonText={tc('yes')}
-                    />
-                </StopPropagation>
-            )}
-        </>
+        <StyledTag
+            style={{ cursor: 'pointer' }}
+            closable={canRemove && !readOnly}
+            onClose={(e) => {
+                e.preventDefault();
+                removeTerm(term);
+            }}
+            fontSize={fontSize}
+            $highlightTerm={highlightTerm}
+            $showOneAndCount={showOneAndCount}
+        >
+            <BookmarkSimple
+                style={{ fill: theme.colors.icon, marginRight: '4px', marginBottom: 4, verticalAlign: 'middle' }}
+            />
+            <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
+                {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+            </Highlight>
+            {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
+        </StyledTag>
     );
 }

@@ -24,7 +24,7 @@ export default function useTagsAndTermsRenderer(
                     editableTags={options.showTags ? tags : null}
                     editableGlossaryTerms={options.showTerms ? record.properties?.glossaryTerms : null}
                     canRemove
-                    buttonProps={{ size: 'sm' }}
+                    buttonProps={{ size: 'small' }}
                     canAddTag={tagHoveredUrn === record.urn && options.showTags}
                     canAddTerm={tagHoveredUrn === record.urn && options.showTerms}
                     onOpenModal={() => setTagHoveredUrn(undefined)}
