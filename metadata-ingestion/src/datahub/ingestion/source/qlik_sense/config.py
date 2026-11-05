@@ -57,6 +57,7 @@ class Constant:
     DATAFIELDS = "dataFields"
     RESOURCETYPE = "resourceType"
     USAGE = "usage"
+    FINGERPRINT = "ingestionFingerprint"
     CREATEDDATE = "createdDate"
     MODIFIEDDATE = "modifiedDate"
     RESOURCEID = "resourceId"
@@ -113,6 +114,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
+    apps_read: int = 0
+    apps_skipped_unchanged: int = 0
 
     def report_number_of_spaces(self, number_of_spaces: int) -> None:
         self.number_of_spaces = number_of_spaces
@@ -212,6 +215,16 @@ class QlikSourceConfig(
         ge=1,
         description="On-prem only. Number of apps read from the Engine at the same time. "
         "Each worker holds one Engine session open.",
+    )
+    skip_unchanged_apps: bool = Field(
+        default=False,
+        description="On-prem only. Do not re-read an app from the Engine when the app, its "
+        "objects (sheets, stories, master items), its reload time, the data connections, this "
+        "recipe and the connector version are all unchanged since the last run, and DataHub "
+        "still holds that run's metadata for it. Its entities are kept, not soft-deleted. "
+        "Requires stateful ingestion. Set `stateful_ingestion.ignore_old_state` for one run "
+        "to force a full read, for example after ingesting upstream schemas that column-level "
+        "lineage should resolve against.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,

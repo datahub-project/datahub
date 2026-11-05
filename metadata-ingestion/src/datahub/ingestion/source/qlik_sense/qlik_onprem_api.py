@@ -1,10 +1,23 @@
+import hashlib
+import json
 import logging
 import secrets
 import socket
 import ssl
 import sys
+import threading
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Literal, Optional, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -21,6 +34,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Sheet,
     Space,
     SpaceType,
+    UnchangedApp,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
@@ -34,6 +48,26 @@ logger = logging.getLogger(__name__)
 UNPUBLISHED_APPS_ID = "unpublished-apps"
 UNPUBLISHED_APPS_NAME = "Unpublished"
 _XRFKEY_LENGTH = 16
+# The Repository Service lists sheets, stories and master items as app objects with
+# their own modifiedDate, so object edits are caught even if the app's own
+# modifiedDate does not move.
+_APP_FINGERPRINT_FIELDS = (
+    "name",
+    "description",
+    "modifiedDate",
+    "lastReloadTime",
+    "published",
+    "publishTime",
+)
+_OBJECT_FINGERPRINT_FIELDS = (
+    "engineObjectId",
+    "objectType",
+    "name",
+    "modifiedDate",
+    "contentHash",
+    "published",
+    "approved",
+)
 
 
 class _AssertHostnameAdapter(HTTPAdapter):
@@ -78,6 +112,9 @@ class QlikOnPremAPI:
         self.config = config
         self.spaces: Dict[str, str] = {}
         self.users: Dict[str, str] = {}
+        # Each app is read on a single worker thread, so a per-thread flag tells
+        # whether any Engine read for the current app failed.
+        self._thread_state = threading.local()
         server = config.server
         client_cert = config.client_cert
         client_key = config.client_key
@@ -112,6 +149,7 @@ class QlikOnPremAPI:
             raise
 
     def _log_http_error(self, message: str) -> Any:
+        self._thread_state.read_failed = True
         logger.warning(message)
         _, e, _ = sys.exc_info()
         if isinstance(e, requests.exceptions.HTTPError):
@@ -322,9 +360,13 @@ class QlikOnPremAPI:
             )
         return sheets
 
-    def _load_app(self, app_dict: Dict) -> Optional[App]:
+    def _load_app(
+        self, app_dict: Dict, fingerprint: Optional[str] = None
+    ) -> Optional[App]:
+        self._thread_state.read_failed = False
         try:
             app = self._app_from_qrs(app_dict)
+            app.fingerprint = fingerprint
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to parse app {app_dict.get(Constant.ID)}. Exception: {e}"
@@ -353,7 +395,38 @@ class QlikOnPremAPI:
             self._log_http_error(
                 message=f"Unable to open app {app.id} in the Engine. Exception: {e}"
             )
+        app.read_complete = not self._thread_state.read_failed
         return app
+
+    def app_fingerprint(self, app_dict: Dict) -> Optional[str]:
+        """Hash of everything the Repository Service knows about the app that the
+        Engine read depends on. None when it cannot be computed."""
+        try:
+            objects = self._get(
+                "/app/object/full",
+                params={"filter": f"app.id eq {app_dict[Constant.ID]}"},
+            ).json()
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch objects of app {app_dict.get(Constant.ID)}. Exception: {e}"
+            )
+            return None
+        owner = app_dict.get("owner") or {}
+        payload = {
+            "app": {key: app_dict.get(key) for key in _APP_FINGERPRINT_FIELDS},
+            "stream": (app_dict.get("stream") or {}).get(Constant.ID),
+            "owner": {key: owner.get(key) for key in ("id", "name", "userId")},
+            "objects": sorted(
+                json.dumps(
+                    {key: obj.get(key) for key in _OBJECT_FINGERPRINT_FIELDS},
+                    sort_keys=True,
+                )
+                for obj in objects
+            ),
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode("utf-8")
+        ).hexdigest()
 
     def get_data_connections(self) -> Dict[str, DataConnectionInfo]:
         connections: Dict[str, DataConnectionInfo] = {}
@@ -374,7 +447,11 @@ class QlikOnPremAPI:
         logger.debug(f"QRS data connections: {list(connections.values())}")
         return connections
 
-    def get_items(self, space_id: str) -> Iterable[Item]:
+    def get_items(
+        self,
+        space_id: str,
+        is_unchanged: Optional[Callable[[str, str], bool]] = None,
+    ) -> Iterable[Union[Item, UnchangedApp]]:
         if space_id not in self.spaces:
             return
         if not self.config.space_pattern.allowed(self.spaces[space_id]):
@@ -389,10 +466,21 @@ class QlikOnPremAPI:
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch apps. Exception: {e}")
             return
+        to_load: List[Tuple[Dict, Optional[str]]] = []
+        for app_dict in app_dicts:
+            fingerprint = self.app_fingerprint(app_dict) if is_unchanged else None
+            if (
+                is_unchanged
+                and fingerprint
+                and is_unchanged(app_dict[Constant.ID], fingerprint)
+            ):
+                yield UnchangedApp(id=app_dict[Constant.ID], fingerprint=fingerprint)
+            else:
+                to_load.append((app_dict, fingerprint))
         # Engine reads are network-bound; the GIL is only held while decoding replies.
         for future in BackpressureAwareExecutor.map(
             self._load_app,
-            ((app_dict,) for app_dict in app_dicts),
+            to_load,
             max_workers=self.config.max_workers,
         ):
             app = future.result()

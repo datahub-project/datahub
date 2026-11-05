@@ -248,6 +248,8 @@ class App(Item):
     sheets: List[Sheet] = []
     tables: List[QlikTable] = []
     script: Optional[str] = None
+    fingerprint: Optional[str] = None
+    read_complete: bool = True
 
     @model_validator(mode="before")
     @classmethod
@@ -265,3 +267,8 @@ class App(Item):
             values[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
         values[Constant.QRI] = f"qri:app:sense://{values['id']}"
         return values
+
+
+class UnchangedApp(BaseModel):
+    id: str
+    fingerprint: str

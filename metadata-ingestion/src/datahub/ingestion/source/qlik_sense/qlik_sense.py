@@ -1,8 +1,12 @@
+import hashlib
+import json
 import logging
 from datetime import datetime
+from functools import partial
 from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
+from datahub._version import __version__
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -16,6 +20,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     SourceReport,
     TestableSource,
     TestConnectionReport,
@@ -24,6 +29,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
+)
+from datahub.ingestion.source.qlik_sense.app_state import (
+    AppCheckpoint,
+    QlikAppStateHandler,
 )
 from datahub.ingestion.source.qlik_sense.config import (
     Constant,
@@ -45,6 +54,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Sheet,
     Space,
     SpaceKey,
+    UnchangedApp,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
@@ -55,8 +65,19 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
     parse_load_script,
 )
+from datahub.ingestion.source.state.entity_removal_state import (
+    STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
+    GenericCheckpointState,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    auto_stale_entity_removal,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
@@ -82,6 +103,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeAuditStampsClass,
     ChartInfoClass,
+    ContainerPropertiesClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
     OwnerClass,
@@ -90,6 +112,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.urns.urn import guess_entity_type
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -134,6 +157,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter = QlikSourceReport()
         self.ui_host = config.ui_hostname()
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
+        # Owned here rather than by the automatic processor so that entities of
+        # apps skipped as unchanged can be kept in the state.
+        self.stale_entity_removal_handler: Optional[StaleEntityRemovalHandler] = (
+            StaleEntityRemovalHandler(
+                state_provider=self.state_provider,
+                report=self.reporter,
+                config=self.config,
+                state_type_class=GenericCheckpointState,
+                pipeline_name=ctx.pipeline_name,
+                run_id=ctx.run_id,
+                platform=self.platform,
+            )
+            if config.skip_unchanged_apps
+            else None
+        )
+        self.app_state = QlikAppStateHandler(
+            state_provider=self.state_provider,
+            config=self.config,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+        )
+        self._fingerprint_salt: Optional[str] = None
         try:
             if config.deployment == QlikDeployment.ON_PREM:
                 self.qlik_api = QlikOnPremAPI(self.config)
@@ -165,6 +210,100 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def create(cls, config_dict, ctx):
         config = QlikSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    def get_excluded_workunit_processors(self):
+        return (
+            [AutoStaleEntityRemovalProcessor]
+            if self.stale_entity_removal_handler
+            else []
+        )
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        processors = super().get_workunit_processors()
+        if self.stale_entity_removal_handler:
+            processors.append(
+                partial(auto_stale_entity_removal, self.stale_entity_removal_handler)
+            )
+        return processors
+
+    def _salted_fingerprint(self, fingerprint: str) -> str:
+        # Recipe options and data connections shape every app's output, and a new
+        # connector version may emit differently, so any change re-reads all apps.
+        if self._fingerprint_salt is None:
+            if self._data_connections is None:
+                self._data_connections = self.qlik_api.get_data_connections()
+            self._fingerprint_salt = json.dumps(
+                {
+                    "version": __version__,
+                    "config": self.config.model_dump(
+                        mode="json",
+                        include={
+                            "server",
+                            "platform_instance",
+                            "env",
+                            "ingest_owner",
+                            "data_connection_to_platform_instance",
+                        },
+                    ),
+                    "connections": {
+                        name: info.model_dump(mode="json")
+                        for name, info in sorted(self._data_connections.items())
+                    },
+                },
+                sort_keys=True,
+            )
+        return hashlib.sha256(
+            f"{self._fingerprint_salt}|{fingerprint}".encode("utf-8")
+        ).hexdigest()
+
+    def _is_app_unchanged(self, app_id: str, fingerprint: str) -> bool:
+        previous = self.app_state.previous(app_id)
+        if previous is None or previous.fingerprint != self._salted_fingerprint(
+            fingerprint
+        ):
+            return False
+        # Checkpoints are committed even when the sink failed, so only trust one
+        # whose metadata actually reached DataHub and was not deleted since.
+        graph = self.ctx.graph
+        if graph is None:
+            return False
+        container_urn = self._gen_app_key(app_id).as_urn()
+        try:
+            properties = graph.get_aspect(container_urn, ContainerPropertiesClass)
+            status = graph.get_aspect(container_urn, Status)
+        except Exception as e:
+            logger.debug(f"Unable to read app container {container_urn}: {e}")
+            return False
+        return (
+            properties is not None
+            and (properties.customProperties or {}).get(Constant.FINGERPRINT)
+            == previous.fingerprint
+            and not (status is not None and status.removed)
+        )
+
+    def _keep_unchanged_app(self, app: UnchangedApp) -> None:
+        previous = self.app_state.previous(app.id)
+        assert previous is not None and self.stale_entity_removal_handler
+        for urn in previous.urns:
+            self.stale_entity_removal_handler.add_entity_to_state(
+                guess_entity_type(urn), urn
+            )
+        self.app_state.record(app.id, previous)
+        self.reporter.apps_skipped_unchanged += 1
+
+    def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
+        urns: Dict[str, None] = {}
+        for wu in self._gen_app_workunit(app):
+            urn = wu.get_urn()
+            if guess_entity_type(urn) not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES:
+                urns[urn] = None
+            yield wu
+        self.reporter.apps_read += 1
+        # An app with a failed Engine read is not recorded, so the next run reads it again.
+        if app.fingerprint and app.read_complete:
+            self.app_state.record(
+                app.id, AppCheckpoint(fingerprint=app.fingerprint, urns=list(urns))
+            )
 
     def _gen_space_key(self, space_id: str) -> SpaceKey:
         return SpaceKey(
@@ -645,7 +784,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             description=app.description,
             sub_types=[BIContainerSubTypes.QLIK_APP],
             parent_container_key=self._gen_space_key(app.spaceId),
-            extra_properties={Constant.QRI: app.qri, Constant.USAGE: app.qUsage},
+            extra_properties={
+                Constant.QRI: app.qri,
+                Constant.USAGE: app.qUsage,
+                **({Constant.FINGERPRINT: app.fingerprint} if app.fingerprint else {}),
+            },
             owner_urn=(
                 builder.make_user_urn(owner_username)
                 if self.config.ingest_owner and owner_username
@@ -788,13 +931,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         allowed_spaces = self._get_allowed_spaces()
         for allowed_space in allowed_spaces:
             yield from self._gen_space_workunit(allowed_space)
-            for item in self.qlik_api.get_items(
+            space_id = (
                 "personal"
                 if allowed_space.id == Constant.PERSONAL_SPACE_ID
                 else allowed_space.id
-            ):
-                if isinstance(item, App):
-                    yield from self._gen_app_workunit(item)
+            )
+            items = (
+                self.qlik_api.get_items(space_id, is_unchanged=self._is_app_unchanged)
+                if isinstance(self.qlik_api, QlikOnPremAPI)
+                and self.app_state.is_checkpointing_enabled()
+                else self.qlik_api.get_items(space_id)
+            )
+            for item in items:
+                if isinstance(item, UnchangedApp):
+                    self._keep_unchanged_app(item)
+                elif isinstance(item, App):
+                    if item.fingerprint:
+                        item.fingerprint = self._salted_fingerprint(item.fingerprint)
+                    yield from self._gen_recorded_app_workunit(item)
                 elif isinstance(item, QlikDataset):
                     yield from self._gen_dataset_workunit(item)
 
