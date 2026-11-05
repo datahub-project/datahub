@@ -90,9 +90,14 @@ const ViewerContainer = styled.div`
     max-width: calc(100% - 16px);
 `;
 
-const EntityName = styled(OverflowText)`
+const EntityNameText = styled(OverflowText)`
     white-space: nowrap;
 `;
+
+// Truncates with a tooltip on overflow; `ellipsis` mirrors the old antd Typography call sites.
+const EntityName = ({ children }: { children: string; ellipsis?: { tooltip: boolean } }) => (
+    <EntityNameText text={children} />
+);
 
 const HighlightedValue = styled.span`
     line-height: 1.5;
@@ -147,7 +152,9 @@ export default function StructuredPropertyValue({
                     <IconWrapper>
                         <EntityIcon entity={value.entity} size={size} />
                     </IconWrapper>
-                    <EntityName text={entityRegistry.getDisplayName(value.entity.type, value.entity)} />
+                    <EntityName ellipsis={{ tooltip: true }}>
+                        {entityRegistry.getDisplayName(value.entity.type, value.entity)}
+                    </EntityName>
                     <Link to={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
                         <StyledIcon size={12} />
                     </Link>

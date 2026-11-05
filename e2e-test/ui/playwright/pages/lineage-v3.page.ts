@@ -29,6 +29,7 @@ export class LineageV3Page extends LineageBasePage {
   readonly columnFieldBar: Locator;
   readonly creatingCsvText: Locator;
   readonly selectColumnDropdownButton: Locator;
+  readonly columnSelectVirtualList: Locator;
   readonly page: Page;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
@@ -42,6 +43,8 @@ export class LineageV3Page extends LineageBasePage {
     this.columnFieldBar = page.getByTestId('column-field_bar');
     this.creatingCsvText = page.getByText('Creating CSV');
     this.selectColumnDropdownButton = page.getByTestId('column-selector-dropdown');
+    // eslint-disable-next-line playwright/no-raw-locators -- RC virtual list component uses class-based selector; no semantic API
+    this.columnSelectVirtualList = page.locator('.rc-virtual-list');
   }
 
   // ── Private Helpers ────────────────────────────────────────────────────────
