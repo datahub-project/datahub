@@ -1482,9 +1482,9 @@ public class ESSearchDAO {
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
+    String prefixField = autocompletePrefixField(entitySpec, field);
     Map<String, Object> context = new HashMap<>();
-    context.put(
-        SearchTemplateContextVariables.PREFIX_FIELD, autocompletePrefixField(entitySpec, field));
+    context.put(SearchTemplateContextVariables.PREFIX_FIELD, prefixField);
     // The whole-name prefix reads the default name only, and only when the entity's name opted
     // into v3.lowercase. A caller-chosen field keeps the analyzed prefix alone, since the
     // lowercase subfield exists only on the name.
@@ -1516,11 +1516,44 @@ public class ESSearchDAO {
     source.size(ConfigUtils.applyLimit(searchServiceConfig, limit));
     source.trackTotalHits(false);
     source.fetchSource(new String[] {"urn", "name"}, null);
+    List<String> tokens = v3AllTokensPrefixTokens(entityName, prefixField, query);
+    if (!tokens.isEmpty()) {
+      // Also accept every typed token as a prefix, in any order: the template's phrase prefix needs
+      // all but the last token as whole adjacent terms, so "John K" would miss "Johnathan
+      // Killroy". It still matches "John Killroy" and ranks it higher.
+      BoolQueryBuilder allTokens = QueryBuilders.boolQuery();
+      for (String token : tokens) {
+        allTokens.must(
+            QueryBuilders.matchPhrasePrefixQuery(prefixField, token)
+                .analyzer("partial")
+                .maxExpansions(SearchClauseBudget.prefixExpansions(token)));
+      }
+      prefix = QueryBuilders.boolQuery().should(prefix).should(allTokens).minimumShouldMatch(1);
+    }
     source.query(QueryBuilders.boolQuery().must(prefix).filter(filterQuery));
     SearchRequest request = new SearchRequest();
     request.source(source);
     request.indices(entityIndexName(opContext, entityName));
     return request;
+  }
+
+  /**
+   * Tokens for the all-tokens-prefix alternative: empty unless the entity is listed in {@code
+   * allTokensMustPrefixMatchEntities} and two or more tokens are typed.
+   */
+  private List<String> v3AllTokensPrefixTokens(
+      @Nonnull String entityName, @Nonnull String prefixField, @Nonnull String query) {
+    // An exact (keyword) field holds the whole value as one term, so per-token prefixes miss it.
+    boolean analyzed =
+        prefixField.endsWith(V3SearchFields.TEXT_SUFFIX)
+            || prefixField.endsWith(V3SearchFields.STEMMED_SUFFIX);
+    if (!analyzed
+        || !AutocompleteRequestHandler.allTokensMustPrefixMatchEnabled(
+            searchConfiguration, entityName)) {
+      return List.of();
+    }
+    List<String> tokens = AutocompleteRequestHandler.prefixMatchTokens(query);
+    return tokens.size() >= 2 ? tokens : List.of();
   }
 
   @Nonnull

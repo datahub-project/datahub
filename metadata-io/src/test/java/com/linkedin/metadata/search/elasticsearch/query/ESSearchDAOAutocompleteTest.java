@@ -90,6 +90,39 @@ public class ESSearchDAOAutocompleteTest {
   }
 
   @Test
+  public void testV3PeopleAutocompleteAlsoAcceptsEveryTokenAsAPrefix() {
+    OperationContext opContext = operationContext(mock(SearchClientShim.class));
+    ESSearchDAO dao = dao(v3KeywordReads());
+
+    String people =
+        dao.buildV3AutocompleteRequest(opContext, "corpuser", "John K", null, null, 10)
+            .source()
+            .query()
+            .toString();
+    // The template's phrase plus one prefix per token.
+    assertEquals(countOf(people, "match_phrase_prefix"), 3, people);
+    assertTrue(people.contains("\"minimum_should_match\" : \"1\""), people);
+
+    String singleToken =
+        dao.buildV3AutocompleteRequest(opContext, "corpuser", "John", null, null, 10)
+            .source()
+            .query()
+            .toString();
+    assertEquals(countOf(singleToken, "match_phrase_prefix"), 1, singleToken);
+
+    String dataset =
+        dao.buildV3AutocompleteRequest(opContext, "dataset", "John K", null, null, 10)
+            .source()
+            .query()
+            .toString();
+    assertEquals(countOf(dataset, "match_phrase_prefix"), 1, dataset);
+  }
+
+  private static int countOf(String text, String needle) {
+    return text.split(needle, -1).length - 1;
+  }
+
+  @Test
   public void testBlankV3QueryDoesNotSearch() throws Exception {
     SearchClientShim<?> client = mock(SearchClientShim.class);
     OperationContext opContext = operationContext(client);
