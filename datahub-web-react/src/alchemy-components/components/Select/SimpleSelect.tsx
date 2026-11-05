@@ -54,6 +54,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     onClear,
     onOpenChange,
     showSearch = selectDefaults.showSearch,
+    autoFocusSearch = false,
     isDisabled = selectDefaults.isDisabled,
     isReadOnly = selectDefaults.isReadOnly,
     isRequired = selectDefaults.isRequired,
@@ -120,6 +121,15 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     useEffect(() => {
         onOpenChange?.(isOpen);
     }, [isOpen, onOpenChange]);
+
+    // The dropdown stays mounted between opens, so the input's own autoFocus only fires once.
+    useEffect(() => {
+        if (!isOpen || !showSearch || !autoFocusSearch) {
+            return undefined;
+        }
+        const frame = requestAnimationFrame(() => dropdownRef.current?.querySelector('input')?.focus());
+        return () => cancelAnimationFrame(frame);
+    }, [isOpen, showSearch, autoFocusSearch]);
 
     useEffect(() => {
         if (isOpen) {
@@ -222,6 +232,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                     value={searchQuery}
                                     onChange={(value) => handleSearchChange(value)}
                                     size={size}
+                                    autoFocus={autoFocusSearch}
                                 />
                             )}
                             <OptionList style={optionListStyle} data-testid={optionListTestId}>
