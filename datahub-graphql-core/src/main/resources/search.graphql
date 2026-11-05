@@ -52,11 +52,17 @@ extend type Query {
   Used by explore in the UI
   """
   browse(input: BrowseInput!): BrowseResults
+    @deprecated(
+      reason: "Use browseV2. The legacy browse query will be removed in a future release."
+    )
 
   """
   Retrieve the browse paths corresponding to an entity
   """
   browsePaths(input: BrowsePathsInput!): [BrowsePath!]
+    @deprecated(
+      reason: "Use the browsePathV2 field on the entity. The legacy browsePaths query will be removed in a future release."
+    )
 
   """
   Aggregate across DataHub entities
