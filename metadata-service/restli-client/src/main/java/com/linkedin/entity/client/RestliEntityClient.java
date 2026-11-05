@@ -51,7 +51,6 @@ import com.linkedin.entity.RunsDoRollbackRequestBuilder;
 import com.linkedin.entity.RunsRequestBuilders;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.EntitySpec;
@@ -459,30 +458,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Gets browse snapshot of a given path
-   *
-   * @param entityType entity type being browse
-   * @param path path being browsed
-   * @param requestFilters browse filters
-   * @param start start offset of first dataset
-   * @param limit max number of datasets
-   * @throws RemoteInvocationException when unable to execute request
-   */
-  @Override
-  @Nonnull
-  public BrowseResult browse(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityType,
-      @Nonnull String path,
-      @Nullable Map<String, String> requestFilters,
-      int start,
-      @Nullable Integer limit)
-      throws RemoteInvocationException {
-    throw new UnsupportedOperationException(
-        "The Rest.li browse action has been removed. Use browseV2 instead.");
-  }
-
-  /**
    * Gets browse V2 snapshot of a given path
    *
    * @param entityName entity being browsed
@@ -861,21 +836,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
     return sendClientRequest(requestBuilder, opContext).getEntity();
-  }
-
-  /**
-   * Gets browse path(s) given dataset urn
-   *
-   * @param urn urn for the entity
-   * @return list of paths given urn
-   * @throws RemoteInvocationException when unable to execute request
-   */
-  @Override
-  @Nonnull
-  public StringArray getBrowsePaths(@Nonnull OperationContext opContext, @Nonnull Urn urn)
-      throws RemoteInvocationException {
-    throw new UnsupportedOperationException(
-        "The Rest.li getBrowsePaths action has been removed. Read the browsePathsV2 aspect instead.");
   }
 
   @Override

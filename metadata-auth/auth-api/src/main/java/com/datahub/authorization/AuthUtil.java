@@ -19,8 +19,6 @@ import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.Conjunctive;
 import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -279,14 +277,6 @@ public class AuthUtil {
         session,
         READ,
         result.getEntities().stream().map(AutoCompleteEntity::getUrn).collect(Collectors.toList()));
-  }
-
-  public static boolean isAPIAuthorizedResult(
-      @Nonnull final AuthorizationSession session, @Nonnull final BrowseResult result) {
-    return isAPIAuthorizedEntityUrns(
-        session,
-        READ,
-        result.getEntities().stream().map(BrowseResultEntity::getUrn).collect(Collectors.toList()));
   }
 
   public static boolean isAPIAuthorizedUrns(
