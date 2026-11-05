@@ -42,6 +42,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.DocumentIdSchemeStampingMappingsBuilder;
@@ -605,8 +606,7 @@ public class SearchTestUtils {
               entityIndexConfiguration,
               searchClient != null
                   ? searchClient.partialNgramConfig()
-                  : com.linkedin.metadata.search.elasticsearch.client.shim.impl
-                      .OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
+                  : OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
