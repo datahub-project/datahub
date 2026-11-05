@@ -125,6 +125,7 @@ class SqsSource(AwsMessagingSourceBase):
         for queue in self.queues:
             self._add_dead_letter_edge(queue)
         self.collect_s3_notifications()
+        self.collect_producers()
         yield from self.service_lineage_workunits()
         yield from self.lineage.workunits()
 
@@ -178,7 +179,9 @@ class SqsSource(AwsMessagingSourceBase):
                 subtype=DatasetSubTypes.SQS_QUEUE.value,
                 parent_container=self.region_key(),
                 external_url=queue_console_url(queue),
-                custom_properties=queue_properties(queue),
+                custom_properties=self.dataset_custom_properties(
+                    urn, queue_properties(queue)
+                ),
                 created=self._timestamp(queue, QueueAttribute.CREATED_TIMESTAMP),
                 last_modified=self._timestamp(
                     queue, QueueAttribute.LAST_MODIFIED_TIMESTAMP
