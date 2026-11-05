@@ -288,6 +288,7 @@ import com.linkedin.datahub.graphql.resolvers.timeline.GetTimelineResolver;
 import com.linkedin.datahub.graphql.resolvers.timeseries.TimeseriesCapabilitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.type.GeneratedClassTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PropertyValueResolver;
@@ -413,10 +414,13 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.execution.DataFetcherResult;
+import graphql.language.InterfaceTypeDefinition;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.StaticDataFetcher;
+import graphql.schema.TypeResolver;
 import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.SchemaParser;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
@@ -983,6 +987,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE))
         .addSchema(fileBasedSchema(API_SCHEMA_FILE))
         .addSchema(fileBasedSchema(REPOSITORY_SCHEMA_FILE));
+    INTERFACE_SCHEMA_FILES.forEach(schemaFile -> builder.addSchema(fileBasedSchema(schemaFile)));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -2911,6 +2916,18 @@ public class GmsGraphQLEngine {
                             .filter(graphType -> graphType instanceof EntityType)
                             .map(graphType -> (EntityType<?, ?>) graphType)
                             .collect(Collectors.toList()))));
+
+    final TypeResolver generatedClassTypeResolver = new GeneratedClassTypeResolver();
+    for (String schemaFile : INTERFACE_SCHEMA_FILES) {
+      new SchemaParser()
+          .parse(fileBasedSchema(schemaFile))
+          .getTypes(InterfaceTypeDefinition.class)
+          .forEach(
+              iface ->
+                  builder.type(
+                      iface.getName(),
+                      typeWiring -> typeWiring.typeResolver(generatedClassTypeResolver)));
+    }
   }
 
   /** Configures custom type extensions leveraged within our GraphQL schema. */
