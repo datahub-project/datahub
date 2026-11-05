@@ -6,8 +6,9 @@ import json
 import logging
 import pathlib
 import tempfile
+import time
 import uuid
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
@@ -106,7 +107,6 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 ]
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
-_RESOLVED_QUERY_MEMO_MAX_ENTRIES = 1000
 _SLOW_DOWNSTREAM_WARNING_SECONDS = 60
 _SLOWEST_DOWNSTREAMS_TRACKED = 10
 
@@ -648,10 +648,6 @@ class SqlParsingAggregator(Closeable):
             shared_connection=self._shared_connection, tablename="temp_lineage_map"
         )
         self._exit_stack.push(self._temp_lineage_map)
-
-        # LRU memo of base query id -> query resolved through its temp tables.
-        # Only set while gen_metadata() runs, after view definitions are processed.
-        self._resolved_query_memo: Optional[OrderedDict[QueryId, QueryMetadata]] = None
 
         # Map of query ID -> schema fields, only for query IDs that generate temp tables.
         self._inferred_temp_schemas = FileBackedDict[List[models.SchemaFieldClass]](
@@ -1540,14 +1536,11 @@ class SqlParsingAggregator(Closeable):
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
         queries_generated: Set[QueryId] = set()
 
-        try:
-            yield from self._gen_lineage_mcps(queries_generated)
-            self.report.num_queries_used_in_lineage = len(queries_generated)
-            yield from self._gen_usage_statistics_mcps()
-            yield from self._gen_operation_mcps(queries_generated)
-            yield from self._gen_remaining_queries(queries_generated)
-        finally:
-            self._resolved_query_memo = None
+        yield from self._gen_lineage_mcps(queries_generated)
+        self.report.num_queries_used_in_lineage = len(queries_generated)
+        yield from self._gen_usage_statistics_mcps()
+        yield from self._gen_operation_mcps(queries_generated)
+        yield from self._gen_remaining_queries(queries_generated)
 
     def _gen_lineage_mcps(
         self, queries_generated: Set[QueryId]
@@ -1561,8 +1554,6 @@ class SqlParsingAggregator(Closeable):
         for view_urn, view_definition in self._view_definitions.items():
             self._process_view_definition(view_urn, view_definition)
         self._view_definitions.clear()
-
-        self._resolved_query_memo = OrderedDict()
 
         # Generate lineage and queries.
         for downstream_urn in sorted(self._lineage_map):
@@ -1799,7 +1790,13 @@ class SqlParsingAggregator(Closeable):
 
         self._track_downstream_resolution_time(
             downstream_urn,
-            queries,
+            len(queries),
+            {
+                query_id
+                for query in queries
+                if query.composed_of
+                for query_id in query.composed_of.all_queries
+            },
             timer.elapsed_seconds(),
             self.report.slowest_downstreams_lineage_seconds,
         )
@@ -2001,11 +1998,6 @@ class SqlParsingAggregator(Closeable):
         # TODO: Add special handling for COPY operations, which should mirror the schema
         # of the thing being copied in order to generate CLL.
 
-        memo = self._resolved_query_memo
-        if memo is not None and base_query.query_id in memo:
-            memo.move_to_end(base_query.query_id)
-            return memo[base_query.query_id]
-
         session_id = base_query.session_id
         session_temp_lineage = self._temp_lineage_map.get(session_id, {})
 
@@ -2149,7 +2141,7 @@ class SqlParsingAggregator(Closeable):
             ],
         )
 
-        resolved_query = dataclasses.replace(
+        return dataclasses.replace(
             base_query,
             query_id=composite_query_id,
             formatted_query_string=merged_query_text,
@@ -2158,13 +2150,6 @@ class SqlParsingAggregator(Closeable):
             confidence_score=resolved_lineage_info.confidence_score,
             composed_of=composed_of,
         )
-
-        if memo is not None:
-            memo[base_query.query_id] = resolved_query
-            if len(memo) > _RESOLVED_QUERY_MEMO_MAX_ENTRIES:
-                memo.popitem(last=False)
-
-        return resolved_query
 
     @staticmethod
     def _resolve_temp_column_lineage(
@@ -2207,18 +2192,15 @@ class SqlParsingAggregator(Closeable):
     def _track_downstream_resolution_time(
         self,
         downstream_urn: UrnStr,
-        queries: List[QueryMetadata],
+        num_queries: int,
+        composed_queries: Set[QueryId],
         seconds: float,
         slowest: TopKDict[UrnStr, float],
     ) -> None:
         if seconds > _SLOW_DOWNSTREAM_WARNING_SECONDS:
-            composed_queries: Set[QueryId] = set()
-            for query in queries:
-                if query.composed_of:
-                    composed_queries.update(query.composed_of.all_queries)
             logger.warning(
                 f"Resolving temp tables for {downstream_urn} took {seconds:.1f}s: "
-                f"{len(queries)} queries, composed of {len(composed_queries)} queries"
+                f"{num_queries} queries, composed of {len(composed_queries)} queries"
             )
 
         if len(slowest) >= _SLOWEST_DOWNSTREAMS_TRACKED:
@@ -2256,22 +2238,19 @@ class SqlParsingAggregator(Closeable):
             return
 
         for downstream_urn, query_ids in self._lineage_map.items():
-            # Resolve temp tables so operations reference the same (possibly
-            # composite) Query entity that lineage does - otherwise the raw
-            # component id is referenced but never emitted (it's subsumed by
-            # the composite), leaving a dangling query reference.
-            with PerfTimer() as timer:
-                queries = [
-                    self._resolve_query_with_temp_tables(self._query_map[query_id])
-                    for query_id in query_ids
-                ]
-            self._track_downstream_resolution_time(
-                downstream_urn,
-                queries,
-                timer.elapsed_seconds(),
-                self.report.slowest_downstreams_operations_seconds,
-            )
-            for query in queries:
+            # Sums resolution time only; queries are resolved and emitted one at a time.
+            resolution_seconds = 0.0
+            composed_queries: Set[QueryId] = set()
+            for query_id in query_ids:
+                # Resolve temp tables so operations reference the same (possibly
+                # composite) Query entity that lineage does - otherwise the raw
+                # component id is referenced but never emitted (it's subsumed by
+                # the composite), leaving a dangling query reference.
+                start = time.perf_counter()
+                query = self._resolve_query_with_temp_tables(self._query_map[query_id])
+                resolution_seconds += time.perf_counter() - start
+                if query.composed_of:
+                    composed_queries.update(query.composed_of.all_queries)
                 yield from self._gen_operation_for_downstream(downstream_urn, query)
 
                 # Avoid generating the same query twice. A composite subsumes its
@@ -2283,6 +2262,14 @@ class SqlParsingAggregator(Closeable):
                 if query.composed_of:
                     queries_generated.update(query.composed_of.all_queries)
                 yield from self._gen_query(query, downstream_urn)
+
+            self._track_downstream_resolution_time(
+                downstream_urn,
+                len(query_ids),
+                composed_queries,
+                resolution_seconds,
+                self.report.slowest_downstreams_operations_seconds,
+            )
 
     def _gen_operation_for_downstream(
         self, downstream_urn: UrnStr, query: QueryMetadata

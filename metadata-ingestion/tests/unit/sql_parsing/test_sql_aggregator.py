@@ -1589,9 +1589,9 @@ def test_slowest_downstreams_report_is_bounded(
 
     for seconds in range(1, 16):
         aggregator._track_downstream_resolution_time(
-            f"urn_{seconds}", [], float(seconds), slowest
+            f"urn_{seconds}", 0, set(), float(seconds), slowest
         )
-    aggregator._track_downstream_resolution_time("urn_slow", [], 61.0, slowest)
+    aggregator._track_downstream_resolution_time("urn_slow", 0, set(), 61.0, slowest)
 
     assert set(slowest) == {"urn_slow", *(f"urn_{s}" for s in range(7, 16))}
     assert "urn_slow" in caplog.text
