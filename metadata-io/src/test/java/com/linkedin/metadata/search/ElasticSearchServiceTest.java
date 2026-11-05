@@ -19,7 +19,6 @@ import static org.testng.AssertJUnit.assertNotNull;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
@@ -1163,54 +1162,6 @@ public class ElasticSearchServiceTest {
             eq(field),
             eq(requestParams),
             eq(null));
-  }
-
-  @Test
-  public void testBrowseWithNullSize() {
-    // Setup
-    ESBrowseDAO mockBrowseDAO = mock(ESBrowseDAO.class);
-    ElasticSearchService serviceWithMockDAO =
-        new ElasticSearchService(
-            mock(ESIndexBuilder.class),
-            TEST_SEARCH_SERVICE_CONFIG,
-            mock(ElasticSearchConfiguration.class),
-            mock(MappingsBuilder.class),
-            mock(SettingsBuilder.class),
-            mock(ESSearchDAO.class),
-            mockBrowseDAO,
-            mockEsWriteDAO);
-
-    String entityName = "dataset";
-    String path = "/prod/kafka";
-    Filter filters = null;
-    int from = 0;
-
-    BrowseResult expectedResult = new BrowseResult();
-    expectedResult.setFrom(from);
-    expectedResult.setPageSize(100);
-    expectedResult.setNumEntities(50);
-
-    when(mockBrowseDAO.browse(
-            any(OperationContext.class),
-            eq(entityName),
-            eq(path),
-            eq(filters),
-            eq(from),
-            eq(null) // null size
-            ))
-        .thenReturn(expectedResult);
-
-    // Execute
-    BrowseResult result =
-        serviceWithMockDAO.browse(
-            opContext, entityName, path, filters, from, null // null size
-            );
-
-    // Verify
-    assertEquals(result, expectedResult);
-    verify(mockBrowseDAO)
-        .browse(
-            any(OperationContext.class), eq(entityName), eq(path), eq(filters), eq(from), eq(null));
   }
 
   @Test

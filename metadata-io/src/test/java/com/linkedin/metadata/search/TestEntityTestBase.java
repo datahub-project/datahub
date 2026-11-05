@@ -14,7 +14,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
@@ -147,15 +146,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             0,
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
-    BrowseResult browseResult =
-        elasticSearchService.browse(
-            opContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            ENTITY_NAME,
-            "",
-            null,
-            0,
-            10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
     BrowseResultV2 browseResultV2 =
         elasticSearchService.browseV2(
             opContext.withSearchFlags(flags -> flags.setFulltext(false)),
@@ -219,16 +209,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
-    browseResult =
-        elasticSearchService.browse(
-            opContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            ENTITY_NAME,
-            "",
-            null,
-            0,
-            10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
-    assertEquals(browseResult.getGroups().get(0).getName(), "a");
     browseResultV2 =
         elasticSearchService.browseV2(
             opContext.withSearchFlags(flags -> flags.setFulltext(false)),
@@ -240,16 +220,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             10);
     assertEquals(browseResultV2.getMetadata().getTotalNumEntities().longValue(), 1);
     assertEquals(browseResultV2.getGroups().get(0).getName(), "a");
-    browseResult =
-        elasticSearchService.browse(
-            opContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            ENTITY_NAME,
-            "/a",
-            null,
-            0,
-            10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
-    assertEquals(browseResult.getGroups().get(0).getName(), "b");
     browseResultV2 =
         elasticSearchService.browseV2(
             opContext.withSearchFlags(flags -> flags.setFulltext(false)),
@@ -298,17 +268,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn2);
-    browseResult =
-        elasticSearchService.browse(
-            opContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            ENTITY_NAME,
-            "",
-            null,
-            0,
-            10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 2);
-    assertEquals(browseResult.getGroups().get(0).getName(), "a");
-    assertEquals(browseResult.getGroups().get(1).getName(), "b");
     browseResultV2 =
         elasticSearchService.browseV2(
             opContext.withSearchFlags(flags -> flags.setFulltext(false)),
@@ -321,16 +280,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
     assertEquals(browseResultV2.getMetadata().getTotalNumEntities().longValue(), 2);
     assertEquals(browseResultV2.getGroups().get(0).getName(), "a");
     assertEquals(browseResultV2.getGroups().get(1).getName(), "b");
-    browseResult =
-        elasticSearchService.browse(
-            opContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            ENTITY_NAME,
-            "/a",
-            null,
-            0,
-            10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
-    assertEquals(browseResult.getGroups().get(0).getName(), "b");
     browseResultV2 =
         elasticSearchService.browseV2(
             opContext.withSearchFlags(flags -> flags.setFulltext(false)),
@@ -368,15 +317,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             0,
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
-    browseResult =
-        elasticSearchService.browse(
-            opContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            ENTITY_NAME,
-            "",
-            null,
-            0,
-            10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
     browseResultV2 =
         elasticSearchService.browseV2(
             opContext.withSearchFlags(flags -> flags.setFulltext(false)),
@@ -522,9 +462,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
     SearchResult searchResult =
         elasticSearchService.search(opContext, List.of(ENTITY_NAME), "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
-    BrowseResult browseResult =
-        elasticSearchService.browse(opContext, ENTITY_NAME, "", null, 0, 10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
     BrowseResultV2 browseResultV2 =
         elasticSearchService.browseV2(opContext, ENTITY_NAME, "", null, "*", 0, 10);
     assertEquals(browseResultV2.getMetadata().getTotalNumEntities().longValue(), 0);
@@ -560,15 +497,9 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             opContext, List.of(ENTITY_NAME), "foreignKey:Node", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
-    browseResult = elasticSearchService.browse(opContext, ENTITY_NAME, "", null, 0, 10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
-    assertEquals(browseResult.getGroups().get(0).getName(), "a");
     browseResultV2 = elasticSearchService.browseV2(opContext, ENTITY_NAME, "", null, "*", 0, 10);
     assertEquals(browseResultV2.getMetadata().getTotalNumEntities().longValue(), 1);
     assertEquals(browseResultV2.getGroups().get(0).getName(), "a");
-    browseResult = elasticSearchService.browse(opContext, ENTITY_NAME, "/a", null, 0, 10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
-    assertEquals(browseResult.getGroups().get(0).getName(), "b");
     browseResultV2 =
         elasticSearchService.browseV2(
             opContext, ENTITY_NAME, BROWSE_V2_DELIMITER + "a", null, "*", 0, 10);
@@ -597,18 +528,11 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
         elasticSearchService.search(opContext, List.of(ENTITY_NAME), "user_id", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 2);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
-    browseResult = elasticSearchService.browse(opContext, ENTITY_NAME, "", null, 0, 10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 2);
-    assertEquals(browseResult.getGroups().get(0).getName(), "a");
-    assertEquals(browseResult.getGroups().get(1).getName(), "b");
     browseResultV2 =
         elasticSearchService.browseV2(opContext, ENTITY_NAME, "", null, "user_id", 0, 10);
     assertEquals(browseResultV2.getMetadata().getTotalNumEntities().longValue(), 2);
     assertEquals(browseResultV2.getGroups().get(0).getName(), "a");
     assertEquals(browseResultV2.getGroups().get(1).getName(), "b");
-    browseResult = elasticSearchService.browse(opContext, ENTITY_NAME, "/a", null, 0, 10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
-    assertEquals(browseResult.getGroups().get(0).getName(), "b");
     browseResultV2 =
         elasticSearchService.browseV2(
             opContext, ENTITY_NAME, BROWSE_V2_DELIMITER + "a", null, "user_id", 0, 10);
@@ -626,8 +550,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
     searchResult =
         elasticSearchService.search(opContext, List.of(ENTITY_NAME), "*", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
-    browseResult = elasticSearchService.browse(opContext, ENTITY_NAME, "", null, 0, 10);
-    assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
     browseResultV2 = elasticSearchService.browseV2(opContext, ENTITY_NAME, "", null, "*", 0, 10);
     assertEquals(browseResultV2.getMetadata().getTotalNumEntities().longValue(), 0);
     assertEquals(elasticSearchService.docCount(opContext, ENTITY_NAME), 0);

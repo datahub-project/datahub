@@ -6,7 +6,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -631,34 +630,6 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Nonnull
   @Override
-  public BrowseResult browse(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityName,
-      @Nonnull String path,
-      @Nullable Filter filters,
-      int from,
-      @Nullable Integer size) {
-    log.debug(
-        "Browsing entities entityName: {}, path: {}, filters: {}, from: {}, size: {}",
-        entityName,
-        path,
-        filters,
-        from,
-        size);
-    return esBrowseDAO.browse(
-        opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(true)),
-        entityName,
-        path,
-        filters,
-        from,
-        size);
-  }
-
-  @Nonnull
-  @Override
   public BrowseResultV2 browseV2(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
@@ -697,14 +668,6 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         input,
         start,
         ConfigUtils.applyLimit(searchServiceConfig, count));
-  }
-
-  @Nonnull
-  @Override
-  public List<String> getBrowsePaths(
-      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull Urn urn) {
-    log.debug("Getting browse paths for entity entityName: {}, urn: {}", entityName, urn);
-    return esBrowseDAO.getBrowsePaths(opContext, entityName, urn);
   }
 
   @Nonnull

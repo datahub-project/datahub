@@ -153,8 +153,8 @@ The following outlines a series of steps required to introduce a new entity into
 
     - If search functionality should be supported, extend the "search" query within `search.graphql` to fetch the new
       entity data.
-    - If browse functionality should be supported, extend the "browse" query within `browse.graphql` to fetch the new
-      entity data.
+    - If browse functionality should be supported, give the entity a `browsePathsV2` aspect. The browse sidebar reads it
+      through the `browseV2` query in `browseV2.graphql`.
     - If display a 'profile' should be supported (most often), introduce a new `<entity-name>.graphql` file that contains a
       `get` query to fetch the entity by primary key (urn).
 
