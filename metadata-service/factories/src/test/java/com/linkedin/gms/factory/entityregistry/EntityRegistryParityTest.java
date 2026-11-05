@@ -10,6 +10,7 @@ import com.linkedin.gms.factory.timeline.eventgenerator.EntityChangeEventGenerat
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.AbstractMultiFieldPatchBuilder;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
+import com.linkedin.metadata.aspect.patch.template.Template;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.config.search.EntityTypeListConfig;
 import com.linkedin.metadata.models.EntitySpec;
@@ -128,8 +129,9 @@ public class EntityRegistryParityTest {
   /** "resourceType:privilege" pairs where the aspect exists but the privilege is not offered. */
   private static final Set<String> ASPECT_WITHOUT_PRIVILEGE_BASELINE =
       Set.of(
-          // Not offered today, so only an "all"-type policy can grant them. Each is a gap or an
-          // intentional exception; move intentional ones above this line with a reason.
+          // Known gaps: not offered today, so only an "all"-type policy can grant them. If one
+          // turns
+          // out to be intentional, list it in its own group with a comment saying why.
           "businessAttribute:EDIT_ENTITY_DOC_LINKS",
           "corpGroup:EDIT_ENTITY_TAGS",
           "corpuser:EDIT_ENTITY_TAGS",
@@ -153,9 +155,13 @@ public class EntityRegistryParityTest {
   // ---------------------------------------------------------------------------------------------
 
   /**
-   * Searchable catalog entities whose key aspect has no EntityKeyChangeEventGenerator, so creating
-   * or hard-deleting one emits no lifecycle change event. Fixing one also needs the key aspect in
-   * PlatformEventGeneratorHook's supported aspects (mae-consumer).
+   * Searchable catalog entities whose key aspect has no EntityKeyChangeEventGenerator in
+   * EntityChangeEventGeneratorRegistryFactory.
+   *
+   * <p>This covers the factory side only. A lifecycle event is emitted only when the key aspect is
+   * also in PlatformEventGeneratorHook's supported aspects (mae-consumer), which this module cannot
+   * see. Known hook-side gap, tracked separately: corpGroup passes here, but corpGroupKey is
+   * missing from the hook, so corpGroup emits no lifecycle event either.
    */
   private static final Set<String> KEY_CHANGE_EVENT_BASELINE =
       Set.of(
@@ -182,7 +188,11 @@ public class EntityRegistryParityTest {
   // Patch
   // ---------------------------------------------------------------------------------------------
 
-  /** Aspects that have a Java patch builder but no patch template in the template engine. */
+  /**
+   * Aspects that have a Java patch builder but no patch template in the template engine. A
+   * registered template whose getDefault() throws is a separate failure with no baseline: PATCH on
+   * an entity that lacks the aspect needs that default.
+   */
   private static final Set<String> PATCH_TEMPLATE_BASELINE =
       Set.of(
           // IncidentInfoPatchBuilder always sends forceGenericPatch, which PatchItemImpl applies
@@ -349,8 +359,11 @@ public class EntityRegistryParityTest {
   @Test
   public void patchBuildersHaveTemplates() throws Exception {
     AspectTemplateEngine templates = SnapshotEntityRegistry.getInstance().getAspectTemplateEngine();
+    Map<String, Template<?>> registeredTemplates = templateMap(templates);
     Method aspectName = AbstractMultiFieldPatchBuilder.class.getDeclaredMethod("getAspectName");
     Method entityType = AbstractMultiFieldPatchBuilder.class.getDeclaredMethod("getEntityType");
+    // Reflection: builders expose their aspect/entity only via protected methods, and a builder
+    // cannot build() without a urn and at least one patch operation.
     aspectName.setAccessible(true);
     entityType.setAccessible(true);
 
@@ -367,6 +380,7 @@ public class EntityRegistryParityTest {
 
     Set<String> unknown = new TreeSet<>();
     Set<String> withoutTemplate = new TreeSet<>();
+    Set<String> defaultThrows = new TreeSet<>();
     for (Class<?> builderClass : builders) {
       Object builder = builderClass.getDeclaredConstructor().newInstance();
       String aspect = (String) aspectName.invoke(builder);
@@ -374,11 +388,23 @@ public class EntityRegistryParityTest {
       if (entity != null && !hasAspect(entity, aspect)) {
         unknown.add(builderClass.getSimpleName() + " -> " + entity + "." + aspect);
       }
-      if (templates.getDefaultTemplate(aspect) == null) {
+      Template<?> template = registeredTemplates.get(aspect);
+      if (template == null) {
         withoutTemplate.add(aspect);
+      } else {
+        try {
+          template.getDefault();
+        } catch (Exception e) {
+          defaultThrows.add(aspect + " (" + e + ")");
+        }
       }
     }
     assertTrue(unknown.isEmpty(), "Patch builders target unregistered aspects: " + unknown);
+    assertTrue(
+        defaultThrows.isEmpty(),
+        "Patch templates whose getDefault() throws, so PATCH fails when the aspect does not exist"
+            + " yet: "
+            + defaultThrows);
     assertBaseline(
         "Aspects with a patch builder but no patch template in SnapshotEntityRegistry",
         withoutTemplate,
@@ -431,16 +457,25 @@ public class EntityRegistryParityTest {
 
   private static EntityChangeEventGeneratorRegistry changeEventGeneratorRegistry() {
     ExposedGeneratorFactory factory = new ExposedGeneratorFactory();
+    // Reflection: the factory reads this @Autowired field before building; the value is unused.
     ReflectionTestUtils.setField(factory, "applicationContext", mock(ApplicationContext.class));
     return factory.build(mock(OperationContext.class), mock(SystemEntityClient.class));
   }
 
   @SuppressWarnings("unchecked")
   private static Set<String> generatorAspects(EntityChangeEventGeneratorRegistry generators) {
+    // Reflection: the registry only offers lookup by aspect name, not the set of registered names.
     Map<String, Set<EntityChangeEventGenerator<?>>> byAspect =
         (Map<String, Set<EntityChangeEventGenerator<?>>>)
             ReflectionTestUtils.getField(generators, "entityChangeEventGenerators");
     return byAspect.keySet();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Template<?>> templateMap(AspectTemplateEngine engine) {
+    // Reflection: getDefaultTemplate() returns null both for a missing template and for one whose
+    // getDefault() throws, so the registered map is the only way to tell them apart.
+    return (Map<String, Template<?>>) ReflectionTestUtils.getField(engine, "_aspectTemplateMap");
   }
 
   /**
