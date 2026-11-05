@@ -89,6 +89,16 @@ def _parse_xml(response_text: str) -> Element:
         raise XmlaClientError(f"Failed to parse XMLA response: {e}") from e
 
 
+def _redact_credentials(definition: str) -> str:
+    # The definition is shown in DataHub as view logic. Analysis Services
+    # normally scripts passwords out, but a data source's impersonation password
+    # or a password in its connection string must never reach the catalog.
+    definition = constants.PASSWORD_ELEMENT_RE.sub(r"\1\2", definition)
+    return constants.CONNECTION_STRING_PASSWORD_RE.sub(
+        rf"\1{constants.REDACTED}", definition
+    )
+
+
 class XmlaClient:
     def __init__(
         self,
@@ -279,9 +289,25 @@ class XmlaClient:
                 timeout=self.config.request_timeout,
                 verify=self.config.verify_ssl,
             )
-            resp.raise_for_status()
         except requests.RequestException as e:
             raise XmlaClientError(f"XMLA request failed: {e}") from e
+        if not resp.ok:
+            # Analysis Services returns a SOAP fault with the real reason on
+            # HTTP errors too, so surface it rather than just the status line.
+            try:
+                fault_envelope: Optional[Element] = _parse_xml(resp.text)
+            except XmlaClientError:
+                fault_envelope = None  # Not XML, e.g. a gateway error page.
+            if fault_envelope is not None:
+                try:
+                    self._raise_on_soap_fault(fault_envelope)
+                except XmlaClientError as fault:
+                    raise XmlaClientError(
+                        f"XMLA request failed with HTTP {resp.status_code}: {fault}"
+                    ) from fault
+            raise XmlaClientError(
+                f"XMLA request failed with HTTP {resp.status_code}: {resp.reason}"
+            )
         return resp.text
 
     @staticmethod
@@ -428,8 +454,8 @@ class XmlaClient:
                 constants.ELEMENT_METADATA_ALT,
             ):
                 if len(element):
-                    return tostring(element[0], encoding="unicode")
-                return element.text
+                    return _redact_credentials(tostring(element[0], encoding="unicode"))
+                return _redact_credentials(element.text) if element.text else None
         return None
 
     # Typed fetch + assembly

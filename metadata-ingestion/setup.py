@@ -457,6 +457,10 @@ delta_lake = {
 
 powerbi_report_server = {"requests<3.0.0", "requests_ntlm<2.0.0"}
 
+# The shared M-Query lineage engine (common/m_query), used by powerbi and
+# azure-analysis-services.
+m_query_common = {"sqlparse>=0.6.0,<1.0.0", "mini-racer==0.14.1"} | sqlglot_lib
+
 slack = {
     "slack-sdk==3.18.1",
     "tenacity>=8.0.1,<9.0.0",
@@ -888,24 +892,16 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "starrocks": sql_common | {"starrocks>=1.3.3,<2.0", "lark>=1.3.1,<2.0"},
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
-    "powerbi": (
-        microsoft_common
-        | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
-        | sqlglot_lib
-    ),
+    "powerbi": microsoft_common | m_query_common | {"more-itertools<11.0.0"},
     "powerbi-report-server": powerbi_report_server,
-    # Shares the Power BI M-query lineage engine, so it carries the same M/DAX
-    # parsing dependencies plus azure-identity for XMLA-over-HTTP auth and
-    # defusedxml for safe rowset parsing.
-    "azure-analysis-services": (
-        {
-            "azure-identity>=1.21.0,<2.0.0",
-            "requests<3.0.0",
-            "defusedxml>=0.7.1,<0.8.0",
-        }
-        | {"sqlparse<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
-        | sqlglot_lib
-    ),
+    # Shares the Power BI M-query lineage engine, plus azure-identity for
+    # XMLA-over-HTTP auth and defusedxml for safe rowset parsing.
+    "azure-analysis-services": m_query_common
+    | {
+        "azure-identity>=1.21.0,<2.0.0",
+        "requests<3.0.0",
+        "defusedxml>=0.7.1,<0.8.0",
+    },
     "vertica": sql_common | {"sqlalchemy-vertica-python>=0.6.3,<0.7.0"},
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync

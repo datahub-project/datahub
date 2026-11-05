@@ -120,12 +120,12 @@
                 "culture": "en-US",
                 "role.Reader": ""
             },
-            "name": "Model",
+            "name": "SalesModel",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684684,
+        "lastObserved": 1793918741931,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -968,7 +968,16 @@
     "aspectName": "upstreamLineage",
     "aspect": {
         "json": {
-            "upstreams": [],
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
             "fineGrainedLineages": [
                 {
                     "upstreamType": "FIELD_SET",
@@ -985,7 +994,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1787218313699,
+        "lastObserved": 1793918741955,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1028,12 +1037,12 @@
                 "culture": "en-US",
                 "role.Reader": ""
             },
-            "name": "Model",
+            "name": "SalesModel",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684876,
+        "lastObserved": 1793918741956,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1098,7 +1107,7 @@
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "schemaName": "Model",
+            "schemaName": "SalesModel",
             "platform": "urn:li:dataPlatform:azure-analysis-services",
             "version": 0,
             "created": {
@@ -1133,7 +1142,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684876,
+        "lastObserved": 1793918741956,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }

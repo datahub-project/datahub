@@ -1,6 +1,6 @@
 import argparse
 import pathlib
-from typing import Dict
+from typing import Dict, List
 
 import yaml
 
@@ -11,7 +11,11 @@ from datahub.ingestion.source.azure_analysis_services.config import (
 from datahub.ingestion.source.azure_analysis_services.report import (
     AzureAnalysisServicesReport,
 )
-from datahub.ingestion.source.azure_analysis_services.xmla_client import XmlaClient
+from datahub.ingestion.source.azure_analysis_services.xmla_client import (
+    XmlaClient,
+    XmlaClientError,
+    _parse_xml,
+)
 
 # Maps a token that appears in an outgoing XMLA request body to the fixture
 # filename the captured response should be written to. Order matters: the more
@@ -32,13 +36,25 @@ _BODY_TOKEN_TO_FILE: Dict[str, str] = {
 }
 
 
-def _install_recorder(client: XmlaClient, out_dir: pathlib.Path) -> None:
+def _install_recorder(client: XmlaClient, out_dir: pathlib.Path) -> List[str]:
+    """Tees each raw response to its fixture file and returns the files whose
+    response was a SOAP fault, which are not written."""
     original = client._post_soap
+    faulted: List[str] = []
 
     def recording_post_soap(soap_action: str, inner_body: str) -> str:
         response_text = original(soap_action, inner_body)
         for token, filename in _BODY_TOKEN_TO_FILE.items():
             if token in inner_body:
+                # An optional DMV the server refuses comes back as an HTTP-200
+                # SOAP fault; the client downgrades it to a warning, but it must
+                # not be saved as a fixture.
+                try:
+                    client._raise_on_soap_fault(_parse_xml(response_text))
+                except XmlaClientError as e:
+                    faulted.append(filename)
+                    print(f"NOT captured {token}: {e}")
+                    break
                 (out_dir / filename).write_text(response_text, encoding="utf-8")
                 print(f"captured {token} -> {filename}")
                 break
@@ -47,6 +63,7 @@ def _install_recorder(client: XmlaClient, out_dir: pathlib.Path) -> None:
     # Reuses the client's real auth, endpoint resolution, and SOAP transport;
     # we only tee the raw response to disk.
     client._post_soap = recording_post_soap  # type: ignore[method-assign]
+    return faulted
 
 
 def main() -> None:
@@ -86,7 +103,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     client = XmlaClient(config, AzureAnalysisServicesReport())
-    _install_recorder(client, out_dir)
+    faulted = _install_recorder(client, out_dir)
 
     catalogs = client.discover_databases()
     if not catalogs:
@@ -96,6 +113,11 @@ def main() -> None:
     client.fetch_tabular_model(catalog)
     client.close()
 
+    if faulted:
+        raise SystemExit(
+            "Capture failed — the server returned a SOAP fault for: "
+            + ", ".join(sorted(faulted))
+        )
     missing = _missing_fixtures(out_dir, config)
     if missing:
         raise SystemExit(

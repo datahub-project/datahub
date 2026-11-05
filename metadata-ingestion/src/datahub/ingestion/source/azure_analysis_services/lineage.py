@@ -105,7 +105,12 @@ class AasLineageExtractor:
 
         seen_upstreams: Set[str] = set()
         seen_fine_grained: Set[Tuple[object, ...]] = set()
+        seen_queries: Set[Optional[str]] = set()
         for partition in query_partitions:
+            # Partitions often share one query; parse each distinct query once.
+            if partition.query_definition in seen_queries:
+                continue
+            seen_queries.add(partition.query_definition)
             partition_table = table.model_copy(update={"partitions": [partition]})
             for lineage in self._parse_table(partition_table):
                 for upstream_table in lineage.upstreams:
@@ -210,11 +215,14 @@ class AasLineageExtractor:
         # objects that never become fields — AS system RowNumber-* columns and
         # calc-table self-references (where the "column" is the table name) — which
         # would otherwise dangle as unresolvable schema-field URNs in the golden.
-        fields_by_table: Dict[str, frozenset] = {
-            table.name.lower(): frozenset(
-                [col.name.lower() for col in table.columns]
-                + [measure.name.lower() for measure in table.measures]
-            )
+        # Keyed case-insensitively, valued by the name the schema emits, since
+        # DISCOVER_CALC_DEPENDENCY and the TMSCHEMA DMVs can disagree on casing.
+        fields_by_table: Dict[str, Dict[str, str]] = {
+            table.name.lower(): {
+                name.lower(): name
+                for name in [col.name for col in table.columns]
+                + [measure.name for measure in table.measures]
+            }
             for table in model.tables
         }
 
@@ -246,7 +254,7 @@ class AasLineageExtractor:
         self,
         dependency: AasCalcDependency,
         dataset_urn_by_table: Dict[str, str],
-        fields_by_table: Dict[str, frozenset],
+        fields_by_table: Dict[str, Dict[str, str]],
     ) -> Optional[_DependencyEdge]:
         object_type = dependency.object_type.upper()
         referenced_type = dependency.referenced_object_type.upper()
@@ -270,21 +278,20 @@ class AasLineageExtractor:
         # Both endpoints must be fields the mapper emits as schema fields.
         # This drops edges to AS system RowNumber-* columns and to a calc table's
         # own name (a table object, not a field), which would otherwise dangle.
-        downstream_fields = fields_by_table.get(dependency.table.lower(), frozenset())
-        upstream_fields = fields_by_table.get(
-            dependency.referenced_table.lower(), frozenset()
+        downstream_field = fields_by_table.get(dependency.table.lower(), {}).get(
+            dependency.object_name.lower()
         )
-        if (
-            dependency.object_name.lower() not in downstream_fields
-            or dependency.referenced_object.lower() not in upstream_fields
-        ):
+        upstream_field = fields_by_table.get(
+            dependency.referenced_table.lower(), {}
+        ).get(dependency.referenced_object.lower())
+        if downstream_field is None or upstream_field is None:
             return None
 
         return _DependencyEdge(
             downstream_urn=builder.make_schema_field_urn(
-                downstream_dataset, dependency.object_name
+                downstream_dataset, downstream_field
             ),
             upstream_urn=builder.make_schema_field_urn(
-                upstream_dataset, dependency.referenced_object
+                upstream_dataset, upstream_field
             ),
         )

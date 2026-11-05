@@ -30,6 +30,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     ForeignKeyConstraintClass,
@@ -40,6 +41,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
+    UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
@@ -165,9 +167,11 @@ class AasMapper:
         )
 
         model_key = self._model_key(model.catalog)
+        # TMSCHEMA_MODEL.Name is "Model" in almost every tabular database, so the
+        # catalog is the name users know the model by.
         yield from gen_containers(
             container_key=model_key,
-            name=model.name,
+            name=model.catalog,
             sub_types=[DatasetSubTypes.SEMANTIC_MODEL],
             parent_container_key=server_key,
             description=model.description,
@@ -304,13 +308,32 @@ class AasMapper:
         yield from add_dataset_to_container(model_key, dataset_urn)
 
         upstream = self.lineage_extractor.extract_upstream_for_table(table, dataset_urn)
-        fine_grained = list(upstream.fine_grained)
-        fine_grained.extend(intra_model_fgl.get(dataset_urn, []))
-        if upstream.upstreams or fine_grained:
+        intra_model = intra_model_fgl.get(dataset_urn, [])
+        fine_grained = list(upstream.fine_grained) + intra_model
+        upstreams = list(upstream.upstreams)
+        # DAX column edges into other tables of the model need a matching
+        # dataset-level edge.
+        upstream_datasets = {u.dataset for u in upstreams}
+        for edge in intra_model:
+            for field_urn in edge.upstreams or []:
+                upstream_dataset = self._dataset_urn_of_field(field_urn)
+                if (
+                    upstream_dataset
+                    and upstream_dataset != dataset_urn
+                    and upstream_dataset not in upstream_datasets
+                ):
+                    upstream_datasets.add(upstream_dataset)
+                    upstreams.append(
+                        UpstreamClass(
+                            dataset=upstream_dataset,
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                    )
+        if upstreams or fine_grained:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineageClass(
-                    upstreams=upstream.upstreams,
+                    upstreams=upstreams,
                     fineGrainedLineages=fine_grained or None,
                 ),
             ).as_workunit()
@@ -484,7 +507,7 @@ class AasMapper:
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DatasetPropertiesClass(
-                name=model.name,
+                name=model.catalog,
                 description=model.description,
                 customProperties=self._model_container_properties(model),
             ),
@@ -529,7 +552,7 @@ class AasMapper:
                 field.fieldPath = f"{table.name}.{measure.name}"
                 fields.append(field)
         return SchemaMetadataClass(
-            schemaName=model.name,
+            schemaName=model.catalog,
             platform=builder.make_data_platform_urn(self.config.platform),
             version=0,
             hash="",

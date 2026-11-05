@@ -31,7 +31,8 @@ source:
         env: PROD
 
     # Set platform to "powerbi" when the models are also ingested by the Power BI
-    # connector, so the emitted URNs align and the entities merge.
+    # connector, so the emitted URNs align and the entities merge. This needs a
+    # Power BI Premium endpoint: server: "powerbi://api.powerbi.com/v1.0/myorg/<workspace>".
     # platform: "powerbi"
 
     stateful_ingestion:

@@ -338,3 +338,52 @@ def test_upstream_parses_only_m_partitions_of_mixed_table() -> None:
     assert (
         mocked_parser.call_args.kwargs["table"].expression == "let Source = 1 in Source"
     )
+
+
+def test_partitions_sharing_a_query_are_parsed_once() -> None:
+    extractor = _extractor()
+    query = "let Source = 1 in Source"
+    table = AasTable(
+        name="Sales",
+        partitions=[
+            AasPartition(name="2024", query_definition=query),
+            AasPartition(name="2025", query_definition=query),
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.Sales"
+    )
+    with mock.patch(
+        "datahub.ingestion.source.azure_analysis_services.lineage.parser.get_upstream_tables",
+        return_value=[],
+    ) as mocked_parser:
+        extractor.extract_upstream_for_table(table, dataset_urn)
+    assert mocked_parser.call_count == 1
+
+
+def test_intra_model_edges_use_emitted_field_casing() -> None:
+    # DISCOVER_CALC_DEPENDENCY can spell a name differently from TMSCHEMA; the
+    # edge must point at the field the schema emits.
+    extractor = _extractor()
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Model",
+        tables=[
+            AasTable(
+                name="Sales",
+                columns=[AasColumn(name="Amount", datahub_data_type=NullTypeClass())],
+                measures=[AasMeasure(name="Total Sales")],
+            )
+        ],
+        calc_dependencies=[
+            _calc_dep("MEASURE", "sales", "TOTAL SALES", "COLUMN", "SALES", "amount")
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.Sales"
+    )
+    [edge] = extractor.extract_intra_model_lineage(model, {"sales": dataset_urn})
+    assert edge.downstreams == [
+        builder.make_schema_field_urn(dataset_urn, "Total Sales")
+    ]
+    assert edge.upstreams == [builder.make_schema_field_urn(dataset_urn, "Amount")]
