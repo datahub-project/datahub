@@ -12,6 +12,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -56,6 +57,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -1372,6 +1374,8 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
       "urn:li:dataset:(urn:li:dataPlatform:testPlatform,hidden,PROD)";
   private static final String HIDDEN_USER = "urn:li:corpuser:bob";
   private static final String VISIBLE_USER = "urn:li:corpuser:alice";
+  private static final String VISIBLE_DATASET =
+      "urn:li:dataset:(urn:li:dataPlatform:testPlatform,visible,PROD)";
 
   private MockedStatic<AuthUtil> hideDatasetAndBob() {
     MockedStatic<AuthUtil> authUtil = mockStatic(AuthUtil.class);
@@ -1508,5 +1512,132 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
               jsonPath("$.results[0].source.urn").value("urn:li:restricted:redacted-dataset"))
           .andExpect(jsonPath("$.results[0].destination.urn").value(VISIBLE_USER));
     }
+  }
+
+  private static io.datahubproject.openapi.v3.models.Filter urnFilter(String urn) {
+    return io.datahubproject.openapi.v3.models.Filter.builder()
+        .and(
+            List.of(
+                ConjunctiveCriterion.builder()
+                    .criteria(
+                        List.of(
+                            Criterion.builder()
+                                .field("urn")
+                                .values(List.of(urn))
+                                .condition(Criterion.Condition.EQUAL)
+                                .build()))
+                    .build()))
+        .build();
+  }
+
+  private void stubScroll(List<RelatedEntities> edges) {
+    when(mockGraphService.scrollRelatedEntities(
+            any(), any(), any(), isNull(), anyString(), anyInt(), isNull(), isNull()))
+        .thenReturn(new RelatedEntitiesScrollResult(edges.size(), 10, null, edges));
+  }
+
+  private String scrollRelationships(ScrollRelationshipsRequestBody body, String... params)
+      throws Exception {
+    MockHttpServletRequestBuilder request =
+        MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(body))
+            .accept(MediaType.APPLICATION_JSON);
+    for (int i = 0; i < params.length; i += 2) {
+      request = request.param(params[i], params[i + 1]);
+    }
+    try (MockedStatic<AuthUtil> ignored = hideDatasetAndBob()) {
+      return mockMvc
+          .perform(request)
+          .andExpect(status().is2xxSuccessful())
+          .andReturn()
+          .getResponse()
+          .getContentAsString();
+    }
+  }
+
+  private JsonNode results(String response) throws Exception {
+    return objectMapper.readTree(response).get("results");
+  }
+
+  private String urnAt(String response, int index, String endpoint) throws Exception {
+    return results(response).get(index).get(endpoint).get("urn").asText();
+  }
+
+  private static RelatedEntities ownedBy(String source, String destination) {
+    return new RelatedEntities(
+        "OwnedBy", source, destination, RelationshipDirection.OUTGOING, null);
+  }
+
+  @Test
+  public void testScrollRelationshipsRedactsHiddenEndpointsOnUnconstrainedSides() throws Exception {
+    stubScroll(
+        List.of(
+            ownedBy(HIDDEN_DATASET, VISIBLE_USER),
+            ownedBy(HIDDEN_DATASET, HIDDEN_USER),
+            ownedBy(VISIBLE_DATASET, HIDDEN_USER)));
+
+    String response = scrollRelationships(EMPTY_SCROLL_BODY);
+
+    assertEquals(results(response).size(), 2);
+    assertEquals(urnAt(response, 0, "source"), "urn:li:restricted:redacted-dataset");
+    assertEquals(urnAt(response, 0, "destination"), VISIBLE_USER);
+    assertEquals(urnAt(response, 1, "source"), VISIBLE_DATASET);
+    assertEquals(urnAt(response, 1, "destination"), "urn:li:restricted:redacted-corpuser");
+  }
+
+  @Test
+  public void testScrollRelationshipsFilteredOnHiddenUrnAnswersLikeMissingUrn() throws Exception {
+    ScrollRelationshipsRequestBody body =
+        ScrollRelationshipsRequestBody.builder().sourceFilter(urnFilter(HIDDEN_DATASET)).build();
+    stubScroll(List.of());
+    String missing = scrollRelationships(body);
+
+    stubScroll(List.of(ownedBy(HIDDEN_DATASET, VISIBLE_USER)));
+    assertEquals(scrollRelationships(body), missing);
+  }
+
+  @Test
+  public void testScrollRelationshipsTypeFilterDoesNotRevealHiddenEdges() throws Exception {
+    stubScroll(List.of());
+    String missing =
+        scrollRelationships(
+            EMPTY_SCROLL_BODY, "sourceTypes", "dataset", "destinationTypes", "corpuser");
+
+    stubScroll(
+        List.of(ownedBy(HIDDEN_DATASET, VISIBLE_USER), ownedBy(VISIBLE_DATASET, HIDDEN_USER)));
+    assertEquals(
+        scrollRelationships(
+            EMPTY_SCROLL_BODY, "sourceTypes", "dataset", "destinationTypes", "corpuser"),
+        missing);
+  }
+
+  @Test
+  public void testScrollRelationshipsKeepsRedactingTheUnconstrainedSide() throws Exception {
+    stubScroll(
+        List.of(
+            ownedBy(HIDDEN_DATASET, VISIBLE_USER),
+            ownedBy(VISIBLE_DATASET, HIDDEN_USER),
+            ownedBy(VISIBLE_DATASET, VISIBLE_USER)));
+
+    String response = scrollRelationships(EMPTY_SCROLL_BODY, "sourceTypes", "dataset");
+
+    assertEquals(results(response).size(), 2);
+    assertEquals(urnAt(response, 0, "source"), VISIBLE_DATASET);
+    assertEquals(urnAt(response, 0, "destination"), "urn:li:restricted:redacted-corpuser");
+    assertEquals(urnAt(response, 1, "destination"), VISIBLE_USER);
+  }
+
+  @Test
+  public void testScrollRelationshipsIncomingConstrainsTheEdgeDestination() throws Exception {
+    stubScroll(
+        List.of(ownedBy(VISIBLE_DATASET, HIDDEN_USER), ownedBy(HIDDEN_DATASET, VISIBLE_USER)));
+
+    String response =
+        scrollRelationships(EMPTY_SCROLL_BODY, "sourceTypes", "corpuser", "direction", "INCOMING");
+
+    assertEquals(results(response).size(), 1);
+    assertEquals(urnAt(response, 0, "source"), "urn:li:restricted:redacted-dataset");
+    assertEquals(urnAt(response, 0, "destination"), VISIBLE_USER);
   }
 }

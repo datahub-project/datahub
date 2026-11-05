@@ -55,11 +55,14 @@ public final class ScrollUtils {
 
   /**
    * Scrolls generic relationship edges filtered by independent source/destination type and entity
-   * filters.
+   * filters, authorized as in {@link #toAuthorizedGenericRelationships}. An endpoint the request
+   * filters on by urn, type or entity filter is never redacted: an edge whose hidden endpoint
+   * matched such a filter is left out, since its presence alone would reveal the hidden entity.
    */
   public static ResponseEntity<GenericScrollResult<GenericRelationship>> doScrollRelationships(
       OperationContext systemOperationContext,
       AuthorizerChain authorizationChain,
+      RestrictedService restrictedService,
       GraphService graphService,
       HttpServletRequest request,
       String operationName,
@@ -102,34 +105,62 @@ public final class ScrollUtils {
     RelatedEntitiesScrollResult result =
         scrollRelatedEntities(graphService, opContext, graphFilters, scrollId, pitKeepAlive, count);
 
-    Set<Urn> resultUrns =
-        result.getEntities().stream()
-            .flatMap(
-                edge ->
-                    Stream.of(
-                        UrnUtils.getUrn(edge.getSourceUrn()),
-                        UrnUtils.getUrn(edge.getDestinationUrn())))
-            .collect(Collectors.toSet());
+    boolean requestSourceConstrained =
+        toOptionalTypesSet(sourceTypes) != null
+            || hasCriteria(graphFilters.getSourceEntityFilter());
+    boolean requestDestinationConstrained =
+        toOptionalTypesSet(destinationTypes) != null
+            || hasCriteria(graphFilters.getDestinationEntityFilter());
+    // Elasticsearch applies the request's source side to the edge's destination unless OUTGOING;
+    // for UNDIRECTED, treat a constrained request side as possibly either edge endpoint.
+    boolean edgeSourceConstrained =
+        switch (relationshipDirection) {
+          case OUTGOING -> requestSourceConstrained;
+          case INCOMING -> requestDestinationConstrained;
+          default -> requestSourceConstrained || requestDestinationConstrained;
+        };
+    boolean edgeDestinationConstrained =
+        switch (relationshipDirection) {
+          case OUTGOING -> requestDestinationConstrained;
+          case INCOMING -> requestSourceConstrained;
+          default -> requestSourceConstrained || requestDestinationConstrained;
+        };
+    Filter edgeFilter = toFilter(body.getEdgeFilter());
+    edgeSourceConstrained |= filtersOnField(edgeFilter, Edge.EDGE_FIELD_SOURCE);
+    edgeDestinationConstrained |= filtersOnField(edgeFilter, Edge.EDGE_FIELD_DESTINATION);
+
     return ResponseEntity.ok(
         GenericScrollResult.<GenericRelationship>builder()
-            .results(toGenericRelationships(result.getEntities()))
+            .results(
+                toAuthorizedGenericRelationships(
+                    opContext,
+                    restrictedService,
+                    result.getEntities(),
+                    edgeSourceConstrained,
+                    edgeDestinationConstrained))
             .scrollId(result.getScrollId())
             .build());
   }
 
-  static List<GenericRelationship> toGenericRelationships(List<RelatedEntities> relatedEntities) {
-    return relatedEntities.stream()
-        .map(
-            result -> {
-              Urn source = UrnUtils.getUrn(result.getSourceUrn());
-              Urn dest = UrnUtils.getUrn(result.getDestinationUrn());
-              return GenericRelationship.builder()
-                  .relationshipType(result.getRelationshipType())
-                  .source(GenericRelationship.GenericNode.fromUrn(source))
-                  .destination(GenericRelationship.GenericNode.fromUrn(dest))
-                  .build();
-            })
-        .collect(Collectors.toList());
+  private static boolean hasCriteria(@Nullable Filter filter) {
+    return filter != null && criteriaOf(filter).findAny().isPresent();
+  }
+
+  private static Stream<Criterion> criteriaOf(Filter filter) {
+    return Stream.concat(
+        filter.hasCriteria() ? filter.getCriteria().stream() : Stream.empty(),
+        filter.hasOr()
+            ? filter.getOr().stream().flatMap(conjunction -> conjunction.getAnd().stream())
+            : Stream.empty());
+  }
+
+  /** Whether {@code filter} has a criterion on edge endpoint {@code endpoint}, e.g. source.urn. */
+  private static boolean filtersOnField(Filter filter, String endpoint) {
+    return criteriaOf(filter)
+        .anyMatch(
+            criterion ->
+                criterion.getField().equals(endpoint)
+                    || criterion.getField().startsWith(endpoint + "."));
   }
 
   /**
@@ -426,6 +457,21 @@ public final class ScrollUtils {
       OperationContext opContext,
       RestrictedService restrictedService,
       List<RelatedEntities> relatedEntities) {
+    return toAuthorizedGenericRelationships(
+        opContext, restrictedService, relatedEntities, false, false);
+  }
+
+  /**
+   * {@link #toAuthorizedGenericRelationships(OperationContext, RestrictedService, List)}, also
+   * leaving out edges whose source (or destination) is hidden when {@code dropHiddenSource} (or
+   * {@code dropHiddenDestination}) is set.
+   */
+  static List<GenericRelationship> toAuthorizedGenericRelationships(
+      OperationContext opContext,
+      RestrictedService restrictedService,
+      List<RelatedEntities> relatedEntities,
+      boolean dropHiddenSource,
+      boolean dropHiddenDestination) {
     Set<Urn> readable =
         new HashSet<>(
             EntityAuthorizationUtils.filterAPIAuthorizedUrns(
@@ -441,9 +487,14 @@ public final class ScrollUtils {
         urn -> readable.contains(urn) ? urn : restrictedService.encryptRestrictedUrn(urn);
     return relatedEntities.stream()
         .filter(
-            edge ->
-                readable.contains(UrnUtils.getUrn(edge.getSourceUrn()))
-                    || readable.contains(UrnUtils.getUrn(edge.getDestinationUrn())))
+            edge -> {
+              boolean sourceReadable = readable.contains(UrnUtils.getUrn(edge.getSourceUrn()));
+              boolean destinationReadable =
+                  readable.contains(UrnUtils.getUrn(edge.getDestinationUrn()));
+              return (sourceReadable || destinationReadable)
+                  && (sourceReadable || !dropHiddenSource)
+                  && (destinationReadable || !dropHiddenDestination);
+            })
         .map(
             edge ->
                 GenericRelationship.builder()

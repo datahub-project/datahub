@@ -274,6 +274,7 @@ public abstract class GenericRelationshipController {
     return ScrollUtils.doScrollRelationships(
         systemOperationContext,
         authorizationChain,
+        restrictedService,
         graphService,
         request,
         "scrollRelationships",
