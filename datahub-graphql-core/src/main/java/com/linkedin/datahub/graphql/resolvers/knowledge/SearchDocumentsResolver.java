@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.knowledge;
 
+import static com.linkedin.datahub.graphql.authorization.ViewAuthorizationSearchUtils.isUnviewableUrn;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getSortCriteria;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
@@ -59,6 +60,7 @@ public class SearchDocumentsResolver
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "*";
   private static final String SUB_TYPES_FIELD = "typeNames";
+  private static final String URN_FIELD = "urn";
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
@@ -88,7 +90,7 @@ public class SearchDocumentsResolver
             userAndGroupUrns.add(currentUserUrn.toString());
             userGroupUrns.forEach(groupUrn -> userAndGroupUrns.add(groupUrn.toString()));
 
-            List<Criterion> baseUserCriteria = buildBaseUserCriteria(input);
+            List<Criterion> baseUserCriteria = buildBaseUserCriteria(context, input);
             final boolean canManageDocuments = AuthorizationUtils.canManageDocuments(context);
             final List<String> requestedStates = mapRequestedStates(input.getStates());
             Filter filter =
@@ -197,13 +199,12 @@ public class SearchDocumentsResolver
    * Builds the base user criteria from the search input (excludes state filtering). These criteria
    * are common to both published and unpublished document searches.
    */
-  private List<Criterion> buildBaseUserCriteria(SearchDocumentsInput input) {
+  private List<Criterion> buildBaseUserCriteria(
+      final QueryContext context, final SearchDocumentsInput input) {
     List<Criterion> criteria = new ArrayList<>();
 
     if (input.getParentDocuments() != null && !input.getParentDocuments().isEmpty()) {
-      criteria.add(
-          CriterionUtils.buildCriterion(
-              "parentDocument", Condition.EQUAL, input.getParentDocuments()));
+      criteria.add(viewableUrnsCriterion(context, "parentDocument", input.getParentDocuments()));
     } else if (input.getRootOnly() != null && input.getRootOnly()) {
       Criterion noParentCriterion = new Criterion();
       noParentCriterion.setField("parentDocument");
@@ -218,7 +219,7 @@ public class SearchDocumentsResolver
     }
 
     if (input.getDomains() != null && !input.getDomains().isEmpty()) {
-      criteria.add(CriterionUtils.buildCriterion("domains", Condition.EQUAL, input.getDomains()));
+      criteria.add(viewableUrnsCriterion(context, "domains", input.getDomains()));
     }
 
     if (input.getHasDomain() != null) {
@@ -229,9 +230,7 @@ public class SearchDocumentsResolver
     }
 
     if (input.getRelatedAssets() != null && !input.getRelatedAssets().isEmpty()) {
-      criteria.add(
-          CriterionUtils.buildCriterion(
-              "relatedAssets", Condition.EQUAL, input.getRelatedAssets()));
+      criteria.add(viewableUrnsCriterion(context, "relatedAssets", input.getRelatedAssets()));
     }
 
     if (input.getSourceType() != null) {
@@ -262,5 +261,20 @@ public class SearchDocumentsResolver
     }
 
     return criteria;
+  }
+
+  /**
+   * Matches documents referencing any of {@code urns} the caller can view. Urns the caller can't
+   * view are dropped, as they would match nothing were they missing.
+   */
+  private static Criterion viewableUrnsCriterion(
+      final QueryContext context, final String field, final List<String> urns) {
+    final List<String> viewableUrns =
+        urns.stream()
+            .filter(urn -> !isUnviewableUrn(context.getOperationContext(), urn))
+            .collect(Collectors.toList());
+    return viewableUrns.isEmpty()
+        ? CriterionUtils.buildIsNullCriterion(URN_FIELD)
+        : CriterionUtils.buildCriterion(field, Condition.EQUAL, viewableUrns);
   }
 }

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.analytics.resolver;
 
+import static com.linkedin.datahub.graphql.authorization.ViewAuthorizationSearchUtils.isUnviewableUrn;
+import static com.linkedin.datahub.graphql.authorization.ViewAuthorizationSearchUtils.matchNothingFilter;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.google.common.collect.ImmutableList;
@@ -76,7 +78,10 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
 
     Filter filter = null;
     if (!StringUtils.isEmpty(input.getDomain()) && !input.getDomain().equals("ALL")) {
-      filter = QueryUtils.newFilter("domains.keyword", input.getDomain());
+      filter =
+          isUnviewableUrn(opContext, input.getDomain())
+              ? matchNothingFilter()
+              : QueryUtils.newFilter("domains.keyword", input.getDomain());
     }
     // Apply the same default entity filters (e.g. excluding bridge documents) that
     // search/scroll/aggregate/browse resolvers apply, since this resolver queries

@@ -9,10 +9,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.ViewAuthorizationTestContexts;
 import com.linkedin.datahub.graphql.generated.MetadataAnalyticsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
@@ -74,5 +77,43 @@ public class GetMetadataAnalyticsResolverTest {
     assertEquals(filter.getOr().size(), 2);
     assertTrue(hasFieldWithCondition(filter.getOr().get(0), "lifecycleStage", Condition.EQUAL));
     assertTrue(hasFieldWithCondition(filter.getOr().get(1), "lifecycleStage", Condition.IS_NULL));
+  }
+
+  @Test
+  public void testGetCharts_unviewableDomainMatchesNothing() throws Exception {
+    final String hiddenDomain = "urn:li:domain:hidden";
+    EntityClient entityClient = mock(EntityClient.class);
+    when(entityClient.searchAcrossEntities(
+            any(OperationContext.class), anyList(), anyString(), any(), anyInt(), any(), anyList()))
+        .thenReturn(
+            new SearchResult()
+                .setMetadata(
+                    new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
+
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    QueryContext context =
+        ViewAuthorizationTestContexts.contextHiding(UrnUtils.getUrn(hiddenDomain));
+    when(env.getContext()).thenReturn(context);
+    when(env.getArgument("input"))
+        .thenReturn(MetadataAnalyticsInput.builder().setDomain(hiddenDomain).build());
+
+    new GetMetadataAnalyticsResolver(entityClient).get(env);
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(entityClient)
+        .searchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            filterCaptor.capture(),
+            anyInt(),
+            any(),
+            anyList());
+    Filter filter = filterCaptor.getValue();
+    assertFalse(filter.toString().contains(hiddenDomain));
+    assertTrue(
+        filter.getOr().stream()
+            .allMatch(clause -> hasFieldWithCondition(clause, "urn", Condition.IS_NULL)),
+        "Expected a filter matching nothing, as for a domain that doesn't exist");
   }
 }

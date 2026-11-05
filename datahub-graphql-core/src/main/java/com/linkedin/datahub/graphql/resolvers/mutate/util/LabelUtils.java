@@ -336,7 +336,8 @@ public class LabelUtils {
                 "Failed to validate label with urn %s. Urn type does not match entity type %s..",
                 labelUrn, labelEntityType));
       }
-      if (!existingLabelUrns.contains(labelUrn)) {
+      if (!existingLabelUrns.contains(labelUrn)
+          || !AuthorizationUtils.canView(opContext, labelUrn)) {
         throw new IllegalArgumentException(
             String.format("Failed to validate label with urn %s. Urn does not exist.", labelUrn));
       }
