@@ -100,7 +100,7 @@ public class GraphQLEngine {
             graphQLQueryComplexityLimit, new DataHubFieldComplexityCalculator()));
 
     MeterRegistry meterRegistry = metricUtils != null ? metricUtils.getRegistry() : null;
-    instrumentations.add(new DeprecatedFieldUsageInstrumentation(meterRegistry));
+    instrumentations.add(new DeprecatedFieldUsageInstrumentation());
     if (meterRegistry != null && graphQLConfiguration.getMetrics().isEnabled()) {
       instrumentations.add(
           new GraphQLTimingInstrumentation(

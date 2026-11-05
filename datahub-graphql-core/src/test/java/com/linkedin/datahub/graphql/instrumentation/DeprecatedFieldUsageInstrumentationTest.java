@@ -3,9 +3,11 @@ package com.linkedin.datahub.graphql.instrumentation;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.linkedin.datahub.graphql.QueryContext;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
@@ -14,10 +16,10 @@ import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -36,12 +38,17 @@ public class DeprecatedFieldUsageInstrumentationTest {
       }
       """;
 
-  private SimpleMeterRegistry meterRegistry;
+  private final Logger logger =
+      (Logger) LoggerFactory.getLogger(DeprecatedFieldUsageInstrumentation.class);
+  private ListAppender<ILoggingEvent> appender;
   private GraphQL graphQL;
 
   @BeforeMethod
   public void setUp() {
-    meterRegistry = new SimpleMeterRegistry();
+    appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+
     final RuntimeWiring wiring =
         RuntimeWiring.newRuntimeWiring()
             .type(
@@ -61,44 +68,39 @@ public class DeprecatedFieldUsageInstrumentationTest {
         new SchemaGenerator().makeExecutableSchema(new SchemaParser().parse(SDL), wiring);
     graphQL =
         GraphQL.newGraphQL(schema)
-            .instrumentation(new DeprecatedFieldUsageInstrumentation(meterRegistry))
+            .instrumentation(new DeprecatedFieldUsageInstrumentation())
             .build();
   }
 
-  @Test
-  public void testCountsEachDeprecatedFieldOncePerRequest() {
-    execute("{ current legacy items { name oldName } }");
-    execute("query named { legacy }");
-
-    assertEquals(count("Query.legacy"), 2.0);
-    // oldName is fetched once per list item but counted once per request.
-    assertEquals(count("Item.oldName"), 1.0);
-    assertNull(
-        meterRegistry
-            .find(DeprecatedFieldUsageInstrumentation.METRIC_NAME)
-            .tag(DeprecatedFieldUsageInstrumentation.FIELD_TAG, "Query.current")
-            .counter());
+  @AfterMethod
+  public void tearDown() {
+    logger.detachAppender(appender);
   }
 
   @Test
-  public void testNonDeprecatedFieldsAreNotCounted() {
-    execute("{ current items { name } }");
+  public void testLogsEachDeprecatedFieldOncePerActor() {
+    execute("{ current legacy items { name oldName } }", "urn:li:corpuser:a");
+    execute("{ legacy }", "urn:li:corpuser:a");
+    execute("{ legacy }", "urn:li:corpuser:b");
 
-    assertTrue(
-        meterRegistry.find(DeprecatedFieldUsageInstrumentation.METRIC_NAME).counters().isEmpty());
+    assertEquals(
+        messages(),
+        List.of(
+            "Deprecated GraphQL field Query.legacy was called by urn:li:corpuser:a",
+            "Deprecated GraphQL field Item.oldName was called by urn:li:corpuser:a",
+            "Deprecated GraphQL field Query.legacy was called by urn:li:corpuser:b"));
   }
 
   @Test
-  public void testRecordsUsageWithoutQueryContext() {
-    final ExecutionResult result = graphQL.execute(ExecutionInput.newExecutionInput("{ legacy }"));
+  public void testIgnoresFieldsThatAreNotDeprecated() {
+    execute("{ current items { name } }", "urn:li:corpuser:a");
 
-    assertTrue(result.getErrors().isEmpty());
-    assertEquals(count("Query.legacy"), 1.0);
+    assertTrue(messages().isEmpty());
   }
 
-  private void execute(final String query) {
+  private void execute(final String query, final String actor) {
     final QueryContext context = mock(QueryContext.class);
-    when(context.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    when(context.getActorUrn()).thenReturn(actor);
     final ExecutionResult result =
         graphQL.execute(
             ExecutionInput.newExecutionInput(query)
@@ -107,12 +109,7 @@ public class DeprecatedFieldUsageInstrumentationTest {
     assertTrue(result.getErrors().isEmpty(), result.getErrors().toString());
   }
 
-  private double count(final String coordinate) {
-    final Counter counter =
-        meterRegistry
-            .find(DeprecatedFieldUsageInstrumentation.METRIC_NAME)
-            .tag(DeprecatedFieldUsageInstrumentation.FIELD_TAG, coordinate)
-            .counter();
-    return counter == null ? 0.0 : counter.count();
+  private List<String> messages() {
+    return appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
   }
 }
