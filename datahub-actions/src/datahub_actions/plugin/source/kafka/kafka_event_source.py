@@ -14,8 +14,8 @@
 
 import logging
 import os
-import time
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
@@ -337,7 +337,7 @@ class KafkaEventSource(EventSource):
         self._early_mcl_criteria_list: List[Dict[str, Any]] = []
         self._pipeline_name = ctx.pipeline_name
 
-        # ZD-8461: per-partition offset bookkeeping for unroutable messages.
+        # Per-partition offset bookkeeping for unroutable messages.
         # _stored_hwm: highest next-offset already stored (monotonic guard);
         # _yielded_hwm: highest routable offset handed to the pipeline;
         # _deferred_skip: (unroutable offset to skip through, routable
@@ -636,16 +636,20 @@ class KafkaEventSource(EventSource):
                         msg
                     )  # Handle timeseries in the same way as usual MCL.
                 elif "pe" in topic_routes and msg.topic() == topic_routes["pe"]:
-                    routed = False
-                    for envelope in self.handle_pe(msg):
-                        if not routed:
-                            routed = True
-                            self._record_yielded(msg)
-                        yield envelope
-                    if not routed:
-                        self._ack_unroutable_message(msg)
+                    yield from self._route_pe(msg)
 
         logger.info("Kafka consumer exiting main loop")
+
+    def _route_pe(self, msg: Any) -> Iterable[EventEnvelope]:
+        """Yield the PlatformEvent's envelopes, or store its offset if none route."""
+        routed = False
+        for envelope in self.handle_pe(msg):
+            if not routed:
+                routed = True
+                self._record_yielded(msg)
+            yield envelope
+        if not routed:
+            self._ack_unroutable_message(msg)
 
     def _on_assign(self, consumer: Any, partitions: List[TopicPartition]) -> None:
         """Reset per-partition offset bookkeeping on (re)assignment: consumption
@@ -675,7 +679,7 @@ class KafkaEventSource(EventSource):
         no envelope, so the pipeline never acks the message. In async-commit
         mode enable.auto.offset.store is false, so without this the offset is
         never stored or committed and a partition whose tail is unroutable
-        reports consumer lag forever (ZD-8461). Sync-commit mode keeps
+        reports consumer lag forever. Sync-commit mode keeps
         enable.auto.offset.store=true, so librdkafka already tracks consumed
         positions there.
 

@@ -19,11 +19,10 @@ entityChangeEvent / relationshipChangeEvent; any other event name yields no
 envelope, so the pipeline never acks the message. In async-commit mode
 (enable.auto.offset.store=False) its offset is then never stored or committed,
 and a partition whose tail is unroutable reports consumer lag forever -- which
-the commit-progress health check flags as a zombie, recycling healthy pods
-(ZD-8461).
+the commit-progress health check flags as a zombie, recycling healthy pods.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 from unittest.mock import MagicMock, patch
 
 from confluent_kafka import TopicPartition
@@ -94,10 +93,15 @@ def _make_source(async_commit_enabled: bool) -> KafkaEventSource:
             return KafkaEventSource(config, ctx)
 
 
+def _consumer(source: KafkaEventSource) -> MagicMock:
+    """The source's consumer, which _make_source patches with a MagicMock."""
+    return cast(MagicMock, source.consumer)
+
+
 def _drive_events(source: KafkaEventSource, *messages: _FakeMessage) -> EventEnvelope:
     """Feed messages through one pass of the events() loop; returns the first
     envelope it yields (the last message supplied must be routable)."""
-    source.consumer.poll = MagicMock(side_effect=list(messages))
+    _consumer(source).poll = MagicMock(side_effect=list(messages))
     return next(iter(source.events()))
 
 
@@ -114,7 +118,7 @@ def test_unroutable_pe_offset_is_stored_in_async_mode() -> None:
     envelope = _drive_events(source, unroutable, routable)
 
     assert envelope.event_type == "EntityChangeEvent_v1"
-    source.consumer.store_offsets.assert_called_once_with(
+    _consumer(source).store_offsets.assert_called_once_with(
         offsets=[TopicPartition(TOPIC, 3, 101)]
     )
 
@@ -127,7 +131,7 @@ def test_routable_pe_is_not_stored_at_consume_time() -> None:
     envelope = _drive_events(source, routable)
 
     assert envelope.event_type == "EntityChangeEvent_v1"
-    source.consumer.store_offsets.assert_not_called()
+    _consumer(source).store_offsets.assert_not_called()
 
 
 def test_unroutable_pe_is_not_stored_in_sync_mode() -> None:
@@ -139,13 +143,13 @@ def test_unroutable_pe_is_not_stored_in_sync_mode() -> None:
 
     _drive_events(source, unroutable, routable)
 
-    source.consumer.store_offsets.assert_not_called()
+    _consumer(source).store_offsets.assert_not_called()
 
 
 def _stored_offsets(source: KafkaEventSource) -> list:
     return [
         call.kwargs["offsets"][0].offset
-        for call in source.consumer.store_offsets.call_args_list
+        for call in _consumer(source).store_offsets.call_args_list
     ]
 
 
@@ -161,14 +165,14 @@ def test_unroutable_store_deferred_while_routable_in_flight() -> None:
     unroutable_102 = _pe_message("notificationRequestEvent", offset=102)
     routable_103 = _pe_message("entityChangeEvent", offset=103, value=ECE_VALUE)
 
-    source.consumer.poll = MagicMock(
+    _consumer(source).poll = MagicMock(
         side_effect=[routable_100, unroutable_101, unroutable_102, routable_103]
     )
     gen = iter(source.events())
     envelope_100 = next(gen)  # offset 100 handed to the pipeline (in flight)
     envelope_103 = next(gen)  # consumes 101+102 (deferred), yields 103
 
-    source.consumer.store_offsets.assert_not_called()
+    _consumer(source).store_offsets.assert_not_called()
 
     source.ack(envelope_100, processed=True)  # 100 completes...
     # ...which releases the deferred skip straight through 102.
