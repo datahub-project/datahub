@@ -4,7 +4,10 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import parse_arn
-from datahub.ingestion.source.aws_messaging.constants import ALL_ATTRIBUTES
+from datahub.ingestion.source.aws_messaging.constants import (
+    ALL_ATTRIBUTES,
+    LambdaDestination,
+)
 from datahub.ingestion.source.aws_messaging.models import (
     EventBridgePipe,
     RuleTarget,
@@ -276,7 +279,7 @@ class LambdaClient:
             # Each config is for one version or alias; destinations hang off the
             # unqualified function either way.
             destinations = item.get("DestinationConfig") or {}
-            for outcome in ("OnSuccess", "OnFailure"):
+            for outcome in LambdaDestination:
                 destination = (destinations.get(outcome) or {}).get("Destination")
                 if destination:
                     yield destination

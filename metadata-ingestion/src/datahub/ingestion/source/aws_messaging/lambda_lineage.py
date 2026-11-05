@@ -13,6 +13,7 @@ from datahub.ingestion.source.aws_messaging.constants import (
     LAMBDA_PLATFORM,
     AwsService,
     JobEdgeKind,
+    LambdaDestination,
 )
 from datahub.ingestion.source.aws_messaging.jobs import (
     JobEdgeTracker,
@@ -103,7 +104,10 @@ class LambdaLineage:
         ):
             source_urn = self.resolver.urn(parse_arn(mapping.get("EventSourceArn")))
             failure = (
-                (mapping.get("DestinationConfig") or {}).get("OnFailure") or {}
+                (mapping.get("DestinationConfig") or {}).get(
+                    LambdaDestination.ON_FAILURE
+                )
+                or {}
             ).get("Destination")
             failure_urn = self.resolver.urn(parse_arn(failure))
             if source_urn is None and failure_urn is None:

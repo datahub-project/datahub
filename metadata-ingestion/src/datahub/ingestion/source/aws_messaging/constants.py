@@ -109,6 +109,13 @@ GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
 ACCESS_DENIED_CODES = frozenset({"AccessDenied", "AccessDeniedException"})
 
 
+class LambdaDestination(StrEnum):
+    """Keys of a Lambda DestinationConfig."""
+
+    ON_SUCCESS = "OnSuccess"
+    ON_FAILURE = "OnFailure"
+
+
 class JobEdgeKind(StrEnum):
     """DataHub relationship names for a job's input and output datasets."""
 

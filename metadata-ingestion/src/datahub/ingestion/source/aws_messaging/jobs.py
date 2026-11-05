@@ -31,6 +31,11 @@ TRACKED_JOB_PLATFORMS: FrozenSet[str] = frozenset(
 )
 
 
+def _is_entity(urn: str, entity_type: str) -> bool:
+    # A prefix check, not guess_entity_type: other writers' URNs may be malformed.
+    return urn.startswith(f"urn:li:{entity_type}:")
+
+
 def job_urn(
     *, platform: str, flow_id: str, job_id: str, env: str, instance: Optional[str]
 ) -> str:
@@ -248,7 +253,7 @@ class JobEdgeTracker:
     def _owned_platform(self, job: str, kind: JobEdgeKind) -> Optional[str]:
         """The job's platform, if this run is the one that writes and reads in
         full that job's edges of this kind; None otherwise."""
-        if not job.startswith("urn:li:dataJob:"):
+        if not _is_entity(job, DataJobUrn.ENTITY_TYPE):
             return None
         flow = DataJobUrn.from_string(job).get_data_flow_urn()
         if (
@@ -272,7 +277,7 @@ class JobEdgeTracker:
         stale: List[FineGrainedLineageClass] = []
         for existing in (io.fineGrainedLineages if io else None) or []:
             for downstream in existing.downstreams or []:
-                if not downstream.startswith("urn:li:schemaField:"):
+                if not _is_entity(downstream, SchemaFieldUrn.ENTITY_TYPE):
                     continue
                 try:
                     parent = SchemaFieldUrn.from_string(downstream).parent
