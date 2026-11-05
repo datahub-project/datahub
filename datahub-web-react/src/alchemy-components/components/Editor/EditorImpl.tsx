@@ -1,6 +1,7 @@
 import { EditorComponent, Remirror, TableComponents, ThemeProvider, useRemirror } from '@remirror/react';
 import DOMPurify from 'dompurify';
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useMount } from 'react-use';
 import {
     BlockquoteExtension,
@@ -83,6 +84,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         belowToolbar,
         hideToolbar,
         compact,
+        mentionsComponent,
     } = props;
     const styledTheme = useTheme();
     const editorTheme = useMemo(() => getEditorTheme(styledTheme), [styledTheme]);
@@ -179,7 +181,15 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                                         <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
                                     </>
                                 )}
-                                <MentionsComponent renderOutsideEditor={compact} />
+                                {mentionsComponent ? (
+                                    // A custom picker that fails (e.g. its lazy chunk can't load) falls
+                                    // back to the default dropdown rather than taking the editor down.
+                                    <ErrorBoundary fallback={<MentionsComponent renderOutsideEditor={compact} />}>
+                                        {mentionsComponent}
+                                    </ErrorBoundary>
+                                ) : (
+                                    <MentionsComponent renderOutsideEditor={compact} />
+                                )}
                                 {onChange && <OnChangeMarkdown onChange={onChange} />}
                             </>
                         )}
