@@ -467,16 +467,17 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   }
 
   /**
-   * With non-primary siblings hidden, an unfiltered search shows only the primary of a dbt +
-   * Snowflake pair, while a platform filter that only the Snowflake table matches still returns it.
+   * With non-primary siblings hidden, an unfiltered listing shows only the primary of a dbt +
+   * Snowflake pair, while a platform filter or search text that only the Snowflake table matches
+   * still returns it.
    */
   @Test
   public void testHideNonPrimarySiblingsOnlyWithoutFilters() throws Exception {
     Urn dbtUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD)");
     Urn tableUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD)");
-    indexSiblingDocument(dbtUrn, "dbt", true, "Orders model");
-    indexSiblingDocument(tableUrn, "snowflake", false, null);
+    indexSiblingDocument(dbtUrn, "dbt", true, "Orders model", "orders");
+    indexSiblingDocument(tableUrn, "snowflake", false, null, "orders zzqwarehouse");
     syncAfterWrite(getBulkProcessor());
 
     ElasticSearchService hidingElasticSearchService =
@@ -573,22 +574,41 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     assertEquals(browseSiblingCount(hidingElasticSearchService, null), 1);
     assertEquals(browseSiblingCount(hidingElasticSearchService, platformFilter), 1);
 
+    // With search text the table is hidden only when the text also matches its primary's name.
+    // Its own name matches only the table, so it is listed; "orders" matches the dbt primary too,
+    // so the group shows once.
+    SearchResult byTableName = searchSiblings(hidingSearchService, "zzqwarehouse", null);
+    assertEquals(byTableName.getNumEntities().intValue(), 1);
+    assertEquals(byTableName.getEntities().get(0).getEntity(), tableUrn);
+    SearchResult bySharedName = searchSiblings(hidingSearchService, "orders", null);
+    assertEquals(bySharedName.getNumEntities().intValue(), 1);
+    assertEquals(bySharedName.getEntities().get(0).getEntity(), dbtUrn);
+
     // The default service leaves hiding off, so both members appear.
     assertEquals(searchSiblings(searchService, null).getNumEntities().intValue(), 2);
     clearCache();
   }
 
   private void indexSiblingDocument(Urn urn, String platform, boolean primary, String siblingNote) {
+    indexSiblingDocument(urn, platform, primary, siblingNote, "orders");
+  }
+
+  private void indexSiblingDocument(
+      Urn urn, String platform, boolean primary, String siblingNote, String name) {
     ObjectNode document = JsonNodeFactory.instance.objectNode();
     if (siblingNote != null) {
       document.set("siblingNote", JsonNodeFactory.instance.textNode(siblingNote));
     }
     document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
-    document.set("keyPart1", JsonNodeFactory.instance.textNode("orders"));
+    document.set("keyPart1", JsonNodeFactory.instance.textNode(name));
     document.set("platform", JsonNodeFactory.instance.textNode(platform));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/prod/orders"));
     document.set("hasSiblings", JsonNodeFactory.instance.booleanNode(true));
     document.set("siblingsPrimary", JsonNodeFactory.instance.booleanNode(primary));
+    if (!primary) {
+      // What SiblingPrimaryNameIndexer writes: the dbt primary's name.
+      document.set("siblingPrimaryName", JsonNodeFactory.instance.textNode("orders"));
+    }
     elasticSearchService.upsertDocument(
         operationContext, ENTITY_NAME, document.toString(), urn.toString());
   }
@@ -607,10 +627,14 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   }
 
   private SearchResult searchSiblings(SearchService service, Filter filter) {
+    return searchSiblings(service, "*", filter);
+  }
+
+  private SearchResult searchSiblings(SearchService service, String query, Filter filter) {
     return service.searchAcrossEntities(
         operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
         ImmutableList.of(ENTITY_NAME),
-        "orders",
+        query,
         filter,
         null,
         0,

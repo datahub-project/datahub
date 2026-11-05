@@ -99,8 +99,13 @@ public abstract class GenericEntitiesController<
     E extends GenericEntity<A>,
     S extends GenericEntityScrollResult<A, E>> {
   public static final String NOT_FOUND_HEADER = "Not-Found-Reason";
+  // Entity listings return every entity, including non-primary dataset siblings that search hides.
   protected static final SearchFlags DEFAULT_SEARCH_FLAGS =
-      new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true);
+      new SearchFlags()
+          .setFulltext(false)
+          .setSkipAggregates(true)
+          .setSkipHighlighting(true)
+          .setIncludeNonPrimarySiblings(true);
 
   @Autowired protected EntityRegistry entityRegistry;
   @Autowired protected SearchService searchService;

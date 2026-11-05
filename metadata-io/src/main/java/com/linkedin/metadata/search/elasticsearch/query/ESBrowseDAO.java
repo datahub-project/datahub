@@ -311,7 +311,11 @@ public class ESBrowseDAO {
     applyDefaultSearchFilters(
         opContext, List.of(entityName), null, queryBuilder, searchConfiguration.getEntityIndex());
     ESUtils.filterNonPrimarySiblings(
-        requestMapToFilter(requestMap), queryBuilder, searchConfiguration.getSearch());
+        opContext.getSearchContext().getSearchFlags(),
+        requestMapToFilter(requestMap),
+        null,
+        queryBuilder,
+        searchConfiguration.getSearch());
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH, path));
@@ -756,7 +760,7 @@ public class ESBrowseDAO {
 
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
-    queryBuilder.filter(handler.getFilterQuery(finalOpContext, filter));
+    queryBuilder.filter(handler.getFilterQuery(finalOpContext, filter, input));
 
     return queryBuilder;
   }
@@ -796,7 +800,7 @@ public class ESBrowseDAO {
 
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
-    queryBuilder.filter(handler.getFilterQuery(finalOpContext, filter));
+    queryBuilder.filter(handler.getFilterQuery(finalOpContext, filter, input));
 
     return queryBuilder;
   }

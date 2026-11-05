@@ -86,6 +86,32 @@ public class V2MappingsBuilderTest {
     }
   }
 
+  /** Only entities with a siblings aspect get the field search uses to hide non-primaries. */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testSiblingPrimaryNameMappedOnlyForEntitiesWithSiblings() {
+    Map<String, Object> dataset =
+        (Map<String, Object>)
+            mappingsBuilder
+                .getIndexMappings(
+                    operationContext.getEntityRegistry(),
+                    operationContext.getEntityRegistry().getEntitySpec("dataset"))
+                .get("properties");
+    Map<String, Object> field = (Map<String, Object>) dataset.get("siblingPrimaryName");
+    assertNotNull(field, "dataset should map siblingPrimaryName");
+    assertEquals(field.get("type"), "text");
+    assertTrue(((Map<String, Object>) field.get("fields")).containsKey("keyword"));
+
+    Map<String, Object> chart =
+        (Map<String, Object>)
+            mappingsBuilder
+                .getIndexMappings(
+                    operationContext.getEntityRegistry(),
+                    operationContext.getEntityRegistry().getEntitySpec("chart"))
+                .get("properties");
+    assertTrue(!chart.containsKey("siblingPrimaryName"), "chart has no siblings aspect");
+  }
+
   @Test
   public void testGetIndexMappingsWithStructuredProperty() throws URISyntaxException {
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);

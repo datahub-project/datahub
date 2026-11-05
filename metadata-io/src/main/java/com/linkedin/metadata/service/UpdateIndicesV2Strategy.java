@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.siblings.SiblingPrimaryNameIndexer;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
@@ -91,6 +92,9 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    */
   @Nullable private final StructuredPropertyMappingCache structuredPropertyMappingCache;
 
+  /** Keeps the primary's name on non-primary sibling documents; null when not wired. */
+  @Nullable private final SiblingPrimaryNameIndexer siblingPrimaryNameIndexer;
+
   /**
    * Creates an UpdateIndicesV2Strategy with optional semantic search support.
    *
@@ -148,6 +152,35 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull V2MappingsBuilder mappingsBuilder,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
       @Nullable StructuredPropertyMappingCache structuredPropertyMappingCache) {
+    this(
+        v2Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        idHashAlgo,
+        semanticSearchConfig,
+        indexConvention,
+        coalesceBatchUpdates,
+        mappingsBuilder,
+        timeseriesThrottleCache,
+        structuredPropertyMappingCache,
+        null);
+  }
+
+  public UpdateIndicesV2Strategy(
+      @Nonnull EntityIndexVersionConfiguration v2Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull String idHashAlgo,
+      @Nullable SemanticSearchConfiguration semanticSearchConfig,
+      @Nonnull IndexConvention indexConvention,
+      boolean coalesceBatchUpdates,
+      @Nonnull V2MappingsBuilder mappingsBuilder,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
+      @Nullable StructuredPropertyMappingCache structuredPropertyMappingCache,
+      @Nullable SiblingPrimaryNameIndexer siblingPrimaryNameIndexer) {
+    this.siblingPrimaryNameIndexer = siblingPrimaryNameIndexer;
     this.v2Config = v2Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -444,6 +477,13 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     if (searchDocument.isEmpty()) {
       log.debug("Search document for urn: {} aspect: {} was empty", urn, aspect);
       return;
+    }
+
+    // Runs before the no-change check below, so restating an unchanged siblings aspect (the
+    // restore-indices backfill) still fills the primary's name.
+    if (siblingPrimaryNameIndexer != null) {
+      siblingPrimaryNameIndexer.onAspectIndexed(
+          opContext, urn, aspectSpec.getName(), aspect, previousAspect);
     }
 
     final String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);

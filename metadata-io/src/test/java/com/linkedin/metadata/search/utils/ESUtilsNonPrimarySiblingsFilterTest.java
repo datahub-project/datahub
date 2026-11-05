@@ -5,6 +5,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -42,11 +43,88 @@ public class ESUtilsNonPrimarySiblingsFilterTest {
     assertTrue(clause.contains("\"siblingsPrimary\""), clause);
   }
 
+  /**
+   * With search text, a non-primary is hidden only when the text also matches its primary's name,
+   * because the query may match only the non-primary member.
+   */
+  @Test
+  public void testSearchTextHidesOnlyWhenPrimaryNameMatches() {
+    SearchConfiguration config = new SearchConfiguration().setHideNonPrimarySiblings(true);
+    BoolQueryBuilder withText =
+        ESUtils.filterNonPrimarySiblings(null, "hourly_kpi", QueryBuilders.boolQuery(), config);
+    assertEquals(withText.mustNot().size(), 1, withText.toString());
+    String clause = withText.mustNot().get(0).toString();
+    assertTrue(clause.contains("\"siblingPrimaryName\""), clause);
+    assertTrue(clause.contains("\"hourly_kpi\""), clause);
+    assertTrue(clause.contains("\"AND\""), clause);
+    for (String matchAll : new String[] {null, "", "  ", "*", " * "}) {
+      BoolQueryBuilder query =
+          ESUtils.filterNonPrimarySiblings(null, matchAll, QueryBuilders.boolQuery(), config);
+      assertEquals(query.mustNot().size(), 1, "query '" + matchAll + "': " + query);
+      assertTrue(
+          !query.mustNot().get(0).toString().contains("siblingPrimaryName"),
+          "query '" + matchAll + "': " + query);
+    }
+  }
+
+  /** Autocomplete matches the primary's name by prefix, as it matches the primary itself. */
+  @Test
+  public void testAutocompleteMatchesThePrimaryNameByPrefix() {
+    SearchConfiguration config = new SearchConfiguration().setHideNonPrimarySiblings(true);
+    BoolQueryBuilder prefix =
+        ESUtils.filterNonPrimarySiblings(
+            null, null, "ord", true, QueryBuilders.boolQuery(), config);
+    assertTrue(prefix.mustNot().get(0).toString().contains("match_bool_prefix"), prefix.toString());
+    assertTrue(prefix.mustNot().get(0).toString().contains("\"AND\""), prefix.toString());
+    BoolQueryBuilder full =
+        ESUtils.filterNonPrimarySiblings(
+            null, null, "ord", false, QueryBuilders.boolQuery(), config);
+    assertTrue(!full.mustNot().get(0).toString().contains("match_bool_prefix"), full.toString());
+  }
+
+  /** A negated term can exclude the primary while its member matches, so nothing is hidden. */
+  @Test
+  public void testNegatedSearchTextTurnsHidingOff() {
+    SearchConfiguration config = new SearchConfiguration().setHideNonPrimarySiblings(true);
+    for (String negated :
+        new String[] {"kpi -daily", "-daily kpi", "kpi !daily", "kpi NOT daily"}) {
+      BoolQueryBuilder query =
+          ESUtils.filterNonPrimarySiblings(
+              null, null, negated, false, QueryBuilders.boolQuery(), config);
+      assertTrue(query.mustNot().isEmpty(), negated + ": " + query);
+    }
+    // A hyphen inside a name is not a negation.
+    BoolQueryBuilder hyphenated =
+        ESUtils.filterNonPrimarySiblings(
+            null, null, "hourly-kpi", false, QueryBuilders.boolQuery(), config);
+    assertEquals(hyphenated.mustNot().size(), 1, hyphenated.toString());
+  }
+
+  /** API listings and upgrade jobs set this flag to see every member. */
+  @Test
+  public void testIncludeNonPrimarySiblingsFlagTurnsHidingOff() {
+    SearchConfiguration config = new SearchConfiguration().setHideNonPrimarySiblings(true);
+    BoolQueryBuilder optedOut =
+        ESUtils.filterNonPrimarySiblings(
+            new SearchFlags().setIncludeNonPrimarySiblings(true),
+            null,
+            null,
+            QueryBuilders.boolQuery(),
+            config);
+    assertTrue(optedOut.mustNot().isEmpty(), optedOut.toString());
+    BoolQueryBuilder defaults =
+        ESUtils.filterNonPrimarySiblings(
+            new SearchFlags(), null, null, QueryBuilders.boolQuery(), config);
+    assertEquals(defaults.mustNot().size(), 1, defaults.toString());
+  }
+
   @Test
   public void testEntityTypeAndSoftDeleteFiltersStillHide() {
     for (Filter filter :
         new Filter[] {
           filterOn("_entityType", "DATASET"),
+          // What V2 search turns an _entityType criterion into before hiding is applied.
+          filterOn("_index", "datasetindex_v2"),
           filterOn("entity", "DATASET"),
           filterOn("removed", "false"),
           filterOn("_entityType\u241EtypeNames", "DATASET"),

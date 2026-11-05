@@ -15,6 +15,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuil
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
+import com.linkedin.metadata.search.siblings.SiblingPrimaryNameIndexer;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
@@ -95,7 +96,9 @@ public class UpdateIndicesStrategyFactory {
         coalesceBatchUpdates,
         mappingsBuilder,
         timeseriesWriteThrottleCache,
-        structuredPropertyMappingCache);
+        structuredPropertyMappingCache,
+        new SiblingPrimaryNameIndexer(
+            elasticSearchService, configProvider.getElasticSearch().getSearch()));
   }
 
   @Bean("updateIndicesV3Strategy")

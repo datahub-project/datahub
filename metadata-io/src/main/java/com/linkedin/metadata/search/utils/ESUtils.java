@@ -11,6 +11,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
+import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
@@ -64,6 +65,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -130,6 +132,16 @@ public class ESUtils {
   public static final String SIBLINGS = "siblings";
   public static final String HAS_SIBLINGS = "hasSiblings";
   public static final String SIBLINGS_PRIMARY = "siblingsPrimary";
+
+  /**
+   * On a non-primary dataset sibling's document, the name of its group's primary member. Written
+   * only while non-primary siblings are hidden; see {@code SiblingPrimaryNameIndexer}.
+   */
+  public static final String SIBLING_PRIMARY_NAME = "siblingPrimaryName";
+
+  /** A negated term in search text: a leading "-" or "!", or NOT. */
+  private static final Pattern NEGATED_QUERY_TERM = Pattern.compile("(^|\\s)([-!]|NOT\\s)");
+
   private static final String DATASET_URN_PREFIX = "urn:li:" + DATASET_ENTITY_NAME + ":";
 
   /**
@@ -143,7 +155,14 @@ public class ESUtils {
    */
   private static final Set<String> SIBLING_HIDING_NEUTRAL_FIELDS =
       Set.of(
-          INDEX_VIRTUAL_FIELD, "entity", REMOVED, "state", LIFECYCLE_STAGE, "showInGlobalContext");
+          INDEX_VIRTUAL_FIELD,
+          // V2 search rewrites _entityType criteria onto _index before the filter reaches here.
+          ES_INDEX_FIELD,
+          "entity",
+          REMOVED,
+          "state",
+          LIFECYCLE_STAGE,
+          "showInGlobalContext");
 
   /** A filter on any of these is a question about the sibling group itself; it is not narrowed. */
   private static final Set<String> SIBLING_FIELDS =
@@ -2027,17 +2046,84 @@ public class ESUtils {
       @Nullable final Filter filter,
       @Nonnull final BoolQueryBuilder filterQuery,
       @Nullable final SearchConfiguration searchConfiguration) {
+    return filterNonPrimarySiblings(filter, null, filterQuery, searchConfiguration);
+  }
+
+  /**
+   * Same as {@link #filterNonPrimarySiblings(Filter, BoolQueryBuilder, SearchConfiguration)}, for a
+   * request that also has query text. Members of a group can have different names (a Glue table
+   * grouped under another Glue table), so a query may match only the non-primary member, and hiding
+   * it would drop the group. With query text, a non-primary is therefore hidden only when every
+   * query term also matches its primary's name ({@link #SIBLING_PRIMARY_NAME}): then the primary,
+   * whose name is searched by default, is the row that represents the group. A non-primary whose
+   * document does not carry the primary's name yet is listed, not hidden.
+   */
+  @Nonnull
+  public static BoolQueryBuilder filterNonPrimarySiblings(
+      @Nullable final Filter filter,
+      @Nullable final String query,
+      @Nonnull final BoolQueryBuilder filterQuery,
+      @Nullable final SearchConfiguration searchConfiguration) {
+    return filterNonPrimarySiblings(null, filter, query, filterQuery, searchConfiguration);
+  }
+
+  /**
+   * Same as {@link #filterNonPrimarySiblings(Filter, String, BoolQueryBuilder,
+   * SearchConfiguration)}, honouring {@link SearchFlags#isIncludeNonPrimarySiblings()}: internal
+   * callers that list or scan every entity (API listings, upgrade jobs) set it to see every member.
+   */
+  @Nonnull
+  public static BoolQueryBuilder filterNonPrimarySiblings(
+      @Nullable final SearchFlags searchFlags,
+      @Nullable final Filter filter,
+      @Nullable final String query,
+      @Nonnull final BoolQueryBuilder filterQuery,
+      @Nullable final SearchConfiguration searchConfiguration) {
+    return filterNonPrimarySiblings(
+        searchFlags, filter, query, false, filterQuery, searchConfiguration);
+  }
+
+  /**
+   * {@code queryIsPrefix} is true for autocomplete, where the last term is still being typed: it
+   * matches the primary's name by prefix ("ord" matches "orders"), the same way autocomplete
+   * matches the primary itself.
+   */
+  @Nonnull
+  public static BoolQueryBuilder filterNonPrimarySiblings(
+      @Nullable final SearchFlags searchFlags,
+      @Nullable final Filter filter,
+      @Nullable final String query,
+      final boolean queryIsPrefix,
+      @Nonnull final BoolQueryBuilder filterQuery,
+      @Nullable final SearchConfiguration searchConfiguration) {
     if (searchConfiguration == null || !searchConfiguration.isHideNonPrimarySiblings()) {
+      return filterQuery;
+    }
+    if (searchFlags != null && Boolean.TRUE.equals(searchFlags.isIncludeNonPrimarySiblings())) {
       return filterQuery;
     }
     if (filter != null && !allCriteriaAreNeutral(filter)) {
       return filterQuery;
     }
-    filterQuery.mustNot(
+    BoolQueryBuilder hidden =
         QueryBuilders.boolQuery()
             .filter(QueryBuilders.prefixQuery("urn", DATASET_URN_PREFIX))
             .filter(QueryBuilders.termQuery(HAS_SIBLINGS, true))
-            .filter(QueryBuilders.termQuery(SIBLINGS_PRIMARY, false)));
+            .filter(QueryBuilders.termQuery(SIBLINGS_PRIMARY, false));
+    if (query != null && !query.isBlank() && !"*".equals(query.trim())) {
+      if (NEGATED_QUERY_TERM.matcher(query).find()) {
+        // "kpi -daily" excludes a primary named daily_kpi while its member hourly_kpi matches, and
+        // the name match below ignores query syntax, so hiding would drop the group.
+        return filterQuery;
+      }
+      hidden.filter(
+          queryIsPrefix
+              ? QueryBuilders.matchBoolPrefixQuery(SIBLING_PRIMARY_NAME, query.trim())
+                  .operator(Operator.AND)
+              : QueryBuilders.matchQuery(SIBLING_PRIMARY_NAME, query.trim())
+                  .operator(Operator.AND));
+    }
+    filterQuery.mustNot(hidden);
     return filterQuery;
   }
 

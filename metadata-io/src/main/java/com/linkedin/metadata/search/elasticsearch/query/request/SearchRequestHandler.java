@@ -280,6 +280,21 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   public BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext, @Nullable Filter filter) {
+    return getFilterQuery(opContext, filter, null);
+  }
+
+  /** {@code input} is the request's query text, which decides whether siblings are hidden. */
+  public BoolQueryBuilder getFilterQuery(
+      @Nonnull OperationContext opContext, @Nullable Filter filter, @Nullable String input) {
+    return getFilterQuery(opContext, filter, input, false);
+  }
+
+  /** {@code inputIsPrefix} is true for autocomplete, where the last term is still being typed. */
+  public BoolQueryBuilder getFilterQuery(
+      @Nonnull OperationContext opContext,
+      @Nullable Filter filter,
+      @Nullable String input,
+      boolean inputIsPrefix) {
     final boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
@@ -290,7 +305,10 @@ public class SearchRequestHandler extends BaseRequestHandler {
             queryFilterRewriteChain,
             v3SearchFieldResolver);
     return ESUtils.filterNonPrimarySiblings(
+        opContext.getSearchContext().getSearchFlags(),
         filter,
+        input,
+        inputIsPrefix,
         applyDefaultSearchFilters(
             opContext, entityNames, filter, filterQuery, entityIndexConfiguration),
         searchConfiguration);
@@ -389,7 +407,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         searchFlags,
         getV3MatchedFieldSources(opContext, searchFlags, input, size));
 
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter, input);
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
             .must(getQuery(opContext, input, Boolean.TRUE.equals(searchFlags.isFulltext())))
@@ -483,7 +501,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         searchFlags,
         getV3MatchedFieldSources(opContext, searchFlags, input, size));
 
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter, input);
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
             .must(getQuery(opContext, input, Boolean.TRUE.equals(searchFlags.isFulltext())))
@@ -535,7 +553,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter, input);
     SearchQueryPlan queryPlan =
         searchQueryBuilder.buildPlan(
             opContext,
@@ -583,7 +601,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
     ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter, input);
     SearchQueryPlan queryPlan =
         searchQueryBuilder.buildPlan(
             opContext,

@@ -2,8 +2,10 @@ package com.linkedin.metadata.graph.elastic;
 
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -15,7 +17,13 @@ import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.List;
 import java.util.Set;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.filter.Filter;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.metrics.Cardinality;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -85,5 +93,55 @@ public class GraphQueryBaseDAOLineageCountTest {
     SearchSourceBuilder source =
         dao.buildLineageCountSource(opContext, Set.of(DATASET_ONE), filters, 0);
     assertFalse(source.toString().contains("\"size\":-"), source.toString());
+  }
+
+  /**
+   * When a sample is truncated the total falls back to the cardinalities, which count a URN that is
+   * both a neighbour and a via once per role. URNs seen in both samples are counted once.
+   */
+  @Test
+  public void testTruncatedTotalCountsNeighbourAndViaOnce() {
+    Urn a = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,count_a,PROD)");
+    Urn job = UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,flow,PROD),job)");
+    // Three distinct neighbours (a, job and one beyond the sample) and one via (job, which is also
+    // a neighbour). The neighbour sample is truncated.
+    Filter direction = mock(Filter.class);
+    when(direction.getName()).thenReturn("lineageCount_OUTGOING");
+    Aggregations sub =
+        new Aggregations(
+            List.of(
+                cardinality("distinct", 3),
+                cardinality("via", 1),
+                terms("sample", 1, a, job),
+                terms("viaSample", 0, job)));
+    when(direction.getAggregations()).thenReturn(sub);
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getAggregations()).thenReturn(new Aggregations(List.of(direction)));
+
+    assertEquals(dao.parseLineageCount(response, Set.of(DATASET_ONE), 10).getTotal(), 3);
+  }
+
+  private static Cardinality cardinality(String name, long value) {
+    Cardinality cardinality = mock(Cardinality.class);
+    when(cardinality.getName()).thenReturn(name);
+    when(cardinality.getValue()).thenReturn(value);
+    return cardinality;
+  }
+
+  private static Terms terms(String name, long otherDocs, Urn... urns) {
+    Terms terms = mock(Terms.class);
+    when(terms.getName()).thenReturn(name);
+    when(terms.getSumOfOtherDocCounts()).thenReturn(otherDocs);
+    List<Terms.Bucket> buckets =
+        java.util.Arrays.stream(urns)
+            .map(
+                urn -> {
+                  Terms.Bucket bucket = mock(Terms.Bucket.class);
+                  when(bucket.getKeyAsString()).thenReturn(urn.toString());
+                  return bucket;
+                })
+            .toList();
+    doReturn(buckets).when(terms).getBuckets();
+    return terms;
   }
 }

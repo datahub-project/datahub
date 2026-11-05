@@ -1431,7 +1431,7 @@ public class ESSearchDAO {
                 customSearchConfiguration,
                 queryFilterRewriteChain,
                 searchServiceConfig)
-            .getFilterQuery(opContext, requestParams);
+            .getFilterQuery(opContext, requestParams, query, true);
     SearchSourceBuilder source = new SearchSourceBuilder();
     source.size(ConfigUtils.applyLimit(searchServiceConfig, limit));
     source.trackTotalHits(false);
@@ -2151,7 +2151,9 @@ public class ESSearchDAO {
       // Same sibling hiding as search, browse and autocomplete, so counts match the lists.
       query =
           ESUtils.filterNonPrimarySiblings(
+              opContext.getSearchContext().getSearchFlags(),
               filter,
+              null,
               SearchRequestHandler.getFilterQuery(
                   opContext,
                   List.of(entityName),

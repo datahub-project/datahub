@@ -97,6 +97,13 @@ record SearchFlags {
    */
    filterNonLatestVersions: optional boolean = true
 
+  /**
+   * Include non-primary members of dataset sibling groups when the deployment hides them from
+   * search (ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS). Set by internal callers that list or
+   * scan every entity, such as API listings and upgrade jobs. Has no effect when hiding is off.
+   */
+   includeNonPrimarySiblings: optional boolean = false
+
    /**
     * Which fieldConfiguration should be applied. The possible values
     * are defined in the configuration file `search_config.yaml`

@@ -15,6 +15,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
@@ -272,6 +273,10 @@ public class V2MappingsBuilder implements MappingsBuilder {
     mappings.put("urn", getMappingsForUrn());
     mappings.put("runId", getMappingsForRunId());
     mappings.put(SYSTEM_CREATED_FIELD, getMappingsForSystemCreated());
+    if (entitySpec.getAspectSpecMap().containsKey(Constants.SIBLINGS_ASPECT_NAME)) {
+      // Written by SiblingPrimaryNameIndexer only while non-primary siblings are hidden.
+      mappings.put(ESUtils.SIBLING_PRIMARY_NAME, getMappingsForSiblingPrimaryName());
+    }
 
     return ImmutableMap.of(PROPERTIES, mappings);
   }
@@ -291,6 +296,19 @@ public class V2MappingsBuilder implements MappingsBuilder {
     return ImmutableMap.<String, Object>builder()
         .put(TYPE, ESUtils.KEYWORD_FIELD_TYPE)
         .put(FIELDS, subFields)
+        .build();
+  }
+
+  /** Tokenized for the sibling hiding query, with a keyword sub-field. */
+  private static Map<String, Object> getMappingsForSiblingPrimaryName() {
+    return ImmutableMap.<String, Object>builder()
+        .put(TYPE, ESUtils.TEXT_FIELD_TYPE)
+        .put(ANALYZER, TEXT_ANALYZER)
+        .put(SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER)
+        .put(
+            FIELDS,
+            ImmutableMap.of(
+                KEYWORD, ImmutableMap.of(TYPE, KEYWORD, IGNORE_ABOVE, ESUtils.KEYWORD_MAXLENGTH)))
         .build();
   }
 

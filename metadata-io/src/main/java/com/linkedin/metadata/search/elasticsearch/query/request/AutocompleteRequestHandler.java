@@ -167,7 +167,10 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
     // Apply default filters
     BoolQueryBuilder queryWithDefaultFilters =
         ESUtils.filterNonPrimarySiblings(
+            opContext.getSearchContext().getSearchFlags(),
             filter,
+            input,
+            true,
             applyDefaultSearchFilters(
                 opContext,
                 entityName != null ? List.of(entityName) : Collections.emptyList(),

@@ -968,7 +968,9 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
    * Distinct neighbours and via entities across both directions, as the walk reports them: one
    * entry per URN however many edges or roles reach it, and never a member of the group itself.
    * Exact while every terms aggregation fits in a page; otherwise the total falls back to the
-   * cardinality estimates, which can count a URN that is both neighbour and via twice.
+   * cardinality estimates. Those count a URN that is both a neighbour and a via once per role, so
+   * the URNs seen in both samples of a direction are subtracted. Overlap outside the samples can
+   * still be counted twice, so a truncated total may be slightly high.
    */
   @VisibleForTesting
   LineageCountResult parseLineageCount(
@@ -992,20 +994,28 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           estimated += cardinality.getValue();
         }
       }
+      Set<Urn> neighbourSample = new HashSet<>();
+      Set<Urn> viaSample = new HashSet<>();
       for (String termsAgg : List.of(SAMPLE_AGG, VIA_SAMPLE_AGG)) {
         Terms terms = sub.get(termsAgg);
         if (terms == null) {
           continue;
         }
         truncated |= terms.getSumOfOtherDocCounts() > 0;
+        Set<Urn> seen = SAMPLE_AGG.equals(termsAgg) ? neighbourSample : viaSample;
         for (Terms.Bucket bucket : terms.getBuckets()) {
           try {
-            reached.add(Urn.createFromString(bucket.getKeyAsString()));
+            Urn urn = Urn.createFromString(bucket.getKeyAsString());
+            reached.add(urn);
+            seen.add(urn);
           } catch (URISyntaxException e) {
             log.warn("Skipping unparseable lineage neighbour urn {}", bucket.getKeyAsString());
           }
         }
       }
+      // The two cardinalities each count a URN that is both a neighbour and a via.
+      neighbourSample.retainAll(viaSample);
+      estimated -= neighbourSample.size();
     }
     reached.removeAll(groupUrns);
     long total = truncated ? Math.max(reached.size(), estimated) : reached.size();

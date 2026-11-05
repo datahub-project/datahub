@@ -236,7 +236,8 @@ public class SiblingGraphService {
 
     return new EntityLineageResult()
         .setStart(0)
-        .setCount(sampleSize)
+        // count is the size of the returned relationships, which a totals-only result leaves empty.
+        .setCount(0)
         .setTotal(counted.getTotal())
         .setFiltered(filtered)
         .setRelationships(new LineageRelationshipArray());

@@ -1095,6 +1095,8 @@ public class SiblingGraphServiceTest {
     assertEquals(result.getTotal().intValue(), 3);
     assertEquals(result.getFiltered().intValue(), 0);
     assertEquals(result.getRelationships().size(), 0);
+    // count describes the returned relationships, and a totals-only result returns none.
+    assertEquals(result.getCount().intValue(), 0);
   }
 
   @Test

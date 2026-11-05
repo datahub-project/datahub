@@ -7364,6 +7364,12 @@
       "default" : true,
       "optional" : true
     }, {
+      "name" : "includeNonPrimarySiblings",
+      "type" : "boolean",
+      "doc" : "Include non-primary members of dataset sibling groups when the deployment hides them from\nsearch (ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS). Set by internal callers that list or\nscan every entity, such as API listings and upgrade jobs. Has no effect when hiding is off.",
+      "default" : false,
+      "optional" : true
+    }, {
       "name" : "fieldConfiguration",
       "type" : "string",
       "doc" : "Which fieldConfiguration should be applied. The possible values\nare defined in the configuration file `search_config.yaml`",
