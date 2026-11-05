@@ -9,11 +9,16 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.authorization.ApiGroup;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -24,6 +29,7 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
+import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
@@ -32,9 +38,11 @@ import io.datahubproject.openapi.v3.models.Criterion;
 import io.datahubproject.openapi.v3.models.ScrollRelationshipsRequestBody;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -108,6 +116,18 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizerChain;
+    }
+
+    @Bean
+    public RestrictedService restrictedService() {
+      RestrictedService restrictedService = mock(RestrictedService.class);
+      when(restrictedService.encryptRestrictedUrn(any()))
+          .thenAnswer(
+              invocation -> {
+                Urn urn = invocation.getArgument(0);
+                return new Urn("restricted", "redacted-" + urn.getEntityType());
+              });
+      return restrictedService;
     }
   }
 
@@ -1346,5 +1366,147 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
         opContextCaptor.getValue().getRequestContext().getUsageOperation());
     // Regular scroll should NOT set triplets
     assertNull(graphFiltersCaptor.getValue().getAllowedEdgeTriplets());
+  }
+
+  private static final String HIDDEN_DATASET =
+      "urn:li:dataset:(urn:li:dataPlatform:testPlatform,hidden,PROD)";
+  private static final String HIDDEN_USER = "urn:li:corpuser:bob";
+  private static final String VISIBLE_USER = "urn:li:corpuser:alice";
+
+  private MockedStatic<AuthUtil> hideDatasetAndBob() {
+    MockedStatic<AuthUtil> authUtil = mockStatic(AuthUtil.class);
+    authUtil
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorized(
+                    any(OperationContext.class), any(ApiGroup.class), any(ApiOperation.class)))
+        .thenReturn(true);
+    authUtil
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    any(OperationContext.class),
+                    eq(ApiGroup.RELATIONSHIP),
+                    eq(ApiOperation.READ),
+                    anyCollection()))
+        .thenAnswer(
+            invocation ->
+                invocation.<Collection<Urn>>getArgument(3).stream()
+                    .map(Urn::toString)
+                    .noneMatch(urn -> urn.equals(HIDDEN_DATASET) || urn.equals(HIDDEN_USER)));
+    return authUtil;
+  }
+
+  private void stubRelationshipsByType(List<RelatedEntities> edges) {
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            isNull(),
+            any(),
+            isNull(),
+            any(),
+            anySet(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(new RelatedEntitiesScrollResult(edges.size(), 10, null, edges));
+  }
+
+  private String getRelationshipsByType() throws Exception {
+    return mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/relationship/OwnedBy")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
+  }
+
+  @Test
+  public void testGetRelationshipsByTypeRedactsHiddenEndpointsInsteadOfFailing() throws Exception {
+    stubRelationshipsByType(
+        List.of(
+            new RelatedEntities(
+                "OwnedBy", HIDDEN_DATASET, VISIBLE_USER, RelationshipDirection.OUTGOING, null),
+            new RelatedEntities(
+                "OwnedBy", HIDDEN_DATASET, HIDDEN_USER, RelationshipDirection.OUTGOING, null)));
+
+    try (MockedStatic<AuthUtil> ignored = hideDatasetAndBob()) {
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.get("/openapi/v3/relationship/OwnedBy")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(jsonPath("$.results.length()").value(1))
+          .andExpect(
+              jsonPath("$.results[0].source.urn").value("urn:li:restricted:redacted-dataset"))
+          .andExpect(jsonPath("$.results[0].destination.urn").value(VISIBLE_USER));
+    }
+  }
+
+  @Test
+  public void testGetRelationshipsByTypeEdgeBetweenHiddenEntitiesAnswersLikeMissing()
+      throws Exception {
+    stubRelationshipsByType(List.of());
+    String missing;
+    try (MockedStatic<AuthUtil> ignored = hideDatasetAndBob()) {
+      missing = getRelationshipsByType();
+    }
+
+    stubRelationshipsByType(
+        List.of(
+            new RelatedEntities(
+                "OwnedBy", HIDDEN_DATASET, HIDDEN_USER, RelationshipDirection.OUTGOING, null)));
+    try (MockedStatic<AuthUtil> ignored = hideDatasetAndBob()) {
+      assertEquals(getRelationshipsByType(), missing);
+    }
+  }
+
+  @Test
+  public void testGetRelationshipsByEntityRedactsHiddenNeighbours() throws Exception {
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            isNull(),
+            any(),
+            isNull(),
+            any(),
+            anySet(),
+            any(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                2,
+                10,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "OwnedBy",
+                        HIDDEN_DATASET,
+                        VISIBLE_USER,
+                        RelationshipDirection.INCOMING,
+                        null))));
+
+    try (MockedStatic<AuthUtil> ignored = hideDatasetAndBob()) {
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.get(
+                      "/openapi/v3/relationship/{entityName}/{entityUrn}", "corpuser", VISIBLE_USER)
+                  .param("direction", "INCOMING")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(jsonPath("$.results.length()").value(1))
+          .andExpect(
+              jsonPath("$.results[0].source.urn").value("urn:li:restricted:redacted-dataset"))
+          .andExpect(jsonPath("$.results[0].destination.urn").value(VISIBLE_USER));
+    }
   }
 }

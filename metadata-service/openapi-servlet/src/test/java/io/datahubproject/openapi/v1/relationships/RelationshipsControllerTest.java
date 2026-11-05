@@ -11,6 +11,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.google.common.net.HttpHeaders;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.query.filter.Filter;
@@ -19,7 +20,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.*;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -40,7 +40,7 @@ public class RelationshipsControllerTest {
 
   @Mock private OperationContext mockOperationContext;
 
-  @InjectMocks private RelationshipsController relationshipsController;
+  private RelationshipsController relationshipsController;
 
   private AutoCloseable mocks;
   private MockedStatic<AuthenticationContext> authenticationContextMock;
@@ -50,6 +50,8 @@ public class RelationshipsControllerTest {
   @BeforeMethod
   public void setUp() {
     mocks = MockitoAnnotations.openMocks(this);
+    relationshipsController =
+        new RelationshipsController(mockOperationContext, graphService, authorizerChain);
 
     // Mock static methods
     authenticationContextMock = mockStatic(AuthenticationContext.class);
@@ -123,7 +125,9 @@ public class RelationshipsControllerTest {
     when(graphService.findRelatedEntities(
             any(OperationContext.class),
             isNull(),
-            argThat(filter -> filter.getCriteria().get(0).getValues().get(0).equals(decodedUrn)),
+            argThat(
+                filter ->
+                    filter.getOr().get(0).getAnd().get(0).getValues().get(0).equals(decodedUrn)),
             isNull(),
             any(Filter.class),
             any(Set.class),
@@ -249,5 +253,56 @@ public class RelationshipsControllerTest {
     // Assert
     assertEquals(response.getStatusCode(), HttpStatus.OK);
     verify(mockOperationContext, atLeastOnce()).getMetricUtils();
+  }
+
+  @Test
+  public void testGetRelationshipsLeavesOutHiddenNeighboursAsIfMissing() {
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)";
+    String visible = "urn:li:dataset:(urn:li:dataPlatform:hive,visible,PROD)";
+    String hidden = "urn:li:dataset:(urn:li:dataPlatform:hive,hidden,PROD)";
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    any(OperationContext.class),
+                    any(),
+                    any(com.linkedin.metadata.authorization.ApiOperation.class),
+                    anyCollection()))
+        .thenAnswer(
+            invocation ->
+                invocation.<Collection<?>>getArgument(3).stream()
+                    .noneMatch(u -> u.toString().equals(hidden)));
+    when(graphService.findRelatedEntities(
+            any(OperationContext.class),
+            isNull(),
+            any(Filter.class),
+            isNull(),
+            any(Filter.class),
+            any(Set.class),
+            any(RelationshipFilter.class),
+            anyInt(),
+            anyInt()))
+        .thenReturn(
+            new RelatedEntitiesResult(
+                0,
+                2,
+                2,
+                List.of(
+                    new RelatedEntity("DownstreamOf", visible),
+                    new RelatedEntity("DownstreamOf", hidden))));
+
+    ResponseEntity<RelatedEntitiesResult> response =
+        relationshipsController.getRelationships(
+            httpServletRequest,
+            urn,
+            new String[] {"DownstreamOf"},
+            RelationshipsController.RelationshipDirection.OUTGOING,
+            0,
+            10);
+
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertEquals(
+        response.getBody(),
+        new RelatedEntitiesResult(0, 1, 1, List.of(new RelatedEntity("DownstreamOf", visible))));
   }
 }

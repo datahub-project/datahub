@@ -27,9 +27,15 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
+import com.linkedin.metadata.browse.BrowseResultMetadata;
+import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -44,15 +50,19 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
@@ -458,45 +468,200 @@ public class EntityAuthorizationUtilsTest {
     Mockito.verify(aspectRetriever).entityExists(opContext, Set.of(DATASET_URN));
   }
 
+  private static final Urn RESTRICTED_URN = UrnUtils.getUrn("urn:li:restricted:encrypted");
+
+  /** DATASET_URN is the only entity the actor may not read. */
+  private void hideDataset(ApiGroup apiGroup) {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedEntityUrns(
+                    eq(opContext), eq(READ), Mockito.<Collection<Urn>>any()))
+        .thenAnswer(
+            invocation -> !invocation.<Collection<Urn>>getArgument(2).contains(DATASET_URN));
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    eq(opContext), eq(apiGroup), eq(READ), Mockito.<Collection<Urn>>any()))
+        .thenAnswer(
+            invocation -> !invocation.<Collection<Urn>>getArgument(3).contains(DATASET_URN));
+  }
+
+  private static SearchEntityArray searchEntities(Urn... urns) {
+    return Arrays.stream(urns)
+        .map(urn -> new SearchEntity().setEntity(urn))
+        .collect(Collectors.toCollection(SearchEntityArray::new));
+  }
+
+  private static LineageSearchEntityArray lineageSearchEntities(Urn... urns) {
+    return Arrays.stream(urns)
+        .map(urn -> new LineageSearchEntity().setEntity(urn))
+        .collect(Collectors.toCollection(LineageSearchEntityArray::new));
+  }
+
   @Test
-  public void testIsAPIAuthorizedResult_extractsUrnsFromAllResultTypes() {
+  public void testFilterAPIAuthorizedResult_hiddenMatchAnswersLikeMissing() throws Exception {
+    hideDataset(ENTITY);
+    SearchResult missing =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(10)
+            .setMetadata(new SearchResultMetadata());
+    SearchResult hidden = missing.copy().setEntities(searchEntities(DATASET_URN)).setNumEntities(1);
+
+    assertEquals(EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, hidden), missing);
+    assertEquals(hidden.getNumEntities(), 1, "the input result must not be modified");
+
+    ScrollResult missingScroll =
+        new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0).setPageSize(10);
+    ScrollResult hiddenScroll =
+        missingScroll.copy().setEntities(searchEntities(DATASET_URN)).setNumEntities(1);
+    assertEquals(
+        EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, hiddenScroll), missingScroll);
+
+    LineageSearchResult missingLineage =
+        new LineageSearchResult()
+            .setEntities(new LineageSearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(10)
+            .setMetadata(new SearchResultMetadata());
+    LineageSearchResult hiddenLineage =
+        missingLineage.copy().setEntities(lineageSearchEntities(DATASET_URN)).setNumEntities(1);
+    assertEquals(
+        EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, hiddenLineage),
+        missingLineage);
+
+    LineageScrollResult missingLineageScroll =
+        new LineageScrollResult()
+            .setEntities(new LineageSearchEntityArray())
+            .setNumEntities(0)
+            .setPageSize(10);
+    LineageScrollResult hiddenLineageScroll =
+        missingLineageScroll
+            .copy()
+            .setEntities(lineageSearchEntities(DATASET_URN))
+            .setNumEntities(1);
+    assertEquals(
+        EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, hiddenLineageScroll),
+        missingLineageScroll);
+  }
+
+  @Test
+  public void testFilterAPIAuthorizedResult_keepsReadableEntitiesAndRestrictedPlaceholders() {
+    hideDataset(ENTITY);
+    SearchResult result =
+        new SearchResult()
+            .setEntities(searchEntities(ALLOWED_DATASET_URN, DATASET_URN, RESTRICTED_URN))
+            .setNumEntities(25);
+
+    SearchResult filtered = EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
+
+    assertEquals(filtered.getEntities(), searchEntities(ALLOWED_DATASET_URN, RESTRICTED_URN));
+    assertEquals(filtered.getNumEntities(), 24);
+  }
+
+  @Test
+  public void testFilterAPIAuthorizedResult_returnsFullyReadableResultUnchanged() {
     documentAuthMock
         .when(
             () ->
                 DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
                     eq(opContext), eq(READ), any()))
         .thenReturn(true);
+    SearchResult result =
+        new SearchResult().setEntities(searchEntities(DOCUMENT_URN)).setNumEntities(1);
 
-    SearchEntity searchEntity = new SearchEntity().setEntity(DOCUMENT_URN);
-    SearchResult searchResult =
-        new SearchResult().setEntities(new SearchEntityArray(List.of(searchEntity)));
-    ScrollResult scrollResult =
-        new ScrollResult().setEntities(new SearchEntityArray(List.of(searchEntity)));
-    AutoCompleteResult autoCompleteResult =
+    assertTrue(EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result) == result);
+  }
+
+  @Test
+  public void testFilterAPIAuthorizedResult_dropsHiddenAutoCompleteSuggestions() {
+    hideDataset(ENTITY);
+    AutoCompleteResult result =
         new AutoCompleteResult()
+            .setQuery("fac")
+            .setSuggestions(new StringArray(List.of("allowed", "facade")))
             .setEntities(
                 new AutoCompleteEntityArray(
-                    List.of(new AutoCompleteEntity().setUrn(DOCUMENT_URN))));
-    BrowseResult browseResult =
+                    List.of(
+                        new AutoCompleteEntity().setUrn(ALLOWED_DATASET_URN),
+                        new AutoCompleteEntity().setUrn(DATASET_URN))));
+
+    AutoCompleteResult filtered =
+        EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
+
+    assertEquals(filtered.getSuggestions(), new StringArray(List.of("allowed")));
+    assertEquals(
+        filtered.getEntities(),
+        new AutoCompleteEntityArray(List.of(new AutoCompleteEntity().setUrn(ALLOWED_DATASET_URN))));
+  }
+
+  @Test
+  public void testFilterAPIAuthorizedResult_reducesBrowseEntityCounts() {
+    hideDataset(ENTITY);
+    BrowseResult result =
         new BrowseResult()
             .setEntities(
                 new BrowseResultEntityArray(
-                    List.of(new BrowseResultEntity().setUrn(DOCUMENT_URN))));
+                    List.of(
+                        new BrowseResultEntity().setUrn(ALLOWED_DATASET_URN),
+                        new BrowseResultEntity().setUrn(DATASET_URN))))
+            .setNumEntities(2)
+            .setNumElements(3)
+            .setNumGroups(1)
+            .setMetadata(new BrowseResultMetadata().setPath("/hive").setTotalNumEntities(5));
 
-    assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, searchResult));
-    assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, scrollResult));
-    assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, autoCompleteResult));
-    assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, browseResult));
+    BrowseResult filtered = EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
 
-    LineageSearchEntity lineageSearchEntity = new LineageSearchEntity().setEntity(DOCUMENT_URN);
-    LineageSearchResult lineageSearchResult =
-        new LineageSearchResult()
-            .setEntities(new LineageSearchEntityArray(List.of(lineageSearchEntity)));
-    LineageScrollResult lineageScrollResult =
-        new LineageScrollResult()
-            .setEntities(new LineageSearchEntityArray(List.of(lineageSearchEntity)));
-    assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, lineageSearchResult));
-    assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, lineageScrollResult));
+    assertEquals(filtered.getEntities().size(), 1);
+    assertEquals(filtered.getNumEntities(), 1);
+    assertEquals(filtered.getNumElements(), 2);
+    assertEquals(filtered.getMetadata().getTotalNumEntities(), 4L);
+  }
+
+  @Test
+  public void testFilterAPIAuthorizedRelatedEntities_hiddenNeighbourAnswersLikeMissing() {
+    hideDataset(ApiGroup.RELATIONSHIP);
+    RelatedEntity visible = new RelatedEntity("DownstreamOf", ALLOWED_DATASET_URN.toString());
+    RelatedEntity hidden = new RelatedEntity("DownstreamOf", DATASET_URN.toString());
+
+    assertEquals(
+        EntityAuthorizationUtils.filterAPIAuthorizedRelatedEntities(
+            opContext,
+            ApiGroup.RELATIONSHIP,
+            new RelatedEntitiesResult(0, 2, 2, List.of(visible, hidden))),
+        new RelatedEntitiesResult(0, 1, 1, List.of(visible)));
+    assertEquals(
+        EntityAuthorizationUtils.filterAPIAuthorizedRelatedEntities(
+            opContext, ApiGroup.RELATIONSHIP, new RelatedEntitiesResult(0, 1, 1, List.of(hidden))),
+        new RelatedEntitiesResult(0, 0, 0, List.of()));
+  }
+
+  @Test
+  public void testFilterAPIAuthorizedLineage_hiddenNeighbourAnswersLikeMissing() {
+    hideDataset(ApiGroup.LINEAGE);
+    LineageRelationship visible =
+        new LineageRelationship().setType("DownstreamOf").setEntity(ALLOWED_DATASET_URN);
+    LineageRelationship hidden =
+        new LineageRelationship().setType("DownstreamOf").setEntity(DATASET_URN);
+    EntityLineageResult result =
+        new EntityLineageResult()
+            .setStart(0)
+            .setCount(2)
+            .setTotal(2)
+            .setRelationships(new LineageRelationshipArray(List.of(visible, hidden)));
+
+    EntityLineageResult filtered =
+        EntityAuthorizationUtils.filterAPIAuthorizedLineage(opContext, ApiGroup.LINEAGE, result);
+
+    assertEquals(filtered.getRelationships(), new LineageRelationshipArray(List.of(visible)));
+    assertEquals(filtered.getCount(), 1);
+    assertEquals(filtered.getTotal(), 1);
+    assertEquals(filtered.getFiltered(), 1);
   }
 
   @Test
