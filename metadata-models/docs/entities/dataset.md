@@ -56,10 +56,9 @@ The following code snippet shows you how to add a Schema containing 3 fields to 
 
 #### Primary keys for datasets without key constraints
 
-When the source declares no key constraint (files, object stores, unconstrained tables), set `editableSchemaMetadata.primaryKeys` to the field paths of the key, through any write API (Edit Entity privilege). Ingestion does not overwrite this aspect. The UI shows the source primary key (`schemaMetadata.primaryKeys` plus fields with `isPartOfKey`) when there is one, and the edited key only otherwise.
+When the source declares no key constraint (files, object stores, unconstrained tables), write the `editablePrimaryKeys` aspect with the field paths of the key, through any write API (Edit Entity privilege). Ingestion does not write this aspect. The UI shows the source primary key (`schemaMetadata.primaryKeys` plus fields with `isPartOfKey`) when there is one, and the edited key only otherwise.
 
-- Field paths must exactly match `schemaMetadata.fields[].fieldPath`, including v2 paths such as `[version=2.0].[type=string].id`. A path that matches no field shows no badge and raises no error.
-- Writes that replace the whole aspect, such as the `updateDataset` mutation's `editableSchemaMetadata` input or a read-modify-write from an older SDK client, replace `primaryKeys` too, so they must carry the existing value.
+- Field paths should match `schemaMetadata.fields[].fieldPath`. The UI also matches v2 paths by their simple form, so a key declared as `id` marks the field `[version=2.0].[type=string].id`. A path that matches no field shows no badge and raises no error.
 - In a combined sibling view, the edited keys of both siblings are combined, and a source key on either sibling takes precedence.
 
 ### Tags and Glossary Terms

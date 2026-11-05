@@ -7,13 +7,19 @@ const field = (fieldPath: string, isPartOfKey = false) => ({ fieldPath, isPartOf
 describe('getEffectivePrimaryKeys', () => {
     it('uses the source key, including isPartOfKey fields, over the edited key', () => {
         const schema = { primaryKeys: ['id'], fields: [field('id'), field('day', true), field('col_a')] };
-        expect(getEffectivePrimaryKeys(schema, { primaryKeys: ['col_a'] })).toEqual(new Set(['id', 'day']));
+        const keys = getEffectivePrimaryKeys(schema, ['col_a']);
+        expect(['id', 'day', 'col_a'].map((path) => isPrimaryKeyField(keys, field(path)))).toEqual([true, true, false]);
     });
 
     it('uses the edited key when the source declares none', () => {
         const schema = { primaryKeys: [], fields: [field('id'), field('col_a')] };
-        expect(getEffectivePrimaryKeys(schema, { primaryKeys: ['col_a'] })).toEqual(new Set(['col_a']));
-        expect(getEffectivePrimaryKeys(schema, null)).toEqual(new Set());
+        expect(isPrimaryKeyField(getEffectivePrimaryKeys(schema, ['col_a']), field('col_a'))).toBe(true);
+        expect(getEffectivePrimaryKeys(schema, null).size).toBe(0);
+    });
+
+    it('matches an edited key against v2 field paths', () => {
+        const v2Field = field('[version=2.0].[type=Record].[type=string].id');
+        expect(isPrimaryKeyField(getEffectivePrimaryKeys({ fields: [v2Field] }, ['id']), v2Field)).toBe(true);
     });
 
     it('keeps isPartOfKey badges when there is no schemaMetadata', () => {

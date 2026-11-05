@@ -4,18 +4,18 @@ import { InteriorTitleContent } from '@app/entityV2/dataset/profile/schema/compo
 import { getEffectivePrimaryKeys, isPrimaryKeyField } from '@app/entityV2/dataset/profile/schema/utils/primaryKeys';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 
-import { EditableSchemaMetadata, SchemaMetadata } from '@types';
+import { SchemaMetadata } from '@types';
 
 export default function useSchemaTitleRenderer(
     parentUrn: string,
     schemaMetadata: SchemaMetadata | undefined | null,
-    editableSchemaMetadata: EditableSchemaMetadata | undefined | null,
+    editedPrimaryKeys: string[] | undefined | null,
     filterText: string,
     isCompact?: boolean,
 ) {
     const primaryKeys = useMemo(
-        () => getEffectivePrimaryKeys(schemaMetadata, editableSchemaMetadata),
-        [schemaMetadata, editableSchemaMetadata],
+        () => getEffectivePrimaryKeys(schemaMetadata, editedPrimaryKeys),
+        [schemaMetadata, editedPrimaryKeys],
     );
     return (fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
         return (

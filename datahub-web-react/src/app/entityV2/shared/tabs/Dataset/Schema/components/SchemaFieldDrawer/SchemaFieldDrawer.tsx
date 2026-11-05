@@ -91,6 +91,8 @@ interface Props {
     schemaFields: SchemaField[];
     // primaryKeys declared by the source schema, for the effective primary key badge
     schemaPrimaryKeys?: string[] | null;
+    // primary key declared by users (editablePrimaryKeys aspect), used when the source declares none
+    editedPrimaryKeys?: string[] | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     expandedDrawerFieldPath: string | null;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
@@ -108,6 +110,7 @@ interface Props {
 export default function SchemaFieldDrawer({
     schemaFields,
     schemaPrimaryKeys,
+    editedPrimaryKeys,
     editableSchemaMetadata,
     expandedDrawerFieldPath,
     setExpandedDrawerFieldPath,
@@ -130,8 +133,8 @@ export default function SchemaFieldDrawer({
         expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? displayedRows[expandedFieldIndex] : undefined;
 
     const primaryKeys = useMemo(
-        () => getEffectivePrimaryKeys({ primaryKeys: schemaPrimaryKeys, fields: schemaFields }, editableSchemaMetadata),
-        [schemaPrimaryKeys, schemaFields, editableSchemaMetadata],
+        () => getEffectivePrimaryKeys({ primaryKeys: schemaPrimaryKeys, fields: schemaFields }, editedPrimaryKeys),
+        [schemaPrimaryKeys, schemaFields, editedPrimaryKeys],
     );
 
     const baseEntity = useBaseEntity<GetDatasetQuery>();

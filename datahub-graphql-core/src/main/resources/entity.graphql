@@ -1817,6 +1817,13 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     @aspectMapping(aspects: ["editableSchemaMetadata"])
 
   """
+  Primary key declared by users, for datasets whose source declares none.
+  A primary key declared by the source takes precedence.
+  """
+  editablePrimaryKeys: EditablePrimaryKeys
+    @aspectMapping(aspects: ["editablePrimaryKeys"])
+
+  """
   Status of the Dataset
   """
   status: Status @aspectMapping(aspects: ["status"])
@@ -3991,6 +3998,16 @@ type SchemaField {
 }
 
 """
+A primary key declared by users for a dataset whose source declares none
+"""
+type EditablePrimaryKeys {
+  """
+  Field paths of the primary key
+  """
+  primaryKeys: [String!]!
+}
+
+"""
 Information about schema metadata that is editable via the UI
 """
 type EditableSchemaMetadata {
@@ -3998,12 +4015,6 @@ type EditableSchemaMetadata {
   Editable schema field metadata
   """
   editableSchemaFieldInfo: [EditableSchemaFieldInfo!]!
-
-  """
-  Field paths of a user-declared primary key, for datasets whose source declares none.
-  A primary key declared by the source takes precedence.
-  """
-  primaryKeys: [String!]
 }
 
 """
@@ -5627,12 +5638,6 @@ input EditableSchemaMetadataUpdate {
   Update to writable schema field metadata
   """
   editableSchemaFieldInfo: [EditableSchemaFieldInfoUpdate!]!
-
-  """
-  Field paths of a user-declared primary key, for datasets whose source declares none.
-  The aspect is replaced as a whole, so omitting this clears any edited primary key.
-  """
-  primaryKeys: [String!]
 }
 
 """

@@ -45,6 +45,7 @@ entities:
       - institutionalMemory
       - ownership
       - editableSchemaMetadata
+      - editablePrimaryKeys
       - globalTags
       - glossaryTerms
       - browsePaths
