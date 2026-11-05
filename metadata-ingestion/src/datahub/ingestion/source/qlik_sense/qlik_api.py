@@ -294,7 +294,7 @@ class QlikAPI:
                     name = connection.get(Constant.QNAME)
                     if not name:
                         continue
-                    descriptor = " ".join(
+                    descriptor = ";".join(
                         str(connection.get(key) or "")
                         for key in (
                             Constant.DATASOURCEID,
@@ -333,7 +333,7 @@ class QlikAPI:
             app = App.model_validate(response[Constant.QLAYOUT])
             app.sheets = self._get_app_sheets(websocket_connection, app_id)
             app.tables = self._get_app_used_tables(websocket_connection, app_id)
-            if not any(table.tableQri for table in app.tables):
+            if not app.tables or not all(table.tableQri for table in app.tables):
                 app.script = self._get_app_script(websocket_connection, app_id)
             websocket_connection.close_websocket()
             return app
