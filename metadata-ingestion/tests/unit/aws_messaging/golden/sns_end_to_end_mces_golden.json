@@ -530,7 +530,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)",
+    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -547,7 +547,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)",
+    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -569,7 +569,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)",
+    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -587,7 +587,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)",
+    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -603,7 +603,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)",
+    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -628,7 +628,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)",
+    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -644,7 +644,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)",
+    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -665,7 +665,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD),route)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD),route)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -682,7 +682,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD),route)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD),route)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -697,8 +697,8 @@
                     "urn": "urn:li:container:d11239748784fe229f005ca5b3a80e74"
                 },
                 {
-                    "id": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)",
-                    "urn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)"
+                    "id": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD)",
+                    "urn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD)"
                 }
             ]
         }
@@ -711,7 +711,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD),route)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD),route)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -721,7 +721,7 @@
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)",
+            "flowUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD)",
             "env": "PROD"
         }
     },
@@ -733,7 +733,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD),route)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD),route)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -751,7 +751,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD),route)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD),route)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -767,7 +767,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD),route)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD),route)",
     "changeType": "PATCH",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -796,7 +796,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD),route)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default/new-orders,PROD),route)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
