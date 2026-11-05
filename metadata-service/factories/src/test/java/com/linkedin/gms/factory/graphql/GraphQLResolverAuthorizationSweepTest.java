@@ -169,7 +169,9 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
 
     /**
      * Mutations must answer 403. Queries may instead consult the authorizer and filter or redact
-     * the result (View Authorization), so CHECKED also counts as refused for them.
+     * the result (View Authorization), so CHECKED also counts as refused for them. A redacted
+     * entity is still a non-null object of the same type, so the returned data cannot tell
+     * redaction from a leak; for queries CHECKED therefore only proves the authorizer was asked.
      */
     boolean refused(boolean mutation) {
       return this == DENIED || (!mutation && this == CHECKED);
