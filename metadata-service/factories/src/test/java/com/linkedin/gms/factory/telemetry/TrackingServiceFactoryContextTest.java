@@ -42,6 +42,28 @@ public class TrackingServiceFactoryContextTest {
   private static final OperationContext OP_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
+  /**
+   * Spies the factory-built Mixpanel client and stops it from sending over the network. Registered
+   * through an initializer, not a nested {@code @Configuration}, so the component scan in {@link
+   * TrackingServiceFactoryTest} does not pick it up.
+   */
+  private static final BeanPostProcessor OFFLINE_MIXPANEL =
+      new BeanPostProcessor() {
+        @Override
+        public Object postProcessAfterInitialization(Object bean, String beanName) {
+          if (!(bean instanceof MixpanelAPI mixpanel)) {
+            return bean;
+          }
+          MixpanelAPI offline = spy(mixpanel);
+          try {
+            doNothing().when(offline).sendMessage(any());
+          } catch (Exception e) {
+            throw new IllegalStateException(e);
+          }
+          return offline;
+        }
+      };
+
   private static ApplicationContextRunner runner() {
     return ProductionConfigContextRunner.create()
         .withUserConfiguration(
@@ -103,14 +125,14 @@ public class TrackingServiceFactoryContextTest {
   public void testUsageEventsGoToTheConfiguredTopicWhenAPublisherExists() {
     UsageEventPublisher publisher = mock(UsageEventPublisher.class);
     runner()
-        .withPropertyValues("telemetry.enabledServer=false")
+        .withPropertyValues(
+            "telemetry.enabledServer=false", "kafka.topics.datahubUsageEvent.name=my-usage-topic")
         .withBean("dataHubUsageEventProducer", UsageEventPublisher.class, () -> publisher)
         .run(
             context -> {
               assertThat(trackingService(context).track(EVENT, OP_CONTEXT, null, null, event()))
                   .isEqualTo(1);
-              verify(publisher)
-                  .publish(any(), eq("DataHubUsageEvent_v1"), anyString(), anyString());
+              verify(publisher).publish(any(), eq("my-usage-topic"), anyString(), anyString());
             });
   }
 
@@ -139,26 +161,4 @@ public class TrackingServiceFactoryContextTest {
   private static JsonNode event() {
     return JsonNodeFactory.instance.objectNode().put("type", EVENT);
   }
-
-  /**
-   * Spies the factory-built Mixpanel client and stops it from sending over the network. Registered
-   * through an initializer, not a nested {@code @Configuration}, so the component scan in {@link
-   * TrackingServiceFactoryTest} does not pick it up.
-   */
-  private static final BeanPostProcessor OFFLINE_MIXPANEL =
-      new BeanPostProcessor() {
-        @Override
-        public Object postProcessAfterInitialization(Object bean, String beanName) {
-          if (!(bean instanceof MixpanelAPI mixpanel)) {
-            return bean;
-          }
-          MixpanelAPI offline = spy(mixpanel);
-          try {
-            doNothing().when(offline).sendMessage(any());
-          } catch (Exception e) {
-            throw new IllegalStateException(e);
-          }
-          return offline;
-        }
-      };
 }

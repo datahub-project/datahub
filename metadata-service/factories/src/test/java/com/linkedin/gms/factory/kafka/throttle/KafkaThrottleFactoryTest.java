@@ -20,6 +20,7 @@ import com.linkedin.metadata.dao.throttle.NoOpSensor;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.queue.MetadataQueueStore;
+import com.linkedin.metadata.queue.QueueTopicMetadata;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Map;
 import java.util.Optional;
@@ -119,6 +120,10 @@ public class KafkaThrottleFactoryTest {
   public void testPgQueueTransportReadsLagFromTheQueueStore() {
     MetadataQueueStore queueStore = mock(MetadataQueueStore.class);
     when(queueStore.fetchTopic(anyString())).thenReturn(Optional.empty());
+    when(queueStore.fetchTopic(DEFAULT_VERSIONED_TOPIC))
+        .thenReturn(Optional.of(new QueueTopicMetadata(7L, 1, Optional.empty())));
+    when(queueStore.partitionMaxEnqueueSeqs(7L, 1)).thenReturn(Map.of(0, 10L));
+    when(queueStore.getCommittedOffset(DEFAULT_MAE_GROUP, 7L, 0)).thenReturn(4L);
 
     runner()
         .withPropertyValues("datahub.messaging.transport=pgqueue")
@@ -132,6 +137,10 @@ public class KafkaThrottleFactoryTest {
                 sensor.refresh();
                 verify(queueStore).fetchTopic(DEFAULT_VERSIONED_TOPIC);
                 verify(queueStore).fetchTopic(DEFAULT_TIMESERIES_TOPIC);
+                verify(queueStore).getCommittedOffset(DEFAULT_MAE_GROUP, 7L, 0);
+                assertThat(sensor.getLag())
+                    .containsEntry(MCL_VERSIONED_LAG, 6L)
+                    .containsEntry(MCL_TIMESERIES_LAG, 0L);
               } finally {
                 sensor.stop();
               }
@@ -148,7 +157,8 @@ public class KafkaThrottleFactoryTest {
                     .hasFailed()
                     .getFailure()
                     .rootCause()
-                    .isInstanceOf(IllegalStateException.class));
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("MetadataQueueStore"));
   }
 
   @Test

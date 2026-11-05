@@ -146,7 +146,7 @@ public class SearchDocumentTransformerFactoryTest {
             context -> {
               AspectRetriever aspectRetriever = businessAttributeRetriever();
               JsonNode ref = businessAttributeRef(context, aspectRetriever);
-              assertThat(ref.isTextual()).isTrue();
+              assertThat(ref.asText()).isEqualTo("urn:li:businessAttribute:my_attribute");
               verify(aspectRetriever, never()).getLatestAspectObject(any(), any(), anyString());
             });
   }
