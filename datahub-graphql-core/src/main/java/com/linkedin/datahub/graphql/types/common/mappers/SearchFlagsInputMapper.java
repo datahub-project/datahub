@@ -58,9 +58,8 @@ public class SearchFlagsInputMapper
     if (searchFlags.getIncludeSoftDeleted() != null) {
       result.setIncludeSoftDeleted(searchFlags.getIncludeSoftDeleted());
     }
-    if (searchFlags.getIncludeRestricted() != null) {
-      result.setIncludeRestricted(searchFlags.getIncludeRestricted());
-    }
+    // Restricted results carry a lineage token for the hidden urn, so a caller could mint one for
+    // any urn it names in a filter. GraphQL answers a hidden entity as missing instead.
     if (searchFlags.getGroupingSpec() != null
         && searchFlags.getGroupingSpec().getGroupingCriteria() != null) {
       result.setGroupingSpec(

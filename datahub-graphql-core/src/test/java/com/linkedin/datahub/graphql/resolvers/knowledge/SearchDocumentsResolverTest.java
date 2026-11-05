@@ -2,12 +2,14 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.authorization.AuthorizationResult;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -15,6 +17,7 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.ViewAuthorizationTestContexts;
 import com.linkedin.datahub.graphql.generated.DocumentSourceType;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
@@ -764,5 +767,65 @@ public class SearchDocumentsResolverTest {
             any());
 
     assertEquals(facetsCaptor.getValue(), ImmutableList.of("domains"));
+  }
+
+  @Test
+  public void testSearchDocumentsDropsUnviewableFilterUrns() throws Exception {
+    final String hiddenParent = "urn:li:document:hidden-parent";
+    final String hiddenDomain = "urn:li:domain:hidden";
+    final String hiddenAsset = "urn:li:dataset:(urn:li:dataPlatform:hive,hidden,PROD)";
+    final QueryContext context =
+        ViewAuthorizationTestContexts.contextHiding(
+            UrnUtils.getUrn(hiddenParent),
+            UrnUtils.getUrn(hiddenDomain),
+            UrnUtils.getUrn(hiddenAsset));
+    // Without MANAGE_DOCUMENTS, so document view isn't granted platform-wide.
+    when(context.getAuthorizer().authorize(argThat(request -> request.getResourceSpec().isEmpty())))
+        .thenAnswer(
+            invocation ->
+                new AuthorizationResult(
+                    invocation.getArgument(0), AuthorizationResult.Type.DENY, ""));
+    when(mockEnv.getContext()).thenReturn(context);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    input.setParentDocuments(ImmutableList.of(hiddenParent));
+    input.setDomains(ImmutableList.of(hiddenDomain, TEST_DOMAIN_URN));
+    input.setRelatedAssets(ImmutableList.of(hiddenAsset));
+
+    resolver.get(mockEnv).get();
+
+    final ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService)
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            filterCaptor.capture(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
+    final Filter filter = filterCaptor.getValue();
+    final String filterString = filter.toString();
+    assertFalse(filterString.contains(hiddenParent));
+    assertFalse(filterString.contains(hiddenDomain));
+    assertFalse(filterString.contains(hiddenAsset));
+
+    for (final ConjunctiveCriterion clause : filter.getOr()) {
+      final List<Criterion> criteria = clause.getAnd();
+      assertFalse(
+          criteria.stream()
+              .anyMatch(
+                  c ->
+                      "parentDocument".equals(c.getField())
+                          || "relatedAssets".equals(c.getField())),
+          "Unviewable urns must be dropped from the filter");
+      assertTrue(
+          criteria.contains(CriterionUtils.buildIsNullCriterion("urn")),
+          "Filter should match nothing, like a filter on missing urns");
+      assertTrue(
+          criteria.contains(
+              CriterionUtils.buildCriterion(
+                  "domains", Condition.EQUAL, ImmutableList.of(TEST_DOMAIN_URN))));
+    }
   }
 }

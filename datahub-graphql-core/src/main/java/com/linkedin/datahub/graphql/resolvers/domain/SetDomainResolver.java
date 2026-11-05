@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
@@ -89,7 +90,8 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
       Urn domainUrn,
       EntityService<?> entityService) {
 
-    if (!entityService.exists(opContext, domainUrn, true)) {
+    if (!entityService.exists(opContext, domainUrn, true)
+        || !AuthorizationUtils.canView(opContext, domainUrn)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to add Entity %s to Domain %s. Domain does not exist.",

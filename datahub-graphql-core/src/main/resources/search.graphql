@@ -200,7 +200,7 @@ input SearchFlags {
   includeSoftDeleted: Boolean
 
   """
-  Whether to include restricted entities
+  Ignored. Entities the caller can't view are left out of results, as if they didn't exist.
   """
   includeRestricted: Boolean
 

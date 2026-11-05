@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.authorization.ViewAuthorizationSearchUtils.matchNothingFilter;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -57,7 +59,10 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
           final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
           final Urn parentDomainUrn =
               input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
-          final Filter filter = DomainUtils.buildParentDomainFilter(parentDomainUrn);
+          final Filter filter =
+              parentDomainUrn != null && !canView(context.getOperationContext(), parentDomainUrn)
+                  ? matchNothingFilter()
+                  : DomainUtils.buildParentDomainFilter(parentDomainUrn);
 
           try {
             // First, get all domain Urns.

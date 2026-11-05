@@ -14,6 +14,14 @@ import org.testng.annotations.Test;
 public class SearchFlagsInputMapperTest {
 
   @Test
+  public void testIncludeRestrictedIgnored() {
+    SearchFlags input = new SearchFlags();
+    input.setIncludeRestricted(true);
+
+    assertFalse(SearchFlagsInputMapper.map(null, input).isIncludeRestricted());
+  }
+
+  @Test
   public void testMinScoreMappedThrough() {
     SearchFlags input = new SearchFlags();
     input.setMinScore(0.75f);

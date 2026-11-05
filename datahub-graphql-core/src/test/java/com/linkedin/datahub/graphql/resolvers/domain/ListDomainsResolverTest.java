@@ -4,15 +4,19 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.ViewAuthorizationTestContexts;
 import com.linkedin.datahub.graphql.generated.ListDomainsInput;
+import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -22,6 +26,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -169,5 +174,71 @@ public class ListDomainsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testUnviewableParentDomainAnswersLikeMissing() throws Exception {
+    final Urn missingParentUrn = Urn.createFromTuple("domain", "missing-parent-id");
+    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+                Mockito.eq(""),
+                any(),
+                any(),
+                Mockito.eq(0),
+                Mockito.eq(20)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray()));
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+                Mockito.eq(""),
+                Mockito.eq(DomainUtils.buildParentDomainFilter(TEST_PARENT_DOMAIN_URN)),
+                any(),
+                Mockito.eq(0),
+                Mockito.eq(20)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_DOMAIN_URN)))));
+    final ListDomainsResolver resolver = new ListDomainsResolver(mockClient);
+    final QueryContext context =
+        ViewAuthorizationTestContexts.contextHiding(TEST_PARENT_DOMAIN_URN);
+
+    final ListDomainsResult hidden = listDomains(resolver, context, TEST_INPUT);
+    final ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(mockClient)
+        .search(
+            any(), any(), any(), filterCaptor.capture(), any(), Mockito.anyInt(), Mockito.anyInt());
+    assertFalse(filterCaptor.getValue().toString().contains(TEST_PARENT_DOMAIN_URN.toString()));
+
+    final ListDomainsResult missing =
+        listDomains(
+            resolver, context, new ListDomainsInput(0, 20, null, missingParentUrn.toString()));
+
+    assertEquals(hidden.getStart(), missing.getStart());
+    assertEquals(hidden.getCount(), missing.getCount());
+    assertEquals(hidden.getTotal(), missing.getTotal());
+    assertEquals(hidden.getDomains(), missing.getDomains());
+  }
+
+  private static ListDomainsResult listDomains(
+      final ListDomainsResolver resolver, final QueryContext context, final ListDomainsInput input)
+      throws Exception {
+    final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(context);
+    return resolver.get(mockEnv).get();
   }
 }
