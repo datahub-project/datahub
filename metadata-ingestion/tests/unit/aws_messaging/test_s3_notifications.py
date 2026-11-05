@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple, Type
 from unittest.mock import MagicMock
 
 import boto3
@@ -36,6 +36,10 @@ from tests.unit.aws_messaging.conftest import (
     sqs_client,
 )
 
+if TYPE_CHECKING:
+    # Type stubs only; not installed at runtime.
+    from mypy_boto3_s3.type_defs import NotificationConfigurationTypeDef
+
 QUEUE_URN = f"urn:li:dataset:(urn:li:dataPlatform:sqs,{ACCOUNT}.{REGION}.uploads,PROD)"
 TOPIC_URN = (
     f"urn:li:dataset:(urn:li:dataPlatform:sns,{ACCOUNT}.{REGION}.uploads-topic,PROD)"
@@ -66,7 +70,7 @@ def _queue_arn(name: str) -> str:
     ]["QueueArn"]
 
 
-def _bucket(notifications: Optional[Dict[str, Any]] = None) -> None:
+def _bucket(notifications: Optional["NotificationConfigurationTypeDef"] = None) -> None:
     s3 = boto3.client("s3", region_name=REGION)
     s3.create_bucket(Bucket="landing")
     if notifications is not None:
