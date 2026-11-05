@@ -195,7 +195,7 @@ class Sheet(_QlikBaseModel):
     id: str
     title: str
     description: str
-    ownerId: str
+    ownerId: Optional[str] = None
     createdAt: datetime
     updatedAt: datetime
     charts: List[Chart] = []

@@ -15,7 +15,6 @@ from typing import (
     List,
     Literal,
     Optional,
-    Tuple,
     Union,
 )
 
@@ -309,9 +308,12 @@ class QlikOnPremAPI:
             )
             response = websocket_connection.websocket_send_request(method="GetLayout")
             sheet_dict = response[Constant.QLAYOUT]
-            if Constant.OWNERID not in sheet_dict[Constant.QMETA]:
-                return None
-            sheet = Sheet.model_validate(sheet_dict[Constant.QMETA])
+            # Enterprise reports the sheet owner as an object rather than ownerId.
+            meta = dict(sheet_dict[Constant.QMETA])
+            meta.setdefault(Constant.ID, sheet_id)
+            if not meta.get(Constant.OWNERID):
+                meta[Constant.OWNERID] = self._remember_owner(meta.get("owner"))
+            sheet = Sheet.model_validate(meta)
             if Constant.QCHILDLIST not in sheet_dict:
                 logger.warning(
                     f"Sheet {sheet.title} with id {sheet_id} does not have any charts. sheet_dict: {sheet_dict}"
@@ -374,6 +376,13 @@ class QlikOnPremAPI:
             return None
         try:
             websocket_connection = self._open_engine(app.id)
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to connect to the Engine for app {app.id}. Exception: {e}"
+            )
+            app.read_complete = False
+            return app
+        try:
             websocket_connection.websocket_send_request(
                 method="OpenDoc",
                 # Only metadata is read, and loading each app's data into the
@@ -390,13 +399,28 @@ class QlikOnPremAPI:
                 self._log_http_error(
                     message=f"Unable to fetch load script of app {app.id}. Exception: {e}"
                 )
-            websocket_connection.close_websocket()
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to open app {app.id} in the Engine. Exception: {e}"
             )
+        finally:
+            websocket_connection.close_websocket()
         app.read_complete = not self._thread_state.read_failed
         return app
+
+    def _read_app(
+        self,
+        app_dict: Dict,
+        is_unchanged: Optional[Callable[[str, str], bool]],
+    ) -> Union[App, UnchangedApp, None]:
+        fingerprint = self.app_fingerprint(app_dict) if is_unchanged else None
+        if (
+            is_unchanged
+            and fingerprint
+            and is_unchanged(app_dict[Constant.ID], fingerprint)
+        ):
+            return UnchangedApp(id=app_dict[Constant.ID], fingerprint=fingerprint)
+        return self._load_app(app_dict, fingerprint)
 
     def app_fingerprint(self, app_dict: Dict) -> Optional[str]:
         """Hash of everything the Repository Service knows about the app that the
@@ -466,23 +490,17 @@ class QlikOnPremAPI:
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch apps. Exception: {e}")
             return
-        to_load: List[Tuple[Dict, Optional[str]]] = []
-        for app_dict in app_dicts:
-            fingerprint = self.app_fingerprint(app_dict) if is_unchanged else None
-            if (
-                is_unchanged
-                and fingerprint
-                and is_unchanged(app_dict[Constant.ID], fingerprint)
-            ):
-                yield UnchangedApp(id=app_dict[Constant.ID], fingerprint=fingerprint)
-            else:
-                to_load.append((app_dict, fingerprint))
-        # Engine reads are network-bound; the GIL is only held while decoding replies.
+        # QRS and Engine reads are network-bound; the GIL is only held while
+        # decoding replies.
         for future in BackpressureAwareExecutor.map(
-            self._load_app,
-            to_load,
+            self._read_app,
+            ((app_dict, is_unchanged) for app_dict in app_dicts),
             max_workers=self.config.max_workers,
         ):
-            app = future.result()
+            try:
+                app = future.result()
+            except Exception as e:
+                self._log_http_error(message=f"Unable to load app. Exception: {e}")
+                continue
             if app:
                 yield app

@@ -26,6 +26,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
@@ -179,6 +180,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             run_id=ctx.run_id,
         )
         self._fingerprint_salt: Optional[str] = None
+        if config.skip_unchanged_apps and not self._skips_unchanged_apps():
+            self.reporter.warning(
+                title="skip_unchanged_apps is ignored",
+                message="Skipping unchanged apps needs deployment: on_prem and "
+                "stateful ingestion, so every app is read.",
+            )
         try:
             if config.deployment == QlikDeployment.ON_PREM:
                 self.qlik_api = QlikOnPremAPI(self.config)
@@ -226,32 +233,39 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         return processors
 
-    def _salted_fingerprint(self, fingerprint: str) -> str:
-        # Recipe options and data connections shape every app's output, and a new
+    def _skips_unchanged_apps(self) -> bool:
+        return (
+            self.config.skip_unchanged_apps
+            and self.config.deployment == QlikDeployment.ON_PREM
+            and self.app_state.is_checkpointing_enabled()
+        )
+
+    def _init_fingerprint_salt(self) -> None:
+        # The recipe and data connections shape every app's output, and a new
         # connector version may emit differently, so any change re-reads all apps.
-        if self._fingerprint_salt is None:
-            if self._data_connections is None:
-                self._data_connections = self.qlik_api.get_data_connections()
-            self._fingerprint_salt = json.dumps(
-                {
-                    "version": __version__,
-                    "config": self.config.model_dump(
-                        mode="json",
-                        include={
-                            "server",
-                            "platform_instance",
-                            "env",
-                            "ingest_owner",
-                            "data_connection_to_platform_instance",
-                        },
-                    ),
-                    "connections": {
-                        name: info.model_dump(mode="json")
-                        for name, info in sorted(self._data_connections.items())
+        if self._data_connections is None:
+            self._data_connections = self.qlik_api.get_data_connections()
+        self._fingerprint_salt = json.dumps(
+            {
+                "version": __version__,
+                "config": self.config.model_dump(
+                    mode="json",
+                    exclude={
+                        "stateful_ingestion",
+                        "max_workers",
+                        "skip_unchanged_apps",
                     },
+                ),
+                "connections": {
+                    name: info.model_dump(mode="json")
+                    for name, info in sorted(self._data_connections.items())
                 },
-                sort_keys=True,
-            )
+            },
+            sort_keys=True,
+        )
+
+    def _salted_fingerprint(self, fingerprint: str) -> str:
+        assert self._fingerprint_salt is not None
         return hashlib.sha256(
             f"{self._fingerprint_salt}|{fingerprint}".encode("utf-8")
         ).hexdigest()
@@ -271,6 +285,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         try:
             properties = graph.get_aspect(container_urn, ContainerPropertiesClass)
             status = graph.get_aspect(container_urn, Status)
+            soft_deleted_child = next(
+                iter(
+                    graph.get_urns_by_filter(
+                        container=container_urn,
+                        status=RemovedStatusFilter.ONLY_SOFT_DELETED,
+                        batch_size=1,
+                    )
+                ),
+                None,
+            )
         except Exception as e:
             logger.debug(f"Unable to read app container {container_urn}: {e}")
             return False
@@ -279,31 +303,44 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             and (properties.customProperties or {}).get(Constant.FINGERPRINT)
             == previous.fingerprint
             and not (status is not None and status.removed)
+            and soft_deleted_child is None
         )
 
-    def _keep_unchanged_app(self, app: UnchangedApp) -> None:
-        previous = self.app_state.previous(app.id)
-        assert previous is not None and self.stale_entity_removal_handler
+    def _keep_previous_urns(self, app_id: str) -> List[str]:
+        previous = self.app_state.previous(app_id)
+        if previous is None:
+            return []
+        assert self.stale_entity_removal_handler is not None
         for urn in previous.urns:
             self.stale_entity_removal_handler.add_entity_to_state(
                 guess_entity_type(urn), urn
             )
-        self.app_state.record(app.id, previous)
+        return previous.urns
+
+    def _keep_unchanged_app(self, app: UnchangedApp) -> None:
+        urns = self._keep_previous_urns(app.id)
+        self.app_state.record(
+            app.id, AppCheckpoint(fingerprint=app.fingerprint, urns=urns)
+        )
         self.reporter.apps_skipped_unchanged += 1
 
     def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
+        self.reporter.apps_read += 1
         urns: Dict[str, None] = {}
         for wu in self._gen_app_workunit(app):
             urn = wu.get_urn()
             if guess_entity_type(urn) not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES:
                 urns[urn] = None
             yield wu
-        self.reporter.apps_read += 1
-        # An app with a failed Engine read is not recorded, so the next run reads it again.
         if app.fingerprint and app.read_complete:
             self.app_state.record(
                 app.id, AppCheckpoint(fingerprint=app.fingerprint, urns=list(urns))
             )
+            return
+        # A failed read emits only part of the app, so keep what the last read
+        # produced. The empty fingerprint never matches, so the next run reads it.
+        urns.update(dict.fromkeys(self._keep_previous_urns(app.id)))
+        self.app_state.record(app.id, AppCheckpoint(fingerprint="", urns=list(urns)))
 
     def _gen_space_key(self, space_id: str) -> SpaceKey:
         return SpaceKey(
@@ -319,10 +356,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             instance=self.config.platform_instance,
         )
 
-    def _get_audit_stamp(self, date: datetime, username: str) -> AuditStampClass:
+    def _get_audit_stamp(
+        self, date: datetime, username: Optional[str]
+    ) -> AuditStampClass:
         return AuditStampClass(
             time=int(date.timestamp() * 1000),
-            actor=builder.make_user_urn(username),
+            actor=builder.make_user_urn(username) if username else builder.UNKNOWN_USER,
         )
 
     def _get_allowed_spaces(self) -> List[Space]:
@@ -477,7 +516,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if dpi_aspect:
                 yield dpi_aspect
 
-            owner_username = self.qlik_api.get_user_name(sheet.ownerId)
+            owner_username = (
+                self.qlik_api.get_user_name(sheet.ownerId) if sheet.ownerId else None
+            )
             if self.config.ingest_owner and owner_username:
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
@@ -639,7 +680,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             platform=platform,
             database=(configured.database if configured else None) or inferred.database,
             default_schema=configured.default_schema if configured else None,
-            env=configured.env if configured else self.config.env,
+            env=configured.env
+            if configured and "env" in configured.model_fields_set
+            else self.config.env,
             platform_instance=configured.platform_instance if configured else None,
         )
 
@@ -929,6 +972,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """
         logger.info("Qlik Sense plugin execution is started")
         allowed_spaces = self._get_allowed_spaces()
+        skip_unchanged = self._skips_unchanged_apps()
+        if skip_unchanged:
+            self._init_fingerprint_salt()
         for allowed_space in allowed_spaces:
             yield from self._gen_space_workunit(allowed_space)
             space_id = (
@@ -938,17 +984,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             items = (
                 self.qlik_api.get_items(space_id, is_unchanged=self._is_app_unchanged)
-                if isinstance(self.qlik_api, QlikOnPremAPI)
-                and self.app_state.is_checkpointing_enabled()
+                if skip_unchanged and isinstance(self.qlik_api, QlikOnPremAPI)
                 else self.qlik_api.get_items(space_id)
             )
             for item in items:
                 if isinstance(item, UnchangedApp):
                     self._keep_unchanged_app(item)
-                elif isinstance(item, App):
+                elif isinstance(item, App) and skip_unchanged:
                     if item.fingerprint:
                         item.fingerprint = self._salted_fingerprint(item.fingerprint)
                     yield from self._gen_recorded_app_workunit(item)
+                elif isinstance(item, App):
+                    self.reporter.apps_read += 1
+                    yield from self._gen_app_workunit(item)
                 elif isinstance(item, QlikDataset):
                     yield from self._gen_dataset_workunit(item)
 

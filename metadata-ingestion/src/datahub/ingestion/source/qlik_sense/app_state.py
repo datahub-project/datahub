@@ -1,3 +1,4 @@
+import threading
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -37,6 +38,8 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
         self.pipeline_name = pipeline_name
         self.run_id = run_id
         self._job_id = JobId("qlik-sense_unchanged_apps")
+        # Apps are compared from worker threads; load the last checkpoint once.
+        self._load_lock = threading.Lock()
         self.state_provider.register_stateful_ingestion_usecase_handler(self)
 
     @property
@@ -66,9 +69,10 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
     def previous(self, app_id: str) -> Optional[AppCheckpoint]:
         if not self.is_checkpointing_enabled():
             return None
-        last = self.state_provider.get_last_checkpoint(
-            self.job_id, QlikAppCheckpointState
-        )
+        with self._load_lock:
+            last = self.state_provider.get_last_checkpoint(
+                self.job_id, QlikAppCheckpointState
+            )
         return last.state.apps.get(app_id) if last else None
 
     def record(self, app_id: str, checkpoint: AppCheckpoint) -> None:
