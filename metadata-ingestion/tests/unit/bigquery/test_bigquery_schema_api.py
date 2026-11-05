@@ -391,13 +391,6 @@ class TestColumns:
             w.title for w in report.warnings
         }
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=AssertionError,
-        reason="get_columns_for_dataset checks column_limit against the `columns` "
-        "dict while iterating the cursor, but that dict is only populated from "
-        "raw_rows after the loop, so the limit never applies.",
-    )
     def test_column_limit_caps_the_columns_kept_per_table(self) -> None:
         api = make_api()
         report = BigQueryV2Report()
