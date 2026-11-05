@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, Optional
 
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -7,6 +7,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import (
     TopKDict,
     float_top_k_dict,
@@ -32,8 +33,31 @@ class DremioSourceReport(
     # _is_allowed_table). The same denied URN can be checked by the
     # aggregator multiple times (usage, lineage, operations), so a single
     # dropped dataset can contribute multiple increments; use it as a
-    # "is the filter biting?" signal, not an exact edge count.
+    # "is the filter biting?" signal, not an exact edge count. Also counts
+    # sys / INFORMATION_SCHEMA references, including the connector's own job
+    # history reads, so it is not zero even with no patterns set.
     lineage_dropped_filtered: int = 0
+
+    # Query-derived tables that pass the filters but that the catalog walk did
+    # not find (dropped or temporary tables still in job history).
+    lineage_dropped_not_in_catalog: LossyList[str] = field(default_factory=LossyList)
+    # Query-derived names still carrying a `dremio.` prefix after one is
+    # removed: a two-part reference the schema resolver qualified twice
+    # (`dremio.dremio.space.t`). The aggregator would emit them under that URN.
+    lineage_dropped_unresolved_names: LossyList[str] = field(default_factory=LossyList)
+    # Datasets the fetch returned without column rows (e.g. their source is
+    # offline). They are not emitted, but their query lineage is kept.
+    datasets_without_columns: LossyList[str] = field(default_factory=LossyList)
+    # Observed CREATE VIEW statements skipped for views whose current
+    # definition the catalog registered; older DDL would add stale upstreams.
+    num_view_ddl_queries_skipped: int = 0
+    # The dataset fetch was cut short, so the catalog walk's names are not the
+    # whole catalog; query lineage then falls back to the filters alone. Set
+    # only through DremioAPIOperations._report_dataset_fetch_failure.
+    dataset_fetch_incomplete: bool = False
+    # One upstream URN per mapped Dremio source, to compare against the URNs the
+    # source's own connector ingests.
+    source_mapping_sample_upstream_urns: Dict[str, str] = field(default_factory=dict)
 
     api_calls_total: int = 0
     api_calls_by_method_and_path: TopKDict[str, int] = field(

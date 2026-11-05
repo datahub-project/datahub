@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { ExpandedOwner } from '@app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import EntityPaths from '@app/previewV2/EntityPaths/EntityPaths';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';

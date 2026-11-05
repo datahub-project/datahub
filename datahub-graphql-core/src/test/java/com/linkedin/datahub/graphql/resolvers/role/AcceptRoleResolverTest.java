@@ -8,12 +8,15 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authorization.role.RoleService;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
 import com.linkedin.entity.client.EntityClientCache;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.InviteToken;
+import com.linkedin.identity.RoleMembership;
+import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -29,6 +32,7 @@ public class AcceptRoleResolverTest {
   private Urn roleUrn;
   private RoleService _roleService;
   private InviteTokenService _inviteTokenService;
+  private EntityService<?> _entityService;
   private SystemEntityClient _systemEntityClient;
   private OperationContext _systemOperationContext;
   private AcceptRoleResolver _resolver;
@@ -40,6 +44,7 @@ public class AcceptRoleResolverTest {
     roleUrn = Urn.createFromString(ROLE_URN_STRING);
     _roleService = mock(RoleService.class);
     _inviteTokenService = mock(InviteTokenService.class);
+    _entityService = mock(EntityService.class);
     _systemEntityClient = mock(SystemEntityClient.class);
     _systemOperationContext = mock(OperationContext.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
@@ -47,7 +52,11 @@ public class AcceptRoleResolverTest {
 
     _resolver =
         new AcceptRoleResolver(
-            _roleService, _inviteTokenService, _systemEntityClient, _systemOperationContext);
+            _roleService,
+            _inviteTokenService,
+            _entityService,
+            _systemEntityClient,
+            _systemOperationContext);
   }
 
   @Test
@@ -168,6 +177,84 @@ public class AcceptRoleResolverTest {
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
 
     // Verify role assignment still succeeded
+    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
+  }
+
+  @Test
+  public void testHigherRoleNotDowngradedByLowerRoleInviteLink() throws Exception {
+    // Admin clicks a Reader invite link — their role must NOT be downgraded
+    Urn readerRoleUrn = Urn.createFromString("urn:li:dataHubRole:Reader");
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(_inviteTokenService.getVerifiedInviteToken(any(), eq(INVITE_TOKEN_STRING)))
+        .thenReturn(
+            new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(readerRoleUrn));
+    Actor actor = mock(Actor.class);
+    when(_authentication.getActor()).thenReturn(actor);
+    when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);
+
+    // User currently has Admin role (higher than Reader)
+    RoleMembership currentMembership = new RoleMembership();
+    currentMembership.setRoles(new UrnArray(roleUrn)); // roleUrn = urn:li:dataHubRole:Admin
+    when(_entityService.getLatestAspect(any(), any(), eq("roleMembership")))
+        .thenReturn(currentMembership);
+
+    AcceptRoleInput input = new AcceptRoleInput();
+    input.setInviteToken(INVITE_TOKEN_STRING);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+    verify(_roleService, never()).batchAssignRoleToActors(any(), any(), any());
+  }
+
+  @Test
+  public void testLowerRoleIsUpgradedByHigherRoleInviteLink() throws Exception {
+    // Reader clicks an Admin invite link — they should be upgraded
+    Urn readerRoleUrn = Urn.createFromString("urn:li:dataHubRole:Reader");
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(_inviteTokenService.getVerifiedInviteToken(any(), eq(INVITE_TOKEN_STRING)))
+        .thenReturn(new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn));
+    Actor actor = mock(Actor.class);
+    when(_authentication.getActor()).thenReturn(actor);
+    when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);
+
+    // User currently has Reader role (lower than Admin)
+    RoleMembership currentMembership = new RoleMembership();
+    currentMembership.setRoles(new UrnArray(readerRoleUrn));
+    when(_entityService.getLatestAspect(any(), any(), eq("roleMembership")))
+        .thenReturn(currentMembership);
+
+    AcceptRoleInput input = new AcceptRoleInput();
+    input.setInviteToken(INVITE_TOKEN_STRING);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
+  }
+
+  @Test
+  public void testUserWithNoRoleGetsRoleAssignedFromInviteLink() throws Exception {
+    // User with no existing role clicks an invite link — they should get the role
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(_inviteTokenService.getVerifiedInviteToken(any(), eq(INVITE_TOKEN_STRING)))
+        .thenReturn(new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn));
+    Actor actor = mock(Actor.class);
+    when(_authentication.getActor()).thenReturn(actor);
+    when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);
+
+    // User has no RoleMembership aspect
+    when(_entityService.getLatestAspect(any(), any(), eq("roleMembership"))).thenReturn(null);
+
+    AcceptRoleInput input = new AcceptRoleInput();
+    input.setInviteToken(INVITE_TOKEN_STRING);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
     verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
   }
 

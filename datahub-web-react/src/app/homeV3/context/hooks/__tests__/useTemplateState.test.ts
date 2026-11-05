@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 
 import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
@@ -18,7 +18,7 @@ vi.mock('@app/context/useUserContext', () => ({
     useUserContext: vi.fn(),
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityContext: vi.fn(),
 }));
 

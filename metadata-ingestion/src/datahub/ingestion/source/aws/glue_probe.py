@@ -271,7 +271,7 @@ def _node_record(node: Mapping[str, Any], job_name: str) -> Dict[str, object]:
         "id": node["Id"],
         "node_type": node_type,
         "emitted_as_datajob": emitted,
-        # get_datajob_wu's name for it.
+        # gen_datajob_workunits' name for it.
         "datajob_name": f"{job_name}:{node_type}-{node['Id']}" if emitted else None,
         "urn": node["urn"],
         "input_datasets": list(node["inputDatasets"]),

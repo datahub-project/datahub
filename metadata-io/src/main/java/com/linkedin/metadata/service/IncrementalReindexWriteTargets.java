@@ -44,6 +44,9 @@ import lombok.extern.slf4j.Slf4j;
  * applied to the index the fill is building; otherwise the deleted entity would come back with the
  * swap. Fill targets are tracked whether or not rollback dual-write is enabled.
  *
+ * <p><b>Fills in place.</b> A fill of a new or empty index writes the alias itself. It is retained
+ * as a fill target so a hard delete can leave a temporary tombstone until catch-up converges.
+ *
  * <p>Loaded once at startup and kept current by polling the persisted upgrade state for the life of
  * the process: an index swapped after startup (a fill rebuilt in the non-blocking phase) is added,
  * an index marked DUAL_WRITE_DISABLED is removed, and a fill's target is dropped once the fill has
@@ -112,8 +115,7 @@ public class IncrementalReindexWriteTargets implements AutoCloseable {
       log.info("Rollback dual-write targets: {}", rollbackTargets.values());
     }
     if (!fillTargets.isEmpty()) {
-      log.info(
-          "Live deletes are mirrored into the indices these fills are building: {}", fillTargets);
+      log.info("Fills in flight, by alias and the index each is building: {}", fillTargets);
     }
     this.statePoller = stateSource == null ? null : startPoller();
   }
@@ -194,8 +196,8 @@ public class IncrementalReindexWriteTargets implements AutoCloseable {
   }
 
   /**
-   * Indices whose fill is in flight and writes a physical index other than the alias, keyed by
-   * alias. A fill that writes the alias itself needs no mirror: live writes already reach it.
+   * Indices whose fill is in flight, keyed by alias, each mapped to the index the fill writes. That
+   * is the alias itself for a fill in place.
    */
   @Nonnull
   public static Map<String, String> fillTargetsIn(@Nullable final Map<String, String> phase1State) {
@@ -207,7 +209,7 @@ public class IncrementalReindexWriteTargets implements AutoCloseable {
       }
       IncrementalReindexState.get(
               phase1State, indexName, IncrementalReindexState.BACKFILL_TARGET_INDEX)
-          .filter(target -> !target.isEmpty() && !target.equals(indexName))
+          .filter(target -> !target.isEmpty())
           .ifPresent(target -> found.put(indexName, target));
     }
     return found;
@@ -225,9 +227,19 @@ public class IncrementalReindexWriteTargets implements AutoCloseable {
         .map(RollbackTarget::oldBackingIndexName);
   }
 
-  /** Index a fill is building for the alias {@code indexName}, while that fill is in flight. */
+  /**
+   * Index other than the alias a fill is building for the alias {@code indexName}, while that fill
+   * is in flight. Empty for a fill in place: live writes already reach the alias.
+   */
   @Nonnull
   public Optional<String> fillTargetFor(@Nonnull final String indexName) {
+    return Optional.ofNullable(fillTargets.get(indexName))
+        .filter(target -> !target.equals(indexName));
+  }
+
+  /** Index a fill in flight writes for the alias {@code indexName}, including the alias itself. */
+  @Nonnull
+  public Optional<String> activeFillTargetFor(@Nonnull final String indexName) {
     return Optional.ofNullable(fillTargets.get(indexName));
   }
 
@@ -306,10 +318,14 @@ public class IncrementalReindexWriteTargets implements AutoCloseable {
     current.forEach(
         (indexName, target) -> {
           if (!target.equals(fillTargets.put(indexName, target))) {
-            log.info(
-                "Mirroring live deletes for index '{}' into the index its fill is building ('{}')",
-                indexName,
-                target);
+            if (target.equals(indexName)) {
+              log.info("Index '{}' is being filled in place", indexName);
+            } else {
+              log.info(
+                  "Mirroring live deletes for index '{}' into the index its fill is building ('{}')",
+                  indexName,
+                  target);
+            }
           }
         });
     fillTargets
@@ -318,9 +334,7 @@ public class IncrementalReindexWriteTargets implements AutoCloseable {
             indexName -> {
               final boolean gone = !current.containsKey(indexName);
               if (gone) {
-                log.info(
-                    "Fill for index '{}' is no longer in flight; stopped mirroring live deletes",
-                    indexName);
+                log.info("Fill for index '{}' is no longer in flight", indexName);
               }
               return gone;
             });

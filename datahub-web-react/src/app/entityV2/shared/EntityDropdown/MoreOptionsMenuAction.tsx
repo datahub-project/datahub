@@ -1,11 +1,11 @@
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions } from '@app/entityV2/Entity';
 import EntityDropdown from '@app/entityV2/shared/EntityDropdown/EntityDropdown';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { EntityType } from '@types';
 

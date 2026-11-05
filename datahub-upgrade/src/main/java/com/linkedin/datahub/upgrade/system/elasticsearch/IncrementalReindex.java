@@ -90,7 +90,8 @@ public class IncrementalReindex implements NonBlockingSystemUpgrade {
             indexedServices,
             structuredProperties,
             upgradeVersion,
-            buildIndicesConfig));
+            buildIndicesConfig,
+            updateIndicesService));
   }
 
   @Override

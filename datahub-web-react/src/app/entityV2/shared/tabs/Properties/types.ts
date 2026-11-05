@@ -23,4 +23,5 @@ export interface PropertyRow {
     isParentRow?: boolean;
     structuredProperty?: StructuredPropertyEntity;
     attribution?: MetadataAttribution | null;
+    associatedUrn?: string;
 }

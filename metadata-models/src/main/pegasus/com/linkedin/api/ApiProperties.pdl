@@ -13,7 +13,8 @@ import com.linkedin.common.Urn
  * input/output schema lives on the separate apiSignature aspect.
  */
 @Aspect = {
-  "name": "apiProperties"
+  "name": "apiProperties",
+  "schemaVersion": 2
 }
 record ApiProperties {
   /**
@@ -58,6 +59,14 @@ record ApiProperties {
   /**
    * Optional link to the API's registry entry, documentation, or source.
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "externalUrl",
+      "queryByDefault": false
+    }
+  }
   externalUrl: optional string
 
   /**
