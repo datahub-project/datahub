@@ -332,7 +332,8 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
                 .register("https", sslStrategy)
                 .build());
 
-    int maxConnectionsPerRoute = Math.max(2, shimConfiguration.getThreadCount());
+    int maxConnectionsPerRoute =
+        ShimConfiguration.maxConnectionsPerRoute(shimConfiguration.getThreadCount());
     connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
     this.connectionManager = connectionManager;
 

@@ -155,6 +155,16 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
 
     Integer getThreadCount();
 
+    /**
+     * Connections a client keeps open to the cluster at once: the pool is sized from the thread
+     * count with a floor of two. A caller that runs that many synchronous requests concurrently
+     * waits for a lease past this, and fails after {@link #getConnectionRequestTimeout()}. The one
+     * formula for both shims and for whatever paces itself by the pool.
+     */
+    static int maxConnectionsPerRoute(final int threadCount) {
+      return Math.max(2, threadCount);
+    }
+
     Integer getConnectionRequestTimeout();
 
     Integer getSocketTimeout();
