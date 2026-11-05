@@ -516,6 +516,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 lastUpdatedMs={getDatasetLastUpdatedMs(
                     (data as any).properties,
                     (data as any).lastOperation?.length && (data as any).lastOperation[0],
+                    data,
                 )}
                 health={data.health}
                 degree={(result as any).degree}

@@ -6,6 +6,7 @@ import {
     extractPlatformNameFromAssetUrn,
     extractPlatformNameFromPlatformUrn,
     getDataProduct,
+    getDatasetLastUpdatedMs,
     getFineGrainedLineageWithSiblings,
     getNumberWithOrdinal,
     getPlatformNameFromEntityData,
@@ -347,5 +348,40 @@ describe('extractDatasetNameFromUrn', () => {
         const urn = ',,,,';
         const result = extractDatasetNameFromUrn(urn);
         expect(result).toBe(urn);
+    });
+});
+
+describe('getDatasetLastUpdatedMs definition time ->', () => {
+    const properties = { lastModified: { time: 1_000 } };
+    const dataset = (typeNames: string[], materialized?: boolean) => ({
+        subTypes: { typeNames },
+        viewProperties: materialized === undefined ? null : { materialized },
+    });
+
+    it('marks the time of a view or a semantic view as a definition time', () => {
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View'], false)).definitionTime).toBe(true);
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['view'], false)).definitionTime).toBe(true);
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Semantic View'], false)).definitionTime).toBe(true);
+    });
+
+    it('keeps the time and its label for a view', () => {
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View']))).toMatchObject({
+            property: 'lastModified',
+            lastUpdatedMs: 1_000,
+        });
+    });
+
+    it('does not mark tables, materialized views or datasets without subtypes', () => {
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Table'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Dynamic Table'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Metric View'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View'], true)).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, []).definitionTime).toBeFalsy();
+    });
+
+    it('does not mark a view whose viewProperties are missing or were not fetched', () => {
+        const notFetched = { subTypes: { typeNames: ['View'] } };
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], notFetched).definitionTime).toBeFalsy();
     });
 });

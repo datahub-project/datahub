@@ -23,6 +23,8 @@ import {
     Operation,
     PropertyValue,
     SearchResult,
+    SubTypes,
+    ViewProperties,
 } from '@types';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
@@ -268,19 +270,30 @@ export const extractChartValuesFromFieldProfiles = (profiles: Array<any>, fieldP
 export type DatasetLastUpdatedMs = {
     property: 'lastModified' | 'lastUpdated' | undefined;
     lastUpdatedMs: number | undefined;
+    // A view stores no data, so its time says when it was defined, not when its data changed.
+    definitionTime?: boolean;
 };
+const DEFINITION_TIME_SUBTYPES = ['view', 'semantic view'];
 export function getDatasetLastUpdatedMs(
     properties: Pick<DatasetProperties, 'lastModified'> | null | undefined,
     operations: Pick<Operation, 'lastUpdatedTimestamp'>[] | null | undefined,
+    dataset?: {
+        subTypes?: Maybe<Pick<SubTypes, 'typeNames'>>;
+        viewProperties?: Maybe<Pick<ViewProperties, 'materialized'>>;
+    } | null,
 ): DatasetLastUpdatedMs {
     const lastModified = properties?.lastModified?.time || 0;
     const lastUpdated = (operations?.length && operations[0].lastUpdatedTimestamp) || 0;
+    // Without viewProperties, a materialized view cannot be ruled out.
+    const definitionTime =
+        dataset?.viewProperties?.materialized === false &&
+        !!dataset?.subTypes?.typeNames?.some((name) => DEFINITION_TIME_SUBTYPES.includes(name.toLowerCase()));
 
     const max = Math.max(lastModified, lastUpdated);
 
     if (max === 0) return { property: undefined, lastUpdatedMs: undefined };
-    if (max === lastModified) return { property: 'lastModified', lastUpdatedMs: lastModified };
-    return { property: 'lastUpdated', lastUpdatedMs: lastUpdated };
+    if (max === lastModified) return { property: 'lastModified', lastUpdatedMs: lastModified, definitionTime };
+    return { property: 'lastUpdated', lastUpdatedMs: lastUpdated, definitionTime };
 }
 
 // Chart & Dashboard
