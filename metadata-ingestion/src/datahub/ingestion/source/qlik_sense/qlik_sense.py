@@ -320,7 +320,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _keep_unchanged_app(self, app: UnchangedApp) -> None:
         urns = self._keep_previous_urns(app.id)
         self.app_state.record(
-            app.id, AppCheckpoint(fingerprint=app.fingerprint, urns=urns)
+            app.id,
+            AppCheckpoint(
+                fingerprint=self._salted_fingerprint(app.fingerprint), urns=urns
+            ),
         )
         self.reporter.apps_skipped_unchanged += 1
 
