@@ -14,7 +14,7 @@ import { Timeline } from '@src/alchemy-components';
 
 type IncidentActivitySectionProps = {
     loading: boolean;
-    renderActivities: any[];
+    renderActivities: TimelineContentDetails[];
 };
 
 export const IncidentActivitySection = ({ loading, renderActivities }: IncidentActivitySectionProps) => {
@@ -29,7 +29,7 @@ export const IncidentActivitySection = ({ loading, renderActivities }: IncidentA
                     <Timeline
                         items={renderActivities}
                         renderDot={(item) => <IncidentActivityAvatar user={item?.actor} />}
-                        renderContent={(item: TimelineContentDetails) => (
+                        renderContent={(item) => (
                             <IncidentActivityContent incidentActivities={item} />
                         )}
                     />
