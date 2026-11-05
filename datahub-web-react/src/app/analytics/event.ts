@@ -2,7 +2,7 @@ import { FileUploadFailureType } from '@components/components/Editor/types';
 
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
-import { Direction } from '@app/lineage/types';
+import { Direction } from '@app/lineageV3/types';
 import { FilterMode } from '@app/search/utils/constants';
 
 import {
@@ -184,6 +184,7 @@ export enum EventType {
     GoToPhysicalChildEvent,
     GoToLogicalParentColumnEvent,
     GoToPhysicalChildColumnEvent,
+    LanguageChangeEvent,
 }
 
 /**
@@ -1395,6 +1396,17 @@ interface GoToPhysicalChildColumnEvent extends BaseEvent {
 }
 
 /**
+ * A user changed their UI language in Settings. `newLanguage` is null when they cleared their
+ * choice; `browserLanguage` is what browser detection would pick, so overrides can be counted.
+ */
+export interface LanguageChangeEvent extends BaseEvent {
+    type: EventType.LanguageChangeEvent;
+    previousLanguage: string;
+    newLanguage: string | null;
+    browserLanguage: string | null;
+}
+
+/**
  * Event consisting of a union of specific event types.
  */
 export type Event =
@@ -1556,4 +1568,5 @@ export type Event =
     | GoToLogicalParentEvent
     | GoToPhysicalChildEvent
     | GoToLogicalParentColumnEvent
-    | GoToPhysicalChildColumnEvent;
+    | GoToPhysicalChildColumnEvent
+    | LanguageChangeEvent;

@@ -13,7 +13,7 @@ import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/Em
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import dayjs from '@utils/dayjs';
 

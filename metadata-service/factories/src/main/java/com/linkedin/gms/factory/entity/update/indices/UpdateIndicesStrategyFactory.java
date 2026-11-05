@@ -5,9 +5,12 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.gms.factory.search.EntityDocumentIdHasherFactory;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyIndexFields;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
@@ -23,6 +26,7 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.client.RequestOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -65,7 +69,8 @@ public class UpdateIndicesStrategyFactory {
       @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup,
       @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates:false}")
-          boolean coalesceBatchUpdates) {
+          boolean coalesceBatchUpdates,
+      StructuredPropertyMappingCache structuredPropertyMappingCache) {
 
     EntityIndexVersionConfiguration v2Config =
         EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v2Cleanup).build();
@@ -74,19 +79,6 @@ public class UpdateIndicesStrategyFactory {
     SemanticSearchConfiguration semanticSearchConfig =
         configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
 
-    // #region agent debug log - H2/H3/H4 instrumentation
-    log.debug(
-        "[DEBUG-DUALWRITE] SemanticSearchConfig null check: isNull={}",
-        semanticSearchConfig == null);
-    if (semanticSearchConfig != null) {
-      log.debug(
-          "[DEBUG-DUALWRITE] SemanticSearchConfig.isEnabled()={}",
-          semanticSearchConfig.isEnabled());
-      log.debug(
-          "[DEBUG-DUALWRITE] SemanticSearchConfig.getEnabledEntities()={}",
-          semanticSearchConfig.getEnabledEntities());
-    }
-    // #endregion
     log.info(
         "Creating UpdateIndicesV2Strategy bean with semantic search enabled: {}, entities: {}",
         semanticSearchConfig != null && semanticSearchConfig.isEnabled(),
@@ -102,7 +94,8 @@ public class UpdateIndicesStrategyFactory {
         indexConvention,
         coalesceBatchUpdates,
         mappingsBuilder,
-        timeseriesWriteThrottleCache);
+        timeseriesWriteThrottleCache,
+        structuredPropertyMappingCache);
   }
 
   @Bean("updateIndicesV3Strategy")
@@ -119,7 +112,8 @@ public class UpdateIndicesStrategyFactory {
       @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
       @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled,
       @Qualifier("incrementalReindexWriteTargets") @Nullable
-          IncrementalReindexWriteTargets incrementalReindexWriteTargets) {
+          IncrementalReindexWriteTargets incrementalReindexWriteTargets,
+      StructuredPropertyMappingCache structuredPropertyMappingCache) {
 
     EntityIndexVersionConfiguration v3Config =
         EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v3Cleanup).build();
@@ -137,6 +131,39 @@ public class UpdateIndicesStrategyFactory {
         .semanticSearchConfiguration(
             configProvider.getElasticSearch().getEntityIndex().getSemanticSearch())
         .incrementalReindexWriteTargets(incrementalReindexWriteTargets)
+        .structuredPropertyMappingCache(structuredPropertyMappingCache)
         .build();
+  }
+
+  /**
+   * One mapping read per index per TTL, shared by the index writers and the on-demand consistency
+   * check. The flag defaults on; a missing index configuration keeps that default.
+   */
+  @Bean
+  @Nonnull
+  public StructuredPropertyMappingCache structuredPropertyMappingCache(
+      @Nonnull ConfigurationProvider configProvider,
+      @Nonnull ElasticSearchService elasticSearchService) {
+    IndexConfiguration index =
+        configProvider.getElasticSearch() == null
+            ? null
+            : configProvider.getElasticSearch().getIndex();
+    boolean enabled = index == null || index.isStructuredPropertyRestateEnabled();
+    int ttlSeconds = index == null ? 300 : index.getStructuredPropertyMappingCacheTtlSeconds();
+    return new StructuredPropertyMappingCache(
+        enabled, ttlSeconds, elasticSearchService::indexMappingSource);
+  }
+
+  /** Reads structured-property values a batch at a time from the index being compared. */
+  @Bean
+  @Nonnull
+  public StructuredPropertyIndexFields structuredPropertyIndexFields(
+      @Nonnull ElasticSearchService elasticSearchService) {
+    return new StructuredPropertyIndexFields(
+        (opContext, indexName, request) ->
+            elasticSearchService
+                .getIndexBuilder(indexName)
+                .getSearchClient()
+                .search(opContext, request, RequestOptions.DEFAULT));
   }
 }

@@ -1,0 +1,167 @@
+{
+  "function_score" : {
+    "boost" : 1.0,
+    "boost_mode" : "multiply",
+    "functions" : [ {
+      "filter" : {
+        "match_all" : {
+          "boost" : 1.0
+        }
+      },
+      "weight" : 1.0
+    }, {
+      "filter" : {
+        "term" : {
+          "deprecated" : {
+            "boost" : 1.0,
+            "value" : "true"
+          }
+        }
+      },
+      "weight" : 0.5
+    } ],
+    "max_boost" : 3.4028235E38,
+    "query" : {
+      "bool" : {
+        "adjust_pure_negative" : true,
+        "boost" : 1.0,
+        "minimum_should_match" : "1",
+        "should" : [ {
+          "dis_max" : {
+            "boost" : 1.0,
+            "queries" : [ {
+              "multi_match" : {
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 1.0,
+                "fields" : [ "name.stemmed^2.0", "name.text^4.0" ],
+                "fuzzy_transpositions" : true,
+                "max_expansions" : 50,
+                "operator" : "OR",
+                "prefix_length" : 0,
+                "query" : "orders",
+                "slop" : 0,
+                "type" : "best_fields",
+                "zero_terms_query" : "NONE"
+              }
+            }, {
+              "multi_match" : {
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 1.0,
+                "fields" : [ "qualifiedName.stemmed^2.0", "qualifiedName.text^4.0" ],
+                "fuzzy_transpositions" : true,
+                "max_expansions" : 50,
+                "operator" : "OR",
+                "prefix_length" : 0,
+                "query" : "orders",
+                "slop" : 0,
+                "type" : "best_fields",
+                "zero_terms_query" : "NONE"
+              }
+            }, {
+              "multi_match" : {
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 1.0,
+                "fields" : [ "id.stemmed^0.4", "id.text^0.8" ],
+                "fuzzy_transpositions" : true,
+                "max_expansions" : 50,
+                "operator" : "OR",
+                "prefix_length" : 0,
+                "query" : "orders",
+                "slop" : 0,
+                "type" : "best_fields",
+                "zero_terms_query" : "NONE"
+              }
+            }, {
+              "term" : {
+                "name" : {
+                  "_name" : "matchedField:name",
+                  "boost" : 100.0,
+                  "case_insensitive" : true,
+                  "value" : "orders"
+                }
+              }
+            }, {
+              "term" : {
+                "qualifiedName" : {
+                  "_name" : "matchedField:qualifiedName",
+                  "boost" : 100.0,
+                  "case_insensitive" : true,
+                  "value" : "orders"
+                }
+              }
+            }, {
+              "term" : {
+                "id" : {
+                  "_name" : "matchedField:id",
+                  "boost" : 100.0,
+                  "case_insensitive" : true,
+                  "value" : "orders"
+                }
+              }
+            } ],
+            "tie_breaker" : 0.01
+          }
+        }, {
+          "simple_query_string" : {
+            "analyze_wildcard" : false,
+            "analyzer" : "v3_stemmed_search",
+            "auto_generate_synonyms_phrase_query" : true,
+            "boost" : 1.0,
+            "default_operator" : "or",
+            "fields" : [ "structuredProperties._versioned.contract_id.00000000000001.string.stemmed^1.0", "structuredProperties.certification_status.stemmed^0.6", "structuredProperties.owner_ref__urn_name.stemmed^0.3", "structuredProperties.summary_notes.stemmed^0.4" ],
+            "flags" : -1,
+            "fuzzy_max_expansions" : 50,
+            "fuzzy_prefix_length" : 0,
+            "fuzzy_transpositions" : true,
+            "lenient" : true,
+            "query" : "orders"
+          }
+        }, {
+          "simple_query_string" : {
+            "analyze_wildcard" : false,
+            "analyzer" : "v3_text_search",
+            "auto_generate_synonyms_phrase_query" : true,
+            "boost" : 1.0,
+            "default_operator" : "or",
+            "fields" : [ "structuredProperties.certification_status.text^1.2", "structuredProperties.summary_notes.text^0.8", "structuredProperties.owner_ref__urn_name.text^0.6", "structuredProperties._versioned.contract_id.00000000000001.string.text^2.0" ],
+            "flags" : -1,
+            "fuzzy_max_expansions" : 50,
+            "fuzzy_prefix_length" : 0,
+            "fuzzy_transpositions" : true,
+            "lenient" : true,
+            "query" : "orders"
+          }
+        }, {
+          "term" : {
+            "structuredProperties._versioned.contract_id.00000000000001.string" : {
+              "boost" : 2.0,
+              "value" : "orders"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.certification_status" : {
+              "boost" : 1.2,
+              "value" : "orders"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.owner_ref" : {
+              "boost" : 0.6,
+              "value" : "orders"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.summary_notes" : {
+              "boost" : 0.8,
+              "value" : "orders"
+            }
+          }
+        } ]
+      }
+    },
+    "score_mode" : "multiply"
+  }
+}

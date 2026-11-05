@@ -3,10 +3,10 @@ package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RollbackIngestionInput;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -26,7 +26,7 @@ public class RollbackIngestionResolver implements DataFetcher<CompletableFuture<
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!IngestionAuthUtils.canManageIngestion(context)) {
+          if (!AuthorizationUtils.canManageIngestion(context)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

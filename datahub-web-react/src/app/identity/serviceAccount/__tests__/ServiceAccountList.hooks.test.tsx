@@ -57,7 +57,7 @@ vi.mock('@app/context/useUserContext', () => ({
 }));
 
 // Mock scrollToTop
-vi.mock('@app/shared/searchUtils', () => ({
+vi.mock('@app/sharedV2/searchUtils', () => ({
     scrollToTop: vi.fn(),
 }));
 

@@ -25,6 +25,7 @@ import { Page } from '@playwright/test';
 import { ApplicationsPage } from '../../pages/applications.page';
 import { isDataHubGraphqlUrl } from '../../utils/api-mock';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 const APP_URN = 'urn:li:application:d63587c6-cacc-4590-851c-4f51ca429b51';
 const DATASET_WITH_APP_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,playwright_logging_events,PROD)';
@@ -72,15 +73,19 @@ test.describe('Application Sidebar Integration', () => {
     });
   }
 
-  test('should view application details and linked assets', async ({ logger }) => {
-    logger?.info('Test: View application details and linked assets');
-    await applicationsPage.navigateToApplication(APP_URN, 'Assets');
-    logger?.info(`Verifying asset appears: ${DATASET_WITH_APP_NAME}`);
-    await applicationsPage.verifyAssetInList(DATASET_WITH_APP_NAME);
-    logger?.info('Verifying asset count: 1 - 1 of 1');
-    await applicationsPage.verifyAssetCount('1 - 1 of 1');
-    logger?.info('✓ Test passed');
-  });
+  test(
+    'should view application details and linked assets',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ logger }) => {
+      logger?.info('Test: View application details and linked assets');
+      await applicationsPage.navigateToApplication(APP_URN, 'Assets');
+      logger?.info(`Verifying asset appears: ${DATASET_WITH_APP_NAME}`);
+      await applicationsPage.verifyAssetInList(DATASET_WITH_APP_NAME);
+      logger?.info('Verifying asset count: 1 - 1 of 1');
+      await applicationsPage.verifyAssetCount('1 - 1 of 1');
+      logger?.info('✓ Test passed');
+    },
+  );
 
   test('should show application sidebar section always when filled', async ({ page, logger }) => {
     logger?.info('Test: Show sidebar when filled (flag OFF)');
@@ -117,28 +122,32 @@ test.describe('Application Sidebar Integration', () => {
     logger?.info('✓ Test passed');
   });
 
-  test('should add and remove application from dataset', async ({ page, logger }) => {
-    logger?.info('Test: Add and remove application from dataset');
+  test(
+    'should add and remove application from dataset',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page, logger }) => {
+      logger?.info('Test: Add and remove application from dataset');
 
-    // Set feature flag BEFORE navigation so appConfig query is properly intercepted
-    logger?.info('Setting feature flag to true');
-    await setApplicationFeatureFlag(page, true);
+      // Set feature flag BEFORE navigation so appConfig query is properly intercepted
+      logger?.info('Setting feature flag to true');
+      await setApplicationFeatureFlag(page, true);
 
-    logger?.info(`Navigating to dataset: ${DATASET_WITHOUT_APP_NAME}`);
-    await applicationsPage.navigateToDataset(DATASET_WITHOUT_APP_URN);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
+      logger?.info(`Navigating to dataset: ${DATASET_WITHOUT_APP_NAME}`);
+      await applicationsPage.navigateToDataset(DATASET_WITHOUT_APP_URN);
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(TIMEOUTS.OPERATION);
 
-    logger?.info(`Adding application: ${TEST_APP_NAME}`);
-    await applicationsPage.addApplicationToDataset(TEST_APP_NAME);
-    logger?.info('Verifying application is visible');
-    await applicationsPage.verifyApplicationVisible(TEST_APP_NAME);
+      logger?.info(`Adding application: ${TEST_APP_NAME}`);
+      await applicationsPage.addApplicationToDataset(TEST_APP_NAME);
+      logger?.info('Verifying application is visible');
+      await applicationsPage.verifyApplicationVisible(TEST_APP_NAME);
 
-    logger?.info('Removing application');
-    await applicationsPage.removeApplication();
-    logger?.info('Verifying application is no longer visible');
-    await applicationsPage.verifyApplicationNotVisible(TEST_APP_NAME);
-    logger?.info('✓ Test passed');
-  });
+      logger?.info('Removing application');
+      await applicationsPage.removeApplication();
+      logger?.info('Verifying application is no longer visible');
+      await applicationsPage.verifyApplicationNotVisible(TEST_APP_NAME);
+      logger?.info('✓ Test passed');
+    },
+  );
 });

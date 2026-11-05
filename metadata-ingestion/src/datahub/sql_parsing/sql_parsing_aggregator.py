@@ -21,6 +21,7 @@ from datahub.configuration.env_vars import (
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.transform_operation import cap_transform_operation
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -391,6 +392,8 @@ class SqlAggregatorReport(Report):
 
     # SQL parsing (over all invocations).
     num_sql_parsed: int = 0
+    # Parses whose column lineage needed the vendored sqlglot 30.20 projection pushdown.
+    num_sql_parsed_legacy_pushdown_projections: int = 0
     sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
@@ -1436,6 +1439,8 @@ class SqlParsingAggregator(Closeable):
                 override_dialect=override_dialect,
             )
         self.report.num_sql_parsed += 1
+        if parsed.debug_info.used_legacy_pushdown_projections:
+            self.report.num_sql_parsed_legacy_pushdown_projections += 1
 
         # Conditionally log the query.
         if self.query_log == QueryLogSetting.STORE_ALL or (
@@ -1733,7 +1738,8 @@ class SqlParsingAggregator(Closeable):
                         ],
                         query=self._query_urn_if_emitted(query),
                         confidenceScore=query.confidence_score,
-                        transformOperation=(
+                        # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
+                        transformOperation=cap_transform_operation(
                             (
                                 f"COPY: {column_logic.column_logic}"
                                 if column_logic.is_direct_copy

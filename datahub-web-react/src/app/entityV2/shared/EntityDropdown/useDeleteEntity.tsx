@@ -6,7 +6,7 @@ import analytics, { EventType } from '@app/analytics';
 import { useHandleDeleteDomain } from '@app/entityV2/shared/EntityDropdown/useHandleDeleteDomain';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
-import { getDeleteEntityMutation } from '@app/shared/deleteUtils';
+import { getDeleteEntityMutation } from '@app/sharedV2/deleteUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';

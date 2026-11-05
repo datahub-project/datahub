@@ -3,8 +3,8 @@ import { Route, Switch } from 'react-router-dom';
 
 import { IngestionContextProvider } from '@app/ingestV2/IngestionContext';
 import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
-import { SuspenseBlock } from '@app/shared/SuspenseBlock';
-import { lazyDefault, lazyNamed } from '@app/shared/lazyPage';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import { PageRoutes } from '@conf/Global';
 
 const ManageIngestionPage = lazyNamed(() => import('@app/ingestV2/ManageIngestionPage'), 'ManageIngestionPage');

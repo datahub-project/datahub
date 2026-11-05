@@ -11,7 +11,7 @@ import { Text } from '@components/components/Text';
 import { Tooltip } from '@components/components/Tooltip';
 import { getFontSize } from '@components/theme/utils';
 
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 
 const Container = styled.div<{ $border?: boolean; $fontSize?: string }>`
     display: flex;

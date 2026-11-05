@@ -17,8 +17,8 @@ import { IncidentPriorityLabel } from '@src/alchemy-components/components/Incide
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
-import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { getTimeFromNow } from '@src/app/sharedV2/time/timeUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
 
 export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
@@ -209,7 +209,7 @@ export const useOpenIncidentDetailModal = (setFocusIncidentUrn) => {
 };
 
 export default function useGetUserName() {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     return useCallback(
         (user: CorpUser) => {

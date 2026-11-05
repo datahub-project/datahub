@@ -1,4 +1,4 @@
-import { SearchResultInterface } from '@app/entity/shared/components/styled/search/types';
+import { SearchResultInterface } from '@app/entityV2/shared/components/styled/search/types';
 
 import { AndFilterInput, EntityType, FacetMetadata, SearchFlags } from '@types';
 

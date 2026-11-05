@@ -535,6 +535,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Certification",
+              type: "doc",
+              id: "docs/features/feature-guides/context/certification",
+              className: "saasOnly",
+            },
+            {
               label: "Context Feedback",
               type: "doc",
               id: "docs/features/feature-guides/context/context-feedback",
@@ -711,6 +717,11 @@ module.exports = {
             id: "docs/features/feature-guides/metrics-and-semantic-models",
           },
           items: [
+            {
+              label: "Best Practices",
+              type: "doc",
+              id: "docs/features/feature-guides/metrics-and-semantic-models-best-practices",
+            },
             {
               label: "Ossie Compatibility",
               type: "doc",
@@ -967,6 +978,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_4_0",
         "docs/managed-datahub/release-notes/v_2_3_0",
         "docs/managed-datahub/release-notes/v_2_2_0",
         "docs/managed-datahub/release-notes/v_2_1_0",
@@ -1616,6 +1628,7 @@ module.exports = {
         "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
+        "docs/how/upgrading-datahub",
         "docs/deploy/rendered-manifest-upgrade",
       ],
     },
@@ -1746,7 +1759,7 @@ module.exports = {
       ],
     },
     {
-      "Release History": ["releases", "docs/how/updating-datahub"],
+      "Release History": ["releases", "docs/how/breaking-changes"],
     },
     {
       type: "doc",

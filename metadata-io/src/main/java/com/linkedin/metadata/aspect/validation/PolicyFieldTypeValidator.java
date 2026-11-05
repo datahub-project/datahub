@@ -50,14 +50,17 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
       @Nonnull RetrieverContext retrieverContext) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+    // Field types are defined in code, so a newer version adding one doesn't bump the schema
+    // version; any stored value at the same criteria field counts.
+    final StoredAspectValues stored = StoredAspectValues.any(operationContext, retrieverContext);
 
     mcpItems.forEach(
         item -> {
           if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
-            validatePatchItem((MCPItem) item, exceptions);
+            validatePatchItem((MCPItem) item, exceptions, stored);
             return;
           }
-          validatePolicyInfo(item, item.getAspect(DataHubPolicyInfo.class), exceptions);
+          validatePolicyInfo(item, item.getAspect(DataHubPolicyInfo.class), exceptions, stored);
         });
 
     return exceptions.streamAllExceptions();
@@ -69,7 +72,8 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
    * and validate the field types it contains. Unparseable values are left to schema validation at
    * merge time.
    */
-  private void validatePatchItem(MCPItem item, ValidationExceptionCollection exceptions) {
+  private void validatePatchItem(
+      MCPItem item, ValidationExceptionCollection exceptions, StoredAspectValues stored) {
     PatchOperationUtils.addAndReplaceValues(item)
         .forEach(
             op ->
@@ -81,7 +85,8 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
                                 item,
                                 RecordUtils.toRecordTemplate(
                                     DataHubPolicyInfo.class, nested.toString()),
-                                exceptions);
+                                exceptions,
+                                stored);
                           } catch (RuntimeException e) {
                             // unparseable delta — schema validation rejects it at merge time
                           }
@@ -89,23 +94,39 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
   }
 
   private void validatePolicyInfo(
-      BatchItem item, DataHubPolicyInfo policyInfo, ValidationExceptionCollection exceptions) {
+      BatchItem item,
+      DataHubPolicyInfo policyInfo,
+      ValidationExceptionCollection exceptions,
+      StoredAspectValues stored) {
     if (policyInfo != null && policyInfo.hasResources()) {
       if (policyInfo.getResources().hasFilter()) {
-        validateFilter(item, policyInfo.getResources().getFilter(), exceptions);
+        validateFilter(
+            item, policyInfo.getResources().getFilter(), "/resources/filter", exceptions, stored);
       }
       if (policyInfo.getResources().hasPrivilegeConstraints()) {
-        validateFilter(item, policyInfo.getResources().getPrivilegeConstraints(), exceptions);
+        validateFilter(
+            item,
+            policyInfo.getResources().getPrivilegeConstraints(),
+            "/resources/privilegeConstraints",
+            exceptions,
+            stored);
       }
     }
   }
 
   private void validateFilter(
-      BatchItem item, PolicyMatchFilter filter, ValidationExceptionCollection exceptions) {
+      BatchItem item,
+      PolicyMatchFilter filter,
+      @Nonnull final String filterPath,
+      ValidationExceptionCollection exceptions,
+      StoredAspectValues stored) {
     if (filter != null && filter.hasCriteria()) {
       for (PolicyMatchCriterion criterion : filter.getCriteria()) {
         String field = criterion.getField();
-        if (!VALID_ENTITY_FIELD_TYPES.contains(field)) {
+        // A field type a newer version added (read after a rollback) that the policy already
+        // stores is kept on re-save; only newly added unknown field types are rejected.
+        if (!VALID_ENTITY_FIELD_TYPES.contains(field)
+            && !stored.contains(item, filterPath + "/criteria/*/field", field)) {
           exceptions.addException(
               AspectValidationException.forItem(
                   item,

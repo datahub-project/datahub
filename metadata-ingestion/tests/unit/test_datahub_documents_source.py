@@ -34,6 +34,9 @@ from datahub.ingestion.source.datahub_documents.document_chunking_state_handler 
     DocumentChunkingStatefulIngestionConfig,
     DocumentChunkingStateHandler,
 )
+from datahub.ingestion.source.datahub_documents.document_embedding import (
+    resolve_embed_text,
+)
 from datahub.ingestion.source.datahub_documents.text_partitioner import TextPartitioner
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.unstructured.chunking_config import (
@@ -223,13 +226,34 @@ class TestDataHubDocumentsSource:
 
     def test_resolve_embed_text_prefers_semantic_text(self):
         """semanticText overrides text as the embedding source when present."""
-        resolve = DataHubDocumentsSource._resolve_embed_text
+        resolve = resolve_embed_text
 
         assert resolve({"text": "body", "semanticText": "summary"}) == "summary"
         assert resolve({"text": "body"}) == "body"
         assert resolve({}) == ""
         # Empty-string semanticText is treated as absent (falls back to text).
         assert resolve({"text": "body", "semanticText": ""}) == "body"
+
+    def test_resolve_embed_text_treats_blank_override_as_absent(self):
+        """A whitespace-only override is truthy, so `or` alone would let it win and the
+        document would embed as whitespace -- unretrievable -- while a good body sat
+        unused in `text`."""
+        resolve = resolve_embed_text
+
+        assert resolve({"text": "body", "semanticText": "   \n  "}) == "body"
+        assert resolve({"text": "body", "semanticText": "\t"}) == "body"
+        # Nothing usable anywhere resolves to "" so the callers' guard skips it.
+        assert resolve({"text": "  ", "semanticText": "  "}) == ""
+        assert resolve({"text": "   "}) == ""
+
+    def test_resolve_embed_text_returns_value_verbatim(self):
+        """Only the emptiness test strips. Returning a stripped value would change the
+        content hash of every document with surrounding whitespace, and re-embedding is
+        gated on that hash."""
+        resolve = resolve_embed_text
+
+        assert resolve({"semanticText": "  summary  "}) == "  summary  "
+        assert resolve({"text": "  body  "}) == "  body  "
 
     def test_semantic_text_governs_reembed_hash(self, ctx, config):
         """The content hash tracks the embedded value: a change to `text` while
@@ -239,10 +263,8 @@ class TestDataHubDocumentsSource:
         ):
             source = DataHubDocumentsSource(ctx, config)
 
-            before = source._resolve_embed_text(
-                {"text": "body-v1", "semanticText": "summary"}
-            )
-            after_body_edit = source._resolve_embed_text(
+            before = resolve_embed_text({"text": "body-v1", "semanticText": "summary"})
+            after_body_edit = resolve_embed_text(
                 {"text": "body-v2", "semanticText": "summary"}
             )
             assert before == after_body_edit
@@ -462,7 +484,7 @@ class TestSemanticTextReembedInvariant:
         """Mirror one ingestion pass: resolve the embed source from contents (as the
         fetch call sites do), decide via `_should_process`, then commit state if
         processed. Returns whether the document was (re-)embedded this pass."""
-        resolved = source._resolve_embed_text(contents)
+        resolved = resolve_embed_text(contents)
         processed = source._should_process(self.URN, resolved)
         if processed:
             source._update_document_state(self.URN, resolved)
@@ -2362,6 +2384,27 @@ class TestFingerprintFollowsServerEmbeddingConfig:
         assert self._run_source(tmp_path, _SERVER_ONNX_ARCTIC)._should_process(
             self.URN, self.TEXT
         )
+
+    def test_storage_key_change_reembeds_and_default_key_keeps_old_hashes(
+        self, tmp_path
+    ):
+        # The default key adds nothing, so hashes recorded before the key was
+        # fingerprinted stay valid.
+        default = self._run_source(tmp_path, _SERVER_BEDROCK_COHERE_V3)
+        assert "embedding_model_key" not in default._get_processing_config_fingerprint()
+        self._record_processed(default)
+
+        # The server writes the same model under a new key: vectors stored under
+        # the old key would be orphaned, so the document must be embedded again.
+        assert _SERVER_BEDROCK_COHERE_V3.embedding_config is not None
+        renamed = ServerSemanticSearchConfig(
+            enabled=True,
+            enabled_entities=["document"],
+            embedding_config=_SERVER_BEDROCK_COHERE_V3.embedding_config.model_copy(
+                update={"model_embedding_key": "cohere_embed_v3_custom"}
+            ),
+        )
+        assert self._run_source(tmp_path, renamed)._should_process(self.URN, self.TEXT)
 
     @pytest.mark.parametrize("pooling", [None, "cls", "CLS"])
     def test_default_onnx_pooling_is_not_fingerprinted(

@@ -2,17 +2,16 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
-import static com.linkedin.metadata.Constants.SEMANTIC_TEXT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -49,8 +48,10 @@ import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -62,6 +63,7 @@ import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateIndicesUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -193,14 +195,10 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(operationContext, groupedEvents, true);
 
     String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
-    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
-    ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext), anyString(), documentCaptor.capture(), docIdCaptor.capture());
-    assertEquals(docIdCaptor.getValue(), expectedDocId);
-    assertTrue(documentCaptor.getValue().contains("\"urn\":\"" + testUrn + "\""));
-    assertFalse(docIdCaptor.getValue().contains("urn:li:"));
+    V3SearchDocumentWrite documentCaptorWrite = v3Write(operationContext, null, DOCUMENT_KINDS);
+    assertEquals(documentCaptorWrite.docId(), expectedDocId);
+    assertTrue(documentCaptorWrite.source().contains("\"urn\":\"" + testUrn + "\""));
+    assertFalse(documentCaptorWrite.docId().contains("urn:li:"));
   }
 
   @Test
@@ -222,9 +220,9 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(operationContext, groupedEvents, true);
 
     String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext), eq("dataset"), anyString(), eq(expectedDocId));
+    assertEquals(
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DOCUMENT_KINDS).docId(),
+        expectedDocId);
     verify(elasticSearchService)
         .appendRunIdBySearchGroup(
             eq(operationContext), eq("dataset"), eq(expectedDocId), eq(testUrn), eq("run-456"));
@@ -258,12 +256,9 @@ public class UpdateIndicesV3StrategyTest {
 
     String defaultId = new Sha256UrnEntityDocumentIdHasher().documentId(operationContext, testUrn);
     String replacedId = replacement.documentId(operationContext, testUrn);
-    ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext), anyString(), anyString(), docIdCaptor.capture());
-    assertEquals(docIdCaptor.getValue(), replacedId);
-    assertFalse(docIdCaptor.getValue().equals(defaultId));
+    V3SearchDocumentWrite docIdCaptorWrite = v3Write(operationContext, null, DOCUMENT_KINDS);
+    assertEquals(docIdCaptorWrite.docId(), replacedId);
+    assertFalse(docIdCaptorWrite.docId().equals(defaultId));
   }
 
   @Test
@@ -291,12 +286,8 @@ public class UpdateIndicesV3StrategyTest {
         operationContext,
         Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
         true);
-
-    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext), anyString(), documentCaptor.capture(), anyString());
-    assertTrue(documentCaptor.getValue().contains("\"_ext\":\"1\""));
+    V3SearchDocumentWrite documentCaptorWrite = v3Write(operationContext, null, DOCUMENT_KINDS);
+    assertTrue(documentCaptorWrite.source().contains("\"_ext\":\"1\""));
   }
 
   @Test
@@ -327,8 +318,7 @@ public class UpdateIndicesV3StrategyTest {
                 operationContext,
                 Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
                 true));
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    verify(elasticSearchService, never()).writeV3SearchDocument(any(), any());
   }
 
   @Test
@@ -357,8 +347,7 @@ public class UpdateIndicesV3StrategyTest {
         operationContext,
         Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
         true);
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
   }
 
   @Test
@@ -414,12 +403,7 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify upsert was called with search group
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext),
-            anyString(), // search group
-            anyString(), // document
-            anyString()); // doc id
+    v3Write(operationContext, null, DOCUMENT_KINDS); // doc id
   }
 
   @Test
@@ -443,12 +427,7 @@ public class UpdateIndicesV3StrategyTest {
 
     // Verify upsert was called with search group (timeseries aspects are treated like regular
     // aspects in V3)
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext),
-            anyString(), // search group
-            anyString(), // document
-            anyString()); // doc id
+    v3Write(operationContext, null, DOCUMENT_KINDS); // doc id
   }
 
   @Test
@@ -702,8 +681,7 @@ public class UpdateIndicesV3StrategyTest {
       strategy.processBatch(operationContext, groupedEvents, true);
 
       // Verify that no document operations were performed due to the exception
-      verify(elasticSearchService, never())
-          .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+      assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
       verify(elasticSearchService, never()).deleteDocument(any(), anyString(), anyString());
     }
   }
@@ -729,9 +707,7 @@ public class UpdateIndicesV3StrategyTest {
       // Execute
       strategy.processBatch(operationContext, groupedEvents, true);
 
-      // Verify that deleteDocumentBySearchGroup was called
-      verify(elasticSearchService)
-          .deleteDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString());
+      v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND);
     }
   }
 
@@ -756,8 +732,7 @@ public class UpdateIndicesV3StrategyTest {
       strategy.processBatch(operationContext, groupedEvents, true);
 
       // Unset searchGroup uses the entity type as the V3 index key
-      verify(elasticSearchService)
-          .deleteDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString());
+      v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND);
     }
   }
 
@@ -767,18 +742,9 @@ public class UpdateIndicesV3StrategyTest {
     Map<Urn, List<MCLItem>> groupedEvents =
         Collections.singletonMap(testUrn, Collections.emptyList());
 
-    // Execute and verify that IndexOutOfBoundsException is thrown due to bug in
-    // buildV3SearchDocument
-    // This test documents the current behavior - the code crashes when events list is empty
-    // because buildV3SearchDocument tries to access events.get(0) without checking if events is
-    // empty
-    IndexOutOfBoundsException exception =
-        expectThrows(
-            IndexOutOfBoundsException.class,
-            () -> strategy.processBatch(operationContext, groupedEvents, true));
+    strategy.processBatch(operationContext, groupedEvents, true);
 
-    // Verify the exception message indicates the issue
-    assertTrue(exception.getMessage().contains("Index: 0"));
+    verify(elasticSearchService, never()).writeV3SearchDocument(any(), any());
   }
 
   @Test
@@ -805,8 +771,7 @@ public class UpdateIndicesV3StrategyTest {
     // Execute - should handle null search group gracefully
     strategy.processBatch(operationContext, groupedEvents, true);
 
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString(), anyString());
+    v3Write(operationContext, groupIndex(operationContext, "dataset"), DOCUMENT_KINDS);
   }
 
   @Test
@@ -827,8 +792,7 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify that no upsert operation was performed due to the exception
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
   }
 
   @Test
@@ -856,8 +820,7 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify that no upsert operation was performed due to the exception
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
   }
 
   // ==================== Timeseries throttle tests ====================
@@ -922,8 +885,7 @@ public class UpdateIndicesV3StrategyTest {
 
     // Timeseries aspect should be excluded from the document (throttled)
     // Since it's the only aspect, no upsert should happen
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
   }
 
   @Test
@@ -960,8 +922,7 @@ public class UpdateIndicesV3StrategyTest {
     throttledStrategy.processBatch(operationContext, groupedEvents, true);
 
     // Observe mode should NOT suppress — the write should proceed
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(eq(operationContext), anyString(), anyString(), anyString());
+    v3Write(operationContext, null, DOCUMENT_KINDS);
   }
 
   @Test
@@ -997,8 +958,7 @@ public class UpdateIndicesV3StrategyTest {
     throttledStrategy.processBatch(operationContext, groupedEvents, true);
 
     // First write should not be throttled
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(eq(operationContext), anyString(), anyString(), anyString());
+    v3Write(operationContext, null, DOCUMENT_KINDS);
   }
 
   @Test
@@ -1035,8 +995,7 @@ public class UpdateIndicesV3StrategyTest {
     throttledStrategy.processBatch(operationContext, groupedEvents, true);
 
     // Entity index enabled suppresses the write, observe mode logs but doesn't write
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
   }
 
   @Test
@@ -1062,8 +1021,7 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(operationContext, groupedEvents, true);
 
     // With null throttle cache, all writes proceed
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(eq(operationContext), anyString(), anyString(), anyString());
+    v3Write(operationContext, null, DOCUMENT_KINDS);
   }
 
   @Test
@@ -1084,8 +1042,7 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify that no upsert operation was performed due to the exception
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
   }
 
   @Test
@@ -1133,17 +1090,15 @@ public class UpdateIndicesV3StrategyTest {
         operationContext,
         Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
         true);
-
-    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext), eq("document"), documentCaptor.capture(), anyString());
+    V3SearchDocumentWrite documentCaptorWrite =
+        v3Write(operationContext, groupIndex(operationContext, "document"), DOCUMENT_KINDS);
     ObjectNode written =
         (ObjectNode)
-            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(documentCaptorWrite.source());
     assertTrue(written.has("embeddings"));
     assertEquals(written.get("skipReason").asText(), "EMPTY_TEXT");
-    assertTrue(written.has("resolvedTextSha256"));
+    assertFalse(written.has("resolvedTextSha256"));
     assertFalse(written.get("_aspects").get("semanticContent").has("embeddings"));
     assertFalse(written.get("_aspects").get("semanticContent").has("skipReason"));
   }
@@ -1190,14 +1145,12 @@ public class UpdateIndicesV3StrategyTest {
         operationContext,
         Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
         true);
-
-    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext), eq("document"), documentCaptor.capture(), anyString());
+    V3SearchDocumentWrite documentCaptorWrite =
+        v3Write(operationContext, groupIndex(operationContext, "document"), DOCUMENT_KINDS);
     ObjectNode written =
         (ObjectNode)
-            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(documentCaptorWrite.source());
     assertFalse(written.has("embeddings"));
     assertTrue(written.get("_aspects").get("semanticContent").has("embeddings"));
   }
@@ -1240,150 +1193,13 @@ public class UpdateIndicesV3StrategyTest {
         operationContext,
         Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
         true);
-
-    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext), eq("dataset"), documentCaptor.capture(), anyString());
+    V3SearchDocumentWrite documentCaptorWrite =
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DOCUMENT_KINDS);
     ObjectNode written =
         (ObjectNode)
-            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(documentCaptorWrite.source());
     assertFalse(written.has("embeddings"));
-  }
-
-  @Test
-  public void testStampsResolvedHashOnDocumentInfoOnlyMcl() throws Exception {
-    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
-    when(mockEvent.getUrn()).thenReturn(documentUrn);
-    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
-    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
-    when(mockAspectSpec.getName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
-    when(mockEvent.getAspectName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
-
-    ObjectNode infoDoc = JsonNodeFactory.instance.objectNode();
-    infoDoc.put("urn", documentUrn.toString());
-    infoDoc.put("text", "the body");
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(infoDoc));
-
-    enableDocumentSemanticStrategy();
-
-    strategy.processBatch(
-        operationContext,
-        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
-        true);
-
-    ObjectNode written = capturedDocument("document");
-    assertEquals(
-        written.get("resolvedTextSha256").asText(),
-        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
-            .sha256Hex("the body"));
-  }
-
-  @Test
-  public void testStampsResolvedHashOnSemanticTextOnlyMcl() throws Exception {
-    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
-    when(mockEvent.getUrn()).thenReturn(documentUrn);
-    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
-    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
-    when(mockAspectSpec.getName()).thenReturn(SEMANTIC_TEXT_ASPECT_NAME);
-    when(mockEvent.getAspectName()).thenReturn(SEMANTIC_TEXT_ASPECT_NAME);
-
-    ObjectNode textDoc = JsonNodeFactory.instance.objectNode();
-    textDoc.put("urn", documentUrn.toString());
-    textDoc.put("semanticText", "curated override");
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(textDoc));
-
-    enableDocumentSemanticStrategy();
-
-    strategy.processBatch(
-        operationContext,
-        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
-        true);
-
-    ObjectNode written = capturedDocument("document");
-    assertEquals(
-        written.get("resolvedTextSha256").asText(),
-        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
-            .sha256Hex("curated override"));
-  }
-
-  @Test
-  public void testStampsResolvedHashWhenDocumentInfoLeadsMixedBatch() throws Exception {
-    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
-    when(mockEvent.getUrn()).thenReturn(documentUrn);
-    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
-    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
-    when(mockAspectSpec.getName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
-    when(mockEvent.getAspectName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
-    when(mockEvent.getEntitySpec()).thenReturn(mockEntitySpec);
-    when(mockEvent.getAspectSpec()).thenReturn(mockAspectSpec);
-
-    AspectSpec semanticAspectSpec = mock(AspectSpec.class);
-    when(semanticAspectSpec.getName()).thenReturn("semanticContent");
-    when(semanticAspectSpec.isTimeseries()).thenReturn(false);
-    MCLItem semanticEvent = mock(MCLItem.class);
-    when(semanticEvent.getUrn()).thenReturn(documentUrn);
-    when(semanticEvent.getEntitySpec()).thenReturn(mockEntitySpec);
-    when(semanticEvent.getAspectSpec()).thenReturn(semanticAspectSpec);
-    when(semanticEvent.getAspectName()).thenReturn("semanticContent");
-    when(semanticEvent.getRecordTemplate()).thenReturn(mockAspect);
-    when(semanticEvent.getSystemMetadata()).thenReturn(mockSystemMetadata);
-    when(semanticEvent.getAuditStamp()).thenReturn(mockAuditStamp);
-    when(semanticEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
-
-    ObjectNode infoDoc = JsonNodeFactory.instance.objectNode();
-    infoDoc.put("urn", documentUrn.toString());
-    infoDoc.put("text", "the body");
-    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
-    semanticDoc.put("urn", documentUrn.toString());
-    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
-    embeddings.put("model", "cohere_embed_v3");
-    semanticDoc.set("embeddings", embeddings);
-
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            eq(mockAspectSpec),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(infoDoc));
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            eq(semanticAspectSpec),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(semanticDoc));
-
-    enableDocumentSemanticStrategy();
-
-    strategy.processBatch(
-        operationContext,
-        Collections.singletonMap(documentUrn, List.of(mockEvent, semanticEvent)),
-        true);
-
-    ObjectNode written = capturedDocument("document");
-    assertTrue(written.has("embeddings"));
-    assertEquals(
-        written.get("resolvedTextSha256").asText(),
-        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
-            .sha256Hex("the body"));
   }
 
   @Test
@@ -1625,8 +1441,7 @@ public class UpdateIndicesV3StrategyTest {
         operationContext, Collections.singletonMap(testUrn, List.of(delete, recreate)), false);
 
     // The index ends the batch holding what it held before it
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
   }
 
   @Test
@@ -1679,8 +1494,7 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(
         operationContext, Collections.singletonMap(testUrn, List.of(event)), false);
 
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
   }
 
   @Test
@@ -1695,8 +1509,7 @@ public class UpdateIndicesV3StrategyTest {
     spiedStrategy.processBatch(
         operationContext, Collections.singletonMap(testUrn, List.of(event)), true);
 
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
     // Re-saving an unchanged property definition is how a failed mapping update is repaired
     verify(spiedStrategy)
         .updateIndexMappings(
@@ -1753,30 +1566,54 @@ public class UpdateIndicesV3StrategyTest {
         .thenReturn(Optional.of(document));
   }
 
-  private void enableDocumentSemanticStrategy() {
-    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
-    semanticConfig.setEnabled(true);
-    semanticConfig.setEnabledEntities(Set.of("document"));
-    ModelEmbeddingConfig model = new ModelEmbeddingConfig();
-    model.setVectorDimension(1024);
-    semanticConfig.setModels(Map.of("cohere_embed_v3", model));
-    strategy =
-        UpdateIndicesV3Strategy.builder()
-            .v3Config(v3Config)
-            .elasticSearchService(elasticSearchService)
-            .searchDocumentTransformer(searchDocumentTransformer)
-            .timeseriesAspectService(timeseriesAspectService)
-            .semanticSearchConfiguration(semanticConfig)
-            .build();
+  private ObjectNode capturedDocument(String searchGroup) throws Exception {
+    V3SearchDocumentWrite write =
+        v3Write(operationContext, groupIndex(operationContext, searchGroup), DOCUMENT_KINDS);
+    return (ObjectNode) new com.fasterxml.jackson.databind.ObjectMapper().readTree(write.source());
   }
 
-  private ObjectNode capturedDocument(String searchGroup) throws Exception {
-    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext), eq(searchGroup), documentCaptor.capture(), anyString());
-    return (ObjectNode)
-        new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+  private static final Set<V3SearchDocumentWrite.Kind> DOCUMENT_KINDS =
+      Set.of(
+          V3SearchDocumentWrite.Kind.MERGE,
+          V3SearchDocumentWrite.Kind.MERGE_EXISTING,
+          V3SearchDocumentWrite.Kind.CREATE,
+          V3SearchDocumentWrite.Kind.REPLACE);
+  private static final Set<V3SearchDocumentWrite.Kind> TOMBSTONE_KIND =
+      Set.of(V3SearchDocumentWrite.Kind.TOMBSTONE);
+  private static final Set<V3SearchDocumentWrite.Kind> DELETE_KIND =
+      Set.of(V3SearchDocumentWrite.Kind.DELETE);
+
+  /**
+   * The V3 writes issued under {@code context} to {@code indexName} with one of {@code kinds}, in
+   * order. A null context or index matches any.
+   */
+  private List<V3SearchDocumentWrite> v3Writes(
+      OperationContext context, String indexName, Set<V3SearchDocumentWrite.Kind> kinds) {
+    ArgumentCaptor<V3SearchDocumentWrite> captor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService, atLeast(0))
+        .writeV3SearchDocument(context == null ? any() : eq(context), captor.capture());
+    return captor.getAllValues().stream()
+        .filter(write -> indexName == null || write.indexName().equals(indexName))
+        .filter(write -> kinds.contains(write.kind()))
+        .toList();
+  }
+
+  /**
+   * The one V3 write issued under {@code context} to {@code indexName} with one of {@code kinds}.
+   */
+  private V3SearchDocumentWrite v3Write(
+      OperationContext context, String indexName, Set<V3SearchDocumentWrite.Kind> kinds) {
+    List<V3SearchDocumentWrite> writes = v3Writes(context, indexName, kinds);
+    assertEquals(writes.size(), 1, "V3 writes to " + indexName + " of " + kinds + ": " + writes);
+    return writes.get(0);
+  }
+
+  private static String groupIndex(OperationContext context, String searchGroup) {
+    return context
+        .getSearchContext()
+        .getIndexConvention()
+        .getEntityIndexNameV3(context, searchGroup);
   }
 
   private static final String FILL_TARGET = "datasetindex_v3_0_14_0-0_1679000000000";
@@ -1785,6 +1622,9 @@ public class UpdateIndicesV3StrategyTest {
   private static MetadataChangeLog backfillChangeLog(String mode, String target) {
     Map<String, String> headers = new HashMap<>();
     headers.put(BackfillHeaders.MODE_HEADER_NAME, mode);
+    if (BackfillHeaders.MODE_BASELINE.equals(mode)) {
+      headers.put(BackfillHeaders.COMPLETE_ENTITY_HEADER_NAME, Boolean.TRUE.toString());
+    }
     if (target != null) {
       headers.put(BackfillHeaders.TARGET_INDEX_HEADER_NAME, target);
     }
@@ -1816,16 +1656,240 @@ public class UpdateIndicesV3StrategyTest {
         operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
     String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
-    verify(elasticSearchService)
-        .upsertDocumentByIndexName(
-            eq(operationContext), eq(FILL_TARGET), anyString(), eq(expectedDocId));
-    verify(elasticSearchService)
-        .appendRunIdByIndexName(
-            eq(operationContext), eq(FILL_TARGET), eq(expectedDocId), eq(testUrn), eq("run-fill"));
+    V3SearchDocumentWrite write = v3Write(operationContext, FILL_TARGET, DOCUMENT_KINDS);
+    assertEquals(write.docId(), expectedDocId);
+    assertEquals(write.kind(), V3SearchDocumentWrite.Kind.CREATE);
+    // The create carries the run ids: an update could reach the document before the fill does.
+    JsonNode written = operationContext.getObjectMapper().readTree(write.source());
+    assertEquals(written.get(MappingConstants.RUN_ID_FIELD).get(0).asText(), "run-fill");
     verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+        .appendRunIdByIndexName(any(), anyString(), anyString(), any(Urn.class), anyString());
+    assertEquals(v3Writes(null, null, DOCUMENT_KINDS).size(), 1, "nothing reaches the alias");
     // A backfill checkpoints what it has written once the batch returns, so the batch is drained.
     verify(writeDAO).flushAndWait();
+  }
+
+  @Test
+  public void testBaselineMaintenanceRunReplacesTheAliasDocument() throws Exception {
+    stubTransformedDocument();
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_BASELINE, null));
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    assertEquals(
+        v3Write(operationContext, liveAlias(), DOCUMENT_KINDS).kind(),
+        V3SearchDocumentWrite.Kind.REPLACE);
+  }
+
+  @Test
+  public void testLiveWriteUpsertsWhileTheAliasIsFilledInPlace() throws Exception {
+    stubTransformedDocument();
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+
+    strategyWithTargets(targets)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    assertEquals(
+        v3Write(operationContext, liveAlias(), DOCUMENT_KINDS).kind(),
+        V3SearchDocumentWrite.Kind.MERGE);
+  }
+
+  @Test
+  public void testTimeseriesWriteDoesNotCreateADocumentWhileTheAliasIsFilledInPlace()
+      throws Exception {
+    stubTransformedDocument();
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockSystemMetadata.hasRunId()).thenReturn(true);
+    when(mockSystemMetadata.getRunId()).thenReturn("run-ts");
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    when(targets.activeFillTargetFor(liveAlias())).thenReturn(Optional.of(liveAlias()));
+
+    strategyWithTargets(targets)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    assertEquals(
+        v3Write(operationContext, liveAlias(), DOCUMENT_KINDS).kind(),
+        V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    verify(elasticSearchService, never())
+        .appendRunIdBySearchGroup(any(), anyString(), anyString(), any(Urn.class), anyString());
+    verify(elasticSearchService)
+        .appendRunIdToExistingDocument(
+            eq(operationContext), eq(liveAlias()), eq(expectedDocId), eq("run-ts"));
+  }
+
+  @Test
+  public void testLiveWriteUpsertsOutsideAnInPlaceFill() throws Exception {
+    stubTransformedDocument();
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    assertEquals(
+        v3Write(operationContext, liveAlias(), DOCUMENT_KINDS).kind(),
+        V3SearchDocumentWrite.Kind.MERGE);
+  }
+
+  @Test
+  public void testSteadyStateLiveWriteDoesNotHydrateEntityAspectsOrTimeseries() throws Exception {
+    stubTransformedDocument();
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    verify(timeseriesAspectService, never())
+        .getLatestTimeseriesAspectValues(any(), any(), any(), any());
+    verify(elasticSearchService, never()).aspectFieldNamesBySearchGroup(any(), anyString(), any());
+  }
+
+  @Test
+  public void testKeyDeleteTombstonesTheDocumentAndMirrorsTheTombstoneIntoTheFillTarget()
+      throws Exception {
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    String next = liveAlias() + "_0_14_0-0_1679000000000";
+    when(targets.activeFillTargetFor(liveAlias())).thenReturn(Optional.of(next));
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    when(mockAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+
+    strategyWithTargets(targets)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    V3SearchDocumentWrite delete = v3Write(operationContext, liveAlias(), DELETE_KIND);
+    assertEquals(delete.source(), "");
+    V3SearchDocumentWrite tombstone = v3Write(operationContext, next, TOMBSTONE_KIND);
+    JsonNode written = operationContext.getObjectMapper().readTree(tombstone.source());
+    assertTrue(written.get(V3SearchDocumentProjector.REMOVED_FIELD).asBoolean());
+    assertTrue(written.get(V3SearchDocumentProjector.TOMBSTONE_FIELD).asBoolean());
+    assertEquals(written.get("urn").asText(), testUrn.toString());
+    // The fill may not have created the document yet; the target tombstone keeps it from coming
+    // back.
+    assertTrue(v3Writes(operationContext, null, DOCUMENT_KINDS).isEmpty());
+  }
+
+  @Test
+  public void testKeyDeleteTombstonesTheAliasWhileItIsFilledInPlace() throws Exception {
+    // An in-place fill creates into the live alias, so the placeholder has to land there. A delete
+    // would let the fill recreate the entity, and nothing replays the hard delete, so the batch
+    // waits for the tombstone.
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    when(targets.activeFillTargetFor(liveAlias())).thenReturn(Optional.of(liveAlias()));
+    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
+    when(mockAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+
+    strategyWithTargets(targets)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    V3SearchDocumentWrite tombstone = v3Write(operationContext, liveAlias(), TOMBSTONE_KIND);
+    JsonNode written = operationContext.getObjectMapper().readTree(tombstone.source());
+    assertTrue(written.get(V3SearchDocumentProjector.REMOVED_FIELD).asBoolean());
+    assertTrue(written.get(V3SearchDocumentProjector.TOMBSTONE_FIELD).asBoolean());
+    assertTrue(v3Writes(null, null, DELETE_KIND).isEmpty());
+    verify(writeDAO).flushAndWait();
+  }
+
+  @Test
+  public void testKeyRestoreClearsTheHardDeleteMarker() throws Exception {
+    stubTransformedDocument();
+    when(mockAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(null);
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = capturedDocument("dataset");
+    assertFalse(written.get(V3SearchDocumentProjector.REMOVED_FIELD).asBoolean());
+    assertTrue(written.get(V3SearchDocumentProjector.TOMBSTONE_FIELD).isNull());
+  }
+
+  @Test
+  public void testBaselineFillHydratesTheLatestTimeseriesAspects() throws Exception {
+    stubTransformedDocument();
+    AspectSpec profileSpec = mock(AspectSpec.class);
+    when(profileSpec.getName()).thenReturn("datasetProfile");
+    when(profileSpec.isTimeseries()).thenReturn(true);
+    when(profileSpec.getSearchableFieldSpecs())
+        .thenReturn(List.of(mock(SearchableFieldSpec.class)));
+    when(profileSpec.getDataTemplateClass())
+        .thenAnswer(invocation -> com.linkedin.dataset.DatasetProfile.class);
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(List.of(mockAspectSpec, profileSpec));
+    when(mockEntitySpec.getAspectSpec("datasetProfile")).thenReturn(profileSpec);
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_BASELINE, FILL_TARGET));
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    com.linkedin.dataset.DatasetProfile profile =
+        new com.linkedin.dataset.DatasetProfile().setTimestampMillis(1L).setRowCount(42L);
+    when(timeseriesAspectService.getLatestTimeseriesAspectValues(
+            any(), eq(Set.of(testUrn)), eq(Set.of("datasetProfile")), any()))
+        .thenReturn(
+            Map.of(
+                testUrn,
+                Map.of(
+                    "datasetProfile",
+                    new com.linkedin.metadata.aspect.EnvelopedAspect()
+                        .setAspect(GenericRecordUtils.serializeAspect(profile))
+                        .setSystemMetadata(new SystemMetadata()))));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    ArgumentCaptor<RecordTemplate> projected = ArgumentCaptor.forClass(RecordTemplate.class);
+    verify(searchDocumentTransformer, atLeastOnce())
+        .transformAspect(any(), any(), projected.capture(), any(), anyBoolean(), any());
+    assertTrue(
+        projected.getAllValues().stream().anyMatch(record -> profile.data().equals(record.data())),
+        "the latest profile is projected into the created document");
+  }
+
+  @Test
+  public void testBaselineFillFailsWhenTimeseriesHydrationFails() throws Exception {
+    stubTransformedDocument();
+    AspectSpec profileSpec = mock(AspectSpec.class);
+    when(profileSpec.getName()).thenReturn("datasetProfile");
+    when(profileSpec.isTimeseries()).thenReturn(true);
+    when(profileSpec.getSearchableFieldSpecs())
+        .thenReturn(List.of(mock(SearchableFieldSpec.class)));
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(List.of(mockAspectSpec, profileSpec));
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_BASELINE, FILL_TARGET));
+    when(timeseriesAspectService.getLatestTimeseriesAspectValues(any(), any(), any(), any()))
+        .thenThrow(new RuntimeException("timeseries unavailable"));
+
+    expectThrows(
+        RuntimeException.class,
+        () ->
+            strategy.processBatch(
+                operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true));
+    verify(elasticSearchService, never()).writeV3SearchDocument(any(), any());
+  }
+
+  private UpdateIndicesV3Strategy strategyWithTargets(IncrementalReindexWriteTargets targets) {
+    return UpdateIndicesV3Strategy.builder()
+        .v3Config(v3Config)
+        .elasticSearchService(elasticSearchService)
+        .searchDocumentTransformer(searchDocumentTransformer)
+        .timeseriesAspectService(timeseriesAspectService)
+        .entityDocumentIdHasher(new Sha256UrnEntityDocumentIdHasher())
+        .documentContributors(List.of())
+        .incrementalReindexWriteTargets(targets)
+        .build();
   }
 
   @Test
@@ -1837,8 +1901,7 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(
         operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString(), anyString());
+    v3Write(operationContext, groupIndex(operationContext, "dataset"), DOCUMENT_KINDS);
     verify(writeDAO, never()).flushAndWait();
   }
 
@@ -1867,15 +1930,12 @@ public class UpdateIndicesV3StrategyTest {
         operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
     String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
-    ArgumentCaptor<String> live = ArgumentCaptor.forClass(String.class);
-    ArgumentCaptor<String> copy = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext), eq("dataset"), live.capture(), eq(expectedDocId));
-    verify(elasticSearchService)
-        .upsertDocumentByIndexName(
-            eq(operationContext), eq(alias + "_old"), copy.capture(), eq(expectedDocId));
-    assertEquals(copy.getValue(), live.getValue(), "the copy is the live document");
+    V3SearchDocumentWrite liveWrite =
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DOCUMENT_KINDS);
+    assertEquals(liveWrite.docId(), expectedDocId);
+    V3SearchDocumentWrite copyWrite = v3Write(operationContext, alias + "_old", DOCUMENT_KINDS);
+    assertEquals(copyWrite.docId(), expectedDocId);
+    assertEquals(copyWrite.source(), liveWrite.source(), "the copy is the live document");
     verify(targets).recordDualWriteStarted(alias);
   }
 
@@ -1885,7 +1945,7 @@ public class UpdateIndicesV3StrategyTest {
     when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
     doThrow(new RuntimeException("write failed"))
         .when(elasticSearchService)
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+        .writeV3SearchDocument(any(), any(V3SearchDocumentWrite.class));
     UpdateIndicesV3Strategy dualWriting =
         UpdateIndicesV3Strategy.builder()
             .v3Config(v3Config)
@@ -1938,14 +1998,10 @@ public class UpdateIndicesV3StrategyTest {
                             stored.get(DATASET_PROPERTIES_ASPECT_NAME).getRecordTemplate().data())),
         "the stored value is projected");
     assertFalse(projected.getAllValues().contains(mockAspect), "the replayed row value is not");
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(replayContext),
-            eq("dataset"),
-            anyString(),
-            eq(DigestUtils.sha256Hex(testUrn.toString())));
-    verify(elasticSearchService, never())
-        .deleteDocumentBySearchGroup(any(), anyString(), anyString());
+    assertEquals(
+        v3Write(replayContext, groupIndex(replayContext, "dataset"), DOCUMENT_KINDS).docId(),
+        DigestUtils.sha256Hex(testUrn.toString()));
+    assertTrue(v3Writes(null, null, TOMBSTONE_KIND).isEmpty());
   }
 
   @Test
@@ -1961,11 +2017,10 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(
         replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
-    verify(elasticSearchService)
-        .deleteDocumentBySearchGroup(
-            eq(replayContext), eq("dataset"), eq(DigestUtils.sha256Hex(testUrn.toString())));
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    assertEquals(
+        v3Write(replayContext, groupIndex(replayContext, "dataset"), DELETE_KIND).docId(),
+        DigestUtils.sha256Hex(testUrn.toString()));
+    assertTrue(v3Writes(null, null, DOCUMENT_KINDS).isEmpty());
   }
 
   @Test
@@ -1995,12 +2050,10 @@ public class UpdateIndicesV3StrategyTest {
 
     strategy.processBatch(
         replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
-
-    ArgumentCaptor<String> document = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(replayContext), eq("dataset"), document.capture(), eq(documentId));
-    JsonNode written = replayContext.getObjectMapper().readTree(document.getValue());
+    V3SearchDocumentWrite documentWrite =
+        v3Write(replayContext, groupIndex(replayContext, "dataset"), DOCUMENT_KINDS);
+    assertEquals(documentWrite.docId(), documentId);
+    JsonNode written = replayContext.getObjectMapper().readTree(documentWrite.source());
     assertTrue(
         written.get("_aspects").get("globalTags").isNull(), "the lost aspect's entry is nulled");
     assertTrue(written.get("tags").isNull(), "and the root field it projected");
@@ -2215,7 +2268,7 @@ public class UpdateIndicesV3StrategyTest {
             .getIndexConvention()
             .getEntityIndexNameV3(operationContext, "dataset");
     String next = alias + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(alias)).thenReturn(Optional.of(next));
     when(mockAspectSpec.getName()).thenReturn("datasetKey");
     when(mockEvent.getAspectName()).thenReturn("datasetKey");
     when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
@@ -2233,10 +2286,10 @@ public class UpdateIndicesV3StrategyTest {
         operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
     String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
-    verify(elasticSearchService)
-        .deleteDocumentBySearchGroup(eq(operationContext), eq("dataset"), eq(expectedDocId));
-    verify(elasticSearchService)
-        .deleteDocumentByIndexName(eq(operationContext), eq(next), eq(expectedDocId));
+    assertEquals(
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND).docId(),
+        expectedDocId);
+    assertEquals(v3Write(operationContext, next, TOMBSTONE_KIND).docId(), expectedDocId);
   }
 
   @Test
@@ -2250,7 +2303,7 @@ public class UpdateIndicesV3StrategyTest {
             .getIndexConvention()
             .getEntityIndexNameV3(operationContext, "dataset");
     String next = alias + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(alias)).thenReturn(Optional.of(next));
     ESWriteDAO writeDAO = mock(ESWriteDAO.class);
     when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
     doThrow(new RuntimeException("Bulk transfer failed")).doNothing().when(writeDAO).flushAndWait();
@@ -2272,10 +2325,10 @@ public class UpdateIndicesV3StrategyTest {
 
     String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
     verify(writeDAO, times(2)).flushAndWait();
-    verify(elasticSearchService, times(2))
-        .deleteDocumentByIndexName(eq(operationContext), eq(next), eq(expectedDocId));
-    verify(elasticSearchService)
-        .deleteDocumentBySearchGroup(eq(operationContext), eq("dataset"), eq(expectedDocId));
+    assertEquals(v3Writes(operationContext, next, TOMBSTONE_KIND).size(), 2);
+    assertEquals(
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND).docId(),
+        expectedDocId);
   }
 
   @Test
@@ -2289,7 +2342,7 @@ public class UpdateIndicesV3StrategyTest {
             .getIndexConvention()
             .getEntityIndexNameV3(operationContext, "dataset");
     String next = alias + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(alias)).thenReturn(Optional.of(next));
     ESWriteDAO writeDAO = mock(ESWriteDAO.class);
     when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
     doThrow(new RuntimeException("Timed out waiting for bulk transfer", new TimeoutException()))
@@ -2312,8 +2365,7 @@ public class UpdateIndicesV3StrategyTest {
         operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
     verify(writeDAO).flushAndWait();
-    verify(elasticSearchService)
-        .deleteDocumentByIndexName(eq(operationContext), eq(next), anyString());
+    v3Write(operationContext, next, TOMBSTONE_KIND);
   }
 
   @Test
@@ -2325,7 +2377,7 @@ public class UpdateIndicesV3StrategyTest {
             .getIndexConvention()
             .getEntityIndexNameV3(operationContext, "dataset");
     String next = alias + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(alias)).thenReturn(Optional.of(next));
     ESWriteDAO writeDAO = mock(ESWriteDAO.class);
     when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
     doThrow(new RuntimeException("Bulk transfer failed")).when(writeDAO).flushAndWait();
@@ -2351,8 +2403,7 @@ public class UpdateIndicesV3StrategyTest {
 
     assertEquals(thrown.getMessage(), "Bulk transfer failed");
     verify(writeDAO, times(3)).flushAndWait();
-    verify(elasticSearchService, times(3))
-        .deleteDocumentByIndexName(eq(operationContext), eq(next), anyString());
+    assertEquals(v3Writes(operationContext, next, TOMBSTONE_KIND).size(), 3);
   }
 
   @Test
@@ -2368,9 +2419,9 @@ public class UpdateIndicesV3StrategyTest {
     strategy.processBatch(
         operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
-    verify(elasticSearchService)
-        .deleteDocumentBySearchGroup(
-            eq(operationContext), eq("dataset"), eq(DigestUtils.sha256Hex(testUrn.toString())));
+    assertEquals(
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND).docId(),
+        DigestUtils.sha256Hex(testUrn.toString()));
     verify(writeDAO, never()).flushAndWait();
   }
 
@@ -2386,11 +2437,11 @@ public class UpdateIndicesV3StrategyTest {
             .getIndexConvention()
             .getEntityIndexNameV3(operationContext, "dataset");
     String next = alias + "_0_14_0-0_1679000000000";
-    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(targets.activeFillTargetFor(alias)).thenReturn(Optional.of(next));
     when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
     doThrow(new IllegalStateException("processor closed"))
         .when(elasticSearchService)
-        .deleteDocumentByIndexName(any(), eq(next), anyString());
+        .writeV3SearchDocument(any(), argThat(write -> write.indexName().equals(next)));
     when(mockAspectSpec.getName()).thenReturn("datasetKey");
     when(mockEvent.getAspectName()).thenReturn("datasetKey");
     when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
@@ -2408,16 +2459,17 @@ public class UpdateIndicesV3StrategyTest {
     dualWriting.processBatch(
         operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
-    verify(elasticSearchService)
-        .deleteDocumentBySearchGroup(
-            eq(operationContext), eq("dataset"), eq(DigestUtils.sha256Hex(testUrn.toString())));
-    verify(elasticSearchService).deleteDocumentByIndexName(any(), eq(next), anyString());
+    assertEquals(
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DELETE_KIND).docId(),
+        DigestUtils.sha256Hex(testUrn.toString()));
+    v3Write(null, next, TOMBSTONE_KIND);
   }
 
   @Test
   public void testLiveAspectDeleteIsMirroredIntoAnInFlightRebuildTarget() throws Exception {
-    // A removed aspect has no row to replay either: the partial document that clears its fields
-    // on the alias is repeated on the next index.
+    // A removed aspect has no row to replay either. The partial document that clears its fields
+    // on the alias is repeated on the next index only when that document already exists, so the
+    // create-only fill is not blocked by a partial one.
     stubTransformedDocument();
     when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
     IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
@@ -2442,15 +2494,179 @@ public class UpdateIndicesV3StrategyTest {
         operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
 
     String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
-    ArgumentCaptor<String> live = ArgumentCaptor.forClass(String.class);
-    ArgumentCaptor<String> mirrored = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(operationContext), eq("dataset"), live.capture(), eq(expectedDocId));
-    verify(elasticSearchService)
-        .upsertDocumentByIndexName(
-            eq(operationContext), eq(next), mirrored.capture(), eq(expectedDocId));
-    assertEquals(mirrored.getValue(), live.getValue());
+    V3SearchDocumentWrite liveWrite =
+        v3Write(operationContext, groupIndex(operationContext, "dataset"), DOCUMENT_KINDS);
+    assertEquals(liveWrite.docId(), expectedDocId);
+    V3SearchDocumentWrite mirroredWrite = v3Write(operationContext, next, DOCUMENT_KINDS);
+    assertEquals(mirroredWrite.docId(), expectedDocId);
+    assertEquals(mirroredWrite.kind(), V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+    assertEquals(mirroredWrite.source(), liveWrite.source());
+  }
+
+  @Test
+  public void testRestateWithoutPreviousNullsMappedStructuredPropertiesTheAspectOmits()
+      throws Exception {
+    StructuredPropertyMappingCache cache = catalogReturning(liveAlias());
+    mockSearchDocument.put("name", "table");
+    mockSearchDocument.put("structuredProperties.kept", "yes");
+    stubRestate();
+
+    strategyWithCatalog(cache)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(operationContext, "dataset", false);
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertTrue(written.get("structuredProperties.removed").isNull());
+    assertTrue(written.get("structuredProperties.removed__urn_name").isNull());
+    assertEquals(written.get("name").asText(), "table");
+    assertFalse(written.has("structuredProperties"));
+    verify(cache).fields(any(), eq(liveAlias()));
+  }
+
+  @Test
+  public void testBaselineFillCreatesTheDocumentWithoutNullingFromTheMapping() throws Exception {
+    // A created document has nothing to clear, so the fill never reads the mapping catalog.
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    mockSearchDocument.put("structuredProperties.kept", "yes");
+    stubRestate();
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_BASELINE, FILL_TARGET));
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+
+    strategyWithCatalog(cache)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    V3SearchDocumentWrite write = v3Write(operationContext, FILL_TARGET, DOCUMENT_KINDS);
+    assertEquals(write.kind(), V3SearchDocumentWrite.Kind.CREATE);
+    JsonNode written = operationContext.getObjectMapper().readTree(write.source());
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertFalse(written.has("structuredProperties.removed__urn_name"));
+    verify(cache, never()).fields(any(), anyString());
+  }
+
+  @Test
+  public void testUpsertWithPreviousDoesNotNullFromTheMappingCatalog() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    mockSearchDocument.put("structuredProperties.kept", "yes");
+    stubTransformedDocument();
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(mock(RecordTemplate.class));
+
+    strategyWithCatalog(cache)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(operationContext, "dataset", false);
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertFalse(written.has("structuredProperties.removed"));
+    verify(cache, never()).fields(any(), anyString());
+  }
+
+  @Test
+  public void testCatchUpReplayDoesNotNullFromTheMappingCatalog() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    stubTransformByAspect(Map.of(DATASET_PROPERTIES_ASPECT_NAME, Map.of("name", "stored")));
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_CATCH_UP, null));
+    OperationContext replayContext = contextWithStoredAspects(storedDataset("stored"));
+    bindDatasetAspects(replayContext);
+    when(elasticSearchService.aspectFieldNamesBySearchGroup(any(), eq("dataset"), any()))
+        .thenReturn(Map.of());
+
+    strategyWithCatalog(cache)
+        .processBatch(replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(replayContext, "dataset", false);
+    assertFalse(written.has("structuredProperties.removed"));
+    verify(cache, never()).fields(any(), anyString());
+  }
+
+  @Test
+  public void testRestateWithTheFlagOffDoesNotNullFromTheMappingCatalog() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(false);
+    mockSearchDocument.put("structuredProperties.kept", "yes");
+    stubRestate();
+
+    strategyWithCatalog(cache)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(operationContext, "dataset", false);
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertFalse(written.has("structuredProperties.removed"));
+    verify(cache, never()).fields(any(), anyString());
+  }
+
+  @Test
+  public void testMappingReadFailureLeavesTheRestateWriteUnchanged() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    when(cache.fields(any(), anyString())).thenReturn(Optional.empty());
+    mockSearchDocument.put("structuredProperties.kept", "yes");
+    stubRestate();
+
+    strategyWithCatalog(cache)
+        .processBatch(
+            operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    JsonNode written = writtenDocument(operationContext, "dataset", false);
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertFalse(written.has("structuredProperties.removed"));
+    v3Write(operationContext, groupIndex(operationContext, "dataset"), DOCUMENT_KINDS);
+  }
+
+  private StructuredPropertyMappingCache catalogReturning(String indexName) {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    when(cache.fields(any(), eq(indexName)))
+        .thenReturn(
+            Optional.of(
+                Set.of(
+                    "structuredProperties.kept",
+                    "structuredProperties.removed",
+                    "structuredProperties.removed__urn_name")));
+    return cache;
+  }
+
+  private void stubRestate() throws Exception {
+    stubTransformedDocument();
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.RESTATE);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(null);
+  }
+
+  private UpdateIndicesV3Strategy strategyWithCatalog(StructuredPropertyMappingCache cache) {
+    return UpdateIndicesV3Strategy.builder()
+        .v3Config(v3Config)
+        .elasticSearchService(elasticSearchService)
+        .searchDocumentTransformer(searchDocumentTransformer)
+        .timeseriesAspectService(timeseriesAspectService)
+        .structuredPropertyMappingCache(cache)
+        .build();
+  }
+
+  private String liveAlias() {
+    return operationContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getEntityIndexNameV3(operationContext, "dataset");
+  }
+
+  private JsonNode writtenDocument(OperationContext context, String index, boolean byIndexName)
+      throws Exception {
+    V3SearchDocumentWrite write =
+        v3Write(context, byIndexName ? index : groupIndex(context, index), DOCUMENT_KINDS);
+    return context.getObjectMapper().readTree(write.source());
   }
 
   /** A context whose primary storage holds {@code storedAspects} for the test entity. */
@@ -2545,12 +2761,10 @@ public class UpdateIndicesV3StrategyTest {
 
     strategy.processBatch(
         replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
-
-    ArgumentCaptor<String> document = ArgumentCaptor.forClass(String.class);
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(
-            eq(replayContext), eq("dataset"), document.capture(), eq(documentId));
-    return replayContext.getObjectMapper().readTree(document.getValue());
+    V3SearchDocumentWrite documentWrite =
+        v3Write(replayContext, groupIndex(replayContext, "dataset"), DOCUMENT_KINDS);
+    assertEquals(documentWrite.docId(), documentId);
+    return replayContext.getObjectMapper().readTree(documentWrite.source());
   }
 
   private Map<String, SystemAspect> storedDataset(String name, Map<String, RecordTemplate> extra) {

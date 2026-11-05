@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -43,10 +45,19 @@ public class ChangeItemImpl implements ChangeMCP {
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate recordTemplate,
       GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
+      @Nonnull MetadataChangeProposal metadataChangeProposal,
+      @Nullable SystemMetadata systemMetadata,
       @Nonnull AuditStamp auditStamp,
       AspectRetriever aspectRetriever) {
+    // Keep the source PATCH MCP, as the template patch path does: its headers carry write
+    // preconditions (If-Version-Match, If-Unmodified-Since, ...) that pre-commit validators read.
     ChangeItemImplBuilder builder =
-        ChangeItemImpl.builder().urn(urn).auditStamp(auditStamp).aspectName(aspectSpec.getName());
+        ChangeItemImpl.builder()
+            .urn(urn)
+            .auditStamp(auditStamp)
+            .aspectName(aspectSpec.getName())
+            .metadataChangeProposal(metadataChangeProposal)
+            .systemMetadata(systemMetadata);
 
     RecordTemplate currentValue =
         recordTemplate != null ? recordTemplate : genericPatchTemplate.getDefault();
@@ -157,13 +168,27 @@ public class ChangeItemImpl implements ChangeMCP {
         this.headers = Map.of();
       }
 
-      ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
-      log.debug("entity type = {}", this.urn.getEntityType());
+      if (handling().toleratesUnknownEntityAspect()) {
+        // Check the entity type before validating the urn: an unknown type (e.g. written by a newer
+        // version before a rollback) must fail as a ValidationException, like an unknown aspect,
+        // not as the IllegalArgumentException batch building treats as "skip silently".
+        entitySpec(
+            ValidationApiUtils.validateEntity(
+                aspectRetriever.getEntityRegistry(), this.urn.getEntityType()));
+        log.debug("entity spec = {}", this.entitySpec);
+        ValidationApiUtils.validateKeyEntityTypes(aspectRetriever.getEntityRegistry(), this.urn);
 
-      entitySpec(
-          ValidationApiUtils.validateEntity(
-              aspectRetriever.getEntityRegistry(), this.urn.getEntityType()));
-      log.debug("entity spec = {}", this.entitySpec);
+        ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
+        log.debug("entity type = {}", this.urn.getEntityType());
+      } else {
+        ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
+        log.debug("entity type = {}", this.urn.getEntityType());
+
+        entitySpec(
+            ValidationApiUtils.validateEntity(
+                aspectRetriever.getEntityRegistry(), this.urn.getEntityType()));
+        log.debug("entity spec = {}", this.entitySpec);
+      }
 
       aspectSpec(ValidationApiUtils.validateAspect(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);
@@ -172,8 +197,8 @@ public class ChangeItemImpl implements ChangeMCP {
         this.recordTemplate = convertToRecordTemplate(this.metadataChangeProposal, aspectSpec);
       }
 
-      ValidationApiUtils.validateRecordTemplate(
-          this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
+      ValidationApiUtils.validateWrittenRecordTemplate(
+          this.entitySpec, this.aspectSpec, this.urn, this.recordTemplate, aspectRetriever);
 
       if (this.systemMetadata == null) {
         // generate default

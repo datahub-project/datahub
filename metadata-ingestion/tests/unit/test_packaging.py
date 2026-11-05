@@ -12,15 +12,41 @@ import datahub._version as datahub_version
 
 _METADATA_INGESTION = Path(__file__).resolve().parent.parent.parent
 
-# Sub-83 versions spanning the range so any relaxed floor is caught (>82 allows
-# 82.5, !=82.* allows 81.x, >=78.1.1, etc.), not just ==82.0.0.
-_SUB_83 = ("0.0.1", "78.1.1", "81.0.0", "82.0.0", "82.5.0", "82.99.0")
+# Current setuptools security floor: CVE-2026-59890 (fixed in 83.0.0) and
+# GHSA-xmj3-9gf7-h52w (Windows path escape via namespace_packages.txt in legacy
+# wheel installs; fixed in 84.1.0).
+_SETUPTOOLS_FLOOR = "84.1.0"
 
-# Sub-26.2 pip versions spanning every CVE window the floor closes: 26.0/26.0.1
+# Sub-floor versions spanning the range so any relaxed floor is caught (>82
+# allows 82.5, !=82.* allows 81.x, >=83.0.0 allows the GHSA-xmj3-9gf7-h52w
+# window, etc.), not just one exact pin.
+_SUB_FLOOR = (
+    "0.0.1",
+    "78.1.1",
+    "81.0.0",
+    "82.0.0",
+    "82.5.0",
+    "82.99.0",
+    "83.0.0",
+    "84.0.0",
+)
+
+# Sub-26.2.2 pip versions spanning every CVE window the floor closes: 26.0/26.0.1
 # (CVE-2026-3219, CVE-2026-6357), 26.1/26.1.1 (CVE-2026-8643), 26.1.2
-# (CVE-2026-13346). Sweeping the range catches a relaxed floor (>26, !=26.1.*,
-# >=26.0, ...), not just ==26.0.
-_SUB_26_2 = ("0.0.1", "25.3", "26.0", "26.0.1", "26.1", "26.1.1", "26.1.2")
+# (CVE-2026-13346), 26.2/26.2.1 (vendored certifi 2026.6.17, GHSA-6q48-6c7w-9gw2).
+# Sweeping the range catches a relaxed floor (>26, !=26.1.*, >=26.0, ...), not
+# just an exact-pin regression.
+_SUB_26_2_2 = (
+    "0.0.1",
+    "25.3",
+    "26.0",
+    "26.0.1",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.2.1",
+)
 
 
 def _load_setup_args(monkeypatch):
@@ -48,20 +74,25 @@ def _declared_requirements(setup_args):
     return reqs
 
 
-def _assert_allows_83(specifier: SpecifierSet, label: str) -> None:
-    # Not-capped: must permit setuptools 83 (CVE-2026-59890 fix). A bare or
-    # relaxed requirement is fine; only a cap that blocks 83 fails.
-    assert specifier.contains("83.0.0"), (
-        f"{label} caps setuptools below 83 (CVE-2026-59890)"
+def _assert_allows_floor(specifier: SpecifierSet, label: str) -> None:
+    # Not-capped: must permit the current security floor (CVE-2026-59890,
+    # GHSA-xmj3-9gf7-h52w fixes). A bare or relaxed requirement is fine; only a
+    # cap that blocks the floor fails.
+    assert specifier.contains(_SETUPTOOLS_FLOOR), (
+        f"{label} caps setuptools below {_SETUPTOOLS_FLOOR} "
+        "(CVE-2026-59890, GHSA-xmj3-9gf7-h52w)"
     )
 
 
-def _assert_floored_at_83(specifier: SpecifierSet, label: str) -> None:
-    # Enforced floor: permit 83 and reject every sub-83 version, so a relaxed
-    # floor (>82, !=82.*, >=78.1.1, ...) is caught, not just ==82.0.0.
-    _assert_allows_83(specifier, label)
-    for below in _SUB_83:
-        assert not specifier.contains(below), f"{label} allows sub-83 {below}"
+def _assert_floored(specifier: SpecifierSet, label: str) -> None:
+    # Enforced floor: permit the floor and reject every sub-floor version, so a
+    # relaxed floor (>82, !=82.*, >=83.0.0, ...) is caught, not just one pin.
+    _assert_allows_floor(specifier, label)
+    for below in _SUB_FLOOR:
+        assert not specifier.contains(below), (
+            f"{label} allows setuptools {below}, below the "
+            f"{_SETUPTOOLS_FLOOR} security floor"
+        )
 
 
 def test_datahub_version():
@@ -69,21 +100,22 @@ def test_datahub_version():
     assert importlib.metadata.version(datahub_version.__package_name__)
 
 
-def test_setuptools_not_capped_below_83(monkeypatch):
+def test_setuptools_not_capped_below_floor(monkeypatch):
     # Acceptance: acryl-datahub must not cap setuptools, so it installs
-    # alongside setuptools>=83 (CVE-2026-59890). setup.py declares no cap; the
-    # >=83 floor is enforced at lock time (pyproject [tool.uv]) and resolved in
-    # constraints.txt. Guards against a cap being reintroduced.
+    # alongside the patched setuptools (CVE-2026-59890, GHSA-xmj3-9gf7-h52w).
+    # setup.py declares no cap; the floor is enforced at lock time (pyproject
+    # [tool.uv]) and resolved in constraints.txt. Guards against a cap being
+    # reintroduced.
 
     # setup.py source of truth: parse the real requirement sets rather than
     # grepping text, so a cap in any operator form (==, ~=, !=, multi-clause)
     # is caught in install_requires and in every extra.
     for req in _declared_requirements(_load_setup_args(monkeypatch)):
         if req.name.lower() == "setuptools":
-            _assert_allows_83(req.specifier, f"setup.py requirement '{req}'")
+            _assert_allows_floor(req.specifier, f"setup.py requirement '{req}'")
 
     # Lock-time floor: pyproject [tool.uv] constraint-dependencies must floor
-    # setuptools at >=83 (kept out of base_requirements for Airflow compat).
+    # setuptools (kept out of base_requirements for Airflow compat).
     pyproject = toml.load(_METADATA_INGESTION / "pyproject.toml")
     uv_constraints = pyproject["tool"]["uv"]["constraint-dependencies"]
     setuptools_reqs = [
@@ -92,17 +124,19 @@ def test_setuptools_not_capped_below_83(monkeypatch):
         if r.name.lower() == "setuptools"
     ]
     assert setuptools_reqs, (
-        "pyproject [tool.uv] constraint-dependencies must floor setuptools>=83"
+        "pyproject [tool.uv] constraint-dependencies must floor "
+        f"setuptools>={_SETUPTOOLS_FLOOR}"
     )
     for req in setuptools_reqs:
-        _assert_floored_at_83(req.specifier, f"[tool.uv] setuptools constraint '{req}'")
+        _assert_floored(req.specifier, f"[tool.uv] setuptools constraint '{req}'")
 
-    # Resolved lock: constraints.txt must land on >=83.
+    # Resolved lock: constraints.txt must land on the floor or above.
     constraints = (_METADATA_INGESTION / "constraints.txt").read_text()
     m = re.search(r"^setuptools==(\S+)", constraints, re.MULTILINE)
     assert m, "setuptools must be pinned in the locked constraints.txt"
-    assert Version(m.group(1)) >= Version("83"), (
-        f"constraints.txt locks setuptools=={m.group(1)}, below the >=83 floor"
+    assert Version(m.group(1)) >= Version(_SETUPTOOLS_FLOOR), (
+        f"constraints.txt locks setuptools=={m.group(1)}, below the "
+        f">={_SETUPTOOLS_FLOOR} floor"
     )
 
 
@@ -123,10 +157,11 @@ def test_stopit_not_a_dependency(monkeypatch):
 
 
 def test_docker_ingestion_snippet_floors_setuptools():
-    # setup.py delegates the CVE-2026-59890 setuptools floor to this Docker
-    # snippet (wired into the datahub-actions image via UV_CONSTRAINT). Guard the
-    # floor stays >=83 here so it can't silently regress. Wiring the same
-    # constraint into the datahub-ingestion image is tracked separately.
+    # setup.py delegates the setuptools security floor (CVE-2026-59890,
+    # GHSA-xmj3-9gf7-h52w) to this Docker snippet (wired into the
+    # datahub-actions image via UV_CONSTRAINT). Guard the floor here so it
+    # can't silently regress. Wiring the same constraint into the
+    # datahub-ingestion image is tracked separately.
     snippet_path = (
         _METADATA_INGESTION.parent / "docker/snippets/ingestion/constraints.txt"
     )
@@ -145,22 +180,24 @@ def test_docker_ingestion_snippet_floors_setuptools():
         if req.name.lower() == "setuptools":
             setuptools_reqs.append(req)
     assert setuptools_reqs, (
-        "docker/snippets/ingestion/constraints.txt must floor setuptools>=83 "
-        "(CVE-2026-59890)"
+        "docker/snippets/ingestion/constraints.txt must floor "
+        f"setuptools>={_SETUPTOOLS_FLOOR} (CVE-2026-59890, GHSA-xmj3-9gf7-h52w)"
     )
     for req in setuptools_reqs:
-        _assert_floored_at_83(req.specifier, f"Docker snippet '{req}'")
+        _assert_floored(req.specifier, f"Docker snippet '{req}'")
 
 
 def _pip_floor_ok(specifier: SpecifierSet, label: str) -> None:
-    # Permit 26.2 and reject every sub-26.2 release, so a relaxed floor is
+    # Permit 26.2.2 and reject every sub-26.2.2 release, so a relaxed floor is
     # caught rather than only an exact-pin regression.
-    assert specifier.contains("26.2"), f"{label} blocks pip 26.2 (CVE-2026-13346)"
-    for below in _SUB_26_2:
-        assert not specifier.contains(below), f"{label} allows sub-26.2 pip {below}"
+    assert specifier.contains("26.2.2"), (
+        f"{label} blocks pip 26.2.2 (GHSA-6q48-6c7w-9gw2)"
+    )
+    for below in _SUB_26_2_2:
+        assert not specifier.contains(below), f"{label} allows sub-26.2.2 pip {below}"
 
 
-def test_pip_floored_at_26_2_everywhere():
+def test_pip_floored_at_26_2_2_everywhere():
     # setup.py declares a bare "pip" (no upper bound: pip is a system tool), so
     # the CVE floor lives in two places that must not drift apart:
     #   - [tool.uv] constraint-dependencies, which resolves into constraints.txt
@@ -168,16 +205,18 @@ def test_pip_floored_at_26_2_everywhere():
     #     venv it builds with it),
     #   - the Docker snippet, wired into the datahub-actions image via
     #     UV_CONSTRAINT and passed to the bundled venv builder.
-    # Floor is 26.2: CVE-2026-3219 and CVE-2026-6357 (fixed 26.1), CVE-2026-8643
-    # (fixed 26.1.2) and CVE-2026-13346 (fixed 26.2).
+    # Floor is 26.2.2: CVE-2026-3219 and CVE-2026-6357 (fixed 26.1), CVE-2026-8643
+    # (fixed 26.1.2), CVE-2026-13346 (fixed 26.2), and GHSA-6q48-6c7w-9gw2 -- pip
+    # 26.2.1 vendors the compromised certifi 2026.6.17; 26.2.2 re-vendors the
+    # fixed 2026.10.19.
     pyproject = toml.load(_METADATA_INGESTION / "pyproject.toml")
     uv_constraints = pyproject["tool"]["uv"]["constraint-dependencies"]
     pip_reqs = [
         r for r in (Requirement(c) for c in uv_constraints) if r.name.lower() == "pip"
     ]
     assert pip_reqs, (
-        "pyproject [tool.uv] constraint-dependencies must floor pip>=26.2 "
-        "(CVE-2026-13346)"
+        "pyproject [tool.uv] constraint-dependencies must floor pip>=26.2.2 "
+        "(GHSA-6q48-6c7w-9gw2)"
     )
     for req in pip_reqs:
         _pip_floor_ok(req.specifier, f"[tool.uv] pip constraint '{req}'")
@@ -186,9 +225,9 @@ def test_pip_floored_at_26_2_everywhere():
     constraints = (_METADATA_INGESTION / "constraints.txt").read_text()
     m = re.search(r"^pip==(\S+)", constraints, re.MULTILINE)
     assert m, "pip must be pinned in the locked constraints.txt"
-    assert Version(m.group(1)) >= Version("26.2"), (
-        f"constraints.txt locks pip=={m.group(1)}, below the >=26.2 floor "
-        "(CVE-2026-13346); re-run ./gradlew :metadata-ingestion:updateLockFile"
+    assert Version(m.group(1)) >= Version("26.2.2"), (
+        f"constraints.txt locks pip=={m.group(1)}, below the >=26.2.2 floor "
+        "(GHSA-6q48-6c7w-9gw2); re-run ./gradlew :metadata-ingestion:updateLockFile"
     )
 
     # Docker snippet: governs the bundled venvs, which install pip explicitly.

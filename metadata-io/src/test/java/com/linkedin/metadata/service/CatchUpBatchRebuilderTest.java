@@ -313,6 +313,91 @@ public class CatchUpBatchRebuilderTest {
         readWith.getValue().getPrimaryStorageContext().getReadPreference(), ReadPreference.PRIMARY);
   }
 
+  @Test
+  public void testIncompleteBaselineBatchIsReplacedByTheWholeStoredEntity() {
+    // The fill creates each document once, so a batch carrying only some aspects would otherwise
+    // become the whole document.
+    DatasetProperties storedProperties = new DatasetProperties().setName("stored");
+    AspectRetriever retriever =
+        retrieverHolding(Map.of(KEY, stored(datasetKey()), PROPERTIES, stored(storedProperties)));
+    MCLItem partial =
+        event(PROPERTIES, new DatasetProperties().setName("row"), BackfillHeaders.MODE_BASELINE);
+
+    ElasticSearchService index = mock(ElasticSearchService.class);
+
+    CatchUpBatchRebuilder.RebuiltBatches rebuilt =
+        new CatchUpBatchRebuilder(index, new Sha256UrnEntityDocumentIdHasher())
+            .rebuild(context(retriever), Map.of(DATASET, List.of(partial)));
+
+    List<MCLItem> events = rebuilt.batches().get(DATASET);
+    assertEquals(
+        events.stream().map(MCLItem::getAspectName).collect(Collectors.toList()),
+        List.of(KEY, PROPERTIES));
+    for (MCLItem event : events) {
+      StringMap headers = event.getMetadataChangeLog().getHeaders();
+      assertEquals(headers.get(BackfillHeaders.MODE_HEADER_NAME), BackfillHeaders.MODE_BASELINE);
+      assertEquals(headers.get(BackfillHeaders.COMPLETE_ENTITY_HEADER_NAME), "true");
+    }
+    assertEquals(events.get(1).getRecordTemplate().data(), storedProperties.data());
+    // A created document has nothing to clear, so the index is not read.
+    verify(index, never()).aspectFieldNamesBySearchGroup(any(), any(), any());
+  }
+
+  @Test
+  public void testIncompleteBaselineKeepsItsHeadersWhenALiveEventLeadsTheBatch() {
+    DatasetProperties storedProperties = new DatasetProperties().setName("stored");
+    AspectRetriever retriever =
+        retrieverHolding(Map.of(KEY, stored(datasetKey()), PROPERTIES, stored(storedProperties)));
+    MCLItem live = event(PROPERTIES, new DatasetProperties().setName("live"), null);
+    MCLItem partial =
+        event(PROPERTIES, new DatasetProperties().setName("row"), BackfillHeaders.MODE_BASELINE);
+
+    List<MCLItem> events =
+        new CatchUpBatchRebuilder(
+                mock(ElasticSearchService.class), new Sha256UrnEntityDocumentIdHasher())
+            .rebuild(context(retriever), Map.of(DATASET, List.of(live, partial)))
+            .batches()
+            .get(DATASET);
+
+    assertFalse(events.isEmpty());
+    for (MCLItem event : events) {
+      assertEquals(
+          event.getMetadataChangeLog().getHeaders().get(BackfillHeaders.MODE_HEADER_NAME),
+          BackfillHeaders.MODE_BASELINE);
+    }
+  }
+
+  @Test
+  public void testCompleteBaselineBatchIsReturnedAsItIs() {
+    AspectRetriever retriever = retrieverHolding(Map.of());
+    MCLItem complete =
+        eventWithHeaders(
+            PROPERTIES,
+            new DatasetProperties().setName("row"),
+            Map.of(
+                BackfillHeaders.MODE_HEADER_NAME,
+                BackfillHeaders.MODE_BASELINE,
+                BackfillHeaders.COMPLETE_ENTITY_HEADER_NAME,
+                "true"));
+    Map<Urn, List<MCLItem>> batches = Map.of(DATASET, List.of(complete));
+
+    assertSame(rebuilder.rebuild(context(retriever), batches).batches(), batches);
+    verify(retriever, never()).getLatestSystemAspects(any(), any());
+  }
+
+  @Test
+  public void testBaselineBatchOfAnEntityGoneFromStorageIsSkipped() {
+    MCLItem partial =
+        event(PROPERTIES, new DatasetProperties().setName("row"), BackfillHeaders.MODE_BASELINE);
+
+    Map<Urn, List<MCLItem>> rebuilt =
+        rebuilder
+            .rebuild(context(retrieverHolding(Map.of())), Map.of(DATASET, List.of(partial)))
+            .batches();
+
+    assertEquals(rebuilt.get(DATASET), List.of(), "a fill has no document to remove");
+  }
+
   private OperationContext context(AspectRetriever retriever) {
     return TestOperationContexts.systemContextNoSearchAuthorization(retriever);
   }
@@ -331,6 +416,14 @@ public class CatchUpBatchRebuilderTest {
   }
 
   private MCLItem event(String aspectName, RecordTemplate record, String backfillMode) {
+    return eventWithHeaders(
+        aspectName,
+        record,
+        backfillMode == null ? null : Map.of(BackfillHeaders.MODE_HEADER_NAME, backfillMode));
+  }
+
+  private MCLItem eventWithHeaders(
+      String aspectName, RecordTemplate record, Map<String, String> headers) {
     EntitySpec datasetSpec = registry.getEntitySpec("dataset");
     MCLItem event = mock(MCLItem.class);
     when(event.getUrn()).thenReturn(DATASET);
@@ -341,8 +434,8 @@ public class CatchUpBatchRebuilderTest {
     when(event.getAuditStamp()).thenReturn(auditStamp());
     when(event.getSystemMetadata()).thenReturn(new SystemMetadata().setRunId("replay"));
     MetadataChangeLog changeLog = new MetadataChangeLog();
-    if (backfillMode != null) {
-      changeLog.setHeaders(new StringMap(Map.of(BackfillHeaders.MODE_HEADER_NAME, backfillMode)));
+    if (headers != null) {
+      changeLog.setHeaders(new StringMap(headers));
     }
     when(event.getMetadataChangeLog()).thenReturn(changeLog);
     return event;

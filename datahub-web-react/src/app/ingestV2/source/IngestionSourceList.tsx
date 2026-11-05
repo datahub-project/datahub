@@ -40,13 +40,13 @@ import {
 } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useAddOwners } from '@app/sharedV2/owners/useAddOwners';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useUpdateOwners } from '@app/sharedV2/owners/useUpdateOwners';
 import useUrlParamsPagination from '@app/sharedV2/pagination/useUrlParamsPagination';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useQueryParamSortCriterion } from '@app/sharedV2/sorting/useQueryParamSortCriterion';
 import { PageRoutes } from '@conf/Global';
 

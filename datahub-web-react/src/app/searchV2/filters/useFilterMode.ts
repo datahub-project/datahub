@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { FilterMode, FilterModes, UnionType } from '@app/searchV2/utils/constants';
 import { hasAdvancedFilters } from '@app/searchV2/utils/hasAdvancedFilters';
-import useLatest from '@app/shared/useLatest';
+import useLatest from '@app/sharedV2/useLatest';
 
 import { FacetFilterInput } from '@types';
 

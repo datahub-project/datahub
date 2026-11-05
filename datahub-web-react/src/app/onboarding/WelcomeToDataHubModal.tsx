@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
-import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
-import { checkShouldSkipWelcomeModal, setSkipWelcomeModal } from '@app/shared/localStorageUtils';
+import { ANT_NOTIFICATION_Z_INDEX } from '@app/sharedV2/constants';
+import { checkShouldSkipWelcomeModal, setSkipWelcomeModal } from '@app/sharedV2/localStorageUtils';
 import {
     SlideContainer,
     SlideDescription,

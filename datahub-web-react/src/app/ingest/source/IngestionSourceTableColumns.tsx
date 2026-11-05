@@ -13,7 +13,7 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
 } from '@app/ingest/source/utils';
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { capitalizeFirstLetter } from '@app/sharedV2/textUtil';
 import { cronToString } from '@utils/cronstrue';
 
 const PreviewImage = styled(Image)`

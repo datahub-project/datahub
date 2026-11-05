@@ -1,5 +1,6 @@
 import get from 'lodash/get';
 import omit from 'lodash/omit';
+import set from 'lodash/set';
 
 import { FieldType, PROFILING_ENABLED, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
@@ -163,17 +164,48 @@ export const ORACLE_INCLUDE_VIEW_COLUMN_LINEAGE: RecipeField = {
 
 export const ORACLE_PROFILING_ENABLED: RecipeField = {
     ...PROFILING_ENABLED,
+    // PROFILING_ENABLED resolves its label through i18next lazily. Spreading it
+    // snapshots the label at module load, before translations are available,
+    // which rendered the checkbox without a label.
+    get label() {
+        return PROFILING_ENABLED.label;
+    },
     tooltip: 'Run profiling queries for table-level statistics (row counts, table size). May increase run time.',
 };
 
-const extractUsageHistoryFieldPath = 'source.config.extract_usage_history';
-export const ORACLE_EXTRACT_USAGE_HISTORY: RecipeField = {
-    name: 'extract_usage_history',
+export const includeQueryUsageFieldPath = 'source.config.include_query_usage';
+export const includeUsageStatsFieldPath = 'source.config.include_usage_stats';
+// Written by earlier versions of this form. It is a Looker option; the Oracle
+// source rejects it as an unknown field, so recipes carrying it fail at startup.
+export const legacyExtractUsageHistoryFieldPath = 'source.config.extract_usage_history';
+export const ORACLE_INCLUDE_QUERY_USAGE: RecipeField = {
+    name: 'include_query_usage',
     label: 'Extract Usage',
-    tooltip: 'Extract usage statistics from Oracle query logs. Shows which users/queries access tables.',
+    tooltip:
+        'Extract usage statistics from Oracle query history (V$SQL). Shows which queries access tables. Requires SELECT on V$SQL or SELECT_CATALOG_ROLE.',
     type: FieldType.BOOLEAN,
-    fieldPath: extractUsageHistoryFieldPath,
+    fieldPath: includeQueryUsageFieldPath,
     rules: null,
+    getValueFromRecipeOverride: (recipe) => {
+        const queryUsage = get(recipe, includeQueryUsageFieldPath);
+        const usageStats = get(recipe, includeUsageStatsFieldPath);
+        // The valid flags win when either is present. Usage needs both; a
+        // recipe with only one set produces none.
+        if (queryUsage !== undefined || usageStats !== undefined) {
+            return !!queryUsage && !!usageStats;
+        }
+        // A recipe saved by the old form shows as checked; toggling it rewrites
+        // the legacy key into the two valid flags.
+        return !!get(recipe, legacyExtractUsageHistoryFieldPath);
+    },
+    // Usage from V$SQL needs both flags: include_query_usage reads the query
+    // history and include_usage_stats turns it into usage statistics.
+    setValueOnRecipeOverride: (recipe, value) => {
+        let updatedRecipe = omit({ ...recipe }, legacyExtractUsageHistoryFieldPath);
+        updatedRecipe = set(updatedRecipe, includeQueryUsageFieldPath, value);
+        updatedRecipe = set(updatedRecipe, includeUsageStatsFieldPath, value);
+        return updatedRecipe;
+    },
 };
 
 const convertUrnsToLowercaseFieldPath = 'source.config.convert_urns_to_lowercase';

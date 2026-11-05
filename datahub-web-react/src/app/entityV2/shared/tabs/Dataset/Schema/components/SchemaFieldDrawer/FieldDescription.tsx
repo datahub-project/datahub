@@ -9,7 +9,7 @@ import { EditorProps } from '@components/components/Editor/types';
 import { sanitizeRichText } from '@components/components/Editor/utils';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
@@ -17,7 +17,7 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import { getFieldDescriptionDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldDescriptionDetails';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';

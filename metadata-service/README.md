@@ -58,7 +58,7 @@ The Metadata Service hosts 2 distinct APIs:
 1. [GraphQL](https://graphql.org/) API
 2. [Rest.li](https://linkedin.github.io/rest.li/) API
 
-The **GraphQL API** serves as the primary public API for the platform. It can be used to fetch and update metadata programatically in the
+The **GraphQL API** serves as the primary public API for the platform. It can be used to fetch and update metadata programmatically in the
 language of your choice.
 
 The **Rest.li** API represents the underlying persistence layer, and exposes the raw PDL models used in storage.
@@ -761,7 +761,7 @@ curl  'http://localhost:8080/entitiesV2/<url-encoded-entity-urn>?aspects=List(up
 
 #### Retrieving Entities (Legacy)
 
-> Note that this method of retrieving entities is deprecated, as it uses the legacy Snapshot models. Please refer to the **Retriving Entity Aspects** section above for the
+> Note that this method of retrieving entities is deprecated, as it uses the legacy Snapshot models. Please refer to the **Retrieving Entity Aspects** section above for the
 > latest guidance.
 
 The Entity Snapshot Get APIs allow to retrieve the latest version of each aspect associated with an Entity.

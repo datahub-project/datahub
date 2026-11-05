@@ -14,7 +14,7 @@ import { ServiceAccountList } from '@app/identity/serviceAccount';
 import { UserList } from '@app/identity/user/UserListV2';
 import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
 import { markRecommendedUsersAsSeen } from '@app/identity/user/recommendedUsersLocalStorage';
-import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
+import { AlchemyRoutedTabs } from '@app/sharedV2/AlchemyRoutedTabs';
 
 import { useListServiceAccountsQuery } from '@graphql/auth.generated';
 import { useListGroupsQuery } from '@graphql/group.generated';

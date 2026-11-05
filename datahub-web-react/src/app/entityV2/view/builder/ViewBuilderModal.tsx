@@ -5,7 +5,7 @@ import { ViewBuilderForm } from '@app/entityV2/view/builder/ViewBuilderForm';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '@app/entityV2/view/types';
 import { hasAtLeastOneValidCondition } from '@app/entityV2/view/utils';
-import ClickOutside from '@app/shared/ClickOutside';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Modal } from '@src/alchemy-components';
 import { ModalButton } from '@src/alchemy-components/components/Modal/Modal';

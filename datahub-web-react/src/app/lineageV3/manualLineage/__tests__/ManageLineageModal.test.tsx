@@ -2,9 +2,9 @@ import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { FetchStatus, LineageNodesContext } from '@app/lineageV3/common';
 import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
-import { EntityAndType } from '@src/app/entity/shared/types';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
@@ -39,14 +39,6 @@ vi.mock('../LineageEdges', () => ({
 // Mock the useEntityRegistry hook
 vi.mock('../../../useEntityRegistry', () => ({
     useEntityRegistry: () => ({
-        getDisplayName: vi.fn().mockImplementation((type, entity) => {
-            if (type === EntityType.DataPlatform) return 'Hive';
-            return entity?.name || 'Test Entity';
-        }),
-        getEntityUrl: vi.fn().mockImplementation((urn) => `/entity/${urn}`),
-        getSearchEntityTypes: vi.fn().mockReturnValue([EntityType.Dataset, EntityType.Dashboard]),
-    }),
-    useEntityRegistryV2: () => ({
         getDisplayName: vi.fn().mockImplementation((type, entity) => {
             if (type === EntityType.DataPlatform) return 'Hive';
             return entity?.name || 'Test Entity';

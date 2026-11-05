@@ -5,15 +5,19 @@ import { useTranslation } from 'react-i18next';
 import { Redirect } from 'react-router';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import {
     ActionMenuItem,
     ENTITY_HEADER_ACTION_ICON_SIZE,
     ENTITY_HEADER_ACTION_ICON_WEIGHT,
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
-import { isDeleteDisabled, shouldDisplayChildDeletionWarning } from '@app/entityV2/shared/EntityDropdown/utils';
-import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import {
+    isDeleteDisabled,
+    isGlossaryTermVersion,
+    shouldDisplayChildDeletionWarning,
+} from '@app/entityV2/shared/EntityDropdown/utils';
+import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -56,6 +60,7 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
                         ? t('delete.cantDeleteSubDomain', { entityName })
                         : t('delete.cantDeleteChild', { entityName });
                 }
+                if (isGlossaryTermVersion(entityType, entityData)) return t('delete.versionTitle');
                 return t('delete.tooltip', { entityName });
             })()}
         >

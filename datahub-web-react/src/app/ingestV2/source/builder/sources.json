@@ -218,6 +218,26 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:sns",
+        "name": "sns",
+        "displayName": "Amazon SNS",
+        "description": "Import Topics, tags, and subscription lineage from Amazon SNS.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sns",
+        "recipe": "source:\n  type: sns\n  config:\n    aws_config:\n      aws_region: \"us-east-1\"\n    # Use the same env and platform_instance as the sqs recipe so topic-to-queue lineage joins.\n    env: \"PROD\"\n    extract_tags: true\n    stateful_ingestion:\n      enabled: true\n",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:sqs",
+        "name": "sqs",
+        "displayName": "Amazon SQS",
+        "description": "Import Queues, tags, and dead-letter queue lineage from Amazon SQS.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sqs",
+        "recipe": "source:\n  type: sqs\n  config:\n    aws_config:\n      aws_region: \"us-east-1\"\n    # Use the same env and platform_instance in the sns recipe so topic-to-queue lineage joins.\n    env: \"PROD\"\n    extract_tags: true\n    stateful_ingestion:\n      enabled: true\n",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:matillion",
         "name": "matillion-dpc",
         "displayName": "Matillion",

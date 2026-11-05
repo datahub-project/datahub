@@ -515,7 +515,11 @@ class MSSQLLineageExtractor:
                             row["wrapped_execution_count"] or 0
                         )
                     query_id = str(row["query_id"])
-                    entry = queries_by_id.get(query_id)
+                    # A temp-table statement comes back once per session, each
+                    # a separate parser session; the aggregator still merges
+                    # them into one Query entity by fingerprint.
+                    fold_key = f"{query_id}|{row['session_key']}"
+                    entry = queries_by_id.get(fold_key)
                     if entry is None:
                         entry = MSSQLQueryEntry(
                             query_id=query_id,
@@ -525,7 +529,7 @@ class MSSQLLineageExtractor:
                             total_exec_time_ms=float(row["total_exec_time_ms"]),
                             database_name=row["database_name"],
                         )
-                        queries_by_id[query_id] = entry
+                        queries_by_id[fold_key] = entry
                         self.queries_extracted += 1
 
                     last_execution_time = row["last_execution_time_utc"]
