@@ -10,7 +10,7 @@ import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
 import { GetBulkEntityLineageV2Document } from '@graphql/lineage.generated';
 import { EntityType, LineageDirection } from '@types';
 
-vi.mock('@app/lineage/utils/useGetLineageTimeParams', () => ({
+vi.mock('@app/lineageV3/utils/useGetLineageTimeParams', () => ({
     useGetLineageTimeParams: () => ({ startTimeMillis: undefined, endTimeMillis: undefined }),
 }));
 
@@ -21,7 +21,7 @@ vi.mock('@app/useAppConfig', async (importOriginal) => ({
 
 vi.mock('@app/useEntityRegistry', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@app/useEntityRegistry')>()),
-    useEntityRegistryV2: () => ({ getLineageVizConfigV2: () => null, getLineageAssets: () => [] }),
+    useEntityRegistry: () => ({ getLineageVizConfigV2: () => null, getLineageAssets: () => [] }),
 }));
 
 vi.mock('@app/lineageV3/common', async (importOriginal) => ({

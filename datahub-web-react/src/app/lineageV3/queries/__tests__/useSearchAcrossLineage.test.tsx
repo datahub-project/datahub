@@ -18,7 +18,7 @@ const timeParams = vi.hoisted(() => ({
     },
 }));
 
-vi.mock('@app/lineage/utils/useGetLineageTimeParams', () => ({
+vi.mock('@app/lineageV3/utils/useGetLineageTimeParams', () => ({
     useGetLineageTimeParams: () => timeParams.current,
 }));
 
