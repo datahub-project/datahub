@@ -8,7 +8,7 @@ spawn multiple users (swarm) that behave according to pre-defined python code.
 For **authorization policy evaluation latency** (17 personas, frontend GraphQL, JSONL bisect/compare), see [`authz-perf/README.md`](./authz-perf/README.md). This is separate from Locust — different venv, different result store, not part of smoke-test.
 
 In this directory, we provide some example locust configs that send common requests to DataHub GMS (ingest, search,
-browse, and graph).
+and graph).
 
 ## Prerequisites
 
@@ -32,11 +32,10 @@ pip3 install -r requirements.txt
 [Locustfiles](./locustfiles) define how the users will behave once they are spawned. Refer to
 this [doc](https://docs.locust.io/en/stable/writing-a-locustfile.html) on how to write one.
 
-Here, we have defined 4 common requests
+Here, we have defined 3 common requests
 
 - Ingest: ingests a dataset with a random URN with properties, browse paths, and ownership aspects filled out
 - Search: searches datasets with query "test"
-- Browse: browses datasets with path "/perf/test"
 - Graph: gets datasets owned by user "common"
 
 We will continue adding more as more use cases arise, but feel free to play around with the default behavior to create a

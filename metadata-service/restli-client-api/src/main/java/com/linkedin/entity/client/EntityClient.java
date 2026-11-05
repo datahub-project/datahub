@@ -8,14 +8,12 @@ import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -159,25 +157,6 @@ public interface EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      @Nullable Integer limit)
-      throws RemoteInvocationException;
-
-  /**
-   * Gets browse snapshot of a given path
-   *
-   * @param entityType entity type being browse
-   * @param path path being browsed
-   * @param requestFilters browse filters
-   * @param start start offset of first dataset
-   * @param limit max number of datasets
-   * @throws RemoteInvocationException when unable to execute request
-   */
-  BrowseResult browse(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityType,
-      @Nonnull String path,
-      @Nullable Map<String, String> requestFilters,
-      int start,
       @Nullable Integer limit)
       throws RemoteInvocationException;
 
@@ -456,17 +435,6 @@ public interface EntityClient {
       @Nullable String scrollId,
       @Nonnull String keepAlive,
       @Nullable Integer limit)
-      throws RemoteInvocationException;
-
-  /**
-   * Gets browse path(s) given dataset urn
-   *
-   * @param urn urn for the entity
-   * @return list of paths given urn
-   * @throws RemoteInvocationException when unable to execute request
-   */
-  @Nonnull
-  StringArray getBrowsePaths(@Nonnull OperationContext opContext, @Nonnull Urn urn)
       throws RemoteInvocationException;
 
   void setWritable(@Nonnull OperationContext opContext, boolean canWrite)

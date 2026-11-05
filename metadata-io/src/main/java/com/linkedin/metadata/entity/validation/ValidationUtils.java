@@ -4,9 +4,6 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.AbstractArrayTemplate;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.browse.BrowseResultEntity;
-import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.LineageRelationship;
@@ -104,45 +101,6 @@ public class ValidationUtils {
     validatedScrollResult.setEntities(validatedEntities);
 
     return validatedScrollResult;
-  }
-
-  public static BrowseResult validateBrowseResult(
-      @Nonnull OperationContext opContext,
-      final BrowseResult browseResult,
-      @Nonnull final EntityService<?> entityService) {
-    return opContext.withSpan(
-        "validateBrowseResult",
-        () -> {
-          if (browseResult == null) {
-            return null;
-          }
-          Objects.requireNonNull(entityService, "entityService must not be null");
-
-          BrowseResult validatedBrowseResult =
-              new BrowseResult()
-                  .setGroups(browseResult.getGroups())
-                  .setMetadata(browseResult.getMetadata())
-                  .setFrom(browseResult.getFrom())
-                  .setPageSize(browseResult.getPageSize())
-                  .setNumGroups(browseResult.getNumGroups())
-                  .setNumEntities(browseResult.getNumEntities())
-                  .setNumElements(browseResult.getNumElements());
-
-          BrowseResultEntityArray validatedEntities =
-              validateSearchUrns(
-                      opContext,
-                      browseResult.getEntities(),
-                      BrowseResultEntity::getUrn,
-                      entityService,
-                      true,
-                      true)
-                  .collect(Collectors.toCollection(BrowseResultEntityArray::new));
-          validatedBrowseResult.setEntities(validatedEntities);
-
-          return validatedBrowseResult;
-        },
-        MetricUtils.DROPWIZARD_NAME,
-        MetricUtils.name(ValidationUtils.class, "validateBrowseResult"));
   }
 
   public static ListResult validateListResult(

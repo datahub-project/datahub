@@ -332,10 +332,6 @@
     "duration": "49.888s"
   },
   {
-    "testId": "tests.e2e.browse.browse_test::test_get_browse_paths",
-    "duration": "10.249s"
-  },
-  {
     "testId": "tests.e2e.cli.dataset_cmd.test_dataset_command::test_dataset_sync_bidirectional",
     "duration": "29.244s"
   },

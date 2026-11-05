@@ -27,9 +27,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
-import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.browse.BrowseResultEntity;
-import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -477,16 +474,10 @@ public class EntityAuthorizationUtilsTest {
             .setEntities(
                 new AutoCompleteEntityArray(
                     List.of(new AutoCompleteEntity().setUrn(DOCUMENT_URN))));
-    BrowseResult browseResult =
-        new BrowseResult()
-            .setEntities(
-                new BrowseResultEntityArray(
-                    List.of(new BrowseResultEntity().setUrn(DOCUMENT_URN))));
 
     assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, searchResult));
     assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, scrollResult));
     assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, autoCompleteResult));
-    assertTrue(EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, browseResult));
 
     LineageSearchEntity lineageSearchEntity = new LineageSearchEntity().setEntity(DOCUMENT_URN);
     LineageSearchResult lineageSearchResult =

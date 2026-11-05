@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.batch.BatchItem;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.entity.IngestResult;
@@ -267,17 +266,6 @@ public class EntitySearchServiceTest {
     }
 
     @Override
-    public BrowseResult browse(
-        OperationContext opContext,
-        String entityName,
-        String path,
-        Filter requestParams,
-        int from,
-        @Nullable Integer size) {
-      return null;
-    }
-
-    @Override
     public BrowseResultV2 browseV2(
         OperationContext opContext,
         String entityName,
@@ -299,11 +287,6 @@ public class EntitySearchServiceTest {
         @Nonnull String input,
         int start,
         @Nullable Integer count) {
-      return null;
-    }
-
-    @Override
-    public List<String> getBrowsePaths(OperationContext opContext, String entityName, Urn urn) {
       return null;
     }
 

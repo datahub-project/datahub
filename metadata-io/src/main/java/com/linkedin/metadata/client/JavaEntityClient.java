@@ -15,7 +15,6 @@ import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -25,7 +24,6 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -277,32 +275,6 @@ public class JavaEntityClient implements EntityClient {
         opContext,
         cachingEntitySearchService.autoComplete(
             opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit),
-        entityService);
-  }
-
-  /**
-   * Gets autocomplete results
-   *
-   * @param entityType entity type being browse
-   * @param path path being browsed
-   * @param requestFilters browse filters
-   * @param start start offset of first dataset
-   * @param limit max number of datasets
-   * @throws RemoteInvocationException when unable to execute request
-   */
-  @Override
-  public BrowseResult browse(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityType,
-      @Nonnull String path,
-      @Nullable Map<String, String> requestFilters,
-      int start,
-      @Nullable Integer limit)
-      throws RemoteInvocationException {
-    return ValidationUtils.validateBrowseResult(
-        opContext,
-        cachingEntitySearchService.browse(
-            opContext, entityType, path, newFilter(requestFilters), start, limit),
         entityService);
   }
 
@@ -625,20 +597,6 @@ public class JavaEntityClient implements EntityClient {
             keepAlive,
             count),
         entityService);
-  }
-
-  /**
-   * Gets browse path(s) given dataset urn
-   *
-   * @param urn urn for the entity
-   * @return list of paths given urn
-   * @throws RemoteInvocationException when unable to execute request
-   */
-  @Override
-  @Nonnull
-  public StringArray getBrowsePaths(@Nonnull OperationContext opContext, @Nonnull Urn urn)
-      throws RemoteInvocationException {
-    return new StringArray(entitySearchService.getBrowsePaths(opContext, urn.getEntityType(), urn));
   }
 
   @Override

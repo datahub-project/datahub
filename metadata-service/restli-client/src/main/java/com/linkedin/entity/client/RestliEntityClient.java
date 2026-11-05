@@ -23,13 +23,11 @@ import com.linkedin.entity.EntitiesBatchGetRequestBuilder;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchIngestRequestBuilder;
-import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteReferencesRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoExistsRequestBuilder;
 import com.linkedin.entity.EntitiesDoFilterExistingUrnsRequestBuilder;
 import com.linkedin.entity.EntitiesDoFilterRequestBuilder;
-import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoListRequestBuilder;
 import com.linkedin.entity.EntitiesDoListUrnsRequestBuilder;
@@ -53,7 +51,6 @@ import com.linkedin.entity.RunsDoRollbackRequestBuilder;
 import com.linkedin.entity.RunsRequestBuilders;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.EntitySpec;
@@ -461,39 +458,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Gets browse snapshot of a given path
-   *
-   * @param entityType entity type being browse
-   * @param path path being browsed
-   * @param requestFilters browse filters
-   * @param start start offset of first dataset
-   * @param limit max number of datasets
-   * @throws RemoteInvocationException when unable to execute request
-   */
-  @Override
-  @Nonnull
-  public BrowseResult browse(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityType,
-      @Nonnull String path,
-      @Nullable Map<String, String> requestFilters,
-      int start,
-      @Nullable Integer limit)
-      throws RemoteInvocationException {
-    EntitiesDoBrowseRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS
-            .actionBrowse()
-            .pathParam(path)
-            .entityParam(entityType)
-            .startParam(start)
-            .limitParam(limit);
-    if (requestFilters != null) {
-      requestBuilder.filterParam(newFilter(requestFilters));
-    }
-    return sendClientRequest(requestBuilder, opContext).getEntity();
-  }
-
-  /**
    * Gets browse V2 snapshot of a given path
    *
    * @param entityName entity being browsed
@@ -871,22 +835,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
-    return sendClientRequest(requestBuilder, opContext).getEntity();
-  }
-
-  /**
-   * Gets browse path(s) given dataset urn
-   *
-   * @param urn urn for the entity
-   * @return list of paths given urn
-   * @throws RemoteInvocationException when unable to execute request
-   */
-  @Override
-  @Nonnull
-  public StringArray getBrowsePaths(@Nonnull OperationContext opContext, @Nonnull Urn urn)
-      throws RemoteInvocationException {
-    EntitiesDoGetBrowsePathsRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS.actionGetBrowsePaths().urnParam(urn);
     return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 

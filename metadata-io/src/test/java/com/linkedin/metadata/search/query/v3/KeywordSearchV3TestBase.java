@@ -58,9 +58,6 @@ import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCLItem;
-import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.browse.BrowseResultEntity;
-import com.linkedin.metadata.browse.BrowseResultGroup;
 import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
@@ -2306,35 +2303,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(groups(acrossEntities), Map.of("sales", 2L, "marketing", 1L));
   }
 
-  /** Browse path v1 is not indexed on Search V3, so legacy browse returns nothing. */
-  @Test
-  public void testBrowse() {
-    BrowseResult root = searchService.browse(opContext, DATASET_ENTITY_NAME, "", null, 0, 10);
-    assertEquals(root.getMetadata().getTotalNumEntities().longValue(), 0L);
-    assertEquals(groups(root), Map.of());
-    assertEquals(root.getNumEntities().intValue(), 0);
-
-    assertEquals(
-        groups(searchService.browse(opContext, DATASET_ENTITY_NAME, "/prod", null, 0, 10)),
-        Map.of());
-
-    BrowseResult sales =
-        searchService.browse(opContext, DATASET_ENTITY_NAME, "/prod/sales", null, 0, 10);
-    assertEquals(groups(sales), Map.of());
-    assertEquals(
-        sales.getEntities().stream().map(BrowseResultEntity::getUrn).collect(Collectors.toList()),
-        List.of());
-  }
-
-  @Test
-  public void testGetBrowsePaths() {
-    assertEquals(searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, ORDERS), List.of());
-    assertEquals(
-        searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, CUSTOMERS), List.of());
-    assertEquals(
-        searchService.getBrowsePaths(opContext, DATA_JOB_ENTITY_NAME, NIGHTLY_JOB), List.of());
-  }
-
   /**
    * A complete qualified-name path outranks an exact terminal name whose identity contains the
    * earlier segments as one run. A namesake that shares only one of those segments, a namesake
@@ -2550,11 +2518,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static Map<String, Long> groups(BrowseResultV2 result) {
     return result.getGroups().stream()
         .collect(Collectors.toMap(BrowseResultGroupV2::getName, BrowseResultGroupV2::getCount));
-  }
-
-  private static Map<String, Long> groups(BrowseResult result) {
-    return result.getGroups().stream()
-        .collect(Collectors.toMap(BrowseResultGroup::getName, BrowseResultGroup::getCount));
   }
 
   @SuppressWarnings("unchecked")
