@@ -317,8 +317,25 @@ jobs:
           node datahub-web-react/scripts/page-bundle-size.mjs --dist datahub-web-react/dist --check
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Ensure codegen is updated
+        uses: ./.github/actions/ensure-codegen-updated
+      - name: Upload frontend build artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: frontend-build-artifacts
+          retention-days: 1
+          # Only the GraphQL codegen output is shipped to the test shards — that is all
+          # :datahub-web-react:yarnTest (Vitest) consumes. Do NOT re-add datahub-frontend/build:
+          # it is the ~2GB Java/Play output, unused by the React tests, and downloading it in
+          # every shard made download-artifact fail after retries (digest-mismatch). See #16916
+          # for the original split; the Java build still runs above as a build-check, it just
+          # no longer uploads its output.
+          path: |
+            datahub-web-react/src/**/*.generated.ts
       # datahub-frontend's Java tests (and their JaCoCo report) run in this job's Gradle build,
-      # not in frontend-test, so its coverage has to be uploaded from here.
+      # not in frontend-test, so its coverage has to be uploaded from here. Keep these steps after
+      # "Ensure codegen is updated": codecov-action downloads its CLI into the workspace, which
+      # that step's `git status --porcelain` check would report as uncommitted changes.
       - name: Upload datahub-frontend Java coverage to Codecov
         if: ${{ !cancelled() && github.event_name != 'release' }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
@@ -342,21 +359,6 @@ jobs:
           name: frontend-java
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
-      - name: Ensure codegen is updated
-        uses: ./.github/actions/ensure-codegen-updated
-      - name: Upload frontend build artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: frontend-build-artifacts
-          retention-days: 1
-          # Only the GraphQL codegen output is shipped to the test shards — that is all
-          # :datahub-web-react:yarnTest (Vitest) consumes. Do NOT re-add datahub-frontend/build:
-          # it is the ~2GB Java/Play output, unused by the React tests, and downloading it in
-          # every shard made download-artifact fail after retries (digest-mismatch). See #16916
-          # for the original split; the Java build still runs above as a build-check, it just
-          # no longer uploads its output.
-          path: |
-            datahub-web-react/src/**/*.generated.ts
 
   frontend-test:
     strategy:
