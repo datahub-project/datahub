@@ -387,3 +387,34 @@ def test_intra_model_edges_use_emitted_field_casing() -> None:
         builder.make_schema_field_urn(dataset_urn, "Total Sales")
     ]
     assert edge.upstreams == [builder.make_schema_field_urn(dataset_urn, "Amount")]
+
+
+def test_intra_model_edges_use_the_first_of_colliding_tables() -> None:
+    # The mapper only emits the first of two tables whose names collide
+    # case-insensitively, so field names must come from that table.
+    extractor = _extractor()
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Model",
+        tables=[
+            AasTable(
+                name="Sales",
+                columns=[AasColumn(name="Amount", datahub_data_type=NullTypeClass())],
+                measures=[AasMeasure(name="Total")],
+            ),
+            AasTable(
+                name="SALES",
+                columns=[AasColumn(name="AMOUNT", datahub_data_type=NullTypeClass())],
+                measures=[AasMeasure(name="TOTAL")],
+            ),
+        ],
+        calc_dependencies=[
+            _calc_dep("MEASURE", "Sales", "Total", "COLUMN", "Sales", "Amount")
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.Sales"
+    )
+    [edge] = extractor.extract_intra_model_lineage(model, {"sales": dataset_urn})
+    assert edge.downstreams == [builder.make_schema_field_urn(dataset_urn, "Total")]
+    assert edge.upstreams == [builder.make_schema_field_urn(dataset_urn, "Amount")]

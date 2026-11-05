@@ -242,6 +242,12 @@ class AthenaPlatformOverride(ConfigModel):
         "If specified, this override only applies when the query comes from this DSN.",
     )
 
+    # Overrides match by exact string, so padding would silently disable one.
+    @field_validator("database", "table", "dsn")
+    @classmethod
+    def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
+
 
 def validate_athena_platform_overrides(
     overrides: Sequence[AthenaPlatformOverride],

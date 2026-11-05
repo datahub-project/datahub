@@ -4,7 +4,7 @@
     "azureAnalysisServices.authType.interactive": "Interactif",
     "azureAnalysisServices.authType.label": "Type d'authentification",
     "azureAnalysisServices.authType.servicePrincipal": "Principal de service",
-    "azureAnalysisServices.authType.tooltip": "Le principal de service utilise un id client et un secret. Le code d'appareil et le mode interactif passent par une connexion utilisateur. Nom d'utilisateur et mot de passe utilise les identifiants du propriétaire de la ressource.",
+    "azureAnalysisServices.authType.tooltip": "Le principal de service utilise un id client et un secret. Le code d'appareil et le mode interactif passent par une connexion utilisateur. Nom d'utilisateur et mot de passe utilisent les identifiants du propriétaire de la ressource.",
     "azureAnalysisServices.authType.usernamePassword": "Nom d'utilisateur et mot de passe",
     "azureAnalysisServices.clientId.helper": "Id de l'application (client) Azure AD",
     "azureAnalysisServices.clientId.label": "ID client",

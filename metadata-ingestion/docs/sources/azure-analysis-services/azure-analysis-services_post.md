@@ -26,6 +26,7 @@ produced by the Power BI connector instead of appearing as a separate platform.
 
 #### Authentication failures
 
-Confirm the identity is a member of a model role (or a server administrator) and that the endpoint
+Confirm the identity is in a model role with the Administrator permission (or is a server
+administrator) and that the endpoint
 region in `server` matches the token scope. For service principals, verify `tenant_id`,
 `client_id`, and `client_secret` are all set.
