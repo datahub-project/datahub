@@ -4,7 +4,7 @@ import socket
 import ssl
 import sys
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, Iterable, List, Literal, Optional, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -27,6 +27,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -373,24 +374,27 @@ class QlikOnPremAPI:
         logger.debug(f"QRS data connections: {list(connections.values())}")
         return connections
 
-    def get_items(self, space_id: str) -> List[Item]:
-        items: List[Item] = []
+    def get_items(self, space_id: str) -> Iterable[Item]:
         if space_id not in self.spaces:
-            return items
+            return
         if not self.config.space_pattern.allowed(self.spaces[space_id]):
-            return items
+            return
         qrs_filter = (
             "published eq false"
             if space_id == UNPUBLISHED_APPS_ID
             else f"stream.id eq {space_id}"
         )
         try:
-            for app_dict in self._get(
-                "/app/full", params={"filter": qrs_filter}
-            ).json():
-                app = self._load_app(app_dict)
-                if app:
-                    items.append(app)
+            app_dicts = self._get("/app/full", params={"filter": qrs_filter}).json()
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch apps. Exception: {e}")
-        return items
+            return
+        # Engine reads are network-bound; the GIL is only held while decoding replies.
+        for future in BackpressureAwareExecutor.map(
+            self._load_app,
+            ((app_dict,) for app_dict in app_dicts),
+            max_workers=self.config.max_workers,
+        ):
+            app = future.result()
+            if app:
+                yield app

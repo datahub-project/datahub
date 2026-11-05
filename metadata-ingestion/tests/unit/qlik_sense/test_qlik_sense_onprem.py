@@ -138,7 +138,7 @@ def test_onprem_lists_stream_and_opens_app(
     assert [space.name for space in spaces] == ["Everyone"]
     assert api.get_user_name("user-1") == "Ada"
 
-    items = api.get_items("stream-1")
+    items = list(api.get_items("stream-1"))
     assert len(items) == 1
     app = items[0]
     assert isinstance(app, App)
@@ -170,12 +170,54 @@ def test_onprem_keeps_app_when_engine_is_unreachable(
 
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     api.get_spaces()
-    items = api.get_items("stream-1")
+    items = list(api.get_items("stream-1"))
 
     assert len(items) == 1
     app = items[0]
     assert isinstance(app, App)
     assert app.sheets == []
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_loads_apps_in_parallel(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    app_ids = [f"app-{i}" for i in range(6)]
+
+    def qrs_get(
+        url: str, params: Optional[Dict[str, str]] = None, **kwargs: object
+    ) -> _Response:
+        if url.endswith("/app/full"):
+            return _Response([{**APP, "id": app_id} for app_id in app_ids])
+        return _qrs_get(url, params, **kwargs)
+
+    def open_engine(app_id: str, **_: object) -> MagicMock:
+        websocket = MagicMock()
+        websocket.websocket_send_request.side_effect = _engine_calls()
+        websocket.get_script.return_value = f"// {app_id}"
+        return websocket
+
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = qrs_get
+    mock_engine.side_effect = open_engine
+
+    api = QlikOnPremAPI(
+        QlikSourceConfig.model_validate({**ONPREM_CONFIG, "max_workers": 3})
+    )
+    api.get_spaces()
+    items = list(api.get_items("stream-1"))
+
+    assert sorted(item.id for item in items) == app_ids
+    assert all(
+        isinstance(item, App)
+        and item.script == f"// {item.id}"
+        and [sheet.title for sheet in item.sheets] == ["Overview"]
+        for item in items
+    )
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")

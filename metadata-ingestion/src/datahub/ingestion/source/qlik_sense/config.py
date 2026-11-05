@@ -207,6 +207,12 @@ class QlikSourceConfig(
         default=False,
         description="On-prem only. Also ingest apps that are not published to a stream.",
     )
+    max_workers: int = Field(
+        default=4,
+        ge=1,
+        description="On-prem only. Number of apps read from the Engine at the same time. "
+        "Each worker holds one Engine session open.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
         description="Configuration for stateful ingestion and stale metadata removal.",

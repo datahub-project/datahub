@@ -14,6 +14,7 @@ class WebsocketConnection:
         self.socket_connection: Optional[WebSocket] = create_connection(
             f"{self.websocket_url}/{app_id}",
             header={"Authorization": f"Bearer {api_key}"},
+            skip_utf8_validation=True,
         )
         self.request_id = 0
         self.handle = [-1]
@@ -49,6 +50,9 @@ class WebsocketConnection:
             f"{connection.websocket_url}/{app_id}",
             header={"X-Qlik-User": user_header},
             sslopt=sslopt,
+            # The pure-Python frame check costs more CPU than the rest of an app
+            # read, and recv() already rejects invalid UTF-8 when it decodes.
+            skip_utf8_validation=True,
         )
         connection.request_id = 0
         connection.handle = [-1]
