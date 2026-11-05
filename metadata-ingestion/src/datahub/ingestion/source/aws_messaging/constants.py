@@ -111,6 +111,11 @@ GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
 
 S3_PREFIX_FILTER = "prefix"
 S3_SUFFIX_FILTER = "suffix"
+# The file types and compressions the s3 source reads, from
+# data_lake_common.path_spec, which can't be imported here: its dependencies
+# aren't installed with the sqs and sns plugins. A test keeps them in sync.
+S3_SOURCE_FILE_TYPES = frozenset({"csv", "tsv", "json", "jsonl", "parquet", "avro"})
+S3_SOURCE_COMPRESSIONS = frozenset({"gz", "bz2", "gzip", "zip"})
 # Bucket-wide notifications on a big data lake would otherwise link thousands.
 MAX_S3_DATASETS_PER_NOTIFICATION = 100
 

@@ -15,12 +15,18 @@ from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase
 from datahub.ingestion.source.aws_messaging.clients import S3NotificationClient
 from datahub.ingestion.source.aws_messaging.constants import (
     MIN_BOTOCORE_FOR_BUCKET_REGION,
+    S3_SOURCE_COMPRESSIONS,
+    S3_SOURCE_FILE_TYPES,
 )
 from datahub.ingestion.source.aws_messaging.models import Arn, BucketNotification
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
+from datahub.ingestion.source.data_lake_common.path_spec import (
+    SUPPORTED_COMPRESSIONS,
+    SUPPORTED_FILE_TYPES,
+)
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     MetadataChangeProposalClass,
@@ -567,18 +573,25 @@ def _s3_urn(name: str) -> str:
             {
                 "landing/incoming",
                 "landing/incoming/orders",
+                "landing/incoming/orders.v2",
                 "landing/incoming2/orders",
                 "landing/incoming/a.csv",
-                "landing/incoming/b.json",
+                "landing/incoming/b.json.gz",
             },
         ),
         # A leading slash is part of the key, so it matches no dataset.
         ("/incoming/", None, set()),
-        # A suffix filters file datasets; folder datasets are kept.
+        # A suffix filters file datasets; folder datasets, dotted ones too, are
+        # kept.
         (
             "incoming/",
             ".csv",
-            {"landing/incoming", "landing/incoming/orders", "landing/incoming/a.csv"},
+            {
+                "landing/incoming",
+                "landing/incoming/orders",
+                "landing/incoming/orders.v2",
+                "landing/incoming/a.csv",
+            },
         ),
         # A suffix with no prefix applies across the whole bucket.
         (
@@ -587,6 +600,7 @@ def _s3_urn(name: str) -> str:
             {
                 "landing/incoming",
                 "landing/incoming/orders",
+                "landing/incoming/orders.v2",
                 "landing/incoming2/orders",
                 "landing/incoming/a.csv",
             },
@@ -600,9 +614,10 @@ def test_notification_filters_match_datasets(
     names = [
         "landing/incoming",
         "landing/incoming/orders",
+        "landing/incoming/orders.v2",
         "landing/incoming2/orders",
         "landing/incoming/a.csv",
-        "landing/incoming/b.json",
+        "landing/incoming/b.json.gz",
     ]
     graph = search_graph([_s3_urn(name) for name in names])
     lineage = s3_notifications.S3NotificationLineage(
@@ -653,3 +668,8 @@ def test_notification_suffix_rule_is_read(aws: None) -> None:
             bucket="landing", target_arn=queue_arn, prefix="incoming/", suffix=".csv"
         )
     ]
+
+
+def test_file_types_match_the_s3_source() -> None:
+    assert set(SUPPORTED_FILE_TYPES) == S3_SOURCE_FILE_TYPES
+    assert set(SUPPORTED_COMPRESSIONS) == S3_SOURCE_COMPRESSIONS

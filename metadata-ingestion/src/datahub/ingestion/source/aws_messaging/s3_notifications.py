@@ -12,6 +12,8 @@ from datahub.ingestion.source.aws_messaging.config import LinkedPlatformDetail
 from datahub.ingestion.source.aws_messaging.constants import (
     MAX_S3_DATASETS_PER_NOTIFICATION,
     S3_PLATFORM,
+    S3_SOURCE_COMPRESSIONS,
+    S3_SOURCE_FILE_TYPES,
     LineageRelationship,
 )
 from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
@@ -19,6 +21,15 @@ from datahub.ingestion.source.aws_messaging.models import BucketNotification
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.metadata.urns import DatasetUrn
+
+
+def _is_file_name(name: str) -> bool:
+    """Whether an s3 dataset name's last segment is a file, e.g. `a.csv` or
+    `a.json.gz`, rather than a folder."""
+    parts = name.lower().split(".")
+    if len(parts) > 2 and parts[-1] in S3_SOURCE_COMPRESSIONS:
+        parts = parts[:-1]
+    return len(parts) > 1 and parts[-1] in S3_SOURCE_FILE_TYPES
 
 
 class S3NotificationLineage:
@@ -96,8 +107,9 @@ class S3NotificationLineage:
         `landing` doesn't match bucket `landing-archive`.
 
         A suffix filter can only be checked against a file dataset (one named
-        after a file, such as `bucket/orders/2024.csv`); a folder dataset is
-        kept, since the files in it aren't known here."""
+        after a file the s3 source reads, such as `bucket/orders/2024.csv`); a
+        folder dataset, dotted ones like `orders.v2` included, is kept, since
+        the files in it aren't known here."""
         name = f"{notification.bucket}/{notification.prefix or ''}"
         suffix = notification.suffix
         if suffix and self.convert_urns_to_lowercase:
@@ -107,7 +119,7 @@ class S3NotificationLineage:
             if not suffix:
                 return True
             leaf = DatasetUrn.from_string(urn).name.rsplit("/", 1)[-1]
-            return "." not in leaf or leaf.endswith(suffix)
+            return not _is_file_name(leaf) or leaf.endswith(suffix)
 
         if not name.endswith("/"):
             plain = self._urn(name)[: -len(f",{self.env})")]
