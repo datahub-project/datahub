@@ -643,36 +643,21 @@ public class BulkTelemetryTest {
 
   @Test
   public void lossesAreLoggedOnceThenDebounced() {
-    ch.qos.logback.classic.Logger logger =
-        (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(BulkTelemetry.class);
-    ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
-        new ch.qos.logback.core.read.ListAppender<>();
-    appender.start();
-    logger.addAppender(appender);
-    try {
-      BulkTelemetry t = create(tracer(new Collector()), true, false, null);
-      try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
-        for (int i = 0; i < 20_000; i++) {
-          t.onAdd(new IndexRequest("idx").id("" + i));
-        }
-        assertTrue(appender.list.isEmpty(), "nothing is logged while nothing is lost");
-        t.onAdd(new IndexRequest("idx").id("overflow-1")); // clears 20,000
-        for (int i = 0; i < 20_000; i++) {
-          t.onAdd(new IndexRequest("idx").id("again-" + i)); // fills it again, clears again
-        }
+    // Counted rather than captured from logback: another test's Spring Boot context in the same
+    // JVM can reconfigure logging and swallow a captured line.
+    BulkTelemetry t = create(tracer(new Collector()), true, false, null);
+    try (Scope ignored = remoteSpan(TRACE_A, "b7ad6b7169203331").makeCurrent()) {
+      for (int i = 0; i < 20_000; i++) {
+        t.onAdd(new IndexRequest("idx").id("" + i));
       }
-      assertEquals(t.droppedOrigins(), 40_000L);
-      List<ch.qos.logback.classic.spi.ILoggingEvent> warnings =
-          appender.list.stream()
-              .filter(e -> e.getLevel() == ch.qos.logback.classic.Level.WARN)
-              .toList();
-      assertEquals(warnings.size(), 1, "the second overflow falls inside the debounce interval");
-      String line = warnings.get(0).getFormattedMessage();
-      assertTrue(line.contains("20000 trace link(s) lost"), line);
-      assertTrue(line.contains("writes are unaffected"), line);
-    } finally {
-      logger.detachAppender(appender);
+      assertEquals(t.lossWarnings(), 0L, "nothing is logged while nothing is lost");
+      t.onAdd(new IndexRequest("idx").id("overflow-1")); // clears 20,000
+      for (int i = 0; i < 20_000; i++) {
+        t.onAdd(new IndexRequest("idx").id("again-" + i)); // fills it again, clears again
+      }
     }
+    assertEquals(t.droppedOrigins(), 40_000L);
+    assertEquals(t.lossWarnings(), 1L, "the second overflow falls inside the debounce interval");
   }
 
   @Test

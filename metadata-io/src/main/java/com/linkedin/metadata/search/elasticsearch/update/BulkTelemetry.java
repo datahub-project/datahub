@@ -154,6 +154,7 @@ public final class BulkTelemetry {
   private final AtomicLong nextLossLogNanos = new AtomicLong(Long.MIN_VALUE);
   private final AtomicLong loggedDropped = new AtomicLong();
   private final AtomicLong loggedAbandoned = new AtomicLong();
+  private final AtomicLong lossWarnings = new AtomicLong();
 
   /** Actions added and not yet in a batch. Strong keys; see the class comment. */
   private final OriginTable pending = new OriginTable(MAX_PENDING);
@@ -336,6 +337,7 @@ public final class BulkTelemetry {
     if (!nextLossLogNanos.compareAndSet(next, now + LOSS_LOG_INTERVAL_NANOS)) {
       return;
     }
+    lossWarnings.incrementAndGet();
     long droppedNow = droppedOrigins();
     long abandonedNow = abandoned.get();
     long droppedSince = droppedNow - loggedDropped.getAndSet(droppedNow);
@@ -577,6 +579,11 @@ public final class BulkTelemetry {
   }
 
   /** Batches whose span was ended without {@code afterBulk}; see {@link #close}. */
+  /** Loss warnings written so far (at most one per {@link #LOSS_LOG_INTERVAL_NANOS}). */
+  public long lossWarnings() {
+    return lossWarnings.get();
+  }
+
   public long abandonedBatches() {
     return abandoned.get();
   }

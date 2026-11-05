@@ -13,8 +13,8 @@ import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.metadata.search.elasticsearch.client.shim.SearchConnectionPoolMetrics;
 import com.linkedin.metadata.elasticsearch.update.BulkTelemetryTest;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchConnectionPoolMetrics;
 import com.linkedin.metadata.search.elasticsearch.update.BulkTelemetry;
 import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
