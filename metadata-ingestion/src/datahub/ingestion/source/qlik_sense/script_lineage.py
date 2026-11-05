@@ -3,9 +3,6 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
-BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
-# `//` after a colon is part of a URL or `lib://` path, not a comment.
-LINE_COMMENT_RE = re.compile(r"(?<![:\w])//[^\n]*")
 CONNECT_RE = re.compile(
     r"^(?:(?:LIB|ODBC|OLEDB|CUSTOM)\s+)?CONNECT(?:32|64)?\s+TO\s+"
     r"(?:'(?P<single>[^']*)'|\[(?P<bracket>[^\]]*)\]|\"(?P<double>[^\"]*)\"|(?P<bare>\S+))",
@@ -26,8 +23,10 @@ SQL_RE = re.compile(
 )
 LOAD_RE = re.compile(r"^LOAD\b", re.IGNORECASE)
 LOAD_SOURCE_RE = re.compile(r"\b(?:FROM|RESIDENT|INLINE|AUTOGENERATE)\b", re.IGNORECASE)
+QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]")
 DATABASE_RE = re.compile(
-    r"(?:^|[;\s])(?:database|initial catalog|catalog|conncatalog)\s*=\s*(?P<db>[^;\s]+)",
+    r"(?:^|[;\s])(?:database|initial catalog|catalog|conncatalog)\s*=\s*[\"'\[]?"
+    r"(?P<db>[^;\]\"']+)",
     re.IGNORECASE,
 )
 QUOTE_PAIRS = {"'": "'", '"': '"', "[": "]"}
@@ -74,6 +73,33 @@ class DataConnectionInfo(BaseModel):
     database: Optional[str] = None
 
 
+def _strip_comments(script: str) -> str:
+    kept: List[str] = []
+    closing: Optional[str] = None
+    i = 0
+    while i < len(script):
+        char = script[i]
+        if closing:
+            if char == closing:
+                closing = None
+        elif char in QUOTE_PAIRS:
+            closing = QUOTE_PAIRS[char]
+        elif script.startswith("/*", i):
+            end = script.find("*/", i + 2)
+            i = len(script) if end == -1 else end + 2
+            continue
+        # `//` after a colon is part of a URL or `lib://` path, not a comment.
+        elif script.startswith("//", i) and not (
+            kept and (kept[-1] == ":" or kept[-1].isalnum() or kept[-1] == "_")
+        ):
+            end = script.find("\n", i)
+            i = len(script) if end == -1 else end
+            continue
+        kept.append(char)
+        i += 1
+    return "".join(kept)
+
+
 def _split_statements(script: str) -> List[str]:
     statements: List[str] = []
     current: List[str] = []
@@ -97,7 +123,7 @@ def _first_group(match: "re.Match[str]") -> str:
 
 
 def parse_load_script(script: str) -> List[ScriptTable]:
-    script = LINE_COMMENT_RE.sub("", BLOCK_COMMENT_RE.sub("", script))
+    script = _strip_comments(script)
     tables: List[ScriptTable] = []
     connection: Optional[str] = None
     pending_label: Optional[str] = None
@@ -127,7 +153,9 @@ def parse_load_script(script: str) -> List[ScriptTable]:
                 )
             )
             pending_label = None
-        elif LOAD_RE.match(statement) and not LOAD_SOURCE_RE.search(statement):
+        elif LOAD_RE.match(statement) and not LOAD_SOURCE_RE.search(
+            QUOTED_RE.sub("", statement)
+        ):
             # A preceding LOAD names the SQL SELECT that follows it.
             pending_label = label
         else:
@@ -144,7 +172,7 @@ def infer_data_connection(name: str, descriptor: str) -> DataConnectionInfo:
     return DataConnectionInfo(
         name=name,
         platform=platform,
-        database=database.group("db").strip("'\"[]") if database else None,
+        database=database.group("db").strip() if database else None,
     )
 
 

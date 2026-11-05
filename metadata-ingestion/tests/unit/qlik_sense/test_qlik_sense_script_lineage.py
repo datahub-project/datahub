@@ -13,10 +13,10 @@ Sales: LOAD * FROM [lib://Files/sales.qvd] (qvd);
 LIB CONNECT TO 'Finance:Sales SQL';
 Orders:
 NoConcatenate
-SQL SELECT o.order_id, o.amount FROM dbo.orders o WHERE note <> 'a;b';
+SQL SELECT o.order_id, o.amount FROM dbo.orders o WHERE note <> 'a;b // c /* d */';
 
 Customers:
-LOAD customer_id, upper(name) AS name;
+LOAD customer_id, [From], upper(name) AS name;
 SELECT customer_id, name FROM dbo.customers;
 
 DISCONNECT;
@@ -34,7 +34,7 @@ def test_parse_load_script_tracks_connections_and_labels() -> None:
         ("table_3", "Lakehouse"),
     ]
     assert tables[0].sql.startswith("SELECT o.order_id")
-    assert "'a;b'" in tables[0].sql
+    assert "'a;b // c /* d */'" in tables[0].sql
 
 
 def test_infer_data_connection_reads_driver_and_database() -> None:
@@ -43,6 +43,12 @@ def test_infer_data_connection_reads_driver_and_database() -> None:
         "OLEDB CONNECT TO [Provider=MSOLEDBSQL;Data Source=db;Initial Catalog=sales_db]",
     )
     assert (sql_server.platform, sql_server.database) == ("mssql", "sales_db")
+
+    spaced = infer_data_connection(
+        "Warehouse",
+        "OLEDB CONNECT TO [Provider=MSOLEDBSQL;Initial Catalog=Sales Warehouse];OLEDB",
+    )
+    assert spaced.database == "Sales Warehouse"
 
     databricks = infer_data_connection("Lakehouse", "Simba Spark ODBC Databricks")
     assert databricks.platform == "databricks"

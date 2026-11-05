@@ -514,7 +514,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if not app.script:
             return []
         tables: Dict[str, ScriptTableLineage] = {}
+        # Tables the data model already traces are ingested from it instead.
+        traced = {table.tableName for table in app.tables if table.tableQri}
         for script_table in parse_load_script(app.script):
+            if script_table.label in traced:
+                continue
             self.reporter.script_tables_found += 1
             detail = self._resolve_script_connection(script_table.connection)
             logger.debug(
@@ -557,10 +561,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             for column in result.column_lineage or []:
                 lineage.column_upstreams.setdefault(
                     column.downstream.column, []
-                ).extend(
-                    builder.make_schema_field_urn(upstream.table, upstream.column)
-                    for upstream in column.upstreams
-                )
+                ).extend(column.upstream_schema_field_urns())
         self.reporter.script_tables_with_lineage += len(tables)
         return list(tables.values())
 
