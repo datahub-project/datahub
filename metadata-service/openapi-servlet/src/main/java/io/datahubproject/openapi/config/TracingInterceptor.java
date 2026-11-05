@@ -47,7 +47,6 @@ public class TracingInterceptor implements AsyncHandlerInterceptor {
 
   @Nullable private final RequestAttributionConfiguration attribution;
 
-
   public TracingInterceptor(final SystemTelemetryContext systemTelemetryContext) {
     this(systemTelemetryContext, null);
   }

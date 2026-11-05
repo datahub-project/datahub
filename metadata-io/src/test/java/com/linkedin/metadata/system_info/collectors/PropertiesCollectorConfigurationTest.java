@@ -1170,7 +1170,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "telemetry.enabledIngestion",
           "telemetry.enabledServer",
           "telemetry.enableThirdPartyLogging",
-          "telemetry.traceContinuation",
           "telemetry.requestAttribution.enabled",
           "telemetry.requestAttribution.opensearchOpaqueId",
           "telemetry.requestAttribution.postgresActorComment",

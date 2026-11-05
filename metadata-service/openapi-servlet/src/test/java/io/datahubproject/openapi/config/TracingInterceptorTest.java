@@ -3,7 +3,6 @@ package io.datahubproject.openapi.config;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.never;
@@ -379,7 +378,6 @@ public class TracingInterceptorTest {
     verify(markerSpan, times(1)).end();
   }
 
-
   @Test
   public void testAttribution_constructorToleratesMissingConfig() {
     ConfigurationProvider provider = new ConfigurationProvider(); // telemetry is null
@@ -400,5 +398,4 @@ public class TracingInterceptorTest {
     assertTrue(interceptor.preHandle(request, response, new Object()));
     verify(request).setAttribute(eq("otelScope"), any());
   }
-
 }
