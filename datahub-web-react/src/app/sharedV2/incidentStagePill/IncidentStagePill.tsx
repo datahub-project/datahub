@@ -14,7 +14,7 @@ import { IncidentStage } from '@src/types.generated';
 
 export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string; showLabel?: boolean }) => {
     const theme = useTheme();
-    const { t } = useTranslation('alchemy');
+    const { t } = useTranslation('entity.profile.incident');
     const { t: tc } = useTranslation('common.labels');
 
     const stageConfig = useMemo(
