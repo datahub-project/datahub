@@ -85,7 +85,10 @@ class WebsocketConnection:
             resp = self.socket_connection.recv()
             if request["handle"] == -1:
                 resp = self.socket_connection.recv()
-            return json.loads(resp)[Constant.RESULT]
+            message = json.loads(resp)
+            if "error" in message:
+                raise RuntimeError(str(message["error"]))
+            return message[Constant.RESULT]
         return {}
 
     def websocket_send_request(

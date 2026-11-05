@@ -1,5 +1,7 @@
 import logging
 import secrets
+import socket
+import ssl
 import sys
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -45,6 +47,24 @@ class _AssertHostnameAdapter(HTTPAdapter):
         super().init_poolmanager(*args, **kwargs)
 
 
+def _presented_certificate(
+    host: str, port: int, client_cert: str, client_key: str
+) -> str:
+    # Diagnostic only: the handshake skips verification so the certificate the
+    # server actually sends can be compared with root_cert.
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    try:
+        context.load_cert_chain(client_cert, client_key)
+        with socket.create_connection((host, port), timeout=10) as sock:
+            with context.wrap_socket(sock, server_hostname=host) as tls:
+                der = tls.getpeercert(binary_form=True)
+    except (OSError, ssl.SSLError) as e:
+        return f"<unable to read: {e}>"
+    return ssl.DER_cert_to_PEM_cert(der) if der else "<no certificate presented>"
+
+
 def normalize_qlik_timestamp(value: str) -> str:
     # QRS sometimes omits the fractional seconds that Cloud always sends.
     if value.endswith("Z") and "." not in value:
@@ -80,7 +100,15 @@ class QlikOnPremAPI:
         if assert_hostname is not None:
             self.session.mount(self.qrs_url, _AssertHostnameAdapter(assert_hostname))
         logger.info(f"Trying to connect to {self.qrs_url}")
-        self._get("/about")
+        try:
+            self._get("/about")
+        except requests.exceptions.SSLError:
+            logger.warning(
+                f"TLS verification against root_cert failed. Certificate presented by "
+                f"{server}:{config.qrs_port}:\n"
+                f"{_presented_certificate(server, config.qrs_port, client_cert, client_key)}"
+            )
+            raise
 
     def _log_http_error(self, message: str) -> Any:
         logger.warning(message)

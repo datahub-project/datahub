@@ -3,6 +3,8 @@ import ssl
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import App
@@ -256,6 +258,20 @@ def test_onprem_websocket_uses_cert_hostname(mock_connect: MagicMock) -> None:
     sslopt = mock_connect.call_args.kwargs["sslopt"]
     assert sslopt["server_hostname"] == "qlik-central.example.com"
     assert sslopt["cert_reqs"] == ssl.CERT_REQUIRED
+
+
+@patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
+def test_cloud_websocket_raises_engine_error(mock_connect: MagicMock) -> None:
+    socket = MagicMock()
+    socket.recv.return_value = json.dumps(
+        {"jsonrpc": "2.0", "id": 1, "error": {"code": 5, "message": "Access denied"}}
+    )
+    mock_connect.return_value = socket
+    connection = WebsocketConnection("tenant.example.com", "key", "app-1")
+    connection.handle.append(1)
+
+    with pytest.raises(RuntimeError, match="Access denied"):
+        connection.get_script()
 
 
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
