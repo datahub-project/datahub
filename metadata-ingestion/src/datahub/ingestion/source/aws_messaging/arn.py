@@ -7,11 +7,13 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.aws_messaging.constants import (
     ARN_PATTERN,
     EVENTBRIDGE_PLATFORM,
+    GOVCLOUD_REGION_PREFIX,
     LEGACY_GLOBAL_QUEUE_REGION,
     QUEUE_URL_HOST_PATTERN,
     QUEUE_URL_PATTERN,
     SNS_PLATFORM,
     SQS_PLATFORM,
+    AwsPartition,
     AwsService,
 )
 from datahub.ingestion.source.aws_messaging.models import Arn, RedrivePolicy
@@ -48,13 +50,13 @@ def parse_queue_url(url: str) -> Optional[Arn]:
         region = LEGACY_GLOBAL_QUEUE_REGION
     assert region is not None
     if host.group("china"):
-        partition = "aws-cn"
-    elif region.startswith("us-gov-"):
-        partition = "aws-us-gov"
+        partition = AwsPartition.CHINA
+    elif region.startswith(GOVCLOUD_REGION_PREFIX):
+        partition = AwsPartition.GOVCLOUD
     else:
-        partition = "aws"
+        partition = AwsPartition.AWS
     return Arn(
-        partition=partition,
+        partition=partition.value,
         service=AwsService.SQS.value,
         region=region,
         account=path.group("account"),

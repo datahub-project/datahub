@@ -24,6 +24,15 @@ EVENTBRIDGE_RULE_JOB_ID = "route"
 EVENTBRIDGE_PIPE_JOB_ID = "pipe"
 
 
+GOVCLOUD_REGION_PREFIX = "us-gov-"
+
+
+class AwsPartition(StrEnum):
+    AWS = "aws"
+    CHINA = "aws-cn"
+    GOVCLOUD = "aws-us-gov"
+
+
 class AwsService(StrEnum):
     SQS = "sqs"
     SNS = "sns"
