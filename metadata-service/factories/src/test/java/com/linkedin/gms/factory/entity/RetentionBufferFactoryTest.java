@@ -26,6 +26,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.test.context.assertj.AssertableApplicationContext;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -56,33 +57,21 @@ public class RetentionBufferFactoryTest {
 
   @Test
   public void testProductionDefaultsCreateNoBuffer() {
-    retentionRunner()
-        .run(
-            context -> {
-              assertThat(context).hasNotFailed();
-              assertThat(context.getBeansOfType(RetentionBuffer.class)).isEmpty();
-              assertThat(context.getBeansOfType(RetentionDrainer.class)).isEmpty();
-              assertThat(context.getBeansOfType(MapConfig.class)).isEmpty();
-            });
+    retentionRunner().run(RetentionBufferFactoryTest::assertNoBufferBeans);
   }
 
   @Test
   public void testBufferFlagWithoutPostCommitRetentionCreatesNoBuffer() {
     retentionRunner()
         .withPropertyValues(BUFFER_ON)
-        .run(
-            context -> {
-              assertThat(context).hasNotFailed();
-              assertThat(context.getBeansOfType(RetentionBuffer.class)).isEmpty();
-              assertThat(context.getBeansOfType(RetentionDrainer.class)).isEmpty();
-            });
+        .run(RetentionBufferFactoryTest::assertNoBufferBeans);
   }
 
   @Test
   public void testPostCommitRetentionWithoutBufferFlagCreatesNoBuffer() {
     retentionRunner()
         .withPropertyValues(POST_COMMIT_ON)
-        .run(context -> assertThat(context.getBeansOfType(RetentionBuffer.class)).isEmpty());
+        .run(RetentionBufferFactoryTest::assertNoBufferBeans);
   }
 
   @Test
@@ -92,10 +81,18 @@ public class RetentionBufferFactoryTest {
         .run(
             context -> {
               assertThat(context).hasNotFailed();
-              Config hazelcast = context.getBean(HazelcastInstance.class).getConfig();
-              assertThat(hazelcast.getMapConfig("retention-pending").getEvictionConfig().getSize())
-                  .isEqualTo(100000);
-              assertThat(hazelcast.getMapConfigOrNull("retention-drain-lock")).isNotNull();
+              MapConfig pending = context.getBean("retentionPendingMapConfig", MapConfig.class);
+              assertThat(pending.getName()).isEqualTo("retention-pending");
+              assertThat(pending.getEvictionConfig().getSize()).isEqualTo(100000);
+              assertThat(context.getBean("retentionDrainLockMapConfig", MapConfig.class).getName())
+                  .isEqualTo("retention-drain-lock");
+              // Production's CacheConfig hands every MapConfig bean to the Hazelcast member.
+              assertThat(
+                      context
+                          .getBean(HazelcastInstance.class)
+                          .getConfig()
+                          .getMapConfigOrNull("retention-pending"))
+                  .isNotNull();
             });
 
     retentionRunner()
@@ -103,17 +100,23 @@ public class RetentionBufferFactoryTest {
             BUFFER_ON,
             POST_COMMIT_ON,
             "datahub.retention.buffer.mapName=custom-pending",
+            "datahub.retention.buffer.lockMapName=custom-lock",
             "datahub.retention.buffer.maxPendingEntries=10")
         .run(
-            context ->
-                assertThat(
-                        context
-                            .getBean(HazelcastInstance.class)
-                            .getConfig()
-                            .getMapConfig("custom-pending")
-                            .getEvictionConfig()
-                            .getSize())
-                    .isEqualTo(10));
+            context -> {
+              MapConfig pending = context.getBean("retentionPendingMapConfig", MapConfig.class);
+              assertThat(pending.getName()).isEqualTo("custom-pending");
+              assertThat(pending.getEvictionConfig().getSize()).isEqualTo(10);
+              assertThat(context.getBean("retentionDrainLockMapConfig", MapConfig.class).getName())
+                  .isEqualTo("custom-lock");
+            });
+  }
+
+  private static void assertNoBufferBeans(AssertableApplicationContext context) {
+    assertThat(context).hasNotFailed();
+    assertThat(context.getBeansOfType(RetentionBuffer.class)).isEmpty();
+    assertThat(context.getBeansOfType(RetentionDrainer.class)).isEmpty();
+    assertThat(context.getBeansOfType(MapConfig.class)).isEmpty();
   }
 
   @Test

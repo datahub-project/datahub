@@ -131,9 +131,18 @@ public class CassandraSessionFactoriesTest {
   @Test
   public void testReadPoolWithoutItsOwnHostsSplitsThePrimaryHosts() {
     runWithBuilders(
-        // Both ports fall back to the CASSANDRA_PORT key; pin it so the environment can't move
-        // them.
-        runner().withPropertyValues(CASSANDRA, PRIMARY_HOSTS, READ_POOL_ON, "CASSANDRA_PORT=9142"),
+        // Blank the read-pool keys and pin the CASSANDRA_PORT / CASSANDRA_DATACENTER keys that both
+        // sessions fall back to, so the environment can't change the result.
+        runner()
+            .withPropertyValues(
+                CASSANDRA,
+                PRIMARY_HOSTS,
+                READ_POOL_ON,
+                "CASSANDRA_READ_POOL_HOSTS=",
+                "CASSANDRA_READ_POOL_PORT=",
+                "CASSANDRA_READ_POOL_DATACENTER=",
+                "CASSANDRA_PORT=9142",
+                "CASSANDRA_DATACENTER=dc-shared"),
         (context, builders) -> {
           assertThat(context).hasNotFailed().hasBean("cassandraReadPoolSession");
           assertThat(builders).hasSize(2);
@@ -142,6 +151,7 @@ public class CassandraSessionFactoriesTest {
                 .containsExactly(
                     new InetSocketAddress("127.0.0.1", 9142),
                     new InetSocketAddress("127.0.0.2", 9142));
+            verify(builder).withLocalDatacenter("dc-shared");
           }
         });
   }
@@ -154,6 +164,7 @@ public class CassandraSessionFactoriesTest {
         (context, builders) -> {
           assertThat(context).hasNotFailed().hasBean("cassandraSession");
           assertThat(context).doesNotHaveBean("cassandraReadPoolSession");
+          assertThat(builders).hasSize(1);
         });
   }
 

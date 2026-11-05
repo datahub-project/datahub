@@ -140,28 +140,52 @@ public class UpdateIndicesServiceFactoryTest {
   @Test
   public void testRestliEntityClientBuildsTheNonGmsServiceWithoutAnEntityService() {
     runner()
-        .withPropertyValues("entityClient.impl=restli")
+        .withPropertyValues(
+            "entityClient.impl=restli",
+            "featureFlags.searchServiceDiffModeEnabled=false",
+            "featureFlags.graphServiceDiffModeEnabled=false",
+            "structuredProperties.writeEnabled=false",
+            "elasticsearch.search.graph.graphStatusEnabled=true")
         .run(
             context -> {
               assertThat(context).hasNotFailed().hasBean("searchIndicesServiceNonGMS");
               assertThat(context).doesNotHaveBean("searchIndicesServiceGMS");
+              UpdateIndicesService service = service(context);
+              assertThat(service.isSearchDiffMode()).isFalse();
+              assertThat(service.isStructuredPropertiesWriteEnabled()).isFalse();
+              assertThat(service.getUpdateGraphIndicesService().isGraphDiffMode()).isFalse();
+              assertThat(service.getUpdateGraphIndicesService().isGraphStatusEnabled()).isTrue();
             });
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   public void testEveryStrategyOnTheContextReceivesChangeEvents() {
+    assertEveryStrategyReceivesChangeEvents(
+        runner().withBean("entityService", EntityService.class, () -> mock(EntityService.class)));
+  }
+
+  @Test
+  public void testEveryStrategyReceivesChangeEventsOnTheNonGmsService() {
+    assertEveryStrategyReceivesChangeEvents(
+        runner().withPropertyValues("entityClient.impl=restli"));
+  }
+
+  /** V2, V3 and upgrade strategies all get the event, with the configured structured-props flag. */
+  @SuppressWarnings("unchecked")
+  private static void assertEveryStrategyReceivesChangeEvents(ApplicationContextRunner runner) {
     UpdateIndicesStrategy v2 = enabledStrategy();
+    UpdateIndicesStrategy v3 = enabledStrategy();
     UpdateIndicesStrategy upgrade = enabledStrategy();
-    runner()
-        .withBean("entityService", EntityService.class, () -> mock(EntityService.class))
+    runner
         .withBean("updateIndicesV2Strategy", UpdateIndicesStrategy.class, () -> v2)
+        .withBean("updateIndicesV3Strategy", UpdateIndicesStrategy.class, () -> v3)
         .withBean("updateIndicesUpgradeStrategy", UpdateIndicesStrategy.class, () -> upgrade)
         .withPropertyValues("structuredProperties.enabled=false")
         .run(
             context -> {
+              assertThat(context).hasNotFailed();
               service(context).handleChangeEvents(OP_CONTEXT, List.of(statusChange()));
-              for (UpdateIndicesStrategy strategy : List.of(v2, upgrade)) {
+              for (UpdateIndicesStrategy strategy : List.of(v2, v3, upgrade)) {
                 ArgumentCaptor<Map<Urn, List<MCLItem>>> grouped =
                     ArgumentCaptor.forClass(Map.class);
                 verify(strategy).processBatch(any(), grouped.capture(), eq(false));

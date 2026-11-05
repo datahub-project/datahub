@@ -66,6 +66,8 @@ public class RetentionServiceFactoryTest {
               RetentionService retention =
                   context.getBean("retentionService", RetentionService.class);
               assertThat(retention).isInstanceOf(CassandraRetentionService.class);
+              assertThat(((CassandraRetentionService<?>) retention).getEntityService())
+                  .isSameAs(entityService);
               verify(entityService).setRetentionService(retention);
             });
   }
@@ -78,6 +80,8 @@ public class RetentionServiceFactoryTest {
             context ->
                 assertThat(context)
                     .getFailure()
-                    .hasRootCauseInstanceOf(NoSuchBeanDefinitionException.class));
+                    .rootCause()
+                    .isInstanceOf(NoSuchBeanDefinitionException.class)
+                    .hasMessageContaining("cassandraSession"));
   }
 }
