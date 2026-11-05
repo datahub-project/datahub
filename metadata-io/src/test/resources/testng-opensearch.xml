@@ -37,6 +37,7 @@
             <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexStateTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexMigrationStampTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdSchemeTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityMappingLimitsTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.index.DocumentIdSchemeStampingMappingsBuilderTest"/>
             <!-- Container-free (mocked AspectDao / EventProducer / search services) unit tests for
                  entity reads, MCL production, index updates, tracing, rollback and consistency
