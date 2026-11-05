@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.testng.annotations.AfterClass;
@@ -518,10 +519,15 @@ abstract class SearchV3MigrationScenarios {
     // The alias still serves the legacy index, whose documents carry the old ids a live delete
     // cannot address; what the swap must not bring back is the copy the fill wrote.
     assertEquals(
-        harness.count(
-            harness.v3Client, nextIndex, QueryBuilders.termQuery("urn", deletedDataset.toString())),
+        harness.count(harness.v3Client, nextIndex, liveCopyOf(deletedDataset)),
         0L,
         "the live delete reached the index the fill is building");
+    // The fill creates each document only if absent, so the delete leaves a tombstone the resumed
+    // fill cannot overwrite.
+    assertEquals(
+        harness.count(harness.v3Client, nextIndex, tombstoneOf(deletedDataset)),
+        1L,
+        "the live delete left a tombstone in the index the fill is building");
 
     UpgradeStepResult fillResult = run(fill(ID_REBUILD_DEPLOY, harness.aspectIndexLoader()));
     harness.syncWrites();
@@ -540,7 +546,10 @@ abstract class SearchV3MigrationScenarios {
 
     // The rebuild re-derives the corpus from primary storage: every dataset V2 knows, hashed ids.
     long expected = harness.count(harness.v2Client, harness.v2Index("dataset"));
-    List<SearchHit> rebuilt = harness.hits(harness.v3Client, nextIndex);
+    List<SearchHit> rebuilt =
+        harness.hits(harness.v3Client, nextIndex).stream()
+            .filter(hit -> !Boolean.TRUE.equals(hit.getSourceAsMap().get("_v3Tombstone")))
+            .toList();
     assertEquals(rebuilt.size(), expected);
     for (SearchHit hit : rebuilt) {
       String urn = SearchV3MigrationHarness.urnOf(hit);
@@ -548,8 +557,7 @@ abstract class SearchV3MigrationScenarios {
       assertNotEquals(hit.getId(), SearchV3MigrationHarness.legacyDocumentId(urn));
     }
     assertEquals(
-        harness.count(
-            harness.v3Client, nextIndex, QueryBuilders.termQuery("urn", deletedDataset.toString())),
+        harness.count(harness.v3Client, nextIndex, liveCopyOf(deletedDataset)),
         0L,
         "the resumed fill did not bring the deleted entity back");
 
@@ -558,10 +566,17 @@ abstract class SearchV3MigrationScenarios {
 
     assertEquals(catchUpResult.result(), DataHubUpgradeState.SUCCEEDED);
     assertEquals(
-        harness.count(
-            harness.v3Client, nextIndex, QueryBuilders.termQuery("urn", deletedDataset.toString())),
+        harness.count(harness.v3Client, nextIndex, liveCopyOf(deletedDataset)),
         0L,
         "catch-up re-derives its window from storage, where the entity no longer exists");
+    assertEquals(
+        harness.count(harness.v3Client, nextIndex, tombstoneOf(deletedDataset)),
+        0L,
+        "the completed catch-up retires the fill's tombstone");
+    assertEquals(
+        harness.count(harness.v3Client, nextIndex),
+        expected,
+        "the completed index contains no temporary tombstone documents");
   }
 
   @Test(dependsOnMethods = "indexBuiltBeforeIdHashingIsRebuiltIntoANextIndex")
@@ -888,7 +903,8 @@ abstract class SearchV3MigrationScenarios {
         List.of(harness.searchService),
         Set.of(),
         deployVersion,
-        harness.buildIndicesConfig);
+        harness.buildIndicesConfig,
+        harness.updateIndicesService);
   }
 
   private UpgradeStepResult run(UpgradeStep step) {
@@ -900,6 +916,22 @@ abstract class SearchV3MigrationScenarios {
         harness.hits(harness.v3Client, index).stream()
             .filter(hit -> urn.toString().equals(SearchV3MigrationHarness.urnOf(hit)))
             .collect(Collectors.toList()));
+  }
+
+  /**
+   * Documents for {@code urn} that reads would serve. A tombstone carries {@code removed=true}, as
+   * reads exclude it.
+   */
+  private static QueryBuilder liveCopyOf(Urn urn) {
+    return QueryBuilders.boolQuery()
+        .filter(QueryBuilders.termQuery("urn", urn.toString()))
+        .mustNot(QueryBuilders.termQuery("removed", true));
+  }
+
+  private static QueryBuilder tombstoneOf(Urn urn) {
+    return QueryBuilders.boolQuery()
+        .filter(QueryBuilders.termQuery("urn", urn.toString()))
+        .filter(QueryBuilders.termQuery("removed", true));
   }
 
   private static <T> T only(Collection<T> items) {

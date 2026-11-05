@@ -15,11 +15,13 @@ from datahub.cli.config_utils import (
     get_raw_client_config,
     persist_raw_datahub_config,
 )
+from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.lite.lite_local import (
+    AspectVersion,
     AutoComplete,
     DataHubLiteLocal,
     PathNotFoundException,
@@ -113,6 +115,7 @@ class CompleteablePath(click.ParamType):
 )
 @click.option("-a", "--aspect", required=False, multiple=True, type=str)
 @click.option("--asof", required=False, type=click.DateTime(formats=["%Y-%m-%d"]))
+@click.option("--version", type=click.IntRange(min=1), help="Read one aspect version")
 @click.option("--verbose", required=False, is_flag=True, default=False)
 @click.pass_context
 @telemetry.with_telemetry()
@@ -122,6 +125,7 @@ def get(
     path: Optional[str],
     aspect: List[str],
     asof: Optional[datetime],
+    version: Optional[int],
     verbose: bool,
 ) -> None:
     """Get one or more metadata elements"""
@@ -138,6 +142,23 @@ def get(
         else:
             path = ctx.args[0]
             logger.debug(f"Using path {path} from arguments")
+
+    if version is not None:
+        if not urn or path or len(aspect) != 1:
+            raise click.UsageError(
+                "--version requires one URN and exactly one --aspect"
+            )
+        if asof is not None:
+            raise click.UsageError("--version and --asof cannot be used together")
+        catalog = _get_datahub_lite(read_only=True)
+        try:
+            snapshot = catalog.get_aspect(urn, aspect[0], version)
+            click.echo(
+                json.dumps(_version_json(snapshot) if snapshot else None, indent=2)
+            )
+        finally:
+            catalog.close()
+        return
 
     asof_millis = int(asof.timestamp() * 1000) if asof else None
 
@@ -179,6 +200,36 @@ def get(
         )
     end_time = time.time()
     logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
+
+
+def _version_json(snapshot: AspectVersion) -> dict[str, object]:
+    return {
+        "version": snapshot.version,
+        "value": pre_json_transform(snapshot.value.to_obj()),
+        "systemMetadata": snapshot.system_metadata.to_obj(),
+        "createdon": snapshot.createdon,
+    }
+
+
+@lite.command()
+@click.option("--urn", required=True, type=str)
+@click.option("--aspect", required=True, type=str)
+@telemetry.with_telemetry()
+def history(urn: str, aspect: str) -> None:
+    """Read an aspect's numbered snapshots, oldest first."""
+    catalog = _get_datahub_lite(read_only=True)
+    try:
+        click.echo(
+            json.dumps(
+                [
+                    _version_json(snapshot)
+                    for snapshot in catalog.list_versions(urn, aspect)
+                ],
+                indent=2,
+            )
+        )
+    finally:
+        catalog.close()
 
 
 @lite.command()

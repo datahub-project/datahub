@@ -30,14 +30,16 @@ class DuckDBLite(SqlBackedLite[DuckDBLiteConfig]):
         )
 
     def _execute(self, query: str, params: Sequence[Any] = ()) -> List[Tuple]:
-        if params:
-            return self.duckdb_client.execute(query, list(params)).fetchall()
-        return self.duckdb_client.execute(query).fetchall()
+        with self._record_transaction_errors():
+            if params:
+                return self.duckdb_client.execute(query, list(params)).fetchall()
+            return self.duckdb_client.execute(query).fetchall()
 
     def _execute_one(self, query: str, params: Sequence[Any] = ()) -> Optional[Tuple]:
-        if params:
-            return self.duckdb_client.execute(query, list(params)).fetchone()
-        return self.duckdb_client.execute(query).fetchone()
+        with self._record_transaction_errors():
+            if params:
+                return self.duckdb_client.execute(query, list(params)).fetchone()
+            return self.duckdb_client.execute(query).fetchone()
 
     def _begin(self) -> None:
         self.duckdb_client.begin()

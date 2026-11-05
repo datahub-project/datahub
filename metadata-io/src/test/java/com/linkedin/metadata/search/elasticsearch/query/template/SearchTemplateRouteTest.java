@@ -35,6 +35,7 @@ import com.linkedin.metadata.config.search.SearchTemplateSource;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.search.template.SearchTemplateDefaultRoute;
@@ -185,6 +186,23 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     assertFalse(
         render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, "orderz_20240101").contains("orderz~"));
     assertTrue(render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, "custmers").contains("custmers~"));
+    RenderedSearchTemplate rendered =
+        builder.render(
+            opContext.withResolvedSearchTemplate(
+                new ResolvedSearchTemplate(SEARCH_TEMPLATE_FULLTEXT_URN, 1L, null, null)),
+            List.of(TestEntitySpecBuilder.getSpec()),
+            "orders",
+            true,
+            null,
+            false);
+    Map<String, List<String>> fullText =
+        com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel
+            .forSearchableEntities(opContext.getEntityRegistry())
+            .fullTextFields();
+    assertTrue(rendered.queriedFields().containsAll(rendered.queriedFieldSources().keySet()));
+    rendered
+        .queriedFieldSources()
+        .forEach((label, paths) -> assertEquals(paths, fullText.get(label), label));
   }
 
   @Test

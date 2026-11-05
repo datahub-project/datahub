@@ -59,3 +59,14 @@ describe('Pill keyboard behavior', () => {
         expect(onPillClick).not.toHaveBeenCalled();
     });
 });
+
+describe('Pill attributes', () => {
+    it('forwards data-* and aria-* attributes to the root element, but no other arbitrary props', () => {
+        renderPill({ dataTestId: 'lens-domain', ...{ 'aria-pressed': true, 'data-state': 'on', foo: 'bar' } });
+
+        const pill = screen.getByTestId('lens-domain');
+        expect(pill).toHaveAttribute('aria-pressed', 'true');
+        expect(pill).toHaveAttribute('data-state', 'on');
+        expect(pill).not.toHaveAttribute('foo');
+    });
+});

@@ -17,12 +17,16 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite.Kind;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -41,9 +45,11 @@ import java.util.concurrent.ExecutionException;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.GetAliasesResponse;
@@ -54,6 +60,7 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.client.tasks.TaskId;
+import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -77,6 +84,9 @@ public class ESWriteDAOTest {
   private static final String TEST_INDEX = "datasetindex_v2";
   private static final int NUM_RETRIES = 3;
   private static final String TEST_PATTERN = "*index_v2";
+  private static final String V3_INDEX = "test_groupindex_v3";
+  private static final Urn V3_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
 
   @Mock private SearchClientShim<?> mockSearchClient;
   @Mock private ESBulkProcessor mockBulkProcessor;
@@ -241,6 +251,113 @@ public class ESWriteDAOTest {
     Script script = capturedRequest.script();
     assertEquals(scriptSource, script.getIdOrCode());
     assertEquals(scriptParams, script.getParams());
+  }
+
+  @Test
+  public void testApplyScriptUpdateWithoutUpsertNeverCreatesTheDocument() {
+    esWriteDAO.applyScriptUpdateBySearchGroup(
+        opContext,
+        "dataset",
+        TEST_DOC_ID,
+        "ctx._source.runId.add(params.runId)",
+        Map.of("runId", "run-1"),
+        null);
+
+    ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor)
+        .add(any(OperationContext.class), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertFalse(requestCaptor.getValue().scriptedUpsert());
+    assertNull(requestCaptor.getValue().upsertRequest());
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentReplaceIsAnUnversionedIndexRequest() {
+    esWriteDAO.writeV3SearchDocument(
+        opContext,
+        v3Write("{\"urn\":\"" + V3_URN + "\",\"_entityType\":\"dataset\"}", Kind.REPLACE));
+
+    ArgumentCaptor<IndexRequest> requestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    IndexRequest request = requestCaptor.getValue();
+    assertEquals(request.index(), V3_INDEX);
+    assertEquals(request.id(), TEST_DOC_ID);
+    assertEquals(request.opType(), DocWriteRequest.OpType.INDEX);
+    assertEquals(request.version(), Versions.MATCH_ANY);
+    assertEquals(request.sourceAsMap().get("_entityType"), "dataset");
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentCreateNeverOverwritesADocument() {
+    esWriteDAO.writeV3SearchDocument(
+        opContext, v3Write("{\"urn\":\"" + V3_URN + "\"}", Kind.CREATE));
+
+    ArgumentCaptor<IndexRequest> requestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertEquals(requestCaptor.getValue().opType(), DocWriteRequest.OpType.CREATE);
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentDeleteUsesDeleteRequest() {
+    esWriteDAO.writeV3SearchDocument(opContext, v3Write("", Kind.DELETE));
+
+    ArgumentCaptor<DeleteRequest> requestCaptor = ArgumentCaptor.forClass(DeleteRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertEquals(requestCaptor.getValue().index(), V3_INDEX);
+    assertEquals(requestCaptor.getValue().id(), TEST_DOC_ID);
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentMergeUpsertsThePartialDocument() {
+    esWriteDAO.writeV3SearchDocument(
+        opContext, v3Write("{\"description\":\"updated\"}", Kind.MERGE));
+
+    ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    UpdateRequest request = requestCaptor.getValue();
+    assertTrue(request.docAsUpsert());
+    assertFalse(request.detectNoop());
+    assertEquals(request.retryOnConflict(), NUM_RETRIES);
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentMergeExistingDoesNotCreateADocument() {
+    esWriteDAO.writeV3SearchDocument(
+        opContext, v3Write("{\"description\":\"updated\"}", Kind.MERGE_EXISTING));
+
+    ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertFalse(requestCaptor.getValue().docAsUpsert());
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentTombstoneReplacesTheDocument() {
+    esWriteDAO.writeV3SearchDocument(
+        opContext, v3Write("{\"urn\":\"" + V3_URN + "\",\"removed\":true}", Kind.TOMBSTONE));
+
+    ArgumentCaptor<IndexRequest> requestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertEquals(requestCaptor.getValue().opType(), DocWriteRequest.OpType.INDEX);
+    assertEquals(requestCaptor.getValue().sourceAsMap().get("removed"), true);
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentSkippedWhenV3DisabledOrReadOnly() {
+    ESWriteDAO v3DisabledDAO =
+        new ESWriteDAO(
+            searchConfig(false),
+            mockSearchClient,
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
+    v3DisabledDAO.writeV3SearchDocument(opContext, v3Write("{}", Kind.MERGE));
+
+    esWriteDAO.setWritable(false);
+    esWriteDAO.writeV3SearchDocument(opContext, v3Write("{}", Kind.MERGE));
+
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  private static V3SearchDocumentWrite v3Write(String source, Kind kind) {
+    return new V3SearchDocumentWrite(V3_INDEX, TEST_DOC_ID, V3_URN, source, kind);
   }
 
   @Test
@@ -1042,6 +1159,7 @@ public class ESWriteDAOTest {
     // Note: We can't directly verify conflicts setting as it's not exposed via getter
     // but we know it's set to "proceed" in the implementation
     assertNotNull(capturedRequest);
+    assertTrue(capturedRequest.isRefresh());
   }
 
   @DataProvider(name = "writabilityConfig")

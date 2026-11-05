@@ -1,4 +1,5 @@
 import datetime
+import functools
 import logging
 import os
 import re
@@ -9,7 +10,7 @@ import parse
 from cached_property import cached_property
 from pydantic import ConfigDict, field_validator, model_validator
 from pydantic.fields import Field
-from wcmatch import pathlib
+from wcmatch import glob, pathlib
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
@@ -110,6 +111,14 @@ class FolderTraversalMethod(Enum):
     ALL = "ALL"
     MIN_MAX = "MIN_MAX"
     MAX = "MAX"
+
+
+# glob.compile(...) uses the same wcmatch internals as PurePath.globmatch, so results
+# match as long as the subject path is normalized the same way (see
+# PathSpec._globmatch).
+@functools.lru_cache(maxsize=1024)
+def _compile_globs(patterns: Tuple[str, ...]) -> "glob.WcMatcher":
+    return glob.compile(list(patterns), flags=glob.GLOBSTAR)
 
 
 class PathSpec(ConfigModel):
@@ -224,17 +233,13 @@ class PathSpec(ConfigModel):
         if self.is_path_hidden(path) and not self.include_hidden_folders:
             return "include_hidden_folders"
 
-        if not pathlib.PurePath(path).globmatch(
-            self.glob_include, flags=pathlib.GLOBSTAR
-        ):
+        if not self._globmatch(self._include_matcher, path):
             return "include"
 
-        if self.exclude:
-            for exclude_path in self.exclude:
-                if pathlib.PurePath(path).globmatch(
-                    exclude_path, flags=pathlib.GLOBSTAR
-                ):
-                    return "exclude"
+        if self._exclude_matcher is not None and self._globmatch(
+            self._exclude_matcher, path
+        ):
+            return "exclude"
 
         table_name, _ = self.extract_table_name_and_path(path)
         if not self.tables_filter_pattern.allowed(table_name):
@@ -747,6 +752,28 @@ class PathSpec(ConfigModel):
         glob_include = re.sub(r"\{[^}]+\}", "*", self.include)
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
+
+    @functools.cached_property
+    def _include_matcher(self) -> "glob.WcMatcher":
+        return _compile_globs((self.glob_include,))
+
+    @functools.cached_property
+    def _exclude_matcher(self) -> Optional["glob.WcMatcher"]:
+        return _compile_globs(tuple(self.exclude)) if self.exclude else None
+
+    @staticmethod
+    def glob_matches(path: str, pattern: str) -> bool:
+        """The glob test `allowed` applies to the include and exclude patterns.
+        Callers that match other globs the same way (e.g. the path_spec probe)
+        use this so the two can't drift apart."""
+        return PathSpec._globmatch(_compile_globs((pattern,)), path)
+
+    @staticmethod
+    def _globmatch(matcher: "glob.WcMatcher", path: str) -> bool:
+        # PurePath.globmatch matches against str(PurePath(path)), which collapses
+        # duplicate separators ("s3://" -> "s3:/") and strips trailing slashes;
+        # normalize identically so the precompiled matcher stays equivalent.
+        return matcher.match(str(pathlib.PurePath(path)))
 
     @cached_property
     def table_depth(self):

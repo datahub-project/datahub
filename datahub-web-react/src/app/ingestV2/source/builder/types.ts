@@ -1,6 +1,4 @@
-import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
-
-import { Entity, IngestionSource } from '@types';
+import { Entity } from '@types';
 
 /**
  * The default executor id used for ingestion
@@ -20,26 +18,6 @@ export interface SourceConfig {
     isNew?: boolean;
     priority?: number;
 }
-
-/**
- * Props provided to each step as input.
- */
-export type StepProps = {
-    state: SourceBuilderState;
-    updateState: (newState: SourceBuilderState) => void;
-    goTo: (step: IngestionSourceBuilderStep) => void;
-    prev?: () => void;
-    submit: (shouldRun?: boolean) => void;
-    cancel: () => void;
-    ingestionSources: SourceConfig[];
-    isEditing: boolean;
-    sourceRefetch?: () => Promise<any>;
-    selectedSource?: IngestionSource;
-    // This is not same as selectedSource
-    // This is required when the ingestion source has not been created
-    selectedSourceType?: string;
-    setSelectedSourceType?: (sourceType: string) => void;
-};
 
 export type StringMapEntryInput = {
     /**

@@ -84,14 +84,16 @@ public final class SearchTemplateMustache {
     }
     context.put(SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS, fields);
     context.put(SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS_JSON, json(fields));
-    context.put(
-        SearchTemplateContextVariables.DEFAULT_FIELDS_WITHOUT_QUALIFIED_NAME_JSON, json(fields));
+    context.put(SearchTemplateContextVariables.DEFAULT_FIELDS_WITHOUT_IDENTITY_JSON, json(fields));
     context.put(SearchTemplateContextVariables.IDENTITY_QUERY_FIELDS_JSON, json(fields));
+    context.put(SearchTemplateContextVariables.NAME_FIELDS, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.NAME_FIELDS_JSON, json(List.of("name.text^10.0")));
     context.put(SearchTemplateContextVariables.QUALIFIED_NAME_FIELDS, Boolean.TRUE);
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_FIELDS_JSON,
         json(List.of("qualifiedName.text^10.0")));
+    context.put(SearchTemplateContextVariables.ID_FIELDS, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.ID_FIELDS_JSON, json(List.of("id.text^10.0")));
     context.put(SearchTemplateContextVariables.LIGHT_FIELDS_JSON, json(fields));
     context.put(SearchTemplateContextVariables.LIGHT_OPERATOR, "OR");
     context.put(

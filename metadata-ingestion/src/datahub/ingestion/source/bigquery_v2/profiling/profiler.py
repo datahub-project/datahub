@@ -62,6 +62,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.metadata.schema_classes import DatasetProfileClass
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
@@ -794,13 +795,33 @@ class BigqueryProfiler(GenericProfiler):
             self._log_profiling_statistics(project_id, total_tables, 0)
             return
 
-        yield from self.generate_profile_workunits_with_deferred_partitions(
+        # A profile's rowCount and sizeInBytes describe the whole dataset. For a
+        # collapsed sharded table that is every shard, although only the latest shard
+        # is profiled, so eligibility and sampling above still use that shard's stats.
+        sharded_totals = {
+            self.dataset_urn_builder(
+                request.pretty_name
+            ): request.table.sharded_table_stats
+            for request in [
+                *profile_requests,
+                *(deferred.request for deferred in deferred_external),
+            ]
+            if isinstance(request.table, BigqueryTable)
+            and request.table.sharded_table_stats
+        }
+        for wu in self.generate_profile_workunits_with_deferred_partitions(
             profile_requests,
             deferred_external,
             max_workers=self.config.profiling.max_workers,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
-        )
+        ):
+            totals = sharded_totals.get(wu.get_urn())
+            profile = wu.get_aspect_of_type(DatasetProfileClass)
+            if totals and profile:
+                profile.rowCount = totals.rows_count
+                profile.sizeInBytes = totals.size_in_bytes
+            yield wu
 
         # Log statistics only after deferred external discovery has run: an external table
         # counted as a candidate above can still be dropped by partition discovery in the

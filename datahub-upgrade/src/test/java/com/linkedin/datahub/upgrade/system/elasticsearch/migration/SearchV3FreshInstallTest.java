@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.migration;
 
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReinde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.test.search.SearchTestUtils;
@@ -131,7 +133,8 @@ public class SearchV3FreshInstallTest {
                 List.of(harness.searchService),
                 Set.of(),
                 FIRST_DEPLOY,
-                harness.buildIndicesConfig));
+                harness.buildIndicesConfig,
+                mock(UpdateIndicesService.class)));
 
     assertEquals(catchUpResult.result(), DataHubUpgradeState.SUCCEEDED);
     Map<String, String> catchUpState = harness.catchUpState(FIRST_DEPLOY);

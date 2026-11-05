@@ -42,7 +42,7 @@ const meta = {
             description: 'A function to render certain graph',
         },
         renderControls: {
-            description: 'A function to render additiona controls on the card',
+            description: 'A function to render additional controls on the card',
         },
         showHeader: {
             description: 'Show or hide the header of the card',

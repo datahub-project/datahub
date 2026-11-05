@@ -10,12 +10,16 @@ import time_machine
 from google.cloud import bigquery
 from sqlglot.expressions import PartitionedByProperty
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryTable,
+    ShardedTableStats,
+)
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     BQ_SAFETY_ROW_LIMIT,
@@ -47,6 +51,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_filter_expression,
     validate_sql_structure,
 )
+from datahub.metadata.schema_classes import DatasetProfileClass
 
 
 def create_test_config(**overrides: Any) -> BigQueryV2Config:
@@ -3884,3 +3889,101 @@ def test_extract_column_names_from_ddl_does_not_flatten_function_args(ddl, expec
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_collapsed_sharded_table_is_profiled_by_latest_shard_but_reports_totals():
+    # Only the latest shard is profiled, so the size limit and sampling must use its
+    # stats; the emitted profile's rowCount / sizeInBytes describe every shard.
+    config = create_test_config()
+    config.profiling.profile_table_size_limit = 1
+    profiler = BigqueryProfiler(config=config, report=BigQueryV2Report())
+    table = create_test_table(
+        name="events_20250102",
+        rows_count=1_000,
+        sharded_table_stats=ShardedTableStats(
+            rows_count=365_000, size_in_bytes=365 * 2**29
+        ),
+    )
+    table.size_in_bytes = 2**29
+
+    # The collapsed name depends on process-wide sharded-suffix state, so emit the
+    # profile under whatever URN the request resolves to.
+    def generate(requests, deferred, **kwargs):
+        (request,) = requests
+        yield MetadataChangeProposalWrapper(
+            entityUrn=profiler.dataset_urn_builder(request.pretty_name),
+            aspect=DatasetProfileClass(
+                timestampMillis=0, rowCount=1_000, sizeInBytes=1
+            ),
+        ).as_workunit()
+
+    with (
+        patch.object(
+            PartitionDiscovery, "get_required_partition_filters", return_value=[]
+        ),
+        patch.object(
+            profiler,
+            "generate_profile_workunits_with_deferred_partitions",
+            side_effect=generate,
+        ) as generate_mock,
+    ):
+        wus = list(profiler.get_workunits("test-project", {"test_dataset": [table]}))
+
+    (request,) = generate_mock.call_args.args[0]
+    assert not request.profile_table_level_only
+    assert request.batch_kwargs["row_count"] == 1_000
+    profile = wus[0].get_aspect_of_type(DatasetProfileClass)
+    assert profile is not None
+    assert (profile.rowCount, profile.sizeInBytes) == (365_000, 365 * 2**29)
+
+
+@pytest.mark.parametrize(
+    "identifier_type,identifier",
+    [
+        ("project", "Bad Project"),  # uppercase / space
+        ("project", "abc"),  # too short
+        ("project", "my--project"),  # consecutive hyphens
+        ("table", "t;drop"),  # disallowed character
+        ("table", "t" * 1025),  # too long
+        ("table", "my--table"),  # consecutive hyphens
+        ("dataset", "my-dataset"),  # hyphens only allowed in tables
+        ("dataset", "d" * 1025),  # too long
+        ("dataset", "__reserved"),  # reserved prefix
+        ("general", ""),  # empty
+        ("general", "tab\x01le"),  # non-printable
+        ("general", "INFORMATION_SCHEMA.bad view"),  # malformed view name
+        ("general", "col'injection"),  # quote
+        ("general", "col--comment"),  # SQL comment
+        ("general", "col/*x*/"),  # block comment
+        ("general", "bad col"),  # whitespace
+    ],
+)
+def test_validate_bigquery_identifier_rejects_each_rule_violation(
+    identifier_type: str, identifier: str
+) -> None:
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier(identifier, identifier_type)
+
+
+def test_validate_bigquery_identifier_accepts_well_formed_per_type() -> None:
+    assert (
+        validate_bigquery_identifier("my-project-123", "project") == "`my-project-123`"
+    )
+    assert validate_bigquery_identifier("events-2024", "table") == "`events-2024`"
+    assert validate_bigquery_identifier("select", "dataset") == "`select`"
+
+
+def test_validators_reject_empty_input_without_raising() -> None:
+    assert validate_column_name("", "fallback filter") is False
+    assert validate_sql_structure("") is False
+    assert validate_filter_expression("") is False
+
+
+def test_sql_structure_must_start_with_select_or_with() -> None:
+    with pytest.raises(ValueError):
+        validate_sql_structure("EXPLAIN SELECT 1")
+
+
+def test_filter_without_comparison_operator_is_rejected() -> None:
+    assert validate_filter_expression("`dt`") is False
+    assert validate_and_filter_expressions(["`dt`", "`region`"], "fallback") == []
