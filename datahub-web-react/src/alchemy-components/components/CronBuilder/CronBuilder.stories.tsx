@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { CronBuilder } from '@components/components/CronBuilder';
 import { CronBuilderProps } from '@components/components/CronBuilder/types';
 
 function ControlledCronBuilder(props: Omit<CronBuilderProps, 'setValue'>) {
     const [value, setValue] = useState(props.value ?? '');
+    useEffect(() => setValue(props.value ?? ''), [props.value]);
     return <CronBuilder {...props} value={value} setValue={setValue} />;
 }
 
