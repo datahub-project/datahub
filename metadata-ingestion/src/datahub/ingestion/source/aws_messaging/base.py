@@ -12,6 +12,7 @@ from datahub.ingestion.source.aws_messaging.clients import (
     EventBridgeClient,
     LambdaClient,
     PipesClient,
+    S3NotificationClient,
 )
 from datahub.ingestion.source.aws_messaging.config import (
     AwsMessagingConfigBase,
@@ -37,10 +38,12 @@ from datahub.ingestion.source.aws_messaging.lineage import (
 from datahub.ingestion.source.aws_messaging.mapper import (
     AwsRegionKey,
     secondary,
-    shared_status,
 )
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.ingestion.source.aws_messaging.s3_notifications import (
+    S3NotificationLineage,
+)
 from datahub.ingestion.source.aws_messaging.schema_registry import (
     MessagingSchemaRegistry,
 )
@@ -147,6 +150,28 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             jobs=self.jobs,
         )
 
+    def collect_s3_notifications(self) -> None:
+        if not self.base_config.lineage.s3_notifications:
+            return
+        s3_lineage = S3NotificationLineage(
+            client=S3NotificationClient(
+                self.base_config.make_client(self.session, AwsService.S3),
+                self.base_report,
+            ),
+            resolver=self.resolver,
+            graph=self.ctx.graph,
+            env=self.base_config.env,
+            s3=self.base_config.platform_map.get("s3"),
+            report=self.base_report,
+            target_allowed=self.resource_allowed,
+        )
+        if s3_lineage.collect(self.lineage):
+            # An S3 edge's upstream isn't this source's, so it can only be
+            # checked from the queue or topic side.
+            self.lineage.downstream_relationships[
+                LineageRelationship.S3_NOTIFICATION.value
+            ] = s3_lineage.can_retract
+
     def service_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Lambda functions, EventBridge rules and Pipes around this source's
         resources. Runs after every queue or topic is known."""
@@ -234,6 +259,10 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             self.schemas.unreadable.add(urn)
         return schema
 
+    def resource_allowed(self, name: str) -> bool:
+        """Whether the queue or topic pattern lets a resource of this name in."""
+        raise NotImplementedError
+
     def first_resource_arn(self) -> Optional[str]:
         """One resource ARN of this service, used only to read the account id; None
         when there are no resources. Anything that doesn't parse as an ARN (an
@@ -313,9 +342,9 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
                 else:
                     # Both sources emit the lambda and eventbridge region
                     # containers, so neither may soft-delete them when its own
-                    # run stops placing anything there.
+                    # run stops placing anything there. gen_containers already
+                    # writes their status.
                     yield from secondary(container)
-                    yield shared_status(key.as_urn())
                 first = False
             yield workunit
 

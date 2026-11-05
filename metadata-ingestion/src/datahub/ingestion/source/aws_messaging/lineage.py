@@ -153,6 +153,12 @@ class DatasetLineageCollector:
         # Upstreams whose outgoing edges this run read in full. An unreadable queue
         # is owned but not complete: its edges are unknown, not gone.
         self.complete: Set[str] = set()
+        # Relationships whose edges into owned datasets were all seen this run,
+        # checked from the downstream side because the upstream isn't this
+        # source's (an S3 dataset, say). Each maps to a check of (downstream,
+        # upstream): only an edge this run could have seen can be called gone, so
+        # not one from another account's bucket, say.
+        self.downstream_relationships: Dict[str, Callable[[str, str], bool]] = {}
         # Upstreams with an edge this run couldn't resolve (its other end wasn't
         # ingested). The edge may still exist in AWS, so it must not read as gone.
         self._unknown: Set[str] = set()
@@ -265,6 +271,8 @@ class DatasetLineageCollector:
                     context=upstream,
                     exc=e,
                 )
+        if self.downstream_relationships:
+            self._stale_into_owned(stale, lineage_cache)
         # Outside the graph-read loop so a malformed field edge can't block
         # table-level removal for its upstream.
         for upstream, downstream, lineage in field_checks:
@@ -315,6 +323,42 @@ class DatasetLineageCollector:
                         )
                     )
         return stale
+
+    def _stale_into_owned(
+        self,
+        stale: StaleLineage,
+        lineage_cache: Dict[str, Optional[UpstreamLineageClass]],
+    ) -> None:
+        assert self.graph is not None
+        for downstream in sorted(self.owned):
+            try:
+                if downstream not in lineage_cache:
+                    lineage_cache[downstream] = self.graph.get_aspect(
+                        downstream, UpstreamLineageClass
+                    )
+                lineage = lineage_cache[downstream]
+                for edge in lineage.upstreams if lineage else []:
+                    relationship = (edge.properties or {}).get(
+                        LINEAGE_RELATIONSHIP_PROPERTY
+                    )
+                    if (
+                        relationship in self.downstream_relationships
+                        and self.downstream_relationships[relationship](
+                            downstream, edge.dataset
+                        )
+                        and edge.dataset not in self._edges.get(downstream, {})
+                    ):
+                        stale.edges[downstream].add(edge.dataset)
+            except (GraphError, RequestException) as e:
+                self.report.warning(
+                    title="Stale lineage not checked",
+                    message=(
+                        "Could not read existing lineage from DataHub; stale edges "
+                        "into this resource are kept this run."
+                    ),
+                    context=downstream,
+                    exc=e,
+                )
 
     def _written_by_this_source(
         self, lineage: UpstreamLineageClass, upstream: str

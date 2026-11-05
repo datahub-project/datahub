@@ -150,6 +150,9 @@ class SnsSource(AwsMessagingSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SnsSource":
         return cls(SnsSourceConfig.model_validate(config_dict), ctx)
 
+    def resource_allowed(self, name: str) -> bool:
+        return self.config.topic_pattern.allowed(name)
+
     def first_resource_arn(self) -> Optional[str]:
         return self.sns.first_topic_arn()
 
@@ -162,6 +165,7 @@ class SnsSource(AwsMessagingSourceBase):
             self._add_subscription_edges(topic)
             if self.queues_listed and str(topic.arn) not in self.incomplete_topics:
                 self.lineage.complete.add(self.urns.topic_urn(topic.arn))
+        self.collect_s3_notifications()
         yield from self.service_lineage_workunits()
         yield from self.lineage.workunits()
 

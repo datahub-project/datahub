@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Dict, Optional
+from typing import Any, ClassVar, Dict, Literal, Optional
 
 import pydantic
 from pydantic import Field
@@ -10,12 +10,37 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws_messaging.constants import AwsService
+from datahub.ingestion.source.kinesis.kinesis_config import DestinationPlatformDetail
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+
+# Platforms of datasets this source links to but doesn't emit.
+LinkedPlatform = Literal["s3"]
+
+
+class LinkedPlatformDetail(DestinationPlatformDetail):
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description=(
+            "platform_instance of that platform's own recipe. If unset, the dataset "
+            "URN has no platform_instance."
+        ),
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="env of that platform's own recipe. If unset, inherits this recipe's env.",
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description=(
+            "Set to that platform's recipe convert_urns_to_lowercase. Defaults to "
+            "False, like the s3 source."
+        ),
+    )
 
 
 class GlueSchemaRegistryConfigBase(ConfigModel):
@@ -101,6 +126,19 @@ class AwsMessagingLineageConfig(ConfigModel):
         default=True,
         description="Emit EventBridge Pipes whose source or target is one of this source's queues or topics.",
     )
+    s3_notifications: bool = Field(
+        default=False,
+        description=(
+            "Add S3 datasets as upstreams of the queues or topics their bucket's "
+            "event notifications target: every S3 dataset already in DataHub under "
+            "the notification's bucket and key prefix, up to 100. Reads the "
+            "notification configuration of each bucket in the recipe's region (one "
+            "call per bucket); a source only links its own queues or topics. Needs "
+            "a DataHub graph connection, and s3:ListAllMyBuckets plus "
+            "s3:GetBucketNotification. ListAllMyBuckets only returns buckets the "
+            "recipe's account owns."
+        ),
+    )
 
     @pydantic.model_validator(mode="after")
     def reject_async_destinations_without_functions(
@@ -155,6 +193,15 @@ class AwsMessagingConfigBase(
             "AWS account id to platform_instance, for lineage to resources in other "
             "accounts whose own recipes set a platform_instance other than the "
             "account id. Accounts not listed use their account id."
+        ),
+    )
+    platform_map: Dict[LinkedPlatform, LinkedPlatformDetail] = Field(
+        default_factory=dict,
+        description=(
+            "Per platform (`s3`), the platform_instance, env and "
+            "convert_urns_to_lowercase of that platform's own recipe, so lineage "
+            "finds the dataset URNs it emits. A platform not listed uses no "
+            "platform_instance, this recipe's env and no lowercasing."
         ),
     )
     lineage: AwsMessagingLineageConfig = Field(

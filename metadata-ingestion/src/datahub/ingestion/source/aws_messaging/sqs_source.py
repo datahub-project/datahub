@@ -98,6 +98,9 @@ class SqsSource(AwsMessagingSourceBase):
     def owned_relationships(self) -> FrozenSet[LineageRelationship]:
         return frozenset({LineageRelationship.DEAD_LETTER})
 
+    def resource_allowed(self, name: str) -> bool:
+        return self.config.queue_pattern.allowed(name)
+
     def first_resource_arn(self) -> Optional[str]:
         # The queue URL carries the account id, so this needs only sqs:ListQueues.
         # Depending on GetQueueAttributes would leave the account unresolved
@@ -121,6 +124,7 @@ class SqsSource(AwsMessagingSourceBase):
         # Dead-letter targets are checked once every queue in the region is known.
         for queue in self.queues:
             self._add_dead_letter_edge(queue)
+        self.collect_s3_notifications()
         yield from self.service_lineage_workunits()
         yield from self.lineage.workunits()
 
