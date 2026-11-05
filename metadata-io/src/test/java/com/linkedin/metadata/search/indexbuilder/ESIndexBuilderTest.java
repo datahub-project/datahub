@@ -3381,6 +3381,7 @@ public class ESIndexBuilderTest {
                 .numReplicas(NUM_REPLICAS)
                 .numRetries(NUM_RETRIES)
                 .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .refreshIntervals(RefreshIntervals.allServices(REFRESH_INTERVAL_SECONDS))
                 .entityMappingLimits(limits)
                 .build());
     return new ESIndexBuilder(
