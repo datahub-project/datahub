@@ -14,8 +14,8 @@ import { OwnerLabel } from '@app/sharedV2/OwnerLabel';
 import AvatarStackWithHover from '@app/sharedV2/avatar/AvatarStackWithHover';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useGetRecommendations } from '@app/sharedV2/recommendation';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { SelectItemPopover } from '@app/sharedV2/selectItemsPopover';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@src/graphql/mutations.generated';
 import { CorpUser, Entity, EntityType, OwnerEntityType } from '@src/types.generated';
 

@@ -13,7 +13,6 @@ import {
     mockTagSelectedEntities,
     tagMocks,
 } from '@app/sharedV2/selectItemsPopover/__mock.data';
-
 import Tag from '@src/app/sharedV2/tags/tag/Tag';
 import { EntityRegistryContext } from '@src/entityRegistryContext';
 import { Entity, EntityType, Tag as TagType } from '@src/types.generated';

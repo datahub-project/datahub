@@ -3,8 +3,8 @@ import '@app/sharedV2/selectItemsPopover/select-items-popover.less';
 import React, { ReactNode } from 'react';
 
 import { Popover } from '@components/components/Popover';
-import { SelectItems } from '@app/sharedV2/selectItemsPopover/SelectItems';
 
+import { SelectItems } from '@app/sharedV2/selectItemsPopover/SelectItems';
 import { Entity, EntityType } from '@src/types.generated';
 
 export type SelectItemPopoverProps = {
