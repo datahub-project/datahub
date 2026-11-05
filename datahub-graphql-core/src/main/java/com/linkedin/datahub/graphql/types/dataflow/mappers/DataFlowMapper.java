@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataflow.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
@@ -17,7 +17,6 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataFlowEditableProperties;
@@ -64,7 +63,8 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
 
   @Override
   public DataFlow apply(
-      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nullable final QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final DataFlow result = new DataFlow();
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.DATA_FLOW);
@@ -134,11 +134,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         APPLICATION_MEMBERSHIP_ASPECT_NAME,
         (dataFlow, dataMap) -> mapApplicationAssociation(context, dataFlow, dataMap));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), DataFlow.class);
-    } else {
-      return mappingHelper.getResult();
-    }
+    return mappingHelper.getResult();
   }
 
   private void mapKey(@Nonnull DataFlow dataFlow, @Nonnull DataMap dataMap) {

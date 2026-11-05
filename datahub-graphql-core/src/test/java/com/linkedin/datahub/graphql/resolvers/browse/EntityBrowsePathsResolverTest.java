@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -34,6 +35,8 @@ public class EntityBrowsePathsResolverTest {
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -61,6 +64,8 @@ public class EntityBrowsePathsResolverTest {
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

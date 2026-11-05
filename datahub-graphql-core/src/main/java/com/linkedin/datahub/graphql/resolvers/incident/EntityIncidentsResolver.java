@@ -1,8 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -66,6 +68,14 @@ public class EntityIncidentsResolver
               Optional.ofNullable(environment.getArgument("priority"));
           final Optional<List<String>> maybeAssigneeUrns =
               Optional.ofNullable(environment.getArgument("assigneeUrns"));
+          if (!canView(context.getOperationContext(), UrnUtils.getUrn(entityUrn))) {
+            final EntityIncidentsResult result = new EntityIncidentsResult();
+            result.setCount(count);
+            result.setStart(start);
+            result.setTotal(0);
+            result.setIncidents(List.of());
+            return result;
+          }
           try {
             // Step 1: Fetch set of incidents associated with the target entity from the Search
             // Index!

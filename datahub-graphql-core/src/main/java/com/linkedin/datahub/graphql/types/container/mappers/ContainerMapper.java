@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.container.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Access;
@@ -20,7 +20,6 @@ import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
@@ -52,7 +51,8 @@ public class ContainerMapper {
 
   @Nullable
   public static Container map(
-      @Nullable final QueryContext context, final EntityResponse entityResponse) {
+      @Nullable final QueryContext context, final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final Container result = new Container();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
@@ -185,9 +185,6 @@ public class ContainerMapper {
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
     }
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(result, Container.class);
-    }
     return result;
   }
 

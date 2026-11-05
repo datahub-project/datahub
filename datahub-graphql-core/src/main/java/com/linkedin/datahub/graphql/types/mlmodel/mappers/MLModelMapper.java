@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
@@ -19,7 +19,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
@@ -74,7 +73,8 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
 
   @Override
   public MLModel apply(
-      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nullable final QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final MLModel result = new MLModel();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -193,11 +193,7 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         APPLICATION_MEMBERSHIP_ASPECT_NAME,
         (mlModel, dataMap) -> mapApplicationAssociation(context, mlModel, dataMap));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLModel.class);
-    } else {
-      return mappingHelper.getResult();
-    }
+    return mappingHelper.getResult();
   }
 
   private static void mapMLModelKey(MLModel mlModel, DataMap dataMap) {

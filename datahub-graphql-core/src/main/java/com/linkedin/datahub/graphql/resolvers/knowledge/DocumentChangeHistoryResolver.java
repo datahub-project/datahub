@@ -49,6 +49,9 @@ public class DocumentChangeHistoryResolver
     final Document source = environment.getSource();
     final Urn documentUrn = UrnUtils.getUrn(source.getUrn());
 
+    if (!AuthorizationUtils.canView(context.getOperationContext(), documentUrn)) {
+      return CompletableFuture.completedFuture(List.of());
+    }
     if (!AuthorizationUtils.canGetDocument(documentUrn, context)) {
       throw new AuthorizationException(
           "Unauthorized to view change history for entity: " + documentUrn);

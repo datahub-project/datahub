@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.dashboard.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
@@ -21,7 +21,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Container;
@@ -74,7 +73,8 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
 
   @Override
   public Dashboard apply(
-      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nullable final QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final Dashboard result = new Dashboard();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -160,11 +160,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         ((dashboard, dataMap) ->
             dashboard.setAccess(AccessMapper.map(new Access(dataMap), entityUrn))));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dashboard.class);
-    } else {
-      return mappingHelper.getResult();
-    }
+    return mappingHelper.getResult();
   }
 
   private void mapDashboardKey(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {

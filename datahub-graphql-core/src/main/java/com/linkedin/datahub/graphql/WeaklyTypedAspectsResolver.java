@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.codec.JacksonDataCodec;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AspectParams;
 import com.linkedin.datahub.graphql.generated.AspectRenderSpec;
@@ -12,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RawAspect;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.datahub.graphql.util.EntityResponseUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
@@ -124,10 +126,12 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
         final Map<Urn, EntityResponse> responses =
             entityClient.batchGetV2(opContext, gk.getEntityType(), urns, aspectsToFetch);
         for (int idx : indices) {
-          results.set(
-              idx,
-              buildRawAspectList(
-                  opContext, responses.get(indexToUrn.get(idx)), entitySpec, aspectsToFetch));
+          final Urn urn = indexToUrn.get(idx);
+          final EntityResponse response =
+              AuthorizationUtils.canView(opContext, urn)
+                  ? responses.get(urn)
+                  : EntityResponseUtils.missingEntityResponse(entityRegistry, urn);
+          results.set(idx, buildRawAspectList(opContext, response, entitySpec, aspectsToFetch));
         }
       } catch (RemoteInvocationException | URISyntaxException e) {
         throw new RuntimeException(

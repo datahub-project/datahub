@@ -530,7 +530,7 @@ public final class SiblingsSearchBatchLoader {
     return results;
   }
 
-  private static ScrollResults emptyResults() {
+  public static ScrollResults emptyResults() {
     return toScrollResults(null, Collections.emptyList(), 0, false);
   }
 

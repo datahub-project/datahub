@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.metric.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
@@ -52,7 +52,8 @@ public class MetricMapper {
 
   private MetricMapper() {}
 
-  public static Metric map(@Nullable QueryContext context, final EntityResponse entityResponse) {
+  public static Metric map(@Nullable QueryContext context, final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final Metric result = new Metric();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
@@ -206,10 +207,6 @@ public class MetricMapper {
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
     }
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return com.linkedin.datahub.graphql.authorization.AuthorizationUtils.restrictEntity(
-          result, Metric.class);
-    }
     return result;
   }
 

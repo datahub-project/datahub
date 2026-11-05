@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isViewDatasetUsageAuthorized;
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
 
@@ -73,6 +74,9 @@ public class DashboardUsageStatsResolver
   public CompletableFuture<DashboardUsageQueryResult> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
     final String dashboardUrn = ((Entity) environment.getSource()).getUrn();
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(dashboardUrn))) {
+      return CompletableFuture.completedFuture(usageWithoutData());
+    }
     if (!isViewDatasetUsageAuthorized(context, UrnUtils.getUrn(dashboardUrn))) {
       return CompletableFuture.completedFuture(new DashboardUsageQueryResult());
     }
@@ -278,5 +282,17 @@ public class DashboardUsageStatsResolver
                 timeseriesAspectService),
         this.getClass().getSimpleName(),
         "resolveUsageMetrics");
+  }
+
+  private static DashboardUsageQueryResult usageWithoutData() {
+    final DashboardUsageQueryResultAggregations aggregations =
+        new DashboardUsageQueryResultAggregations();
+    aggregations.setUsers(Collections.emptyList());
+    aggregations.setUniqueUserCount(0);
+    final DashboardUsageQueryResult result = new DashboardUsageQueryResult();
+    result.setBuckets(Collections.emptyList());
+    result.setAggregations(aggregations);
+    result.setMetrics(Collections.emptyList());
+    return result;
   }
 }

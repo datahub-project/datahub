@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.createEmptySearchResults;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 
@@ -75,6 +77,9 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
     final String query = input.getQuery() != null ? input.getQuery() : DEFAULT_QUERY;
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(urn))) {
+      return CompletableFuture.completedFuture(createEmptySearchResults(start, count));
+    }
     final DataHubViewInfo maybeResolvedView = getViewInfo(environment);
 
     // Fast path: the common count-only selections (Domain.entities/dataProducts/

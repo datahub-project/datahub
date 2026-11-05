@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Deprecation;
@@ -12,7 +12,6 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
@@ -62,7 +61,8 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
 
   @Override
   public VersionedDataset apply(
-      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nullable final QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     VersionedDataset result = new VersionedDataset();
     Urn entityUrn = entityResponse.getUrn();
     result.setUrn(entityResponse.getUrn().toString());
@@ -127,11 +127,7 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
         (dataset, dataMap) ->
             dataset.setDeprecation(DeprecationMapper.map(context, new Deprecation(dataMap))));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), VersionedDataset.class);
-    } else {
-      return mappingHelper.getResult();
-    }
+    return mappingHelper.getResult();
   }
 
   private SystemMetadata getSystemMetadata(EnvelopedAspectMap aspectMap, String aspectName) {

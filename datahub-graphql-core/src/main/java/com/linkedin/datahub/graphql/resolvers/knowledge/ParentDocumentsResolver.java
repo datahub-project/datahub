@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
 
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -108,6 +109,12 @@ public class ParentDocumentsResolver
 
     final QueryContext context = getQueryContext(environment);
     final String urn = ((Entity) environment.getSource()).getUrn();
+    if (!AuthorizationUtils.canView(context.getOperationContext(), UrnUtils.getUrn(urn))) {
+      final ParentDocumentsResult result = new ParentDocumentsResult();
+      result.setCount(0);
+      result.setDocuments(Collections.emptyList());
+      return CompletableFuture.completedFuture(result);
+    }
     final List<Document> documents = new ArrayList<>();
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

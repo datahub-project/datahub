@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canViewRelationship;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 
@@ -49,6 +50,13 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
   public CompletableFuture<ParentNodesResult> get(DataFetchingEnvironment environment) {
     final QueryContext context = getQueryContext(environment);
     final Urn sourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+
+    if (!canView(context.getOperationContext(), sourceUrn)) {
+      final ParentNodesResult result = new ParentNodesResult();
+      result.setCount(0);
+      result.setNodes(List.of());
+      return CompletableFuture.completedFuture(result);
+    }
 
     if (_featureFlags != null && _featureFlags.isParentNodesBatchLoadEnabled()) {
       final DataLoader<Urn, ParentNodesResult> loader =

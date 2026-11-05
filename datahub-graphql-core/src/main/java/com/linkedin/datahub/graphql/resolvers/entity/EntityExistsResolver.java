@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -48,6 +49,10 @@ public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boole
     Objects.requireNonNull(entityUrnString, "Entity urn must not be null!");
 
     final Urn entityUrn = Urn.createFromString(entityUrnString);
+
+    if (!AuthorizationUtils.canView(context.getOperationContext(), entityUrn)) {
+      return CompletableFuture.completedFuture(false);
+    }
 
     // Only batch when hydrating an entity. A caller-supplied urn keeps its own call so a bad urn
     // cannot fail the batch.

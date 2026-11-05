@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
@@ -80,11 +81,13 @@ public class ListDataProductAssetsResolver
     Set<String> outputPorts = Collections.EMPTY_SET;
     try {
       final EntityResponse entityResponse =
-          _entityClient.getV2(
-              context.getOperationContext(),
-              Constants.DATA_PRODUCT_ENTITY_NAME,
-              dataProductUrn,
-              Collections.singleton(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME));
+          canView(context.getOperationContext(), dataProductUrn)
+              ? _entityClient.getV2(
+                  context.getOperationContext(),
+                  Constants.DATA_PRODUCT_ENTITY_NAME,
+                  dataProductUrn,
+                  Collections.singleton(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+              : null;
       if (entityResponse != null
           && entityResponse
               .getAspects()

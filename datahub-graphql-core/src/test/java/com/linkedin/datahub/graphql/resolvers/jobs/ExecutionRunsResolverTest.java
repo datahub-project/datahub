@@ -11,6 +11,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
@@ -73,7 +74,7 @@ public class ExecutionRunsResolverTest {
     mockClient = Mockito.mock(EntityClient.class);
     mockContext = Mockito.mock(QueryContext.class);
     mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    mockOpContext = Mockito.mock(OperationContext.class);
+    mockOpContext = TestUtils.mockOperationContext();
 
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getOperationContext()).thenReturn(mockOpContext);

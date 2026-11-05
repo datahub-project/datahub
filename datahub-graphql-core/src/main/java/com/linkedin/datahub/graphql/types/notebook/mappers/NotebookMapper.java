@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.notebook.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.BrowsePathsV2;
@@ -14,7 +14,6 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.ChartCell;
@@ -59,7 +58,8 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
   }
 
   @Override
-  public Notebook apply(@Nullable final QueryContext context, EntityResponse response) {
+  public Notebook apply(@Nullable final QueryContext context, EntityResponse fetchedResponse) {
+    final EntityResponse response = viewableEntityResponse(context, fetchedResponse);
     final Notebook convertedNotebook = new Notebook();
     Urn entityUrn = response.getUrn();
 
@@ -106,11 +106,7 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
         (notebook, dataMap) ->
             notebook.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(dataMap))));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Notebook.class);
-    } else {
-      return mappingHelper.getResult();
-    }
+    return mappingHelper.getResult();
   }
 
   private static void mapDataPlatformInstance(

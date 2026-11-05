@@ -25,6 +25,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.structured.StructuredProperties;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
@@ -296,33 +297,23 @@ public class DataProductMapperTest {
   }
 
   @Test
-  public void testMapDataProductWithRestrictedAccess() {
-    // Setup entity response
+  public void testMapDataProductDeniedByViewAuthorizationMapsLikeMissingDataProduct() {
     EntityResponse entityResponse = createBasicEntityResponse();
+    DataProductProperties dataProductProperties = new DataProductProperties();
+    dataProductProperties.setName(TEST_DATA_PRODUCT_NAME);
+    addAspectToResponse(entityResponse, DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties);
+    when(mockQueryContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
 
-    // Mock authorization to deny access
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
           .when(() -> AuthorizationUtils.canView(any(), eq(dataProductUrn)))
           .thenReturn(false);
 
-      DataProduct restrictedDataProduct = new DataProduct();
-      authUtilsMock
-          .when(
-              () ->
-                  AuthorizationUtils.restrictEntity(any(DataProduct.class), eq(DataProduct.class)))
-          .thenReturn(restrictedDataProduct);
-
-      // Execute mapping
       DataProduct result = DataProductMapper.map(mockQueryContext, entityResponse);
 
-      // Should return restricted entity
-      assertEquals(result, restrictedDataProduct);
-
-      // Verify authorization calls
-      authUtilsMock.verify(() -> AuthorizationUtils.canView(any(), eq(dataProductUrn)));
-      authUtilsMock.verify(
-          () -> AuthorizationUtils.restrictEntity(any(DataProduct.class), eq(DataProduct.class)));
+      assertEquals(result.getUrn(), TEST_DATA_PRODUCT_URN);
+      assertNull(result.getProperties());
     }
   }
 

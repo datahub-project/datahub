@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.timeseries;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.linkedin.common.Operation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -44,6 +46,11 @@ public class TimeseriesCapabilitiesResolver
     final QueryContext context = environment.getContext();
     final OperationContext opContext = context.getOperationContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+    if (!canView(opContext, resourceUrn)) {
+      final TimeseriesCapabilitiesResult result = new TimeseriesCapabilitiesResult();
+      result.setAssetStats(new AssetStatsResult());
+      return CompletableFuture.completedFuture(result);
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

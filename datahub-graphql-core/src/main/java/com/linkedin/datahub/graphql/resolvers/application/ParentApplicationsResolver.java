@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.application;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canViewRelationship;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.metadata.Constants.APPLICATION_ENTITY_NAME;
@@ -34,6 +35,13 @@ public class ParentApplicationsResolver
     if (!APPLICATION_ENTITY_NAME.equals(urn.getEntityType())) {
       throw new IllegalArgumentException(
           String.format("Failed to resolve parent applications for entity %s", urn));
+    }
+
+    if (!canView(context.getOperationContext(), urn)) {
+      final ParentApplicationsResult result = new ParentApplicationsResult();
+      result.setCount(0);
+      result.setApplications(List.of());
+      return CompletableFuture.completedFuture(result);
     }
 
     return GraphQLConcurrencyUtils.supplyAsync(

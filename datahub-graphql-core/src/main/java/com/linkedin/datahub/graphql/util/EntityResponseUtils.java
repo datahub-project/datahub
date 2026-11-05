@@ -1,13 +1,25 @@
 package com.linkedin.datahub.graphql.util;
 
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +28,45 @@ import lombok.extern.slf4j.Slf4j;
 public class EntityResponseUtils {
 
   private EntityResponseUtils() {}
+
+  /**
+   * Returns {@code entityResponse} when the caller can view the entity, and otherwise the response
+   * a lookup of a urn that doesn't exist gets, so that mapping it can't reveal the entity.
+   */
+  @Nonnull
+  public static EntityResponse viewableEntityResponse(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    if (context == null
+        || AuthorizationUtils.canView(context.getOperationContext(), entityResponse.getUrn())) {
+      return entityResponse;
+    }
+    return missingEntityResponse(
+        context.getOperationContext().getEntityRegistry(), entityResponse.getUrn());
+  }
+
+  /**
+   * The response a batch get returns for a urn that doesn't exist: only the key aspect, derived
+   * from the urn, matching what EntityServiceImpl adds when the key aspect isn't stored.
+   */
+  @Nonnull
+  public static EntityResponse missingEntityResponse(
+      @Nonnull final EntityRegistry entityRegistry, @Nonnull final Urn urn) {
+    final AspectSpec keySpec = entityRegistry.getEntitySpec(urn.getEntityType()).getKeyAspectSpec();
+    final EnvelopedAspect keyAspect =
+        new EnvelopedAspect()
+            .setName(keySpec.getName())
+            .setVersion(ASPECT_LATEST_VERSION)
+            .setValue(new Aspect(EntityKeyUtils.convertUrnToEntityKey(urn, keySpec).data()))
+            .setType(AspectType.VERSIONED)
+            .setCreated(
+                new AuditStamp()
+                    .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+                    .setTime(System.currentTimeMillis()));
+    return new EntityResponse()
+        .setUrn(urn)
+        .setEntityName(urn.getEntityType())
+        .setAspects(new EnvelopedAspectMap(Map.of(keySpec.getName(), keyAspect)));
+  }
 
   @Nullable
   public static ResolvedAuditStamp extractAspectCreatedAuditStamp(

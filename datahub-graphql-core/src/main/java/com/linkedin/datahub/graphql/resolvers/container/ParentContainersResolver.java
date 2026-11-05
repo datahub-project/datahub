@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.container;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 
 import com.linkedin.common.urn.Urn;
@@ -50,6 +51,13 @@ public class ParentContainersResolver
 
     final QueryContext context = getQueryContext(environment);
     final Urn urn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+
+    if (!canView(context.getOperationContext(), urn)) {
+      final ParentContainersResult result = new ParentContainersResult();
+      result.setCount(0);
+      result.setContainers(List.of());
+      return CompletableFuture.completedFuture(result);
+    }
 
     if (_featureFlags != null && _featureFlags.isParentContainersBatchLoadEnabled()) {
       final DataLoader<Urn, ParentContainersResult> loader =

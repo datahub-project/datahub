@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -79,6 +80,16 @@ public class RelatedDocumentsResolver
                 bindArgument(environment.getArgument("input"), RelatedDocumentsInput.class);
             final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
             final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
+            if (!AuthorizationUtils.canView(
+                context.getOperationContext(), UrnUtils.getUrn(parentEntityUrn))) {
+              final RelatedDocumentsResult result = new RelatedDocumentsResult();
+              result.setStart(start);
+              result.setCount(count);
+              result.setTotal(0);
+              result.setDocuments(List.of());
+              result.setFacets(List.of());
+              return result;
+            }
             // Get current user and their groups for ownership filtering
             final Urn currentUserUrn = Urn.createFromString(context.getActorUrn());
             final List<Urn> userGroupUrns =

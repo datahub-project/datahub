@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.metrics;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.createEmptyScrollResults;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -47,6 +50,10 @@ public class SemanticModelMetricsResolver implements DataFetcher<CompletableFutu
     final QueryContext context = getQueryContext(environment);
     final ScrollAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), ScrollAcrossEntitiesInput.class);
+
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(entity.getUrn()))) {
+      return CompletableFuture.completedFuture(createEmptyScrollResults(0));
+    }
 
     final Criterion semanticModelFilter =
         CriterionUtils.buildCriterion(SEMANTIC_MODEL_FIELD_NAME, Condition.EQUAL, entity.getUrn());

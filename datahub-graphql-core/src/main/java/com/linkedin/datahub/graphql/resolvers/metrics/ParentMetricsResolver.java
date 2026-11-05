@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.metrics;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 
 import com.linkedin.common.urn.Urn;
@@ -43,6 +44,10 @@ public class ParentMetricsResolver implements DataFetcher<CompletableFuture<List
   public CompletableFuture<List<Metric>> get(final DataFetchingEnvironment environment) {
     final QueryContext context = getQueryContext(environment);
     final Urn sourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+
+    if (!canView(context.getOperationContext(), sourceUrn)) {
+      return CompletableFuture.completedFuture(List.of());
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

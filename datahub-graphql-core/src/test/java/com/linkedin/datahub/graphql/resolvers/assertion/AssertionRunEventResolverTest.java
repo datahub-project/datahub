@@ -11,6 +11,7 @@ import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionRunEventsResult;
 import com.linkedin.entity.client.EntityClient;
@@ -20,7 +21,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.SystemMetadata;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -69,8 +69,7 @@ public class AssertionRunEventResolverTest {
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
 
@@ -158,8 +157,7 @@ public class AssertionRunEventResolverTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

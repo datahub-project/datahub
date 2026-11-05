@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
@@ -53,6 +56,15 @@ public class EntityAssertionsResolver
           final Integer count = environment.getArgumentOrDefault("count", 200);
           final Boolean includeSoftDeleted =
               environment.getArgumentOrDefault("includeSoftDeleted", false);
+
+          if (!canView(context.getOperationContext(), UrnUtils.getUrn(entityUrn))) {
+            final EntityAssertionsResult result = new EntityAssertionsResult();
+            result.setCount(0);
+            result.setStart(start);
+            result.setTotal(0);
+            result.setAssertions(List.of());
+            return result;
+          }
 
           try {
             // Step 1: Fetch set of assertions associated with the target entity from the Graph

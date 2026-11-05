@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.jobs;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.*;
@@ -59,6 +61,15 @@ public class ExecutionRunsResolver
           final String entityUrn = ((Entity) environment.getSource()).getUrn();
           final Integer start = environment.getArgumentOrDefault("start", 0);
           final Integer count = environment.getArgumentOrDefault("count", 20);
+
+          if (!canView(context.getOperationContext(), UrnUtils.getUrn(entityUrn))) {
+            final DataProcessInstanceResult result = new DataProcessInstanceResult();
+            result.setCount(count);
+            result.setStart(start);
+            result.setTotal(0);
+            result.setRuns(List.of());
+            return result;
+          }
 
           try {
             // Step 1: Fetch set of task runs associated with the target entity from the Search

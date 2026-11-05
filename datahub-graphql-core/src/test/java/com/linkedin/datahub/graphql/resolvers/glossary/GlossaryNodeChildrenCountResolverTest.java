@@ -1,8 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.GlossaryNodeChildrenCount;
 import com.linkedin.datahub.graphql.resolvers.load.GlossaryNodeChildrenCountBatchLoader;
@@ -53,6 +55,8 @@ public class GlossaryNodeChildrenCountResolverTest {
     _registry = new DataLoaderRegistry();
     _registry.register(GlossaryNodeChildrenCountBatchLoader.LOADER_NAME, loader);
     Mockito.when(_dataFetchingEnvironment.getDataLoaderRegistry()).thenReturn(_registry);
+    final QueryContext context = getMockAllowContext();
+    Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(context);
 
     _resolver = new GlossaryNodeChildrenCountResolver();
   }

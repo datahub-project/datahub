@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.ingest;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
@@ -11,13 +10,13 @@ import com.datahub.authorization.EntitySpec;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.Secret;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.secret.DataHubSecretValue;
-import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 
 public class IngestTestUtils {
@@ -33,7 +32,7 @@ public class IngestTestUtils {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
 
-    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
     when(mockContext.getOperationContext().authorize(any(), nullable(EntitySpec.class), any()))
         .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
     when(mockContext.getOperationContext().getObjectMapper()).thenReturn(new ObjectMapper());
@@ -44,7 +43,7 @@ public class IngestTestUtils {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
 
-    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
     when(mockContext.getOperationContext().authorize(any(), nullable(EntitySpec.class), any()))
         .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
     return mockContext;

@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.OperationsQueryResult;
 import com.linkedin.datahub.graphql.generated.OperationsStatsInput;
@@ -24,7 +25,6 @@ import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -99,7 +99,8 @@ public class DatasetOperationsStatsResolverTest {
     // Execute resolver
     DatasetOperationsStatsResolver resolver = new DatasetOperationsStatsResolver(mockService);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
-    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
+    when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);

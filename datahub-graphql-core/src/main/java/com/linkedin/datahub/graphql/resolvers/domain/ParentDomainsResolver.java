@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canViewRelationship;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
@@ -29,6 +30,13 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
     if (!DOMAIN_ENTITY_NAME.equals(urn.getEntityType())) {
       throw new IllegalArgumentException(
           String.format("Failed to resolve parents for entity type %s", urn));
+    }
+
+    if (!canView(context.getOperationContext(), urn)) {
+      final ParentDomainsResult result = new ParentDomainsResult();
+      result.setCount(0);
+      result.setDomains(List.of());
+      return CompletableFuture.completedFuture(result);
     }
 
     return GraphQLConcurrencyUtils.supplyAsync(

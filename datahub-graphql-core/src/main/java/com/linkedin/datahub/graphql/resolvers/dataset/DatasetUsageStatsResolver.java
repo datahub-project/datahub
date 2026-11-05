@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isViewDatasetUsageAuthorized;
 
 import com.linkedin.common.urn.Urn;
@@ -10,12 +11,14 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
+import com.linkedin.datahub.graphql.generated.UsageQueryResultAggregations;
 import com.linkedin.datahub.graphql.types.usage.UsageQueryResultMapper;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageTimeRange;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,6 +39,11 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+    if (!canView(context.getOperationContext(), resourceUrn)) {
+      return CompletableFuture.completedFuture(
+          new UsageQueryResult(
+              List.of(), new UsageQueryResultAggregations(0, List.of(), List.of(), null)));
+    }
     final UsageTimeRange range =
         UsageTimeRange.valueOf(environment.getArgument(Constants.RANGE_INPUT_FIELD));
     final Long startTimeMillis =

@@ -35,6 +35,7 @@ import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.datahub.graphql.util.EntityResponseUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -49,6 +50,27 @@ public class DocumentMapper {
   private static final String DATAHUB_DATA_PLATFORM_URN = "urn:li:dataPlatform:datahub";
 
   public static Document map(@Nullable QueryContext context, final EntityResponse entityResponse) {
+    final EnvelopedAspectMap aspects = entityResponse.getAspects();
+    final EnvelopedAspect envelopedInfo = aspects.get(Constants.DOCUMENT_INFO_ASPECT_NAME);
+    final EnvelopedAspect envelopedSubTypes = aspects.get(Constants.SUB_TYPES_ASPECT_NAME);
+    if (context != null
+        && !AuthorizationUtils.canViewDocument(
+            context.getOperationContext(),
+            entityResponse.getUrn(),
+            envelopedInfo != null
+                ? new com.linkedin.knowledge.DocumentInfo(envelopedInfo.getValue().data())
+                : null,
+            envelopedSubTypes != null ? new SubTypes(envelopedSubTypes.getValue().data()) : null)) {
+      return mapViewable(
+          context,
+          EntityResponseUtils.missingEntityResponse(
+              context.getOperationContext().getEntityRegistry(), entityResponse.getUrn()));
+    }
+    return mapViewable(context, entityResponse);
+  }
+
+  private static Document mapViewable(
+      @Nullable QueryContext context, final EntityResponse entityResponse) {
     final Document result = new Document();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
@@ -223,11 +245,6 @@ public class DocumentMapper {
     // Note: Relationships are handled separately via batch resolvers in GraphQL
     // They will be resolved lazily when accessed through the GraphQL query
 
-    if (context != null
-        && !AuthorizationUtils.canViewDocument(
-            context.getOperationContext(), entityUrn, docInfo, subTypes)) {
-      return AuthorizationUtils.restrictEntity(result, Document.class);
-    }
     return result;
   }
 
