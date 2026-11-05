@@ -209,11 +209,7 @@ const COLOR_RULE_EXCLUDED_FILES = [
 // violations: remove an entry once its file is fixed, never add new ones.
 // --------------------------------------------------------------------------
 const ALCHEMY_APP_IMPORT_EXCLUDED_FILES = [
-    'src/alchemy-components/components/Avatar/Avatar.tsx',
-    'src/alchemy-components/components/Avatar/AvatarPillWithLinkAndHover.tsx',
     'src/alchemy-components/components/Avatar/utils.ts',
-    'src/alchemy-components/components/AvatarStack/AvatarStackWithHover.tsx',
-    'src/alchemy-components/components/AvatarStack/HoverSectionContent.tsx',
     'src/alchemy-components/components/Editor/Editor.stories.tsx',
     'src/alchemy-components/components/Editor/EditorImpl.tsx',
     'src/alchemy-components/components/Editor/extensions/fileDragDrop/FileNodeView.tsx',
@@ -222,11 +218,9 @@ const ALCHEMY_APP_IMPORT_EXCLUDED_FILES = [
     'src/alchemy-components/components/Editor/extensions/mentions/MentionsNodeView.tsx',
     'src/alchemy-components/components/Editor/readOnlyContent.tsx',
     'src/alchemy-components/components/Editor/toolbar/Toolbar.tsx',
-    'src/alchemy-components/components/FileNode/FileNode.tsx',
     'src/alchemy-components/components/IncidentStagePill/IncidentStagePill.tsx',
     'src/alchemy-components/components/IncidentStagePill/constant.ts',
     'src/alchemy-components/components/LineageCard/LineageCard.stories.tsx',
-    'src/alchemy-components/components/Modal/Modal.tsx',
     'src/alchemy-components/components/Select/Nested/types.ts',
     'src/alchemy-components/components/Select/SimpleSelect.tsx',
     'src/alchemy-components/components/SelectItemsPopover/SelectItemPopover.tsx',
