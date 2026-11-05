@@ -20,7 +20,7 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
-def default_recipe(tmp_path, output_file_name="azure_ad_mces_default_config.json"):
+def default_recipe(tmp_path, output_file_name="azure_ad_default_config.json"):
     return {
         "run_id": "test-azure-ad",
         "source": {
@@ -254,8 +254,9 @@ def test_azure_ad_source_default_configs(pytestconfig, mock_datahub_graph, tmp_p
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "azure_ad_mces_default_config.json",
-        golden_path=test_resources_dir / "azure_ad_mces_golden_default_config.json",
+        output_path=tmp_path / "azure_ad_default_config.json",
+        golden_path=test_resources_dir / "azure_ad_golden_default_config.json",
+        fail_on_output_mces=True,
     )
 
 
@@ -267,7 +268,7 @@ def test_azure_ad_source_empty_group_membership(
         pytestconfig.rootpath / "tests/integration/azure_ad"
     )
 
-    output_file_name = "azure_ad_mces_no_groups_mcp.json"
+    output_file_name = "azure_ad_no_groups_mcp.json"
     new_recipe = default_recipe(tmp_path, output_file_name)
 
     new_recipe["source"]["config"]["ingest_group_membership"] = False
@@ -282,7 +283,8 @@ def test_azure_ad_source_empty_group_membership(
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=f"{tmp_path}/{output_file_name}",
-        golden_path=test_resources_dir / "azure_ad_mces_no_groups_golden_mcp.json",
+        golden_path=test_resources_dir / "azure_ad_no_groups_golden_mcp.json",
+        fail_on_output_mces=True,
     )
 
 
@@ -292,7 +294,7 @@ def test_azure_ad_source_nested_groups(pytestconfig, mock_datahub_graph, tmp_pat
         pytestconfig.rootpath / "tests/integration/azure_ad"
     )
 
-    output_file_name = "azure_ad_mces_nested_groups.json"
+    output_file_name = "azure_ad_nested_groups.json"
     new_recipe = default_recipe(tmp_path, output_file_name)
 
     new_recipe["source"]["config"]["ingest_users"] = False
@@ -309,7 +311,8 @@ def test_azure_ad_source_nested_groups(pytestconfig, mock_datahub_graph, tmp_pat
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=f"{tmp_path}/{output_file_name}",
-        golden_path=test_resources_dir / "azure_ad_mces_golden_nested_groups.json",
+        golden_path=test_resources_dir / "azure_ad_golden_nested_groups.json",
+        fail_on_output_mces=True,
     )
 
 
@@ -319,7 +322,7 @@ def test_azure_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_p
         pytestconfig.rootpath / "tests/integration/azure_ad"
     )
 
-    output_file_name = "azure_ad_mces_ingestion_disabled.json"
+    output_file_name = "azure_ad_ingestion_disabled.json"
     new_recipe = default_recipe(tmp_path, output_file_name)
 
     new_recipe["source"]["config"]["ingest_group_membership"] = False
@@ -336,7 +339,8 @@ def test_azure_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_p
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=f"{tmp_path}/{output_file_name}",
-        golden_path=test_resources_dir / "azure_ad_mces_golden_ingestion_disabled.json",
+        golden_path=test_resources_dir / "azure_ad_golden_ingestion_disabled.json",
+        fail_on_output_mces=True,
     )
 
 
@@ -346,7 +350,7 @@ def test_azure_ad_group_regex_mismatch_is_filtered_not_failed(
 ):
     """Groups that don't match azure_ad_response_to_groupname_regex should be
     silently filtered, not reported as failures that mark the run as failed."""
-    output_file_name = "azure_ad_mces_regex_filter.json"
+    output_file_name = "azure_ad_regex_filter.json"
     new_recipe = default_recipe(tmp_path, output_file_name)
     # Only groups whose displayName ends with _OWNER or _MEMBER match this regex.
     # The test fixture groups (groupDisplayName1/2/3) don't match, so all will be
@@ -374,7 +378,7 @@ def test_azure_ad_group_missing_attr_is_failure(
 ):
     """A missing azure_ad_response_to_groupname_attr key is a misconfiguration and
     must surface as a failure, not be silently filtered."""
-    output_file_name = "azure_ad_mces_missing_attr.json"
+    output_file_name = "azure_ad_missing_attr.json"
     new_recipe = default_recipe(tmp_path, output_file_name)
     new_recipe["source"]["config"]["azure_ad_response_to_groupname_attr"] = (
         "nonExistentAttr"

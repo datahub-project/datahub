@@ -83,7 +83,7 @@ export const EditableEditor: Story = {
     tags: ['dev'],
     render: (props) => (
         <RemirrorWrapper>
-            <Editor {...props} placeholder="Type your content here..." />
+            <Editor {...props} />
         </RemirrorWrapper>
     ),
 };

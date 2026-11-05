@@ -62,7 +62,7 @@ const meta = {
             },
         },
         popoverRenderer: {
-            description: 'A function to replace default rendering of toolbar',
+            description: 'A function to replace default rendering of the popover shown on bar hover',
         },
         margin: {
             description: 'Add margins to chart',
@@ -96,7 +96,7 @@ const meta = {
 
     // Define defaults
     args: {
-        ...getMockedProps(),
+        data: getMockedProps().data,
         popoverRenderer: (datum) => <>DATUM: {JSON.stringify(datum)}</>,
     },
 } satisfies Meta<typeof BarChart>;

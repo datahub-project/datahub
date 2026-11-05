@@ -565,7 +565,11 @@ public class SearchTemplateRenderTest {
     assertTrue(mixed.contains(harness.property("certification.status").fieldPath() + ".text^9"));
     assertTrue(mixed.contains("\"boost\" : 9.0"));
     assertTrue(mixed.contains("\"boost\" : 8.0"));
-    assertTrue(mixed.contains("\"_name\" : \"nameAndValue\""));
+    assertTrue(
+        mixed.contains(
+            "\"_name\" : \""
+                + SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.NAME_AND_VALUE)
+                + "\""));
     assertFalse(mixed.contains("\"boost\" : 900.0"));
 
     SearchTemplateProperties number = template("Number stays typed", "{ \"match_all\": {} }");
@@ -590,17 +594,20 @@ public class SearchTemplateRenderTest {
     BoolQueryBuilder unique = QueryBuilders.boolQuery();
     unique.should(
         QueryBuilders.termQuery(path + ".keyword", "Gold")
-            .queryName(SearchTemplateMatchReport.EXACT));
+            .queryName(SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.EXACT)));
     unique.should(
         QueryBuilders.termQuery(path + ".keyword", "gold")
-            .queryName(SearchTemplateMatchReport.NAME_AND_VALUE));
+            .queryName(
+                SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.NAME_AND_VALUE)));
     Map<String, RenderedSearchTemplate.NamedClause> namedClauses =
         SearchTemplateMatchReport.namedClauses(unique, indexedProperties());
 
     Map<String, Set<String>> matched = new LinkedHashMap<>();
     matched.put(path, Set.of("Gold"));
-    matched.put(SearchTemplateMatchReport.EXACT, Set.of(""));
-    matched.put(SearchTemplateMatchReport.NAME_AND_VALUE, Set.of("gold"));
+    matched.put(SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.EXACT), Set.of(""));
+    matched.put(
+        SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.NAME_AND_VALUE),
+        Set.of("gold"));
     matched.put("name", Set.of("orders"));
     Map<String, Object> properties = new LinkedHashMap<>();
     properties.put(path.substring(path.indexOf('.') + 1), "Gold");
@@ -642,13 +649,13 @@ public class SearchTemplateRenderTest {
     BoolQueryBuilder reused = QueryBuilders.boolQuery();
     reused.should(
         QueryBuilders.termQuery(path + ".keyword", "Gold")
-            .queryName(SearchTemplateMatchReport.EXACT));
+            .queryName(SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.EXACT)));
     reused.should(
         QueryBuilders.termQuery(summary + ".keyword", "Gold")
-            .queryName(SearchTemplateMatchReport.EXACT));
+            .queryName(SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.EXACT)));
     namedClauses = SearchTemplateMatchReport.namedClauses(reused, indexedProperties());
     Map<String, Set<String>> again = new LinkedHashMap<>();
-    again.put(SearchTemplateMatchReport.EXACT, Set.of("Gold"));
+    again.put(SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.EXACT), Set.of("Gold"));
     again.put(path, Set.of("Gold"));
     List<MatchedField> unset =
         SearchTemplateMatchReport.fields(again, Map.of(), "Gold", namedClauses);
@@ -780,10 +787,20 @@ public class SearchTemplateRenderTest {
     String hidden = harness.property("hidden.label").fieldPath();
     if (classpathBridge) {
       assertFalse(query.contains(hidden), query);
-      assertFalse(query.contains("\"_name\" : \"nameAndValue\""), query);
+      assertFalse(
+          query.contains(
+              "\"_name\" : \""
+                  + SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.NAME_AND_VALUE)
+                  + "\""),
+          query);
     } else {
       assertTrue(query.contains(hidden), query);
-      assertTrue(query.contains("\"_name\" : \"nameAndValue\""), query);
+      assertTrue(
+          query.contains(
+              "\"_name\" : \""
+                  + SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.NAME_AND_VALUE)
+                  + "\""),
+          query);
     }
   }
 

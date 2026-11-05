@@ -338,13 +338,13 @@ source:
 Supported wildcard characters: `*` (any characters within a path segment), `?` (single character), `[...]` (character set). If a glob pattern matches zero files, a warning is emitted in the ingestion report. The expanded file list is also recorded in the report for debugging.
 
 :::warning Avoid globbing over historical run result files
-Glob patterns that match timestamped or versioned files (e.g. `run_results/2024-01-01/run_results.json`) will cause DataHub to re-process old test failures on every ingestion cycle, triggering repeated alerts. Instead, write results to a **stable path that is overwritten on each run** and glob across jobs, not history:
+When a glob matches timestamped or versioned files (e.g. `run_results/2024-01-01/run_results.json`), only the most recent result for each test is emitted, so old failures are not replayed. Every matched file is still read on every ingestion, though, and with `only_emit_latest_test_result: false` every result in every file is emitted again on each run, re-triggering assertion alerts. Prefer writing results to a **stable path that is overwritten on each run** and globbing across jobs, not history:
 
 ```yaml
 # ✅ Glob across tasks, stable path overwritten each run
 - "s3://my-bucket/run_results_latest/my_dag/*/run_results.json"
 
-# ❌ Glob across timestamps — re-processes historical failures every cycle
+# ❌ Glob across timestamps — re-reads every historical file each cycle
 - "s3://my-bucket/run_results/*/2024-*/run_results.json"
 ```
 
@@ -468,6 +468,14 @@ source:
 ```
 
 If you have models that have tons of sources from other projects listed in the "Composed Of" section, it may also make sense to hide sources.
+
+#### Dremio
+
+With `target_platform: dremio`, dbt names datasets the way the Dremio source does (`dremio.<space or source>.<folders>.<table>`, lowercased, without dbt-dremio's `no_schema` folder), so dbt models link to the Dremio datasets as siblings and dbt lineage points at them.
+
+- Write `target_platform` in lowercase. Other casings name the data platform itself differently, and those datasets don't link to the Dremio source's.
+- Keep `include_database_name` at its default (`true`). Without the space or source, the names can't match.
+- For tables in nested folders (paths of more than 3 parts), column-level lineage may be missing for columns not qualified with a table alias; table-level lineage is unaffected.
 
 #### Reducing "composed of" sprawl by hiding sources
 
