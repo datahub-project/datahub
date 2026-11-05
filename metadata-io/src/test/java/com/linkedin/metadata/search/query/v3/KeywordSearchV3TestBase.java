@@ -2367,6 +2367,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                   opContext, CORP_USER_ENTITY_NAME, "John K", null, null, 10));
       assertEquals(matched, List.of(killroy, johnathan));
 
+      // Every token must match: "K" alone would otherwise suggest both Killroys.
+      assertEquals(
+          urns(
+              searchService.autoComplete(opContext, CORP_USER_ENTITY_NAME, "Qx K", null, null, 10)),
+          List.of());
+
       // A dataset is not in allTokensMustPrefixMatchEntities: only the phrase prefix applies.
       assertEquals(
           urns(
