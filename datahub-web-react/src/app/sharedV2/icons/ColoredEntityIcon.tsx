@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 
 import { coloredIconBackground, coloredIconForeground } from '@app/sharedV2/icons/coloredIconMix';
 
-const Container = styled.div<{ $color: string; $size: number; $radius: number }>`
+const Container = styled.span<{ $color: string; $size: number; $radius: number }>`
     display: flex;
     align-items: center;
     justify-content: center;
