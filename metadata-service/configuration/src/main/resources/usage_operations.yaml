@@ -78,8 +78,7 @@ usage_operations:
 
   search_query:
     description: >
-      Full-text search, scroll, autocomplete, browse, semantic search, browse-path
-      lookup (GraphQL browsePaths / browseV2),
+      Full-text search, scroll, autocomplete, browse (GraphQL browseV2), semantic search,
       audit log search (POST /openapi/v1/events/audit/search), and Rest.li
       Analytics.getTimeseriesStats (Elasticsearch aggregations).
     request_apis: [openapi, restli, graphql]
@@ -94,8 +93,6 @@ usage_operations:
         - autoComplete
         - getAutoCompleteResults
         - getAutoCompleteMultipleResults
-        - browse
-        - browsePaths
         - browseV2
         - getQuickFilters
         - listUsersAndGroups
