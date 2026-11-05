@@ -210,8 +210,8 @@ class QlikSourceConfig(
     max_workers: int = Field(
         default=4,
         ge=1,
-        description="Number of apps read from the Engine at the same time. "
-        "Each worker holds one Engine session open.",
+        description="Number of apps and datasets read at the same time. "
+        "Each app read holds one Engine session open.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,

@@ -395,6 +395,10 @@ class QlikAPI:
             ((item,) for item in self._list_items(space_id)),
             max_workers=self.config.max_workers,
         ):
-            item = future.result()
+            try:
+                item = future.result()
+            except Exception as e:
+                self._log_http_error(message=f"Unable to fetch item. Exception: {e}")
+                continue
             if item:
                 yield item
