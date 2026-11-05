@@ -479,7 +479,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Integer limit)
       throws RemoteInvocationException {
     throw new UnsupportedOperationException(
-        "The Rest.li browse action has been removed. Use browseV2 instead.");
+        "The Rest.li browse action has been removed. RestliEntityClient does not implement browseV2 "
+            + "either; use the GraphQL browseV2 query instead.");
   }
 
   /**
