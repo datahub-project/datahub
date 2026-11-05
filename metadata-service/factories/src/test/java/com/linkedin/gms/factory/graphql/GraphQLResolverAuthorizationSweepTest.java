@@ -45,8 +45,11 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SemanticSearchService;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -86,6 +89,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -94,10 +99,12 @@ import javax.annotation.Nullable;
 import org.mockito.Answers;
 import org.mockito.Mockito;
 import org.mockito.invocation.Invocation;
+import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -160,8 +167,12 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
     /** Failed with a non-authorization error without ever consulting the authorizer. */
     FAILED;
 
-    boolean refused() {
-      return this == DENIED || this == CHECKED;
+    /**
+     * Mutations must answer 403. Queries may instead consult the authorizer and filter or redact
+     * the result (View Authorization), so CHECKED also counts as refused for them.
+     */
+    boolean refused(boolean mutation) {
+      return this == DENIED || (!mutation && this == CHECKED);
     }
   }
 
@@ -212,6 +223,9 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               Map.entry("updateQuery", Outcome.FAILED),
               Map.entry("updateView", Outcome.FAILED),
               Map.entry("upsertIncident", Outcome.FAILED),
+              // REFUSED IN PAYLOAD: refuses with success=false in the result instead of an error.
+              Map.entry("patchEntities", Outcome.RETURNED),
+              Map.entry("patchEntity", Outcome.RETURNED),
               // UNWIRED: declared in the schema without a resolver, so it always returns null.
               Map.entry("deleteERModelRelationship", Outcome.RETURNED),
               Map.entry("updateApplication", Outcome.RETURNED),
@@ -242,7 +256,7 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               Map.entry("docPropagationSettings", Outcome.RETURNED),
               Map.entry("erModelRelationship", Outcome.RETURNED),
               Map.entry("form", Outcome.RETURNED),
-              Map.entry("getEntityCounts", Outcome.FAILED),
+              Map.entry("getEntityCounts", Outcome.RETURNED),
               Map.entry("globalHomePageSettings", Outcome.RETURNED),
               Map.entry("globalViewsSettings", Outcome.RETURNED),
               Map.entry("isAnalyticsEnabled", Outcome.RETURNED),
@@ -290,7 +304,7 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               Map.entry("domain", Outcome.RETURNED),
               Map.entry("entity", Outcome.RETURNED),
               Map.entry("getPresignedUploadUrl", Outcome.FAILED),
-              Map.entry("versionedDataset", Outcome.FAILED),
+              Map.entry("versionedDataset", Outcome.RETURNED),
               // UNWIRED: declared in the schema without a resolver, so it always returns null.
               Map.entry("listApplicationAssets", Outcome.RETURNED),
               // FOLLOW-UP: baselined, see follow-up.
@@ -307,23 +321,24 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
               Map.entry("tag", Outcome.RETURNED),
               Map.entry("test", Outcome.RETURNED)));
 
+  private static final String MUTATION = "Mutation";
+
   private static final Urn SWEEP_ACTOR = Urn.createFromTuple("corpuser", "authz-sweep-no-privs");
 
-  /** Mock methods that change state. Reads (get*, list*, search*, exists*, ...) do not match. */
-  private static final Pattern WRITE_METHOD =
+  /**
+   * Mock methods that only read. Every other call on a storage or service mock counts as a write,
+   * so a new state-changing method is caught without updating this list.
+   */
+  private static final Pattern READ_METHOD =
       Pattern.compile(
-          "^(ingest|batchIngest|delete|batchDelete|remove|batchRemove|create|update|batchUpdate"
-              + "|upsert|set|batchSet|add|batchAdd|grant|revoke|produce|save|put|patch|rollback"
-              + "|assign|unassign|link|unlink|invite|reset|raise|submit|upload|rotate|cancel"
-              + "|execute|run|sign|generate|import|emit|send|accept|approve|apply|clear|move"
-              + "|merge|archive|restore|unset|deploy|copy|register|unregister|start|stop|trigger"
-              + "|mark|publish|unpublish).*");
-
-  /** Pure URN minting helpers (e.g. generateAssertionUrn) match WRITE_METHOD but change nothing. */
-  private static final Pattern URN_FACTORY_METHOD = Pattern.compile("^generate\\w*Urn$");
+          "^(get|batchGet|list|search|scroll|browse|autoComplete|aggregate|exists|filter|count"
+              + "|find|fetch|is|has|can|supports|estimate|read|lookup|load|describe|validate|verify"
+              + "|semanticSearch"
+              + "|generate\\w*Urn$|toString$|equals$|hashCode$).*");
 
   /** Mocks whose calls are bookkeeping rather than state changes. */
-  private static final List<String> IGNORED_MOCKS = List.of("metricUtils", "entityRegistry");
+  private static final List<Class<?>> IGNORED_MOCKS =
+      List.of(MetricUtils.class, EntityRegistry.class);
 
   // URN hints: first matching keyword (in order) in the argument name, then in the field name.
   private static final List<Map.Entry<String, String>> URN_HINTS =
@@ -441,15 +456,15 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
 
   @MockitoBean
   @Qualifier("semanticSearchService")
-  private com.linkedin.metadata.search.SemanticSearchService semanticSearchService;
+  private SemanticSearchService semanticSearchService;
 
   @MockitoBean
   @Qualifier("cachingEntitySearchService")
-  private com.linkedin.metadata.search.client.CachingEntitySearchService cachingEntitySearchService;
+  private CachingEntitySearchService cachingEntitySearchService;
 
   @MockitoBean
   @Qualifier("semanticEntitySearchService")
-  private com.linkedin.metadata.search.semantic.SemanticEntitySearch semanticEntitySearchService;
+  private SemanticEntitySearch semanticEntitySearchService;
 
   @MockitoBean
   @Qualifier("graphService")
@@ -603,7 +618,7 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
 
   @Test
   public void testMutationsRefuseActorWithoutPrivileges() throws Exception {
-    assertMatchesBaseline("Mutation", sweep("Mutation", "mutation"), MUTATION_BASELINE);
+    assertMatchesBaseline(MUTATION, sweep(MUTATION, "mutation"), MUTATION_BASELINE);
   }
 
   @Test
@@ -626,12 +641,15 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
     List<Object> mocks = collectMocks();
     Map<String, Call> results = new TreeMap<>();
     for (GraphQLFieldDefinition field : root.getFieldDefinitions()) {
-      // First with required arguments only; if the authorizer was never reached, retry with every
-      // optional argument populated (some resolvers need them to reach their check).
+      // First with required arguments only. If that failed before reaching the authorizer, retry
+      // with every optional argument populated (some resolvers need them to reach their check).
+      // A retry never hides a worse first result: a call that succeeded unchecked stays RETURNED
+      // unless the retry writes.
       Call call = invoke(operation, field, false, mocks);
       if (call.outcome() == Outcome.FAILED || call.outcome() == Outcome.RETURNED) {
         Call retry = invoke(operation, field, true, mocks);
-        if (retry.outcome().refused() || retry.outcome() == Outcome.WROTE) {
+        if (retry.outcome() == Outcome.WROTE
+            || (call.outcome() == Outcome.FAILED && retry.outcome() != Outcome.FAILED)) {
           call = retry;
         }
       }
@@ -688,6 +706,8 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
     Mockito.clearInvocations(mocks.toArray());
 
     ExecutionResult result = graphQLEngine.execute(query, "Sweep", variables, context);
+    // Some resolvers finish work with CompletableFuture.runAsync; let it land in this measurement.
+    ForkJoinPool.commonPool().awaitQuiescence(10, TimeUnit.SECONDS);
 
     List<String> writes = writes(mocks);
     if (!writes.isEmpty()) {
@@ -698,7 +718,10 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
         errors.stream()
             .anyMatch(
                 e ->
-                    e.getExtensions() != null
+                    e.getPath() != null
+                        && !e.getPath().isEmpty()
+                        && field.getName().equals(e.getPath().get(0))
+                        && e.getExtensions() != null
                         && Objects.equals(e.getExtensions().get("code"), 403));
     String detail =
         errors.stream()
@@ -724,14 +747,19 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
     results.forEach(
         (name, call) -> {
           Outcome expected = baseline.get(name);
-          boolean ok = expected == null ? call.outcome().refused() : call.outcome() == expected;
+          boolean ok =
+              expected == null
+                  ? call.outcome().refused(MUTATION.equals(rootTypeName))
+                  : call.outcome() == expected;
           if (!ok) {
             problems.add(
                 String.format(
                     "%s.%s: expected %s but was %s (%s)",
                     rootTypeName,
                     name,
-                    expected == null ? "DENIED or CHECKED" : expected + " (baselined)",
+                    expected == null
+                        ? (MUTATION.equals(rootTypeName) ? "DENIED" : "DENIED or CHECKED")
+                        : expected + " (baselined)",
                     call.outcome(),
                     call.detail()));
           }
@@ -741,8 +769,11 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
         .forEach(name -> problems.add(rootTypeName + "." + name + ": baselined but not in schema"));
     assertTrue(
         problems.isEmpty(),
-        "Fields not refused for an actor without privileges. Add an authorization check, or, if a"
-            + " baselined field is now refused or gone, remove it from the baseline:\n  "
+        "Fields not refused for an actor without privileges (full table in the test log).\n"
+            + "- Not refused: add an authorization check to the resolver. If the check exists but"
+            + " the generated arguments fail before reaching it (FAILED), extend URN_HINTS /"
+            + " string() so they reach it, or baseline it under PRECONDITION with the reason.\n"
+            + "- Baselined but now refused or removed: delete the baseline entry.\n  "
             + String.join("\n  ", problems));
   }
 
@@ -823,7 +854,7 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
     }
     EntityService<?> service = (EntityService<?>) applicationContext.getBean("entityService");
     // Every requested entity is returned (with no aspects), so reads have something to leak.
-    org.mockito.stubbing.Answer<Object> batchGet =
+    Answer<Object> batchGet =
         inv -> {
           Map<Urn, EntityResponse> responses = new LinkedHashMap<>();
           for (Urn urn : (Collection<Urn>) inv.getArgument(2)) {
@@ -831,7 +862,7 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
           }
           return responses;
         };
-    org.mockito.stubbing.Answer<Object> get = inv -> entityResponse(inv.getArgument(2));
+    Answer<Object> get = inv -> entityResponse(inv.getArgument(2));
     for (EntityClient client : List.of(entityClient, systemEntityClient)) {
       doAnswer(batchGet).when(client).batchGetV2(any(), anyString(), anySet(), any());
       doAnswer(batchGet).when(client).batchGetV2(any(), anyString(), anySet(), any(), any());
@@ -840,7 +871,7 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
     }
 
     // Covers every exists(...) overload: the boolean ones answer true, the set ones echo the urns.
-    org.mockito.stubbing.Answer<Object> exists =
+    Answer<Object> exists =
         inv ->
             inv.getMethod().getReturnType() == boolean.class
                 ? Boolean.TRUE
@@ -867,16 +898,15 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
   private List<Object> collectMocks() {
     List<Object> mocks = new ArrayList<>();
     for (String name : applicationContext.getBeanDefinitionNames()) {
-      if (IGNORED_MOCKS.contains(name)) {
-        continue;
-      }
       Object bean;
       try {
         bean = applicationContext.getBean(name);
       } catch (Exception e) {
         continue;
       }
-      if (Mockito.mockingDetails(bean).isMock() && mocks.stream().noneMatch(m -> m == bean)) {
+      if (Mockito.mockingDetails(bean).isMock()
+          && IGNORED_MOCKS.stream().noneMatch(type -> type.isInstance(bean))
+          && mocks.stream().noneMatch(m -> m == bean)) {
         mocks.add(bean);
       }
     }
@@ -888,8 +918,7 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
     for (Object mock : mocks) {
       for (Invocation invocation : Mockito.mockingDetails(mock).getInvocations()) {
         String method = invocation.getMethod().getName();
-        if (WRITE_METHOD.matcher(method).matches()
-            && !URN_FACTORY_METHOD.matcher(method).matches()) {
+        if (!READ_METHOD.matcher(method).matches()) {
           writes.add(invocation.getMethod().getDeclaringClass().getSimpleName() + "." + method);
         }
       }
@@ -1006,7 +1035,7 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
 
   // ---------------------------------------------------------------------------------------------
 
-  @org.springframework.context.annotation.Configuration
+  @Configuration
   static class TestConfig {
 
     @Bean(name = "settingsBuilder")
