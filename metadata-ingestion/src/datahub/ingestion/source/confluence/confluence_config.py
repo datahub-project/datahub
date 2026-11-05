@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -95,6 +96,12 @@ class ConfluenceSourceConfig(
     """Configuration for Confluence source connector."""
 
     # Confluence connection
+    datahub: Optional[DatahubClientConfig] = Field(
+        default=None,
+        description="DataHub connection for embedding capability checks. When omitted, "
+        "provider datahub uses the SDK connection defaults (environment or datahub init).",
+    )
+
     url: str = Field(
         description="Base URL of your Confluence instance. "
         "Examples: 'https://your-domain.atlassian.net/wiki' (Cloud) or "
