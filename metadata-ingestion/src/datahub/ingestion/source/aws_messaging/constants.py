@@ -110,6 +110,7 @@ DOWNSTREAM_OF_RELATIONSHIP = "DownstreamOf"
 GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
 
 S3_PREFIX_FILTER = "prefix"
+S3_SUFFIX_FILTER = "suffix"
 # Bucket-wide notifications on a big data lake would otherwise link thousands.
 MAX_S3_DATASETS_PER_NOTIFICATION = 100
 

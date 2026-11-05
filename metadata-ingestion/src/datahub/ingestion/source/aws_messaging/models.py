@@ -99,3 +99,4 @@ class BucketNotification(BaseModel):
     bucket: str
     target_arn: str
     prefix: Optional[str] = None
+    suffix: Optional[str] = None

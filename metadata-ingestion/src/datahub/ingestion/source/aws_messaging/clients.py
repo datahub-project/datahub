@@ -10,6 +10,7 @@ from datahub.ingestion.source.aws_messaging.constants import (
     BUCKET_REGION_PARAMETER,
     MIN_BOTOCORE_FOR_BUCKET_REGION,
     S3_PREFIX_FILTER,
+    S3_SUFFIX_FILTER,
     LambdaDestination,
 )
 from datahub.ingestion.source.aws_messaging.models import (
@@ -471,17 +472,16 @@ class S3NotificationClient:
                 rules = ((item.get("Filter") or {}).get("Key") or {}).get(
                     "FilterRules"
                 ) or []
-                prefix = next(
-                    (
-                        rule.get("Value")
-                        for rule in rules
-                        if str(rule.get("Name", "")).lower() == S3_PREFIX_FILTER
-                    ),
-                    None,
-                )
+                values = {
+                    str(rule.get("Name", "")).lower(): rule.get("Value")
+                    for rule in rules
+                }
                 notifications.append(
                     BucketNotification(
-                        bucket=bucket, target_arn=item[arn_field], prefix=prefix
+                        bucket=bucket,
+                        target_arn=item[arn_field],
+                        prefix=values.get(S3_PREFIX_FILTER),
+                        suffix=values.get(S3_SUFFIX_FILTER),
                     )
                 )
         return notifications
