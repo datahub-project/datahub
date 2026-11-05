@@ -132,11 +132,31 @@ class ParseTests(unittest.TestCase):
             _, decls = cntr.parse_jvm_types(src, kotlin=True)
             self.assertEqual(decls[0].supertypes, ("BaseTest",), ctor)
 
+    def test_kotlin_where_clause_and_bodyless_class(self) -> None:
+        src = (
+            'package com.k\n\nclass Marker\n\nclass KSub : BaseTest()\n\n@Tag("x")\n'
+            "class KTest<T> : BaseTest<T>(), Other where T : Comparable<T> {\n  @Test fun t() {}\n}\n"
+        )
+        _, decls = cntr.parse_jvm_types(src, kotlin=True)
+        self.assertEqual(
+            [(d.name, d.has_tests, d.supertypes) for d in decls],
+            [
+                ("Marker", False, ()),
+                ("KSub", False, ("BaseTest",)),
+                ("KTest", True, ("BaseTest", "Other")),
+            ],
+        )
+
+    def test_qualified_supertype_is_kept(self) -> None:
+        _, decls = cntr.parse_jvm_types("package com.x;\nclass T extends a.b.Base<X> {}\n")
+        self.assertEqual(decls[0].supertypes, ("a.b.Base",))
+
     def test_test_source_paths(self) -> None:
         self.assertTrue(cntr.is_jvm_test_source("a/src/test/java/X.java"))
         self.assertTrue(cntr.is_jvm_test_source("a/b/src/integTest/java/X.java"))
         self.assertTrue(cntr.is_jvm_test_source("datahub-frontend/test/app/X.java"))
         self.assertTrue(cntr.is_jvm_test_source("a/src/sparkSmoke4/java/X.java"))
+        self.assertTrue(cntr.is_jvm_test_source("a/src/productUpdateCiGate/java/X.java"))
         self.assertFalse(cntr.is_jvm_test_source("a/src/main/java/X.java"))
         self.assertFalse(cntr.is_jvm_test_source("a/src/testFixtures/java/X.java"))
         self.assertTrue(cntr.is_python_test_source("metadata-ingestion/tests/unit/test_a.py"))
@@ -243,13 +263,38 @@ class EvaluateTests(unittest.TestCase):
             "m/src/test/java/c/CTest.java": (
                 "package c;\nimport a.BaseFixture;\npublic class CTest extends BaseFixture {}\n"
             ),
+            "m/src/test/java/d/DTest.java": (
+                "package d;\nimport a.*;\npublic class DTest extends BaseFixture {}\n"
+            ),
+            "m/src/test/java/e/ETest.java": "package e;\npublic class ETest extends a.BaseFixture {}\n",
+            # Qualified name wins over the import of the other BaseFixture.
+            "m/src/test/java/h/HHelper.java": (
+                "package h;\nimport a.BaseFixture;\npublic class HHelper extends b.BaseFixture {}\n"
+            ),
+            # A lone same-named class elsewhere is still not this file's supertype.
+            "m/src/test/java/f/LoneBase.java": java("LoneBase").replace("com.x", "f"),
+            "m/src/test/java/g/GHelper.java": "package g;\npublic class GHelper extends LoneBase {}\n",
         }
-        report = run_eval(
-            files,
-            [],
-            changed=["m/src/test/java/b/KafkaFixture.java", "m/src/test/java/c/CTest.java"],
-        )
-        self.assertEqual([c.name for c in report.failures], ["c.CTest"])
+        changed = [p for p in files if p.split("/")[-1][0] in "KCDEGH"]
+        report = run_eval(files, [], changed=changed)
+        self.assertEqual([c.name for c in report.failures], ["c.CTest", "d.DTest", "e.ETest"])
+
+    def test_abstract_base_ignores_same_named_base_in_other_package(self) -> None:
+        # y.OtherTest extends y.BaseTest; it running says nothing about the edited com.x.BaseTest.
+        files = {
+            f"{TEST_DIR}/BaseTest.java": java("BaseTest", head="public abstract class"),
+            "m/src/test/java/y/BaseTest.java": java(
+                "BaseTest", head="public abstract class"
+            ).replace("com.x", "y"),
+            "m/src/test/java/y/OtherTest.java": "package y;\npublic class OtherTest extends BaseTest {}\n",
+            f"{TEST_DIR}/MineTest.java": "package com.x;\npublic class MineTest extends BaseTest {}\n",
+        }
+        changed = [f"{TEST_DIR}/BaseTest.java"]
+        report = run_eval(files, [("y.OtherTest", "t", False)], changed=changed)
+        self.assertEqual([c.name for c in report.failures], ["com.x.BaseTest"])
+        self.assertIn("com.x.MineTest", report.failures[0].detail)
+        report = run_eval(files, [("com.x.MineTest", "t", False)], changed=changed)
+        self.assertEqual(report.failures, [])
 
     def test_optout_by_name_glob_and_path(self) -> None:
         files = {

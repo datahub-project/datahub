@@ -85,7 +85,7 @@ TYPE_DECL_RE = re.compile(
     r"(class|interface|enum|record|object)\s+([^\W\d][\w$]*)"
 )
 JAVA_PACKAGE_RE = re.compile(r"^\s*package\s+([\w.]+)\s*;?", re.MULTILINE)
-JAVA_IMPORT_RE = re.compile(r"^\s*import\s+(?!static\b)([\w.]+(?:\.\*)?)\s*;?", re.MULTILINE)
+JAVA_IMPORT_RE = re.compile(r"^\s*import\s+(?!static\b)(\w+(?:\.\w+)*(?:\.\*)?)\s*;?", re.MULTILINE)
 PY_TEST_FUNC_RE = re.compile(r"^\s*(?:async\s+)?def\s+test", re.MULTILINE)
 
 
@@ -184,9 +184,17 @@ class TypeDecl:
     kind: str  # class | interface | enum | record | object
     abstract: bool
     has_tests: bool
-    supertypes: Tuple[str, ...]  # simple names
+    supertypes: Tuple[str, ...]  # as written, generics stripped: `Base` or `a.b.Base`
     package: Optional[str] = None
     imports: Tuple[str, ...] = ()  # `a.b.C` and wildcard `a.b.*` imports of the file
+
+    @property
+    def fqcn(self) -> str:
+        return f"{self.package}.{self.name}" if self.package else self.name
+
+
+def _simple(type_name: str) -> str:
+    return type_name.split(".")[-1]
 
 
 _BRACE_RE = re.compile(r"[{}]")
@@ -219,7 +227,7 @@ def _supertypes(header: str, kotlin: bool) -> Tuple[str, ...]:
     if kotlin:
         # Drop the primary constructor `(val x: Int)` so its `:` is not taken for the supertype list.
         header = re.sub(r"^\s*(?:@?[\w.]+\s*)*\([^)]*\)", "", header)
-        m = re.search(r":\s*(.+)$", header, re.DOTALL)
+        m = re.search(r":\s*(.+?)(?=\s+where\b|$)", header, re.DOTALL)
         if m:
             names += [p.strip() for p in m.group(1).split(",")]
     else:
@@ -227,12 +235,12 @@ def _supertypes(header: str, kotlin: bool) -> Tuple[str, ...]:
             m = re.search(rf"\b{kw}\s+(.+?)(?=\bimplements\b|\bpermits\b|$)", header, re.DOTALL)
             if m:
                 names += [p.strip() for p in m.group(1).split(",")]
-    simple = []
+    out = []
     for n in names:
-        n = re.sub(r"\(.*", "", n).strip()  # Kotlin `Base()` constructor call
+        n = re.sub(r"\(.*", "", n, flags=re.DOTALL).strip()  # Kotlin `Base()` constructor call
         if n:
-            simple.append(n.split(".")[-1])
-    return tuple(simple)
+            out.append(n)
+    return tuple(out)
 
 
 def parse_jvm_types(text: str, kotlin: bool = False) -> Tuple[Optional[str], List[TypeDecl]]:
@@ -255,9 +263,30 @@ def parse_jvm_types(text: str, kotlin: bool = False) -> Tuple[Optional[str], Lis
             pos = m.end()
             continue
         open_idx = code.find("{", m.end())
-        # A Kotlin class without a body, or a stray keyword: nothing to scan.
-        if open_idx == -1:
-            break
+        following = TYPE_DECL_RE.search(code, m.end(), open_idx if open_idx != -1 else len(code))
+        if open_idx == -1 or following:
+            # Body-less declaration (Kotlin `class FooTest : BaseTest()`): no methods of its
+            # own, but it may inherit tests. Any `{` belongs to the next type, and annotations
+            # after the header belong to the next type too.
+            header_end = following.start() if following else len(code)
+            header = code[m.end() : header_end].split("@", 1)[0]
+            modifiers = m.group(1).split()
+            decls.append(
+                TypeDecl(
+                    name=m.group(3),
+                    kind=m.group(2),
+                    abstract="abstract" in modifiers or m.group(2) == "interface",
+                    has_tests=bool(TEST_ANNOTATION_RE.search(code[region_start : m.start()])),
+                    supertypes=_supertypes(header, kotlin),
+                    package=package,
+                    imports=imports,
+                )
+            )
+            if not following:
+                break
+            region_start = m.end() + len(header)
+            pos = following.start()
+            continue
         close_idx = _matching_brace(code, open_idx)
         modifiers = m.group(1).split()
         kind = m.group(2)
@@ -350,10 +379,9 @@ class SourceIndex:
                 continue
             package, decls = parse_jvm_types(text, kotlin=p.endswith(".kt"))
             for d in decls:
-                fqcn = f"{package}.{d.name}" if package else d.name
                 self._by_name[d.name].append(d)
                 for sup in d.supertypes:
-                    self._subclasses[sup].append((fqcn, d))
+                    self._subclasses[_simple(sup)].append((d.fqcn, d))
 
     def inherits_tests(self, decl: TypeDecl) -> bool:
         """True when a supertype (transitively, within test sources) declares test methods.
@@ -376,21 +404,18 @@ class SourceIndex:
                     queue.append(parent)
         return False
 
-    def _resolve(self, simple_name: str, child: TypeDecl) -> List[TypeDecl]:
-        """Candidates for a supertype name, narrowed like javac would when names collide.
+    def _resolve(self, type_name: str, child: TypeDecl) -> List[TypeDecl]:
+        """Test-source classes a supertype reference in `child` can mean, resolved like javac.
 
-        Explicit import, then wildcard import, then same package. If none of those match
-        (e.g. a main-source or library supertype that shares a test class's name), the
-        supertype is not a test-source class at all.
+        A qualified name must match exactly. A simple name resolves through an explicit
+        import, then a wildcard import, then the child's own package. If none match, the
+        supertype is not a test-source class (a main-source or library type that happens to
+        share a test class's simple name).
         """
-        candidates = self._by_name.get(simple_name, [])
-        if len(candidates) <= 1:
-            return candidates
-
-        def fqcn(d: TypeDecl) -> str:
-            return f"{d.package}.{d.name}" if d.package else d.name
-
-        explicit = [d for d in candidates if fqcn(d) in child.imports]
+        candidates = self._by_name.get(_simple(type_name), [])
+        if "." in type_name:
+            return [d for d in candidates if d.fqcn == type_name]
+        explicit = [d for d in candidates if d.fqcn in child.imports]
         if explicit:
             return explicit
         wildcard = [d for d in candidates if f"{d.package}.*" in child.imports]
@@ -398,19 +423,25 @@ class SourceIndex:
             return wildcard
         return [d for d in candidates if d.package == child.package]
 
-    def concrete_subclasses(self, simple_name: str) -> List[str]:
+    def concrete_subclasses(self, base: TypeDecl) -> List[str]:
+        """FQCNs of concrete classes that extend `base` (transitively), resolved per edge."""
         self._build()
         seen: Set[str] = set()
         concrete: List[str] = []
-        queue = [simple_name]
+        queue = [base]
         while queue:
-            base = queue.pop()
-            for fqcn, decl in self._subclasses.get(base, []):
-                if fqcn in seen:
+            parent = queue.pop()
+            for fqcn, decl in self._subclasses.get(parent.name, []):
+                if fqcn in seen or not any(
+                    r.fqcn == parent.fqcn
+                    for sup in decl.supertypes
+                    if _simple(sup) == parent.name
+                    for r in self._resolve(sup, decl)
+                ):
                     continue
                 seen.add(fqcn)
                 if decl.abstract:
-                    queue.append(decl.name)
+                    queue.append(decl)
                 else:
                     concrete.append(fqcn)
         return sorted(concrete)
@@ -460,7 +491,7 @@ def evaluate(
             for d in test_decls:
                 fqcn = f"{package}.{d.name}" if package else d.name
                 if d.abstract:
-                    subs = source_index.concrete_subclasses(d.name)
+                    subs = source_index.concrete_subclasses(d)
                     ran = [s for s in subs if counts_for_prefix(results, s, "$").executed > 0]
                     if ran:
                         ok = True
