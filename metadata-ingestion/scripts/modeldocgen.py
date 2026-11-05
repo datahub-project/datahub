@@ -9,7 +9,7 @@ from dataclasses import Field, dataclass, field
 from datetime import datetime, timezone
 from enum import auto
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, TypeVar
 
 import avro.schema
 import click
@@ -1466,12 +1466,14 @@ def get_sorted_entity_names(
 # field but no entry in entitiesWithIncidents has no resolver attached to it, so the
 # field resolves to null rather than failing, which is why the last two columns are
 # reported separately instead of being folded into one "readable" claim.
+_T = TypeVar("_T", List[str], Set[str])
 _REPO_ROOT = Path(__file__).parent.parent.parent
 _INCIDENT_PDL = (
     _REPO_ROOT
     / "metadata-models/src/main/pegasus/com/linkedin/incident/IncidentInfo.pdl"
 )
-_INCIDENT_SDL = _REPO_ROOT / "datahub-graphql-core/src/main/resources/incident.graphql"
+_GRAPHQL_RESOURCES = _REPO_ROOT / "datahub-graphql-core/src/main/resources"
+_INCIDENT_SDL = _GRAPHQL_RESOURCES / "incident.graphql"
 _INCIDENT_ENGINE = (
     _REPO_ROOT
     / "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java"
@@ -1482,6 +1484,11 @@ _INCIDENT_ENGINE = (
 _INCIDENT_GRAPHQL_TYPE_OVERRIDES: Dict[str, str] = {
     "schemaField": "SchemaFieldEntity",
 }
+
+# On IncidentOn with incidentsSummary, but with no GraphQL type to hang an incidents
+# field on. docs/incidents/incidents.md describes these two by name, so the build
+# fails when that stops being true rather than leaving the page wrong.
+_INCIDENT_NO_GRAPHQL_TYPE: Set[str] = {"service", "aiAgent"}
 
 
 def _incident_graphql_type(entity: str) -> str:
@@ -1520,14 +1527,31 @@ def _matching_brace(text: str, open_brace: int) -> int:
     return i
 
 
+def _require_incident_source(found: _T, what: str, source: Path) -> _T:
+    """Fail the build when a source parses to nothing.
+
+    An empty result would otherwise publish a table saying nothing supports incidents.
+    """
+    if not found:
+        raise ValueError(
+            f"Found no {what} in {source}. If it moved or was renamed, update the "
+            "incident support parsers in modeldocgen.py."
+        )
+    return found
+
+
 def _incident_write_gate() -> List[str]:
     """Entity types accepted by the IncidentOn relationship, in declaration order."""
-    match = re.search(
-        r'"entityTypes"\s*:\s*\[(.*?)\]',
-        _INCIDENT_PDL.read_text(encoding="utf-8"),
-        re.DOTALL,
-    )
-    return re.findall(r'"([A-Za-z]+)"', match.group(1)) if match else []
+    text = _strip_line_comments(_INCIDENT_PDL.read_text(encoding="utf-8"))
+    types: List[str] = []
+    anchor = text.find('"IncidentOn"')
+    if anchor != -1:
+        open_brace = text.rfind("{", 0, anchor)
+        block = text[open_brace : _matching_brace(text, open_brace)]
+        match = re.search(r'"entityTypes"\s*:\s*\[(.*?)\]', block, re.DOTALL)
+        if match:
+            types = re.findall(r'"([A-Za-z]+)"', match.group(1))
+    return _require_incident_source(types, "IncidentOn entityTypes", _INCIDENT_PDL)
 
 
 def _incident_summary_entities(registry_text: str) -> Set[str]:
@@ -1564,7 +1588,7 @@ def _incident_graphql_types() -> Set[str]:
         body = text[match.end() : _matching_brace(text, match.end() - 1)]
         if re.search(r"\bincidents\s*\(", body):
             found.add(match.group(1))
-    return found
+    return _require_incident_source(found, "incidents fields", _INCIDENT_SDL)
 
 
 def _incident_resolver_types() -> Set[str]:
@@ -1576,15 +1600,71 @@ def _incident_resolver_types() -> Set[str]:
     """
     text = _strip_line_comments(_INCIDENT_ENGINE.read_text(encoding="utf-8"))
     match = re.search(r"entitiesWithIncidents\s*=(.*?);", text, re.DOTALL)
-    if not match:
-        return set()
-    return set(re.findall(r'"([A-Za-z][A-Za-z0-9_]*)"', match.group(1)))
+    found = (
+        set(re.findall(r'"([A-Za-z][A-Za-z0-9_]*)"', match.group(1)))
+        if match
+        else set()
+    )
+    return _require_incident_source(found, "entitiesWithIncidents", _INCIDENT_ENGINE)
+
+
+def _graphql_defined_types() -> Set[str]:
+    """Object types defined across the SDL files. An extend block defines nothing."""
+    found: Set[str] = set()
+    for path in _GRAPHQL_RESOURCES.glob("*.graphql"):
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(r'""".*?"""', "", text, flags=re.DOTALL)
+        found.update(
+            re.findall(
+                r"^\s*type\s+([A-Z][A-Za-z0-9_]*)",
+                _strip_line_comments(text),
+                re.MULTILINE,
+            )
+        )
+    return _require_incident_source(found, "GraphQL types", _GRAPHQL_RESOURCES)
+
+
+def _check_incident_graphql_types(entities: List[str], summaries: Set[str]) -> None:
+    """Fail on a type name that resolves to nothing, or on a stale no-type claim.
+
+    A wrong name is otherwise indistinguishable from a real gap: both print "No". That
+    is how mlModel came to be reported as MlModel.
+    """
+    defined = _graphql_defined_types()
+    for entity in entities:
+        if entity in _INCIDENT_NO_GRAPHQL_TYPE:
+            # SchemaFieldEntity shows a new type may carry the Entity suffix.
+            names = {entity.casefold(), f"{entity}entity".casefold()}
+            matches = sorted(t for t in defined if t.casefold() in names)
+            if matches:
+                raise ValueError(
+                    f"{entity} now has the GraphQL type {matches[0]}. Remove it from "
+                    "_INCIDENT_NO_GRAPHQL_TYPE and update docs/incidents/incidents.md."
+                )
+        elif _incident_graphql_type(entity) not in defined:
+            raise ValueError(
+                f"{entity} maps to the GraphQL type {_incident_graphql_type(entity)}, "
+                "which is not defined. Add an override to "
+                "_INCIDENT_GRAPHQL_TYPE_OVERRIDES, or add the entity to "
+                "_INCIDENT_NO_GRAPHQL_TYPE and docs/incidents/incidents.md."
+            )
+    for entity in sorted(_INCIDENT_NO_GRAPHQL_TYPE):
+        if entity not in entities or entity not in summaries:
+            raise ValueError(
+                f"docs/incidents/incidents.md says {entity} is on IncidentOn and carries "
+                "incidentsSummary, which is no longer true. Update the page and "
+                "_INCIDENT_NO_GRAPHQL_TYPE."
+            )
 
 
 def generate_incident_support_table(registry_file: str) -> str:
-    summaries = _incident_summary_entities(
-        Path(registry_file).read_text(encoding="utf-8")
+    summaries = _require_incident_source(
+        _incident_summary_entities(Path(registry_file).read_text(encoding="utf-8")),
+        "incidentsSummary aspects",
+        Path(registry_file),
     )
+    write_gate = _incident_write_gate()
+    _check_incident_graphql_types(write_gate, summaries)
     graphql_types = _incident_graphql_types()
     resolver_types = _incident_resolver_types()
 
@@ -1594,7 +1674,7 @@ def generate_incident_support_table(registry_file: str) -> str:
         " | `incidents` field in the SDL | `incidents` resolver wired |",
         "| --- | --- | --- | --- | --- |",
     ]
-    for entity in _incident_write_gate():
+    for entity in write_gate:
         gql = _incident_graphql_type(entity)
         rows.append(
             f"| `{entity}` | Yes"
