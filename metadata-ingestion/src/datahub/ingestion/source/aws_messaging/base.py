@@ -1,7 +1,9 @@
 from typing import Any, Callable, Dict, FrozenSet, Iterable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
+from requests.exceptions import RequestException
 
+from datahub.configuration.common import GraphError
 from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import CapabilityReport, TestableSource
@@ -210,7 +212,20 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         if self.producers.query():
             observed = self.producers.observed_producers(urn)
         elif self.ctx.graph is not None:
-            existing = self.ctx.graph.get_aspect(urn, DatasetPropertiesClass)
+            try:
+                existing = self.ctx.graph.get_aspect(urn, DatasetPropertiesClass)
+            except (GraphError, RequestException) as e:
+                self.base_report.warning(
+                    title="Previous observed producers not read",
+                    message=(
+                        "The CloudTrail query failed and the value already in "
+                        "DataHub couldn't be read, so observed_producers is not "
+                        "written for this dataset this run."
+                    ),
+                    context=urn,
+                    exc=e,
+                )
+                existing = None
             observed = (
                 (existing.customProperties or {}).get(OBSERVED_PRODUCERS_PROPERTY)
                 if existing is not None

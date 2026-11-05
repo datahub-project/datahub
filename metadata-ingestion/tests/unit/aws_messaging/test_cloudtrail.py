@@ -8,6 +8,7 @@ import pytest
 from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
+from datahub.configuration.common import GraphError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder
@@ -306,6 +307,30 @@ def test_failed_query_keeps_previous_observed_producers(
     # so nothing has to be patched back and nothing can race the upsert.
     assert upserted_properties(workunits)[0]["observed_producers"] == previous
     assert not property_patches(workunits)
+
+
+def test_failed_previous_value_read_does_not_abort(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sqs_client().create_queue(QueueName="orders")
+    monkeypatch.setattr(
+        CloudTrailLakeClient, "run_query", lambda self, *args, **kwargs: None
+    )
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = None
+    graph.get_aspect.side_effect = GraphError("GMS unavailable")
+    source = SqsSource.create(
+        base_config(
+            cloudtrail_producers={"enabled": True, "event_data_store": STORE},
+            lineage={"lambda_functions": False},
+        ),
+        PipelineContext(run_id="cloudtrail-test", graph=graph),
+    )
+    workunits = list(source.get_workunits())
+    assert "observed_producers" not in upserted_properties(workunits)[0]
+    assert "Previous observed producers not read" in [
+        w.title for w in source.get_report().warnings
+    ]
 
 
 @pytest.mark.parametrize(
