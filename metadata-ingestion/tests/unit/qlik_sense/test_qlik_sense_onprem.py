@@ -42,8 +42,7 @@ APP = {
 SHEET_META = {
     "title": "Overview",
     "description": "",
-    "id": "sheet-1",
-    "ownerId": "user-1",
+    "owner": {"id": "user-1", "name": "Ada", "userId": "ada"},
     "createdDate": "2024-01-15T11:01:49.704Z",
     "modifiedDate": "2024-01-29T12:23:46.868Z",
 }
@@ -143,8 +142,11 @@ def test_onprem_lists_stream_and_opens_app(
     app = items[0]
     assert isinstance(app, App)
     assert app.qTitle == "Sales"
-    assert [sheet.title for sheet in app.sheets] == ["Overview"]
+    assert [(s.id, s.title, s.ownerId) for s in app.sheets] == [
+        ("sheet-1", "Overview", "user-1")
+    ]
     assert app.script == LOAD_SCRIPT
+    websocket.close_websocket.assert_called_once()
     open_doc = websocket.websocket_send_request.call_args_list[0].kwargs
     assert open_doc["params"]["qNoData"] is True
     connection = api.get_data_connections()["Sales SQL"]
@@ -178,6 +180,28 @@ def test_onprem_keeps_app_when_engine_is_unreachable(
     assert app.sheets == []
 
 
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_closes_engine_session_when_app_cannot_open(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = _qrs_get
+    websocket = MagicMock()
+    websocket.websocket_send_request.side_effect = RuntimeError("Access denied")
+    mock_engine.return_value = websocket
+
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+    api.get_spaces()
+    items = api.get_items("stream-1")
+
+    assert [item.id for item in items] == ["app-1"]
+    websocket.close_websocket.assert_called_once()
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_onprem_source_uses_onprem_client(
@@ -192,15 +216,39 @@ def test_onprem_source_uses_onprem_client(
     mock_cloud.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "extra_config, expected_env",
+    [
+        ({}, "PROD"),
+        (
+            {
+                "env": "DEV",
+                "data_connection_to_platform_instance": {
+                    "Sales SQL": {"database": "sales_db"}
+                },
+            },
+            "DEV",
+        ),
+        (
+            {
+                "env": "DEV",
+                "data_connection_to_platform_instance": {"Sales SQL": {"env": "QA"}},
+            },
+            "QA",
+        ),
+    ],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
-def test_onprem_script_tables_get_upstream_lineage(mock_onprem: MagicMock) -> None:
+def test_onprem_script_tables_get_upstream_lineage(
+    mock_onprem: MagicMock, extra_config: Dict, expected_env: str
+) -> None:
     mock_onprem.return_value.get_data_connections.return_value = {
         "Sales SQL": infer_data_connection(
             "Sales SQL", str(DATA_CONNECTION["connectionstring"])
         )
     }
     source = QlikSenseSource(
-        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        QlikSourceConfig.model_validate({**ONPREM_CONFIG, **extra_config}),
         PipelineContext(run_id="test-onprem"),
     )
     app = App.model_validate(
@@ -220,7 +268,7 @@ def test_onprem_script_tables_get_upstream_lineage(mock_onprem: MagicMock) -> No
 
     assert [table.identifier for table in tables] == ["app-1.orders"]
     assert tables[0].upstream_urns == [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.orders,PROD)"
+        f"urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.orders,{expected_env})"
     ]
     assert set(tables[0].column_upstreams) == {"order_id", "amount"}
 

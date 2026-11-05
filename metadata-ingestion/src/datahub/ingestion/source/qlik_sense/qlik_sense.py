@@ -180,10 +180,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             instance=self.config.platform_instance,
         )
 
-    def _get_audit_stamp(self, date: datetime, username: str) -> AuditStampClass:
+    def _get_audit_stamp(
+        self, date: datetime, username: Optional[str]
+    ) -> AuditStampClass:
         return AuditStampClass(
             time=int(date.timestamp() * 1000),
-            actor=builder.make_user_urn(username),
+            actor=builder.make_user_urn(username) if username else builder.UNKNOWN_USER,
         )
 
     def _get_allowed_spaces(self) -> List[Space]:
@@ -338,7 +340,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if dpi_aspect:
                 yield dpi_aspect
 
-            owner_username = self.qlik_api.get_user_name(sheet.ownerId)
+            owner_username = (
+                self.qlik_api.get_user_name(sheet.ownerId) if sheet.ownerId else None
+            )
             if self.config.ingest_owner and owner_username:
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
@@ -500,7 +504,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             platform=platform,
             database=(configured.database if configured else None) or inferred.database,
             default_schema=configured.default_schema if configured else None,
-            env=configured.env if configured else self.config.env,
+            env=configured.env
+            if configured and "env" in configured.model_fields_set
+            else self.config.env,
             platform_instance=configured.platform_instance if configured else None,
         )
 
