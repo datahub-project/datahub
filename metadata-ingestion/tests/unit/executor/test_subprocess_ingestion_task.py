@@ -13,7 +13,6 @@ import pydantic
 import pytest
 import yaml
 
-import datahub.executor.execution.sub_process_ingestion_task as sub_process_ingestion_task
 from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
 from datahub.executor.execution.runner import (
@@ -25,6 +24,7 @@ from datahub.executor.execution.runner import (
 )
 from datahub.executor.execution.sub_process_ingestion_task import (
     RUN_OPTIONS_RECIPE_KEY,
+    IngestionMemoryInfo,
     IngestionRunOptions,
     SubProcessIngestionTask,
     SubProcessIngestionTaskArgs,
@@ -788,9 +788,7 @@ class TestSubProcessIngestionTaskCompletion:
     ) -> None:
         mock_process = Mock()
         mock_process.returncode = -9  # SIGKILL
-        memory_info = sub_process_ingestion_task.IngestionMemoryInfo(
-            last_reported_peak="59.1 GB"
-        )
+        memory_info = IngestionMemoryInfo(last_reported_peak="59.1 GB")
 
         with (
             patch("os.path.exists", return_value=False),
@@ -1071,7 +1069,7 @@ class TestSubProcessIngestionTaskProgressReporting:
 
         mock_process.wait = mock_wait
         monkeypatch.setattr(ingestion_task.config, "heartbeat_time_seconds", 0.02)
-        memory_info = sub_process_ingestion_task.IngestionMemoryInfo()
+        memory_info = IngestionMemoryInfo()
 
         with patch("sys.stdout"):
             await asyncio.wait_for(
@@ -1857,3 +1855,21 @@ async def test_execute_refuses_invalid_run_options_before_setup(
             await ingestion_task.execute(args, mock_execution_context)
     mock_setup_dirs.assert_not_called()
     mock_setup_venv.assert_not_called()
+
+
+class TestIngestionMemoryInfo:
+    def test_remembers_the_latest_peak_from_the_cli_report(self) -> None:
+        """The pipeline prints its CLI report every minute; the last peak wins."""
+        info = IngestionMemoryInfo()
+        info.record_log_line(" 'mem_info': '1.2 GB',\n")
+        assert info.last_reported_peak is None
+
+        info.record_log_line(" 'peak_memory_usage': '1.5 GB',\n")
+        info.record_log_line("[2026-10-16 08:37:50,431] INFO some other line\n")
+        info.record_log_line(" 'peak_memory_usage': '59.1 GB',\n")
+        assert info.last_reported_peak == "59.1 GB"
+
+    def test_ignores_a_report_without_a_value(self) -> None:
+        info = IngestionMemoryInfo()
+        info.record_log_line(" 'peak_memory_usage': None,\n")
+        assert info.last_reported_peak is None
