@@ -14,13 +14,13 @@ derived from DAX dependencies.
 
 ## Concept Mapping
 
-| Source Concept                 | DataHub Concept                                            | Notes                                            |
-| ------------------------------ | --------------------------------------------------------- | ------------------------------------------------ |
-| Server                         | [Container](../../metamodel/entities/container.md)        | Subtype `Analysis Services Server`               |
-| Model (database / catalog)     | [Container](../../metamodel/entities/container.md)         | Subtype `Semantic Model`                         |
-| Table                          | [Dataset](../../metamodel/entities/dataset.md)             | Subtype `Table` (plus `View` when M-backed)      |
-| Calculated table               | [Dataset](../../metamodel/entities/dataset.md)             | Subtypes `Table`, `Calculated Table`             |
-| Model (cube view)              | [Dataset](../../metamodel/entities/dataset.md)             | Subtypes `Cube`, `Semantic Model`; carries TMSL  |
-| Column / calculated column     | Schema Field                                               | DAX stored in the field description              |
-| Measure                        | Schema Field                                               | `nativeDataType=measure`; DAX in the description |
-| Relationship                   | Foreign Key Constraint                                     |                                                  |
+| Source Concept             | DataHub Concept                                    | Notes                                            |
+| -------------------------- | -------------------------------------------------- | ------------------------------------------------ |
+| Server                     | [Container](../../metamodel/entities/container.md) | Subtype `Analysis Services Server`               |
+| Model (database / catalog) | [Container](../../metamodel/entities/container.md) | Subtype `Semantic Model`                         |
+| Table                      | [Dataset](../../metamodel/entities/dataset.md)     | Subtype `Table` (plus `View` when M-backed)      |
+| Calculated table           | [Dataset](../../metamodel/entities/dataset.md)     | Subtypes `Table`, `Calculated Table`             |
+| Model (cube view)          | [Dataset](../../metamodel/entities/dataset.md)     | Subtypes `Cube`, `Semantic Model`; carries TMSL  |
+| Column / calculated column | Schema Field                                       | DAX stored in the field description              |
+| Measure                    | Schema Field                                       | `nativeDataType=measure`; DAX in the description |
+| Relationship               | Foreign Key Constraint                             |                                                  |
