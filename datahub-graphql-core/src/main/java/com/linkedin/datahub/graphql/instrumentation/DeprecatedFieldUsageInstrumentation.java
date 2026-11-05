@@ -33,7 +33,10 @@ public class DeprecatedFieldUsageInstrumentation extends SimplePerformantInstrum
       final String coordinate = stepInfo.getObjectType().getName() + "." + field.getName();
       final QueryContext context =
           parameters.getEnvironment().getGraphQlContext().get(QueryContext.class);
-      final String actor = context != null ? context.getActorUrn() : "unknown";
+      // getActorUrn() dereferences the actor, which may be absent; logging must never fail a
+      // request.
+      final String actor =
+          context != null && context.getActor() != null ? context.getActorUrn() : "unknown";
       if (recentlyLogged.asMap().putIfAbsent(coordinate + "|" + actor, Boolean.TRUE) == null) {
         log.warn("Deprecated GraphQL field {} was called by {}", coordinate, actor);
       }

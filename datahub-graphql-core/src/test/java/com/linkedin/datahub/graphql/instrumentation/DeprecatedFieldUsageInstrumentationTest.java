@@ -5,9 +5,12 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.linkedin.datahub.graphql.QueryContext;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
@@ -89,6 +92,16 @@ public class DeprecatedFieldUsageInstrumentationTest {
             "Deprecated GraphQL field Query.legacy was called by urn:li:corpuser:a",
             "Deprecated GraphQL field Item.oldName was called by urn:li:corpuser:a",
             "Deprecated GraphQL field Query.legacy was called by urn:li:corpuser:b"));
+    assertTrue(appender.list.stream().allMatch(event -> event.getLevel() == Level.WARN));
+  }
+
+  @Test
+  public void testLogsUnknownActorWithoutFailingTheRequest() {
+    final ExecutionResult result = graphQL.execute(ExecutionInput.newExecutionInput("{ legacy }"));
+
+    assertTrue(result.getErrors().isEmpty(), result.getErrors().toString());
+    assertEquals(
+        messages(), List.of("Deprecated GraphQL field Query.legacy was called by unknown"));
   }
 
   @Test
@@ -100,6 +113,7 @@ public class DeprecatedFieldUsageInstrumentationTest {
 
   private void execute(final String query, final String actor) {
     final QueryContext context = mock(QueryContext.class);
+    when(context.getActor()).thenReturn(new Actor(ActorType.USER, actor));
     when(context.getActorUrn()).thenReturn(actor);
     final ExecutionResult result =
         graphQL.execute(
