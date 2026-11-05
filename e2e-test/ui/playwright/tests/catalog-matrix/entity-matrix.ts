@@ -145,6 +145,9 @@ export const MATRIX_TAG = { name: 'PW Matrix Tag' } as const;
 /** The glossary term the matrix specs assign, seeded with the same key-differs-from-name trick. */
 export const MATRIX_TERM = { name: 'PW Matrix Term' } as const;
 
+/** The domain the matrix specs set, seeded with the same key-differs-from-name trick. */
+export const MATRIX_DOMAIN = { name: 'PW Matrix Domain' } as const;
+
 /**
  * Write one aspect of a core entity directly, so a test starts from known state regardless of
  * what an earlier (possibly failed) run left behind. Uses the same ingest path as the seeder.
@@ -192,4 +195,9 @@ export async function clearGlossaryTerms(gmsRequest: APIRequestContext, entity: 
     terms: [],
     auditStamp: { time: 0, actor: 'urn:li:corpuser:datahub' },
   });
+}
+
+/** Clear the entity's domain. */
+export async function clearDomains(gmsRequest: APIRequestContext, entity: CoreEntity): Promise<void> {
+  await writeAspect(gmsRequest, entity, 'domains', { domains: [] });
 }

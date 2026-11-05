@@ -160,5 +160,17 @@
         "termSource": "INTERNAL"
       }
     }
+  },
+  {
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:pw_matrix_domain_key",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "json": {
+        "name": "PW Matrix Domain",
+        "description": "Seeded domain for the catalog matrix specs; key differs from name on purpose"
+      }
+    }
   }
 ]
