@@ -160,7 +160,7 @@ public abstract class OwnerAutocompleteRankingTestBase extends AbstractTestNGSpr
   public void testMultiTokenPrefixMatchRanksAboveSingleTokenMatch() throws Exception {
     // "Johnathan Killroy" prefix-matches BOTH query tokens ("John" -> "Johnathan", "K" ->
     // "Killroy"), while "John Fitzgerald" only prefix-matches the first token ("K" does not
-    // match "Fitzgerald"). Per RFE (/tmp/rfe.md item 2), AutocompleteRequestHandler requires every
+    // match "Fitzgerald"). AutocompleteRequestHandler requires every
     // token to prefix-match (one MUST per token) for corpuser/corpgroup, so "John K" returns
     // "Johnathan Killroy" and not "John Fitzgerald". Without that, the OR-only bool_prefix query
     // returns both, and on any real-sized index the whole-term "john" match (high IDF) outranks
