@@ -10975,6 +10975,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     @aspectMapping(aspects: ["structuredProperties"])
 
   """
+  Experimental! The resolved health statuses of the asset
+  """
+  health: [Health!] @noAspects
+
+  """
   The forms associated with the Dataset
   """
   forms: Forms @aspectMapping(aspects: ["forms"])
@@ -11346,6 +11351,11 @@ type MLFeature implements EntityWithRelationships & Entity {
   """
   structuredProperties: StructuredProperties
     @aspectMapping(aspects: ["structuredProperties"])
+
+  """
+  Experimental! The resolved health statuses of the asset
+  """
+  health: [Health!] @noAspects
 
   """
   The forms associated with the Dataset
@@ -11806,6 +11816,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   """
   structuredProperties: StructuredProperties
     @aspectMapping(aspects: ["structuredProperties"])
+
+  """
+  Experimental! The resolved health statuses of the asset
+  """
+  health: [Health!] @noAspects
 
   """
   The forms associated with the Dataset

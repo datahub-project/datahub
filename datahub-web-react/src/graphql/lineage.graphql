@@ -404,6 +404,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         editableProperties {
             description
         }
+        health {
+            ...entityHealth
+        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
@@ -418,9 +421,15 @@ fragment lineageNodeProperties on EntityWithRelationships {
     }
     ... on MLFeatureTable {
         ...nonRecursiveMLFeatureTable
+        health {
+            ...entityHealth
+        }
     }
     ... on MLFeature {
         ...nonRecursiveMLFeature
+        health {
+            ...entityHealth
+        }
     }
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
