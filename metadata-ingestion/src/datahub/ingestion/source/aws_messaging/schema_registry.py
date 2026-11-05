@@ -104,6 +104,11 @@ class MessagingSchemaRegistry:
             self.report.schema_resolution_failures.append(
                 f"{name}: unsupported format ({data_format})"
             )
+            self.report.warning(
+                title="Unsupported Glue schema format",
+                message="Only AVRO, JSON and PROTOBUF schemas are supported; emitting without a schema.",
+                context=f"{name}: schema={schema_name} format={data_format}",
+            )
             return None
         if not fields and data_format == "PROTOBUF":
             # The protobuf converter returns no fields when compilation fails or

@@ -304,6 +304,25 @@ def test_field_edges_kept_when_field_lineage_was_skipped(aws: None) -> None:
     assert source.get_report().column_lineage_edges_removed == 0
 
 
+def test_field_edge_with_several_downstreams_is_kept(aws: None) -> None:
+    # Another writer's edge fans out to several fields; it isn't one this source
+    # emits, so it is left alone.
+    source = _dead_letter_source()
+    shared = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        upstreams=[make_schema_field_urn(QUEUE_URN, "old_id")],
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+        downstreams=[
+            make_schema_field_urn(DLQ_URN, "old_id"),
+            make_schema_field_urn(DLQ_URN, "note"),
+        ],
+    )
+    _lineage_in_datahub(source, [shared])
+    ops = fine_grained(list(source.get_workunits()))
+    assert [op for op in ops if op["op"] == "remove"] == []
+    assert source.get_report().column_lineage_edges_removed == 0
+
+
 def test_bad_field_urn_does_not_block_table_edge_removal(aws: None) -> None:
     # The redrive policy was removed; a malformed field edge from another writer
     # stays, while the table edge and the valid field edge go.
@@ -412,6 +431,37 @@ def test_schema_that_parses_to_no_fields_is_not_attached(
         "orders"
     ]
     assert report.warnings
+
+
+def test_unparseable_schema_is_a_warning(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Glue rejects invalid definitions on create, so the parser error is faked.
+    def fail(*args: Any) -> None:
+        raise ValueError("bad schema")
+
+    monkeypatch.setattr(schema_registry, "parse_glue_schema_fields", fail)
+    source = _queue_with_registry(queue_schema_map={"orders": "order-v1"})
+    register_schema("order-v1")
+    assert schemas(list(source.get_workunits())) == {}
+    report = source.get_report()
+    assert list(report.schema_resolution_failures) == ["orders: parse failed (AVRO)"]
+    assert [w.title for w in report.warnings] == ["Glue schema parse failed"]
+
+
+def test_unsupported_schema_format_is_a_warning(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Glue only accepts AVRO, JSON and PROTOBUF today, so a new format is faked.
+    monkeypatch.setattr(schema_registry, "parse_glue_schema_fields", lambda *args: None)
+    source = _queue_with_registry(queue_schema_map={"orders": "order-v1"})
+    register_schema("order-v1")
+    assert schemas(list(source.get_workunits())) == {}
+    report = source.get_report()
+    assert [entry.split(":")[0] for entry in report.schema_resolution_failures] == [
+        "orders"
+    ]
+    assert [w.title for w in report.warnings] == ["Unsupported Glue schema format"]
 
 
 def test_missing_protobuf_extra_names_the_extra(
