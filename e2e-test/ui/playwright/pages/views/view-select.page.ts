@@ -74,27 +74,6 @@ export class ViewSelectPage extends BasePage {
     return this.page.getByText(text);
   }
 
-  /**
-   * The entity hover card a value option opens when the pointer rests on it. It is an alchemy
-   * overlay with no test id of its own; the one carrying the entity's name is the card.
-   */
-  private entityHoverCard(entityName: string): Locator {
-    // eslint-disable-next-line playwright/no-raw-locators -- FloatingOverlay renders no test id; the overlay containing the entity name is the hover card
-    return this.page.locator('[id^="alchemy-overlay-"]').filter({ hasText: entityName });
-  }
-
-  /**
-   * Clicking a value option leaves the pointer on it, and about 100 ms later the option label opens
-   * the entity hover card, placed below the option and over the dropdown footer. A pointer resting
-   * on the card keeps it open, so a click on Update whose point lands under the card is intercepted
-   * for the rest of the test. Park the pointer on the search input, which opens nothing, and wait
-   * for the card to close before reaching for Update.
-   */
-  private async dismissValueHoverCard(searchInput: Locator, entityName: string): Promise<void> {
-    await searchInput.hover();
-    await expect(this.entityHoverCard(entityName)).toBeHidden({ timeout: TIMEOUTS.SHORT });
-  }
-
   private async expectTextVisible(text: string, timeout: number = TIMEOUTS.LONG): Promise<void> {
     await expect(this.getTextElement(text)).toBeVisible({ timeout });
   }
@@ -176,7 +155,8 @@ export class ViewSelectPage extends BasePage {
     const valueOption = this.getFilterValueOption(searchValue);
     await valueOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await valueOption.click();
-    await this.dismissValueHoverCard(this.dropdownSearchInput, searchValue);
+    // The option label opens the entity hover card under the pointer, over the footer; see EntityHoverCardComponent.
+    await this.entityHoverCard.dismiss(this.dropdownSearchInput, searchValue);
 
     // Update the filter
     await this.footerButtonUpdate.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
