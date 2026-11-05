@@ -211,48 +211,65 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
-  public void testIsAuthorizedEntityWrite_dataProductAllowsManageDataProductsOnDomain() {
+  public void testIsAuthorizedDataProductDomainsEstablish_needsManageOnEveryProposedDomain() {
     AuthorizationSession session = dataProductManagerSession(Set.of(DOMAIN_X));
-    // Establishing the domain of a new product and changing it on an existing one.
     assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_X)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_Y)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session,
+            DATA_PRODUCT_URN,
+            new Domains().setDomains(new UrnArray(List.of(DOMAIN_X, DOMAIN_Y)))));
+    // Nothing to establish, another entity type, or a proposed URN that is not a domain.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATA_PRODUCT_URN, new Domains()));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATASET_URN, domains(DOMAIN_X)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            dataProductManagerSession(Set.of(DATASET_URN)),
+            DATA_PRODUCT_URN,
+            domains(DATASET_URN)));
+    // The generic entity write stays entity-agnostic: no data product shortcut in it.
+    assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
             session, DATA_PRODUCT_URN, ApiOperation.CREATE, true, domains(DOMAIN_X)));
-    assertTrue(
+    assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
             session, DATA_PRODUCT_URN, ApiOperation.UPDATE, true, domains(DOMAIN_X)));
-    // A domain the actor does not manage is denied, as is a product without domains.
-    assertFalse(
-        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-            session, DATA_PRODUCT_URN, ApiOperation.UPDATE, true, domains(DOMAIN_Y)));
-    assertFalse(
-        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-            session, DATA_PRODUCT_URN, ApiOperation.UPDATE, true, new Domains()));
-    // The data product privilege says nothing about other entity types.
-    assertFalse(
-        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-            session, DATASET_URN, ApiOperation.UPDATE, true, domains(DOMAIN_X)));
   }
 
   @Test
-  public void testIsAuthorizedDomainsEdit_dataProductMoveNeedsManageOnBothDomains() {
-    assertFalse(
-        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
-            dataProductManagerSession(Set.of(DOMAIN_Y)),
-            DATA_PRODUCT_URN,
-            domains(DOMAIN_X),
-            domains(DOMAIN_Y)));
-    assertFalse(
-        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
-            dataProductManagerSession(Set.of(DOMAIN_X)),
-            DATA_PRODUCT_URN,
-            domains(DOMAIN_X),
-            domains(DOMAIN_Y)));
+  public void testIsAuthorizedDomainsEdit_dataProductFirstDomainsAllowedForDomainManager() {
+    AuthorizationSession session = dataProductManagerSession(Set.of(DOMAIN_X));
     assertTrue(
         DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
-            dataProductManagerSession(Set.of(DOMAIN_X, DOMAIN_Y)),
-            DATA_PRODUCT_URN,
-            domains(DOMAIN_X),
-            domains(DOMAIN_Y)));
+            session, DATA_PRODUCT_URN, null, domains(DOMAIN_X)));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATA_PRODUCT_URN, new Domains(), domains(DOMAIN_X)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATA_PRODUCT_URN, null, domains(DOMAIN_Y)));
+  }
+
+  @Test
+  public void testIsAuthorizedDomainsEdit_dataProductMoveIsNotAuthorizedByManageDataProducts() {
+    // Moving or clearing a placed product is an edit of that product, even for a manager of both
+    // domains; the GraphQL setDomain mutation requires the same.
+    AuthorizationSession session = dataProductManagerSession(Set.of(DOMAIN_X, DOMAIN_Y));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_X), domains(DOMAIN_Y)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_X), new Domains()));
   }
 
   @Test
@@ -262,13 +279,15 @@ public class DomainWriteAuthorizationUtilsTest {
             .setDomainAssociations(
                 new DomainAssociationArray(List.of(new DomainAssociation().setDomain(DOMAIN_X))));
     assertTrue(DomainWriteAuthorizationUtils.hasDomainMembership(associationBacked));
-    // Managing only the proposed domain must not move a product out of its current one.
+    // A writer allowed only in the proposed domain must not move an entity out of its current
+    // one, whether the current domain is listed in domains or only in domainAssociations.
+    OperationContext proposedDomainWriter = domainScopedWriterSession(DOMAIN_Y);
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            proposedDomainWriter, DATASET_URN, null, domains(DOMAIN_Y)));
     assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
-            dataProductManagerSession(Set.of(DOMAIN_Y)),
-            DATA_PRODUCT_URN,
-            associationBacked,
-            domains(DOMAIN_Y)));
+            proposedDomainWriter, DATASET_URN, associationBacked, domains(DOMAIN_Y)));
   }
 
   @Test
@@ -543,6 +562,11 @@ public class DomainWriteAuthorizationUtilsTest {
    * domain is {@link #DOMAIN_X}.
    */
   private static OperationContext domainXScopedWriterSession() {
+    return domainScopedWriterSession(DOMAIN_X);
+  }
+
+  /** Like {@link #domainXScopedWriterSession()} for an arbitrary allowed (and stored) domain. */
+  private static OperationContext domainScopedWriterSession(Urn allowedDomain) {
     AtomicReference<OperationContext> sessionRef = new AtomicReference<>();
     Authorizer domainScopedAuthorizer =
         new Authorizer() {
@@ -556,7 +580,7 @@ public class DomainWriteAuthorizationUtilsTest {
                     .get(request.getResourceSpec().orElseThrow());
             Set<String> domains =
                 overrides == null
-                    ? Set.of(DOMAIN_X.toString())
+                    ? Set.of(allowedDomain.toString())
                     : overrides
                         .get(EntityFieldType.DOMAIN)
                         .getFieldValuesFuture()
@@ -564,7 +588,7 @@ public class DomainWriteAuthorizationUtilsTest {
                         .getValues();
             boolean allowed =
                 "EDIT_ENTITY".equals(request.getPrivilege())
-                    && domains.contains(DOMAIN_X.toString());
+                    && domains.contains(allowedDomain.toString());
             return new AuthorizationResult(
                 request,
                 allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,

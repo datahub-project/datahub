@@ -2,6 +2,7 @@ package com.linkedin.metadata.authorization;
 
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
@@ -278,8 +279,8 @@ public final class DomainWriteAuthorizationUtils {
    * <p>{@link ApiOperation#UPDATE} (set / clear / move on an existing entity) accepts {@code
    * EDIT_ENTITY} <em>or</em> {@code EDIT_DOMAINS_PRIVILEGE}. Domain resource filters still apply to
    * whichever privilege matches. {@link ApiOperation#CREATE} stays Create/Edit Entity only so Edit
-   * Domain cannot create entities. Data products additionally accept {@code MANAGE_DATA_PRODUCTS}
-   * on the evaluated domains; see {@link #isAuthorizedEntityWrite}.
+   * Domain cannot create entities. Establishing a data product's first domains has one more path,
+   * {@link #isAuthorizedDataProductDomainsEstablish}, which callers evaluate separately.
    */
   @Nonnull
   public static Disjunctive<Conjunctive<PoliciesConfig.Privilege>> lookupDomainsAspectPrivileges(
@@ -319,7 +320,38 @@ public final class DomainWriteAuthorizationUtils {
       }
       return isAuthorizedEntityWrite(session, urn, UPDATE, true, afterDomains);
     }
-    return isAuthorizedEntityWrite(session, urn, UPDATE, true, afterDomains);
+    return isAuthorizedDataProductDomainsEstablish(session, urn, afterDomains)
+        || isAuthorizedEntityWrite(session, urn, UPDATE, true, afterDomains);
+  }
+
+  /**
+   * Whether {@code MANAGE_DATA_PRODUCTS} on the proposed domains authorizes <em>establishing</em> a
+   * data product's domains: the entity create, or the first {@code domains} write on a product that
+   * has no domain membership yet. That is the write {@code DataProductService.setDomain} performs
+   * right after {@code createDataProduct}, for which {@code CreateDataProductResolver} has already
+   * checked the same privilege on the target domain; a product created that way has no persisted
+   * domains for a domain-scoped Edit Entity policy to match. Moving or clearing the domains of a
+   * product that already has some keeps requiring {@code EDIT_ENTITY} / {@code
+   * EDIT_DOMAINS_PRIVILEGE}, like the GraphQL {@code setDomain} mutation.
+   *
+   * <p>Every proposed domain must be managed, and each must be a domain URN. The rename and
+   * membership checks accept {@code MANAGE_DATA_PRODUCTS} on <em>any</em> product domain because
+   * they act on a product that is already placed; placing a product into domains has to be allowed
+   * for each of them.
+   */
+  public static boolean isAuthorizedDataProductDomainsEstablish(
+      @Nonnull AuthorizationSession session, @Nonnull Urn urn, @Nullable Domains proposedDomains) {
+    if (!DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())) {
+      return false;
+    }
+    Set<Urn> domainUrns = EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(proposedDomains);
+    if (domainUrns.isEmpty()
+        || !domainUrns.stream()
+            .allMatch(domainUrn -> DOMAIN_ENTITY_NAME.equals(domainUrn.getEntityType()))) {
+      return false;
+    }
+    return EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAllDomains(
+        session, domainUrns);
   }
 
   /**
@@ -525,9 +557,8 @@ public final class DomainWriteAuthorizationUtils {
    * match.
    *
    * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient; Create still
-   * requires Create/Edit Entity. For a data product, {@code MANAGE_DATA_PRODUCTS} on every domain
-   * in {@code proposedDomains} is sufficient for both operations; callers that reconcile a move
-   * pass the current and the proposed domains in separate calls, so both sides are checked.
+   * requires Create/Edit Entity. Entity-agnostic: the data product establish path is {@link
+   * #isAuthorizedDataProductDomainsEstablish}.
    */
   public static boolean isAuthorizedEntityWrite(
       @Nonnull AuthorizationSession session,
@@ -537,16 +568,6 @@ public final class DomainWriteAuthorizationUtils {
       @Nullable Domains proposedDomains) {
 
     EntitySpec resourceSpec = new EntitySpec(urn.getEntityType(), urn.toString());
-
-    // A data product's domain is managed through MANAGE_DATA_PRODUCTS on that domain: it is what
-    // CreateDataProductResolver checks before writing, and a newly created product has no
-    // persisted domains for a domain-scoped Edit Entity policy to match. Require it on every
-    // domain in the evaluated set (before or after) so a move needs the privilege on both sides.
-    if (DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())
-        && EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAllDomains(
-            session, EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(proposedDomains))) {
-      return true;
-    }
 
     if (useProposedDomains && session instanceof OperationContext) {
       seedProposedDomainsForResourceSpec((OperationContext) session, resourceSpec, proposedDomains);

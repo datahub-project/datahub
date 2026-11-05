@@ -38,8 +38,10 @@ import lombok.experimental.Accessors;
  * {@code EDIT_DOMAINS_PRIVILEGE}; domain resource filters still apply. {@code PATCH} on a missing
  * entity is authorized as Create/Edit Entity only. On an existing entity, PATCH requires the actor
  * to be allowed for both before and after domains when before membership exists (after-only when
- * establishing first domains). For data products, {@code MANAGE_DATA_PRODUCTS} on every evaluated
- * domain also authorizes the write, matching the GraphQL create/update pre-checks.
+ * establishing first domains). For a data product, {@code MANAGE_DATA_PRODUCTS} on every proposed
+ * domain also authorizes the create and the first-domains establish (the {@code createDataProduct}
+ * shape); moves and clears on a product that already has domains are Edit Entity / Edit Domain
+ * only, like the GraphQL {@code setDomain} mutation.
  *
  * <p>In-transaction {@code validatePreCommit} re-checks when a user session is present (sync):
  * before+after Edit when domains already exist, otherwise Create/Edit establish against proposed
@@ -110,8 +112,10 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
             DomainWriteAuthorizationUtils.resolveApiOperation(ChangeType.PATCH, exists);
         if (ApiOperation.CREATE.equals(patchOperation)) {
           boolean allowed =
-              DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-                  session, urn, ApiOperation.CREATE, true, afterDomains);
+              DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+                      session, urn, afterDomains)
+                  || DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+                      session, urn, ApiOperation.CREATE, true, afterDomains);
           if (!allowed) {
             failures.add(
                 authFailure(
@@ -142,9 +146,16 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
       ApiOperation apiOperation =
           DomainWriteAuthorizationUtils.resolveApiOperation(item.getChangeType(), exists);
 
+      // Only a product with no domain membership yet is being established; a product that already
+      // has domains is being moved or cleared, which stays on Edit Entity / Edit Domain.
+      boolean establishingDataProduct =
+          !DomainWriteAuthorizationUtils.hasDomainMembership(beforeDomains)
+              && DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+                  session, urn, afterDomains);
       boolean allowed =
-          DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-              session, urn, apiOperation, useProposed, useProposed ? afterDomains : null);
+          establishingDataProduct
+              || DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+                  session, urn, apiOperation, useProposed, useProposed ? afterDomains : null);
 
       if (!allowed) {
         failures.add(
@@ -211,8 +222,9 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
       ApiOperation apiOperation =
           DomainWriteAuthorizationUtils.resolveApiOperation(ChangeType.UPSERT, exists);
       boolean allowed =
-          DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
-              session, urn, apiOperation, true, after);
+          DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(session, urn, after)
+              || DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+                  session, urn, apiOperation, true, after);
       if (!allowed) {
         failures.add(
             authFailure(

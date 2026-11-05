@@ -57,6 +57,18 @@ public class DataProductMembershipAuthorizationValidator
     Map<Urn, Map<String, Aspect>> currentPropertiesMap =
         aspectRetriever.getLatestAspectObjects(
             operationContext, dataProductUrns, Set.of(DATA_PRODUCT_PROPERTIES_ASPECT_NAME));
+    Set<Urn> withoutProperties =
+        dataProductUrns.stream()
+            .filter(
+                urn ->
+                    !currentPropertiesMap
+                        .getOrDefault(urn, Map.of())
+                        .containsKey(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+            .collect(Collectors.toSet());
+    Map<Urn, Boolean> entityExists =
+        withoutProperties.isEmpty()
+            ? Map.of()
+            : aspectRetriever.entityExists(operationContext, withoutProperties);
 
     for (BatchItem item : items) {
       Aspect currentAspect =
@@ -71,7 +83,9 @@ public class DataProductMembershipAuthorizationValidator
         membershipChanges.add(item);
         changedAssetsByProduct.put(item.getUrn(), changedAssets);
       }
-      if (hasNameChange(current, proposed)) {
+      boolean isCreation =
+          currentAspect == null && !Boolean.TRUE.equals(entityExists.get(item.getUrn()));
+      if (hasNameChange(current, proposed, isCreation)) {
         nameChangeProducts.add(item.getUrn());
       }
     }
@@ -175,23 +189,26 @@ public class DataProductMembershipAuthorizationValidator
   }
 
   /**
-   * A rename needs an existing {@code dataProductProperties} aspect to rename. The first write of
-   * the aspect is the creation of the data product: its authorization is enforced by the creating
-   * API (e.g. {@code MANAGE_DATA_PRODUCTS} on the target domain in {@code
-   * CreateDataProductResolver}, or the entity create privilege for REST/OpenAPI). The {@code
-   * domains} aspect is typically written in a later proposal, so running the rename check here
-   * cannot see the product's domain and would deny exactly the domain-scoped actors that are
-   * allowed to create products in that domain.
+   * Naming a data product that does not exist yet is its creation, not a rename: the creating API
+   * authorizes it ({@code MANAGE_DATA_PRODUCTS} on the target domain in {@code
+   * CreateDataProductResolver}, or the entity create privilege for REST/OpenAPI), and the {@code
+   * domains} aspect is written in a later proposal, so a rename check here could not see the
+   * product's domain and would deny exactly the domain-scoped actors allowed to create products in
+   * it. Entity existence is the signal (soft-deleted products count as existing), so a product that
+   * already exists through other aspects is checked when it is first given a name, whatever the
+   * write order. Setting a name on an existing aspect that had none is a rename as well.
    */
   private static boolean hasNameChange(
-      @Nullable DataProductProperties current, @Nullable DataProductProperties proposed) {
+      @Nullable DataProductProperties current,
+      @Nullable DataProductProperties proposed,
+      boolean isCreation) {
     if (proposed == null || !proposed.hasName()) {
       return false;
     }
-    if (current == null) {
+    if (isCreation) {
       return false;
     }
-    if (!current.hasName()) {
+    if (current == null || !current.hasName()) {
       return true;
     }
     return !proposed.getName().equals(current.getName());
