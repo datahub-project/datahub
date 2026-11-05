@@ -1661,7 +1661,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             config,
             updateIndicesService);
