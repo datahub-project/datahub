@@ -13,9 +13,10 @@ import { DeprecationIcon } from '@app/entityV2/shared/components/styled/Deprecat
 import NodeWrapper from '@app/lineageV3/NodeWrapper';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import HealthIcon from '@app/previewV2/HealthIcon';
+import { FeatureFlags } from '@src/appConfigContext';
 import { EntityRegistryContext } from '@src/entityRegistryContext';
 
-import { Dataset, Entity, EntityType, FeatureFlagsConfig, HealthStatus, HealthStatusType } from '@types';
+import { Dataset, Entity, EntityType, HealthStatus, HealthStatusType } from '@types';
 
 const StyledMenuIcon = styled(Icon)`
     margin: 0 -8px;
@@ -127,7 +128,7 @@ class MockDatasetEntity implements EntityV2<Dataset> {
     renderPreview = () => <></>;
     renderSearch = () => <></>;
     displayName = (data: Dataset) => data.properties?.name || data.urn;
-    getGenericEntityProperties = (_data: Dataset, _flags?: FeatureFlagsConfig | undefined) => null;
+    getGenericEntityProperties = (_data: Dataset, _flags?: FeatureFlags | undefined) => null;
     supportedCapabilities = () => new Set<any>();
     getGraphName = () => '';
 }
