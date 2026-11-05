@@ -115,6 +115,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
 
+  testImplementation testFixtures(project(':metadata-utils'))
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
