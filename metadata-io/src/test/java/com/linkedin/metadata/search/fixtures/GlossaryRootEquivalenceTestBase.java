@@ -114,6 +114,9 @@ import org.testng.annotations.Test;
  * container's index. Documents are built with {@link SearchDocumentTransformer} from real aspects,
  * the way the index writer builds them, so field presence (e.g. no {@code hasParentNode} without an
  * info aspect) matches production.
+ *
+ * <p>Out of scope: search authorization. Both sides run with a system context that has search
+ * access controls off, so this compares which documents count as roots, not who may see them.
  */
 public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpringContextTests {
 
@@ -124,8 +127,11 @@ public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpri
 
   private static final Urn VISIBLE_STAGE = UrnUtils.getUrn("urn:li:lifecycleStageType:PUBLISHED");
 
-  /** Smaller than the number of roots, so the sidebar scroll has to page. */
-  private static final int SCROLL_PAGE_SIZE = 7;
+  /**
+   * Sidebar page sizes to scroll with, all smaller than the number of roots. A page size of 1 makes
+   * every entity (including the unnamed ones) the search-after cursor of a page.
+   */
+  private static final int[] SCROLL_PAGE_SIZES = {1, 7};
 
   /** The web app requests up to 1000 roots per type from the legacy queries. */
   private static final int LEGACY_COUNT = 1000;
@@ -168,6 +174,8 @@ public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpri
 
   @BeforeClass
   public void setup() throws Exception {
+    // Saved first so tearDown restores it even if the rest of setup fails.
+    previousLifecycleStageTypeService = ESUtils.getLifecycleStageTypeService();
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -201,7 +209,6 @@ public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpri
     when(queryContext.getOperationContext()).thenReturn(opContext);
 
     // Hidden-stage exclusion is resolved through this process-wide hook at query time.
-    previousLifecycleStageTypeService = ESUtils.getLifecycleStageTypeService();
     LifecycleStageTypeService lifecycleStageTypeService = mock(LifecycleStageTypeService.class);
     when(lifecycleStageTypeService.getHiddenStageUrns(anySet()))
         .thenReturn(Set.of(HIDDEN_STAGE.toString()));
@@ -279,18 +286,20 @@ public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpri
     Set<String> legacy = new TreeSet<>(legacyRootTerms());
     legacy.addAll(legacyRootNodes());
 
-    List<String> sidebar = sidebarRoots(false);
+    for (int pageSize : SCROLL_PAGE_SIZES) {
+      List<String> sidebar = sidebarRoots(false, pageSize);
 
-    assertEquals(
-        sidebar.size(),
-        new LinkedHashSet<>(sidebar).size(),
-        "sidebar scroll returned duplicates across pages: " + sidebar);
-    assertEquals(new TreeSet<>(sidebar), legacy);
+      assertEquals(
+          sidebar.size(),
+          new LinkedHashSet<>(sidebar).size(),
+          "sidebar scroll returned duplicates across pages of " + pageSize + ": " + sidebar);
+      assertEquals(new TreeSet<>(sidebar), legacy, "page size " + pageSize);
+    }
   }
 
   @Test
   public void sidebarScrollListsGroupsBeforeTerms() throws Exception {
-    List<String> sidebar = sidebarRoots(false);
+    List<String> sidebar = sidebarRoots(false, SCROLL_PAGE_SIZES[1]);
     int lastNode = -1;
     int firstTerm = sidebar.size();
     for (int i = 0; i < sidebar.size(); i++) {
@@ -300,6 +309,7 @@ public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpri
         firstTerm = i;
       }
     }
+    assertTrue(lastNode >= 0 && firstTerm < sidebar.size(), "expected groups and terms");
     assertTrue(lastNode < firstTerm, "groups must precede terms: " + sidebar);
   }
 
@@ -312,7 +322,7 @@ public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpri
     Set<String> legacy = new TreeSet<>(legacyRootTerms());
     legacy.addAll(legacyRootNodes());
 
-    Set<String> editorSidebar = new TreeSet<>(sidebarRoots(true));
+    Set<String> editorSidebar = new TreeSet<>(sidebarRoots(true, SCROLL_PAGE_SIZES[1]));
 
     Set<String> expected = new TreeSet<>(legacy);
     expected.addAll(hiddenStageRoots);
@@ -336,17 +346,18 @@ public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpri
   }
 
   /** Pages through the sidebar's root scroll the way the web app does, in result order. */
-  private List<String> sidebarRoots(boolean includeHiddenLifecycleStages) throws Exception {
+  private List<String> sidebarRoots(boolean includeHiddenLifecycleStages, int pageSize)
+      throws Exception {
     ScrollAcrossEntitiesResolver resolver = new ScrollAcrossEntitiesResolver(entityClient, null);
     List<String> urns = new ArrayList<>();
     String scrollId = null;
     int pages = 0;
     do {
       ScrollResults page =
-          resolver.get(sidebarEnvironment(scrollId, includeHiddenLifecycleStages)).get();
+          resolver.get(sidebarEnvironment(scrollId, includeHiddenLifecycleStages, pageSize)).get();
       page.getSearchResults().forEach(r -> urns.add(r.getEntity().getUrn()));
       scrollId = page.getNextScrollId();
-      assertTrue(++pages <= 20, "sidebar scroll did not terminate");
+      assertTrue(++pages <= 100, "sidebar scroll did not terminate");
     } while (scrollId != null);
     assertTrue(pages > 1, "fixture should need more than one sidebar page");
     return urns;
@@ -361,7 +372,7 @@ public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpri
 
   /** Mirrors getGlossaryScrollInput({ parentNode: null }) in the web app. */
   private DataFetchingEnvironment sidebarEnvironment(
-      @Nullable String scrollId, boolean includeHiddenLifecycleStages) {
+      @Nullable String scrollId, boolean includeHiddenLifecycleStages, int pageSize) {
     Map<String, Object> searchFlags = new HashMap<>();
     searchFlags.put("skipCache", true);
     if (includeHiddenLifecycleStages) {
@@ -375,7 +386,7 @@ public abstract class GlossaryRootEquivalenceTestBase extends AbstractTestNGSpri
         "orFilters",
         List.of(
             Map.of("and", List.of(Map.of("field", "hasParentNode", "values", List.of("false"))))));
-    input.put("count", SCROLL_PAGE_SIZE);
+    input.put("count", pageSize);
     input.put(
         "sortInput",
         Map.of(
