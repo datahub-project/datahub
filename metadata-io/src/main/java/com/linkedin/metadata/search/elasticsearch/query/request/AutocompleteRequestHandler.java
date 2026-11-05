@@ -426,13 +426,19 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   }
 
   private boolean allTokensMustPrefixMatchEnabled() {
+    return allTokensMustPrefixMatchEnabled(searchConfiguration, entitySpec.getName());
+  }
+
+  /** Whether {@code entityName} is listed in {@code allTokensMustPrefixMatchEntities}. */
+  public static boolean allTokensMustPrefixMatchEnabled(
+      @Nonnull ElasticSearchConfiguration searchConfiguration, @Nonnull String entityName) {
     AutocompleteQueryConfiguration config =
         Optional.ofNullable(searchConfiguration.getSearch().getAutocomplete())
             .orElseGet(AutocompleteQueryConfiguration::new);
     return Optional.ofNullable(config.getAllTokensMustPrefixMatchEntities())
         .orElse(List.of())
         .stream()
-        .anyMatch(name -> name.trim().equalsIgnoreCase(entitySpec.getName()));
+        .anyMatch(name -> name.trim().equalsIgnoreCase(entityName));
   }
 
   /**

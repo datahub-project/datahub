@@ -15,7 +15,8 @@ public class AutocompleteQueryConfiguration {
    * two or more tokens are typed. Meant for people pickers (owners filter, add owners, assignees):
    * for "John K", "Johnathan Killroy" is returned and "John Fitzgerald" is not, instead of the
    * whole-term match ranking first. Case-insensitive on the entity name; an empty list disables the
-   * behaviour. Single-token queries are unchanged.
+   * behaviour. Single-token queries are unchanged. On Search V3 reads, every token matching as a
+   * prefix is accepted in addition to the autocomplete template's phrase prefix.
    */
   private List<String> allTokensMustPrefixMatchEntities = List.of("corpuser", "corpGroup");
 }
