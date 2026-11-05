@@ -180,14 +180,21 @@ public class KafkaPropertyGoldenTest {
     String rendered = render(scenario, env, actual);
 
     String resource = GOLDEN_DIR + "/" + scenario + ".golden";
-    if (Boolean.parseBoolean(System.getenv(UPDATE_ENV))) {
+    String expected = readResource(resource);
+    if (Boolean.parseBoolean(System.getenv(UPDATE_ENV)) && !rendered.equals(expected)) {
+      // Gradle runs tests from the module dir; refuse to write anywhere else (e.g. an IDE run
+      // from the repo root) rather than silently creating a stray copy.
+      if (!Files.isDirectory(GOLDEN_SOURCE_DIR.getParent())) {
+        fail(
+            "Run from metadata-service/factories to update goldens; cwd="
+                + Paths.get("").toAbsolutePath());
+      }
       Path target = GOLDEN_SOURCE_DIR.resolve(scenario + ".golden");
       Files.createDirectories(target.getParent());
       Files.writeString(target, rendered, StandardCharsets.UTF_8);
-      return;
+      // Fail so an update run never passes silently; rerun without the flag after reviewing.
+      fail("Updated golden " + target + "; review the diff and rerun without " + UPDATE_ENV);
     }
-
-    String expected = readResource(resource);
     if (expected == null) {
       fail(
           "Missing golden file "
@@ -211,7 +218,7 @@ public class KafkaPropertyGoldenTest {
               + UPDATE_ENV
               + "=true and review the golden diff.");
     }
-    // Belt and braces: also catch header/ordering drift in the file itself.
+    // Also catches drift in the header/env comments and line ordering, which parse() ignores.
     assertEquals(rendered, expected, "Golden file " + resource + " is not normalized");
   }
 
@@ -236,10 +243,6 @@ public class KafkaPropertyGoldenTest {
             "+ [producer.kafkaProducer] max.request.bytes=5242880 (Integer)  (unexpected property)",
             "- [producer.kafkaProducer] max.request.size=5242880 (Integer)  (missing property)"));
   }
-
-  // ---------------------------------------------------------------------------------------------
-  // Context + capture
-  // ---------------------------------------------------------------------------------------------
 
   @SuppressWarnings("unchecked")
   private static Map<String, Map<String, String>> buildAllClientProperties(
@@ -350,9 +353,10 @@ public class KafkaPropertyGoldenTest {
 
   /**
    * Applies the repo's own test-side {@code ApplicationContextInitializer}s from {@code
-   * META-INF/spring.factories}, as {@code SpringApplication} would, so test-only recorders (such as
-   * the wiring-coverage recorder) also see this hand-built context. Third-party initializers are
-   * skipped to keep the context minimal.
+   * META-INF/spring.factories}, as {@code SpringApplication} would, so a test-classpath recorder
+   * registered that way (the Spring wiring-coverage ratchet) also sees this hand-built context. A
+   * no-op when none is registered. Third-party initializers are skipped to keep the context
+   * minimal.
    */
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static void applyTestInitializers(AnnotationConfigApplicationContext ctx) {
@@ -401,10 +405,6 @@ public class KafkaPropertyGoldenTest {
       throw new UncheckedIOException(e);
     }
   }
-
-  // ---------------------------------------------------------------------------------------------
-  // Golden rendering + diff
-  // ---------------------------------------------------------------------------------------------
 
   private static Map<String, String> flattenSerDe(KafkaConfiguration.SerDeKeyValueConfig config) {
     Map<String, Object> flat = new LinkedHashMap<>();
