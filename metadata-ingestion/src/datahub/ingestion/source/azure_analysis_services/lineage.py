@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
@@ -45,6 +45,17 @@ _FIELD_DEPENDENCY_TYPES = frozenset(
 class UpstreamLineageResult:
     upstreams: List[UpstreamClass] = field(default_factory=list)
     fine_grained: List[FineGrainedLineageClass] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _TableFields:
+    exact: FrozenSet[str]
+    by_lower: Dict[str, str]
+
+    def resolve(self, name: str) -> Optional[str]:
+        if name in self.exact:
+            return name
+        return self.by_lower.get(name.lower())
 
 
 @dataclass
@@ -215,20 +226,24 @@ class AasLineageExtractor:
         # objects that never become fields — AS system RowNumber-* columns and
         # calc-table self-references (where the "column" is the table name) — which
         # would otherwise dangle as unresolvable schema-field URNs in the golden.
-        # Keyed case-insensitively, valued by the name the schema emits, since
-        # DISCOVER_CALC_DEPENDENCY and the TMSCHEMA DMVs can disagree on casing.
-        # First wins, like the mapper, which only emits the first of tables or
-        # fields whose names collide case-insensitively.
-        fields_by_table: Dict[str, Dict[str, str]] = {}
+        # Keyed by lowercased table name, first table wins like the mapper, which
+        # only emits the first of case-colliding tables. Field names resolve
+        # exactly first, since a column and a measure can differ only by case
+        # and both are emitted; the case-insensitive fallback covers
+        # DISCOVER_CALC_DEPENDENCY spelling a name differently from TMSCHEMA.
+        fields_by_table: Dict[str, _TableFields] = {}
         for table in model.tables:
             if table.name.lower() in fields_by_table:
                 continue
-            fields: Dict[str, str] = {}
-            for name in [col.name for col in table.columns] + [
+            names = [col.name for col in table.columns] + [
                 measure.name for measure in table.measures
-            ]:
-                fields.setdefault(name.lower(), name)
-            fields_by_table[table.name.lower()] = fields
+            ]
+            by_lower: Dict[str, str] = {}
+            for name in names:
+                by_lower.setdefault(name.lower(), name)
+            fields_by_table[table.name.lower()] = _TableFields(
+                exact=frozenset(names), by_lower=by_lower
+            )
 
         upstreams_by_downstream: Dict[str, List[str]] = {}
         for dependency in model.calc_dependencies:
@@ -258,7 +273,7 @@ class AasLineageExtractor:
         self,
         dependency: AasCalcDependency,
         dataset_urn_by_table: Dict[str, str],
-        fields_by_table: Dict[str, Dict[str, str]],
+        fields_by_table: Dict[str, _TableFields],
     ) -> Optional[_DependencyEdge]:
         object_type = dependency.object_type.upper()
         referenced_type = dependency.referenced_object_type.upper()
@@ -282,12 +297,12 @@ class AasLineageExtractor:
         # Both endpoints must be fields the mapper emits as schema fields.
         # This drops edges to AS system RowNumber-* columns and to a calc table's
         # own name (a table object, not a field), which would otherwise dangle.
-        downstream_field = fields_by_table.get(dependency.table.lower(), {}).get(
-            dependency.object_name.lower()
-        )
-        upstream_field = fields_by_table.get(
-            dependency.referenced_table.lower(), {}
-        ).get(dependency.referenced_object.lower())
+        downstream_fields = fields_by_table.get(dependency.table.lower())
+        upstream_fields = fields_by_table.get(dependency.referenced_table.lower())
+        if downstream_fields is None or upstream_fields is None:
+            return None
+        downstream_field = downstream_fields.resolve(dependency.object_name)
+        upstream_field = upstream_fields.resolve(dependency.referenced_object)
         if downstream_field is None or upstream_field is None:
             return None
 
