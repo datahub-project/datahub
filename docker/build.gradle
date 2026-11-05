@@ -5,6 +5,7 @@ plugins {
 import com.avast.gradle.dockercompose.tasks.ComposeUp
 import com.avast.gradle.dockercompose.tasks.ComposeDownForced
 import org.yaml.snakeyaml.Yaml
+import groovy.json.JsonSlurper
 
 apply from: "../gradle/versioning/versioning.gradle"
 
@@ -141,8 +142,52 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
+            'quickstartDebugSearchSplit': [
+                    // Search V3 on its own OpenSearch cluster: profiles/docker-compose.search-split-override.yml
+                    // adds `search-secondary` and points GMS / system update / MAE consumer at it through
+                    // elasticsearch.clusters.secondary.uri + componentCluster.searchV3. V2 stays on `search`.
+                    // Turn V3 on with the usual variables (ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED,
+                    // ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED); this task supplies only the
+                    // cluster and the routing.
+                    profile: 'debug',
+                    composeFiles: [compose_base, 'profiles/docker-compose.search-split-override.yml'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
             'quickstartDebugElasticsearch': [
                     profile: 'debug-elasticsearch',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
+            'quickstartOS2': [
+                    profile: 'quickstart-opensearch2',
+                    modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+            ],
+            'quickstartOS2Debug': [
+                    profile: 'debug-opensearch2',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
+            'quickstartOS3': [
+                    profile: 'quickstart-opensearch3',
+                    modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    // Image-based CI stack still needs /openapi/operations/dev/featureFlags
+                    // (smoke-test/tests/dev_tooling). Compose defaults DEV_TOOLING_ENABLED to false.
+                    additionalEnv: [
+                            DEV_TOOLING_ENABLED: 'true',
+                    ],
+            ],
+            'quickstartOS3Debug': [
+                    profile: 'debug-opensearch3',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
                     isDebug: true,
                     additionalEnv: [
@@ -399,15 +444,21 @@ ext {
 
 apply from: 'postgres/quickstart-publish.gradle'
 
-// Resolve the compose profile(s) for a given quickstart_configs key (used by docker-unified CI when a PR has a smoke:<key> label).
-// Usage: ./gradlew :docker:resolveQuickstartProfile -PconfigKey=<key> -q  (e.g. quickstartDebug, quickstartPg, quickstartPgConsumers, quickstartPgDebug, …)
+// Resolve the compose profile(s) and image modules for a quickstart_configs key
+// (used by docker-unified CI when a PR has a smoke:<key> label).
+// Prints one line: "<profile>|<space-separated modules>". Profile may be a
+// comma-separated list; modules are the ones that config's buildImages task bakes.
+// Usage: ./gradlew :docker:resolveQuickstartProfile -PconfigKey=<key> -q
+// (e.g. quickstartDebug, quickstartPg, quickstartPgConsumers, quickstartPgDebug, …)
 tasks.register("resolveQuickstartProfile") {
     doLast {
         def configKey = project.findProperty('configKey')
         if (!configKey) throw new GradleException("Missing -PconfigKey. Valid keys: ${quickstart_configs.keySet()}")
         def config = quickstart_configs[configKey]
         if (!config) throw new GradleException("Unknown quickstart config key: ${configKey}. Valid keys: ${quickstart_configs.keySet()}")
-        println(config.profile ?: config.profiles?.join(','))
+        def profile = config.profile ?: config.profiles?.join(',')
+        def modules = (config.modules ?: []).join(' ')
+        println("${profile}|${modules}")
     }
 }
 
@@ -450,6 +501,8 @@ dockerCompose {
             environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
             environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
             environment.put "METADATA_TESTS_ENABLED", "true"
+            // Debug bind-mount stacks only. Image quickstarts keep compose's default
+            // (false) unless a task sets DEV_TOOLING_ENABLED via additionalEnv (e.g. CI OS3).
             if (config.isDebug) {
                 environment.put "DEV_TOOLING_ENABLED", "true"
             }
@@ -597,17 +650,41 @@ quickstart_configs.each { taskName, config ->
 
 
 quickstart_configs.each { taskName, config ->
+    def taskSuffix = config.isDebug? 'debug' : ''
+    def buildModules = selectBuildModules(config.modules)
+    def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
+    tasks.register("generateBakeSpec${taskName}") {
+        dependsOn(buildModules.collect { it + ":generateBakeSnippet${taskSuffix}" })
+        outputs.file(jsonFile)
+        outputs.upToDateWhen { false }
+
+        doLast {
+            def bakeSnippets = [:]
+            def targets = []
+
+            buildModules.each { module ->
+                def moduleProject = project.project(module)
+                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
+                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
+                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
+            }
+
+            def bakeSpec = [
+                    group: ["default": ["targets": targets]],
+                    target: bakeSnippets,
+            ]
+            jsonFile.parentFile.mkdirs()
+            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(bakeSpec))
+        }
+    }
+
     tasks.register("buildImages${taskName}", Exec) {
         ext{
             bakeSpec = [:]
         }
         group = 'quickstart-ci'
-        def taskSuffix = config.isDebug? 'debug' : ''
-        def buildModules = selectBuildModules(config.modules)
-        dependsOn(buildModules.collect { it + ":generateBakeSnippet${taskSuffix}" })
+        dependsOn(tasks.named("generateBakeSpec${taskName}"))
         dependsOn(tasks.getByName("prepareAll${taskName}"))
-
-        def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
 
         def bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]
         def buildCmd = []
@@ -621,6 +698,12 @@ quickstart_configs.each { taskName, config ->
         } else {
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
+            if (config.isDebug && System.getenv("CI") != "true") {
+                buildCmd += [
+                        '--provenance=false',
+                        '--sbom=false',
+                ]
+            }
             // buildx >= 0.17 refuses to read files referenced by the bake definition that
             // live outside the working directory (e.g. a netrc secret at $HOME/.netrc)
             // unless the fs entitlement is granted; non-interactive runs fail outright
@@ -645,21 +728,7 @@ quickstart_configs.each { taskName, config ->
                 logger.lifecycle("Building a subset of ${taskName} images: ${buildModules}")
             }
 
-            def bakeSnippets = [:]
-            def targets = []
-
-            buildModules.each { module ->
-                def moduleProject = project.project(module)
-                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
-                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
-                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
-            }
-
-            ext.bakeSpec.group = [ "default": ["targets": targets] ]
-            ext.bakeSpec.target = bakeSnippets
-
-            jsonFile.parentFile.mkdirs()
-            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ext.bakeSpec))
+            ext.bakeSpec = new JsonSlurper().parse(jsonFile)
         }
     }
 }
@@ -930,7 +999,7 @@ tasks.register("reloadEnv", Exec) {
         environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
         environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
         environment.put "METADATA_TESTS_ENABLED", "true"
-        if (matchingConfig?.isDebug) {
+        if (matchingConfig.isDebug) {
             environment.put "DEV_TOOLING_ENABLED", "true"
         }
         environment.put "DATAHUB_REPO", "${docker_registry}"

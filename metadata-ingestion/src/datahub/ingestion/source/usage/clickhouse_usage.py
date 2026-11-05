@@ -70,6 +70,12 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
     options: dict = Field(default={}, description="")
     query_log_table: str = Field(default="system.query_log", exclude=True)
 
+    @classmethod
+    def probe_provider_class(cls) -> Optional[type]:
+        # A usage-only source: it ingests query history, which the inherited
+        # SQL provider doesn't list. Probe the `clickhouse` source instead.
+        return None
+
     @field_validator("query_log_table")
     @classmethod
     def validate_query_log_table(cls, v: str) -> str:
@@ -175,7 +181,10 @@ class ClickHouseUsageSource(Source):
 
     def _get_observed_queries(self) -> Iterable[ObservedQuery]:
         engine = self._make_sql_engine()
-        results = engine.execute(text(self._make_usage_query()))
+        # SA 2.0 removed Engine.execute(); run on a connection and materialize the
+        # rows before it closes so the generator below can keep yielding.
+        with engine.connect() as conn:
+            results = conn.execute(text(self._make_usage_query())).fetchall()
         for row in results:
             row_dict = dict(row._mapping)
 

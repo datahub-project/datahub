@@ -1,6 +1,7 @@
 """Configuration for Document Chunking and Embedding Source."""
 
 import re
+from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
@@ -13,6 +14,18 @@ _LOCAL_EMBEDDING_DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings"
 # Default per-document chunk cap. Shared with the staleness fingerprint so the cap is
 # only fingerprinted when it deviates from this value (see get_processing_config_fingerprint).
 DEFAULT_MAX_CHUNKS_PER_DOCUMENT = 100
+
+
+@dataclass(frozen=True)
+class ResolvedEmbeddingTarget:
+    transport: Literal["datahub", "direct"]
+    model_provider: str
+    model_id: str
+    model_embedding_key: str
+    semantic_model_version: str
+    endpoint_path: Optional[str] = None
+    # The server does not advertise ONNX pooling, so transport equivalence is unknown.
+    onnx_pooling: Optional[str] = None
 
 
 class ServerEmbeddingConfig(ConfigModel):
@@ -32,6 +45,7 @@ class ServerSemanticSearchConfig(ConfigModel):
     enabled: bool
     enabled_entities: list[str]
     embedding_config: Optional[ServerEmbeddingConfig] = None
+    entity_index_v3_enabled: Optional[bool] = None
 
 
 class ChunkingConfig(ConfigModel):
@@ -65,11 +79,18 @@ class EmbeddingConfig(ConfigModel):
     # Core configuration (Optional - loaded from server if not set)
     provider: Optional[
         Literal[
-            "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+            "bedrock",
+            "cohere",
+            "openai",
+            "local",
+            "vertex_ai",
+            "onnx",
+            "classical",
+            "datahub",
         ]
     ] = Field(
         default=None,
-        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
+        description="Embedding provider. 'datahub' uses the server's advertised embedding service and DataHub credentials. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
     )
     endpoint: Optional[str] = Field(
         default=None,
@@ -120,7 +141,7 @@ class EmbeddingConfig(ConfigModel):
 
     # Processing configuration (not from server)
     batch_size: int = Field(
-        default=25, description="Batch size for embedding API calls"
+        default=25, gt=0, description="Batch size for embedding API calls"
     )
     request_timeout: float = Field(
         default=60.0,
@@ -151,6 +172,7 @@ class EmbeddingConfig(ConfigModel):
 
     # Internal: cached server config after loading/validation
     _server_config: Optional[ServerEmbeddingConfig] = None
+    _resolved_target: Optional[ResolvedEmbeddingTarget] = None
 
     @field_validator("model_embedding_key")
     @classmethod
@@ -631,9 +653,9 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     """
     from datahub.configuration.common import GraphError
 
-    # Full query includes vertexProviderConfig (added in DataHub v0.15+).
-    # Older servers reject it with FieldUndefined; we fall back to the base
-    # query in that case rather than propagating a confusing schema error.
+    # Full query includes vertexProviderConfig (v0.15+) and entityIndexV3. Older
+    # servers reject unknown fields with FieldUndefined; we fall back to the base
+    # query rather than propagating a confusing schema error.
     _QUERY_FULL = """
         query getSemanticSearchConfig {
           appConfig {
@@ -653,9 +675,13 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
                 }
               }
             }
+            entityIndexV3 {
+              enabled
+            }
           }
         }
     """
+    # Oldest GMS schemas: no vertexProviderConfig, no entityIndexV3.
     _QUERY_BASE = """
         query getSemanticSearchConfig {
           appConfig {
@@ -682,11 +708,12 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             strip_unsupported_fields=True,
         )
     except GraphError as e:
-        # Older servers don't have vertexProviderConfig in their schema. When the
-        # graphql-core library is absent, strip_unsupported_fields is a no-op and
-        # the full query reaches the server, which rejects it with FieldUndefined.
-        # Retry with the base query — vertex fields will simply be None.
-        if "vertexProviderConfig" in str(e) and "FieldUndefined" in str(e):
+        # When graphql-core is absent, strip_unsupported_fields is a no-op and the
+        # full query reaches the server. Retry without the newer fields.
+        error_text = str(e)
+        if "FieldUndefined" in error_text and (
+            "vertexProviderConfig" in error_text or "entityIndexV3" in error_text
+        ):
             response = graph.execute_graphql(
                 query=_QUERY_BASE,
                 operation_name="getSemanticSearchConfig",
@@ -695,6 +722,8 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             raise
 
     semantic_search_config = response.get("appConfig", {}).get("semanticSearchConfig")
+    entity_index_v3 = response.get("appConfig", {}).get("entityIndexV3") or {}
+    entity_index_v3_enabled = entity_index_v3.get("enabled")
 
     if not semantic_search_config:
         raise GraphError(
@@ -711,6 +740,7 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             enabled=is_enabled,
             enabled_entities=semantic_search_config["enabledEntities"],
             embedding_config=None,
+            entity_index_v3_enabled=entity_index_v3_enabled,
         )
 
     # Extract AWS region from nested awsProviderConfig
@@ -753,4 +783,5 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
         enabled=is_enabled,
         enabled_entities=semantic_search_config["enabledEntities"],
         embedding_config=server_embedding_config,
+        entity_index_v3_enabled=entity_index_v3_enabled,
     )

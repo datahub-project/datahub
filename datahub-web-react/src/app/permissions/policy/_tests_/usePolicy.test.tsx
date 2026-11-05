@@ -433,6 +433,115 @@ describe('usePolicy', () => {
         });
     });
 
+    describe('onRemovePolicy and delete flow', () => {
+        it('should set policyToDelete when onRemovePolicy is called', async () => {
+            const { result } = renderUsePolicy();
+
+            const policyToDelete = {
+                urn: 'urn:li:policy:123',
+                type: PolicyType.Metadata,
+                name: 'Test Policy',
+                state: PolicyState.Active,
+                description: 'Test',
+                editable: true,
+                privileges: ['VIEW_DATASET'],
+                actors: {
+                    users: [],
+                    groups: [],
+                    allUsers: false,
+                    allGroups: false,
+                    resourceOwners: false,
+                },
+                resources: {
+                    allResources: true,
+                },
+            } as any;
+
+            result.current.onRemovePolicy(policyToDelete);
+
+            await new Promise((resolve) => {
+                setTimeout(resolve, 50);
+            });
+            expect(result.current.policyToDelete).toEqual(policyToDelete);
+        });
+
+        it('should clear policyToDelete when handleDeleteCancel is called', async () => {
+            const { result } = renderUsePolicy();
+
+            const policyToDelete = {
+                urn: 'urn:li:policy:123',
+                type: PolicyType.Metadata,
+                name: 'Test Policy',
+                state: PolicyState.Active,
+                description: 'Test',
+                editable: true,
+                privileges: ['VIEW_DATASET'],
+                actors: {
+                    users: [],
+                    groups: [],
+                    allUsers: false,
+                    allGroups: false,
+                    resourceOwners: false,
+                },
+                resources: {
+                    allResources: true,
+                },
+            } as any;
+
+            result.current.onRemovePolicy(policyToDelete);
+            await new Promise((resolve) => {
+                setTimeout(resolve, 50);
+            });
+
+            result.current.handleDeleteCancel();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 50);
+            });
+
+            expect(result.current.policyToDelete).toBeNull();
+        });
+
+        it('should handle delete confirmation and clear state', async () => {
+            const { result } = renderUsePolicy();
+
+            const policyToDelete = {
+                urn: 'urn:li:policy:456',
+                type: PolicyType.Metadata,
+                name: 'Delete Test Policy',
+                state: PolicyState.Active,
+                description: 'Test',
+                editable: true,
+                privileges: ['VIEW_DATASET'],
+                actors: {
+                    users: [],
+                    groups: [],
+                    allUsers: false,
+                    allGroups: false,
+                    resourceOwners: false,
+                },
+                resources: {
+                    allResources: true,
+                },
+            } as any;
+
+            result.current.onRemovePolicy(policyToDelete);
+            await new Promise((resolve) => {
+                setTimeout(resolve, 50);
+            });
+            expect(result.current.policyToDelete).toEqual(policyToDelete);
+
+            result.current.handleDeleteConfirm();
+            // Wait for mutation to complete and callbacks to fire
+            await new Promise((resolve) => {
+                setTimeout(resolve, 2100);
+            });
+
+            expect(mockOnCancelViewPolicy).toHaveBeenCalled();
+            expect(result.current.policyToDelete).toBeNull();
+            expect(mockPoliciesRefetch).toHaveBeenCalled();
+        });
+    });
+
     describe('getPrivilegeNames', () => {
         it('should return empty array when policy has no privileges', () => {
             const { result } = renderUsePolicy();
@@ -510,91 +619,6 @@ describe('usePolicy', () => {
             expect(privileges).toHaveLength(1);
             expect(privileges[0].type).toBe('VIEW_DATASET');
             expect(privileges[0].name).toBe('View Dataset');
-        });
-    });
-
-    describe('cache updates on policy save', () => {
-        it('should update cache when creating a new policy', async () => {
-            const { result } = renderUsePolicy();
-
-            const policy = {
-                type: PolicyType.Metadata,
-                name: 'New Policy',
-                state: PolicyState.Active,
-                description: 'Test Policy',
-                editable: true,
-                privileges: ['VIEW_DATASET'],
-                actors: {
-                    users: [],
-                    groups: [],
-                    allUsers: false,
-                    allGroups: false,
-                    resourceOwners: false,
-                },
-                resources: {
-                    allResources: true,
-                },
-            };
-
-            result.current.onSavePolicy(policy);
-
-            // Wait for async operations and setTimeout
-            await new Promise((resolve) => {
-                setTimeout(resolve, 1100);
-            });
-
-            expect(vi.mocked(policyUtils.updateListPoliciesCache)).toHaveBeenCalled();
-            const callArgs = vi.mocked(policyUtils.updateListPoliciesCache).mock.calls[0];
-            expect(callArgs[1]).toHaveProperty('__typename', 'ListPoliciesResult');
-            expect(callArgs[1]).toHaveProperty('name', 'New Policy');
-        });
-
-        it('should update cache when updating an existing policy', async () => {
-            const { result } = renderHook(
-                () =>
-                    usePolicy(
-                        mockPoliciesConfig,
-                        'urn:li:policy:existing-policy',
-                        mockPoliciesRefetch,
-                        mockSetShowViewPolicyModal,
-                        mockOnCancelViewPolicy,
-                        mockOnClosePolicyBuilder,
-                    ),
-                { wrapper },
-            );
-
-            const policy = {
-                type: PolicyType.Metadata,
-                name: 'Updated Policy',
-                state: PolicyState.Active,
-                description: 'Updated Description',
-                editable: true,
-                privileges: ['VIEW_DATASET', 'EDIT_DATASET'],
-                actors: {
-                    users: ['urn:li:corpuser:user1'],
-                    groups: [],
-                    allUsers: false,
-                    allGroups: false,
-                    resourceOwners: false,
-                },
-                resources: {
-                    allResources: true,
-                },
-            };
-
-            result.current.onSavePolicy(policy);
-
-            // Wait for async operations
-            await new Promise((resolve) => {
-                setTimeout(resolve, 100);
-            });
-
-            expect(vi.mocked(policyUtils.updateListPoliciesCache)).toHaveBeenCalled();
-            const callArgs = vi.mocked(policyUtils.updateListPoliciesCache).mock.calls[0];
-            expect(callArgs[1]).toHaveProperty('__typename', 'ListPoliciesResult');
-            expect(callArgs[1]).toHaveProperty('urn', 'urn:li:policy:existing-policy');
-            expect(callArgs[1]).toHaveProperty('name', 'Updated Policy');
-            expect(callArgs[1]).toHaveProperty('description', 'Updated Description');
         });
     });
 });

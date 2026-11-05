@@ -1,15 +1,18 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TYPE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -19,18 +22,25 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 import com.codahale.metrics.Counter;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -39,6 +49,7 @@ import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
@@ -59,13 +70,18 @@ import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -75,6 +91,7 @@ import com.linkedin.structured.StructuredPropertyKey;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.common.AttributeKey;
@@ -89,14 +106,18 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class EntityServiceImplTest {
+
   private final AuditStamp TEST_AUDIT_STAMP = AspectGenerationUtils.createAuditStamp();
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
@@ -111,6 +132,16 @@ public class EntityServiceImplTest {
   private MetadataChangeProposal testMCP;
   private AspectDao mockAspectDao;
   private final MetricUtils metricUtils = mock(MetricUtils.class);
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   @BeforeMethod
   public void setup() throws Exception {
@@ -199,6 +230,84 @@ public class EntityServiceImplTest {
     assertEquals(result.getSystemMetadata().getLastRunId(), "run-1");
     assertEquals(result.getSystemMetadata().getLastObserved(), 2000L);
     assertTrue(DataTemplateUtil.areEqual(result.getRecordTemplate(), originalInfo));
+  }
+
+  private static final Urn OWNED_DATASET =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,owned,PROD)");
+  private static final Urn ALICE = UrnUtils.getUrn("urn:li:corpuser:alice");
+  private static final Urn NEWER_BOT = UrnUtils.getUrn("urn:li:entityFromNewerBuild:bot1");
+
+  private Ownership ownershipOf(final Urn... owners) {
+    final OwnerArray ownerArray = new OwnerArray();
+    for (Urn owner : owners) {
+      ownerArray.add(new Owner().setOwner(owner).setType(OwnershipType.DATAOWNER));
+    }
+    return new Ownership().setOwners(ownerArray).setLastModified(TEST_AUDIT_STAMP);
+  }
+
+  private SystemAspect storedOwnership(final Ownership stored) {
+    final SystemMetadata metadata = new SystemMetadata().setRunId("run-1").setVersion("1");
+    return EbeanSystemAspect.builder()
+        .forUpdate(
+            new EbeanAspectV2(
+                OWNED_DATASET.toString(),
+                OWNERSHIP_ASPECT_NAME,
+                0L,
+                RecordUtils.toJsonString(stored),
+                new Timestamp(TEST_AUDIT_STAMP.getTime()),
+                TEST_AUDIT_STAMP.getActor().toString(),
+                null,
+                RecordUtils.toJsonString(metadata)),
+            testEntityRegistry);
+  }
+
+  private ChangeMCP ownershipWrite(final Ownership request) {
+    return ChangeItemImpl.builder()
+        .urn(OWNED_DATASET)
+        .aspectName(OWNERSHIP_ASPECT_NAME)
+        .recordTemplate(request)
+        .systemMetadata(new SystemMetadata().setRunId("run-2"))
+        .auditStamp(TEST_AUDIT_STAMP)
+        .nextAspectVersion(2)
+        .build(opContext.getAspectRetriever());
+  }
+
+  @Test
+  public void testApplyUpsertOfWhatWasReadKeepsStoredUnknownReferences() {
+    // After a rollback a read drops the owner of an entity type only the newer version knows;
+    // writing back what was read must keep it, and write no new version.
+    final SystemAspect latestAspect = storedOwnership(ownershipOf(ALICE, NEWER_BOT));
+    final ChangeMCP changeMCP = ownershipWrite(ownershipOf(ALICE));
+
+    final SystemAspect result =
+        EntityServiceImpl.applyUpsert(
+            changeMCP, latestAspect, Collections.emptyList(), null, opContext);
+
+    assertEquals(changeMCP.getNextAspectVersion(), 1);
+    assertTrue(
+        DataTemplateUtil.areEqual(result.getRecordTemplate(), ownershipOf(ALICE, NEWER_BOT)));
+  }
+
+  @Test
+  public void testApplyUpsertRejectsAnAddedUnknownReference() {
+    final SystemAspect latestAspect = storedOwnership(ownershipOf(ALICE));
+    final ChangeMCP changeMCP = ownershipWrite(ownershipOf(ALICE, NEWER_BOT));
+
+    assertThrows(
+        ValidationException.class,
+        () ->
+            EntityServiceImpl.applyUpsert(
+                changeMCP, latestAspect, Collections.emptyList(), null, opContext));
+  }
+
+  @Test
+  public void testStrictHandlingRejectsUnknownReferenceWhenTheWriteIsBuilt() {
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    try {
+      assertThrows(ValidationException.class, () -> ownershipWrite(ownershipOf(ALICE, NEWER_BOT)));
+    } finally {
+      UnknownDataHandlingsForTests.reset();
+    }
   }
 
   @Test
@@ -518,6 +627,222 @@ public class EntityServiceImplTest {
     assertTrue(result.isEmitted(), "Should produce MCL when changes exist");
     verify(mockEventProducer, times(1))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
+  }
+
+  @Test
+  public void testProduceMCLAsyncSkipsAspectUnknownToRegistry() throws Exception {
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    MetadataChangeLog knownMcl =
+        PegasusUtils.constructMCL(
+            testMCP,
+            PegasusUtils.urnToEntityName(TEST_URN),
+            TEST_URN,
+            STATUS_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
+            newAspect,
+            systemMetadata,
+            oldAspect,
+            null);
+    MetadataChangeLog unknownMcl = knownMcl.copy().setAspectName("aspectFromNewerBuild");
+
+    List<MCLEmitResult> results =
+        entityService.produceMCLAsync(opContext, List.of(knownMcl, unknownMcl));
+
+    assertEquals(results.size(), 2);
+    assertTrue(results.get(0).isEmitted());
+    assertFalse(results.get(1).isEmitted());
+    assertNull(results.get(1).getMclFuture());
+    verify(mockEventProducer, times(1))
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), eq(knownMcl));
+  }
+
+  @Test
+  public void testExistsTreatsUnknownEntityTypeAsMissing() {
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mockEventProducer,
+            mock(PreProcessHooks.class),
+            testConfig(),
+            metricUtils);
+    Urn unknownEntityUrn = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    String keyAspectName =
+        testEntityRegistry.getEntitySpec(TEST_URN.getEntityType()).getKeyAspectName();
+    EntityAspect keyRow = new EntityAspect();
+    keyRow.setUrn(TEST_URN.toString());
+    keyRow.setAspect(keyAspectName);
+    keyRow.setMetadata("{}");
+    when(mockAspectDao.batchGet(any(), anySet(), anyBoolean()))
+        .thenReturn(
+            Map.of(new EntityAspectIdentifier(TEST_URN.toString(), keyAspectName, 0), keyRow));
+
+    Set<Urn> result =
+        service.exists(opContext, List.of(TEST_URN, unknownEntityUrn), null, true, false);
+
+    assertEquals(result, Set.of(TEST_URN));
+  }
+
+  @Test
+  public void testV1GetEntitiesLeavesOutUnknownEntityType() {
+    // The v1 batch get builds a snapshot per urn; a urn of an entity type only a newer version
+    // registered is left out instead of failing the whole batch.
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mockEventProducer,
+            mock(PreProcessHooks.class),
+            testConfig(),
+            metricUtils);
+    when(mockAspectDao.batchGet(any(), anySet(), anyBoolean())).thenReturn(Map.of());
+
+    Map<Urn, com.linkedin.entity.Entity> result =
+        service.getEntities(
+            opContext,
+            Set.of(TEST_URN, UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")),
+            Set.of(),
+            true);
+
+    assertEquals(result.keySet(), Set.of(TEST_URN));
+  }
+
+  @Test
+  public void testListUrnsAndDeleteUrnForUnknownEntityType() {
+    // An entity type only a newer version registered (e.g. after a rollback): listing returns
+    // nothing without querying, and a delete is rejected with a clear message.
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mockEventProducer,
+            mock(PreProcessHooks.class),
+            testConfig(),
+            metricUtils);
+
+    ListUrnsResult listed = service.listUrns(opContext, "entityFromNewerBuild", 0, 10);
+
+    assertEquals(listed.getTotal().intValue(), 0);
+    assertTrue(listed.getEntities().isEmpty());
+    verify(mockAspectDao, never()).listUrns(any(), any(), any(), anyInt(), anyInt());
+    IllegalArgumentException deleteError =
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> service.deleteUrn(opContext, UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")));
+    assertTrue(deleteError.getMessage().contains("not in the entity registry"));
+  }
+
+  @Test
+  public void testExistsWithOnlyUnknownEntityTypesSkipsDatabase() {
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mockEventProducer,
+            mock(PreProcessHooks.class),
+            testConfig(),
+            metricUtils);
+
+    Set<Urn> result =
+        service.exists(
+            opContext,
+            List.of(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")),
+            null,
+            true,
+            false);
+
+    assertTrue(result.isEmpty());
+    verifyNoInteractions(mockAspectDao);
+  }
+
+  @Test
+  public void testLatestEnvelopedAspectsSkipUnknownEntityType() {
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mockEventProducer,
+            mock(PreProcessHooks.class),
+            testConfig(),
+            metricUtils);
+    Urn unknownEntityUrn = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    EntityAspect statusRow = new EntityAspect();
+    statusRow.setUrn(TEST_URN.toString());
+    statusRow.setAspect(STATUS_ASPECT_NAME);
+    statusRow.setVersion(0L);
+    statusRow.setMetadata("{\"removed\":false}");
+    statusRow.setCreatedOn(new java.sql.Timestamp(1_700_000_000_000L));
+    statusRow.setCreatedBy("urn:li:corpuser:datahub");
+    when(mockAspectDao.batchGet(any(), anySet(), anyBoolean()))
+        .thenReturn(
+            Map.of(
+                new EntityAspectIdentifier(TEST_URN.toString(), STATUS_ASPECT_NAME, 0), statusRow));
+    String keyAspectName =
+        testEntityRegistry.getEntitySpec(TEST_URN.getEntityType()).getKeyAspectName();
+
+    for (boolean alwaysIncludeKeyAspect : List.of(false, true)) {
+      Map<Urn, List<EnvelopedAspect>> result =
+          service.getLatestEnvelopedAspects(
+              opContext,
+              Set.of(TEST_URN, unknownEntityUrn),
+              Set.of(STATUS_ASPECT_NAME),
+              alwaysIncludeKeyAspect);
+
+      assertEquals(result.keySet(), Set.of(TEST_URN));
+      Set<String> names =
+          result.get(TEST_URN).stream().map(EnvelopedAspect::getName).collect(Collectors.toSet());
+      assertEquals(
+          names,
+          alwaysIncludeKeyAspect
+              ? Set.of(STATUS_ASPECT_NAME, keyAspectName)
+              : Set.of(STATUS_ASPECT_NAME));
+    }
+  }
+
+  @Test
+  public void testLatestAspectsKeepEmptyResultForUnknownEntityType() {
+    Urn unknownEntityUrn = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+
+    Map<Urn, List<RecordTemplate>> result =
+        entityService.getLatestAspects(
+            opContext, Set.of(TEST_URN, unknownEntityUrn), Set.of(STATUS_ASPECT_NAME), true);
+
+    assertTrue(result.get(unknownEntityUrn).isEmpty());
+    // The known urn still gets its key aspect
+    assertEquals(result.get(TEST_URN).size(), 1);
+  }
+
+  @Test
+  public void testRollbackRunSkipsRowsUnknownToRegistry() {
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mockEventProducer,
+            mock(PreProcessHooks.class),
+            testConfig(),
+            metricUtils);
+    List<AspectRowSummary> rows =
+        List.of(
+            new AspectRowSummary()
+                .setUrn(TEST_URN.toString())
+                .setAspectName("aspectFromNewerBuild"),
+            new AspectRowSummary()
+                .setUrn("urn:li:entityFromNewerBuild:abc")
+                .setAspectName(STATUS_ASPECT_NAME));
+
+    RollbackRunResult result = service.rollbackRun(opContext, rows, "run-1", true);
+
+    assertTrue(result.getRowsRolledBack().isEmpty());
+    assertTrue(result.getRollbackResults().isEmpty());
+    verifyNoInteractions(mockAspectDao);
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
+  }
+
+  @Test
+  public void testOrdinaryDeleteOfUnknownAspectStillRejected() {
+    // Only ingestion rollback skips unknown rows; a direct delete of an unknown aspect is a client
+    // error and must still be rejected.
+    expectThrows(
+        ValidationException.class,
+        () ->
+            entityService.deleteAspect(
+                opContext, TEST_URN.toString(), "aspectFromNewerBuild", Map.of(), true, false));
   }
 
   @Test
@@ -2056,6 +2381,21 @@ public class EntityServiceImplTest {
     AspectDao dao = mock(AspectDao.class);
     EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
     stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "rollback-run-1");
+    // A hard rollback deletes the entity only when the locked read shows the run owns it.
+    SystemMetadata runMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    runMetadata.setRunId("rollback-run-1");
+    when(dao.getLatestAspectsLocked(any(OperationContext.class), any()))
+        .thenReturn(
+            Map.of(
+                GUARDED_PROPERTY_URN.toString(),
+                Map.of(
+                    STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+                    guardTestAspectRow(
+                        GUARDED_PROPERTY_URN,
+                        STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+                        RecordUtils.toJsonString(
+                            new StructuredPropertyKey().setId(GUARDED_PROPERTY_URN.getId())),
+                        runMetadata))));
 
     AspectRowSummary row =
         new AspectRowSummary()
@@ -2097,6 +2437,79 @@ public class EntityServiceImplTest {
             eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
             anyLong());
     verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  private static final String OWNED_ROLLBACK_RUN_ID = "rollback-ownership-run";
+
+  /**
+   * A corpuser whose latest key row was written by {@code OWNED_ROLLBACK_RUN_ID}, so the rollback
+   * reaches the entity-wide hard delete. Which rows the locked ownership read returns is left to
+   * each test.
+   */
+  private AspectRowSummary stubKeyRowWrittenByRollbackRun(
+      AspectDao dao, Urn urn, String keyAspectName) {
+    when(dao.getLatestAspect(
+            any(OperationContext.class), eq(urn.toString()), eq(keyAspectName), eq(false)))
+        .thenReturn(ownedKeyRow(urn, keyAspectName));
+    when(dao.getVersionRange(any(OperationContext.class), eq(urn.toString()), eq(keyAspectName)))
+        .thenReturn(Pair.of(0L, 0L));
+    when(dao.deleteUrn(any(OperationContext.class), any(), eq(urn.toString()))).thenReturn(1);
+    stubGuardTestTransaction(dao);
+    return new AspectRowSummary()
+        .setUrn(urn.toString())
+        .setAspectName(keyAspectName)
+        .setKeyAspect(true)
+        .setVersion(0)
+        .setTimestamp(0L);
+  }
+
+  private SystemAspect ownedKeyRow(Urn urn, String keyAspectName) {
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    systemMetadata.setRunId(OWNED_ROLLBACK_RUN_ID);
+    return guardTestAspectRow(
+        urn,
+        keyAspectName,
+        RecordUtils.toJsonString(new CorpUserKey().setUsername(urn.getId())),
+        systemMetadata);
+  }
+
+  @Test
+  public void testHardRollbackKeepsEntityWhenTheLockedReadReturnsNothing() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackLockedReadEmpty");
+    OperationContext userContext = newUserContext();
+    AspectRowSummary keyRow =
+        stubKeyRowWrittenByRollbackRun(dao, urn, userContext.getKeyAspectName(urn));
+    // Nothing comes back from the locked read: ownership cannot be shown, so the entity must stay.
+    when(dao.getLatestAspectsLocked(any(OperationContext.class), any()))
+        .thenReturn(Map.of(urn.toString(), Map.of()));
+
+    RollbackRunResult result =
+        service.rollbackRun(userContext, List.of(keyRow), OWNED_ROLLBACK_RUN_ID, true);
+
+    assertTrue(result.getRowsRolledBack().isEmpty());
+    assertTrue(result.getRollbackResults().isEmpty());
+    verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  @Test
+  public void testHardRollbackDeletesEntityWhenTheLockedReadShowsOnlyTheRunsRows() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackLockedReadOwned");
+    OperationContext userContext = newUserContext();
+    String keyAspectName = userContext.getKeyAspectName(urn);
+    AspectRowSummary keyRow = stubKeyRowWrittenByRollbackRun(dao, urn, keyAspectName);
+    // Control for the test above: the same entity, but the locked read shows the run's key row.
+    when(dao.getLatestAspectsLocked(any(OperationContext.class), any()))
+        .thenReturn(Map.of(urn.toString(), Map.of(keyAspectName, ownedKeyRow(urn, keyAspectName))));
+
+    RollbackRunResult result =
+        service.rollbackRun(userContext, List.of(keyRow), OWNED_ROLLBACK_RUN_ID, true);
+
+    assertEquals(result.getRowsRolledBack().size(), 1);
+    verify(dao).deleteUrn(any(OperationContext.class), any(), eq(urn.toString()));
   }
 
   // Shared setup for the applyRetentionPostCommit tests below — postCommitRetentionEnabled is the
@@ -2247,5 +2660,121 @@ public class EntityServiceImplTest {
     verify(retentionBuffer, times(1)).enqueue(testContext, TEST_URN, STATUS_ASPECT_NAME, 2L);
     verify(mockMetricUtils, times(1))
         .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
+  }
+
+  /** A replica-reading caller still counts on primary, where the delete ceiling is read. */
+  @Test
+  public void countUrnRowsCountsOnPrimaryEvenWhenTheCallerReadsTheReplica() {
+    AspectDao aspectDao = mock(AspectDao.class);
+    when(aspectDao.countUrnRows(any(), eq(TEST_URN.toString()))).thenReturn(4);
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            aspectDao, mockEventProducer, mock(PreProcessHooks.class), testConfig(), metricUtils);
+
+    assertEquals(
+        service.countUrnRows(opContext.withReadPreference(ReadPreference.READ), TEST_URN), 4);
+
+    verify(aspectDao)
+        .countUrnRows(
+            argThat(
+                ctx ->
+                    ctx.getPrimaryStorageContext().getReadPreference() == ReadPreference.PRIMARY),
+            eq(TEST_URN.toString()));
+  }
+
+  /**
+   * A rollback run as a user records that user on the removed aspect's changelog. It used to be the
+   * system whoever ran it.
+   */
+  @Test
+  public void testRollbackChangelogNamesTheCaller() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "rollback-run-2");
+    OperationContext userContext = newUserContext();
+
+    AspectRowSummary row =
+        new AspectRowSummary()
+            .setUrn(GUARDED_PROPERTY_URN.toString())
+            .setAspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+            .setKeyAspect(false)
+            .setVersion(0)
+            .setTimestamp(0L);
+
+    service.rollbackRun(userContext, List.of(row), "rollback-run-2", false);
+
+    ArgumentCaptor<MetadataChangeLog> changelog = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(service, atLeastOnce())
+        .alwaysProduceMCLAsync(
+            any(OperationContext.class), any(Urn.class), any(), changelog.capture());
+    for (MetadataChangeLog written : changelog.getAllValues()) {
+      assertEquals(
+          written.getCreated().getActor(), userContext.getSessionActorContext().getActorUrn());
+    }
+  }
+
+  /**
+   * A soft delete run as a user writes the removed status with that user's stamp, matching the
+   * delete changelog. It used to be the system whoever ran it.
+   */
+  @Test
+  public void testSoftDeleteStatusIsStampedWithTheCaller() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service =
+        spy(
+            new EntityServiceImpl(
+                dao,
+                mock(EventProducer.class),
+                mock(PreProcessHooks.class),
+                testConfig(),
+                metricUtils));
+    OperationContext userContext = newUserContext();
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:softDeleteStamp");
+    String keyAspectName = userContext.getKeyAspectName(urn);
+    SystemAspect latestKey =
+        EbeanSystemAspect.builder()
+            .forUpdate(
+                new EbeanAspectV2(
+                    urn.toString(),
+                    keyAspectName,
+                    0L,
+                    RecordUtils.toJsonString(new CorpUserKey().setUsername("softDeleteStamp")),
+                    new Timestamp(System.currentTimeMillis()),
+                    TEST_AUDIT_STAMP.getActor().toString(),
+                    null,
+                    RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata())),
+                testEntityRegistry);
+    when(dao.getLatestAspect(
+            any(OperationContext.class), eq(urn.toString()), eq(keyAspectName), eq(false)))
+        .thenReturn(latestKey);
+    when(dao.getVersionRange(any(OperationContext.class), eq(urn.toString()), eq(keyAspectName)))
+        .thenReturn(Pair.of(0L, 0L));
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(1);
+              return function.apply(TransactionContext.empty(3)).getResults();
+            })
+        .when(dao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+    doReturn(null)
+        .when(service)
+        .ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            anyBoolean());
+
+    service.deleteAspectWithoutMCL(
+        userContext, urn.toString(), keyAspectName, Collections.emptyMap(), false);
+
+    ArgumentCaptor<MetadataChangeProposal> proposal =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    ArgumentCaptor<AuditStamp> stamp = ArgumentCaptor.forClass(AuditStamp.class);
+    verify(service)
+        .ingestProposal(
+            any(OperationContext.class), proposal.capture(), stamp.capture(), eq(false));
+    assertEquals(proposal.getValue().getAspectName(), STATUS_ASPECT_NAME);
+    assertEquals(stamp.getValue().getActor(), userContext.getSessionActorContext().getActorUrn());
   }
 }

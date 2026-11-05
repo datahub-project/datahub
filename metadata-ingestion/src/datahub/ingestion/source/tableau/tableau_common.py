@@ -1031,8 +1031,11 @@ def make_fine_grained_lineage_class(
     # 3) corresponding Custom SQL output columns can be in any case lower/upper/mix
     #
     # we need a map between 2 and 3 that will be used during building column level linage links (see below)
+    #
+    # The Metadata API can return columns with an explicit null name, so filter them out
+    # rather than relying on a .get() default.
     out_columns_map = {
-        col.get(c.NAME, "").lower(): col.get(c.NAME, "") for col in out_columns
+        col[c.NAME].lower(): col[c.NAME] for col in out_columns if col.get(c.NAME)
     }
 
     fine_grained_lineages: List[FineGrainedLineage] = []

@@ -151,6 +151,11 @@ type PlatformPrivileges {
   manageDocuments: Boolean!
 
   """
+  Whether the user should be able to create Documents (Knowledge Articles)
+  """
+  createDocuments: Boolean!
+
+  """
   Whether the user is able to manage user credentials
   """
   manageUserCredentials: Boolean!
@@ -815,6 +820,7 @@ type FeatureFlagsConfig {
   If turned on, show the re-designed Ingestions page
   """
   showIngestionPageRedesign: Boolean!
+    @deprecated(reason: "Always true. Will be removed in a future release.")
 
   """
   If enabled, show the expand more button (>>) in the lineage graph
@@ -878,6 +884,7 @@ type FeatureFlagsConfig {
   Enables displaying the ingestion onboarding redesign
   """
   ingestionOnboardingRedesignV1: Boolean!
+    @deprecated(reason: "Always true. Will be removed in a future release.")
 
   """
   If enabled, allows uploading of files for documentation.
@@ -903,6 +910,11 @@ type FeatureFlagsConfig {
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!
+
+  """
+  If enabled, document body edits stay local until the user saves instead of auto-saving.
+  """
+  documentExplicitSaveEnabled: Boolean!
 
   """
   If enabled, hides lineage information in search result cards

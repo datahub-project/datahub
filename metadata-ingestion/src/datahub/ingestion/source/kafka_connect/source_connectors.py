@@ -247,7 +247,7 @@ class JdbcParserFactory:
 
 @dataclass
 class ConfluentJDBCSourceConnector(BaseConnector):
-    # Traditional io.confluent.connect.jdbc.JdbcSourceConnector only — Cloud
+    # Traditional io.confluent.connect.jdbc.JdbcSourceConnector only - Cloud
     # Postgres/MySQL CDC classes dispatch to DebeziumSourceConnector instead.
     needs_cluster_topics: ClassVar[bool] = True
 
@@ -3066,6 +3066,7 @@ class DebeziumSourceConnector(BaseConnector):
 
         # Find RegexRouter configuration
         regex_replacement = None
+        exact_match = False
         for name in transform_names:
             transform_type = self.connector_manifest.config.get(
                 f"transforms.{name}.type", ""
@@ -3085,7 +3086,10 @@ class DebeziumSourceConnector(BaseConnector):
                     if "$" in replacement:
                         regex_replacement = replacement.split("$")[0]
                     else:
+                        # A literal replacement routes every record to exactly
+                        # this one topic, so a prefix match would over-attribute.
                         regex_replacement = replacement
+                        exact_match = True
                     break
 
         # Filter topics using the replacement prefix
@@ -3093,7 +3097,11 @@ class DebeziumSourceConnector(BaseConnector):
             filtered_topics = [
                 topic
                 for topic in available_topics
-                if topic.startswith(regex_replacement)
+                if (
+                    topic == regex_replacement
+                    if exact_match
+                    else topic.startswith(regex_replacement)
+                )
             ]
             logger.debug(
                 f"Filtered EventRouter topics to {len(filtered_topics)} topics matching prefix '{regex_replacement}'"

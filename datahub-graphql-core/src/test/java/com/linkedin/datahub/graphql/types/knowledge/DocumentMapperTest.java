@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.knowledge;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -18,6 +19,7 @@ import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.SemanticText;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.url.Url;
@@ -42,12 +44,15 @@ import com.linkedin.knowledge.RelatedAssetArray;
 import com.linkedin.knowledge.RelatedDocument;
 import com.linkedin.knowledge.RelatedDocumentArray;
 import com.linkedin.metadata.key.DocumentKey;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredProperties;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import org.mockito.MockedStatic;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -80,6 +85,16 @@ public class DocumentMapperTest {
   private Urn platformUrn;
   private Urn platformInstanceUrn;
   private QueryContext mockQueryContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   @BeforeMethod
   public void setup() throws URISyntaxException {
@@ -172,7 +187,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -244,7 +265,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -280,7 +307,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -301,7 +334,13 @@ public class DocumentMapperTest {
     // Mock authorization to deny access
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(false);
 
       Document restrictedDocument = new Document();
@@ -317,7 +356,9 @@ public class DocumentMapperTest {
 
       // Verify authorization calls
       authUtilsMock.verify(
-          () -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()));
+          () ->
+              AuthorizationUtils.canViewDocument(
+                  any(), eq(documentUrn), nullable(DocumentInfo.class), nullable(SubTypes.class)));
       authUtilsMock.verify(
           () -> AuthorizationUtils.restrictEntity(any(Document.class), eq(Document.class)));
     }
@@ -335,6 +376,27 @@ public class DocumentMapperTest {
     assertNotNull(result);
     assertEquals(result.getUrn(), TEST_DOCUMENT_URN);
     assertEquals(result.getType(), EntityType.DOCUMENT);
+  }
+
+  @Test
+  public void testDocumentSourceTypeFromANewerVersionShowsAsExternal() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp stamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(actorUrn);
+    documentInfo.setCreated(stamp);
+    documentInfo.setLastModified(stamp);
+    DocumentSource source = new DocumentSource();
+    source.setSourceType(com.linkedin.knowledge.DocumentSourceType.NATIVE);
+    source.data().put("sourceType", "SOURCE_TYPE_FROM_NEWER_BUILD");
+    documentInfo.setSource(source);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    Document result = DocumentMapper.map(null, entityResponse);
+
+    assertEquals(result.getInfo().getSource().getSourceType(), DocumentSourceType.EXTERNAL);
   }
 
   @Test
@@ -369,7 +431,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -415,7 +483,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -458,7 +532,10 @@ public class DocumentMapperTest {
           .when(
               () ->
                   AuthorizationUtils.canViewDocument(
-                      any(), eq(documentUrn), eq(documentInfo), eq(subTypes)))
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -503,7 +580,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping - should not throw exception
@@ -541,7 +624,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -578,7 +667,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -617,7 +712,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -651,7 +752,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -693,7 +800,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -736,7 +849,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -791,7 +910,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -840,7 +965,13 @@ public class DocumentMapperTest {
     // Mock authorization
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       // Execute mapping
@@ -871,7 +1002,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
 
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
@@ -901,7 +1038,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertEquals(result.getLastIngested(), INGESTION_TIME);
@@ -922,7 +1065,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertEquals(result.getLastIngested(), LAST_OBSERVED_TIME);
@@ -946,7 +1095,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNull(result.getLastIngested());
@@ -966,7 +1121,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNull(result.getLastIngested());
@@ -980,7 +1141,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNull(result.getLastIngested());
@@ -996,7 +1163,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNull(result.getLastIngested());
@@ -1017,7 +1190,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNotNull(result.getSettings());
@@ -1035,7 +1214,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNotNull(result.getSettings());
@@ -1049,7 +1234,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNull(result.getSettings());
@@ -1069,7 +1260,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNotNull(result.getBrowsePathV2());
@@ -1089,7 +1286,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNull(result.getSubType());
@@ -1105,7 +1308,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNull(result.getDomain());
@@ -1124,7 +1333,13 @@ public class DocumentMapperTest {
 
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canViewDocument(any(), eq(documentUrn), any(), any()))
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(documentUrn),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
           .thenReturn(true);
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
       assertNotNull(result.getInfo().getSource());

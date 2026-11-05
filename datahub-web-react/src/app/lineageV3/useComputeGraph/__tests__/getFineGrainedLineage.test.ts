@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { FetchStatus, LineageEntity } from '@app/lineageV3/common';
+import { FetchStatus, LineageEntity, createEntityRef } from '@app/lineageV3/common';
 import { FetchedEntityV2, LineageAsset, LineageAssetType } from '@app/lineageV3/types';
 import getFineGrainedLineage, { schemaFieldExists } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
+
+const entityRegistry = getTestEntityRegistry();
 
 describe('schemaFieldExists', () => {
     it('should return false when node does not exist in nodes map', () => {
@@ -308,11 +311,18 @@ describe('getFineGrainedLineage', () => {
             upstreams: { urn: string; path: string }[];
             downstreams: { urn: string; path: string }[];
         }[];
+        upstreamSchemaFieldUrns?: string[];
     }
 
     function node(
         urn: string,
-        { siblings, siblingShape = 'search', fields = [FIELD], fineGrainedLineages }: Overrides = {},
+        {
+            siblings,
+            siblingShape = 'search',
+            fields = [FIELD],
+            fineGrainedLineages,
+            upstreamSchemaFieldUrns,
+        }: Overrides = {},
     ): LineageEntity {
         const siblingEntities = siblings?.map((sibling) => ({ urn: sibling }));
         const lineageAssets = new Map<string, LineageAsset>(
@@ -329,6 +339,7 @@ describe('getFineGrainedLineage', () => {
                 schemaMetadata: { fields: fields.map((fieldPath) => ({ fieldPath })) },
                 lineageAssets,
                 fineGrainedLineages,
+                upstreamSchemaFieldUrns,
                 genericEntityProperties:
                     siblingEntities &&
                     (siblingShape === 'search'
@@ -342,7 +353,8 @@ describe('getFineGrainedLineage', () => {
     }
 
     function run(nodes: Map<string, LineageEntity>) {
-        return getFineGrainedLineage({ nodes, edges: new Map(), rootType: EntityType.Dataset }).indirect;
+        return getFineGrainedLineage({ nodes, edges: new Map(), rootType: EntityType.Dataset }, entityRegistry)
+            .indirect;
     }
 
     function columnEdge(fromUrn: string, fromField: string, toUrn: string, toField: string) {
@@ -397,5 +409,53 @@ describe('getFineGrainedLineage', () => {
         );
 
         expect(Array.from(fgl.downstream.get(`${TABLE}::${FIELD}`)?.keys() ?? [])).toEqual([`${DOWNSTREAM}::${FIELD}`]);
+    });
+
+    // An entity that reads columns without having any of its own, e.g. a metric, takes part in
+    // column lineage as a whole: as an entity ref, whose field is empty
+    describe('entity-level upstream fields', () => {
+        const METRIC = 'urn:li:metric:(urn:li:dataPlatform:snowflake,db,total_amount)';
+        const metricRef = createEntityRef(METRIC);
+        const schemaFieldUrn = (field: string) => `urn:li:schemaField:(${TABLE},${field})`;
+
+        it('draws an edge from the column to the entity itself', () => {
+            const fgl = run(
+                new Map([
+                    [TABLE, node(TABLE)],
+                    [METRIC, node(METRIC, { fields: [], upstreamSchemaFieldUrns: [schemaFieldUrn(FIELD)] })],
+                ]),
+            );
+
+            expect(Array.from(fgl.downstream.get(`${TABLE}::${FIELD}`)?.keys() ?? [])).toEqual([metricRef]);
+            expect(Array.from(fgl.upstream.get(metricRef)?.keys() ?? [])).toEqual([`${TABLE}::${FIELD}`]);
+        });
+
+        it('downgrades v2 field paths to match the column refs the graph renders', () => {
+            const fgl = run(
+                new Map([
+                    [TABLE, node(TABLE)],
+                    [
+                        METRIC,
+                        node(METRIC, {
+                            fields: [],
+                            upstreamSchemaFieldUrns: [schemaFieldUrn(`[version=2.0].[type=string].${FIELD}`)],
+                        }),
+                    ],
+                ]),
+            );
+
+            expect(Array.from(fgl.upstream.get(metricRef)?.keys() ?? [])).toEqual([`${TABLE}::${FIELD}`]);
+        });
+
+        it('drops edges from columns missing from the upstream schema', () => {
+            const fgl = run(
+                new Map([
+                    [TABLE, node(TABLE)],
+                    [METRIC, node(METRIC, { fields: [], upstreamSchemaFieldUrns: [schemaFieldUrn(OTHER_FIELD)] })],
+                ]),
+            );
+
+            expect(fgl.upstream.has(metricRef)).toBe(false);
+        });
     });
 });

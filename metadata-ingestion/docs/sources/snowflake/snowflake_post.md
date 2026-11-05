@@ -439,7 +439,7 @@ DataHub supports ingestion of Snowflake Stages, Tasks, and Snowpipe objects. All
 
 ##### Stages (`include_stages: true`)
 
-Stages are ingested as containers nested under their parent schema. Internal stages additionally emit a placeholder dataset representing the staged data, which is used for pipe lineage resolution. External stages (S3, GCS, Azure) resolve their URLs to the corresponding cloud platform dataset URN.
+Stages are ingested as containers nested under their parent schema. Internal stages additionally emit a placeholder dataset representing the staged data, which is used for pipe lineage resolution. External stages on S3, GCS, or Azure Blob Storage resolve their URLs to the corresponding cloud platform dataset URN when the location uses a supported scheme and host (Snowflake `azure://` URLs on ADLS Gen2 `dfs.core.windows.net` hosts are skipped).
 
 ```yaml
 include_stages: true
@@ -447,6 +447,23 @@ stage_pattern:
   allow:
     - "MY_DB.MY_SCHEMA.*"
 ```
+
+**Data lake lineage path specs for external stages**
+
+An external stage may point at a location that is more granular than the logical dataset — for example `s3://my-bucket/events/year=2024/month=01/`. By default the stage URL resolves to a dataset URN for that exact prefix, which will not match the table-level URN that the [S3 source](https://docs.datahub.com/docs/generated/ingestion/sources/s3) emits (`s3://my-bucket/events`), so lineage does not stitch together.
+
+Configure `datalake_lineage_config.path_specs` (the same `PathSpec` model used by the S3 source) to fold the stage location up to the `{table}` boundary. A stage pointing at the table root, a partition subfolder, or any prefix beneath `{table}` all resolve to the same dataset URN when the folded bucket/key path matches what the lake source emits. Path specs may use `s3://` or `gcs://`, or `azure://` for Azure Blob Storage stages whose host is `*.blob.core.windows.net`; Snowflake `azure://` URLs on ADLS Gen2 `*.dfs.core.windows.net` hosts are not resolved and emit no external dataset URN. Resolved URNs do not carry a `platform_instance`, so lineage does not stitch to S3, GCS, or ABS datasets ingested with `platform_instance` set even when the path matches. Set `ignore_non_path_spec_path: true` to skip emitting a dataset URN for any stage whose location does not match a configured path spec.
+
+```yaml
+datalake_lineage_config:
+  path_specs:
+    - include: "s3://my-bucket/{table}/*/*/*.csv"
+  ignore_non_path_spec_path: true
+```
+
+Give each storage location a single path spec. A stage URL is a directory prefix with no filename, so specs cannot be told apart by `file_types` the way they are when matching files — if two specs cover the same location but place `{table}` at different depths, the first one listed wins and the resulting URN may not be the one the lake source emits for that table.
+
+`exclude` and `tables_filter_pattern` are honoured: a stage location that a matching spec excludes or filters out emits no lineage at all, rather than falling back to the raw prefix.
 
 ##### Tasks (`include_tasks: true`)
 
@@ -496,7 +513,7 @@ source:
 
 This option is independent of `convert_urns_to_lowercase`: you can keep dataset URNs lowercase — which you usually want, so lineage resolves against other sources — while preserving column casing. If `convert_urns_to_lowercase` is already `false`, ordinary tables and views keep their column casing regardless. Semantic-model logical datasets are the exception: their field paths have always been uppercased, and only `preserve_column_case: true` stops that.
 
-Treat it as a one-way door. The value is part of every column's `schemaField` URN, so changing it after data has been ingested re-keys each column: `...,col)` becomes `...,COL)`. Column-level tags, glossary terms, documentation, and assertions that users attached in the UI point at the old URNs and are orphaned. Choose a value before your first ingestion run and leave it unchanged.
+Treat it as a one-way door. The value is part of every column's `schemaField` URN, so changing it after data has been ingested re-keys each column: `...,col)` becomes `...,COL)`. Column-level tags, glossary terms, documentation, ownership, and structured properties that users attached in the UI point at the old URNs and are orphaned. Choose a value before your first ingestion run and leave it unchanged. If you must change it on an existing deployment, re-ingest with the new setting first, then run [`datahub migrate schema-field-case`](../../../../docs/cli.md#schema-field-case) to re-anchor that orphaned column metadata onto the new field paths. Entities that _reference_ a column rather than living on it — native column assertions and incidents — are not re-anchored by this command; they still point at the pre-change `schemaField` URN and need to be re-created or repointed separately.
 
 If you also run the `snowflake-queries` source against the same account, set `preserve_column_case` the same way in both recipes. The two sources build field paths independently, and a mismatch means the column-level lineage from one will not resolve against the schema from the other.
 

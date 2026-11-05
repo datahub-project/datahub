@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.application;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -32,7 +33,7 @@ public class CreateApplicationResolver implements DataFetcher<CompletableFuture<
   public CompletableFuture<Application> get(final DataFetchingEnvironment environment)
       throws Exception {
 
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final CreateApplicationInput input =
         bindArgument(environment.getArgument("input"), CreateApplicationInput.class);
 

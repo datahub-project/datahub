@@ -11,6 +11,7 @@ from datahub.utilities import pkg_resources_shim
 from datahub.utilities.pkg_resources_shim import (
     DistributionNotFound,
     get_distribution,
+    iter_entry_points,
     parse_version,
     require,
     resource_filename,
@@ -35,6 +36,21 @@ def test_get_distribution_missing_raises():
 
 def test_require_returns_sequence_with_version():
     assert require(_PKG)[0].version == importlib.metadata.version(_PKG)
+
+
+def test_iter_entry_points_returns_group_entries():
+    # Some libraries enumerate a group at import; the shim must return the
+    # installed entry points with .name and a working .load().
+    eps = {ep.name: ep for ep in iter_entry_points("console_scripts")}
+    assert "datahub" in eps
+    assert callable(eps["datahub"].load())
+
+
+def test_iter_entry_points_name_filter():
+    assert [ep.name for ep in iter_entry_points("console_scripts", name="datahub")] == [
+        "datahub"
+    ]
+    assert list(iter_entry_points("console_scripts", name="no-such-xyz-123")) == []
 
 
 def test_resource_filename_returns_existing_path():

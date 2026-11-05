@@ -18,6 +18,7 @@ DataHub's BigQuery connector supports two approaches for extracting lineage and 
   - Multi-region support via `region_qualifiers`
   - Table and column-level usage statistics
   - User filtering pushdown for performance (see [User Email Filtering Pushdown](#user-email-filtering-pushdown-performance-optimization) section below)
+  - Optional capture of BigQuery job labels as custom properties on Query entities, enabled with `capture_job_labels_as_query_properties: true`. For example, Airflow's `BigQueryInsertJobOperator` sets `airflow-dag` and `airflow-task` labels, which let you trace a query back to the DAG and task that ran it. When the same SQL runs with different labels, or with none, the most recently observed job's labels are kept. The labels are searchable but not yet shown on the Query card in the UI.
 - **Requirements**:
   - `bigquery.jobs.listAll` permission on target projects
   - No additional Cloud Logging permissions needed
@@ -159,7 +160,9 @@ A dataset already catalogued as `Dataset` is reclassified to `Linked Dataset` on
 
 If `link_state` is present and reads anything other than `LINKED`, BigQuery is reporting the link as no longer live, and no lineage is emitted for that dataset. If BigQuery reports no `link_state` at all, lineage is still emitted, since an absent field is not evidence the link is dead. Either way the dataset and its properties are ingested, so the state is visible on the container.
 
-Lineage requires `include_table_lineage`, which is on by default. With it off, linked datasets are still catalogued with their source reference and link state, but no `COPY` edge is emitted.
+Lineage requires `include_table_lineage`, which is on by default. With it off, no `COPY` edge is emitted; the subtype and source properties are still emitted when `include_schema_metadata` is on.
+
+`include_schema_metadata` is not required for the `COPY` edge. When schema and lineage run in separate recipes, set `include_linked_dataset_lineage: true` in both: the lineage recipe (with `include_schema_metadata: false`) emits the `COPY` edge, while the `Linked Dataset` subtype and the source properties come from the schema recipe. The lineage recipe must have a graph configured and use the same `platform_instance` and `env` as the schema recipe; otherwise the consumer schema cannot be resolved and the `COPY` edge is table-level only. The 1:1 column mapping is read back through the graph from the schema recipe's output.
 
 Set `extract_subscriptions_from_analytics_hub: true` to additionally record the listing and subscription state. That reads the BigQuery Sharing API and needs `analyticshub.subscriptions.list`; see Prerequisites.
 
@@ -189,6 +192,8 @@ You can set partition explicitly with `partition.partition_datetime` property if
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+- With `use_queries_v2: true`, temporary SQL functions defined in a job (`CREATE TEMP FUNCTION`) are removed before the query is parsed, so tables read only inside a function body are not reported as upstreams.
 
 #### Linked Dataset Caveats
 

@@ -13,12 +13,17 @@
 # limitations under the License.
 
 import logging
+import time
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.metadata.schema_classes import EntityChangeEventClass as EntityChangeEvent
+from datahub.metadata.schema_classes import (
+    EntityChangeEventClass as EntityChangeEvent,
+    MetadataAttributionClass,
+)
+from datahub.utilities.urns.urn import Urn
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
@@ -82,6 +87,9 @@ class TermPropagationAction(Action):
     def __init__(self, config: TermPropagationConfig, ctx: PipelineContext):
         self.config = config
         self.ctx = ctx
+        # Propagated terms are attributed to this action so a propagated removal only
+        # deletes entries this action wrote, never a term a user applied directly.
+        self.action_urn = f"urn:li:dataHubAction:{ctx.pipeline_name}"
         self.term_resolver = GlossaryTermsResolver(graph=self.ctx.graph)
         if self.config.target_terms:
             logger.info(
@@ -159,6 +167,21 @@ class TermPropagationAction(Action):
                         )
         return None
 
+    def _resolve_dataset_urn(self, entity_urn: str) -> Optional[str]:
+        """Resolve the dataset that owns a term-application event.
+
+        A term applied at the column level arrives with a ``schemaField`` entityUrn,
+        but dataset-level ``DownstreamOf`` edges are indexed on the parent dataset --
+        and the schemaField URN embeds the v2-annotated field path, which the graph
+        never matches. Resolve to the parent dataset so both the lineage lookup and
+        the downstream (dataset-level) term writes target datasets.
+        """
+        if entity_urn.startswith("urn:li:schemaField:"):
+            return str(Urn.from_string(entity_urn).entity_ids[0])
+        if entity_urn.startswith("urn:li:dataset:"):
+            return entity_urn
+        return None
+
     def act(self, event: EventEnvelope) -> None:
         """This method responds to changes to glossary terms and propagates them to downstream entities"""
 
@@ -169,24 +192,84 @@ class TermPropagationAction(Action):
             and term_propagation_directive.propagate
         ):
             assert self.ctx.graph
-            # find downstream lineage
-            downstreams = self.ctx.graph.get_downstreams(
-                entity_urn=term_propagation_directive.entity
-            )
 
-            # apply terms to downstreams
-            for dataset in downstreams:
-                self.ctx.graph.add_terms_to_dataset(
-                    dataset,
-                    [term_propagation_directive.term],
-                    context={
-                        "propagated": True,
-                        "origin": term_propagation_directive.entity,
-                    },
-                )
+            if term_propagation_directive.operation not in ("ADD", "REMOVE"):
                 logger.info(
-                    f"Will add term {term_propagation_directive.term} to {dataset}"
+                    f"Skipping propagation of unsupported operation "
+                    f"{term_propagation_directive.operation} for term "
+                    f"{term_propagation_directive.term}"
                 )
+                return
+
+            dataset_urn = self._resolve_dataset_urn(term_propagation_directive.entity)
+            if dataset_urn is None:
+                logger.info(
+                    f"Skipping term propagation for unsupported entity {term_propagation_directive.entity}"
+                )
+                return
+
+            # A removal fires per source association (e.g. one field). Only propagate
+            # the removal downstream once the source no longer carries the term
+            # anywhere -- otherwise removing it from one field would strip downstream
+            # datasets while another field (or the dataset itself) still has it.
+            if (
+                term_propagation_directive.operation == "REMOVE"
+                and self.ctx.graph.dataset_has_term(
+                    dataset_urn, term_propagation_directive.term
+                )
+            ):
+                logger.info(
+                    f"Source {dataset_urn} still carries term "
+                    f"{term_propagation_directive.term}; not propagating removal downstream"
+                )
+                return
+
+            # find downstream lineage of the owning dataset. Downstream application is
+            # only at the dataset level, so filter to datasets (a dataset-level
+            # DownstreamOf query should only return datasets, but guard anyway).
+            downstreams = [
+                urn
+                for urn in self.ctx.graph.get_downstreams(entity_urn=dataset_urn)
+                if urn.startswith("urn:li:dataset:")
+            ]
+            if not downstreams:
+                logger.info(
+                    f"No downstream datasets for {dataset_urn}; nothing to propagate for term {term_propagation_directive.term}"
+                )
+                return
+
+            # apply the change to downstream datasets (always at the dataset level)
+            for dataset in downstreams:
+                if term_propagation_directive.operation == "ADD":
+                    logger.info(
+                        f"Will add term {term_propagation_directive.term} to {dataset}"
+                    )
+                    self.ctx.graph.add_terms_to_dataset(
+                        dataset,
+                        [term_propagation_directive.term],
+                        context={
+                            "propagated": True,
+                            "origin": term_propagation_directive.entity,
+                        },
+                        attribution=MetadataAttributionClass(
+                            time=int(time.time() * 1000),
+                            actor="urn:li:corpuser:__datahub_system",
+                            source=self.action_urn,
+                            sourceDetail={
+                                "propagated": "true",
+                                "origin": term_propagation_directive.entity,
+                            },
+                        ),
+                    )
+                else:
+                    logger.info(
+                        f"Will remove term {term_propagation_directive.term} from {dataset}"
+                    )
+                    self.ctx.graph.remove_terms_from_dataset(
+                        dataset,
+                        [term_propagation_directive.term],
+                        attribution_source=self.action_urn,
+                    )
 
     def close(self) -> None:
         return

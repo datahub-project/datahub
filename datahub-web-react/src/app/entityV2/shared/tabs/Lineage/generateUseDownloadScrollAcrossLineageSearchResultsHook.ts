@@ -2,7 +2,7 @@ import {
     DownloadSearchResults,
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
-} from '@app/search/utils/types';
+} from '@app/searchV2/utils/types';
 
 import { useGetDownloadScrollAcrossLineageResultsQuery } from '@graphql/scroll.generated';
 import { LineageDirection } from '@types';

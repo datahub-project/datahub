@@ -3,9 +3,17 @@ import { useMemo } from 'react';
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { Entity } from '@types';
 
+export interface GetEntitiesOptions {
+    /** Skip the per-entity upstream/downstream lineage counts; they dominate server time for large batches. */
+    skipLineage?: boolean;
+    /** Skip the per-entity siblings search. */
+    skipSiblingsSearch?: boolean;
+}
+
 export function useGetEntities(
     urns: string[],
     checkForExistence?: boolean,
+    options?: GetEntitiesOptions,
 ): {
     entities: Entity[];
     loading: boolean;
@@ -16,7 +24,12 @@ export function useGetEntities(
     );
 
     const { data, loading } = useGetEntitiesQuery({
-        variables: { urns: verifiedUrns, checkForExistence },
+        variables: {
+            urns: verifiedUrns,
+            checkForExistence,
+            ...(options?.skipLineage !== undefined && { skipLineage: options.skipLineage }),
+            ...(options?.skipSiblingsSearch !== undefined && { skipSiblingsSearch: options.skipSiblingsSearch }),
+        },
         skip: !verifiedUrns.length,
         fetchPolicy: 'cache-first',
     });

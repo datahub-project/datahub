@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { updateListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
+import { pollingContext } from '@src/apolloPolling';
 
 import { useGetIngestionSourceLazyQuery } from '@graphql/ingestion.generated';
 import { IngestionSource, ListIngestionSourcesInput } from '@types';
@@ -105,9 +106,11 @@ export default function usePollSource({
         if (!urn) return undefined;
 
         const timeout = setTimeout(() => {
-            getIngestionSourceQuery({
-                variables: { urn },
-            });
+            getIngestionSourceQuery(
+                pollingContext({
+                    variables: { urn },
+                }),
+            );
             setStartPolling(true);
         }, REFRESH_INTERVAL_MS);
 
@@ -126,9 +129,11 @@ export default function usePollSource({
                 return;
             }
 
-            getIngestionSourceQuery({
-                variables: { urn },
-            });
+            getIngestionSourceQuery(
+                pollingContext({
+                    variables: { urn },
+                }),
+            );
         }, REFRESH_INTERVAL_MS);
 
         return () => clearInterval(interval);

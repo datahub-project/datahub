@@ -9,7 +9,7 @@ interface StructuredPropertyResult {
     label: string;
 }
 
-const PROPERTIES_BATCH_SIZE = 12;
+const PROPERTIES_BATCH_SIZE = 100;
 
 /**
  * Hook for infinite scroll pagination of structured properties

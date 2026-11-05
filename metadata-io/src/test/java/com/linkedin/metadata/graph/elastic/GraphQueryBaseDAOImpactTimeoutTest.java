@@ -30,8 +30,8 @@ import org.testng.annotations.Test;
 
 /**
  * Drives getImpactLineage past its wall-clock budget BETWEEN hops, i.e. the BFS-level timeout site
- * (remainingTime < 0 at the top of the loop). The slice-level sites are covered by the PIT and ES7
- * DAO tests; nothing else in the suite reaches this branch.
+ * (remainingTime < 0 at the top of the loop). The slice-level sites are covered by the PIT DAO
+ * tests; nothing else in the suite reaches this branch.
  */
 public class GraphQueryBaseDAOImpactTimeoutTest {
 

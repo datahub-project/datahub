@@ -2,12 +2,14 @@ package io.datahubproject.openapi.v2.controller;
 
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -27,6 +29,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -90,6 +93,12 @@ public class TimeseriesController {
     }
 
     AspectSpec aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
+    if (aspectSpec == null && handling().toleratesUnknownEntityAspect()) {
+      // An aspect only a newer version knows (e.g. after a rollback) is a bad request (400), not
+      // a NullPointerException (500).
+      throw new IllegalArgumentException(
+          String.format("Unknown aspect %s for entity %s", aspectName, entityName));
+    }
     if (!aspectSpec.isTimeseries()) {
       throw new IllegalArgumentException("Only timeseries aspects are supported.");
     }
@@ -122,22 +131,39 @@ public class TimeseriesController {
     return ResponseEntity.ok(
         GenericScrollResult.<GenericTimeseriesAspect>builder()
             .scrollId(result.getScrollId())
-            .results(toGenericTimeseriesAspect(authorizedDocs, withSystemMetadata))
+            .results(
+                toGenericTimeseriesAspect(
+                    opContext, aspectName, authorizedDocs, withSystemMetadata))
             .build());
   }
 
+  @SuppressWarnings("unchecked")
   private static List<GenericTimeseriesAspect> toGenericTimeseriesAspect(
-      List<GenericTimeseriesDocument> docs, boolean withSystemMetadata) {
+      OperationContext opContext,
+      String aspectName,
+      List<GenericTimeseriesDocument> docs,
+      boolean withSystemMetadata) {
     return docs.stream()
         .map(
-            doc ->
-                GenericTimeseriesAspect.builder()
-                    .urn(doc.getUrn())
-                    .messageId(doc.getMessageId())
-                    .timestampMillis(doc.getTimestampMillis())
-                    .systemMetadata(withSystemMetadata ? doc.getSystemMetadata() : null)
-                    .event(doc.getEvent())
-                    .build())
+            doc -> {
+              Object event = doc.getEvent();
+              // The event map is the same live object docs.getDocuments() returned, so stripping
+              // in place is safe: nothing else reads it before this response is built.
+              if (event instanceof Map) {
+                EntityAuthorizationUtils.stripTopSqlQueriesFromRawAspect(
+                    opContext,
+                    UrnUtils.getUrn(doc.getUrn()),
+                    aspectName,
+                    (Map<String, Object>) event);
+              }
+              return GenericTimeseriesAspect.builder()
+                  .urn(doc.getUrn())
+                  .messageId(doc.getMessageId())
+                  .timestampMillis(doc.getTimestampMillis())
+                  .systemMetadata(withSystemMetadata ? doc.getSystemMetadata() : null)
+                  .event(event)
+                  .build();
+            })
         .collect(Collectors.toList());
   }
 }

@@ -217,6 +217,10 @@ class NukeAndRedeployPhase(ConfiguredPhase):
             for svc in config.services_in_restart_order
             if (key := PER_SERVICE_VERSION_KEY.get(svc)) is not None
         }
+        # system-update runs the OLD worktree's jar, so it needs the OLD image
+        # too. `head` on Docker Hub can lag master and miss env the jar needs
+        # (e.g. SPRING_PROFILES_ACTIVE=upgrade).
+        old_version_pins["DATAHUB_UPDATE_VERSION"] = config.old_image_tag
         log.info(
             "[nuke] pinning to OLD (%s): %s",
             config.old_image_tag,

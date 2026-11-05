@@ -40,6 +40,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -53,13 +54,24 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.sdk.common.CompletableResultCode;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.data.SpanData;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -75,11 +87,11 @@ import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.action.search.CreatePitResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -111,6 +123,22 @@ public class GraphQueryPITDAOTest {
     GraphQueryPITDAO dao = new GraphQueryPITDAO(client, graphConfig, esConfig, null);
     createdDAOs.add(dao);
     return dao;
+  }
+
+  /**
+   * Graph config with lineage page size {@code pageSize}. A slice stops on a page shorter than the
+   * page size, so tests that page through fake responses need pages of exactly this size.
+   */
+  private static GraphServiceConfiguration graphConfigWithPageSize(int pageSize) {
+    return TEST_GRAPH_SERVICE_CONFIG.toBuilder()
+        .limit(
+            TEST_GRAPH_SERVICE_CONFIG.getLimit().toBuilder()
+                .results(
+                    TEST_GRAPH_SERVICE_CONFIG.getLimit().getResults().toBuilder()
+                        .apiDefault(pageSize)
+                        .build())
+                .build())
+        .build();
   }
 
   @AfterMethod
@@ -632,78 +660,39 @@ public class GraphQueryPITDAOTest {
     List<QueryBuilder> filters = outerBoolQuery.filter();
     Assert.assertEquals(filters.size(), 1);
 
-    // The filter should be a BoolQueryBuilder with "should" clauses
+    // entity type -> direction clauses; each direction clause is
+    // filter[terms <urn field>, bool should[filter[term relationshipType, terms <entityType>]]]
     BoolQueryBuilder entityTypeQueriesBool = (BoolQueryBuilder) filters.get(0);
-    List<QueryBuilder> shouldClauses =
+    List<QueryBuilder> directionClauses =
         ((BoolQueryBuilder) entityTypeQueriesBool.should().get(0)).should();
-    Assert.assertFalse(shouldClauses.isEmpty());
+    Assert.assertEquals(directionClauses.size(), 2, "one clause per direction");
 
-    // Examine each should clause to find the ones with RelatedTo
     boolean foundOutgoingRelatedTo = false;
     boolean foundIncomingRelatedTo = false;
     boolean foundDownstreamOf = false;
 
-    for (QueryBuilder shouldClause : shouldClauses) {
-      BoolQueryBuilder boolShouldClause = (BoolQueryBuilder) shouldClause;
-      List<QueryBuilder> clauseFilters = boolShouldClause.filter();
+    for (QueryBuilder directionClause : directionClauses) {
+      List<QueryBuilder> directionFilters = ((BoolQueryBuilder) directionClause).filter();
+      TermsQueryBuilder urnFilter = (TermsQueryBuilder) directionFilters.get(0);
+      Assert.assertEquals(urnFilter.values().size(), 2, "the URN list appears once per direction");
+      String urnSide = urnFilter.fieldName().equals("source.urn") ? "source" : "destination";
 
-      String relationshipType = null;
-      String sourceOrDestField = null;
-      String entityTypeField = null;
-
-      for (QueryBuilder filter : clauseFilters) {
-        String filterString = filter.toString();
-
-        if (filterString.contains("relationshipType")) {
-          if (filterString.contains("RelatedTo")) {
-            relationshipType = "RelatedTo";
-          } else if (filterString.contains("DownstreamOf")) {
-            relationshipType = "DownstreamOf";
+      for (QueryBuilder relationshipClause :
+          ((BoolQueryBuilder) directionFilters.get(1)).should()) {
+        String clause = relationshipClause.toString();
+        if (clause.contains("RelatedTo") && clause.contains("chart")) {
+          if (urnSide.equals("source") && clause.contains("destination.entityType")) {
+            foundOutgoingRelatedTo = true;
+          }
+          if (urnSide.equals("destination") && clause.contains("source.entityType")) {
+            foundIncomingRelatedTo = true;
           }
         }
-
-        if (filterString.contains("source.urn")
-            && filterString.contains("urn:li:dataset:test-dataset")) {
-          sourceOrDestField = "source";
+        if (clause.contains("DownstreamOf")
+            && clause.contains("dataJob")
+            && urnSide.equals("source")) {
+          foundDownstreamOf = true;
         }
-
-        if (filterString.contains("destination.urn")
-            && filterString.contains("urn:li:dataset:test-dataset")) {
-          sourceOrDestField = "destination";
-        }
-
-        if (filterString.contains("destination.entityType") && filterString.contains("chart")) {
-          entityTypeField = "chart";
-        }
-
-        if (filterString.contains("destination.entityType") && filterString.contains("dataJob")) {
-          entityTypeField = "dataJob";
-        }
-
-        if (filterString.contains("source.entityType") && filterString.contains("chart")) {
-          entityTypeField = "chart";
-        }
-      }
-
-      // Check if this is the outgoing RelatedTo edge
-      if ("RelatedTo".equals(relationshipType)
-          && "source".equals(sourceOrDestField)
-          && "chart".equals(entityTypeField)) {
-        foundOutgoingRelatedTo = true;
-      }
-
-      // Check if this is the incoming RelatedTo edge
-      if ("RelatedTo".equals(relationshipType)
-          && "destination".equals(sourceOrDestField)
-          && "chart".equals(entityTypeField)) {
-        foundIncomingRelatedTo = true;
-      }
-
-      // Check if this is the DownstreamOf edge
-      if ("DownstreamOf".equals(relationshipType)
-          && "source".equals(sourceOrDestField)
-          && "dataJob".equals(entityTypeField)) {
-        foundDownstreamOf = true;
       }
     }
 
@@ -756,6 +745,35 @@ public class GraphQueryPITDAOTest {
 
     // Verify the size was limited to the max (50)
     Assert.assertEquals(sourceBuilder.size(), 50);
+  }
+
+  @Test
+  public void testSearchUsesGraphClientFromOperationContext() throws Exception {
+    SearchClientShim<?> constructorClient = mock(SearchClientShim.class);
+    SearchClientShim<?> graphAccessClient = mock(SearchClientShim.class);
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(graphAccessClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
+        .thenReturn(mockResponse);
+    when(constructorClient.getEngineType())
+        .thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(constructorClient);
+    GraphFilters graphFilters =
+        GraphFilters.outgoingFilter(newFilter("urn", "urn:li:dataset:test"));
+    graphFilters.setRelationshipDirection(RelationshipDirection.OUTGOING);
+
+    SearchClusterAccess access =
+        component -> component == SearchComponent.GRAPH ? graphAccessClient : constructorClient;
+    OperationContext graphContext =
+        TestOperationContexts.withSearchClusterAccess(operationContext, access);
+
+    dao.getSearchResponse(graphContext, graphFilters, 0, 10);
+
+    verify(graphAccessClient)
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+    verify(constructorClient, never())
+        .search(any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -848,16 +866,15 @@ public class GraphQueryPITDAOTest {
     SearchResponse searchResponse1 = createFakeSearchResponse(hits1, 2, "scroll_id_1");
     SearchResponse searchResponse2 = createFakeSearchResponse(hits2, 1, "scroll_id_2");
 
-    // Create empty response for pagination
+    // Create empty response for any further slices
     SearchResponse emptySearchResponse = createEmptySearchResponse(0);
 
-    // Mock search calls: first 2 calls return results, subsequent calls return empty
+    // Each page is shorter than the page size, so each slice stops after its first page
     when(mockClient.search(
             any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(searchResponse1) // First slice, first page
-        .thenReturn(emptySearchResponse) // First slice, no more pages
-        .thenReturn(searchResponse2) // Second slice, first page
-        .thenReturn(emptySearchResponse); // Second slice, no more pages
+        .thenReturn(searchResponse1)
+        .thenReturn(searchResponse2)
+        .thenReturn(emptySearchResponse);
 
     // Test getImpactLineage with 2 slices
     LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
@@ -868,9 +885,103 @@ public class GraphQueryPITDAOTest {
       Assert.assertNotEquals(rel.isExplored(), Boolean.TRUE); // Allow false or null
     }
 
-    // Verify that search was called at least 4 times (2 slices × 2 searches each)
-    verify(mockClient, atLeast(4))
+    // One search per slice: no empty follow-up after a short page
+    verify(mockClient, times(2))
         .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testGetImpactLineageShardFailureWithHitsMarksHopPartial() throws Exception {
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    LineageResponse response = runImpactLineageWithShardFailure(mockClient, 2, true);
+
+    // The page's hits are kept, but the slice stops: later pages cannot return what the failed
+    // shard missed
+    Assert.assertEquals(response.getTotal(), 2);
+    Assert.assertTrue(response.isPartial());
+    verify(mockClient, times(2))
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testGetImpactLineageEmptyPageWithFailedShardsMarksHopPartial() throws Exception {
+    LineageResponse response =
+        runImpactLineageWithShardFailure(mock(SearchClientShim.class), 0, true);
+
+    Assert.assertEquals(response.getTotal(), 0);
+    Assert.assertTrue(response.isPartial());
+  }
+
+  @Test
+  public void testGetImpactLineageShardFailureThrowsInStrictMode() {
+    ESQueryException e =
+        expectThrows(
+            ESQueryException.class,
+            () -> runImpactLineageWithShardFailure(mock(SearchClientShim.class), 0, false));
+    Assert.assertTrue(e.getMessage().contains("1 of 3 shards failed"), e.getMessage());
+  }
+
+  /**
+   * Runs a one-hop impact walk where slice 0's first page has {@code hitsOnFailedPage} hits and one
+   * failed shard, and every other page is empty. Slices run concurrently, so pages are answered by
+   * slice rather than by call order.
+   */
+  private LineageResponse runImpactLineageWithShardFailure(
+      SearchClientShim<?> mockClient, int hitsOnFailedPage, boolean partialResults)
+      throws Exception {
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .partialResults(partialResults)
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient, graphConfigWithPageSize(5), testConfig);
+
+    SearchResponse failedPage =
+        hitsOnFailedPage > 0
+            ? createFakeSearchResponse(
+                createFakeLineageHits(
+                    hitsOnFailedPage,
+                    "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+                    "dest",
+                    "DownstreamOf"),
+                hitsOnFailedPage)
+            : createEmptySearchResponse(0);
+    when(failedPage.getFailedShards()).thenReturn(1);
+    when(failedPage.getTotalShards()).thenReturn(3);
+
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              SearchSourceBuilder source = invocation.<SearchRequest>getArgument(1).source();
+              boolean firstPage = source.searchAfter() == null;
+              return source.slice().getId() == 0 && firstPage
+                  ? failedPage
+                  : createEmptySearchResponse(0);
+            });
+
+    return dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
   }
 
   @Test(timeOut = 10000) // Add timeout to prevent hanging in test suites
@@ -2350,7 +2461,7 @@ public class GraphQueryPITDAOTest {
                     .build())
             .build();
 
-    GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient, graphConfigWithPageSize(3), testConfig);
 
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
@@ -3424,281 +3535,6 @@ public class GraphQueryPITDAOTest {
     }
   }
 
-  // ==================== ELASTICSEARCH SCROLL+SLICE TESTS ====================
-
-  @Test
-  public void testElasticsearchImplementationUsesScrollInsteadOfPIT() throws Exception {
-    // Test that Elasticsearch implementation routes to scroll+slice instead of PIT+slice
-    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-    // This triggers the scroll path
-    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
-
-    // Create Elasticsearch configuration
-    ElasticSearchConfiguration elasticsearchConfig =
-        TEST_OS_SEARCH_CONFIG.toBuilder()
-            .search(
-                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
-                    .graph(
-                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
-                            .pointInTimeCreationEnabled(true)
-                            .build())
-                    .build())
-            .build();
-
-    GraphQueryPITDAO graphQueryDAO =
-        createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig);
-
-    // Mock scroll search responses
-    SearchResponse mockScrollResponse = mock(SearchResponse.class);
-    SearchHits mockHits = mock(SearchHits.class);
-    SearchHit[] hits = new SearchHit[0]; // Empty results to avoid complex mocking
-    when(mockHits.getHits()).thenReturn(hits);
-    when(mockHits.getTotalHits()).thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
-    when(mockScrollResponse.getHits()).thenReturn(mockHits);
-    when(mockScrollResponse.getScrollId()).thenReturn("test_scroll_id");
-
-    // Mock the search call to return scroll response
-    when(mockClient.search(
-            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockScrollResponse);
-
-    // Mock clear scroll call
-    when(mockClient.clearScroll(
-            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(null);
-
-    Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
-    LineageGraphFilters lineageGraphFilters =
-        new LineageGraphFilters(
-            LineageDirection.DOWNSTREAM,
-            ImmutableSet.of(DATASET_ENTITY_NAME),
-            null,
-            new ConcurrentHashMap<>());
-
-    try {
-      // This should use the scroll path instead of PIT
-      graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 1);
-
-      // Verify that search was called (scroll path) instead of PIT creation
-      verify(mockClient, atLeast(1))
-          .search(
-              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
-
-      // Verify that clearScroll was called to clean up scroll context
-      verify(mockClient, atLeast(1))
-          .clearScroll(
-              any(OperationContext.class),
-              any(ClearScrollRequest.class),
-              eq(RequestOptions.DEFAULT));
-
-    } catch (Exception e) {
-      // Expected to fail due to missing lineage data, but should use scroll path
-      // The important thing is that it didn't fail on PIT creation
-      Assert.assertFalse(hasMessageInChain(e, "Point-in-Time creation is required"));
-    }
-  }
-
-  @Test
-  public void testScrollSearchWithSlices() throws Exception {
-    // Test the scroll+slice functionality with actual data
-    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-    // This triggers the scroll path
-    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
-
-    // Create Elasticsearch configuration with 2 slices
-    ElasticSearchConfiguration elasticsearchConfig =
-        TEST_OS_SEARCH_CONFIG.toBuilder()
-            .search(
-                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
-                    .graph(
-                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
-                            .pointInTimeCreationEnabled(true)
-                            .impact(
-                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
-                                    .slices(2) // Test with 2 slices
-                                    .build())
-                            .build())
-                    .build())
-            .build();
-
-    GraphQueryPITDAO graphQueryDAO =
-        createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig);
-
-    // Create mock search hits with lineage data
-    SearchHit[] hits1 =
-        createFakeLineageHits(2, "urn:li:dataset:test-urn", "slice1", "DownstreamOf");
-    SearchHit[] hits2 =
-        createFakeLineageHits(1, "urn:li:dataset:test-urn", "slice2", "DownstreamOf");
-
-    // Mock initial search responses for each slice
-    SearchResponse mockResponse1 = createFakeSearchResponse(hits1, 2, "scroll_id_1");
-    SearchResponse mockResponse2 = createFakeSearchResponse(hits2, 1, "scroll_id_2");
-
-    // Mock empty responses for subsequent scroll calls (no more pages)
-    SearchResponse emptyResponse = createEmptySearchResponse(0);
-
-    // Mock search calls: first 2 calls return results (one for each slice), subsequent calls return
-    // empty
-    when(mockClient.search(
-            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockResponse1) // First slice
-        .thenReturn(mockResponse2); // Second slice
-
-    // Mock scroll calls to return empty (no more pages)
-    when(mockClient.scroll(
-            any(OperationContext.class),
-            any(SearchScrollRequest.class),
-            eq(RequestOptions.DEFAULT)))
-        .thenReturn(emptyResponse);
-
-    // Mock clear scroll calls
-    when(mockClient.clearScroll(
-            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(null);
-
-    Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
-    LineageGraphFilters lineageGraphFilters =
-        new LineageGraphFilters(
-            LineageDirection.DOWNSTREAM,
-            ImmutableSet.of(DATASET_ENTITY_NAME),
-            null,
-            new ConcurrentHashMap<>());
-
-    try {
-      // This should use scroll+slice and process both slices
-      graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 1);
-
-      // Verify that search was called for both slices
-      verify(mockClient, atLeast(2))
-          .search(
-              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
-
-      // Verify that clearScroll was called for both slices
-      verify(mockClient, atLeast(2))
-          .clearScroll(
-              any(OperationContext.class),
-              any(ClearScrollRequest.class),
-              eq(RequestOptions.DEFAULT));
-
-    } catch (Exception e) {
-      // Expected to fail due to missing lineage data, but should use scroll path
-      Assert.assertFalse(hasMessageInChain(e, "Point-in-Time creation is required"));
-    }
-  }
-
-  @Test
-  public void testScrollSearchHandlesEmptyResults() throws Exception {
-    // Test scroll search when no results are found
-    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-    // This triggers the scroll path
-    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
-
-    ElasticSearchConfiguration elasticsearchConfig = TEST_OS_SEARCH_CONFIG.toBuilder().build();
-
-    GraphQueryPITDAO graphQueryDAO =
-        createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig);
-
-    // Mock empty search response
-    SearchResponse mockResponse = mock(SearchResponse.class);
-    SearchHits mockHits = mock(SearchHits.class);
-    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
-    when(mockHits.getTotalHits()).thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
-    when(mockResponse.getHits()).thenReturn(mockHits);
-    when(mockResponse.getScrollId()).thenReturn("test_scroll_id");
-
-    when(mockClient.search(
-            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockResponse);
-
-    Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
-    LineageGraphFilters lineageGraphFilters =
-        new LineageGraphFilters(
-            LineageDirection.DOWNSTREAM,
-            ImmutableSet.of(DATASET_ENTITY_NAME),
-            null,
-            new ConcurrentHashMap<>());
-
-    try {
-      graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 1);
-
-      // Should handle empty results gracefully
-      verify(mockClient, atLeast(1))
-          .search(
-              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
-
-    } catch (Exception e) {
-      // Expected to fail due to missing lineage data, but should handle empty results
-      Assert.assertFalse(hasMessageInChain(e, "Point-in-Time creation is required"));
-    }
-  }
-
-  @Test
-  public void testScrollSearchWithKeepAliveConfiguration() throws Exception {
-    // Test that scroll search uses the configured keepAlive value
-    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
-    // This triggers the scroll path
-    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
-
-    ElasticSearchConfiguration elasticsearchConfig =
-        TEST_OS_SEARCH_CONFIG.toBuilder()
-            .search(
-                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
-                    .graph(
-                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
-                            .impact(
-                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
-                                    .keepAlive("10m") // Test with custom keepAlive
-                                    .build())
-                            .build())
-                    .build())
-            .build();
-
-    GraphQueryPITDAO graphQueryDAO =
-        createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig);
-
-    // Mock search response
-    SearchResponse mockResponse = mock(SearchResponse.class);
-    SearchHits mockHits = mock(SearchHits.class);
-    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
-    when(mockHits.getTotalHits()).thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
-    when(mockResponse.getHits()).thenReturn(mockHits);
-    when(mockResponse.getScrollId()).thenReturn("test_scroll_id");
-
-    when(mockClient.search(
-            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(mockResponse);
-
-    Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
-    LineageGraphFilters lineageGraphFilters =
-        new LineageGraphFilters(
-            LineageDirection.DOWNSTREAM,
-            ImmutableSet.of(DATASET_ENTITY_NAME),
-            null,
-            new ConcurrentHashMap<>());
-
-    try {
-      graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 1);
-
-      // Verify that search was called with scroll parameter
-      ArgumentCaptor<SearchRequest> searchRequestCaptor =
-          ArgumentCaptor.forClass(SearchRequest.class);
-      verify(mockClient, atLeast(1))
-          .search(
-              any(OperationContext.class),
-              searchRequestCaptor.capture(),
-              eq(RequestOptions.DEFAULT));
-
-      // Verify that scroll parameter was set
-      SearchRequest capturedRequest = searchRequestCaptor.getValue();
-      Assert.assertNotNull(capturedRequest.scroll());
-      Assert.assertEquals("10m", capturedRequest.scroll().keepAlive().toString());
-
-    } catch (Exception e) {
-      // Expected to fail due to missing lineage data, but should set scroll parameter correctly
-      Assert.assertFalse(hasMessageInChain(e, "Point-in-Time creation is required"));
-    }
-  }
-
   @Test
   public void testSearchSingleSliceWithPitThreadInterruption() throws Exception {
     // Test that thread interruption is properly handled in searchSingleSliceWithPit
@@ -3753,7 +3589,9 @@ public class GraphQueryPITDAOTest {
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
-    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+    // Pages of 1 hit are full pages, so the slice keeps paging until it is interrupted
+    GraphQueryPITDAO dao =
+        createTrackedDAO(mockClient, graphConfigWithPageSize(1), TEST_OS_SEARCH_CONFIG);
 
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
@@ -4034,7 +3872,8 @@ public class GraphQueryPITDAOTest {
                     .build())
             .build();
 
-    GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+    // Pages of 3 hits are full pages, so slice 1 keeps paging until the deadline stops it.
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient, graphConfigWithPageSize(3), testConfig);
 
     CreatePitResponse pitResponse = mock(CreatePitResponse.class);
     when(pitResponse.getId()).thenReturn("test-pit-id");
@@ -4413,5 +4252,159 @@ public class GraphQueryPITDAOTest {
             any(OperationContext.class),
             argThat(req -> req.getPitIds().contains("test-pit-id")),
             any(RequestOptions.class));
+  }
+
+  @Test(timeOut = 10000)
+  public void testSliceSearchRecordsTookAndOutsideTook() throws Exception {
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(),
+            DATASET_ENTITY_NAME,
+            LineageDirection.DOWNSTREAM);
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    // Each search blocks before returning, standing in for time spent waiting on a connection.
+    SearchClientShim<?> responses = mock(SearchClientShim.class);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              Thread.sleep(SEARCH_DELAY_MS);
+              return responses.search(
+                  invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2));
+            });
+
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = MetricUtils.builder().registry(registry).build();
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(
+            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, metricUtils);
+    createdDAOs.add(dao);
+
+    SearchHit[] hits =
+        createFakeLineageHits(
+            3,
+            "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+            "dest",
+            "DownstreamOf");
+    SearchResponse searchResponse = createFakeSearchResponse(hits, 3);
+    when(searchResponse.getTook()).thenReturn(TimeValue.timeValueMillis(7));
+    SearchResponse emptyResponse = createEmptySearchResponse(3);
+    when(emptyResponse.getTook()).thenReturn(TimeValue.timeValueMillis(1));
+    mockSliceBasedSearch(responses, List.of(searchResponse), List.of(emptyResponse));
+
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+    io.micrometer.core.instrument.Timer took =
+        registry
+            .get(SearchTookMetrics.SEARCH_TOOK_METRIC)
+            .tag("operation", "graphQueryPit")
+            .timer();
+    Assert.assertTrue(took.count() > 0, "took should be recorded per slice search");
+    Assert.assertTrue(took.max(TimeUnit.MILLISECONDS) >= 7.0);
+    io.micrometer.core.instrument.Timer outsideTook =
+        registry
+            .get(SearchTookMetrics.SEARCH_OUTSIDE_TOOK_METRIC)
+            .tag("operation", "graphQueryPit")
+            .timer();
+    Assert.assertEquals(outsideTook.count(), took.count());
+    // Each search spends SEARCH_DELAY_MS outside ES minus at most 7ms of reported took.
+    Assert.assertTrue(
+        outsideTook.totalTime(TimeUnit.MILLISECONDS)
+            >= outsideTook.count() * (SEARCH_DELAY_MS - 7.0));
+  }
+
+  @Test(timeOut = 10000)
+  public void testSliceSearchTagsEsQuerySpanWithUrnsHitsAndTook() throws Exception {
+    CollectingSpanExporter exporter = new CollectingSpanExporter();
+    SdkTracerProvider tracerProvider =
+        SdkTracerProvider.builder().addSpanProcessor(SimpleSpanProcessor.create(exporter)).build();
+    OperationContext tracedContext =
+        TestOperationContexts.systemContextTraceNoSearchAuthorization(
+            null,
+            () ->
+                io.datahubproject.metadata.context.SystemTelemetryContext.builder()
+                    .tracer(tracerProvider.get("test-tracer"))
+                    .build());
+
+    Urn sourceUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            tracedContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.DOWNSTREAM);
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    createdDAOs.add(dao);
+
+    SearchHit[] hits =
+        createFakeLineageHits(
+            3,
+            "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)",
+            "dest",
+            "DownstreamOf");
+    SearchResponse searchResponse = createFakeSearchResponse(hits, 3);
+    when(searchResponse.getTook()).thenReturn(TimeValue.timeValueMillis(7));
+    SearchResponse emptyResponse = createEmptySearchResponse(3);
+    when(emptyResponse.getTook()).thenReturn(TimeValue.timeValueMillis(1));
+    mockSliceBasedSearch(mockClient, List.of(searchResponse), List.of(emptyResponse));
+
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    dao.getImpactLineage(tracedContext, sourceUrn, filters, 1);
+
+    AttributeKey<Long> urns = AttributeKey.longKey(GraphQueryPITDAO.SEARCH_URNS_ATTR);
+    AttributeKey<Long> hitCount = AttributeKey.longKey(GraphQueryPITDAO.SEARCH_HITS_ATTR);
+    AttributeKey<Long> tookMs = AttributeKey.longKey(GraphQueryPITDAO.SEARCH_TOOK_MS_ATTR);
+    List<SpanData> esQuerySpans =
+        exporter.spans.stream().filter(span -> "esQuery".equals(span.getName())).toList();
+
+    Assert.assertFalse(esQuerySpans.isEmpty(), "slice searches should produce esQuery spans");
+    esQuerySpans.forEach(span -> Assert.assertEquals(span.getAttributes().get(urns), 1L));
+    Assert.assertTrue(
+        esQuerySpans.stream()
+            .anyMatch(
+                span ->
+                    Long.valueOf(3L).equals(span.getAttributes().get(hitCount))
+                        && Long.valueOf(7L).equals(span.getAttributes().get(tookMs))),
+        "the page with results should record its hit count and took");
+  }
+
+  private static final long SEARCH_DELAY_MS = 50;
+
+  private static final class CollectingSpanExporter implements SpanExporter {
+    private final List<SpanData> spans = Collections.synchronizedList(new ArrayList<>());
+
+    @Override
+    public CompletableResultCode export(Collection<SpanData> collection) {
+      spans.addAll(collection);
+      return CompletableResultCode.ofSuccess();
+    }
+
+    @Override
+    public CompletableResultCode flush() {
+      return CompletableResultCode.ofSuccess();
+    }
+
+    @Override
+    public CompletableResultCode shutdown() {
+      return CompletableResultCode.ofSuccess();
+    }
   }
 }

@@ -1,13 +1,13 @@
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useOnSelectionChange, useStore } from 'reactflow';
+import { useStore } from 'reactflow';
 import styled from 'styled-components/macro';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { LineageDisplayContext, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
-import CompactContext from '@app/shared/CompactContext';
+import CompactContext from '@app/sharedV2/CompactContext';
 import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import useEntitySidebarWidth from '@app/sharedV2/sidebar/useEntitySidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -31,19 +31,19 @@ const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
 export default function LineageSidebar() {
     const { rootUrn } = useContext(LineageNodesContext);
     const entityRegistry = useEntityRegistry();
-    const [selectedEntity, setSelectedEntity] = useSelectedNode();
+    const { selectedNode, setSelectedNode } = useContext(LineageDisplayContext);
     const resetSelectedElements = useStore((actions) => actions.resetSelectedElements);
-    const queryDetails = useQueryDetails(selectedEntity);
-    const width = useSidebarWidth();
+    const queryDetails = useQueryDetails(selectedNode);
+    const { width, setWidth } = useEntitySidebarWidth();
 
     const setSidebarClosed = useCallback(
         (closed) => {
             if (closed) {
                 resetSelectedElements();
-                setSelectedEntity(null);
+                setSelectedNode(null);
             }
         },
-        [resetSelectedElements, setSelectedEntity],
+        [resetSelectedElements, setSelectedNode],
     );
 
     useEffect(() => {
@@ -52,12 +52,12 @@ export default function LineageSidebar() {
     }, [rootUrn]);
 
     // This manages closing, rather than isClosed
-    if (!selectedEntity) {
+    if (!selectedNode) {
         return null;
     }
 
     // Don't show sidebar for restricted entities
-    if (selectedEntity.type === EntityType.Restricted) {
+    if (selectedNode.type === EntityType.Restricted) {
         return null;
     }
 
@@ -65,38 +65,24 @@ export default function LineageSidebar() {
         <EntitySidebarContext.Provider
             value={{
                 width,
+                setWidth,
                 isClosed: false,
                 setSidebarClosed,
                 forLineage: true,
-                separateSiblings: !selectedEntity.entity?.lineageSiblingIcon,
+                separateSiblings: !selectedNode.entity?.lineageSiblingIcon,
                 fineGrainedOperations: queryDetails,
             }}
         >
             {createPortal(
                 <SidebarWrapper $distanceFromTop={0} data-testid="lineage-sidebar">
-                    <CompactContext.Provider key={selectedEntity.urn} value>
-                        {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
+                    <CompactContext.Provider key={selectedNode.urn} value>
+                        {entityRegistry.renderProfile(selectedNode.type, selectedNode.urn)}
                     </CompactContext.Provider>
                 </SidebarWrapper>,
                 document.body,
             )}
         </EntitySidebarContext.Provider>
     );
-}
-
-function useSelectedNode(): [LineageEntity | null, (v: LineageEntity | null) => void] {
-    // Entity Profile sidebar, not lineage sidebar
-    const { setSidebarClosed } = useContext(EntitySidebarContext);
-    const [selectedNode, setSelectedNode] = useState<LineageEntity | null>(null);
-
-    useOnSelectionChange({
-        onChange: ({ nodes }) => {
-            if (nodes.length) setSidebarClosed(true);
-            setSelectedNode(nodes.length ? nodes[nodes.length - 1].data : null);
-        },
-    });
-
-    return [selectedNode, setSelectedNode];
 }
 
 function useQueryDetails(selectedNode: LineageEntity | null): FineGrainedOperation[] | undefined {

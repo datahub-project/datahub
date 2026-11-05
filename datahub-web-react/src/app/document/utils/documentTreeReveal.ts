@@ -31,6 +31,12 @@ export interface RevealDocumentInTreeArgs {
      */
     documentMeta?: RevealDocumentNodeMeta;
     getNode: (urn: string) => DocumentTreeNode | undefined;
+    /**
+     * True when `urn` is in the visible root window (`rootUrns`). Prefer this over
+     * `getNode` for the root-ancestor gate — page-0 reloads drop scrolled-off roots
+     * from `rootUrns` but may leave them in the nodes map.
+     */
+    isLoadedRoot: (urn: string) => boolean;
     expandNode: (urn: string) => void;
     /** Synchronously commit the node into tree state before subsequent loads. */
     ensureNode: (node: DocumentTreeNode) => void;
@@ -85,6 +91,7 @@ export async function revealDocumentInTree({
     parentDocuments,
     documentMeta,
     getNode,
+    isLoadedRoot,
     expandNode,
     ensureNode,
     loadChildren,
@@ -98,9 +105,10 @@ export async function revealDocumentInTree({
         return;
     }
 
-    // Nested: root ancestor must already be loaded — do not fetch every root page.
+    // Nested: root ancestor must be in the visible root window — do not fetch every
+    // root page, and do not treat a stale nodes-map entry as loaded.
     const rootAncestor = ancestors[0];
-    if (!getNode(rootAncestor.urn)) {
+    if (!isLoadedRoot(rootAncestor.urn)) {
         return;
     }
 

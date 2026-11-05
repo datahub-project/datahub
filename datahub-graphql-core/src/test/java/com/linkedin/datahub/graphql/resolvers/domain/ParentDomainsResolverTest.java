@@ -211,4 +211,72 @@ public class ParentDomainsResolverTest {
     assertEquals(result.getCount(), 1);
     assertEquals(result.getDomains().get(0).getUrn(), parentDomain1.toString());
   }
+
+  @Test
+  public void testReturnsNoParentsForLegacySelfParentWhenCacheWalkMisses() throws Exception {
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
+
+    Urn domainUrn = Urn.createFromString("urn:li:domain:self-parent");
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("domain").source(GraphSnapshotSource.SEARCH).build();
+    when(entityGraphCache.bindingForPolicyField("DOMAIN")).thenReturn(Optional.empty());
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.DOMAIN))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.expand(
+            eq("domain"),
+            eq(GraphSnapshotSource.SEARCH),
+            eq(TraversalDirection.FORWARD),
+            eq(Set.of(domainUrn.toString())),
+            anyInt(),
+            eq(EntityGraphCache.USE_DEFINITION_MAX_DEPTH),
+            eq(ReadMode.CACHED)))
+        .thenReturn(GraphReadResult.fromVertices(Set.of(domainUrn.toString())));
+    when(entityGraphCache.walkOrderedForwardAncestors(
+            eq("domain"),
+            eq(GraphSnapshotSource.SEARCH),
+            eq(domainUrn.toString()),
+            eq(50),
+            eq(ReadMode.CACHED)))
+        .thenReturn(AncestorWalkResult.miss(ReadMissReason.ABSENT));
+
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getLatestAspectObjects(
+            any(), any(), eq(Set.of(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                domainUrn,
+                Map.of(
+                    DOMAIN_PROPERTIES_ASPECT_NAME,
+                    new Aspect(new DomainProperties().setParentDomain(domainUrn).data()))));
+
+    OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(SearchRetriever.EMPTY)
+            .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+            .aspectRetriever(aspectRetriever)
+            .entityGraphCache(entityGraphCache)
+            .build();
+    OperationContext operationContext =
+        base.toBuilder()
+            .retrieverContext(retrieverContext)
+            .build(base.getSessionAuthentication(), false);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(operationContext);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Domain domainEntity = new Domain();
+    domainEntity.setUrn(domainUrn.toString());
+    domainEntity.setType(EntityType.DOMAIN);
+    Mockito.when(mockEnv.getSource()).thenReturn(domainEntity);
+
+    ParentDomainsResult result = new ParentDomainsResolver().get(mockEnv).get();
+
+    assertEquals(result.getCount(), 0);
+    assertEquals(result.getDomains(), List.of());
+  }
 }

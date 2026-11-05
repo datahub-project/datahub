@@ -180,7 +180,7 @@ From version 1.2 onwards, the `datahub docker quickstart` command uses a docker-
 
 ⚠️ Without a backup, all existing data will be lost.
 
-For the full list of breaking changes across versions, see [Updating DataHub](how/updating-datahub.md).
+For the full list of breaking changes across versions, see [Breaking Changes](how/breaking-changes.md).
 
 :::
 
