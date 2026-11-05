@@ -1,8 +1,10 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -47,10 +49,24 @@ public class BulkListener implements BulkProcessor.Listener {
     return new BulkListener(refreshPolicy, metricUtils, tracker, requeueSupport);
   }
 
+  /**
+   * Like {@link #create(WriteRequest.RefreshPolicy, MetricUtils, BulkWriteResultTracker,
+   * BulkItemRequeueSupport)} with bulk-write attribution (see {@link BulkTelemetry}).
+   */
+  public static BulkListener create(
+      @Nullable WriteRequest.RefreshPolicy refreshPolicy,
+      @Nullable MetricUtils metricUtils,
+      @Nullable BulkWriteResultTracker tracker,
+      @Nullable BulkItemRequeueSupport requeueSupport,
+      @Nullable BulkTelemetry telemetry) {
+    return new BulkListener(refreshPolicy, metricUtils, tracker, requeueSupport, telemetry);
+  }
+
   private final WriteRequest.RefreshPolicy refreshPolicy;
   private final MetricUtils metricUtils;
   @Nullable private final BulkWriteResultTracker tracker;
   @Nullable private final BulkItemRequeueSupport requeueSupport;
+  @Nonnull private final BulkTelemetry telemetry;
 
   public BulkListener(WriteRequest.RefreshPolicy policy, MetricUtils metricUtils) {
     this(policy, metricUtils, null, null);
@@ -61,10 +77,20 @@ public class BulkListener implements BulkProcessor.Listener {
       MetricUtils metricUtils,
       @Nullable BulkWriteResultTracker tracker,
       @Nullable BulkItemRequeueSupport requeueSupport) {
+    this(policy, metricUtils, tracker, requeueSupport, null);
+  }
+
+  BulkListener(
+      WriteRequest.RefreshPolicy policy,
+      MetricUtils metricUtils,
+      @Nullable BulkWriteResultTracker tracker,
+      @Nullable BulkItemRequeueSupport requeueSupport,
+      @Nullable BulkTelemetry telemetry) {
     refreshPolicy = policy;
     this.metricUtils = metricUtils;
     this.tracker = tracker;
     this.requeueSupport = requeueSupport;
+    this.telemetry = telemetry != null ? telemetry : BulkTelemetry.disabled();
   }
 
   @Override
@@ -72,10 +98,16 @@ public class BulkListener implements BulkProcessor.Listener {
     if (refreshPolicy != null) {
       request.setRefreshPolicy(refreshPolicy);
     }
+    telemetry.beforeBulk(request, request.requests());
   }
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+    if (telemetry.isEnabled()) {
+      // The failed actions' origins are carried until handleItemFailures requeues or forgets them.
+      telemetry.afterBulk(
+          request, response.getTook().getMillis(), failedActions(request, response));
+    }
     String ingestTook = "";
     long ingestTookInMillis = response.getIngestTookInMillis();
     if (ingestTookInMillis != BulkResponse.NO_INGEST_TOOK) {
@@ -112,6 +144,7 @@ public class BulkListener implements BulkProcessor.Listener {
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
+    telemetry.afterBulk(request, failure);
     if (BulkItemFailureClassifier.isDocumentMissing(failure.getMessage())) {
       log.warn(
           "Attempting to bulk load a missing document. executionId: {}. Request: {}",
@@ -122,6 +155,7 @@ public class BulkListener implements BulkProcessor.Listener {
         tracker.recordCompleted(request.numberOfActions());
       }
       clearAttempts(request);
+      forgetAll(request);
       return;
     }
 
@@ -144,6 +178,7 @@ public class BulkListener implements BulkProcessor.Listener {
         if (requeueSupport != null) {
           requeueSupport.clearAttempts(writeRequest);
         }
+        telemetry.forget(writeRequest);
       }
     }
     if (tracker != null) {
@@ -185,6 +220,7 @@ public class BulkListener implements BulkProcessor.Listener {
         if (requeueSupport != null && writeRequest != null) {
           requeueSupport.clearAttempts(writeRequest);
         }
+        telemetry.forget(writeRequest);
         if (tracker != null) {
           tracker.recordCompleted(1);
         }
@@ -216,18 +252,17 @@ public class BulkListener implements BulkProcessor.Listener {
         continue;
       }
 
+      // Giving up on the item: drop its carried origin along with its requeue attempts.
+      if (requeueSupport != null && writeRequest != null) {
+        requeueSupport.clearAttempts(writeRequest);
+      }
+      telemetry.forget(writeRequest);
       if (versionConflict) {
-        if (requeueSupport != null && writeRequest != null) {
-          requeueSupport.clearAttempts(writeRequest);
-        }
         if (tracker != null) {
           tracker.recordLwwExhausted(1);
         }
         incrementMetric(METRIC_LWW_EXHAUSTED);
       } else {
-        if (requeueSupport != null && writeRequest != null) {
-          requeueSupport.clearAttempts(writeRequest);
-        }
         if (tracker != null) {
           tracker.recordUnrecoveredTransferFailure(1);
         }
@@ -249,6 +284,15 @@ public class BulkListener implements BulkProcessor.Listener {
     }
     for (DocWriteRequest<?> writeRequest : request.requests()) {
       requeueSupport.clearAttempts(writeRequest);
+    }
+  }
+
+  private void forgetAll(@Nonnull BulkRequest request) {
+    if (!telemetry.isEnabled()) {
+      return;
+    }
+    for (DocWriteRequest<?> writeRequest : request.requests()) {
+      telemetry.forget(writeRequest);
     }
   }
 
@@ -276,6 +320,19 @@ public class BulkListener implements BulkProcessor.Listener {
     if (metricUtils != null) {
       metricUtils.increment(BulkListener.class, name, count);
     }
+  }
+
+  /** The actions whose items failed, by position; only computed when telemetry is on. */
+  private static List<DocWriteRequest<?>> failedActions(
+      BulkRequest request, BulkResponse response) {
+    List<DocWriteRequest<?>> failed = new ArrayList<>();
+    BulkItemResponse[] items = response.getItems();
+    for (int i = 0; i < items.length; i++) {
+      if (items[i].isFailed() && i < request.requests().size()) {
+        failed.add(request.requests().get(i));
+      }
+    }
+    return failed;
   }
 
   private static String buildMetricName(DocWriteRequest.OpType opType, String status) {

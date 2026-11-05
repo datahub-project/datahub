@@ -1172,6 +1172,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "telemetry.enableThirdPartyLogging",
           "telemetry.requestAttribution.enabled",
           "telemetry.requestAttribution.opensearchOpaqueId",
+          "telemetry.requestAttribution.serviceName",
           "telemetry.requestAttribution.postgresActorComment",
           "telemetry.requestAttribution.startMarker",
           "timeseriesAspectService.batchAggMaxUrnsPerBatch",

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
+import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -60,6 +61,13 @@ public class ESBulkProcessor implements Closeable {
    */
   @Builder.Default @Nonnull private RequestOptions byQueryRequestOptions = RequestOptions.DEFAULT;
 
+  /**
+   * Bulk-write attribution, see {@link BulkTelemetry}: a span per flushed batch and the batch id as
+   * {@code X-Opaque-Id}. Off by default.
+   */
+  @Builder.Default @Nonnull
+  private BulkTelemetryConfig bulkTelemetry = BulkTelemetryConfig.DISABLED;
+
   @Getter private final WriteRequest.RefreshPolicy writeRequestRefreshPolicy;
 
   private final MetricUtils metricUtils;
@@ -79,6 +87,7 @@ public class ESBulkProcessor implements Closeable {
       Boolean ackAfterTransfer,
       Integer ackAfterTransferTimeoutSeconds,
       @Nonnull RequestOptions byQueryRequestOptions,
+      @Nonnull BulkTelemetryConfig bulkTelemetry,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
       MetricUtils metricUtils) {
     this.searchClient = searchClient;
@@ -97,9 +106,11 @@ public class ESBulkProcessor implements Closeable {
     this.ackAfterTransferTimeoutSeconds =
         ackAfterTransferTimeoutSeconds != null ? ackAfterTransferTimeoutSeconds : 60;
     this.byQueryRequestOptions = byQueryRequestOptions;
+    this.bulkTelemetry = bulkTelemetry;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
     searchClient.configureBulkProcessorWriteOptions(
         this.itemRequeueEnabled, this.itemRequeueMaxAttempts);
+    searchClient.configureBulkTelemetry(this.bulkTelemetry);
     if (async) {
       searchClient.generateAsyncBulkProcessor(
           writeRequestRefreshPolicy,

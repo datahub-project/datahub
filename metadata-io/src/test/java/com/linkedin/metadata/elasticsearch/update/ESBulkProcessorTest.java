@@ -6,9 +6,12 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
@@ -439,5 +442,19 @@ public class ESBulkProcessorTest {
 
     assertTrue(result.isPresent());
     // With batchDelete=true, flush should not be called before delete
+  }
+
+  @Test
+  public void testBuilderConfiguresBulkTelemetryOnTheShim() {
+    Tracer tracer = OpenTelemetry.noop().getTracer("test");
+    BulkTelemetryConfig config = BulkTelemetryConfig.of(tracer, true, true, "gms");
+    ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).bulkTelemetry(config).build();
+    verify(mockSearchClient).configureBulkTelemetry(config);
+  }
+
+  @Test
+  public void testBuilderDefaultsBulkTelemetryOff() {
+    ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
+    verify(mockSearchClient).configureBulkTelemetry(BulkTelemetryConfig.DISABLED);
   }
 }
