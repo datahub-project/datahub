@@ -24,5 +24,13 @@ source:
     # account_platform_instance_map:
     #   "210987654321": "shared-services"
 
+    glue_schema_registry:
+      enabled: false
+      registry_name: "default-registry"
+      # Set enabled: true and replace {} with a mapping, for example:
+      #   topic_schema_map:
+      #     orders: "order-v1"
+      topic_schema_map: {}
+
     stateful_ingestion:
       enabled: true
