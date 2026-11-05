@@ -3,10 +3,13 @@ package com.linkedin.gms.factory.common;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.linkedin.gms.factory.ProductionConfigContextRunner;
+import java.io.FileNotFoundException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
 import javax.net.ssl.SSLContext;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.testng.annotations.Test;
@@ -60,11 +63,19 @@ public class ElasticsearchSSLContextFactoryTest {
   public void testUnknownSecureRandomFailsStartup() {
     runner()
         .withPropertyValues(PRIMARY_SSL + "secureRandomImplementation=NoSuchAlgorithm")
-        .run(context -> assertThat(context).hasFailed());
+        .run(
+            context ->
+                assertThat(context)
+                    .getFailure()
+                    .hasRootCauseInstanceOf(NoSuchAlgorithmException.class));
   }
 
+  /**
+   * Covers that a configured truststore file is opened with its type and password. The store is
+   * empty, so this does not check which certificates the resulting context trusts.
+   */
   @Test
-  public void testConfiguredTrustStoreIsLoaded() throws Exception {
+  public void testConfiguredTrustStoreIsOpenedWithItsPassword() throws Exception {
     Path trustStore = emptyPkcs12("changeit");
     try {
       runner()
@@ -79,7 +90,11 @@ public class ElasticsearchSSLContextFactoryTest {
               PRIMARY_SSL + "trustStoreFile=" + trustStore,
               PRIMARY_SSL + "trustStoreType=PKCS12",
               PRIMARY_SSL + "trustStorePassword=wrong-password")
-          .run(context -> assertThat(context).hasFailed());
+          .run(
+              context ->
+                  assertThat(context)
+                      .getFailure()
+                      .hasRootCauseInstanceOf(UnrecoverableKeyException.class));
     } finally {
       Files.deleteIfExists(trustStore);
     }
@@ -100,7 +115,11 @@ public class ElasticsearchSSLContextFactoryTest {
             PRIMARY_SSL + "trustStoreFile=/does/not/exist.p12",
             PRIMARY_SSL + "trustStoreType=PKCS12",
             PRIMARY_SSL + "trustStorePassword=changeit")
-        .run(context -> assertThat(context).hasFailed());
+        .run(
+            context ->
+                assertThat(context)
+                    .getFailure()
+                    .hasRootCauseInstanceOf(FileNotFoundException.class));
   }
 
   private static SSLContext sslContext(
