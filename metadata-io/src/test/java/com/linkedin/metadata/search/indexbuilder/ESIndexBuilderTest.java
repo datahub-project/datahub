@@ -16,6 +16,7 @@ import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
@@ -1451,6 +1452,70 @@ public class ESIndexBuilderTest {
     RuntimeException thrown =
         assertThrows(RuntimeException.class, () -> indexBuilder.buildIndex(opContext, indexState));
     Assert.assertSame(thrown.getCause(), unavailable);
+    verify(searchClient, times(1))
+        .createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
+  void testReindex_RejectedDestinationFailsWhenStructuredPropertyDiffsReindex() throws Exception {
+    // With systemUpdateEnabled, live fields would keep a difference that reindexes every run.
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(true)
+                .build(),
+            Map.of(),
+            gitVersion);
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetSettings()).thenReturn(Map.of("index", Map.of("number_of_shards", "6")));
+    // Without the systemUpdateEnabled check, propA would be left out and the create retried.
+    when(indexState.targetMappings())
+        .thenReturn(
+            Map.of(
+                "properties",
+                Map.of(
+                    STRUCTURED_PROPERTY_MAPPING_FIELD,
+                    Map.of(
+                        "type",
+                        "object",
+                        "dynamic",
+                        false,
+                        "properties",
+                        Map.of("propA", Map.of("type", "keyword"))))));
+    when(indexState.currentMappings())
+        .thenReturn(
+            Map.of(
+                "properties",
+                Map.of(
+                    STRUCTURED_PROPERTY_MAPPING_FIELD,
+                    Map.of("type", "object", "dynamic", "false"))));
+    org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse taskListResponse =
+        mock(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse.class);
+    when(taskListResponse.getTasks()).thenReturn(new ArrayList<>());
+    when(searchClient.listTasks(
+            any(org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest.class), any()))
+        .thenReturn(taskListResponse);
+    OpenSearchStatusException rejection =
+        mappingRejection("Limit of total fields [1000] has been exceeded");
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(rejection);
+
+    RuntimeException thrown =
+        assertThrows(RuntimeException.class, () -> builder.buildIndex(opContext, indexState));
+    Assert.assertSame(thrown.getCause(), rejection);
     verify(searchClient, times(1))
         .createIndex(
             any(OperationFingerprint.class),

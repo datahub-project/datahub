@@ -1947,8 +1947,10 @@ public class ESIndexBuilder {
    * structured property fields than the index's total-fields limit allows, and the engine then
    * rejects the destination. The index being reindexed still serves, and system-update may have
    * blocked its writes, so instead of failing, the destination takes the structured property fields
-   * that index maps now, as a reindex did before targets came from the definitions. Any other
-   * failure propagates.
+   * that index maps now, as a reindex did before targets came from the definitions. That holds only
+   * without {@code systemUpdateEnabled}: with it, the structured property differences the live
+   * fields keep would start the same reindex on every run, so the rejection fails the reindex, as
+   * it did before. Any other failure propagates.
    */
   private void createReindexDestination(
       @Nonnull OperationContext opContext, String destination, ReindexConfig indexState)
@@ -1956,7 +1958,7 @@ public class ESIndexBuilder {
     try {
       createIndex(opContext, destination, indexState);
     } catch (IOException | RuntimeException e) {
-      if (!isMappingRejection(e)) {
+      if (structPropConfig.isSystemUpdateEnabled() || !isMappingRejection(e)) {
         throw e;
       }
       // Against itself every structured property field counts as mapped, so this empties the
