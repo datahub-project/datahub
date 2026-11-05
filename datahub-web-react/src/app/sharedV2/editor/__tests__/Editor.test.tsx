@@ -28,14 +28,14 @@ vi.mock('@components/components/Editor', () => ({
     },
 }));
 
-vi.mock('@components/components/Editor/extensions/mentions/MentionsComponent', () => ({
+vi.mock('@app/sharedV2/editor/mentions/MentionsComponent', () => ({
     MentionsComponent: ({ renderOutsideEditor }: { renderOutsideEditor?: boolean }) => {
         if (mentionsUi.fails) throw new Error('chunk failed to load');
         return <div data-testid="mentions-picker" data-outside={String(!!renderOutsideEditor)} />;
     },
 }));
 
-vi.mock('@components/components/Editor/extensions/mentions/MentionsNodeView', () => ({
+vi.mock('@app/sharedV2/editor/mentions/MentionsNodeView', () => ({
     MentionsNodeView: ({ node }: { node: { attrs: { urn: string } } }) => {
         if (mentionsUi.fails) throw new Error('chunk failed to load');
         return <span data-testid="mention-node-view">{node.attrs.urn}</span>;
