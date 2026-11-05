@@ -58,6 +58,9 @@ class DremioSourceReport(
     # One upstream URN per mapped Dremio source, to compare against the URNs the
     # source's own connector ingests.
     source_mapping_sample_upstream_urns: Dict[str, str] = field(default_factory=dict)
+    # Set when the job-history fetch stopped early; the stateful time window
+    # is then left in place so the next run re-reads it.
+    query_fetch_incomplete: bool = False
 
     api_calls_total: int = 0
     api_calls_by_method_and_path: TopKDict[str, int] = field(
