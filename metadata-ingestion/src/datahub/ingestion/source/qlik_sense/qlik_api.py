@@ -1,9 +1,11 @@
 import logging
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import quote
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
@@ -21,6 +23,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -40,6 +43,16 @@ class QlikAPI:
                 "Content-Type": "application/json",
             }
         )
+        # Qlik Cloud rate-limits the tenant, and parallel app reads make 429s
+        # likely. The lineage overview call is a POST but only reads.
+        retry = Retry(
+            total=5,
+            backoff_factor=1,
+            status_forcelist=[429],
+            allowed_methods=None,
+            raise_on_status=False,
+        )
+        self.session.mount("https://", HTTPAdapter(max_retries=retry))
         self.rest_api_url = f"https://{config.tenant_hostname}/api/v1"
         # Test connection by fetching list of api keys
         logger.info(f"Trying to connect to {self.rest_api_url}")
@@ -343,8 +356,7 @@ class QlikAPI:
             )
         return None
 
-    def get_items(self, space_id: str) -> List[Item]:
-        items: List[Item] = []
+    def _list_items(self, space_id: str) -> Iterable[Dict]:
         try:
             url = f"{self.rest_api_url}/items?spaceId={space_id}"
             while True:
@@ -358,23 +370,31 @@ class QlikAPI:
                     if self.config.space_pattern.allowed(
                         self.spaces[item[Constant.SPACEID]]
                     ):
-                        resource_type = item[Constant.RESOURCETYPE]
-                        if resource_type == Constant.APP:
-                            app = self._get_app(app_id=item[Constant.RESOURCEID])
-                            if app:
-                                items.append(app)
-                        elif resource_type == Constant.DATASET:
-                            dataset = self._get_dataset(
-                                dataset_id=item[Constant.RESOURCEID],
-                                item_id=item[Constant.ID],
-                            )
-                            if dataset:
-                                items.append(dataset)
+                        yield item
                 if Constant.NEXT in response_dict[Constant.LINKS]:
                     url = response_dict[Constant.LINKS][Constant.NEXT][Constant.HREF]
                 else:
                     break
-
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch items. Exception: {e}")
-        return items
+
+    def _load_item(self, item: Dict) -> Optional[Item]:
+        resource_type = item[Constant.RESOURCETYPE]
+        if resource_type == Constant.APP:
+            return self._get_app(app_id=item[Constant.RESOURCEID])
+        if resource_type == Constant.DATASET:
+            return self._get_dataset(
+                dataset_id=item[Constant.RESOURCEID],
+                item_id=item[Constant.ID],
+            )
+        return None
+
+    def get_items(self, space_id: str) -> Iterable[Item]:
+        for future in BackpressureAwareExecutor.map(
+            self._load_item,
+            ((item,) for item in self._list_items(space_id)),
+            max_workers=self.config.max_workers,
+        ):
+            item = future.result()
+            if item:
+                yield item
