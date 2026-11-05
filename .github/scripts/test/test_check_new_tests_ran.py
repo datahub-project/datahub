@@ -275,7 +275,17 @@ class EvaluateTests(unittest.TestCase):
             "m/src/test/java/f/LoneBase.java": java("LoneBase").replace("com.x", "f"),
             "m/src/test/java/g/GHelper.java": "package g;\npublic class GHelper extends LoneBase {}\n",
         }
-        changed = [p for p in files if p.split("/")[-1][0] in "KCDEGH"]
+        changed = [
+            f"m/src/test/java/{name}.java"
+            for name in (
+                "b/KafkaFixture",
+                "c/CTest",
+                "d/DTest",
+                "e/ETest",
+                "g/GHelper",
+                "h/HHelper",
+            )
+        ]
         report = run_eval(files, [], changed=changed)
         self.assertEqual([c.name for c in report.failures], ["c.CTest", "d.DTest", "e.ETest"])
 
