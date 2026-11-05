@@ -41,6 +41,9 @@ fragment businessAttributeFields on BusinessAttribute {
             tags {
                 tag {
                     urn
+                    status {
+                        removed
+                    }
                     name
                     properties {
                         name
@@ -53,6 +56,9 @@ fragment businessAttributeFields on BusinessAttribute {
             terms {
                 term {
                     urn
+                    status {
+                        removed
+                    }
                     type
                     properties {
                         name
