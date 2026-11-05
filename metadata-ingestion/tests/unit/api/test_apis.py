@@ -27,8 +27,10 @@ def test_source_configs_are_config_models() -> None:
         assert get_config_class is not None, source_type
         config_class = get_config_class()
         assert issubclass(config_class, ConfigModel), source_type
-        if source_type not in SOURCES_ALLOWING_EXTRA_KEYS:
-            assert config_class.model_config.get("extra") == "forbid", source_type
+        expected_extra = (
+            "allow" if source_type in SOURCES_ALLOWING_EXTRA_KEYS else "forbid"
+        )
+        assert config_class.model_config.get("extra") == expected_extra, source_type
         checked.add(source_type)
     # `file` needs no extras, so it loads in any install; if unchecked, loading is broken.
     assert "file" in checked
