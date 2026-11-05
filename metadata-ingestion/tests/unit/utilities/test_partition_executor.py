@@ -3,12 +3,17 @@ import math
 import time
 from concurrent.futures import Future
 from datetime import timedelta
+from typing import Callable, Dict, List, Optional
 
 import pytest
 
 from datahub.utilities.partition_executor import (
+    BatchItemFailures,
     BatchPartitionExecutor,
     PartitionExecutor,
+    _BatchPartitionWorkItem,
+    _extract_per_item_outcomes,
+    _future_for_outcome,
 )
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -197,3 +202,103 @@ def test_empty_batch_partition_executor():
         max_workers=5, max_pending=20, process_batch=lambda batch: None, max_per_batch=2
     ) as executor:
         assert executor is not None
+
+
+def _work_item(key: str) -> _BatchPartitionWorkItem:
+    return _BatchPartitionWorkItem(key=key, args=(key,), done_callback=None)
+
+
+def test_batch_partition_executor_delivers_per_item_outcomes():
+    """A batch processor that reports per-item outcomes must not fail the whole batch."""
+    outcomes: Dict[str, Optional[BaseException]] = {}
+
+    def process_batch(batch):
+        # Deliberately keyed off the args rather than the index, so the assertions
+        # hold no matter how the executor happens to split these into batches.
+        results: List[Optional[BaseException]] = []
+        for (task_id,) in batch:
+            results.append(ValueError("bad record") if task_id == "task2" else None)
+        if any(r is not None for r in results):
+            raise BatchItemFailures(results)
+
+    def make_callback(task_id: str) -> Callable[[Future], None]:
+        def _callback(future: Future) -> None:
+            outcomes[task_id] = future.exception()
+
+        return _callback
+
+    with BatchPartitionExecutor(
+        max_workers=1,
+        max_pending=10,
+        max_per_batch=3,
+        process_batch=process_batch,
+    ) as executor:
+        for task_id in ("task1", "task2", "task3"):
+            executor.submit("key1", task_id, done_callback=make_callback(task_id))
+
+    assert outcomes["task1"] is None
+    assert outcomes["task3"] is None
+    assert isinstance(outcomes["task2"], ValueError)
+
+
+def test_batch_partition_executor_falls_back_to_shared_future():
+    """A plain exception (not BatchItemFailures) must fall back to shared-Future dispatch."""
+    error = ValueError("whole batch rejected")
+    outcomes: Dict[str, Optional[BaseException]] = {}
+
+    def process_batch(batch):
+        raise error
+
+    def make_callback(task_id: str) -> Callable[[Future], None]:
+        def _callback(future: Future) -> None:
+            outcomes[task_id] = future.exception()
+
+        return _callback
+
+    with BatchPartitionExecutor(
+        max_workers=1,
+        max_pending=10,
+        max_per_batch=3,
+        process_batch=process_batch,
+    ) as executor:
+        for task_id in ("task1", "task2", "task3"):
+            executor.submit("key1", task_id, done_callback=make_callback(task_id))
+
+    # `error` is the same instance regardless of how many batches these get split
+    # into, so this holds no matter the batch boundaries.
+    assert outcomes["task1"] is error
+    assert outcomes["task2"] is error
+    assert outcomes["task3"] is error
+
+
+def test_extract_per_item_outcomes_rejects_length_mismatch():
+    """A malformed outcome list must fall back to shared-future dispatch, not mis-attribute."""
+    batch = [_work_item("a"), _work_item("b")]
+    future: Future = Future()
+    future.set_exception(BatchItemFailures([None]))
+
+    assert _extract_per_item_outcomes(batch, future) is None
+
+
+def test_extract_per_item_outcomes_ignores_plain_exceptions():
+    batch = [_work_item("a"), _work_item("b")]
+    future: Future = Future()
+    future.set_exception(ValueError("whole batch failed"))
+
+    assert _extract_per_item_outcomes(batch, future) is None
+
+
+def test_extract_per_item_outcomes_handles_cancelled_future():
+    """future.exception() raises on a cancelled future, so it must not be called."""
+    batch = [_work_item("a")]
+    future: Future = Future()
+    future.cancel()
+
+    assert _extract_per_item_outcomes(batch, future) is None
+
+
+def test_future_for_outcome():
+    assert _future_for_outcome(None).exception() is None
+
+    err = ValueError("nope")
+    assert _future_for_outcome(err).exception() is err

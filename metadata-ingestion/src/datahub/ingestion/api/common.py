@@ -1,14 +1,19 @@
+import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Tuple, TypeVar
 
-from datahub.configuration.common import ConfigurationError
+import requests
+
+from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.mce_builder import set_dataset_urn_to_lower
 from datahub.ingestion.api.committable import Committable
 from datahub.ingestion.graph.client import DataHubGraph
 
 if TYPE_CHECKING:
     from datahub.ingestion.run.pipeline import PipelineConfig
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -20,6 +25,35 @@ if TYPE_CHECKING:
 class RecordEnvelope(Generic[T]):
     record: T
     metadata: dict
+
+
+# RecordEnvelope.metadata key set on records written by the ingestion run reporter,
+# so sinks can tell a run report from the metadata being ingested.
+RUN_REPORTER_RECORD_KEY = "run_reporter_record"
+
+# Statuses with which a refused run-report write is logged instead of failing the run:
+# the token may ingest metadata without the privileges to record ingestion runs.
+RUN_REPORT_DENIED_STATUSES = (401, 403)
+
+
+def http_status(e: OperationalError) -> Optional[int]:
+    cause = e.__cause__
+    if isinstance(cause, requests.HTTPError) and cause.response is not None:
+        return cause.response.status_code
+    status = e.info.get("status")
+    return status if isinstance(status, int) else None
+
+
+def log_run_report_refused(urn: Optional[str], status: Optional[int]) -> None:
+    # A warning rather than a report warning, so --strict-warnings isn't tripped.
+    logger.warning(
+        "The ingestion run report was not saved to DataHub: writing %s "
+        "was refused with HTTP %s. The ingested metadata is not affected. "
+        "To record CLI runs, see the --no-default-report section of the "
+        "CLI docs.",
+        urn,
+        status,
+    )
 
 
 class ControlRecord:

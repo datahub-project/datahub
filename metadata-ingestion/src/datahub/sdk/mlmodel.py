@@ -92,6 +92,7 @@ class MLModel(
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
         self._set_platform_instance(urn.platform, platform_instance)
+        self._set_status_after_platform_instance()
         self._ensure_model_props()
 
         # Initialize properties in logical groups

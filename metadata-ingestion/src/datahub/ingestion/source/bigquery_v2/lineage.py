@@ -247,6 +247,7 @@ class BigqueryLineageExtractor:
         self.aggregator = SqlParsingAggregator(
             platform=self.identifiers.platform,
             platform_instance=self.identifiers.identifier_config.platform_instance,
+            emit_query_platform_instance=self.identifiers.identifier_config.emit_query_platform_instance,
             env=self.identifiers.identifier_config.env,
             schema_resolver=self.schema_resolver,
             eager_graph_load=False,

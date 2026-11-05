@@ -331,6 +331,8 @@ def gen_containers(
 
     container_urn = container_key.as_urn()
 
+    # A child container deliberately keeps the parent Container aspect first, so
+    # browse paths stay correct when sources interleave containers across threads.
     if parent_container_key:  # Yield Container aspect first for auto_browse_path_v2
         parent_container_urn = make_container_urn(guid=parent_container_key.guid())
 
@@ -340,6 +342,21 @@ def gen_containers(
             aspect=ContainerClass(container=parent_container_urn),
         )
         yield parent_container_mcp.as_workunit()
+
+    # dataPlatformInstance goes right after the Container aspect, so that the
+    # container is created with its instance stored and policies scoped by
+    # platform instance apply to its later writes.
+    yield MetadataChangeProposalWrapper(
+        entityUrn=f"{container_urn}",
+        aspect=DataPlatformInstance(
+            platform=f"{make_data_platform_urn(container_key.platform)}",
+            instance=(
+                f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
+                if container_key.instance
+                else None
+            ),
+        ),
+    ).as_workunit()
 
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
@@ -364,18 +381,6 @@ def gen_containers(
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
         aspect=StatusClass(removed=False),
-    ).as_workunit()
-
-    yield MetadataChangeProposalWrapper(
-        entityUrn=f"{container_urn}",
-        aspect=DataPlatformInstance(
-            platform=f"{make_data_platform_urn(container_key.platform)}",
-            instance=(
-                f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
-                if container_key.instance
-                else None
-            ),
-        ),
     ).as_workunit()
 
     # Set subtype

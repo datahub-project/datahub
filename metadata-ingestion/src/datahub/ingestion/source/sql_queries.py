@@ -207,6 +207,7 @@ class SqlQueriesSource(Source):
         self.aggregator = SqlParsingAggregator(
             platform=self.config.platform,
             platform_instance=self.config.platform_instance,
+            emit_query_platform_instance=self.config.emit_query_platform_instance,
             env=self.config.env,
             schema_resolver=self.schema_resolver,
             eager_graph_load=False,
