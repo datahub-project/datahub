@@ -1,14 +1,20 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
@@ -17,9 +23,15 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.mockito.ArgumentCaptor;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.rest.RestStatus;
 import org.testng.annotations.Test;
 
 public class ESIndexBuilderStructuredPropertyMergeTest {
@@ -294,5 +306,136 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
     assertTrue(result.hasRemovedStructuredProperty());
     assertTrue(result.hasStructuredPropertyTypeMismatch());
     assertFalse(result.requiresReindex());
+  }
+
+  private static final Map<String, Object> KEYWORD = Map.of("type", "keyword");
+
+  private static Map<String, Object> structuredPropertyMappings(Map<String, Object> fields) {
+    return Map.of(
+        "properties",
+        Map.of(
+            "structuredProperties",
+            Map.of("type", "object", "dynamic", false, "properties", fields)));
+  }
+
+  /** A reindex whose target and live index declare the given structured property fields. */
+  private static ReindexConfig reindexState(
+      Map<String, Object> targetFields, Map<String, Object> liveFields) {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(INDEX);
+    when(indexState.targetMappings()).thenReturn(structuredPropertyMappings(targetFields));
+    when(indexState.currentMappings()).thenReturn(structuredPropertyMappings(liveFields));
+    when(indexState.targetSettings()).thenReturn(Map.of("index", Map.of("number_of_shards", 1)));
+    return indexState;
+  }
+
+  private static OpenSearchStatusException totalFieldsRejection() {
+    return new OpenSearchStatusException(
+        "OpenSearch exception [type=illegal_argument_exception, reason=Limit of total fields [3]"
+            + " has been exceeded]",
+        RestStatus.BAD_REQUEST);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testRejectedReindexDestinationTakesTheLiveStructuredPropertyFields()
+      throws Exception {
+    ESIndexBuilder builder = builderForExistingIndex(Map.of());
+    SearchClientShim<?> searchClient = builder.getSearchClient();
+    when(searchClient.createIndex(any(), any(), any()))
+        .thenThrow(totalFieldsRejection())
+        .thenReturn(null);
+
+    builder.createReindexDestination(
+        TestOperationContexts.systemContextNoSearchAuthorization(),
+        "destination",
+        reindexState(Map.of("propLive", KEYWORD, "propA", KEYWORD), Map.of("propLive", KEYWORD)));
+
+    ArgumentCaptor<CreateIndexRequest> requests = ArgumentCaptor.forClass(CreateIndexRequest.class);
+    verify(searchClient, times(2)).createIndex(any(), requests.capture(), any());
+    Map<String, Object> retried =
+        ReindexConfig.OBJECT_MAPPER.readValue(
+            requests.getAllValues().get(1).mappings().utf8ToString(), Map.class);
+    Map<String, Object> container =
+        (Map<String, Object>)
+            ((Map<String, Object>) retried.get("properties")).get("structuredProperties");
+    assertEquals(((Map<String, Object>) container.get("properties")).keySet(), Set.of("propLive"));
+    assertEquals(container.get("dynamic"), false);
+  }
+
+  @Test
+  public void testRejectedReindexDestinationFailsWhenStructuredPropertyDifferencesReindex()
+      throws Exception {
+    ESIndexBuilder builder = builderForExistingIndex(Map.of());
+    SearchClientShim<?> searchClient = builder.getSearchClient();
+    OpenSearchStatusException rejection = totalFieldsRejection();
+    when(searchClient.createIndex(any(), any(), any())).thenThrow(rejection);
+    ReindexConfig indexState = reindexState(Map.of("propA", KEYWORD), Map.of());
+    // The live fields would keep a difference that starts the same reindex on every run.
+    when(indexState.enableIndexMappingsReindex()).thenReturn(true);
+    when(indexState.enableStructuredPropertiesReindex()).thenReturn(true);
+
+    OpenSearchStatusException thrown =
+        expectThrows(
+            OpenSearchStatusException.class,
+            () ->
+                builder.createReindexDestination(
+                    TestOperationContexts.systemContextNoSearchAuthorization(),
+                    "destination",
+                    indexState));
+    assertSame(thrown, rejection);
+    verify(searchClient, times(1)).createIndex(any(), any(), any());
+  }
+
+  @Test
+  public void testRejectedReindexDestinationRetryFailureKeepsTheFirstRejection() throws Exception {
+    ESIndexBuilder builder = builderForExistingIndex(Map.of());
+    SearchClientShim<?> searchClient = builder.getSearchClient();
+    OpenSearchStatusException first = totalFieldsRejection();
+    OpenSearchStatusException second = totalFieldsRejection();
+    when(searchClient.createIndex(any(), any(), any())).thenThrow(first, second);
+
+    OpenSearchStatusException thrown =
+        expectThrows(
+            OpenSearchStatusException.class,
+            () ->
+                builder.createReindexDestination(
+                    TestOperationContexts.systemContextNoSearchAuthorization(),
+                    "destination",
+                    reindexState(Map.of("propA", KEYWORD), Map.of())));
+    assertSame(thrown, second);
+    assertEquals(List.of(second.getSuppressed()), List.of(first));
+    verify(searchClient, times(2)).createIndex(any(), any(), any());
+  }
+
+  @Test
+  public void testRejectedReindexDestinationWithNothingToLeaveOutPropagates() throws Exception {
+    ESIndexBuilder builder = builderForExistingIndex(Map.of());
+    SearchClientShim<?> searchClient = builder.getSearchClient();
+    OpenSearchStatusException rejection = totalFieldsRejection();
+    when(searchClient.createIndex(any(), any(), any())).thenThrow(rejection);
+
+    OpenSearchStatusException thrown =
+        expectThrows(
+            OpenSearchStatusException.class,
+            () ->
+                builder.createReindexDestination(
+                    TestOperationContexts.systemContextNoSearchAuthorization(),
+                    "destination",
+                    reindexState(Map.of("propLive", KEYWORD), Map.of("propLive", KEYWORD))));
+    assertSame(thrown, rejection);
+    verify(searchClient, times(1)).createIndex(any(), any(), any());
+  }
+
+  @Test
+  public void testIncrementalReindexCreatesItsDestinationWithTheFallback() throws Throwable {
+    ESIndexBuilder builder = builderForExistingIndex(Map.of());
+    ReindexConfig indexState = reindexState(Map.of(), Map.of());
+    doNothing().when(builder).createReindexDestination(any(), any(), any());
+
+    builder.buildIndexIncremental(
+        TestOperationContexts.systemContextNoSearchAuthorization(), indexState, "0.0.1-0");
+
+    verify(builder).createReindexDestination(any(), any(), eq(indexState));
   }
 }

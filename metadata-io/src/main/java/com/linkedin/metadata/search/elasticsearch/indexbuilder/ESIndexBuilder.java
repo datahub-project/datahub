@@ -1244,7 +1244,7 @@ public class ESIndexBuilder {
         getIncrementalNextIndexName(indexState.name(), upgradeVersion, startTime);
     int targetShards = extractTargetShards(indexState);
 
-    createIndex(opContext, nextIndexName, indexState);
+    createReindexDestination(opContext, nextIndexName, indexState);
 
     long sourceDocCount = getSourceDocCount(opContext, indexState.name());
     if (sourceDocCount == 0) {
@@ -1943,22 +1943,28 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Creates the destination of a reindex. A target built from the definitions can declare more
-   * structured property fields than the index's total-fields limit allows, and the engine then
-   * rejects the destination. The index being reindexed still serves, and system-update may have
-   * blocked its writes, so instead of failing, the destination takes the structured property fields
-   * that index maps now, as a reindex did before targets came from the definitions. That holds only
-   * without {@code systemUpdateEnabled}: with it, the structured property differences the live
-   * fields keep would start the same reindex on every run, so the rejection fails the reindex, as
-   * it did before. Any other failure propagates.
+   * Creates the destination of a reindex, which copies the documents of an index that still serves.
+   * A target built from the definitions can declare more structured property fields than the
+   * index's total-fields limit allows, and the engine then rejects the destination. Values for
+   * fields the index does not map are already unsearchable there, so instead of failing, perhaps
+   * with the index's writes blocked, the destination takes the structured property fields that
+   * index maps now, as a reindex did before targets came from the definitions. That holds only
+   * while structured property differences cannot start a reindex: otherwise the differences the
+   * live fields keep would start the same reindex on every run, so the rejection fails it, as it
+   * did before. Any other failure propagates.
    */
-  private void createReindexDestination(
+  void createReindexDestination(
       @Nonnull OperationContext opContext, String destination, ReindexConfig indexState)
       throws IOException {
     try {
       createIndex(opContext, destination, indexState);
     } catch (IOException | RuntimeException e) {
-      if (structPropConfig.isSystemUpdateEnabled() || !isMappingRejection(e)) {
+      boolean structuredPropertyDifferencesReindex =
+          indexState.enableIndexMappingsReindex()
+              && (indexState.enableStructuredPropertiesReindex()
+                  || indexState.enableStructuredPropertyTypeMismatchReindex()
+                  || indexState.enableStructuredPropertyCopyToMismatchReindex());
+      if (structuredPropertyDifferencesReindex || !isMappingRejection(e)) {
         throw e;
       }
       // Against itself every structured property field counts as mapped, so this empties the
@@ -1977,7 +1983,9 @@ public class ESIndexBuilder {
       log.error(
           "Index: {} - The engine rejected reindex destination {}; creating it with the structured"
               + " property fields the index maps now, leaving out {}. If the rejection names the"
-              + " total-fields limit, raise it in the settings overrides; a later reindex adds them.",
+              + " total-fields limit, raise index.mapping.total_fields.limit on the index so the"
+              + " next system-update adds them in place, and in the settings overrides so later"
+              + " reindexes keep them.",
           indexState.name(),
           destination,
           leftOut,
@@ -1986,7 +1994,9 @@ public class ESIndexBuilder {
         createIndex(
             opContext, destination, liveStructuredPropertyMappings, indexState.targetSettings());
       } catch (IOException | RuntimeException retryFailure) {
-        retryFailure.addSuppressed(e);
+        if (retryFailure != e) {
+          retryFailure.addSuppressed(e);
+        }
         throw retryFailure;
       }
     }

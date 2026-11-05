@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.opensearch.OpenSearchException;
@@ -1421,7 +1422,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     Map<String, Object> properties =
         (Map<String, Object>) onlyStructuredPropertiesMissing.currentMappings().get("properties");
     assertTrue(properties.containsKey("field2"));
-    assertNoStructuredPropertyFields(properties);
+    assertEquals(structuredPropertyFieldNames(properties), Set.of());
     assertFalse(onlyStructuredPropertiesMissing.requiresApplyMappings());
     assertFalse(onlyStructuredPropertiesMissing.requiresApplySettings());
 
@@ -1433,19 +1434,21 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         () ->
             builder.addUnmappedStructuredPropertyFields(
                 opContext, onlyStructuredPropertiesMissing));
-    assertNoStructuredPropertyFields(
-        (Map<String, Object>)
-            builder
-                .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
-                .currentMappings()
-                .get("properties"));
+    assertEquals(
+        structuredPropertyFieldNames(
+            (Map<String, Object>)
+                builder
+                    .buildReindexState(opContext, TEST_INDEX_NAME, target, settings)
+                    .currentMappings()
+                    .get("properties")),
+        Set.of());
   }
 
   @Test
   @SuppressWarnings("unchecked")
   public void testReindexFallsBackToLiveStructuredPropertyFieldsOnRejection() throws Exception {
-    // The engine rejects a destination with the new structured property fields; the reindex
-    // completes with the fields the index maps now instead of failing with its writes blocked.
+    // The engine rejects a destination with the definitions' fields; the reindex completes with
+    // the fields the index maps now instead of failing with its writes blocked.
     ESIndexBuilder builder =
         new ESIndexBuilder(
             getSearchClient(),
@@ -1458,12 +1461,18 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .build(),
             Map.of(),
             new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    // field1, the container and propLive fill the limit.
     Map<String, Object> settings = Map.of("mapping", Map.of("total_fields", Map.of("limit", 3)));
-    buildIndex(builder, TEST_INDEX_NAME, structuredPropertyTestMappings(false, Map.of()), settings);
-    // Only a reindex changes field1's type; the two new fields take the destination past the limit.
+    Map<String, Object> keyword = Map.of(ESUtils.TYPE, ESUtils.KEYWORD);
+    buildIndex(
+        builder,
+        TEST_INDEX_NAME,
+        structuredPropertyTestMappings(false, Map.of("propLive", keyword)),
+        settings);
+    // Only a reindex changes field1's type; propA and propB take the destination past the limit.
     Map<String, Object> target =
         structuredPropertyTestMappings(
-            false, Map.of("propA", Map.of("type", "keyword"), "propB", Map.of("type", "keyword")));
+            false, Map.of("propLive", keyword, "propA", keyword, "propB", keyword));
     ((Map<String, Object>) target.get("properties")).put("field1", Map.of(ESUtils.TYPE, "text"));
 
     ReindexConfig config = builder.buildReindexState(opContext, TEST_INDEX_NAME, target, settings);
@@ -1477,7 +1486,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 .currentMappings()
                 .get("properties");
     assertEquals(((Map<String, Object>) properties.get("field1")).get(ESUtils.TYPE), "text");
-    assertNoStructuredPropertyFields(properties);
+    assertEquals(structuredPropertyFieldNames(properties), Set.of("propLive"));
   }
 
   private static Map<String, Object> structuredPropertyTestMappings(
@@ -1493,10 +1502,10 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     return Map.of("properties", properties);
   }
 
-  private static void assertNoStructuredPropertyFields(Map<String, Object> properties) {
+  private static Set<?> structuredPropertyFieldNames(Map<String, Object> properties) {
     Object container = properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
     Object fields = container instanceof Map<?, ?> map ? map.get("properties") : null;
-    assertTrue(fields == null || ((Map<?, ?>) fields).isEmpty(), "unexpected fields " + fields);
+    return fields instanceof Map<?, ?> fieldMap ? fieldMap.keySet() : Set.of();
   }
 
   // --- Incremental reindex integration tests ---
