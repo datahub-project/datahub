@@ -45,6 +45,9 @@ FIELD_TYPE_MAPPING: Dict[
 KNOWN_DATA_PLATFORM_MAPPING = {
     "gbq": "bigquery",
     "snowflake": "snowflake",
+    "databricks": "databricks",
+    "sqlserver": "mssql",
+    "mssql": "mssql",
 }
 
 
@@ -245,6 +248,7 @@ class App(Item):
     qUsage: str
     sheets: List[Sheet] = []
     tables: List[QlikTable] = []
+    script: Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod

@@ -1,6 +1,6 @@
 import logging
-from dataclasses import dataclass
-from typing import Dict, Optional
+from dataclasses import dataclass, field
+from typing import Dict, Literal, Optional, Union
 
 from pydantic import Field, model_validator
 
@@ -16,6 +16,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,12 @@ class Constant:
     QITEMS = "qItems"
     QINFO = "qInfo"
     QLIST = "qList"
+    QSCRIPT = "qScript"
+    # Data connection keys (Qlik Cloud REST and on-prem QRS)
+    QNAME = "qName"
+    DATASOURCEID = "datasourceID"
+    QCONNECTSTATEMENT = "qConnectStatement"
+    CONNECTIONSTRING = "connectionstring"
     CONNECTORPROPERTIES = "connectorProperties"
     TABLEQUALIFIERS = "tableQualifiers"
     CONNECTIONINFO = "connectionInfo"
@@ -102,13 +109,30 @@ class Constant:
 @dataclass
 class QlikSourceReport(StaleEntityRemovalSourceReport):
     number_of_spaces: int = 0
+    script_tables_found: int = 0
+    script_tables_with_lineage: int = 0
+    apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
+    unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
 
     def report_number_of_spaces(self, number_of_spaces: int) -> None:
         self.number_of_spaces = number_of_spaces
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
-    pass
+    platform: Optional[str] = Field(
+        default=None,
+        description="DataHub platform of the tables read through this connection, "
+        "e.g. `mssql` or `databricks`. Inferred from the data connection when not set.",
+    )
+    database: Optional[str] = Field(
+        default=None,
+        description="Database (catalog for Databricks) used for tables the load script "
+        "does not qualify. Inferred from the connection string when not set.",
+    )
+    default_schema: Optional[str] = Field(
+        default=None,
+        description="Schema used for tables the load script does not qualify.",
+    )
 
 
 class QlikDeployment(StrEnum):
@@ -156,6 +180,17 @@ class QlikSourceConfig(
         default=None,
         description="Path to the PEM root certificate exported from the QMC. Required on-prem.",
     )
+    server_cert_hostname: Optional[str] = Field(
+        default=None,
+        description="On-prem only. Hostname the Qlik server certificate was issued to, when it "
+        "differs from `server` (for example when connecting by IP address). The certificate is "
+        "still verified against `root_cert`, but its name is checked against this value.",
+    )
+    verify_server_hostname: bool = Field(
+        default=True,
+        description="On-prem only. Set to false to skip the certificate name check when no "
+        "hostname matches it. The certificate chain is still verified against `root_cert`.",
+    )
     user_directory: str = Field(
         default="INTERNAL",
         description="User directory for the on-prem X-Qlik-User header.",
@@ -190,7 +225,8 @@ class QlikSourceConfig(
     data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
         description="A mapping of the Qlik app dataset upstream tables from data connection to platform instance."
-        "Use 'data_connection_name' as key.",
+        "Use 'data_connection_name' as key. Set `platform`, `database` and `default_schema` when they "
+        "cannot be inferred from the data connection.",
     )
 
     @model_validator(mode="after")
@@ -216,9 +252,14 @@ class QlikSourceConfig(
     def ui_hostname(self) -> str:
         if self.deployment == QlikDeployment.ON_PREM:
             assert self.server is not None
-            return self.server
+            return self.server_cert_hostname or self.server
         assert self.tenant_hostname is not None
         return self.tenant_hostname
+
+    def tls_assert_hostname(self) -> Union[str, Literal[False], None]:
+        if not self.verify_server_hostname:
+            return False
+        return self.server_cert_hostname
 
     def qlik_user_header(self, user_id: str) -> str:
         return f"UserDirectory={self.user_directory}; UserId={user_id}"

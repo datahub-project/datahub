@@ -1,6 +1,6 @@
 import json
 import ssl
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 from websocket import WebSocket, create_connection
 
@@ -28,21 +28,27 @@ class WebsocketConnection:
         client_cert: str,
         client_key: str,
         root_cert: str,
+        assert_hostname: Union[str, Literal[False], None] = None,
     ) -> "WebsocketConnection":
         # Direct Engine access. Certificate auth does not go through the proxy,
         # and the engine interleaves JSON-RPC replies with push notifications.
         connection = cls.__new__(cls)
         connection.websocket_url = f"wss://{host}:{port}/app"
         connection._match_response_id = True
+        sslopt: Dict[str, object] = {
+            "certfile": client_cert,
+            "keyfile": client_key,
+            "ca_certs": root_cert,
+            "cert_reqs": ssl.CERT_REQUIRED,
+        }
+        if assert_hostname is False:
+            sslopt["check_hostname"] = False
+        elif assert_hostname:
+            sslopt["server_hostname"] = assert_hostname
         connection.socket_connection = create_connection(
             f"{connection.websocket_url}/{app_id}",
             header={"X-Qlik-User": user_header},
-            sslopt={
-                "certfile": client_cert,
-                "keyfile": client_key,
-                "ca_certs": root_cert,
-                "cert_reqs": ssl.CERT_REQUIRED,
-            },
+            sslopt=sslopt,
         )
         connection.request_id = 0
         connection.handle = [-1]
@@ -96,6 +102,11 @@ class WebsocketConnection:
         if handle:
             self.handle.append(handle)
         return response
+
+    def get_script(self) -> str:
+        """Load script of the open app. Must be called on the app handle."""
+        response = self.websocket_send_request(method="GetScript")
+        return response.get(Constant.QSCRIPT) or ""
 
     def close_websocket(self) -> None:
         if self.socket_connection:

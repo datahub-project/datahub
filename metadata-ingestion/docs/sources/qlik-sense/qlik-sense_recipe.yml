@@ -20,6 +20,9 @@ source:
     #   data_connection_name:
     #     platform_instance: cloud_instance
     #     env: DEV
+    #     platform: mssql
+    #     database: sales_db
+    #     default_schema: dbo
 
 sink:
   # sink configs
