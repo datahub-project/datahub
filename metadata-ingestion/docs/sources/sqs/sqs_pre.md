@@ -79,8 +79,12 @@ SNS topics are ingested by the separate `sns` source. Run both with the same `en
     {
       "Sid": "CloudTrailLakeQuery",
       "Effect": "Allow",
-      "Action": ["cloudtrail:StartQuery", "cloudtrail:GetQueryResults"],
-      "Resource": "*"
+      "Action": [
+        "cloudtrail:StartQuery",
+        "cloudtrail:GetQueryResults",
+        "cloudtrail:CancelQuery"
+      ],
+      "Resource": "arn:aws:cloudtrail:<region>:<account-id>:eventdatastore/<event-data-store-id>"
     },
     {
       "Sid": "TagsRead",
@@ -104,4 +108,4 @@ Credentials come from `aws_config` or the standard boto3 chain: environment vari
 
 `S3NotificationsRead` is used only with `lineage.s3_notifications`, which is off by default because it makes one `s3:GetBucketNotification` call per bucket in the recipe's region. `s3:ListAllMyBuckets` only returns buckets the calling account owns, so buckets in other accounts are not read.
 
-`CloudTrailLakeQuery` is used only with `cloudtrail_producers.enabled`.
+`CloudTrailLakeQuery` is used only with `cloudtrail_producers.enabled`; scope it to the store in `cloudtrail_producers.event_data_store`. `cloudtrail:CancelQuery` stops a query the run gave up on, which would otherwise keep scanning. Matching a caller to a Lambda function also uses `lambda:ListFunctions` from `LambdaRead`.
