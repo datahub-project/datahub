@@ -8,6 +8,7 @@ import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_TRANSFORM_LOGIC_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.RESTRICTED_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.VIEW_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
@@ -15,20 +16,33 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
+import com.linkedin.metadata.browse.BrowseResultEntityArray;
+import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
+import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.LineageScrollResult;
+import com.linkedin.metadata.search.LineageSearchEntity;
+import com.linkedin.metadata.search.LineageSearchEntityArray;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -36,12 +50,16 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpStatus;
 
@@ -112,6 +130,53 @@ public final class EntityAuthorizationUtils {
     return documents.isEmpty()
         || DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
             opContext, apiOperation, documents);
+  }
+
+  /**
+   * The urns the actor may access, in request order. Unlike {@link #isAPIAuthorizedEntityUrns},
+   * which denies the whole collection when any urn is denied, each urn is kept or dropped on its
+   * own, so that callers can answer for the denied ones exactly as for urns that do not exist.
+   */
+  @Nonnull
+  public static List<Urn> filterAPIAuthorizedEntityUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull ApiOperation apiOperation,
+      @Nonnull Collection<Urn> urns) {
+    if (urns.isEmpty() || isAPIAuthorizedEntityUrns(opContext, apiOperation, urns)) {
+      return List.copyOf(urns);
+    }
+    final Set<Urn> readableQueries =
+        apiOperation == READ
+            ? filterAPIAuthorizedQueryUrns(
+                opContext,
+                urns.stream().filter(EntityAspectAuthorizationUtils::isQueryEntity).toList())
+            : Set.of();
+    return urns.stream()
+        .filter(
+            urn ->
+                apiOperation == READ && EntityAspectAuthorizationUtils.isQueryEntity(urn)
+                    ? readableQueries.contains(urn)
+                    : isAPIAuthorizedEntityUrns(opContext, apiOperation, List.of(urn)))
+        .collect(Collectors.toList());
+  }
+
+  /** {@link #filterAPIAuthorizedEntityUrns} for any API group, such as relationships or lineage. */
+  @Nonnull
+  public static List<Urn> filterAPIAuthorizedUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull ApiGroup apiGroup,
+      @Nonnull ApiOperation apiOperation,
+      @Nonnull Collection<Urn> urns) {
+    if (ENTITY.equals(apiGroup)) {
+      return filterAPIAuthorizedEntityUrns(opContext, apiOperation, urns);
+    }
+    if (urns.isEmpty() || AuthUtil.isAPIAuthorizedUrns(opContext, apiGroup, apiOperation, urns)) {
+      return List.copyOf(urns);
+    }
+    return urns.stream()
+        .filter(
+            urn -> AuthUtil.isAPIAuthorizedUrns(opContext, apiGroup, apiOperation, List.of(urn)))
+        .collect(Collectors.toList());
   }
 
   /**
@@ -329,56 +394,231 @@ public final class EntityAuthorizationUtils {
         || AuthUtil.isAPIAuthorizedEntityType(opContext, apiOperation, typeLevelEntityTypes);
   }
 
-  public static boolean isAPIAuthorizedResult(
+  /**
+   * {@code result} without the entities the actor may not READ, answering for them exactly as for
+   * entities that do not exist. The total only drops the entities removed from this page: hidden
+   * matches on other pages, and facets, are still counted.
+   */
+  @Nonnull
+  public static SearchResult filterAPIAuthorizedResult(
       @Nonnull OperationContext opContext, @Nonnull SearchResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
-        result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()));
+    final Set<Urn> readable =
+        readableResultUrns(opContext, result.getEntities(), SearchEntity::getEntity);
+    if (readable == null) {
+      return result;
+    }
+    final SearchResult filtered = deepCopy(result);
+    filtered.setEntities(
+        result.getEntities().stream()
+            .filter(e -> readable.contains(e.getEntity()))
+            .collect(Collectors.toCollection(SearchEntityArray::new)));
+    return filtered.setNumEntities(
+        reduceTotal(
+            result.getNumEntities(), result.getEntities().size(), filtered.getEntities().size()));
   }
 
-  public static boolean isAPIAuthorizedResult(
+  /** {@link #filterAPIAuthorizedResult(OperationContext, SearchResult)} for a scroll page. */
+  @Nonnull
+  public static ScrollResult filterAPIAuthorizedResult(
       @Nonnull OperationContext opContext, @Nonnull ScrollResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
-        result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()));
+    final Set<Urn> readable =
+        readableResultUrns(opContext, result.getEntities(), SearchEntity::getEntity);
+    if (readable == null) {
+      return result;
+    }
+    final ScrollResult filtered = deepCopy(result);
+    filtered.setEntities(
+        result.getEntities().stream()
+            .filter(e -> readable.contains(e.getEntity()))
+            .collect(Collectors.toCollection(SearchEntityArray::new)));
+    return filtered.setNumEntities(
+        reduceTotal(
+            result.getNumEntities(), result.getEntities().size(), filtered.getEntities().size()));
   }
 
-  public static boolean isAPIAuthorizedResult(
-      @Nonnull OperationContext opContext, @Nonnull AutoCompleteResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
-        result.getEntities().stream().map(AutoCompleteEntity::getUrn).collect(Collectors.toList()));
-  }
-
-  public static boolean isAPIAuthorizedResult(
-      @Nonnull OperationContext opContext, @Nonnull BrowseResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
-        result.getEntities().stream().map(BrowseResultEntity::getUrn).collect(Collectors.toList()));
-  }
-
-  public static boolean isAPIAuthorizedResult(
+  /** {@link #filterAPIAuthorizedResult(OperationContext, SearchResult)} for a lineage search. */
+  @Nonnull
+  public static LineageSearchResult filterAPIAuthorizedResult(
       @Nonnull OperationContext opContext, @Nonnull LineageSearchResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
+    final Set<Urn> readable =
+        readableResultUrns(opContext, result.getEntities(), LineageSearchEntity::getEntity);
+    if (readable == null) {
+      return result;
+    }
+    final LineageSearchResult filtered = deepCopy(result);
+    filtered.setEntities(
         result.getEntities().stream()
-            .map(entity -> entity.getEntity())
-            .collect(Collectors.toList()));
+            .filter(e -> readable.contains(e.getEntity()))
+            .collect(Collectors.toCollection(LineageSearchEntityArray::new)));
+    return filtered.setNumEntities(
+        reduceTotal(
+            result.getNumEntities(), result.getEntities().size(), filtered.getEntities().size()));
   }
 
-  public static boolean isAPIAuthorizedResult(
+  /** {@link #filterAPIAuthorizedResult(OperationContext, SearchResult)} for a lineage scroll. */
+  @Nonnull
+  public static LineageScrollResult filterAPIAuthorizedResult(
       @Nonnull OperationContext opContext, @Nonnull LineageScrollResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
+    final Set<Urn> readable =
+        readableResultUrns(opContext, result.getEntities(), LineageSearchEntity::getEntity);
+    if (readable == null) {
+      return result;
+    }
+    final LineageScrollResult filtered = deepCopy(result);
+    filtered.setEntities(
         result.getEntities().stream()
-            .map(entity -> entity.getEntity())
-            .collect(Collectors.toList()));
+            .filter(e -> readable.contains(e.getEntity()))
+            .collect(Collectors.toCollection(LineageSearchEntityArray::new)));
+    return filtered.setNumEntities(
+        reduceTotal(
+            result.getNumEntities(), result.getEntities().size(), filtered.getEntities().size()));
+  }
+
+  /**
+   * {@code result} without the entities the actor may not READ, and without the suggestion each of
+   * them contributed.
+   */
+  @Nonnull
+  public static AutoCompleteResult filterAPIAuthorizedResult(
+      @Nonnull OperationContext opContext, @Nonnull AutoCompleteResult result) {
+    final Set<Urn> readable =
+        readableResultUrns(opContext, result.getEntities(), AutoCompleteEntity::getUrn);
+    if (readable == null) {
+      return result;
+    }
+    final AutoCompleteResult filtered = deepCopy(result);
+    filtered.setEntities(
+        result.getEntities().stream()
+            .filter(e -> readable.contains(e.getUrn()))
+            .collect(Collectors.toCollection(AutoCompleteEntityArray::new)));
+    // Suggestions are built one per entity, in the same order; if that ever stops holding, drop
+    // them all rather than risk keeping a hidden entity's suggestion.
+    final StringArray suggestions = new StringArray();
+    if (result.getSuggestions().size() == result.getEntities().size()) {
+      for (int i = 0; i < result.getEntities().size(); i++) {
+        if (readable.contains(result.getEntities().get(i).getUrn())) {
+          suggestions.add(result.getSuggestions().get(i));
+        }
+      }
+    }
+    return filtered.setSuggestions(suggestions);
+  }
+
+  /**
+   * {@code result} without the entities the actor may not READ. Entity counts drop by the entities
+   * removed from this page; group counts are aggregated by the search backend and still include
+   * hidden entities.
+   */
+  @Nonnull
+  public static BrowseResult filterAPIAuthorizedResult(
+      @Nonnull OperationContext opContext, @Nonnull BrowseResult result) {
+    final Set<Urn> readable =
+        readableResultUrns(opContext, result.getEntities(), BrowseResultEntity::getUrn);
+    if (readable == null) {
+      return result;
+    }
+    final BrowseResult filtered = deepCopy(result);
+    filtered.setEntities(
+        result.getEntities().stream()
+            .filter(e -> readable.contains(e.getUrn()))
+            .collect(Collectors.toCollection(BrowseResultEntityArray::new)));
+    final int removed = result.getEntities().size() - filtered.getEntities().size();
+    filtered.setNumEntities(Math.max(0, result.getNumEntities() - removed));
+    filtered.setNumElements(Math.max(0, result.getNumElements() - removed));
+    if (result.hasMetadata()) {
+      filtered
+          .getMetadata()
+          .setTotalNumEntities(Math.max(0L, result.getMetadata().getTotalNumEntities() - removed));
+    }
+    return filtered;
+  }
+
+  /**
+   * {@code result} without the related entities the actor may not READ via {@code apiGroup}, as
+   * GraphQL's relationships field does: the count is what is returned and the total drops by the
+   * entities removed from this page.
+   */
+  @Nonnull
+  public static RelatedEntitiesResult filterAPIAuthorizedRelatedEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull ApiGroup apiGroup,
+      @Nonnull RelatedEntitiesResult result) {
+    final Map<String, Urn> urns = new HashMap<>();
+    result.getEntities().forEach(e -> urns.putIfAbsent(e.getUrn(), UrnUtils.getUrn(e.getUrn())));
+    final Set<Urn> readable =
+        new HashSet<>(filterAPIAuthorizedUrns(opContext, apiGroup, READ, urns.values()));
+    if (readable.size() == urns.size()) {
+      return result;
+    }
+    final List<RelatedEntity> entities =
+        result.getEntities().stream()
+            .filter(e -> readable.contains(urns.get(e.getUrn())))
+            .collect(Collectors.toList());
+    return new RelatedEntitiesResult(
+        result.getStart(),
+        entities.size(),
+        reduceTotal(result.getTotal(), result.getEntities().size(), entities.size()),
+        entities);
+  }
+
+  /** {@link #filterAPIAuthorizedRelatedEntities} for lineage neighbours. */
+  @Nonnull
+  public static EntityLineageResult filterAPIAuthorizedLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull ApiGroup apiGroup,
+      @Nonnull EntityLineageResult result) {
+    final Set<Urn> urns =
+        result.getRelationships().stream()
+            .map(LineageRelationship::getEntity)
+            .collect(Collectors.toSet());
+    final Set<Urn> readable =
+        new HashSet<>(filterAPIAuthorizedUrns(opContext, apiGroup, READ, urns));
+    if (readable.size() == urns.size()) {
+      return result;
+    }
+    final EntityLineageResult filtered = deepCopy(result);
+    filtered.setRelationships(
+        result.getRelationships().stream()
+            .filter(r -> readable.contains(r.getEntity()))
+            .collect(Collectors.toCollection(LineageRelationshipArray::new)));
+    final int removed = result.getRelationships().size() - filtered.getRelationships().size();
+    return filtered
+        .setCount(filtered.getRelationships().size())
+        .setTotal(Math.max(0, result.getTotal() - removed))
+        .setFiltered((result.hasFiltered() ? result.getFiltered() : 0) + removed);
+  }
+
+  /**
+   * The result urns the actor may READ, or null when that is all of them. Restricted placeholders
+   * the search already substituted for hidden entities are kept: they name no entity.
+   */
+  @Nullable
+  private static <T> Set<Urn> readableResultUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<T> results,
+      @Nonnull Function<T, Urn> toUrn) {
+    final List<Urn> urns = results.stream().map(toUrn).distinct().toList();
+    final List<Urn> checked =
+        urns.stream().filter(urn -> !RESTRICTED_ENTITY_NAME.equals(urn.getEntityType())).toList();
+    final List<Urn> readable = filterAPIAuthorizedEntityUrns(opContext, READ, checked);
+    if (readable.size() == checked.size()) {
+      return null;
+    }
+    final Set<Urn> result = new HashSet<>(readable);
+    urns.stream()
+        .filter(urn -> RESTRICTED_ENTITY_NAME.equals(urn.getEntityType()))
+        .forEach(result::add);
+    return result;
+  }
+
+  @SneakyThrows
+  @SuppressWarnings("unchecked")
+  private static <T extends RecordTemplate> T deepCopy(@Nonnull T record) {
+    return (T) record.copy();
+  }
+
+  private static int reduceTotal(int total, int pageSizeBefore, int pageSizeAfter) {
+    return Math.max(0, total - (pageSizeBefore - pageSizeAfter));
   }
 
   /**

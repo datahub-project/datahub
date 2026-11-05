@@ -31,6 +31,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.FilterExistingUrnsRequest;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -50,6 +51,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
@@ -66,6 +68,7 @@ import com.linkedin.restli.server.RestLiServiceException;
 import java.util.Map;
 import org.testng.annotations.DataProvider;
 import java.lang.reflect.Field;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -236,7 +239,7 @@ public class EntityResourceTest {
 
     assertEquals(result.length, 0);
     verify(entityService, never())
-        .exists(any(OperationContext.class), any(java.util.Collection.class), anyBoolean());
+        .exists(any(OperationContext.class), any(Collection.class), anyBoolean());
   }
 
   @Test
@@ -625,5 +628,76 @@ public class EntityResourceTest {
     Field field = EntityResource.class.getDeclaredField("entitySearchService");
     field.setAccessible(true);
     field.set(entityResource, entitySearchService);
+  }
+
+  private SearchResult searchAcrossEntitiesHiding(Urn hiddenUrn, SearchResult backendResult)
+      throws Exception {
+    SearchService searchService = mock(SearchService.class);
+    when(searchService.getEntitiesToSearch(any(), any(), any())).thenReturn(List.of("dataset"));
+    when(searchService.searchAcrossEntities(
+            any(OperationContext.class), any(), any(), any(), any(), anyInt(), any()))
+        .thenReturn(backendResult);
+    setSearchService(entityResource, searchService);
+    when(entityService.exists(any(OperationContext.class), any(Collection.class), anyBoolean()))
+        .thenAnswer(invocation -> Set.copyOf(invocation.<Collection<Urn>>getArgument(1)));
+
+    try (MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      authUtil
+          .when(() -> AuthUtil.isAPIAuthorizedEntityType(any(OperationContext.class), any(ApiOperation.class), any(Collection.class)))
+          .thenReturn(true);
+      authUtil
+          .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(OperationContext.class), any(ApiOperation.class), any(Collection.class)))
+          .thenAnswer(
+              invocation -> !invocation.<Collection<Urn>>getArgument(2).contains(hiddenUrn));
+      return awaitTask(
+          entityResource.searchAcrossEntities(
+              new String[] {"dataset"}, "*", null, null, null, 0, 10, null));
+    }
+  }
+
+  @Test
+  public void testSearchAcrossEntitiesAnswersHiddenMatchLikeMissing() throws Exception {
+    Urn hiddenUrn = new DatasetUrn(new DataPlatformUrn("platform"), "hidden", FabricType.PROD);
+    SearchResult missing =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(10)
+            .setMetadata(new SearchResultMetadata());
+    SearchResult hidden =
+        missing
+            .copy()
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(hiddenUrn))))
+            .setNumEntities(1);
+
+    assertEquals(
+        searchAcrossEntitiesHiding(hiddenUrn, hidden),
+        searchAcrossEntitiesHiding(hiddenUrn, missing));
+  }
+
+  @Test
+  public void testSearchAcrossEntitiesKeepsReadableMatchesAlongsideHiddenOnes() throws Exception {
+    Urn hiddenUrn = new DatasetUrn(new DataPlatformUrn("platform"), "hidden", FabricType.PROD);
+    Urn visibleUrn = new DatasetUrn(new DataPlatformUrn("platform"), "visible", FabricType.PROD);
+    SearchResult backendResult =
+        new SearchResult()
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity().setEntity(visibleUrn),
+                        new SearchEntity().setEntity(hiddenUrn))))
+            .setNumEntities(2)
+            .setFrom(0)
+            .setPageSize(10)
+            .setMetadata(new SearchResultMetadata());
+
+    SearchResult result = searchAcrossEntitiesHiding(hiddenUrn, backendResult);
+
+    assertEquals(
+        result.getEntities(),
+        new SearchEntityArray(List.of(new SearchEntity().setEntity(visibleUrn))));
+    assertEquals(result.getNumEntities(), 1);
   }
 }

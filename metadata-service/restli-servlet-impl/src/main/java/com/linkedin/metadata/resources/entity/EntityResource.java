@@ -7,7 +7,6 @@ import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validateTrimOrThrow;
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
@@ -44,8 +43,6 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.FilterExistingUrnsRequest;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.browse.BrowseResultEntity;
-import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.HardDeleteService;
@@ -54,8 +51,6 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.EntitySpecUtils;
-import com.linkedin.metadata.query.AutoCompleteEntity;
-import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -69,13 +64,9 @@ import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageScrollResult;
-import com.linkedin.metadata.search.LineageSearchEntity;
-import com.linkedin.metadata.search.LineageSearchEntityArray;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.ScrollResult;
-import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
@@ -494,23 +485,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     // TODO - change it to use _searchService once we are confident on it's latency
     return RestliUtils.toTask(opContext,
         () -> {
-          final SearchResult result;
           // This API is not used by the frontend for search bars so we default to structured
-          result =
-              entitySearchService.search(opContext,
-                  List.of(entityName), input, filter, sortCriterionList, start, count);
-
-          Set<Urn> authorizedUrns =
-              authorizedResultUrns(
+          final SearchResult result =
+              EntityAuthorizationUtils.filterAPIAuthorizedResult(
                   opContext,
-                  result.getEntities().stream()
-                      .map(SearchEntity::getEntity)
-                      .collect(Collectors.toList()));
-          result.setEntities(
-              new SearchEntityArray(
-                  result.getEntities().stream()
-                      .filter(e -> authorizedUrns.contains(e.getEntity()))
-                      .collect(Collectors.toList())));
+                  entitySearchService.search(opContext,
+                      List.of(entityName), input, filter, sortCriterionList, start, count));
 
           return validateSearchResult(opContext, result, entityService);
         },
@@ -556,55 +536,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(
         () -> {
           SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter, sortCriterionList, start, count);
-          Set<Urn> authorizedUrns =
-              authorizedResultUrns(
-                  opContext,
-                  result.getEntities().stream()
-                      .map(SearchEntity::getEntity)
-                      .collect(Collectors.toList()));
-          result.setEntities(
-              new SearchEntityArray(
-                  result.getEntities().stream()
-                      .filter(e -> authorizedUrns.contains(e.getEntity()))
-                      .collect(Collectors.toList())));
+          result = EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
 
           return validateSearchResult(opContext, result, entityService);
         });
-  }
-
-  /**
-   * Returns the subset of {@code urns} the actor may view: query urns are filtered individually
-   * (subject-dataset scoped, so authorization can vary within one page), while everything else
-   * keeps the existing all-or-nothing check — an unauthorized non-query urn still rejects the
-   * whole request, matching existing behavior for those entity types.
-   *
-   * <p>Known limitation, accepted and documented rather than implemented, for every caller of this
-   * method: the {@code total}/{@code numEntities} on the {@code SearchResult}/{@code ScrollResult}/
-   * {@code LineageSearchResult}/{@code LineageScrollResult} these calls filter is the search
-   * backend's raw, unfiltered candidate count, not recomputed against the authorized-only subset
-   * returned here. When a page mixes query and non-query entities, a total can include queries the
-   * actor can't see, and the returned page can come back with fewer entities than requested
-   * without that being reflected in the total. An exact fix would require scrolling to exhaustion
-   * and authorizing per batch before slicing and reporting an exact total — the pattern
-   * ListQueriesResolver uses for GraphQL — which is out of scope for this Rest.li surface.
-   */
-  private Set<Urn> authorizedResultUrns(OperationContext opContext, List<Urn> urns) {
-    List<Urn> queryUrns =
-        urns.stream()
-            .filter(urn -> QUERY_ENTITY_NAME.equals(urn.getEntityType()))
-            .collect(Collectors.toList());
-    List<Urn> otherUrns =
-        urns.stream()
-            .filter(urn -> !QUERY_ENTITY_NAME.equals(urn.getEntityType()))
-            .collect(Collectors.toList());
-    if (!otherUrns.isEmpty()
-        && !EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, otherUrns)) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized get entity.");
-    }
-    Set<Urn> authorized = new HashSet<>(otherUrns);
-    authorized.addAll(EntityAuthorizationUtils.filterAPIAuthorizedQueryUrns(opContext, queryUrns));
-    return authorized;
   }
 
   private List<SortCriterion> getSortCriteria(@Nullable SortCriterion[] sortCriteria, @Nullable SortCriterion sortCriterion) {
@@ -671,17 +606,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   scrollId,
                   keepAlive,
                   count);
-          Set<Urn> authorizedUrns =
-              authorizedResultUrns(
-                  opContext,
-                  result.getEntities().stream()
-                      .map(SearchEntity::getEntity)
-                      .collect(Collectors.toList()));
-          result.setEntities(
-              new SearchEntityArray(
-                  result.getEntities().stream()
-                      .filter(e -> authorizedUrns.contains(e.getEntity()))
-                      .collect(Collectors.toList())));
+          result = EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
 
           return validateScrollResult(opContext, result, entityService);
         },
@@ -752,17 +677,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   sortCriterionList,
                   start,
                   count);
-          Set<Urn> authorizedUrns =
-              authorizedResultUrns(
-                  opContext,
-                  result.getEntities().stream()
-                      .map(LineageSearchEntity::getEntity)
-                      .collect(Collectors.toList()));
-          result.setEntities(
-              new LineageSearchEntityArray(
-                  result.getEntities().stream()
-                      .filter(e -> authorizedUrns.contains(e.getEntity()))
-                      .collect(Collectors.toList())));
+          result = EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
           return validateLineageSearchResult(opContext, result, entityService);
         },
         "searchAcrossRelationships");
@@ -834,17 +749,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   scrollId,
                   keepAlive,
                   count);
-          Set<Urn> authorizedUrns =
-              authorizedResultUrns(
-                  opContext,
-                  result.getEntities().stream()
-                      .map(LineageSearchEntity::getEntity)
-                      .collect(Collectors.toList()));
-          result.setEntities(
-              new LineageSearchEntityArray(
-                  result.getEntities().stream()
-                      .filter(e -> authorizedUrns.contains(e.getEntity()))
-                      .collect(Collectors.toList())));
+          result = EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
           return validateLineageScrollResult(opContext, result, entityService);
         },
         "scrollAcrossLineage");
@@ -880,17 +785,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(opContext,
         () -> {
             SearchResult result = entitySearchService.filter(opContext, entityName, finalFilter, sortCriterionList, start, count);
-          Set<Urn> authorizedUrns =
-              authorizedResultUrns(
-                  opContext,
-                  result.getEntities().stream()
-                      .map(SearchEntity::getEntity)
-                      .collect(Collectors.toList()));
-          result.setEntities(
-              new SearchEntityArray(
-                  result.getEntities().stream()
-                      .filter(e -> authorizedUrns.contains(e.getEntity()))
-                      .collect(Collectors.toList())));
+          result = EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
             return validateListResult(opContext,
                 toListResult(result), entityService);
           },
@@ -923,17 +818,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(opContext,
         () -> {
           AutoCompleteResult result = entitySearchService.autoComplete(opContext, entityName, query, field, filter, limit);
-          Set<Urn> authorizedUrns =
-              authorizedResultUrns(
-                  opContext,
-                  result.getEntities().stream()
-                      .map(AutoCompleteEntity::getUrn)
-                      .collect(Collectors.toList()));
-          result.setEntities(
-              new AutoCompleteEntityArray(
-                  result.getEntities().stream()
-                      .filter(e -> authorizedUrns.contains(e.getUrn()))
-                      .collect(Collectors.toList())));
+          result = EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
           return result; },
         MetricRegistry.name(this.getClass(), "autocomplete"));
   }
@@ -965,24 +850,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(opContext,
         () -> {
           BrowseResult result = entitySearchService.browse(opContext, entityName, path, filter, start, limit);
-          Set<Urn> authorizedUrns =
-              authorizedResultUrns(
-                  opContext,
-                  result.getEntities().stream()
-                      .map(BrowseResultEntity::getUrn)
-                      .collect(Collectors.toList()));
-          result.setEntities(
-              new BrowseResultEntityArray(
-                  result.getEntities().stream()
-                      .filter(e -> authorizedUrns.contains(e.getUrn()))
-                      .collect(Collectors.toList())));
-          // Known limitation, accepted and documented rather than implemented: result.getGroups()
-          // (and its numGroups/numElements) is a path-hierarchy aggregation computed by the search
-          // backend over the raw, unfiltered candidate set — unlike the entity list filtered above,
-          // there's no per-item authorized subset to slice these bucket counts down to without
-          // either backend support for authorization-aware aggregation or reimplementing the
-          // bucketing logic here in application code. Out of scope; group counts can include
-          // entities the actor can't see in the returned entity list.
+          result = EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
           return validateBrowseResult(opContext,
                 result,
                   entityService);
@@ -1426,17 +1294,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         () -> {
           SearchResult result = entitySearchService.filter(opContext.withSearchFlags(flags -> flags.setFulltext(true)),
                   entityName, filter, sortCriterionList, start, count);
-          Set<Urn> authorizedUrns =
-              authorizedResultUrns(
-                  opContext,
-                  result.getEntities().stream()
-                      .map(SearchEntity::getEntity)
-                      .collect(Collectors.toList()));
-          result.setEntities(
-              new SearchEntityArray(
-                  result.getEntities().stream()
-                      .filter(e -> authorizedUrns.contains(e.getEntity()))
-                      .collect(Collectors.toList())));
+          result = EntityAuthorizationUtils.filterAPIAuthorizedResult(opContext, result);
             return validateSearchResult(opContext,
                 result,
                     entityService);},

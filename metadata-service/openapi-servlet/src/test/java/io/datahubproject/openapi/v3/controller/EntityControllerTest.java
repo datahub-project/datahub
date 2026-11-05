@@ -37,6 +37,7 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
@@ -70,6 +71,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -2915,5 +2917,100 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         new Aspect(documentInfo.data()),
         SUB_TYPES_ASPECT_NAME,
         new Aspect(subTypes.data()));
+  }
+
+  private String scrollEntitiesHidingOneDataset(Urn hiddenUrn, ScrollResult searchResult)
+      throws Exception {
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(searchResult);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(Map.of());
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorizedEntityType(
+                      any(OperationContext.class), any(ApiOperation.class), anyCollection()))
+          .thenReturn(true);
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorizedEntityUrns(
+                      any(OperationContext.class), any(), anyCollection()))
+          .thenAnswer(
+              invocation -> !invocation.<Collection<Urn>>getArgument(2).contains(hiddenUrn));
+      return mockMvc
+          .perform(
+              MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                  .content(
+                      String.format(
+                          "{\"entities\":[\"dataset\"],\"filter\":{\"or\":[{\"and\":"
+                              + "[{\"field\":\"urn\",\"values\":[\"%s\"]}]}]}}",
+                          hiddenUrn))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andReturn()
+          .getResponse()
+          .getContentAsString();
+    }
+  }
+
+  @Test
+  public void testScrollEntitiesAnswersHiddenMatchLikeMissing() throws Exception {
+    Urn hiddenUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,hidden-scroll,PROD)");
+    ScrollResult missing =
+        new ScrollResult()
+            .setNumEntities(0)
+            .setPageSize(10)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(new SearchEntityArray());
+    ScrollResult hidden =
+        missing
+            .copy()
+            .setNumEntities(1)
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(hiddenUrn))));
+
+    assertEquals(
+        scrollEntitiesHidingOneDataset(hiddenUrn, hidden),
+        scrollEntitiesHidingOneDataset(hiddenUrn, missing));
+  }
+
+  @Test
+  public void testScrollEntitiesKeepsReadableMatchesAlongsideHiddenOnes() throws Exception {
+    Urn hiddenUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,hidden-scroll,PROD)");
+    Urn visibleUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,visible-scroll,PROD)");
+    ScrollResult result =
+        new ScrollResult()
+            .setNumEntities(2)
+            .setPageSize(10)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity().setEntity(visibleUrn),
+                        new SearchEntity().setEntity(hiddenUrn))));
+
+    JsonNode response =
+        new ObjectMapper().readTree(scrollEntitiesHidingOneDataset(hiddenUrn, result));
+
+    assertEquals(response.get("entities").size(), 1);
+    assertEquals(response.get("entities").get(0).get("urn").asText(), visibleUrn.toString());
+    assertEquals(response.get("totalCount").asInt(), 1);
   }
 }

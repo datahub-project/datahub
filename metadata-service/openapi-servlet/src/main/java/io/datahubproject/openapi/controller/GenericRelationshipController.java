@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
+import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
@@ -29,7 +30,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -42,6 +42,7 @@ public abstract class GenericRelationshipController {
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private GraphService graphService;
   @Autowired private AuthorizerChain authorizationChain;
+  @Autowired private RestrictedService restrictedService;
 
   @Qualifier("systemOperationContext")
   @Autowired
@@ -118,28 +119,11 @@ public abstract class GenericRelationshipController {
             null,
             null);
 
-    if (!AuthUtil.isAPIAuthorizedUrns(
-        opContext,
-        RELATIONSHIP,
-        READ,
-        result.getEntities().stream()
-            .flatMap(
-                edge ->
-                    Stream.of(
-                        UrnUtils.getUrn(edge.getSourceUrn()),
-                        UrnUtils.getUrn(edge.getDestinationUrn())))
-            .collect(Collectors.toSet()))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr()
-              + " is unauthorized to "
-              + READ
-              + " "
-              + RELATIONSHIP);
-    }
-
     return ResponseEntity.ok(
         GenericScrollResult.<GenericRelationship>builder()
-            .results(ScrollUtils.toGenericRelationships(result.getEntities()))
+            .results(
+                ScrollUtils.toAuthorizedGenericRelationships(
+                    opContext, restrictedService, result.getEntities()))
             .scrollId(result.getScrollId())
             .build());
   }
@@ -248,28 +232,11 @@ public abstract class GenericRelationshipController {
       default -> throw new IllegalArgumentException("Direction must be INCOMING or OUTGOING");
     }
 
-    if (!AuthUtil.isAPIAuthorizedUrns(
-        opContext,
-        RELATIONSHIP,
-        READ,
-        result.getEntities().stream()
-            .flatMap(
-                edge ->
-                    Stream.of(
-                        UrnUtils.getUrn(edge.getSourceUrn()),
-                        UrnUtils.getUrn(edge.getDestinationUrn())))
-            .collect(Collectors.toSet()))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr()
-              + " is unauthorized to "
-              + READ
-              + " "
-              + RELATIONSHIP);
-    }
-
     return ResponseEntity.ok(
         GenericScrollResult.<GenericRelationship>builder()
-            .results(ScrollUtils.toGenericRelationships(result.getEntities()))
+            .results(
+                ScrollUtils.toAuthorizedGenericRelationships(
+                    opContext, restrictedService, result.getEntities()))
             .scrollId(result.getScrollId())
             .build());
   }

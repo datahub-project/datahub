@@ -13,6 +13,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -36,6 +37,7 @@ import io.datahubproject.openapi.v3.models.ScrollRelationshipsRequestBody;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -411,6 +413,48 @@ public final class ScrollUtils {
                   .downstream((destinationIsUpstream ? source : destination).toString())
                   .build();
             })
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Edges as the caller may see them: an endpoint the caller cannot READ via RELATIONSHIP becomes
+   * an encrypted {@code urn:li:restricted:…} placeholder, as in {@link #doScrollLineage}, and an
+   * edge with no readable endpoint is left out, as an edge between entities that do not exist would
+   * be.
+   */
+  static List<GenericRelationship> toAuthorizedGenericRelationships(
+      OperationContext opContext,
+      RestrictedService restrictedService,
+      List<RelatedEntities> relatedEntities) {
+    Set<Urn> readable =
+        new HashSet<>(
+            EntityAuthorizationUtils.filterAPIAuthorizedUrns(
+                opContext,
+                RELATIONSHIP,
+                READ,
+                relatedEntities.stream()
+                    .flatMap(
+                        edge -> List.of(edge.getSourceUrn(), edge.getDestinationUrn()).stream())
+                    .map(UrnUtils::getUrn)
+                    .collect(Collectors.toSet())));
+    Function<Urn, Urn> redact =
+        urn -> readable.contains(urn) ? urn : restrictedService.encryptRestrictedUrn(urn);
+    return relatedEntities.stream()
+        .filter(
+            edge ->
+                readable.contains(UrnUtils.getUrn(edge.getSourceUrn()))
+                    || readable.contains(UrnUtils.getUrn(edge.getDestinationUrn())))
+        .map(
+            edge ->
+                GenericRelationship.builder()
+                    .relationshipType(edge.getRelationshipType())
+                    .source(
+                        GenericRelationship.GenericNode.fromUrn(
+                            redact.apply(UrnUtils.getUrn(edge.getSourceUrn()))))
+                    .destination(
+                        GenericRelationship.GenericNode.fromUrn(
+                            redact.apply(UrnUtils.getUrn(edge.getDestinationUrn()))))
+                    .build())
         .collect(Collectors.toList());
   }
 }
