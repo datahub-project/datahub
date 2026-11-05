@@ -5,6 +5,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { CodeBlock } from '@components/components/CodeBlock';
+
 import { Assertion, AssertionType } from '@types';
 
 const SectionTitle = styled.div`
@@ -13,47 +15,6 @@ const SectionTitle = styled.div`
     gap: 8px;
     font-weight: 600;
     color: ${(props) => props.theme.colors.text};
-`;
-
-const LogicContainer = styled.div`
-    background: ${(props) => props.theme.colors.bgSurface};
-    border-radius: 6px;
-    padding: 16px;
-    overflow-x: auto;
-    max-height: 400px;
-    overflow-y: auto;
-
-    pre {
-        margin: 0;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-    }
-
-    code {
-        color: ${(props) => props.theme.colors.text};
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 12px;
-        line-height: 1.5;
-    }
-`;
-
-const PropertiesContainer = styled.div`
-    background: ${(props) => props.theme.colors.bgSurface};
-    border-radius: 6px;
-    padding: 16px;
-    overflow-x: auto;
-    max-height: 300px;
-    overflow-y: auto;
-
-    pre {
-        margin: 0;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 12px;
-        line-height: 1.5;
-        color: ${(props) => props.theme.colors.text};
-    }
 `;
 
 type Props = {
@@ -121,11 +82,7 @@ export const AssertionDetailsSection = ({ assertion }: Props) => {
                         </SectionTitle>
                     }
                 >
-                    <LogicContainer>
-                        <pre>
-                            <code>{logic}</code>
-                        </pre>
-                    </LogicContainer>
+                    <CodeBlock code={logic} wrap maxHeight={400} showFormat={false} />
                 </CollapsiblePanel>
             )}
             {hasCustomProperties && (
@@ -137,9 +94,13 @@ export const AssertionDetailsSection = ({ assertion }: Props) => {
                         </SectionTitle>
                     }
                 >
-                    <PropertiesContainer>
-                        <pre>{JSON.stringify(customPropertiesObject, null, 2)}</pre>
-                    </PropertiesContainer>
+                    <CodeBlock
+                        code={JSON.stringify(customPropertiesObject, null, 2)}
+                        language="json"
+                        wrap
+                        maxHeight={300}
+                        showFormat={false}
+                    />
                 </CollapsiblePanel>
             )}
         </>

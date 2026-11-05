@@ -1,4 +1,4 @@
-import { Text } from '@components';
+import { Pill, Text } from '@components';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import i18next from 'i18next';
@@ -33,18 +33,6 @@ const StyledDescrptionContainer = styled.div`
     flex-direction: column;
     gap: 4px;
 `;
-const StyledColumnTag = styled.div`
-    align-items: center;
-    background-color: ${(props) => props.theme.colors.bgSurface};
-    width: fit-content;
-    border-radius: 12px;
-    height: 24px;
-    display: flex;
-    text-align: center;
-    justify-content: center;
-    padding: 0px 8px;
-`;
-
 /**
  * A human-readable description of a Field Assertion.
  * @param showColumnTag decide whether to show column tag or not
@@ -99,7 +87,9 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
     return (
         <StyledDescrptionContainer>
             <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>{descriptionContent}</Typography.Text>
-            {showColumnTag && <StyledColumnTag>{field}</StyledColumnTag>}
+            {showColumnTag && !!field && (
+                <Pill label={field} variant="filled" color="gray" size="sm" clickable={false} />
+            )}
         </StyledDescrptionContainer>
     );
 };

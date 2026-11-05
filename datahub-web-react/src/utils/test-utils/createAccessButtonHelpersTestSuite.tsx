@@ -201,7 +201,6 @@ export function createAccessButtonHelpersTestSuite(
                 expect(button).toBeDisabled();
                 expect(button).toHaveAttribute('aria-label', 'Access already granted');
             });
-
         });
 
         describe('Edge cases and comprehensive coverage', () => {

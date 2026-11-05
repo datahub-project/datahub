@@ -188,10 +188,7 @@ export default function ColumnStats({ columnStats, partitionSpec }: Props) {
         const columnsPresent: Set<string> = getItemKeySet(tableData);
 
         // Compute the final columns to render.
-        const columns = [
-            ...requiredColumns,
-            ...optionalColumns.filter((column) => columnsPresent.has(column.key)),
-        ];
+        const columns = [...requiredColumns, ...optionalColumns.filter((column) => columnsPresent.has(column.key))];
 
         return columns;
     };

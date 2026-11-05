@@ -61,7 +61,12 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
             {propertyRow.children ? (
                 <NameLabelWrapper>
                     <ParentNameText>
-                        <MatchText type="span" size="inherit" text={propertyRow.displayName} highlight={filterText || ''} />
+                        <MatchText
+                            type="span"
+                            size="inherit"
+                            text={propertyRow.displayName}
+                            highlight={filterText || ''}
+                        />
                     </ParentNameText>
                     {propertyRow.childrenCount ? (
                         <ChildCountText>&nbsp;({propertyRow.childrenCount})</ChildCountText>
@@ -78,7 +83,12 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
                         title={structuredProperty ? <StructuredPropertyTooltip propertyRow={propertyRow} /> : ''}
                     >
                         <ChildNameText>
-                            <MatchText type="span" size="inherit" text={propertyRow.displayName} highlight={filterText || ''} />
+                            <MatchText
+                                type="span"
+                                size="inherit"
+                                text={propertyRow.displayName}
+                                highlight={filterText || ''}
+                            />
                         </ChildNameText>
                     </Tooltip>
                 </NameLabelWrapper>

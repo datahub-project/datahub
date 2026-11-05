@@ -1,4 +1,4 @@
-import { Text } from '@components';
+import { PageTitle } from '@components';
 import React, { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -16,20 +16,6 @@ const TitleContainer = styled.div`
         border-bottom: 0px;
     }
 `;
-const IncidentListTitle = styled.div`
-    && {
-        margin-bottom: 0px;
-        font-size: 18px;
-        font-weight: 700;
-    }
-`;
-
-const SubTitle = styled(Text).attrs({ type: 'span' })`
-    font-size: 14px;
-    color: ${(props) => props.theme.colors.textSecondary};
-    line-height: inherit;
-    word-break: break-word;
-`;
 
 export const IncidentTitleContainer = ({
     privileges,
@@ -44,8 +30,7 @@ export const IncidentTitleContainer = ({
     return (
         <TitleContainer>
             <div className="left-section">
-                <IncidentListTitle>{t('list.title')}</IncidentListTitle>
-                <SubTitle>{t('list.subtitle')}</SubTitle>
+                <PageTitle variant="sectionHeader" title={t('list.title')} subTitle={t('list.subtitle')} />
             </div>
             <CreateIncidentButton
                 privileges={privileges}

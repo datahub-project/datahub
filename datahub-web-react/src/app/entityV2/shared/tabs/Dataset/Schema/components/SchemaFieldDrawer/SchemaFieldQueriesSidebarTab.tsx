@@ -1,4 +1,4 @@
-import { Button, Text } from '@components';
+import { Button, EmptyState, Text } from '@components';
 import React, { useEffect } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -80,25 +80,10 @@ const QueriesTabContainer = styled.div`
     margin: auto;
 `;
 
-const NoDataContainer = styled.div`
-    margin: 40px auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-`;
-
 const NoStatsIcon = styled(NoStatsAvailble)`
     width: 80px;
     height: 80px;
-    margin-bottom: 6px;
     color: ${(props) => props.theme.colors.bg};
-`;
-
-const Section = styled.div`
-    color: ${(props) => props.theme.colors.textSecondary};
-    font-weight: 700;
-    font-size: 12px;
-    line-height: 24px;
 `;
 
 const QueriesTitle = styled(Text).attrs({ type: 'span' })`
@@ -152,10 +137,7 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
     return (
         <QueriesTabContainer>
             {!loading && hasNoQueries && (
-                <NoDataContainer>
-                    <NoStatsIcon />
-                    <Section>{t('queriesSidebarTab.noQueriesFound')}</Section>
-                </NoDataContainer>
+                <EmptyState title={t('queriesSidebarTab.noQueriesFound')} image={<NoStatsIcon />} size="sm" />
             )}
             {loading && <Loading />}
             {!loading && firstQueries.length > 0 && <QueriesTitle>{t('queriesSidebarTab.sectionTitle')}</QueriesTitle>}

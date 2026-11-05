@@ -1,4 +1,4 @@
-import { Text } from '@components';
+import { EmptyState, Text } from '@components';
 import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import React from 'react';
@@ -63,24 +63,9 @@ const TrendLines = styled.div`
     margin-top: 4px;
 `;
 
-const NoDataContainer = styled.div`
-    margin: 40px auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-`;
-
-const Section = styled.div`
-    color: ${(props) => props.theme.colors.textSecondary};
-    font-weight: 700;
-    font-size: 12px;
-    line-height: 24px;
-`;
-
 const NoStatsIcon = styled(NoStatsAvailble)`
     width: 80px;
     height: 80px;
-    margin-bottom: 6px;
     color: ${(props) => props.theme.colors.bg};
 `;
 
@@ -125,12 +110,7 @@ export function StatsSidebarContent({ properties }: Props) {
     };
 
     if (!fieldProfile) {
-        return (
-            <NoDataContainer>
-                <NoStatsIcon />
-                <Section>{t('statsSidebar.noColumnStatsFound')}</Section>
-            </NoDataContainer>
-        );
+        return <EmptyState title={t('statsSidebar.noColumnStatsFound')} image={<NoStatsIcon />} size="sm" />;
     }
 
     const statsData = {

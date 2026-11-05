@@ -53,9 +53,5 @@ export const VolumeAssertionDescription = ({ assertionInfo, ellipsis }: Props) =
         key = `volumeDescription.total${operatorKeyPart}`;
     }
 
-    return (
-        <div>
-            {ellipsis ? <OverflowText text={t(key, interpolation)} /> : <span>{t(key, interpolation)}</span>}
-        </div>
-    );
+    return <div>{ellipsis ? <OverflowText text={t(key, interpolation)} /> : <span>{t(key, interpolation)}</span>}</div>;
 };

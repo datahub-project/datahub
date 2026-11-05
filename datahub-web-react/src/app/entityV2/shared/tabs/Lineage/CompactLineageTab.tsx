@@ -1,4 +1,4 @@
-import { Button, Divider, Icon, Tooltip } from '@components';
+import { Button, Divider, Icon, Pill, TabButtons, Tooltip } from '@components';
 import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
 import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
@@ -20,19 +20,6 @@ const Container = styled.div`
     overflow: hidden;
     display: flex;
     flex-direction: column;
-`;
-
-// inline-flex: alchemy Button is display: flex, and these sit side by side in a block container
-const LineageButton = styled(Button)<{ $isSelected: boolean }>`
-    &&& {
-        display: inline-flex;
-        background-color: ${(props) => (props.$isSelected ? props.theme.colors.buttonFillBrand : 'none')};
-        color: ${(props) => (props.$isSelected ? props.theme.colors.bg : props.theme.colors.textTertiary)};
-        border-radius: 8px;
-        margin-right: 12px;
-        min-height: 32px;
-        ${(props) => props.$isSelected && `border-color: ${props.theme.colors.borderBrand}`};
-    }
 `;
 
 const ThinDivider = styled(Divider)`
@@ -59,20 +46,7 @@ const LevelFilters = styled.div`
     display: flex;
     align-items: center;
     justify-content: start;
-`;
-
-const LevelFilter = styled.div<{ $isSelected: boolean }>`
-    font-size: 14px;
-    padding: 2px 8px;
-    margin-right: 12px;
-    border-radius: 8px;
-    color: ${(props) => (props.$isSelected ? props.theme.colors.textBrand : props.theme.colors.textTertiary)};
-    border: 1px solid
-        ${(props) => (props.$isSelected ? props.theme.colors.borderBrand : props.theme.colors.textTertiary)};
-    &:hover {
-        opacity: 0.8;
-        cursor: pointer;
-    }
+    gap: 12px;
 `;
 
 const AdvancedFiltersButton = styled(Button)<{ $isSelected: boolean }>`
@@ -196,37 +170,43 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
     return (
         <Container>
             <Actions>
-                {directionOptions.map((option) => (
-                    <Tooltip title={option.tip} placement="bottom" showArrow={false}>
-                        <LineageButton
-                            variant="outline"
-                            color="gray"
-                            $isSelected={selectedDirection === option.value}
-                            onClick={() => setDirection(option.value)}
-                        >
-                            {option.label}
-                        </LineageButton>
-                    </Tooltip>
-                ))}
+                <TabButtons
+                    tabs={directionOptions.map((option) => ({
+                        key: option.value,
+                        label: (
+                            <Tooltip title={option.tip} placement="bottom" showArrow={false}>
+                                {option.label}
+                            </Tooltip>
+                        ),
+                    }))}
+                    activeTab={selectedDirection}
+                    onTabClick={(key) => setDirection(key as LineageDirection)}
+                />
             </Actions>
             <ThinDivider />
             <Filters>
                 <LevelFilters>
                     <Tooltip title={t('levelFilter.directTooltip')} placement="bottom" showArrow={false}>
-                        <LevelFilter
-                            $isSelected={selectedLevels.has(LevelFilterType.DIRECT)}
-                            onClick={() => toggleLevelFilter(LevelFilterType.DIRECT)}
-                        >
-                            {t('levelFilter.direct')}
-                        </LevelFilter>
+                        <span>
+                            <Pill
+                                label={t('levelFilter.direct')}
+                                variant="outline"
+                                color={selectedLevels.has(LevelFilterType.DIRECT) ? 'primary' : 'gray'}
+                                clickable
+                                onPillClick={() => toggleLevelFilter(LevelFilterType.DIRECT)}
+                            />
+                        </span>
                     </Tooltip>
                     <Tooltip title={t('levelFilter.indirectTooltip')} placement="bottom" showArrow={false}>
-                        <LevelFilter
-                            $isSelected={selectedLevels.has(LevelFilterType.INDIRECT)}
-                            onClick={() => toggleLevelFilter(LevelFilterType.INDIRECT)}
-                        >
-                            {t('levelFilter.indirect')}
-                        </LevelFilter>
+                        <span>
+                            <Pill
+                                label={t('levelFilter.indirect')}
+                                variant="outline"
+                                color={selectedLevels.has(LevelFilterType.INDIRECT) ? 'primary' : 'gray'}
+                                clickable
+                                onPillClick={() => toggleLevelFilter(LevelFilterType.INDIRECT)}
+                            />
+                        </span>
                     </Tooltip>
                 </LevelFilters>
                 <Tooltip
