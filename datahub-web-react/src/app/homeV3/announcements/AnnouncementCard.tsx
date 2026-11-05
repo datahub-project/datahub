@@ -1,8 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
+import { Editor } from '@app/sharedV2/editor/Editor';
 import { Alert } from '@src/alchemy-components';
-import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { Post } from '@types';
 
