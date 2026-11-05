@@ -32,9 +32,7 @@ dependencies {
 
   compileOnly 'org.projectlombok:lombok:1.18.42'
   annotationProcessor 'org.projectlombok:lombok:1.18.42'
-}
 
-dependencies {
   testImplementation platform('org.junit:junit-bom:5.12.2')
   testImplementation 'org.junit.jupiter:junit-jupiter'
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -45,7 +43,8 @@ test {
 }
 
 // Gradle builds buildSrc without running its tests; make the jar the main build uses depend on
-// them, so a change here is tested by every build that picks it up (cached when unchanged).
+// them, so a change here is tested by every build that picks it up (cached when unchanged). A
+// failing test here therefore fails every Gradle invocation, including IDE sync.
 tasks.named('jar') {
   dependsOn test
 }

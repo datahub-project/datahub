@@ -16,6 +16,10 @@ dependencies {
 }
 
 def testTask = tasks.named('test', Test)
+// A module without test sources has nothing to record: its check needs no test run, and is hooked
+// into `check` so CI paths that only schedule `:module:test` for modules with tests (the sharded
+// jobs) still enforce it through `build`.
+def hasNoTests = { sourceSets.test.allSource.isEmpty() }
 testTask.configure {
   def recorderArgs = objects.newInstance(WiringCoverageRecorderArgs)
   recorderArgs.dir.set(recordDir)
@@ -30,7 +34,7 @@ def checkTask = tasks.register('checkWiringCoverage', WiringCoverageCheck) {
   description = 'Fails when a Spring configuration class is neither loaded by a real-context test nor baselined.'
   classesDirs.from(sourceSets.main.output.classesDirs)
   // A NO-SOURCE test task never runs its doFirst cleanup, so ignore whatever an earlier run left.
-  recordings.from({ testTask.get().state.noSource ? [] : recordDir })
+  recordings.from({ (hasNoTests() || testTask.get().state.noSource) ? [] : recordDir })
   baseline.set(layout.projectDirectory.file('wiring-baseline.txt'))
   projectPath.set(project.path)
   rootDirectory.set(rootProject.layout.projectDirectory)
@@ -44,9 +48,14 @@ def checkTask = tasks.register('checkWiringCoverage', WiringCoverageCheck) {
   }
   // Coverage is only meaningful after the full suite ran (or was restored from cache).
   onlyIf('the test task ran its whole suite successfully') {
+    if (hasNoTests()) {
+      return true
+    }
     def t = testTask.get()
     // Run standalone, the recordings would be stale or missing.
     if (!project.gradle.taskGraph.hasTask(t)) {
+      // Normal when check runs without test (e.g. `build -x test`); --info explains the skip.
+      logger.info("checkWiringCoverage skipped for ${project.path}: test is not part of this build")
       return false
     }
     def s = t.state
@@ -60,4 +69,8 @@ def checkTask = tasks.register('checkWiringCoverage', WiringCoverageCheck) {
     def filtered = !t.filter.commandLineIncludePatterns.isEmpty()
     ran && s.failure == null && !filtered
   }
+}
+
+tasks.named('check') {
+  dependsOn checkTask
 }

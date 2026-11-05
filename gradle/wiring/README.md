@@ -38,6 +38,11 @@ tests by module.
 The check is skipped when the test task failed or ran with `--tests` (a partial run). It adds a
 class-file scan (well under a second) to each module's test run.
 
+A module with no test sources has nothing to record, so its check runs from `check` without a test
+run, and every configuration class it has must be baselined. Custom annotations meta-annotated with
+`@Configuration` are only recognised when declared in the same module; classes using one from
+another module are found only if they declare `@Bean` methods.
+
 ## When the check fails
 
 - **New uncovered class:** add a Spring test that loads it and lets at least one of its `@Bean`
