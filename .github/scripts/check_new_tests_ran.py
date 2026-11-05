@@ -16,9 +16,11 @@ Inputs:
     artifacts). Every ``*.xml`` below them is read; non-JUnit XML is ignored.
 
 A Java/Kotlin/Groovy test class is a top-level class in a test source dir (``src/test``,
-``src/integTest``, ``src/integrationTest``, ``datahub-frontend/test``) whose body carries a
-test annotation (``@Test``, ``@ParameterizedTest``, ``@RepeatedTest``, ``@TestFactory``,
-``@TestTemplate``) or that is annotated ``@Test`` at class level (TestNG). It counts as run
+``src/integTest``, ``src/integrationTest``, ``datahub-frontend/test``, and the custom
+``src/sparkSmoke4`` / ``src/productUpdateCiGate`` sets) whose body carries a test annotation
+(``@Test``, ``@ParameterizedTest``, ``@RepeatedTest``, ``@TestFactory``, ``@TestTemplate``),
+that is annotated ``@Test`` at class level (TestNG), or that is concrete and extends a test
+class (all its tests inherited, e.g. a per-backend ``FooOpenSearchTest``). It counts as run
 when at least one non-skipped ``<testcase>`` has ``classname`` equal to its FQCN or to a
 nested class of it (``Outer$Inner``, JUnit 5 ``@Nested``). An abstract class or interface is
 never instantiated by the runner; it counts as run when any concrete subclass (found by
@@ -42,8 +44,6 @@ Typical local run against a real CI run::
         --changed-files-from /tmp/files.txt --results-dir /tmp/run --language java
 """
 
-from __future__ import annotations
-
 import argparse
 import fnmatch
 import json
@@ -62,7 +62,15 @@ DEFAULT_OPTOUT_FILE = ".github/new-tests-ran-optout.json"
 JVM_EXTENSIONS = (".java", ".kt", ".groovy")
 # Path fragments that mark a JVM test source set. datahub-frontend is a Play app whose tests
 # live in <module>/test rather than <module>/src/test.
-JVM_TEST_DIR_MARKERS = ("/src/test/", "/src/integTest/", "/src/integrationTest/")
+JVM_TEST_DIR_MARKERS = (
+    "/src/test/",
+    "/src/integTest/",
+    "/src/integrationTest/",
+    # Custom Test-task source sets: acryl-spark-lineage's Spark 4 smoke tests and
+    # metadata-service/configuration's product-update CI gate.
+    "/src/sparkSmoke4/",
+    "/src/productUpdateCiGate/",
+)
 JVM_TEST_DIR_PREFIXES = ("datahub-frontend/test/",)
 
 # `@Test` and friends, optionally fully qualified. `\b` after the name keeps
@@ -74,7 +82,7 @@ TEST_ANNOTATION_RE = re.compile(
 TYPE_DECL_RE = re.compile(
     r"(?<![\w$.])((?:(?:public|protected|private|internal|abstract|open|final|static|sealed"
     r"|non-sealed|strictfp|data|inner)\s+)*)"
-    r"(class|interface|enum|record|object)\s+([A-Za-z_$][\w$]*)"
+    r"(class|interface|enum|record|object)\s+([^\W\d][\w$]*)"
 )
 JAVA_PACKAGE_RE = re.compile(r"^\s*package\s+([\w.]+)\s*;?", re.MULTILINE)
 PY_TEST_FUNC_RE = re.compile(r"^\s*(?:async\s+)?def\s+test", re.MULTILINE)
@@ -121,7 +129,10 @@ def load_results(dirs: Sequence[str]) -> Results:
                 classname = case.get("classname") or ""
                 if not classname:
                     continue
-                results.add(classname, case.find("skipped") is not None)
+                skipped = case.find("skipped")
+                # pytest reports xfail as <skipped type="pytest.xfail">, but the test did run.
+                ran_anyway = skipped is not None and skipped.get("type") == "pytest.xfail"
+                results.add(classname, skipped is not None and not ran_anyway)
     return results
 
 
@@ -198,6 +209,8 @@ def _supertypes(header: str, kotlin: bool) -> Tuple[str, ...]:
     header = _strip_generics(header)
     names: List[str] = []
     if kotlin:
+        # Drop the primary constructor `(val x: Int)` so its `:` is not taken for the supertype list.
+        header = re.sub(r"^\s*(?:\w+\s+)*\([^)]*\)", "", header)
         m = re.search(r":\s*(.+)$", header, re.DOTALL)
         if m:
             names += [p.strip() for p in m.group(1).split(",")]
@@ -310,10 +323,16 @@ class SourceIndex:
     def __init__(self, paths: Iterable[str], read: Callable[[str], Optional[str]]):
         self._paths = [p for p in paths if is_jvm_test_source(p)]
         self._read = read
-        self._subclasses: Optional[Dict[str, List[Tuple[str, TypeDecl]]]] = None
+        self._built = False
+        # simple name -> [(fqcn, decl)] of the types that extend/implement it
+        self._subclasses: Dict[str, List[Tuple[str, TypeDecl]]] = defaultdict(list)
+        # simple name -> decls with that name (simple-name resolution, like the subclass lookup)
+        self._by_name: Dict[str, List[TypeDecl]] = defaultdict(list)
 
-    def _build(self) -> Dict[str, List[Tuple[str, TypeDecl]]]:
-        index: Dict[str, List[Tuple[str, TypeDecl]]] = defaultdict(list)
+    def _build(self) -> None:
+        if self._built:
+            return
+        self._built = True
         for p in self._paths:
             text = self._read(p)
             if text is None:
@@ -321,13 +340,32 @@ class SourceIndex:
             package, decls = parse_jvm_types(text, kotlin=p.endswith(".kt"))
             for d in decls:
                 fqcn = f"{package}.{d.name}" if package else d.name
+                self._by_name[d.name].append(d)
                 for sup in d.supertypes:
-                    index[sup].append((fqcn, d))
-        return index
+                    self._subclasses[sup].append((fqcn, d))
+
+    def inherits_tests(self, decl: TypeDecl) -> bool:
+        """True when a supertype (transitively, within test sources) declares test methods.
+
+        A concrete `FooEs8Test extends FooTestBase` with only overrides is exactly the class a
+        suite split drops, so it must be checked even though it has no @Test of its own.
+        """
+        self._build()
+        seen: Set[str] = set()
+        queue = list(decl.supertypes)
+        while queue:
+            name = queue.pop()
+            if name in seen:
+                continue
+            seen.add(name)
+            for parent in self._by_name.get(name, []):
+                if parent.has_tests:
+                    return True
+                queue.extend(parent.supertypes)
+        return False
 
     def concrete_subclasses(self, simple_name: str) -> List[str]:
-        if self._subclasses is None:
-            self._subclasses = self._build()
+        self._build()
         seen: Set[str] = set()
         concrete: List[str] = []
         queue = [simple_name]
@@ -377,7 +415,11 @@ def evaluate(
                 report.ignored.append((path, "file not readable (deleted?)"))
                 continue
             package, decls = parse_jvm_types(text, kotlin=path.endswith(".kt"))
-            test_decls = [d for d in decls if d.has_tests]
+            test_decls = [
+                d
+                for d in decls
+                if d.has_tests or (not d.abstract and source_index.inherits_tests(d))
+            ]
             if not test_decls:
                 report.ignored.append((path, "no test annotations (helper/fixture)"))
                 continue
@@ -437,8 +479,8 @@ def _git(repo_root: str, *args: str) -> str:
 
 def changed_files_from_git(repo_root: str, base: str, head: str) -> List[str]:
     merge_base = _git(repo_root, "merge-base", base, head).strip()
-    out = _git(repo_root, "diff", "--name-only", "--diff-filter=AMR", "-M", merge_base, head)
-    return [line for line in out.splitlines() if line]
+    out = _git(repo_root, "diff", "-z", "--name-only", "--diff-filter=AMR", "-M", merge_base, head)
+    return [p for p in out.split("\0") if p]
 
 
 class GitBlobReader:
@@ -481,9 +523,9 @@ def read_worktree_file(repo_root: str, path: str) -> Optional[str]:
 
 
 def list_repo_files(repo_root: str, rev: Optional[str]) -> List[str]:
-    args = ["ls-tree", "-r", "--name-only", rev] if rev else ["ls-files"]
+    args = ["ls-tree", "-r", "-z", "--name-only", rev] if rev else ["ls-files", "-z"]
     try:
-        return _git(repo_root, *args).splitlines()
+        return [p for p in _git(repo_root, *args).split("\0") if p]
     except (subprocess.CalledProcessError, FileNotFoundError):
         root = Path(repo_root)
         return [str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()]
@@ -596,6 +638,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     repo_root = args.repo_root
     languages = set(args.language or ["java"])
+    if args.head:
+        try:
+            _git(repo_root, "rev-parse", "--verify", "--quiet", f"{args.head}^{{commit}}")
+        except (subprocess.CalledProcessError, OSError):
+            # Otherwise every file reads as "missing" and the check passes vacuously.
+            print(f"error: --head {args.head} is not a commit in {repo_root}", file=sys.stderr)
+            return 2
     git_reader = GitBlobReader(repo_root, args.head) if args.head else None
     try:
         return _run(args, repo_root, languages, git_reader)

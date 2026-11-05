@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Unit tests for check_new_tests_ran (run by test-github-scripts.yml: pytest .github/scripts/test)."""
 
-from __future__ import annotations
-
 import io
 import json
 import subprocess
@@ -128,10 +126,16 @@ class ParseTests(unittest.TestCase):
             (decls[0].name, decls[0].has_tests, decls[0].supertypes), ("KTest", True, ("Base",))
         )
 
+    def test_kotlin_primary_constructor_is_not_a_supertype(self) -> None:
+        src = "package com.k\n\nclass KTest(val x: Int) : BaseTest() {\n  @Test fun t() {}\n}\n"
+        _, decls = cntr.parse_jvm_types(src, kotlin=True)
+        self.assertEqual(decls[0].supertypes, ("BaseTest",))
+
     def test_test_source_paths(self) -> None:
         self.assertTrue(cntr.is_jvm_test_source("a/src/test/java/X.java"))
         self.assertTrue(cntr.is_jvm_test_source("a/b/src/integTest/java/X.java"))
         self.assertTrue(cntr.is_jvm_test_source("datahub-frontend/test/app/X.java"))
+        self.assertTrue(cntr.is_jvm_test_source("a/src/sparkSmoke4/java/X.java"))
         self.assertFalse(cntr.is_jvm_test_source("a/src/main/java/X.java"))
         self.assertFalse(cntr.is_jvm_test_source("a/src/testFixtures/java/X.java"))
         self.assertTrue(cntr.is_python_test_source("metadata-ingestion/tests/unit/test_a.py"))
@@ -211,6 +215,21 @@ class EvaluateTests(unittest.TestCase):
         report = run_eval(files, [], changed=[f"{TEST_DIR}/BaseTest.java"])
         self.assertIn("none of its concrete subclasses", report.failures[0].detail)
 
+    def test_concrete_subclass_with_only_inherited_tests_is_checked(self) -> None:
+        # A per-backend subclass that only overrides setup is what a suite split drops.
+        files = {
+            f"{TEST_DIR}/SearchTestBase.java": java("SearchTestBase", head="public abstract class"),
+            f"{TEST_DIR}/SearchEs8Test.java": (
+                "package com.x;\npublic class SearchEs8Test extends SearchTestBase<Foo> {\n"
+                "  @Override protected int port() { return 1; }\n}\n"
+            ),
+        }
+        changed = [f"{TEST_DIR}/SearchEs8Test.java"]
+        report = run_eval(files, [("com.x.SearchOsTest", "t", False)], changed=changed)
+        self.assertEqual([c.name for c in report.failures], ["com.x.SearchEs8Test"])
+        report = run_eval(files, [("com.x.SearchEs8Test", "t", False)], changed=changed)
+        self.assertEqual((report.failures, len(report.checked)), ([], 1))
+
     def test_optout_by_name_glob_and_path(self) -> None:
         files = {
             f"{TEST_DIR}/ATest.java": java("ATest"),
@@ -261,6 +280,17 @@ class ResultsLoadingTests(unittest.TestCase):
         self.assertEqual(results.junit_files, 2)
         self.assertEqual(set(results.by_classname), {"com.x.A", "com.x.B"})
         self.assertEqual(len(results.unreadable_files), 1)
+
+    def test_pytest_xfail_counts_as_executed(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, "junit.xml").write_text(
+                '<testsuites><testsuite><testcase classname="tests.t" name="a">'
+                '<skipped type="pytest.xfail" message="known"/></testcase>'
+                '<testcase classname="tests.t" name="b"><skipped type="pytest.skip"/></testcase>'
+                "</testsuite></testsuites>"
+            )
+            counts = cntr.load_results([d]).by_classname["tests.t"]
+        self.assertEqual((counts.executed, counts.skipped), (1, 1))
 
     def test_optout_reason_required(self) -> None:
         with tempfile.TemporaryDirectory() as d:
@@ -348,6 +378,50 @@ class MainTests(unittest.TestCase):
                 str(Path(d, "nope")),
             )
         self.assertEqual(rc, 2)
+
+    def test_unknown_head_is_usage_error(self) -> None:
+        # Otherwise every file reads as missing and the check passes vacuously.
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            self._git(repo, "init", "-q")
+            self._git(repo, "commit", "-q", "--allow-empty", "-m", "c")
+            files = repo / "files.txt"
+            files.write_text(f"{TEST_DIR}/FooTest.java\n")
+            rc, _ = self._main(
+                "--repo-root",
+                d,
+                "--changed-files-from",
+                str(files),
+                "--head",
+                "0123456789abcdef0123456789abcdef01234567",
+                "--results-dir",
+                d,
+            )
+        self.assertEqual(rc, 2)
+
+    def test_non_ascii_path_in_git_diff(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            repo, res = Path(d, "repo"), Path(d, "res")
+            res.mkdir()
+            src = repo / "m/src/test/java/é"
+            src.mkdir(parents=True)
+            self._git(repo, "init", "-q", "-b", "main")
+            self._git(repo, "commit", "-q", "--allow-empty", "-m", "base")
+            (src / "ÉTest.java").write_text(java("ÉTest").replace("com.x", "é"))
+            self._git(repo, "add", ".")
+            self._git(repo, "commit", "-qm", "add")
+            rc, out = self._main(
+                "--repo-root",
+                str(repo),
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--results-dir",
+                str(res),
+            )
+        self.assertEqual(rc, 1, out)
+        self.assertIn("NOT RUN é.ÉTest", out)
 
 
 if __name__ == "__main__":
