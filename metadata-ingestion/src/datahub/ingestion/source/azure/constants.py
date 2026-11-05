@@ -61,9 +61,9 @@ ADF_LINKED_SERVICE_PLATFORM_MAP: Dict[str, str] = {
     "CosmosDbMongoDbApi": "mongodb",
     "SapHana": "hana",
     # SAP ERP tables
-    "SapTable": "SapTable",
+    "SapTable": "saptable",
     # SAP Open Hub
-    "SapOpenHub": "SapOpenHub",
+    "SapOpenHub": "sapopenhub",
     # Data Warehouses
     "Hive": "hive",
     "Spark": "spark",
