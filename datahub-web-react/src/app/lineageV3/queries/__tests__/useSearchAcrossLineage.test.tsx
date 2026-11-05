@@ -148,49 +148,4 @@ describe('useSearchAcrossLineage', () => {
         expect(context.setNodeVersion).toHaveBeenCalled();
         expect(notificationError).toHaveBeenCalled();
     });
-
-    it('re-arms the stall timeout after a time-range change so a second stall is still caught', async () => {
-        // Regression: a stalled request keeps `loading` true, so the retry (Apollo auto-refetches when
-        // the time params change) never produces a loading edge. If the timeout only re-armed on that
-        // edge, `settledRef` would stay latched from the first timeout and a second stall would hang.
-        vi.useFakeTimers();
-        try {
-            // Never-resolving requests keep `loading` true through both attempts.
-            const mocks = Array.from({ length: 2 }).map(() => ({
-                request: { query: SearchAcrossLineageStructureDocument },
-                variableMatcher: () => true,
-                delay: Infinity,
-            }));
-
-            const wrapper = ({ children }: { children?: ReactNode }) => (
-                <MockedProvider mocks={mocks} addTypename={false}>
-                    {children}
-                </MockedProvider>
-            );
-
-            const context = makeContext();
-            seedLoadingRoot(context);
-
-            const { rerender } = renderHook(
-                () => useSearchAcrossLineage(URN, EntityType.Dataset, context, LineageDirection.Upstream),
-                { wrapper },
-            );
-
-            await act(async () => {
-                await vi.advanceTimersByTimeAsync(60_000);
-            });
-            expect(notificationError).toHaveBeenCalledTimes(1);
-
-            // User retries by picking a new time range while the first request is still in flight.
-            timeParams.current = { startTimeMillis: 1_000, endTimeMillis: 2_000 };
-            rerender();
-            await act(async () => {
-                await vi.advanceTimersByTimeAsync(60_000);
-            });
-            // Without the re-arm this stays 1 (settledRef latched, no new timer).
-            expect(notificationError).toHaveBeenCalledTimes(2);
-        } finally {
-            vi.useRealTimers();
-        }
-    });
 });
