@@ -329,6 +329,17 @@ public class FieldTypeMapperTest {
   }
 
   @Test
+  public void testRichTextMappingHasNoKeywordParent() {
+    Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.RICH_TEXT);
+    assertEquals(mapping.get("type"), "text");
+    assertEquals(mapping.get("analyzer"), "rich_text_delimited");
+    assertEquals(mapping.get("search_analyzer"), "query_rich_text_delimited");
+    assertFalse(mapping.containsKey("fields"));
+    assertFalse(mapping.containsKey("ignore_above"));
+    assertEquals(FieldTypeMapper.getElasticsearchTypeForFieldType(FieldType.RICH_TEXT), "text");
+  }
+
+  @Test
   public void testUnlabeledTextFallbackHasNoAnalyzerSubfields() {
     List<FieldMapping> mappings = FieldMapping.fallback(FieldType.TEXT, false);
     assertEquals(mappings.size(), 1);

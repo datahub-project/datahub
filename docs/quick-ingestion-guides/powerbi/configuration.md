@@ -39,10 +39,10 @@ This will securely store your client secret value.
 
 ## Configure Recipe
 
-1.  Navigate to the **Sources** tab and click **Create new source**
+1.  Navigate to the **Sources** tab and click **Create Source**
 
   <p align="center">
-    <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
+    <img width="75%" alt="Click &quot;Create Source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
   </p>
 
 2.  Choose Power BI
@@ -52,6 +52,8 @@ This will securely store your client secret value.
   </p>
 
 3.  Enter details into the Power BI Recipe
+
+    Enter a **Source Name** at the top of the **Connection Details** page, then fill in the connection fields.
 
     You need to set minimum 3 field in the recipe:
 
@@ -77,13 +79,11 @@ Your recipe should look something like this:
   <img width="70%" alt="tenant id" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-recipe-window.png"/>
 </p>
 
-After completing the recipe, click **Next**.
-
 ## Schedule Execution
 
 Now it's time to schedule a recurring ingestion pipeline to regularly extract metadata from your Power BI instance.
 
-1. Decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
+1. In the **Sync Schedule** section, turn on **Run on a schedule**, then decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
 
 <p align="center">
     <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_schedule.png"/>
@@ -94,14 +94,9 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
     <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_timezone.png"/>
 </p>
 
-3. Click **Next** when you are done
+## Save and Run
 
-## Finish Up
-
-1. Name your ingestion source, then click **Save and Run**
-<p align="center">
-  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-source-window.png"/>
-</p>
+1. Click **Save and Run** at the top of the page
 
 You will now find your new ingestion source running
 
@@ -117,13 +112,13 @@ You will now find your new ingestion source running
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-succeeded.png"/>
 </p>
 
-2. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
+2. Open the **Run History** tab to see the full list of historical runs and outcomes; click a run's status to open its **Run Details** page
 
 <p align="center">
   <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-history.png"/>
 </p>
 
-3. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
+3. In the **Assets** section of the **Run Details** page, click **View all** to see which entities were ingested
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-detail.png"/>

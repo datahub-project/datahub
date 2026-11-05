@@ -3,8 +3,8 @@ import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import analytics, { EventType } from '@src/app/analytics';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 
 const VIEW_DOCUMENTATION_LINK = 'https://datahubproject.io/integrations/';
