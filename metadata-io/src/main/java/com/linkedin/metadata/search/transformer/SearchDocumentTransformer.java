@@ -22,6 +22,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -31,6 +32,7 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -54,6 +56,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -90,6 +93,47 @@ public class SearchDocumentTransformer {
   public static final Set<String> SEMANTIC_DATA_ASPECTS = Set.of("semanticContent");
 
   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
+
+  /**
+   * Set while a Search V3 document is projected. That path reads structured-property definitions
+   * through the entity-client cache.
+   */
+  private static final ThreadLocal<Integer> V3_PROJECTION_DEPTH = ThreadLocal.withInitial(() -> 0);
+
+  /**
+   * Search V3 copies a business attribute's searchable fields only when this is set. The default
+   * stores the URN from the event. V2 expansion does not read this flag.
+   */
+  @Setter private boolean v3BusinessAttributeExpansionEnabled;
+
+  public static void beginV3Projection() {
+    V3_PROJECTION_DEPTH.set(V3_PROJECTION_DEPTH.get() + 1);
+  }
+
+  public static void endV3Projection() {
+    int depth = V3_PROJECTION_DEPTH.get();
+    if (depth <= 1) {
+      V3_PROJECTION_DEPTH.remove();
+    } else {
+      V3_PROJECTION_DEPTH.set(depth - 1);
+    }
+  }
+
+  private static boolean v3Projection() {
+    return V3_PROJECTION_DEPTH.get() > 0;
+  }
+
+  @Nonnull
+  private static AspectRetriever structuredPropertyRetriever(
+      @Nonnull final OperationContext opContext) {
+    if (v3Projection() && opContext.getRetrieverContext() != null) {
+      AspectRetriever caching = opContext.getRetrieverContext().getCachingAspectRetriever();
+      if (caching instanceof EntityClientAspectRetriever) {
+        return caching;
+      }
+    }
+    return opContext.getAspectRetriever();
+  }
 
   public Optional<String> transformSnapshot(
       final RecordTemplate snapshot, final EntitySpec entitySpec, final Boolean forDelete) {
@@ -532,8 +576,7 @@ public class SearchDocumentTransformer {
                     StructuredPropertyValueAssignment::getPropertyUrn, Collectors.toSet()));
 
     Map<Urn, Map<String, Aspect>> definitions =
-        opContext
-            .getAspectRetriever()
+        structuredPropertyRetriever(opContext)
             .getLatestAspectObjects(
                 opContext,
                 propertyMap.keySet(),
@@ -701,7 +744,7 @@ public class SearchDocumentTransformer {
       searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
       return;
     }
-    int depth = searchableRefFieldSpec.getSearchableRefAnnotation().getDepth();
+    int depth = refDepth(searchableRefFieldSpec);
     if (isArray) {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
       fieldValues
@@ -718,6 +761,20 @@ public class SearchDocumentTransformer {
     } else {
       searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
     }
+  }
+
+  /**
+   * Depth to walk for this reference. Search V3 leaves a business attribute as the URN on the event
+   * unless expansion is enabled, so indexing that reference does not read the attribute.
+   */
+  private int refDepth(@Nonnull final SearchableRefFieldSpec searchableRefFieldSpec) {
+    SearchableRefAnnotation annotation = searchableRefFieldSpec.getSearchableRefAnnotation();
+    if (v3Projection()
+        && !v3BusinessAttributeExpansionEnabled
+        && BUSINESS_ATTRIBUTE_ENTITY_NAME.equals(annotation.getRefType())) {
+      return 0;
+    }
+    return annotation.getDepth();
   }
 
   private Optional<JsonNode> getNodeForRef(
@@ -785,7 +842,7 @@ public class SearchDocumentTransformer {
                 String fieldName = spec.getSearchableRefAnnotation().getFieldName();
                 boolean isArray = spec.isArray();
                 if (!value.isEmpty()) {
-                  int newDepth = Math.min(depth - 1, spec.getSearchableRefAnnotation().getDepth());
+                  int newDepth = Math.min(depth - 1, refDepth(spec));
                   if (isArray) {
                     ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
                     value

@@ -4,12 +4,33 @@ from datahub.utilities.str_enum import StrEnum
 
 SQS_PLATFORM = "sqs"
 SNS_PLATFORM = "sns"
+LAMBDA_PLATFORM = "lambda"
+EVENTBRIDGE_PLATFORM = "eventbridge"
+EVENTBRIDGE_PIPES_PLATFORM = "eventbridge-pipes"
+
+# AWS console paths for the region containers; EventBridge's console lives under
+# `events`, not its platform name.
+CONSOLE_PATHS = {
+    SQS_PLATFORM: "sqs/v3/home",
+    SNS_PLATFORM: "sns/v3/home",
+    LAMBDA_PLATFORM: "lambda/home",
+    EVENTBRIDGE_PLATFORM: "events/home",
+    EVENTBRIDGE_PIPES_PLATFORM: "pipes/home",
+}
+
+LAMBDA_JOB_ID = "invoke"
+EVENTBRIDGE_RULE_JOB_ID = "route"
+EVENTBRIDGE_PIPE_JOB_ID = "pipe"
 
 
 class AwsService(StrEnum):
     SQS = "sqs"
     SNS = "sns"
     TAGGING = "resourcegroupstaggingapi"
+    GLUE = "glue"
+    LAMBDA = "lambda"
+    EVENTS = "events"
+    PIPES = "pipes"
 
 
 QUEUE_URL_PATTERN = re.compile(r"/(?P<account>\d{12})/(?P<name>[^/?#]+)/?$")
@@ -65,6 +86,7 @@ class TopicAttribute(StrEnum):
 
 class SubscriptionAttribute(StrEnum):
     REDRIVE_POLICY = "RedrivePolicy"
+    RAW_MESSAGE_DELIVERY = "RawMessageDelivery"
 
 
 class EncryptionType(StrEnum):
@@ -81,3 +103,21 @@ class LineageRelationship(StrEnum):
 
 LINEAGE_RELATIONSHIP_PROPERTY = "relationship"
 DOWNSTREAM_OF_RELATIONSHIP = "DownstreamOf"
+
+GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
+
+ACCESS_DENIED_CODES = frozenset({"AccessDenied", "AccessDeniedException"})
+
+
+class LambdaDestination(StrEnum):
+    """Keys of a Lambda DestinationConfig."""
+
+    ON_SUCCESS = "OnSuccess"
+    ON_FAILURE = "OnFailure"
+
+
+class JobEdgeKind(StrEnum):
+    """DataHub relationship names for a job's input and output datasets."""
+
+    CONSUMES = "Consumes"
+    PRODUCES = "Produces"

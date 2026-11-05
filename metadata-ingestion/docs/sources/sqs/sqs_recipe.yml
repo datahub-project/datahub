@@ -23,5 +23,18 @@ source:
     # account_platform_instance_map:
     #   "210987654321": "shared-services"
 
+    glue_schema_registry:
+      enabled: false
+      registry_name: "default-registry"
+      queue_schema_map: {}
+      #   orders: "order-v1"
+
+    lineage:
+      lambda_functions: true
+      # One lambda:ListFunctionEventInvokeConfigs call per function in the region.
+      lambda_async_destinations: false
+      eventbridge_rules: true
+      eventbridge_pipes: true
+
     stateful_ingestion:
       enabled: true

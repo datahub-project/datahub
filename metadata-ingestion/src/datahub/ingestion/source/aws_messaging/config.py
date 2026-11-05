@@ -1,5 +1,6 @@
 from typing import Any, ClassVar, Dict, Optional
 
+import pydantic
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -15,6 +16,104 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+
+
+class GlueSchemaRegistryConfigBase(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Attach schemas from AWS Glue Schema Registry. Needs glue:GetSchemaVersion. "
+            "AWS stores no link between a queue or topic and a schema, so list them "
+            "in the schema map."
+        ),
+    )
+    registry_name: str = Field(
+        default="default-registry",
+        description="Glue Schema Registry registry to read schemas from.",
+    )
+    use_naming_convention: bool = Field(
+        default=False,
+        description=(
+            "When the schema map has no entry, look for a schema with the same name "
+            "as the queue or topic. Off by default: AWS defines no such convention."
+        ),
+    )
+
+    def schema_map(self) -> Dict[str, str]:
+        raise NotImplementedError
+
+    @pydantic.model_validator(mode="after")
+    def reject_configured_but_disabled(self) -> "GlueSchemaRegistryConfigBase":
+        # A map or naming convention with enabled=False is silently ignored, which
+        # is almost never what was meant.
+        if not self.enabled and (self.schema_map() or self.use_naming_convention):
+            raise ValueError(
+                "glue_schema_registry has a schema map or use_naming_convention set but "
+                "enabled=False. Set enabled=True, or remove those fields."
+            )
+        return self
+
+
+class QueueGlueSchemaRegistryConfig(GlueSchemaRegistryConfigBase):
+    queue_schema_map: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Queue name to schema name in `registry_name`.",
+    )
+
+    def schema_map(self) -> Dict[str, str]:
+        return self.queue_schema_map
+
+
+class TopicGlueSchemaRegistryConfig(GlueSchemaRegistryConfigBase):
+    topic_schema_map: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Topic name to schema name in `registry_name`.",
+    )
+
+    def schema_map(self) -> Dict[str, str]:
+        return self.topic_schema_map
+
+
+class AwsMessagingLineageConfig(ConfigModel):
+    lambda_functions: bool = Field(
+        default=True,
+        description=(
+            "Emit Lambda functions wired to this source's queues or topics (event "
+            "source mappings, SNS subscriptions, failure and async destinations) as a "
+            "DataFlow with one DataJob."
+        ),
+    )
+    lambda_async_destinations: bool = Field(
+        default=False,
+        description=(
+            "Read each function's asynchronous invocation destinations. One "
+            "lambda:ListFunctionEventInvokeConfigs call per function in the region, "
+            "made by both the sqs and sns sources; stops at the first AccessDenied. "
+            "Stale Lambda output edges are only removed when this is on, since "
+            "without it the run can't tell which outputs still exist."
+        ),
+    )
+    eventbridge_rules: bool = Field(
+        default=True,
+        description="Emit EventBridge rules that target this source's queues or topics.",
+    )
+    eventbridge_pipes: bool = Field(
+        default=True,
+        description="Emit EventBridge Pipes whose source or target is one of this source's queues or topics.",
+    )
+
+    @pydantic.model_validator(mode="after")
+    def reject_async_destinations_without_functions(
+        self,
+    ) -> "AwsMessagingLineageConfig":
+        # Async destinations are read by the Lambda collector, which isn't built
+        # without lambda_functions, so the option would be silently ignored.
+        if self.lambda_async_destinations and not self.lambda_functions:
+            raise ValueError(
+                "lineage.lambda_async_destinations needs lineage.lambda_functions. "
+                "Set lambda_functions=True, or remove lambda_async_destinations."
+            )
+        return self
 
 
 class AwsMessagingConfigBase(
@@ -58,6 +157,10 @@ class AwsMessagingConfigBase(
             "account id. Accounts not listed use their account id."
         ),
     )
+    lineage: AwsMessagingLineageConfig = Field(
+        default_factory=AwsMessagingLineageConfig,
+        description="Lineage through Lambda and EventBridge.",
+    )
     remove_stale_lineage: bool = Field(
         default=True,
         description=(
@@ -66,6 +169,20 @@ class AwsMessagingConfigBase(
             "edges from resources this run read in full are removed. Needs a "
             "DataHub graph connection (the datahub-rest sink or datahub_api); costs "
             "one DataHub lookup per queue or topic."
+        ),
+    )
+    glue_schema_registry: GlueSchemaRegistryConfigBase = Field(
+        description="Message schemas from AWS Glue Schema Registry (off by default).",
+    )
+    include_column_lineage: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Add field-level lineage on hops that deliver the message unchanged or "
+            "with a simple field mapping, for fields present in both schemas. See the "
+            "docs for which hops qualify. Schemas come from Glue Schema Registry in "
+            "this run or from DataHub, one DataHub lookup per hop for a schema not "
+            "read from Glue. Defaults to glue_schema_registry.enabled; set it to true "
+            "to use schemas that are already in DataHub without Glue."
         ),
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -77,6 +194,12 @@ class AwsMessagingConfigBase(
     # (tagging, Lambda, Glue, ...) keep the default endpoint, so a VPC endpoint
     # for one service doesn't redirect calls to the others.
     endpoint_service: ClassVar[AwsService]
+
+    @pydantic.model_validator(mode="after")
+    def _default_include_column_lineage(self) -> "AwsMessagingConfigBase":
+        if self.include_column_lineage is None:
+            self.include_column_lineage = self.glue_schema_registry.enabled
+        return self
 
     def make_client(self, session: Any, service: AwsService) -> Any:
         # boto3 clients have no common static type; callers annotate the result.
@@ -97,6 +220,10 @@ class SqsSourceConfig(AwsMessagingConfigBase):
     queue_pattern: AllowDenyPattern = Field(
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns on queue names to include.",
+    )
+    glue_schema_registry: QueueGlueSchemaRegistryConfig = Field(
+        default_factory=QueueGlueSchemaRegistryConfig,
+        description="Queue schemas from AWS Glue Schema Registry (off by default).",
     )
 
 
@@ -136,6 +263,10 @@ class SnsSourceConfig(AwsMessagingConfigBase):
             "dead-letter queue. One call per subscription, for every protocol, on "
             "every run; subscription-to-queue edges need no extra calls."
         ),
+    )
+    glue_schema_registry: TopicGlueSchemaRegistryConfig = Field(
+        default_factory=TopicGlueSchemaRegistryConfig,
+        description="Topic schemas from AWS Glue Schema Registry (off by default).",
     )
     data_protection: SnsDataProtectionConfig = Field(
         default_factory=SnsDataProtectionConfig,

@@ -8,19 +8,47 @@ from datahub.ingestion.api.source import CapabilityReport, TestableSource
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
-from datahub.ingestion.source.aws_messaging.config import AwsMessagingConfigBase
+from datahub.ingestion.source.aws_messaging.clients import (
+    EventBridgeClient,
+    LambdaClient,
+    PipesClient,
+)
+from datahub.ingestion.source.aws_messaging.config import (
+    AwsMessagingConfigBase,
+    GlueSchemaRegistryConfigBase,
+)
 from datahub.ingestion.source.aws_messaging.constants import (
+    CONSOLE_PATHS,
+    EVENTBRIDGE_PIPES_PLATFORM,
+    EVENTBRIDGE_PLATFORM,
+    LAMBDA_PLATFORM,
     AwsService,
+    JobEdgeKind,
     LineageRelationship,
 )
-from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
-from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey
+from datahub.ingestion.source.aws_messaging.eventbridge import EventBridgeLineage
+from datahub.ingestion.source.aws_messaging.jobs import JobEdgeTracker
+from datahub.ingestion.source.aws_messaging.lambda_lineage import LambdaLineage
+from datahub.ingestion.source.aws_messaging.lineage import (
+    DatasetLineageCollector,
+    SchemaLookup,
+    identity_field_lineage,
+)
+from datahub.ingestion.source.aws_messaging.mapper import (
+    AwsRegionKey,
+    secondary,
+    shared_status,
+)
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.ingestion.source.aws_messaging.schema_registry import (
+    MessagingSchemaRegistry,
+)
 from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.schema_classes import SchemaMetadataClass
 
 
 class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
@@ -68,6 +96,82 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             graph=ctx.graph if config.remove_stale_lineage else None,
             relationships=self.owned_relationships(),
         )
+        self.schemas = SchemaLookup(ctx.graph, report)
+        self.jobs = JobEdgeTracker(
+            report=report,
+            graph=ctx.graph if config.remove_stale_lineage else None,
+            instance=config.platform_instance,
+            region=self.region,
+            platform=self.platform,
+        )
+        if not config.lineage.lambda_functions:
+            self.jobs.mark_unknown(
+                LAMBDA_PLATFORM, JobEdgeKind.CONSUMES, JobEdgeKind.PRODUCES
+            )
+        if not config.lineage.eventbridge_rules:
+            self.jobs.mark_unknown(EVENTBRIDGE_PLATFORM, JobEdgeKind.PRODUCES)
+        if not config.lineage.eventbridge_pipes:
+            self.jobs.mark_unknown(
+                EVENTBRIDGE_PIPES_PLATFORM, JobEdgeKind.CONSUMES, JobEdgeKind.PRODUCES
+            )
+        self.lambdas: Optional[LambdaLineage] = (
+            LambdaLineage(
+                config=config,
+                report=report,
+                client=LambdaClient(
+                    config.make_client(self.session, AwsService.LAMBDA), report
+                ),
+                urns=self.urns,
+                resolver=self.resolver,
+                region_key=self.region_key(LAMBDA_PLATFORM),
+                jobs=self.jobs,
+            )
+            if config.lineage.lambda_functions
+            else None
+        )
+        self.eventbridge = EventBridgeLineage(
+            config=config,
+            report=report,
+            events=EventBridgeClient(
+                config.make_client(self.session, AwsService.EVENTS), report
+            ),
+            pipes=PipesClient(
+                config.make_client(self.session, AwsService.PIPES), report
+            ),
+            urns=self.urns,
+            resolver=self.resolver,
+            schemas=self.schemas,
+            lambdas=self.lambdas,
+            region_key=self.region_key(EVENTBRIDGE_PLATFORM),
+            pipes_region_key=self.region_key(EVENTBRIDGE_PIPES_PLATFORM),
+            jobs=self.jobs,
+        )
+
+    def service_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Lambda functions, EventBridge rules and Pipes around this source's
+        resources. Runs after every queue or topic is known."""
+        if self.lambdas is not None:
+            self.lambdas.collect()
+        if self.base_config.lineage.eventbridge_rules:
+            # The bus container may also come from the other source, so it is
+            # not this source's to delete either.
+            yield from self.with_region_container(
+                secondary(self.eventbridge.rule_workunits()),
+                EVENTBRIDGE_PLATFORM,
+            )
+        if self.base_config.lineage.eventbridge_pipes:
+            yield from self.with_region_container(
+                secondary(self.eventbridge.pipe_workunits()),
+                EVENTBRIDGE_PIPES_PLATFORM,
+            )
+        # Lambda jobs go last: rules and pipes add themselves as upstream jobs.
+        if self.lambdas is not None:
+            yield from self.with_region_container(
+                secondary(self.lambdas.workunits()), LAMBDA_PLATFORM
+            )
+        # Only datasets read in full: a topic whose subscriptions couldn't all be
+        # listed may still have the Lambda subscriptions this run didn't see.
+        yield from self.jobs.stale_workunits(self.lineage.complete)
 
     def owned_relationships(self) -> FrozenSet[LineageRelationship]:
         """Lineage relationships this source writes and reads in full each run.
@@ -79,6 +183,56 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         """Builds the AWS clients from self.session, once the region is known and
         before the account id is read through them."""
         raise NotImplementedError
+
+    def add_identity_column_lineage(
+        self, upstream_urn: str, downstream_urn: str
+    ) -> None:
+        """Field lineage for a hop that delivers the message unchanged, for fields
+        in both schemas. Without a schema on both sides the edge stays table-level."""
+        upstream_schema = self.schemas.get(upstream_urn)
+        downstream_schema = self.schemas.get(downstream_urn)
+        if upstream_schema is None or downstream_schema is None:
+            self.base_report.column_lineage_skipped["schema missing on one side"] += 1
+            self.lineage.fine_grained_unknown(
+                upstream=upstream_urn, downstream=downstream_urn
+            )
+            return
+        lineages = identity_field_lineage(
+            upstream_urn=upstream_urn,
+            upstream_schema=upstream_schema,
+            downstream_urn=downstream_urn,
+            downstream_schema=downstream_schema,
+        )
+        if not lineages:
+            self.base_report.column_lineage_skipped["no fields in common"] += 1
+        self.lineage.add_fine_grained(
+            upstream=upstream_urn, downstream=downstream_urn, lineages=lineages
+        )
+
+    def schema_registry(
+        self, config: GlueSchemaRegistryConfigBase
+    ) -> Optional[MessagingSchemaRegistry]:
+        if not config.enabled:
+            return None
+        return MessagingSchemaRegistry(
+            config=config,
+            glue_client=self.base_config.make_client(self.session, AwsService.GLUE),
+            platform=self.platform,
+            report=self.base_report,
+        )
+
+    def glue_schema(
+        self, registry: Optional[MessagingSchemaRegistry], name: str, urn: str
+    ) -> Optional[SchemaMetadataClass]:
+        """A queue or topic's Glue schema, remembered for column lineage."""
+        if registry is None:
+            return None
+        schema = registry.get_schema_metadata(name)
+        if schema is not None:
+            self.schemas.fetched[urn] = schema
+        elif name in registry.failed:
+            self.schemas.unreadable.add(urn)
+        return schema
 
     def first_resource_arn(self) -> Optional[str]:
         """One resource ARN of this service, used only to read the account id; None
@@ -144,15 +298,24 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         first = True
         for workunit in workunits:
             if first:
-                yield from gen_containers(
-                    container_key=self.region_key(platform),
+                key = self.region_key(platform)
+                container = gen_containers(
+                    container_key=key,
                     name=self.region,
                     sub_types=[GenericContainerSubTypes.AWS_REGION.value],
                     external_url=(
-                        f"https://{self.region}.console.aws.amazon.com/{platform}/v3/home"
-                        f"?region={self.region}"
+                        f"https://{self.region}.console.aws.amazon.com/"
+                        f"{CONSOLE_PATHS[platform]}?region={self.region}"
                     ),
                 )
+                if platform == self.platform:
+                    yield from container
+                else:
+                    # Both sources emit the lambda and eventbridge region
+                    # containers, so neither may soft-delete them when its own
+                    # run stops placing anything there.
+                    yield from secondary(container)
+                    yield shared_status(key.as_urn())
                 first = False
             yield workunit
 
