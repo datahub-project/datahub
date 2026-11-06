@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import operator
+import random
 import textwrap
 import time
 from datetime import datetime
@@ -85,6 +86,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     SchemaMetadataClass,
     StatusClass,
+    StructuredPropertiesClass,
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
@@ -97,8 +99,14 @@ from datahub.metadata.urns import (
     MlPrimaryKeyUrn,
     Urn,
 )
+from datahub.specific.aspect_helpers.structured_properties import (
+    HasStructuredPropertiesPatch,
+)
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.server_state_disk_cache import ServerStateDiskCache
+from datahub.utilities.urns.structured_properties_urn import (
+    make_structured_property_urn,
+)
 from datahub.utilities.urns.urn import guess_entity_type
 
 if TYPE_CHECKING:
@@ -125,6 +133,10 @@ _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
 _FLOAT32_MAX = 3.4028234663852886e38
 # Largest value of the GraphQL Long scalar (a Java long).
 _LONG_MAX = 2**63 - 1
+# Attempts for add_structured_property_values when a concurrent write changes the aspect,
+# with jittered exponential backoff between them (capped at _APPEND_MAX_BACKOFF_S).
+_APPEND_MAX_ATTEMPTS = 8
+_APPEND_MAX_BACKOFF_S = 2.0
 
 # Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
 # survives across short-lived processes and invalidates on server upgrade.
@@ -1908,6 +1920,124 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
         res = self.execute_graphql(query=graph_query)
         return res["removeTag"]
+
+    def add_structured_property_values(
+        self,
+        entity_urn: str,
+        property: str,
+        values: Union[str, float, Sequence[Union[str, float]]],
+    ) -> bool:
+        """Append values to a structured property on an entity, keeping the values it already has.
+
+        A patch's ``add_structured_property`` replaces the property's whole value list. This
+        reads the entity's current values for the property, adds the ones that are missing
+        (exact match, existing order kept) and writes the merged list back as a patch. Only
+        this property is written, so other properties and other aspects of the entity are
+        left alone.
+
+        The write is conditional on the structured properties being unchanged since the
+        read. If another writer changed them in between, the read and merge are retried, so
+        concurrent appends do not drop each other's values. Older servers that ignore
+        conditional headers on patches apply the write unconditionally.
+
+        The merged list is written as a manual edit, the same way an edit in the UI is. If
+        the property's current value was written by an automation (for example
+        propagation), its attribution is removed and the property keeps all of its values.
+        The server still enforces the property definition, so appending to a single-value
+        property that already has a value fails.
+
+        Args:
+            entity_urn: The entity to update. It must already exist.
+            property: The structured property, as a bare qualified name or a urn.
+            values: A value or a list of values to append.
+
+        Returns:
+            True if values were written, False if all of them were already present.
+
+        Raises:
+            ValueError: If the entity does not exist.
+            OperationalError: If the write is rejected, or still conflicts after retries.
+        """
+        property_urn = make_structured_property_urn(property)
+        to_add = [values] if isinstance(values, (str, int, float)) else list(values)
+
+        for attempt in range(_APPEND_MAX_ATTEMPTS):
+            current, version = self._get_structured_properties_with_version(entity_urn)
+            if current is None and not self.exists(entity_urn):
+                raise ValueError(f"Entity {entity_urn} does not exist")
+
+            # The server allows one entry per property; merge them all in case an older
+            # aspect still holds several.
+            entries = [
+                assignment
+                for assignment in (current.properties if current else [])
+                if assignment.propertyUrn == property_urn
+            ]
+            merged: List[Union[str, float]] = []
+            seen: Set[Union[str, float]] = set()
+            for value in [v for entry in entries for v in entry.values]:
+                if value not in seen:
+                    seen.add(value)
+                    merged.append(value)
+            existing_count = len(merged)
+            for value in to_add:
+                if value not in seen:
+                    seen.add(value)
+                    merged.append(value)
+            if len(merged) == existing_count:
+                return False
+
+            patch = HasStructuredPropertiesPatch(entity_urn)
+            # Patch entries are keyed by attribution source. Remove the attributed entries so
+            # the manual entry below is the only one; the add replaces an unattributed entry.
+            # Removing the whole property instead would also drop the map the add writes to.
+            for source in {
+                entry.attribution.source
+                for entry in entries
+                if entry.attribution and entry.attribution.source
+            }:
+                patch.remove_structured_property(
+                    key=property_urn, attribution_source=source
+                )
+            patch.set_structured_property(key=property_urn, value=merged)
+            try:
+                for mcp in patch.build():
+                    mcp.headers = {"If-Version-Match": version}
+                    self.emit_mcp(mcp)
+                return True
+            except OperationalError as e:
+                if (
+                    "Expected version" not in str(e)
+                    or attempt == _APPEND_MAX_ATTEMPTS - 1
+                ):
+                    raise
+                logger.debug(
+                    f"Structured properties of {entity_urn} changed during append; retrying"
+                )
+                time.sleep(
+                    random.uniform(0, min(_APPEND_MAX_BACKOFF_S, 0.05 * 2**attempt))
+                )
+        raise AssertionError("unreachable")
+
+    def _get_structured_properties_with_version(
+        self, entity_urn: str
+    ) -> Tuple[Optional[StructuredPropertiesClass], str]:
+        """Returns the structuredProperties aspect and its version, or (None, "-1") if absent."""
+        aspect_name = StructuredPropertiesClass.ASPECT_NAME
+        try:
+            raw = self.get_entity_raw(entity_urn, aspects=[aspect_name])
+        except HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                return None, "-1"
+            raise
+        envelope = raw.get("aspects", {}).get(aspect_name)
+        if not envelope:
+            return None, "-1"
+        version = (envelope.get("systemMetadata") or {}).get("version") or "-1"
+        aspect = StructuredPropertiesClass.from_obj(
+            post_json_transform(envelope["value"])
+        )
+        return aspect, version
 
     def _assertion_result_shared(self) -> str:
         fragment: str = """
