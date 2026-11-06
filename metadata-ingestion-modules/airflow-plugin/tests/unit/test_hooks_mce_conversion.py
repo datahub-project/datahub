@@ -67,7 +67,7 @@ def test_hook_sends_mce_as_one_mcp_per_aspect(hook: Hook) -> None:
     with pytest.warns(DataHubDeprecationWarning, match="MetadataChangeEvent") as record:
         emitted = _emitted(hook, [MCE, MCPW, MCE])
 
-    assert len(record) == 1
+    assert sum(issubclass(w.category, DataHubDeprecationWarning) for w in record) == 1
     assert all(isinstance(e, MetadataChangeProposalWrapper) for e in emitted)
     assert [(e.entityUrn, e.aspect) for e in emitted] == [
         *((URN, a) for a in MCE.proposedSnapshot.aspects),

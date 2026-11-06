@@ -1,6 +1,6 @@
 import logging
 import warnings
-from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
 
 from airflow.sdk import BaseOperator
 from avrogen.dict_wrapper import DictWrapper
@@ -61,9 +61,9 @@ class DatahubEmitterOperator(DatahubBaseOperator):
         self,
         *,
         datahub_conn_id: str,
-        mcps: Optional[Iterable[MetadataChangeProposalWrapper]] = None,
+        mcps: Optional[Sequence[MetadataChangeProposalWrapper]] = None,
         mces: Optional[
-            Iterable[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
+            Sequence[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
         ] = None,
         **kwargs: Any,
     ):
@@ -74,20 +74,18 @@ class DatahubEmitterOperator(DatahubBaseOperator):
         # Logged from execute() rather than here: __init__ also runs on every DAG
         # parse, and the DeprecationWarning is hidden by Python's default filter.
         self._mces_deprecated = mces is not None
-        # Copied to a list so a one-shot iterable survives execute(), which renders
-        # the items in place and then emits them.
-        self.metadata: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
         if mces is not None:
             if mcps is not None:
                 raise ValueError("Pass either mcps= or mces=, not both")
             warnings.warn(
                 _MCES_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
             )
-            self.metadata = list(mces)
-        elif mcps is not None:
-            self.metadata = list(mcps)
-        else:
+        metadata: Optional[
+            Sequence[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
+        ] = mces if mces is not None else mcps
+        if metadata is None:
             raise ValueError("mcps= is required")
+        self.metadata = metadata
 
     def _render_template_fields(
         self, field_value: Any, context: "Context", jinja_env: "Environment"
