@@ -89,11 +89,41 @@ export class DataProductPage extends BasePage {
     }).toPass({ timeout: TIMEOUTS.LONG });
     await option.click();
 
-    // The multi-select stays open over the footer, so click the title to close it before saving.
-    const modal = this.page.getByRole('dialog', { name: /Set Data Products?/ });
-    await modal.getByRole('heading', { name: /Set Data Products?/ }).click();
-    await modal.getByRole('button', { name: 'Save' }).click();
+    // The multi-select stays open over the title and footer, and Escape would close the whole modal, so
+    // save with the modal's own Enter shortcut, which clicks Save.
+    await this.page.keyboard.press('Enter');
     await this.toast.expectVisible('Updated Data Product', { timeout: TIMEOUTS.LONG });
+  }
+
+  /** Remove the open asset from the data product named in its sidebar, confirming the dialog. */
+  async removeFromAssetSidebar(dataProductName: string): Promise<void> {
+    const content = this.page.getByTestId(/^sidebar-section-content-Data Products?$/);
+    // The sidebar reads the asset's data products from the graph index, which can lag the attach, so
+    // reload until the data product is listed.
+    await expect(async () => {
+      await this.page.reload();
+      await expect(content.getByText(dataProductName)).toBeVisible({ timeout: TIMEOUTS.SHORT });
+    }).toPass({ timeout: TIMEOUTS.LONG });
+    await content.getByText(dataProductName).getByTestId('remove-icon').click();
+    await this.page.getByTestId('modal-confirm-button').click();
+    await this.toast.expectVisible('Removed from Data Product', { timeout: TIMEOUTS.LONG });
+    await expect(content.getByText(dataProductName)).toHaveCount(0, { timeout: TIMEOUTS.MEDIUM });
+  }
+
+  /** Rename the open data product from the editable title in its profile header. */
+  async renameFromProfile(newName: string): Promise<void> {
+    const title = this.page.getByTestId('entity-name-editable');
+    await title.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await title.getByRole('button', { name: 'Edit', exact: true }).click();
+
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design inline-edit textarea is created dynamically and has no role or test id
+    const input = this.page.locator('.ant-typography-edit-content textarea');
+    await input.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
+    await input.fill(newName);
+    await input.press('Enter');
+
+    // antd ellipsizes the visible title, but mirrors the full text in aria-label.
+    await expect(title).toHaveAttribute('aria-label', newName, { timeout: TIMEOUTS.MEDIUM });
   }
 
   /** Delete the open data product from its profile page's entity menu. */

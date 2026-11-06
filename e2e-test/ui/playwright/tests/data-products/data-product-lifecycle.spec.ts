@@ -43,7 +43,7 @@ test.describe('Data product lifecycle', () => {
   );
 
   test(
-    'attaches a dataset to a data product and lists it on the Assets tab',
+    'attaches a dataset to a data product, lists it on the Assets tab, then removes it',
     { tag: [DomainTag.Catalog] },
     async ({ page, logger, cleanup }) => {
       const dataProductPage = new DataProductPage(page, logger);
@@ -59,6 +59,16 @@ test.describe('Data product lifecycle', () => {
 
       await dataProductPage.openProfile(urn, 'Assets');
       await expect(page.getByText(DATASET_NAME).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+
+      await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}`);
+      await page.waitForLoadState('networkidle');
+      await dataProductPage.removeFromAssetSidebar(name);
+
+      // The Assets tab is search-backed, so reload until the removal is indexed.
+      await expect(async () => {
+        await dataProductPage.openProfile(urn, 'Assets');
+        await expect(page.getByText(DATASET_NAME)).toHaveCount(0, { timeout: TIMEOUTS.SHORT });
+      }).toPass({ timeout: TIMEOUTS.LONG });
     },
   );
 
@@ -88,4 +98,21 @@ test.describe('Data product lifecycle', () => {
       }).toPass({ timeout: TIMEOUTS.LONG });
     },
   );
+
+  test('renames a data product from its profile', { tag: [DomainTag.Catalog] }, async ({ page, logger, cleanup }) => {
+    const dataProductPage = new DataProductPage(page, logger);
+    const name = withRandomSuffix('PWRenameProduct');
+    const newName = withRandomSuffix('PWRenamedProduct');
+
+    await dataProductPage.openDomainDataProductsTab(DOMAIN_URN);
+    const urn = await dataProductPage.createDataProduct(name);
+    cleanup.track(urn);
+
+    await dataProductPage.openProfile(urn);
+    await dataProductPage.renameFromProfile(newName);
+
+    await dataProductPage.openProfile(urn);
+    await expect(page.getByText(newName).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(page.getByText(name)).toHaveCount(0);
+  });
 });
