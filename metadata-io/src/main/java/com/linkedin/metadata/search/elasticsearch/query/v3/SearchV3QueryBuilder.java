@@ -475,6 +475,9 @@ public class SearchV3QueryBuilder {
     context.put(SearchTemplateContextVariables.NAME_TEXT, analyzedPath(fieldResolver, "name"));
     context.put(SearchTemplateContextVariables.PREFIX_FIELD, analyzedPath(fieldResolver, "name"));
     context.put(
+        SearchTemplateContextVariables.PREFIX_KEYWORD,
+        SearchTemplateFields.lowercaseKeywordPath("name"));
+    context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_KEYWORD,
         exactPath(
             fieldResolver, "qualifiedName", SearchFieldResolver.Intent.EXACT, "qualifiedName"));

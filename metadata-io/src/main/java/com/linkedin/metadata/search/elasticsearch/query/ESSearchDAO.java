@@ -59,6 +59,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateB
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFields;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateJson;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLight;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
@@ -1416,6 +1417,15 @@ public class ESSearchDAO {
     Map<String, Object> context = new HashMap<>();
     context.put(
         SearchTemplateContextVariables.PREFIX_FIELD, autocompletePrefixField(entitySpec, field));
+    // The whole-name prefix reads the default name only. A caller-chosen field keeps the
+    // analyzed prefix alone, since the keyword subfield exists only on the name.
+    if (field == null || field.isBlank()) {
+      context.put(
+          SearchTemplateContextVariables.PREFIX_KEYWORD,
+          SearchTemplateFields.lowercaseKeywordPath("name"));
+    }
+    context.put(
+        SearchTemplateContextVariables.NORMALIZED_KEYWORD, ESUtils.keywordNormalize(query.strip()));
     context.put(SearchTemplateContextVariables.UNQUOTED, query);
     context.put(
         SearchTemplateContextVariables.PREFIX_MAX_EXPANSIONS,

@@ -181,7 +181,16 @@ public class MultiEntitySettingsBuilderTest {
           List.of("v3_text", "v3_text_search", "v3_stemmed", "v3_stemmed_search")) {
         Map<String, Object> definition = (Map<String, Object>) analyzers.get(analyzer);
         assertEquals(definition.get("tokenizer"), expected.getValue(), analyzer);
-        assertEquals(((List<?>) definition.get("filter")).get(0), "v3_max_token_length", analyzer);
+        List<?> filters = (List<?>) definition.get("filter");
+        assertEquals(filters.get(0), "v3_max_token_length", analyzer);
+        assertEquals(filters.get(1), "asciifolding", analyzer);
+        if (analyzer.endsWith("_search")) {
+          assertEquals(filters.get(2), "lowercase", analyzer);
+          assertFalse(filters.contains("v3_camel_parts"), analyzer);
+        } else {
+          assertEquals(filters.get(2), "v3_camel_parts", analyzer);
+          assertEquals(filters.get(3), "lowercase", analyzer);
+        }
       }
       if (expected.getKey().isEmpty()) {
         Map<String, Object> filters =

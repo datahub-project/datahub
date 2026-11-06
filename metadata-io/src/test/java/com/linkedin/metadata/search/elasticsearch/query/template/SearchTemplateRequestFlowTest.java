@@ -50,6 +50,10 @@ import com.linkedin.metadata.config.search.custom.HighlightFields;
 import com.linkedin.metadata.config.search.custom.SearchFields;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ExplainMatch;
@@ -67,6 +71,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQuery
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.metadata.search.utils.SearchUtils;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.PolicyMatchCondition;
@@ -1662,6 +1667,138 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     assertEquals(
         preparedSearch("orders", "DFS_QUERY_THEN_FETCH", SEARCH_TEMPLATE_FULLTEXT_URN).searchType(),
         SearchType.QUERY_THEN_FETCH);
+  }
+
+  /**
+   * A star query on list and listUrn keeps the template body and compiles every criterion through
+   * the shared filter path. Equality and IN are terms on the keyword path. Contain stays analyzed.
+   */
+  @Test
+  public void testStarQueryCriteriaStayOnTheKeywordPath() {
+    SearchTemplateConfiguration previous = templates;
+    SearchTemplateConfiguration shipped = new SearchTemplateConfiguration();
+    shipped.setEnabled(true);
+    SearchTemplateFixtures.setShippedLimits(shipped);
+    shipped.setDefaults(Map.of("fulltext", Map.of("default", SEARCH_TEMPLATE_SEARCH_URN)));
+    templates = shipped;
+    try {
+      ElasticSearchConfiguration elastic = v3Config();
+      SearchTemplateLoader classpath = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
+      useRuntime(
+          new SearchTemplateCoordinator(
+              elastic,
+              null,
+              classpath,
+              ForkJoinPool.commonPool(),
+              SearchTemplateComponentRegistry.empty()));
+      OperationContext flags =
+          opContext.withSearchFlags(flag -> flag.setFulltext(true).setSkipAggregates(true));
+      assertStarCriteria(flags, elastic, false);
+      OperationContext ranked =
+          flags.withSearchFlags(
+              flag ->
+                  flag.setFulltext(true)
+                      .setSkipAggregates(true)
+                      .setSearchTemplate(UrnUtils.getUrn(SEARCH_TEMPLATE_LIST_URN)));
+      assertStarCriteria(ranked, elastic, true);
+    } finally {
+      templates = previous;
+      useRuntime(null);
+    }
+  }
+
+  private void assertStarCriteria(
+      OperationContext context, ElasticSearchConfiguration elastic, boolean ranked) {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            context,
+            registry.getEntitySpec(DATASET_ENTITY_NAME),
+            elastic,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    String datasetUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)";
+    String containerUrn = "urn:li:container:DATABASE";
+
+    String urns =
+        starQuery(
+            handler,
+            context,
+            CriterionUtils.buildCriterion("urn", Condition.EQUAL, datasetUrn, containerUrn));
+    assertListBody(urns, ranked);
+    assertFalse(compact(urns).contains("\"must_not\":[{\"match_all\""), urns);
+    assertTrue(compact(urns).contains("\"terms\":{\"urn\":["), urns);
+    assertTrue(urns.contains(datasetUrn), urns);
+    assertTrue(urns.contains(containerUrn), urns);
+    assertFalse(urns.contains("urn.keyword"), urns);
+    assertFalse(urns.contains("urn_name"), urns);
+    assertTrue(urns.contains("\"_entityType\""), urns);
+    assertTrue(urns.contains("case_insensitive"), urns);
+    assertFalse(urns.contains("\"wildcard\""), urns);
+
+    String platform =
+        starQuery(
+            handler,
+            context,
+            CriterionUtils.buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive"));
+    assertTrue(platform.contains("\"platform_urn\""), platform);
+    assertFalse(platform.contains("platform_urn.keyword"), platform);
+    assertFalse(platform.contains("platform.keyword"), platform);
+    assertFalse(compact(platform).contains("\"terms\":{\"urn\":["), platform);
+
+    String membership =
+        starQuery(
+            handler,
+            context,
+            CriterionUtils.buildCriterion(
+                "platform", Condition.IN, "urn:li:dataPlatform:hive", "urn:li:dataPlatform:kafka"));
+    assertTrue(compact(membership).contains("\"terms\":{\"platform_urn\":["), membership);
+    assertFalse(membership.contains("platform_urn.keyword"), membership);
+    assertFalse(membership.contains("platform.keyword"), membership);
+
+    String contain =
+        starQuery(
+            handler,
+            context,
+            CriterionUtils.buildCriterion("description", Condition.CONTAIN, "data warehouse"));
+    assertTrue(contain.contains("\"description.text\""), contain);
+    assertTrue(contain.contains("\"description.stemmed\""), contain);
+    assertFalse(compact(contain).contains("\"terms\":{\"description\""), contain);
+
+    String both =
+        starQuery(
+            handler,
+            context,
+            CriterionUtils.buildCriterion("urn", Condition.EQUAL, datasetUrn),
+            CriterionUtils.buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive"));
+    assertTrue(compact(both).contains("\"terms\":{\"urn\":["), both);
+    assertTrue(both.contains("\"platform_urn\""), both);
+  }
+
+  private static void assertListBody(String query, boolean ranked) {
+    assertTrue(query.contains("match_all"), query);
+    if (ranked) {
+      assertTrue(query.contains("function_score"), query);
+    } else {
+      assertFalse(query.contains("function_score"), query);
+    }
+  }
+
+  private static String starQuery(
+      SearchRequestHandler handler, OperationContext context, Criterion... criteria) {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(CriterionUtils.buildConjunctiveCriterion(criteria)));
+    return handler
+        .getSearchRequest(context, "*", filter, null, 0, 10, List.of())
+        .source()
+        .query()
+        .toString();
+  }
+
+  private static String compact(String query) {
+    return query.replaceAll("\\s+", "");
   }
 
   private SearchRequest preparedSearch(String query, String flagSearchType, String templateUrn) {

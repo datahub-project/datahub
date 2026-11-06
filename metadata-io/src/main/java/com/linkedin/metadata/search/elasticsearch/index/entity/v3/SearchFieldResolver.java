@@ -160,6 +160,15 @@ public final class SearchFieldResolver {
         byName.put(field, direct);
       }
     }
+    if (!byName.containsKey(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD)) {
+      MutableField creator = new MutableField(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD);
+      creator.addRoot(
+          FieldMapping.root(Type.KEYWORD),
+          "system created actor " + MappingConstants.SYSTEM_CREATED_ACTOR_FIELD);
+      byName.put(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD, creator);
+    }
+    registerSystemTime(byName, MappingConstants.SYSTEM_CREATED_TIME_FIELD);
+    registerSystemTime(byName, MappingConstants.SYSTEM_MODIFIED_TIME_FIELD);
     parsedKeywordPaths(entitySpecs)
         .forEach(
             (name, paths) -> {
@@ -591,6 +600,16 @@ public final class SearchFieldResolver {
     }
     aliasedTo.put(name, indexedField);
     byName.put(name, indexedField);
+  }
+
+  /** A date copied into a root {@code _system} object. Sort, range, and filter all read it. */
+  private static void registerSystemTime(Map<String, MutableField> byName, String field) {
+    if (byName.containsKey(field)) {
+      return;
+    }
+    MutableField time = new MutableField(field);
+    time.addRoot(FieldMapping.root(Type.DATETIME), "system time " + field);
+    byName.put(field, time);
   }
 
   private static String parent(String fieldName) {

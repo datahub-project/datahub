@@ -166,6 +166,12 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
+    if (v2EntityIndexDisabled()) {
+      log.debug(
+          "Skipping V2 entity document upsert for {}; elasticsearch.entityIndex.v2.enabled is false",
+          entityName);
+      return;
+    }
     final UpdateRequest updateRequest =
         new UpdateRequest(toIndexName(opContext, entityName), docId)
             .detectNoop(false)
@@ -216,6 +222,12 @@ public class ESWriteDAO {
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
+      return;
+    }
+    if (v2EntityIndexDisabled()) {
+      log.debug(
+          "Skipping V2 entity document delete for {}; elasticsearch.entityIndex.v2.enabled is false",
+          entityName);
       return;
     }
     bulkProcessorFor(opContext, SearchComponent.SEARCH_V2)
@@ -438,6 +450,12 @@ public class ESWriteDAO {
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
       Map<String, Object> upsert) {
+    if (v2EntityIndexDisabled()) {
+      log.debug(
+          "Skipping V2 entity script update for {}; elasticsearch.entityIndex.v2.enabled is false",
+          entityName);
+      return;
+    }
     applyScriptUpdateByIndexName(
         opContext, toIndexName(opContext, entityName), docId, scriptSource, scriptParams, upsert);
   }
@@ -922,6 +940,11 @@ public class ESWriteDAO {
           .taskId(taskId)
           .build();
     }
+  }
+
+  private boolean v2EntityIndexDisabled() {
+    EntityIndexConfiguration entityIndex = config.getEntityIndex();
+    return entityIndex != null && entityIndex.getV2() != null && !entityIndex.getV2().isEnabled();
   }
 
   private static String toIndexName(

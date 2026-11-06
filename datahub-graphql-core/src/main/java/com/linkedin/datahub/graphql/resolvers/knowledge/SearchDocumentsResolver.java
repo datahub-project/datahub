@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -27,12 +28,16 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -40,7 +45,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -51,7 +57,6 @@ import lombok.extern.slf4j.Slf4j;
  * clauses. Optional facet filters (tags, terms, creators, platforms, …) AND onto the base criteria.
  */
 @Slf4j
-@RequiredArgsConstructor
 public class SearchDocumentsResolver
     implements DataFetcher<CompletableFuture<SearchDocumentsResult>> {
 
@@ -59,10 +64,30 @@ public class SearchDocumentsResolver
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "*";
   private static final String SUB_TYPES_FIELD = "typeNames";
+  private static final String CREATOR_FIELD = "creator";
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
   private final ViewService _viewService;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
+
+  public SearchDocumentsResolver(
+      @Nonnull final DocumentService documentService,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final ViewService viewService) {
+    this(documentService, entityClient, viewService, null);
+  }
+
+  public SearchDocumentsResolver(
+      @Nonnull final DocumentService documentService,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final ViewService viewService,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
+    _documentService = documentService;
+    _entityClient = entityClient;
+    _viewService = viewService;
+    _entityIndexConfiguration = entityIndexConfiguration;
+  }
 
   @Override
   public CompletableFuture<SearchDocumentsResult> get(final DataFetchingEnvironment environment)
@@ -88,7 +113,8 @@ public class SearchDocumentsResolver
             userAndGroupUrns.add(currentUserUrn.toString());
             userGroupUrns.forEach(groupUrn -> userAndGroupUrns.add(groupUrn.toString()));
 
-            List<Criterion> baseUserCriteria = buildBaseUserCriteria(input);
+            List<Criterion> baseUserCriteria =
+                buildBaseUserCriteria(input, context.getOperationContext());
             final boolean canManageDocuments = AuthorizationUtils.canManageDocuments(context);
             final List<String> requestedStates = mapRequestedStates(input.getStates());
             Filter filter =
@@ -197,7 +223,8 @@ public class SearchDocumentsResolver
    * Builds the base user criteria from the search input (excludes state filtering). These criteria
    * are common to both published and unpublished document searches.
    */
-  private List<Criterion> buildBaseUserCriteria(SearchDocumentsInput input) {
+  private List<Criterion> buildBaseUserCriteria(
+      SearchDocumentsInput input, @Nonnull OperationContext opContext) {
     List<Criterion> criteria = new ArrayList<>();
 
     if (input.getParentDocuments() != null && !input.getParentDocuments().isEmpty()) {
@@ -253,7 +280,16 @@ public class SearchDocumentsResolver
     }
 
     if (input.getCreators() != null && !input.getCreators().isEmpty()) {
-      criteria.add(CriterionUtils.buildCriterion("creator", Condition.EQUAL, input.getCreators()));
+      criteria.add(
+          CriterionUtils.buildCriterion(
+              EntitySearchIndexResolver.indexedField(
+                  _entityIndexConfiguration,
+                  opContext,
+                  CREATOR_FIELD,
+                  MappingConstants.SYSTEM_CREATED_ACTOR_FIELD,
+                  Intent.FILTER),
+              Condition.EQUAL,
+              input.getCreators()));
     }
 
     if (input.getPlatforms() != null && !input.getPlatforms().isEmpty()) {

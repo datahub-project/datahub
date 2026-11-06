@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.update;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -150,6 +151,49 @@ public class ESWriteDAOTest {
         opContext, "test_group", TEST_DOC_ID, "ctx._source.x=1", Map.of(), Map.of());
 
     verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  @Test
+  public void testUpsertDocumentSkippedWhenV2Disabled() {
+    ElasticSearchConfiguration enabledConfig = searchConfig(true);
+    EntityIndexConfiguration entityIndex = enabledConfig.getEntityIndex();
+    ESWriteDAO v2DisabledDAO =
+        new ESWriteDAO(
+            enabledConfig.toBuilder()
+                .entityIndex(
+                    entityIndex.toBuilder()
+                        .v2(entityIndex.getV2().toBuilder().enabled(false).build())
+                        .build())
+                .build(),
+            mockSearchClient,
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
+
+    v2DisabledDAO.upsertDocument(opContext, TEST_ENTITY, "{\"field\":\"value\"}", TEST_DOC_ID);
+    v2DisabledDAO.deleteDocument(opContext, TEST_ENTITY, TEST_DOC_ID);
+    v2DisabledDAO.applyScriptUpdate(
+        opContext, TEST_ENTITY, TEST_DOC_ID, "ctx._source.x=1", Map.of(), Map.of("urn", "urn"));
+
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+
+    clearInvocations(mockBulkProcessor);
+    v2DisabledDAO.deleteDocumentBySearchGroup(opContext, "test_group", TEST_DOC_ID);
+
+    ArgumentCaptor<DeleteRequest> searchGroupDelete = ArgumentCaptor.forClass(DeleteRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), searchGroupDelete.capture());
+    assertEquals(searchGroupDelete.getValue().index(), testGroupIndex());
+    assertEquals(searchGroupDelete.getValue().id(), TEST_DOC_ID);
+
+    clearInvocations(mockBulkProcessor);
+    v2DisabledDAO.writeV3SearchDocument(
+        opContext,
+        new V3SearchDocumentWrite(
+            testGroupIndex(), TEST_DOC_ID, V3_URN, "{\"urn\":\"" + V3_URN + "\"}", Kind.DELETE));
+
+    ArgumentCaptor<DeleteRequest> v3Delete = ArgumentCaptor.forClass(DeleteRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), v3Delete.capture());
+    assertEquals(v3Delete.getValue().index(), testGroupIndex());
+    assertEquals(v3Delete.getValue().id(), TEST_DOC_ID);
   }
 
   @Test

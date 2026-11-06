@@ -808,6 +808,56 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
+   * IN is a terms query on the index's keyword path whether or not a Search V3 template is
+   * selected. V2 keeps {@code .keyword}. V3 uses the resolved root. This request is built by the
+   * Java query builder: the operation has no template coordinator.
+   */
+  @Test
+  public void testInFilterKeepsV2KeywordAndV3RootWithoutATemplate() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform",
+                                    Condition.IN,
+                                    "urn:li:dataPlatform:hive",
+                                    "urn:li:dataPlatform:kafka")))));
+    OperationContext flags =
+        operationContext.withSearchFlags(flag -> flag.setFulltext(true).setSkipAggregates(true));
+
+    String v2 = datasetSearch(flags, testQueryConfig, filter).source().query().toString();
+    assertTrue(compact(v2).contains("\"terms\":{\"platform.keyword\":["), v2);
+    assertFalse(v2.contains("platform_urn"), v2);
+
+    String v3 = datasetSearch(flags, V3_READ_CONFIG, filter).source().query().toString();
+    assertTrue(compact(v3).contains("\"terms\":{\"platform_urn\":["), v3);
+    assertFalse(v3.contains("platform_urn.keyword"), v3);
+    assertFalse(v3.contains("platform.keyword"), v3);
+    // The Java builder's dis_max, rather than the list template's match_all.
+    assertTrue(v3.contains("dis_max"), v3);
+  }
+
+  private SearchRequest datasetSearch(
+      OperationContext context, ElasticSearchConfiguration config, Filter filter) {
+    return SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            config,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getSearchRequest(context, "*", filter, null, 0, 10, List.of());
+  }
+
+  private static String compact(String query) {
+    return query.replaceAll("\\s+", "");
+  }
+
+  /**
    * V3 strips caller-supplied legacy subfields and resolves from the registry; entity type enum
    * names, as the UI sends them, still match the V3 _entityType field.
    */
@@ -1033,6 +1083,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(description.contains("\"description.text\""), description);
     assertTrue(description.contains("\"description.stemmed\""), description);
     assertTrue(description.contains("\"operator\" : \"AND\""), description);
+    assertTrue(description.contains("\"analyzer\" : \"standard\""), description);
     assertFalse(description.contains("wildcard"), description);
 
     String fieldDescriptions =

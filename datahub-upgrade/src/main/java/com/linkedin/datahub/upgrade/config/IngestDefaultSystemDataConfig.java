@@ -32,8 +32,14 @@ public class IngestDefaultSystemDataConfig {
       final SearchDocumentTransformer searchDocumentTransformer,
       @Value("${bootstrap.policies.file:classpath:boot/policies.json}")
           final Resource policiesResource,
-      @Value("${systemUpdate.ingestPolicies.enabled}") final boolean enabled) {
+      @Value("${systemUpdate.ingestPolicies.enabled}") final boolean enabled,
+      @Value("${elasticsearch.entityIndex.v2.enabled:true}") final boolean v2EntityIndexEnabled) {
     return new IngestPolicies(
-        entityService, entitySearchService, searchDocumentTransformer, policiesResource, enabled);
+        entityService,
+        entitySearchService,
+        searchDocumentTransformer,
+        policiesResource,
+        enabled,
+        v2EntityIndexEnabled);
   }
 }

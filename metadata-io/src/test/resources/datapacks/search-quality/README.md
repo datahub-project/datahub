@@ -40,7 +40,9 @@ description is the query. A 3 is that asset on another platform or a close varia
 related asset a user would still open. A 1 is a neighbor. `longtailEcommerceNdcgAt10` is the mean
 nDCG@10 of those queries on the template path. `javaBuilderLongtailEcommerceNdcgAt10` is the same
 mean with template execution skipped. The `keyword-probe` queries are pass/fail constraints on the
-template path: top hit, order, presence, and name/qualified-name relationships. `entity-boost` compares one glossary term, glossary
+template path: top hit, order, presence, and name/qualified-name relationships. `ui-filter-shared-token`
+records the unquoted filter query and the one-token overlap it must not admit. `tag-four-part-name`
+records the four-part tag name and passes on the light rung. `entity-boost` compares one glossary term, glossary
 node, data product, domain, and dataset that share a name and description. `entity-search` checks
 that one imported user and one imported group are findable. Neither group is part of an nDCG mean.
 The `autocomplete` queries are also pass/fail and stay out of both nDCG floors: a two-character
@@ -52,7 +54,10 @@ Two kinds of judgment are kept apart. Ground truth is `benchmark` (Cranfield qre
 nDCG mean, and a grade has to be defensible from the asset's name, title, description, or field
 text. Mechanism probes encode a ranking rule and stay out of both means: `entity-boost`,
 `entity-search`, `structured-property`, `sort`, `field-probe`, `autocomplete`, and
-`keyword-probe`. `entity-boost` gives a glossary term, glossary node, data
+`keyword-probe`. `quickstart-search` is recorded without a pass gate. It runs the query `sample`
+against three camelCase datasets (`SampleKafkaDataset`, `SampleHdfsDataset`, `SampleHiveDataset`)
+that the quickstart smoke suite also searches. The report is written, and the test fails only if
+the judgments do not load. `entity-boost` gives a glossary term, glossary node, data
 product, domain, and dataset one shared name and description. The glossary term and
 data product may lead in either order, and both stay in the top three with the dataset.
 The glossary node probe expects the data product ahead of the node. Shipped

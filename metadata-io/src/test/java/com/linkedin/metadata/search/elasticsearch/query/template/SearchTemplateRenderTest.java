@@ -815,6 +815,14 @@ public class SearchTemplateRenderTest {
   }
 
   @Test
+  public void testLightQueryDoesNotScoreANamePrefix() throws Exception {
+    harness.installShippedTemplates();
+    String rendered = render("urn:li:searchTemplate:light", "sample", true);
+    assertFalse(rendered.contains("constant_score"), rendered);
+    assertFalse(rendered.contains("name.lowercase"), rendered);
+  }
+
+  @Test
   public void testSpacelessDottedTiersUseSegmentBoundaries() throws Exception {
     harness.installShippedTemplates();
     String light = render("urn:li:searchTemplate:light", "analytics.pet_details", true);

@@ -1594,9 +1594,14 @@ public class ESUtils {
                     v3Index))
             .queryName(queryName != null ? queryName : fieldName);
       } else if (condition == Condition.IN) {
-        return QueryBuilders.termsQuery(
-                toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
-                criterion.getValues())
+        // A resolved V3 path is already the keyword field. The V2 helper appends .keyword, which
+        // turns platform_urn into platform_urn.keyword and matches nothing.
+        String field =
+            resolvedForV3
+                ? fieldName
+                : toKeywordField(
+                    opContext, criterion.getField(), isTimeseries, aspectRetriever, v3Index);
+        return QueryBuilders.termsQuery(field, criterion.getValues())
             .queryName(queryName != null ? queryName : fieldName);
       }
     }
