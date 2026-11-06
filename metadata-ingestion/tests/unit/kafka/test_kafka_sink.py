@@ -1300,3 +1300,15 @@ def test_kafka_sink_oversize_rest_failure_blocks_subsequent_delete(
     del_callback.on_failure.assert_called_once()
     del_callback.on_success.assert_not_called()
     kafka_sink.close()
+
+
+def test_enhance_schema_registry_error_with_404_auto_registration_disabled():
+    error_str = (
+        "KafkaError{code=_VALUE_SERIALIZATION,val=-161,"
+        "str=\"Unknown Schema Registry Error: b'' (HTTP status code 404, SR code -1)\"}"
+    )
+
+    enhanced = _enhance_schema_registry_error(error_str, auto_register_schemas=False)
+
+    assert error_str in enhanced
+    assert "pre-registered" in enhanced
