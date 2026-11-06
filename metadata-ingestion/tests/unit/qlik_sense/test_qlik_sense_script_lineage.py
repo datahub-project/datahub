@@ -300,7 +300,10 @@ SQL SELECT order_id, from_field, extension, amount FROM dbo.orders;
 
     assert "amount" not in apply_preceding_loads(
         table.preceding_loads,
-        {name: [f"{name}_urn"] for name in ("order_id", "from_field", "extension", "amount")},
+        {
+            name: [f"{name}_urn"]
+            for name in ("order_id", "from_field", "extension", "amount")
+        },
     )
 
 
