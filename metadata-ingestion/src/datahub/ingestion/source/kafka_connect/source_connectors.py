@@ -3401,6 +3401,10 @@ class DebeziumSourceConnector(BaseConnector):
                 return []
 
             matched_tables = []
+            is_three_level_hierarchy = has_three_level_hierarchy(platform)
+            database_prefix = (
+                f"{database}." if database and is_three_level_hierarchy else None
+            )
 
             # Try to use Java regex for exact compatibility with Debezium
             try:
@@ -3426,6 +3430,16 @@ class DebeziumSourceConnector(BaseConnector):
                 if not table_name:
                     continue
 
+                normalized_table_name = table_name
+                table_without_database = (
+                    table_name.split(".", 1)[1] if "." in table_name else table_name
+                )
+                if database_prefix:
+                    if not table_name.lower().startswith(database_prefix.lower()):
+                        continue
+                    normalized_table_name = table_name[len(database_prefix) :]
+                    table_without_database = normalized_table_name
+
                 # Try direct match first (handles patterns like "mydb.schema.*")
                 full_name_matches = (
                     regex_pattern.matcher(table_name).matches()
@@ -3434,7 +3448,7 @@ class DebeziumSourceConnector(BaseConnector):
                 )
 
                 if full_name_matches:
-                    matched_tables.append(table_name)
+                    matched_tables.append(normalized_table_name)
                     continue
 
                 # For patterns without database prefix (e.g., "schema.*" or "public.*"),
@@ -3443,7 +3457,6 @@ class DebeziumSourceConnector(BaseConnector):
                 # - PostgreSQL: "public.*" matches "testdb.public.users" (3-tier URN)
                 # - MySQL: "mydb.*" matches "mydb.table1" (2-tier URN, already matched above)
                 if "." in table_name:
-                    table_without_database = table_name.split(".", 1)[1]
                     schema_name_matches = (
                         regex_pattern.matcher(table_without_database).matches()
                         if use_java_regex
@@ -3451,8 +3464,13 @@ class DebeziumSourceConnector(BaseConnector):
                     )
 
                     if schema_name_matches:
-                        matched_tables.append(table_name)
+                        matched_tables.append(
+                            table_without_database
+                            if is_three_level_hierarchy
+                            else normalized_table_name
+                        )
 
+            matched_tables = list(dict.fromkeys(matched_tables))
             logger.debug(
                 f"Pattern '{pattern}' matched {len(matched_tables)} tables from DataHub"
             )
