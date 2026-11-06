@@ -71,7 +71,8 @@ Two things consume the executor's ephemeral disk (under `/tmp/datahub/`) during 
   directly (logs visible via UI are stored in DataHub and are truncated)
 
 The in-process **log garbage collector** prunes the logs and is on by default: it scans the log directory on a timer and
-deletes per-execution directories older than the retention window, with a size cap as a safety net. Set
+deletes per-execution directories older than the retention window, with a size cap as a safety net. It runs on
+standalone executors in both SQS and Kafka mode, and on the embedded worker inside the coordinator. Set
 **`DATAHUB_EXECUTOR_LOG_GC_ENABLED=false`** to keep all logs. Tunables:
 
 | Variable                                              | Default             | Purpose                                                                                 |
