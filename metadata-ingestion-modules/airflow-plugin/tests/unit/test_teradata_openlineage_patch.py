@@ -1,14 +1,17 @@
-"""Unit tests for Teradata OpenLineage patch import compatibility."""
+"""Unit tests for the TeradataOperator OpenLineage patch."""
 
 import sys
 import types
 from collections.abc import Mapping
+from typing import Optional
 from unittest import mock
 
 import pytest
 
+from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin.airflow3._teradata_openlineage_patch import (
     _create_teradata_openlineage_wrapper,
+    _enhance_teradata_lineage_with_sql_parsing,
 )
 
 _EXTRACTORS = "airflow.providers.openlineage.extractors"
@@ -67,3 +70,38 @@ def test_create_wrapper_returns_original_when_import_fails(
     wrapper = _create_teradata_openlineage_wrapper(original)
 
     assert wrapper is original
+
+
+@pytest.mark.parametrize(
+    "schema, expected_unqualified",
+    [
+        pytest.param("dw", "dw.u", id="operator_schema"),
+        pytest.param(None, "u", id="no_schema"),
+    ],
+)
+def test_operator_schema_qualifies_only_unqualified_tables(
+    schema: Optional[str], expected_unqualified: str
+) -> None:
+    # TeradataOperator forwards `schema` to its hook as hook_params["database"].
+    # Teradata dataset names are two-tier (database.table), so that database
+    # must qualify unqualified tables only, not prefix qualified ones.
+    teradata = pytest.importorskip("airflow.providers.teradata.operators.teradata")
+    from airflow.providers.openlineage.extractors import OperatorLineage
+
+    sql = "INSERT INTO dw.t SELECT s.a, u.b FROM other_db.s JOIN u ON s.id = u.id"
+    operator = teradata.TeradataOperator(task_id="teradata", schema=schema, sql=sql)
+
+    lineage = _enhance_teradata_lineage_with_sql_parsing(
+        OperatorLineage(), sql, operator
+    )
+
+    result = lineage.run_facets[DATAHUB_SQL_PARSING_RESULT_KEY]
+    assert sorted(result.in_tables) == sorted(
+        [
+            f"urn:li:dataset:(urn:li:dataPlatform:teradata,{expected_unqualified},PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,other_db.s,PROD)",
+        ]
+    )
+    assert result.out_tables == [
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,dw.t,PROD)"
+    ]
