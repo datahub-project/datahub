@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.calls;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -59,6 +60,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class BuildIndicesIncrementalStepTest {
@@ -606,7 +608,7 @@ public class BuildIndicesIncrementalStepTest {
     // mappings.
     givenPreviousState(
         IncrementalReindexState.setDualWriteStartTime(
-            previousRow(INDEX_NAME, IncrementalReindexState.Status.DUAL_WRITE_DISABLED),
+            previousRow(INDEX_NAME, IncrementalReindexState.Status.COMPLETED),
             INDEX_NAME,
             1679000001000L));
     ReindexConfig droppedConfig = missingIndexConfig(INDEX_NAME);
@@ -616,7 +618,10 @@ public class BuildIndicesIncrementalStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(droppedConfig));
+    // The forgotten row is persisted before the index is touched.
+    InOrder inOrder = inOrder(entityService, indexBuilder);
+    inOrder.verify(entityService, calls(1)).ingestProposal(any(), any(), any(), anyBoolean());
+    inOrder.verify(indexBuilder).buildIndex(any(OperationContext.class), eq(droppedConfig));
     Map<String, String> state = persistedState();
     assertEquals(
         IncrementalReindexState.getStatus(state, INDEX_NAME),
@@ -635,8 +640,8 @@ public class BuildIndicesIncrementalStepTest {
 
   @Test
   public void testRebuildKeepsAnOldBackingIndexThatStillExists() throws Throwable {
-    // Only the live index was deleted. The old backing index still holds a copy, so it stays
-    // recorded: protected from orphan cleanup and current for a rollback.
+    // Only the live index was deleted. Rollback writes were still mirroring into the old backing
+    // index, so it stays recorded: protected from orphan cleanup and current for a rollback.
     givenPreviousState(previousRow(INDEX_NAME, IncrementalReindexState.Status.COMPLETED));
     ReindexConfig droppedConfig = missingIndexConfig(INDEX_NAME);
 
@@ -655,17 +660,38 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
-  public void testSkipsMissingIndexWhileItsFillIsInFlight() throws Throwable {
-    // The non-blocking phase owns an in-flight fill, missing index or not.
-    givenPreviousState(previousRow(V3_INDEX_NAME, IncrementalReindexState.Status.BACKFILL_PENDING));
-    missingIndexConfig(V3_INDEX_NAME);
+  public void testRebuildDoesNotReviveRollbackWritesOfADisabledRow() throws Throwable {
+    // Dual-write to the old backing index was disabled, so that copy is stale. Keeping its name on
+    // the rebuilt COMPLETED row would make it a rollback write target again.
+    givenPreviousState(previousRow(INDEX_NAME, IncrementalReindexState.Status.DUAL_WRITE_DISABLED));
+    ReindexConfig droppedConfig = missingIndexConfig(INDEX_NAME);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(indexBuilder, never())
-        .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
-    verify(indexBuilder, never()).buildIndex(any(OperationContext.class), any());
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(droppedConfig));
+    assertEquals(
+        IncrementalReindexState.get(
+            persistedState(), INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.empty());
+  }
+
+  @DataProvider(name = "fillStatuses")
+  public Object[][] fillStatuses() {
+    return new Object[][] {
+      {IncrementalReindexState.Status.BACKFILL_PENDING},
+      {IncrementalReindexState.Status.BACKFILL_IN_PROGRESS}
+    };
+  }
+
+  @Test(dataProvider = "fillStatuses")
+  public void testSkipsMissingIndexWhileItsFillIsInFlight(IncrementalReindexState.Status status)
+      throws Throwable {
+    // The non-blocking phase owns an in-flight fill, missing index or not.
+    givenPreviousState(previousRow(V3_INDEX_NAME, status));
+    missingIndexConfig(V3_INDEX_NAME);
+
+    assertSkippedWithoutRebuild();
   }
 
   @Test
@@ -675,6 +701,10 @@ public class BuildIndicesIncrementalStepTest {
     givenPreviousState(previousRow(V3_INDEX_NAME, IncrementalReindexState.Status.COMPLETED));
     missingIndexConfig(V3_INDEX_NAME);
 
+    assertSkippedWithoutRebuild();
+  }
+
+  private void assertSkippedWithoutRebuild() throws Throwable {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);

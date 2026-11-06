@@ -190,19 +190,23 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
               // skip its catch-up replay and leave the migration stamp incomplete.
               log.error(
                   "Index {} was {} in a previous run but no longer exists, and its fill from"
-                      + " primary storage cannot be planned again under this upgrade version;"
-                      + " reset this upgrade's state to rebuild it",
+                      + " primary storage cannot be planned again under this upgrade version. To"
+                      + " rebuild it, remove this index's entries from both the {} and {} upgrade"
+                      + " results",
                   config.name(),
-                  existingStatus.get());
+                  existingStatus.get(),
+                  id(),
+                  IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX + "_" + upgradeVersion);
               continue;
             }
             // Forget the row, persisted before the index is touched, so the index is built below
             // as on a fresh install.
-            upgradeState = forgetMissingIndex(upgradeState, config.name());
+            upgradeState = forgetMissingIndex(upgradeState, config.name(), existingStatus.get());
             checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
             log.error(
-                "Index {} was {} in a previous run but no longer exists; recreating it empty."
-                    + " Run RestoreIndices to repopulate it",
+                "Index {} was {} in a previous run but no longer exists; recreating it empty with"
+                    + " its target mappings. Its documents must be restored (RestoreIndices"
+                    + " rebuilds an entity index from primary storage)",
                 config.name(),
                 existingStatus.get());
           }
@@ -658,16 +662,21 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
 
   /**
    * {@code upgradeState} without the row for {@code indexName}. The row's old backing index stays
-   * recorded only while it still exists: that keeps the copy protected from orphan cleanup and
-   * current for a rollback, while the name of a deleted index would send rollback writes to an
-   * index the engine then recreates with dynamic mappings.
+   * recorded only when the row was {@code COMPLETED} and the index still exists: rollback writes
+   * were still mirroring into that copy, so it stays protected from orphan cleanup and current for
+   * a rollback. A {@code DUAL_WRITE_DISABLED} row's copy was neither, and the name of a deleted
+   * index would send rollback writes to an index the engine then recreates with dynamic mappings.
    */
-  private Map<String, String> forgetMissingIndex(Map<String, String> upgradeState, String indexName)
+  private Map<String, String> forgetMissingIndex(
+      Map<String, String> upgradeState,
+      String indexName,
+      IncrementalReindexState.Status forgottenStatus)
       throws IOException {
     Optional<String> oldBackingIndexName =
         IncrementalReindexState.get(
                 upgradeState, indexName, IncrementalReindexState.OLD_BACKING_INDEX_NAME)
-            .filter(name -> !name.isEmpty());
+            .filter(name -> !name.isEmpty())
+            .filter(name -> forgottenStatus == IncrementalReindexState.Status.COMPLETED);
     Map<String, String> result = new HashMap<>(upgradeState);
     IncrementalReindexState.getAllIndexStates(upgradeState)
         .getOrDefault(indexName, Map.of())
