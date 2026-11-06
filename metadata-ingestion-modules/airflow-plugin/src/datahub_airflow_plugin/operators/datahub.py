@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_MCES_DEPRECATION_MESSAGE = "DatahubEmitterOperator(mces=...) is deprecated; use mcps=."
+
 
 class DatahubBaseOperator(BaseOperator):
     """
@@ -69,16 +71,18 @@ class DatahubEmitterOperator(DatahubBaseOperator):
             datahub_conn_id=datahub_conn_id,
             **kwargs,
         )
+        # Logged from execute() rather than here: __init__ also runs on every DAG
+        # parse, and the DeprecationWarning is hidden by Python's default filter.
+        self._mces_deprecated = mces is not None
         # Copied to a list so a one-shot iterable survives execute(), which renders
         # the items in place and then emits them.
         self.metadata: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
         if mces is not None:
             if mcps is not None:
                 raise ValueError("Pass either mcps= or mces=, not both")
-            message = "DatahubEmitterOperator(mces=...) is deprecated; use mcps=."
-            warnings.warn(message, DataHubDeprecationWarning, stacklevel=2)
-            # Hidden by Python's default DeprecationWarning filter outside __main__.
-            logger.warning(message)
+            warnings.warn(
+                _MCES_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
+            )
             self.metadata = list(mces)
         elif mcps is not None:
             self.metadata = list(mcps)
@@ -105,6 +109,8 @@ class DatahubEmitterOperator(DatahubBaseOperator):
         return field_value
 
     def execute(self, context: "Context") -> None:
+        if self._mces_deprecated:
+            logger.warning(_MCES_DEPRECATION_MESSAGE)
         if context:
             jinja_env = self.get_template_env()
 

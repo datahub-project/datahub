@@ -162,7 +162,7 @@ def test_datahub_lineage_operator(mock_emit):
 
 
 @mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit")
-def test_datahub_emitter_operator_mces_is_deprecated_alias(mock_emit):
+def test_datahub_emitter_operator_mces_is_deprecated_alias(mock_emit, caplog):
     mcps = list(mcps_from_mce(lineage_mce))
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         assert config.conn_id
@@ -170,7 +170,10 @@ def test_datahub_emitter_operator_mces_is_deprecated_alias(mock_emit):
             old = DatahubEmitterOperator(
                 task_id="old", datahub_conn_id=config.conn_id, mces=mcps
             )
+        # Logged per task run, not on every DAG parse.
+        assert "mces=" not in caplog.text
         old.execute({})
+        assert "mces=" in caplog.text
 
         new = DatahubEmitterOperator(
             task_id="new", datahub_conn_id=config.conn_id, mcps=mcps
