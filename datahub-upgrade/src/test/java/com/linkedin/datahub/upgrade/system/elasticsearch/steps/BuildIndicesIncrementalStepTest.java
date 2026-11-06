@@ -681,19 +681,30 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
-  public void testFailedRebuildLeavesTheRowForgottenForTheNextRun() throws Throwable {
-    // The forgotten row is persisted before the index is built, so when the build fails the next
-    // run finds no row and builds the index as on a fresh install.
+  public void testRerunAfterAFailedRebuildStillRetiresTheRollbackTarget() throws Throwable {
+    // The forgotten row is persisted as DUAL_WRITE_DISABLED before the build, so consumers release
+    // the deleted old backing index even if the build fails, and the rerun reaches the same row.
     givenPreviousState(previousRow(INDEX_NAME, IncrementalReindexState.Status.COMPLETED));
     ReindexConfig droppedConfig = missingIndexConfig(INDEX_NAME);
+    when(indexBuilder.indexExists(any(OperationContext.class), eq(OLD_BACKING_INDEX_NAME)))
+        .thenReturn(false);
+    // The build fails once, then succeeds on the rerun.
     doThrow(new IOException("ES unavailable"))
+        .doReturn(null)
         .when(indexBuilder)
         .buildIndex(any(OperationContext.class), eq(droppedConfig));
 
-    UpgradeStepResult result = step.executable().apply(upgradeContext);
+    assertEquals(step.executable().apply(upgradeContext).result(), DataHubUpgradeState.FAILED);
+    Map<String, String> afterFailure = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(afterFailure, INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.DUAL_WRITE_DISABLED));
 
-    assertEquals(result.result(), DataHubUpgradeState.FAILED);
-    assertEquals(IncrementalReindexState.getStatus(persistedState(), INDEX_NAME), Optional.empty());
+    givenPreviousState(afterFailure);
+    assertEquals(step.executable().apply(upgradeContext).result(), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(
+        IncrementalReindexState.getStatus(persistedState(), INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.DUAL_WRITE_DISABLED));
   }
 
   @DataProvider(name = "fillStatuses")

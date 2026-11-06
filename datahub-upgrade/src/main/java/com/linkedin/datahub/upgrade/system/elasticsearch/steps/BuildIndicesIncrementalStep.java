@@ -202,21 +202,11 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             }
             // Forget the row, persisted before the index is touched, so the index is built below
             // as on a fresh install.
-            boolean hadOldBackingIndex =
-                IncrementalReindexState.get(
-                        upgradeState, config.name(), IncrementalReindexState.OLD_BACKING_INDEX_NAME)
-                    .filter(name -> !name.isEmpty())
-                    .isPresent();
             upgradeState = forgetMissingIndex(upgradeState, config.name(), existingStatus.get());
-            // Running consumers let go of a rollback write target only when the row reads
-            // DUAL_WRITE_DISABLED, so an old backing index that was not kept is retired that way.
             retireRollbackTarget =
-                hadOldBackingIndex
-                    && IncrementalReindexState.get(
-                            upgradeState,
-                            config.name(),
-                            IncrementalReindexState.OLD_BACKING_INDEX_NAME)
-                        .isEmpty();
+                IncrementalReindexState.getStatus(upgradeState, config.name())
+                    .filter(IncrementalReindexState.Status.DUAL_WRITE_DISABLED::equals)
+                    .isPresent();
             checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
             log.error(
                 "Index {} was {} in a previous run but no longer exists; recreating it empty with"
@@ -680,12 +670,19 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
   }
 
   /**
-   * {@code upgradeState} without the row for {@code indexName}. The row's old backing index stays
-   * recorded only when the row was {@code COMPLETED} and the index still exists: with rollback
-   * dual-write on, writes were still mirroring into that copy, so it stays protected from orphan
-   * cleanup and current for a rollback. A {@code DUAL_WRITE_DISABLED} row's copy was neither, and
-   * the name of a deleted index would send rollback writes to an index the engine then recreates
-   * with dynamic mappings.
+   * {@code upgradeState} with the row for {@code indexName} reduced to what must outlive the
+   * rebuild, so a rerun after a failed build reaches the same row:
+   *
+   * <ul>
+   *   <li>a {@code COMPLETED} row whose old backing index still exists keeps that status and index:
+   *       with rollback dual-write on, writes were still mirroring into that copy, so it stays
+   *       current for a rollback;
+   *   <li>a {@code DUAL_WRITE_DISABLED} row, or one whose old backing index is gone, reads {@code
+   *       DUAL_WRITE_DISABLED}: running consumers let go of a rollback write target only then, and
+   *       the name of a deleted index would send writes to an index the engine recreates with
+   *       dynamic mappings;
+   *   <li>any other row is dropped.
+   * </ul>
    */
   private Map<String, String> forgetMissingIndex(
       Map<String, String> upgradeState,
@@ -695,17 +692,23 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     Optional<String> oldBackingIndexName =
         IncrementalReindexState.get(
                 upgradeState, indexName, IncrementalReindexState.OLD_BACKING_INDEX_NAME)
-            .filter(name -> !name.isEmpty())
-            .filter(name -> forgottenStatus == IncrementalReindexState.Status.COMPLETED);
+            .filter(name -> !name.isEmpty());
     Map<String, String> result = new HashMap<>(upgradeState);
     IncrementalReindexState.getAllIndexStates(upgradeState)
         .getOrDefault(indexName, Map.of())
         .keySet()
         .forEach(property -> result.remove(IncrementalReindexState.key(indexName, property)));
-    if (oldBackingIndexName.isPresent()
+    if (forgottenStatus == IncrementalReindexState.Status.COMPLETED
+        && oldBackingIndexName.isPresent()
         && requireIndexBuilder(indexName).indexExists(opContext, oldBackingIndexName.get())) {
-      return IncrementalReindexState.setOldBackingIndexName(
-          result, indexName, oldBackingIndexName.get());
+      return IncrementalReindexState.setPhase1Completed(
+          IncrementalReindexState.setOldBackingIndexName(
+              result, indexName, oldBackingIndexName.get()),
+          indexName);
+    }
+    if (forgottenStatus == IncrementalReindexState.Status.DUAL_WRITE_DISABLED
+        || oldBackingIndexName.isPresent()) {
+      return IncrementalReindexState.setDualWriteDisabled(result, indexName);
     }
     return result;
   }
