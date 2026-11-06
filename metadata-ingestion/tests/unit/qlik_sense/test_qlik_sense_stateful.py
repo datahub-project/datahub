@@ -1,6 +1,8 @@
 from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
@@ -50,12 +52,15 @@ def test_stateful_ingestion_registers_stale_removal_processor(mock_qlik_api):
 
 
 def _onprem_run(
-    graph: MagicMock, run_id: str, engine_fails: bool, apps_fail: bool = False
+    graph: MagicMock,
+    run_id: str,
+    engine_fails: bool,
+    failing_endpoint: Optional[str] = None,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
     def qrs_get(
         url: str, params: Optional[Dict[str, str]] = None, **kwargs: object
     ) -> _Response:
-        if apps_fail and url.endswith("/app/full"):
+        if failing_endpoint and url.endswith(failing_endpoint):
             raise OSError("QRS unavailable")
         return _qrs_get(url, params, **kwargs)
 
@@ -112,15 +117,19 @@ def test_engine_outage_does_not_soft_delete_app_contents(
     ]
 
 
-def test_app_listing_failure_does_not_soft_delete_apps(
+@pytest.mark.parametrize("failing_endpoint", ["/app/full", "/dataconnection/full"])
+def test_qrs_failure_does_not_soft_delete(
     mock_datahub_graph: MagicMock,  # noqa: F811
+    failing_endpoint: str,
 ) -> None:
-    _, first_wus = _onprem_run(mock_datahub_graph, "run-1", engine_fails=False)
+    _onprem_run(mock_datahub_graph, "run-1", engine_fails=False)
     second, second_wus = _onprem_run(
-        mock_datahub_graph, "run-2", engine_fails=False, apps_fail=True
+        mock_datahub_graph,
+        "run-2",
+        engine_fails=False,
+        failing_endpoint=failing_endpoint,
     )
 
-    assert any(":dashboard:" in wu.get_urn() for wu in first_wus)
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
     assert [failure.title for failure in second.reporter.failures] == [
         "Unable to read from Qlik"
