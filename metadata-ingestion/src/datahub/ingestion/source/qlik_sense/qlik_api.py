@@ -301,6 +301,7 @@ class QlikAPI:
             self._log_http_error(
                 message=f"Unable to fetch data connections. Exception: {e}"
             )
+            self.unread_items.append("data connections")
         logger.debug(f"Qlik Cloud data connections: {list(connections.values())}")
         return connections
 
@@ -333,7 +334,10 @@ class QlikAPI:
             )
         finally:
             if websocket_connection:
-                websocket_connection.close_websocket()
+                try:
+                    websocket_connection.close_websocket()
+                except Exception as e:
+                    logger.debug(f"Unable to close Engine session of app {app_id}: {e}")
         return None
 
     def _list_items(self, space_id: str) -> Iterable[Dict]:
