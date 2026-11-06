@@ -10,7 +10,7 @@ import requests
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
-from datahub.ingestion.source.qlik_sense.data_classes import App, QlikTable
+from datahub.ingestion.source.qlik_sense.data_classes import App, Chart, QlikTable
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -292,6 +292,24 @@ def test_onprem_loads_apps_in_parallel(
         assert isinstance(item, App)
         expected_sheets = [] if app_id == "app-2" else ["Overview"]
         assert [sheet.title for sheet in item.sheets] == expected_sheets
+
+
+def test_chart_keeps_dimension_in_error_state() -> None:
+    layout = _chart_layout("broken-dimension")["qLayout"]
+    layout["qHyperCube"] = {  # type: ignore[index]
+        "qDimensionInfo": [
+            {"qFallbackTitle": "Region", "qMin": 0, "qMax": 9},
+            {"qError": {"qErrorCode": 7005}},
+        ],
+        "qMeasureInfo": [],
+    }
+
+    chart = Chart.model_validate(layout)
+
+    assert [(d.Title, d.Min) for d in chart.qDimension] == [
+        ("Region", "0"),
+        (None, None),
+    ]
 
 
 class _ScriptedEngine(WebsocketConnection):
