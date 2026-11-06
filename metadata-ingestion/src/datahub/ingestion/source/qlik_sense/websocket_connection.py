@@ -262,7 +262,7 @@ class WebsocketConnection:
                 properties = self.websocket_send_request(method="GetProperties")[
                     Constant.QPROPERTY
                 ]
-            elif properties.get(Constant.QEXTENDSID):
+            if properties.get(Constant.QEXTENDSID):
                 # A linked master visualization keeps its hypercube on the master.
                 properties = self.websocket_send_request(
                     method="GetEffectiveProperties"

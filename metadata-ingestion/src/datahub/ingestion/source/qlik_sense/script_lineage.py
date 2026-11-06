@@ -71,6 +71,26 @@ DATABASE_RE = re.compile(
 # The values in a set modifier, such as {"Net*"} in {<Region={"Net*"}>}, are
 # search strings even when double-quoted.
 SET_VALUES_START_RE = re.compile(r"[-+*/]?=\s*\{")
+# Further element lists combined with the first, as in Region={"A"}+{"B"}.
+SET_VALUES_NEXT_RE = re.compile(r"\s*[-+*/]\s*\{")
+# Operators and aggregation qualifiers, as in Sum(DISTINCT TOTAL Amount).
+EXPRESSION_KEYWORDS = {
+    "all",
+    "and",
+    "bitand",
+    "bitnot",
+    "bitor",
+    "bitxor",
+    "distinct",
+    "follows",
+    "like",
+    "nodistinct",
+    "not",
+    "or",
+    "precedes",
+    "total",
+    "xor",
+}
 # Single-quoted text is a string literal in a chart expression, not a field.
 EXPRESSION_NAME_RE = re.compile(
     r"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>[^\W\d][\w.]*)"
@@ -406,25 +426,33 @@ def strip_set_values(expression: str) -> str:
     position = 0
     while match := SET_VALUES_START_RE.search(expression, position):
         kept.append(expression[position : match.start()])
-        depth = 1
-        position = match.end()
-        while position < len(expression) and depth:
-            depth += {"{": 1, "}": -1}.get(expression[position], 0)
-            position += 1
+        while match:
+            depth = 1
+            position = match.end()
+            while position < len(expression) and depth:
+                depth += {"{": 1, "}": -1}.get(expression[position], 0)
+                position += 1
+            match = SET_VALUES_NEXT_RE.match(expression, position)
     kept.append(expression[position:])
     return "".join(kept)
 
 
 def expression_names(expression: str) -> List[str]:
-    """Names an expression may read as fields. Keywords come back too, so
+    """Names an expression may read as fields. Not every name is a field, so
     callers keep only names that are fields of the app."""
     expression = strip_set_values(expression)
     names: List[str] = []
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")
-        if bare and expression[match.end() :].lstrip().startswith("("):
-            # A function call such as Year(OrderDate), even when an app field
-            # has the same name.
+        if (
+            bare
+            and (
+                bare.lower() in EXPRESSION_KEYWORDS
+                # A function call such as Year(OrderDate), even when an app field
+                # has the same name.
+                or expression[match.end() :].lstrip().startswith("(")
+            )
+        ):
             continue
         name = match.group("bracket") or match.group("double") or bare
         if name:

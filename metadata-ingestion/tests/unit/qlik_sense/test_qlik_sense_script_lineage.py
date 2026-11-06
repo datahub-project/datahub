@@ -331,6 +331,16 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
             "=[Year] + Year", ["Year", "Year"], id="field_named_like_function"
         ),
         pytest.param("Count({<Year={2024}>} Region)", ["Year", "Region"], id="set"),
+        pytest.param(
+            "Count({<Region={'A'}+{\"B*\"}-{$(vSkip)}>} Amount)",
+            ["Region", "Amount"],
+            id="combined_set_values",
+        ),
+        pytest.param(
+            "Sum(DISTINCT TOTAL <Region> Amount) and not Flag",
+            ["Region", "Amount", "Flag"],
+            id="keywords",
+        ),
     ],
 )
 def test_expression_names_skip_function_calls(
