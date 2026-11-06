@@ -676,6 +676,22 @@ public class BuildIndicesIncrementalStepTest {
         Optional.empty());
   }
 
+  @Test
+  public void testFailedRebuildLeavesTheRowForgottenForTheNextRun() throws Throwable {
+    // The forgotten row is persisted before the index is built, so when the build fails the next
+    // run finds no row and builds the index as on a fresh install.
+    givenPreviousState(previousRow(INDEX_NAME, IncrementalReindexState.Status.COMPLETED));
+    ReindexConfig droppedConfig = missingIndexConfig(INDEX_NAME);
+    doThrow(new IOException("ES unavailable"))
+        .when(indexBuilder)
+        .buildIndex(any(OperationContext.class), eq(droppedConfig));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    assertEquals(IncrementalReindexState.getStatus(persistedState(), INDEX_NAME), Optional.empty());
+  }
+
   @DataProvider(name = "fillStatuses")
   public Object[][] fillStatuses() {
     return new Object[][] {
