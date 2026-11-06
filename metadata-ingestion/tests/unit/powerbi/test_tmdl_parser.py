@@ -178,6 +178,19 @@ def test_parse_directlake_entity_partition() -> None:
     assert partition.source is None
 
 
+def test_parse_directlake_partition_unquotes_quoted_values() -> None:
+    quoted = (
+        DIRECTLAKE_TABLE.replace("entityName: claims", "entityName: 'claim lines'")
+        .replace("schemaName: dbo", 'schemaName: "sales ops"')
+        .replace("expressionSource: DatabaseQuery", "expressionSource: 'Lake''s Query'")
+    )
+    table = parse_table(quoted)
+    assert table is not None and table.partition is not None
+    assert table.partition.entity_name == "claim lines"
+    assert table.partition.schema_name == "sales ops"
+    assert table.partition.expression_source == "Lake's Query"
+
+
 def test_parse_query_partition_keeps_sql_and_following_properties() -> None:
     table = parse_table(QUERY_TABLE)
     assert table is not None

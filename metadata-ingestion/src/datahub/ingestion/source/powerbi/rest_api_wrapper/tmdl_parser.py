@@ -195,6 +195,17 @@ def _unquote(name: str) -> str:
     return name
 
 
+def _property_text(value: Optional[str]) -> Optional[str]:
+    # Fabric quotes text values that contain spaces or special characters,
+    # with single quotes for object references and double quotes for strings.
+    if value is None or len(value) < 2:
+        return value
+    for quote in ("'", '"'):
+        if value.startswith(quote) and value.endswith(quote):
+            return value[1:-1].replace(quote * 2, quote)
+    return value
+
+
 def _indent_of(line: str) -> int:
     return len(line) - len(line.lstrip("\t"))
 
@@ -326,9 +337,9 @@ def _parse_partition(node: TmdlNode) -> ParsedPartition:
             kind=kind,
             mode=mode or PARTITION_MODE_DIRECT_LAKE,
             source=None,
-            entity_name=source_props.get(PROP_ENTITY_NAME),
-            schema_name=source_props.get(PROP_SCHEMA_NAME),
-            expression_source=source_props.get(PROP_EXPRESSION_SOURCE),
+            entity_name=_property_text(source_props.get(PROP_ENTITY_NAME)),
+            schema_name=_property_text(source_props.get(PROP_SCHEMA_NAME)),
+            expression_source=_property_text(source_props.get(PROP_EXPRESSION_SOURCE)),
         )
     source = node.property_expression(PROP_SOURCE)
     if source is None and kind == PARTITION_KIND_QUERY:
