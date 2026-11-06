@@ -188,7 +188,14 @@ class PostgresAdapter(PlatformAdapter):
             # Deliberately not single-row: filtered on schema+table, so a table
             # absent from the catalog yields zero rows.
             result = conn.execute_rows(query).scalar()
-            return int(result) if result is not None else None
+            if result is None:
+                return None
+            # On PG14+, reltuples is -1 for a table never analyzed, and stays -1
+            # for a partitioned parent, which autovacuum does not analyze. That
+            # is "unknown", not a row count: treat it like a failed lookup.
+            if result < 0:
+                return None
+            return int(result)
 
         except SQLAlchemyError as e:
             logger.debug(
