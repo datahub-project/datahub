@@ -160,6 +160,7 @@ class WebsocketConnection:
         if (
             prop is not None
             and Constant.QHYPERCUBEDEF not in prop
+            and not prop.get(Constant.QEXTENDSID)
             and prop.get(Constant.QINFO, {}).get(Constant.QTYPE) != Constant.CONTAINER
         ):
             # Getting a layout makes the Engine calculate the object, which is
@@ -223,6 +224,11 @@ class WebsocketConnection:
                 properties = self.websocket_send_request(method="GetProperties")[
                     Constant.QPROPERTY
                 ]
+            elif properties.get(Constant.QEXTENDSID):
+                # A linked master visualization keeps its hypercube on the master.
+                properties = self.websocket_send_request(
+                    method="GetEffectiveProperties"
+                )[Constant.QPROPERTY]
         except Exception as e:
             on_error(
                 f"Unable to read the measures of chart {chart.qId} of sheet {sheet_id}. Exception: {e}"

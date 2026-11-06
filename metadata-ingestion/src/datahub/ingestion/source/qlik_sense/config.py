@@ -119,6 +119,7 @@ class Constant:
     QPROPERTYTREEITEM = "qProperty"
     QCHILDREN = "qChildren"
     QHYPERCUBEDEF = "qHyperCubeDef"
+    QEXTENDSID = "qExtendsId"
     QMEASURES = "qMeasures"
     QDEF = "qDef"
     QLIBRARYID = "qLibraryId"

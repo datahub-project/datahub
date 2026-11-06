@@ -507,6 +507,40 @@ def test_onprem_does_not_open_objects_that_are_not_charts(
     "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_reads_linked_master_visualization(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    layout = _chart_layout("linked")
+    layout["qLayout"]["qHyperCube"]["qMeasureInfo"] = [  # type: ignore[index]
+        {"qFallbackTitle": "Sales"}
+    ]
+    engine = _ScriptedEngine(
+        _sheet_replies(
+            ["linked"],
+            [{"qInfo": {"qId": "linked"}, "qExtendsId": "master-viz"}],
+        )
+        + [
+            {"qReturn": {"qHandle": 3}},
+            layout,
+            {
+                "qProp": {
+                    "qHyperCubeDef": {"qMeasures": [{"qDef": {"qDef": "Sum(Sales)"}}]}
+                }
+            },
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    (chart,) = app.sheets[0].charts
+    assert chart.field_expressions == ["Sum(Sales)"]
+    assert chart.fields_complete
+    assert ("GetEffectiveProperties", 3) in engine.sent_on
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_container_that_holds_itself_is_read_once(
     mock_session_cls: MagicMock, mock_engine: MagicMock
 ) -> None:
