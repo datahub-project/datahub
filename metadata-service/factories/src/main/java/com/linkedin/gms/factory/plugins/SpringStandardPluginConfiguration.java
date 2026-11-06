@@ -88,6 +88,7 @@ import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorR
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -887,8 +888,12 @@ public class SpringStandardPluginConfiguration {
       name = "metadataChangeProposal.validation.aspectAuthorization.assertion.enabled",
       havingValue = "true",
       matchIfMissing = true)
-  public AspectPayloadValidator assertionAuthorizationValidator() {
+  public AspectPayloadValidator assertionAuthorizationValidator(
+      @Value(
+              "${metadataChangeProposal.validation.aspectAuthorization.assertion.maxFutureSkewSeconds:300}")
+          final long maxFutureSkewSeconds) {
     return new AssertionAuthorizationValidator()
+        .setMaxFutureSkew(Duration.ofSeconds(maxFutureSkewSeconds))
         .setConfig(
             AspectPluginConfig.builder()
                 .className(AssertionAuthorizationValidator.class.getName())

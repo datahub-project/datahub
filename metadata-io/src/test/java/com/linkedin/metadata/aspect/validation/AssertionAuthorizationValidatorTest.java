@@ -53,6 +53,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -408,6 +409,21 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
+  public void testRunEventDatedInTheFutureRejected() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+    long now = System.currentTimeMillis();
+
+    List<AspectValidationException> failures =
+        validate(
+            OperationFingerprint.EMPTY, runEventOn(DATASET_A, now + Duration.ofDays(1).toMillis()));
+    Assert.assertEquals(failures.size(), 1);
+    Assert.assertNotEquals(failures.get(0).getSubType(), ValidationSubType.AUTHORIZATION);
+
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_A, now)).isEmpty());
+  }
+
+  @Test
   public void testDeleteDeniedWithoutEditAssertionsOnTarget() {
     mockPersisted(freshnessOn(DATASET_A));
     grantEditAssertionsOn(DATASET_B);
@@ -552,9 +568,13 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   private static BatchItem runEventOn(Urn asserteeUrn) {
+    return runEventOn(asserteeUrn, 0L);
+  }
+
+  private static BatchItem runEventOn(Urn asserteeUrn, long timestampMillis) {
     AssertionRunEvent runEvent =
         new AssertionRunEvent()
-            .setTimestampMillis(0L)
+            .setTimestampMillis(timestampMillis)
             .setRunId("run")
             .setAssertionUrn(ASSERTION_URN)
             .setAsserteeUrn(asserteeUrn)

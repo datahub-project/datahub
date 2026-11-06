@@ -17,6 +17,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.authorization.AssertionAuthorizationUtils;
 import com.linkedin.metadata.authorization.AssertionAuthorizationUtils.AssertionWrite;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -59,6 +60,10 @@ import lombok.extern.slf4j.Slf4j;
  * assertionInfo} yet only the assertee is checked here; the API-level gate then requires the
  * privilege on the assertion itself.
  *
+ * <p>Run events dated more than {@code maxFutureSkew} ahead of the server clock are rejected. The
+ * current result of an assertion is the one with the latest timestamp, so a result dated in the
+ * future would stay current until that date, whatever runs after it.
+ *
  * <p>Targets are read from the stored value when the batch is validated. With async ingestion an
  * earlier request may not have landed yet, so a write is checked against the value before that
  * request; the earlier request was checked on its own.
@@ -70,6 +75,8 @@ import lombok.extern.slf4j.Slf4j;
 public class AssertionAuthorizationValidator extends AbstractAspectAuthorizationValidator {
 
   @Nonnull private AspectPluginConfig config;
+
+  @Nonnull private Duration maxFutureSkew = Duration.ofMinutes(5);
 
   @Override
   protected List<AspectValidationException> validateItems(
@@ -88,6 +95,7 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
             AssertionAuthorizationUtils.fetchAssertionInfos(
                 operationContext, aspectRetriever, assertionUrns));
     Set<Urn> unresolved = new HashSet<>();
+    long maxTimestampMillis = System.currentTimeMillis() + maxFutureSkew.toMillis();
 
     List<AspectValidationException> failures = new ArrayList<>();
     List<BatchItem> runEvents = new ArrayList<>();
@@ -157,6 +165,10 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
           AssertionAuthorizationUtils.resolveAssertedEntityUrns(
               entityRegistry, current.get(item.getUrn()));
       AssertionRunEvent runEvent = item.getAspect(AssertionRunEvent.class);
+      if (runEvent != null && runEvent.getTimestampMillis() > maxTimestampMillis) {
+        failures.add(futureTimestampFailure(item));
+        continue;
+      }
       Urn assertee =
           runEvent == null || !runEvent.hasAsserteeUrn() ? null : runEvent.getAsserteeUrn();
       if (assertee == null) {
@@ -194,6 +206,19 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
       }
     }
     return failures;
+  }
+
+  @Nonnull
+  private AspectValidationException futureTimestampFailure(@Nonnull BatchItem item) {
+    return AspectValidationException.forItem(
+        item,
+        "Timestamp of "
+            + item.getAspectName()
+            + " for assertion "
+            + item.getUrn()
+            + " is more than "
+            + maxFutureSkew
+            + " ahead of the server clock.");
   }
 
   @Nonnull
