@@ -1218,12 +1218,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   }
 
   /**
-   * Whether the actor may delete the timeseries values of {@code urn}. An assertion's run history
-   * also needs Edit Assertions on the assets it checks, as deleting the assertion does.
+   * Whether the actor may delete the timeseries values of {@code urn}. For an assertion this
+   * matches the OpenAPI aspect delete: Delete Entity on the assertion or Edit Assertions on the
+   * assets it checks, and in either case Edit Assertions on those assets, as deleting the
+   * assertion needs.
    */
   private boolean isTimeseriesDeleteAuthorized(@Nonnull Urn urn) {
     final OperationContext opContext = timeseriesDeleteContext(urn);
-    return isAPIAuthorizedUrns(opContext, TIMESERIES, DELETE, List.of(urn))
+    final boolean authorized =
+        AssertionAuthorizationUtils.isAssertionEntity(urn)
+            ? isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))
+            : isAPIAuthorizedUrns(opContext, TIMESERIES, DELETE, List.of(urn));
+    return authorized
         && AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(opContext, List.of(urn));
   }
 
