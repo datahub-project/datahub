@@ -1,7 +1,19 @@
 import functools
 import itertools
 from collections import defaultdict
-from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Set, Tuple
+from typing import (
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
+
+from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -25,6 +37,7 @@ from datahub.ingestion.source.aws_messaging.clients import (
 )
 from datahub.ingestion.source.aws_messaging.config import SnsSourceConfig
 from datahub.ingestion.source.aws_messaging.constants import (
+    OBSERVED_PRODUCERS_PROPERTY,
     QUEUE_URL_PATTERN,
     SNS_PLATFORM,
     TRUE_STRING,
@@ -60,7 +73,7 @@ from datahub.specific.dataset import DatasetPatchBuilder
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Topic to subscribed queue and to subscription dead-letter queue",
+    "Subscribed queues and dead-letter queues, Lambda, EventBridge rules and Pipes",
 )
 @capability(
     SourceCapability.GLOSSARY_TERMS,
@@ -138,6 +151,9 @@ class SnsSource(AwsMessagingSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SnsSource":
         return cls(SnsSourceConfig.model_validate(config_dict), ctx)
 
+    def resource_allowed(self, name: str) -> bool:
+        return self.config.topic_pattern.allowed(name)
+
     def first_resource_arn(self) -> Optional[str]:
         return self.sns.first_topic_arn()
 
@@ -150,6 +166,9 @@ class SnsSource(AwsMessagingSourceBase):
             self._add_subscription_edges(topic)
             if self.queues_listed and str(topic.arn) not in self.incomplete_topics:
                 self.lineage.complete.add(self.urns.topic_urn(topic.arn))
+        self.collect_s3_notifications()
+        self.collect_producers()
+        yield from self.service_lineage_workunits()
         yield from self.lineage.workunits()
 
     def _load_local_queues(self) -> None:
@@ -168,7 +187,7 @@ class SnsSource(AwsMessagingSourceBase):
                     )
                 )
 
-    def _queue_listing_failed(self) -> None:
+    def _queue_listing_failed(self, _error: Union[ClientError, BotoCoreError]) -> None:
         self.queues_listed = False
 
     def list_topics(self) -> Iterator[SnsTopic]:
@@ -192,7 +211,7 @@ class SnsSource(AwsMessagingSourceBase):
                 continue
             for subscription in self.sns.list_subscriptions(
                 topic_arn,
-                on_error=functools.partial(self.incomplete_topics.add, topic_arn),
+                on_error=functools.partial(self._subscriptions_unreadable, topic_arn),
             ):
                 self.report.subscriptions_scanned += 1
                 self.subscriptions[topic_arn].append(subscription)
@@ -220,11 +239,14 @@ class SnsSource(AwsMessagingSourceBase):
                 subtype=DatasetSubTypes.TOPIC.value,
                 parent_container=self.region_key(),
                 external_url=topic_console_url(topic),
-                custom_properties=topic_properties(
-                    topic,
-                    self.subscriptions.get(str(topic.arn), [])
-                    if subscriptions_listed
-                    else [],
+                custom_properties=self.dataset_custom_properties(
+                    urn,
+                    topic_properties(
+                        topic,
+                        self.subscriptions.get(str(topic.arn), [])
+                        if subscriptions_listed
+                        else [],
+                    ),
                 ),
                 domain=domain_for(topic.name, self.config.domain),
                 schema=schema,
@@ -263,6 +285,14 @@ class SnsSource(AwsMessagingSourceBase):
             patch.set_external_url(properties.externalUrl)
         for key, value in sorted(properties.customProperties.items()):
             patch.add_custom_property(key, value)
+        if (
+            OBSERVED_PRODUCERS_PROPERTY not in properties.customProperties
+            and self.producers is not None
+            and self.producers.query()
+        ):
+            # A successful query that saw no role senders clears the value, as the
+            # full write on the other path does.
+            patch.remove_custom_property(OBSERVED_PRODUCERS_PROPERTY)
         for mcp in patch.build():
             yield MetadataWorkUnit(id=f"{urn}-datasetProperties-patch", mcp_raw=mcp)
 
@@ -290,6 +320,10 @@ class SnsSource(AwsMessagingSourceBase):
                 )
                 if queue_urn is not None and self.config.include_column_lineage:
                     self._add_column_lineage(topic_urn, queue_urn, attributes)
+            elif subscription.protocol == SubscriptionProtocol.LAMBDA and self.lambdas:
+                edges = self.lambdas.function(subscription.endpoint, topic_urn)
+                if edges is not None:
+                    edges.inputs.add(topic_urn)
             if attributes:
                 redrive = parse_redrive_policy(
                     attributes.get(SubscriptionAttribute.REDRIVE_POLICY)
@@ -304,6 +338,11 @@ class SnsSource(AwsMessagingSourceBase):
                         redrive.dead_letter_target_arn,
                         LineageRelationship.SUBSCRIPTION_DEAD_LETTER,
                     )
+
+    def _subscriptions_unreadable(
+        self, topic_arn: str, _error: Union[ClientError, BotoCoreError]
+    ) -> None:
+        self.incomplete_topics.add(topic_arn)
 
     def _subscription_attributes(
         self, topic: SnsTopic, subscription: SnsSubscription
