@@ -129,6 +129,7 @@ public class AssertionAuthorizationValidatorTest {
     aspectRetriever = mock(AspectRetriever.class);
     when(aspectRetriever.getEntityRegistry()).thenReturn(new TestEntityRegistry());
     mockPersisted(null);
+    mockDeleted();
   }
 
   @AfterMethod
@@ -521,6 +522,48 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
+  public void testDeleteSkipsDeletedTargetButChecksLiveOnes() {
+    // Reference cleanup after a hard delete: the asset is gone, so its policy fields (domain,
+    // owners) cannot be resolved and the privilege on it cannot be checked.
+    mockPersisted(freshnessOn(DATASET_A));
+    mockDeleted(DATASET_A);
+
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, delete(ASSERTION_KEY_ASPECT_NAME)).isEmpty());
+    Assert.assertTrue(
+        validate(OperationFingerprint.EMPTY, delete(ASSERTION_INFO_ASPECT_NAME)).isEmpty());
+
+    mockPersisted(
+        freshnessOn(DATASET_A).setVolumeAssertion(volumeOn(DATASET_B).getVolumeAssertion()));
+    List<AspectValidationException> failures =
+        validate(OperationFingerprint.EMPTY, delete(ASSERTION_KEY_ASPECT_NAME));
+    Assert.assertEquals(failures.size(), 1);
+    Assert.assertTrue(failures.get(0).getMessage().contains(DATASET_B.toString()));
+    Assert.assertFalse(failures.get(0).getMessage().contains(DATASET_A.toString()));
+  }
+
+  @Test
+  public void testDetachFromDeletedTargetNeedsNoPrivilegeOnIt() {
+    // Stored targets: A (freshness) and B (volume). The upsert keeps B and drops A.
+    mockPersisted(
+        freshnessOn(DATASET_A).setVolumeAssertion(volumeOn(DATASET_B).getVolumeAssertion()));
+    TestMCP detach = upsert(volumeOn(DATASET_B));
+
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, detach).isEmpty());
+
+    mockDeleted(DATASET_A);
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, detach).isEmpty());
+  }
+
+  @Test
+  public void testAttachToMissingTargetStillChecked() {
+    mockDeleted(DATASET_A);
+
+    Assert.assertFalse(
+        validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_A))).isEmpty());
+  }
+
+  @Test
   public void testDeleteWithoutAssertionInfo_noAssertedEntityCheck() {
     // Matches DeleteAssertionResolver: with no assertionInfo only the API gate applies.
     Assert.assertTrue(
@@ -675,6 +718,20 @@ public class AssertionAuthorizationValidatorTest {
         .stream()
         .findFirst()
         .get();
+  }
+
+  /** Every entity exists except {@code deleted}. */
+  private void mockDeleted(Urn... deleted) {
+    Set<Urn> gone = Set.of(deleted);
+    // doAnswer, so re-stubbing does not invoke the previous answer.
+    Mockito.doAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              return urns.stream()
+                  .collect(Collectors.toMap(urn -> urn, urn -> !gone.contains(urn)));
+            })
+        .when(aspectRetriever)
+        .entityExists(any(), any());
   }
 
   private void mockPersistedStatus(Status status) {

@@ -25,6 +25,8 @@ import com.linkedin.metadata.authorization.AssertionAuthorizationUtils;
 import com.linkedin.metadata.authorization.AssertionAuthorizationUtils.AssertionWrite;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -62,7 +64,10 @@ import lombok.extern.slf4j.Slf4j;
  * other targets fails here unless the actor holds the privilege on them too. Soft deleting or
  * restoring an assertion (a change to {@code status.removed}, either way) requires the same. An
  * assertion without {@code assertionInfo} is left to the API-level gate. This lives here rather
- * than in the API gate so OpenAPI, Rest.li and MCP {@code DELETE} all reach it.
+ * than in the API gate so OpenAPI, Rest.li and MCP {@code DELETE} all reach it. Detaching an
+ * assertion from an entity, or deleting it, does not require the privilege on a target that no
+ * longer exists, as when reference cleanup follows the hard delete of that entity; attaching always
+ * does.
  *
  * <p>Run events need the privilege on the run event's {@code asserteeUrn}, matching {@code
  * ReportAssertionResultResolver} (notifications are addressed to it), and on every entity the
@@ -118,6 +123,7 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
             Status.class);
     Set<Urn> unresolved = new HashSet<>();
     Map<Urn, Boolean> authorizedEntities = new HashMap<>();
+    Map<Urn, Boolean> existing = new HashMap<>();
     long maxTimestampMillis = System.currentTimeMillis() + maxFutureSkew.toMillis();
 
     List<AspectValidationException> failures = new ArrayList<>();
@@ -158,10 +164,10 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
       Set<Urn> before =
           AssertionAuthorizationUtils.resolveAssertedEntityUrns(entityRegistry, current.get(urn));
       if (!isInfo) {
-        if (!before.isEmpty()
-            && !AssertionAuthorizationUtils.isAuthorizedToEditAssertionsOnEntities(
-                session, before)) {
-          failures.add(deleteFailure(item, before));
+        Set<Urn> denied = denied(session, before, authorizedEntities);
+        denied.removeAll(missing(operationContext, aspectRetriever, denied, existing));
+        if (!denied.isEmpty()) {
+          failures.add(deleteFailure(item, denied));
         }
         continue;
       }
@@ -178,21 +184,24 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
         continue;
       }
       current.put(urn, next);
-      Set<Urn> changedTargets =
-          symmetricDifference(
-              before, AssertionAuthorizationUtils.resolveAssertedEntityUrns(entityRegistry, next));
-      if (!changedTargets.isEmpty()
-          && !AssertionAuthorizationUtils.isAuthorizedToEditAssertionsOnEntities(
-              session, changedTargets)) {
+      Set<Urn> after = AssertionAuthorizationUtils.resolveAssertedEntityUrns(entityRegistry, next);
+      Set<Urn> removed = new HashSet<>(before);
+      removed.removeAll(after);
+      Set<Urn> denied = denied(session, symmetricDifference(before, after), authorizedEntities);
+      // Only detaching skips assets that are gone; attaching always needs the privilege.
+      Set<Urn> deniedRemoved = new HashSet<>(denied);
+      deniedRemoved.retainAll(removed);
+      denied.removeAll(missing(operationContext, aspectRetriever, deniedRemoved, existing));
+      if (!denied.isEmpty()) {
         failures.add(
             isDelete
-                ? deleteFailure(item, changedTargets)
+                ? deleteFailure(item, denied)
                 : authFailure(
                     item,
                     "Unauthorized to attach or detach assertion "
                         + urn
                         + " for "
-                        + changedTargets
+                        + denied
                         + ". Requires the Edit Assertions privilege on the asserted entity."));
       }
     }
@@ -359,6 +368,34 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
         .orElse(Long.MIN_VALUE);
   }
 
+  /**
+   * Entities in {@code urns} that no longer exist, read from the primary and cached in {@code
+   * existing}. Hard deleting an asset removes it before the references to it are cleaned up, and
+   * policy fields such as its domain or owners can no longer be resolved for an asset that is gone,
+   * so detaching an assertion from it, or deleting the assertion, does not require the privilege on
+   * it. Soft deleted assets still exist.
+   */
+  @Nonnull
+  private static Set<Urn> missing(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Map<Urn, Boolean> existing) {
+    Set<Urn> unknown =
+        urns.stream().filter(urn -> !existing.containsKey(urn)).collect(Collectors.toSet());
+    if (!unknown.isEmpty()) {
+      OperationFingerprint primary =
+          operationContext instanceof OperationContext opContext
+              ? opContext.withReadPreference(ReadPreference.PRIMARY)
+              : operationContext;
+      Map<Urn, Boolean> found = aspectRetriever.entityExists(primary, unknown);
+      unknown.forEach(urn -> existing.put(urn, Boolean.TRUE.equals(found.get(urn))));
+    }
+    return urns.stream()
+        .filter(urn -> !existing.get(urn))
+        .collect(Collectors.toCollection(HashSet::new));
+  }
+
   /** Entities in {@code required} the actor may not edit assertions on, caching each answer. */
   @Nonnull
   private static Set<Urn> denied(
@@ -373,7 +410,7 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
                     u ->
                         AssertionAuthorizationUtils.isAuthorizedToEditAssertionsOnEntities(
                             session, Set.of(u))))
-        .collect(Collectors.toSet());
+        .collect(Collectors.toCollection(HashSet::new));
   }
 
   @Nonnull
