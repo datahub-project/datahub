@@ -1,7 +1,8 @@
 """PowerBiAPI.fill_metadata_from_definitions (metadata_api_mode: workspace_apis)."""
 
+import json
 from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -14,6 +15,7 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FieldModelProperties,
     Page,
+    PageFieldReference,
     PowerBIDataset,
     RefreshPolicy,
     RemoteModelReference,
@@ -823,6 +825,162 @@ def test_report_definition_the_parser_cannot_handle_is_a_warning() -> None:
     assert not api.reporter.failures
     assert [w.title for w in api.reporter.warnings] == ["Report Definition Not Parsed"]
     assert report.pages[0].field_references == []
+
+
+# --- report filters -----------------------------------------------------------
+
+
+def _column_ref(entity: str, prop: str) -> Dict[str, Any]:
+    return {
+        "Column": {"Expression": {"SourceRef": {"Entity": entity}}, "Property": prop}
+    }
+
+
+def test_report_and_page_filters_are_applied_and_bad_filters_only_warn() -> None:
+    report_part = json.dumps(
+        {
+            "filterConfig": {
+                "filters": [
+                    {
+                        "name": "f_status",
+                        "field": _column_ref("Claims", "Status"),
+                        "type": "Categorical",
+                        "filter": {
+                            "Where": [
+                                {
+                                    "Condition": {
+                                        "In": {
+                                            "Expressions": [
+                                                _column_ref("Claims", "Status")
+                                            ],
+                                            "Values": [
+                                                [{"Literal": {"Value": "'Open'"}}]
+                                            ],
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                    },
+                    # Not an object: reported, the rest of the report is kept.
+                    42,
+                ]
+            }
+        }
+    )
+    page_part = json.dumps(
+        {
+            "name": "p1",
+            "displayName": "Overview",
+            "filterConfig": {
+                "filters": [
+                    {
+                        "name": "f_state",
+                        "field": _column_ref("Policies", "State"),
+                        "type": "Categorical",
+                    }
+                ]
+            },
+        }
+    )
+    visual_part = json.dumps(
+        {
+            "name": "v1",
+            "visual": {
+                "visualType": "card",
+                "query": {
+                    "queryState": {
+                        "Values": {
+                            "projections": [
+                                {"field": _column_ref("Policies", "WrittenPremium")}
+                            ]
+                        }
+                    }
+                },
+            },
+        }
+    )
+    definition = ItemDefinition(
+        format="PBIR",
+        parts=[
+            DefinitionPart("definition/report.json", report_part),
+            DefinitionPart("definition/pages/p1/page.json", page_part),
+            DefinitionPart("definition/pages/p1/visuals/v1/visual.json", visual_part),
+        ],
+    )
+    api = _api(
+        definitions={"r1": definition},
+        config=_config(extract_report_field_usage=True),
+    )
+    page = Page(id="r1.p1", displayName="Overview", name="p1", order=0)
+    report = Report(
+        id="r1",
+        name="Loss Report",
+        type=ReportType.PowerBIReport,
+        webUrl=None,
+        embedUrl=None,
+        description="",
+        dataset_id=MODEL_A,
+        dataset=None,
+        pages=[page],
+        users=[],
+        tags=[],
+    )
+
+    api._fill_report_field_usage(_workspace(), report)
+
+    assert [(f.scope, f.name, f.condition) for f in report.filters] == [
+        ("report", "f_status", 'In ["Open"]')
+    ]
+    assert [(f.scope, f.name, f.condition) for f in page.filters] == [
+        ("page", "f_state", None)
+    ]
+    # Visual fields, then page-filter targets, then report-filter targets.
+    assert page.field_references == [
+        PageFieldReference("Policies", "WrittenPremium", "column"),
+        PageFieldReference("Policies", "State", "column"),
+        PageFieldReference("Claims", "Status", "column"),
+    ]
+    assert page.visual_count == 1
+    assert api.reporter.report_filters_parsed == 2
+    assert api.reporter.report_filters_failed == 1
+    assert [w.title for w in api.reporter.warnings] == ["Report Filter Not Parsed"]
+    assert not api.reporter.failures
+
+
+def test_report_definition_parser_crash_is_a_warning_for_that_report_only() -> None:
+    api = _api(
+        definitions={"r1": ItemDefinition(format="PBIR", parts=[])},
+        config=_config(extract_report_field_usage=True),
+    )
+    page = Page(id="r1.p1", displayName="Overview", name="p1", order=0)
+    report = Report(
+        id="r1",
+        name="Loss Report",
+        type=ReportType.PowerBIReport,
+        webUrl=None,
+        embedUrl=None,
+        description="",
+        dataset_id=MODEL_A,
+        dataset=None,
+        pages=[page],
+        users=[],
+        tags=[],
+    )
+
+    with patch(
+        "datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api.parse_report_definition",
+        side_effect=TypeError("boom"),
+    ):
+        api._fill_report_field_usage(_workspace(), report)
+
+    assert report.pages == [page]
+    assert page.field_references == []
+    assert report.filters == []
+    assert api.reporter.report_definitions_failed == 1
+    assert api.reporter.report_definitions_parsed == 0
+    assert [w.title for w in api.reporter.warnings] == ["Report Definition Not Parsed"]
+    assert not api.reporter.failures
 
 
 # --- workspace users as ownership -------------------------------------------

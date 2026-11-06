@@ -1376,7 +1376,7 @@ class PowerBiAPI:
             self.reporter.report_definitions_failed += 1
             self.reporter.warning(
                 title="Report Definition Not Parsed",
-                message="The report definition could not be parsed; the report keeps its pages but has no visual field usage.",
+                message="The report definition could not be parsed; the report keeps its pages but has no visual field usage or filters.",
                 context=context,
                 exc=e,
             )
@@ -1390,6 +1390,15 @@ class PowerBiAPI:
                 message="Some parts of the report definition were not valid JSON; the visuals they describe are missing from the page's inputFields.",
                 context=f"{context}, parts={failed_parts}",
             )
+        if parsed.failed_filters:
+            self.reporter.report_filters_failed += len(parsed.failed_filters)
+            self.reporter.warning(
+                title="Report Filter Not Parsed",
+                message="Some report or page filters in the report definition could not be read; they are missing from the `filters` properties and the page's inputFields.",
+                context=f"{context}, filters={parsed.failed_filters}",
+            )
+        report.filters = parsed.filters
+        self.reporter.report_filters_parsed += len(parsed.filters)
         for page in report.pages:
             parsed_page: Optional[ParsedPage] = parsed.pages.get(page.name)
             if parsed_page is None and page.displayName:
@@ -1404,7 +1413,9 @@ class PowerBiAPI:
                 continue
             page.visual_count = len(parsed_page.visuals)
             page.visual_types = parsed_page.visual_types
-            page.field_references = parsed_page.field_refs
+            page.filters = parsed_page.filters
+            self.reporter.report_filters_parsed += len(parsed_page.filters)
+            page.field_references = parsed.page_field_refs(parsed_page)
 
     def _fabric_artifacts_from_items(
         self, workspace: Workspace, items: List[FabricItem]

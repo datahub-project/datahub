@@ -476,6 +476,50 @@ class PageFieldReference:
     field: str
     kind: FieldReferenceKind
 
+    @property
+    def label(self) -> str:
+        """``Table[Column]`` for a column, ``[Measure]`` for a measure (the
+        DAX spelling, so measures are not tied to their home table)."""
+        if self.kind == "measure":
+            return f"[{self.field}]"
+        return f"{self.table}[{self.field}]"
+
+
+FilterScope = Literal["report", "page", "visual"]
+
+
+@dataclass(frozen=True)
+class ReportFilter:
+    """A filter declared on a report, a page or a visual in the report
+    definition.
+
+    `target` is the field the filter is declared on (None when the definition
+    names none); `fields` is every model field the filter reads, the target
+    first, so a TopN's ordering measure counts as lineage too. `condition` is
+    a human-readable rendering when the condition's shape is simple, otherwise
+    the raw condition JSON (truncated); None when no condition is declared.
+    """
+
+    scope: FilterScope
+    name: str
+    filter_type: Optional[str]
+    target: Optional[PageFieldReference]
+    fields: List[PageFieldReference]
+    condition: Optional[str]
+
+    def to_dict(self) -> Dict[str, str]:
+        result: Dict[str, str] = {
+            Constant.FILTER_SCOPE: self.scope,
+            Constant.NAME: self.name,
+        }
+        if self.filter_type:
+            result[Constant.TYPE] = self.filter_type
+        if self.target is not None:
+            result[Constant.FILTER_TARGET] = self.target.label
+        if self.condition:
+            result[Constant.FILTER_CONDITION] = self.condition
+        return result
+
 
 @dataclass
 class Page:
@@ -487,6 +531,7 @@ class Page:
     field_references: List[PageFieldReference] = field(default_factory=list)
     visual_count: Optional[int] = None
     visual_types: List[str] = field(default_factory=list)
+    filters: List[ReportFilter] = field(default_factory=list)
 
     def get_urn_part(self):
         return f"pages.{self.id}"
@@ -598,6 +643,8 @@ class Report:
     tags: List[str]
     # Only populated for paginated reports without a shared dataset_id.
     datasources: List["ReportDatasource"] = field(default_factory=list)
+    # Report-level filters; populated only when extract_report_field_usage is enabled.
+    filters: List[ReportFilter] = field(default_factory=list)
 
     def get_urn_part(self):
         return Report.get_urn_part_by_id(self.id)
