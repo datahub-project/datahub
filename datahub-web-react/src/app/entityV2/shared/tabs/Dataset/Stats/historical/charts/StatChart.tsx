@@ -1,4 +1,4 @@
-import { Text } from '@components';
+import { Card, Text } from '@components';
 import React, { useMemo } from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -15,19 +15,6 @@ const ChartTitle = styled(Text).attrs({ type: 'span' })`
         line-height: inherit;
     }
     word-break: break-word;
-`;
-
-/**
- * Exported this styled card to enable width adjustment for better fit within the sidebar also for boxShadow.
- * This approach allows style updates without the need for unnecessary props.
- */
-export const ChartCard = styled.div<{ visible: boolean }>`
-    padding: 24px;
-    border: 1px solid ${(props) => props.theme.colors.border};
-    border-radius: 8px;
-    background-color: ${(props) => props.theme.colors.bg};
-    box-shadow: ${(props) => props.theme.colors.shadowSm};
-    visibility: ${(props) => (props.visible ? 'visible' : 'hidden')};
 `;
 
 type Point = {
@@ -49,6 +36,7 @@ type Props = {
     width?: number;
     height?: number;
     lineColor?: string;
+    padding?: string;
 };
 
 const DEFAULT_AXIS_WIDTH = 2;
@@ -66,6 +54,7 @@ export default function StatChart({
     width = 360,
     height = 300,
     lineColor,
+    padding = '24px',
 }: Props) {
     const theme = useTheme();
     const resolvedLineColor = lineColor || theme.colors.chartsSeafoamHigh;
@@ -84,7 +73,7 @@ export default function StatChart({
     );
 
     return (
-        <ChartCard visible={visible}>
+        <Card padding={padding} style={{ visibility: visible ? 'visible' : 'hidden' }}>
             <ChartContainer>
                 <ChartTitle>{title}</ChartTitle>
                 <TimeSeriesChart
@@ -111,6 +100,6 @@ export default function StatChart({
                     yAxis={yAxis}
                 />
             </ChartContainer>
-        </ChartCard>
+        </Card>
     );
 }

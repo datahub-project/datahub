@@ -17,7 +17,7 @@ import {
     ASSERTION_TYPE_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
-import { Button, EmptyState, Skeleton } from '@src/alchemy-components';
+import { Button, Card, EmptyState, Skeleton } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/siblingUtils';
 import { useSearchAssertionsQuery } from '@src/graphql/assertion.generated';
@@ -33,26 +33,10 @@ const LoadingBody = styled.div`
     overflow: auto;
 `;
 
-// Mirrors the antd loading Card this replaced: bordered card, 24px body padding, 4 skeleton rows
-const CardSkeletonContainer = styled.div`
-    padding: 0px 12px 12px 0px;
-    height: 210px;
-    border: 1px solid ${(props) => props.theme.colors.border};
-    border-radius: 8px;
-    width: 100%;
-    background: ${(props) => props.theme.colors.bg};
-`;
-
-const CardSkeletonBody = styled.div`
-    padding: 24px;
-`;
-
 const CardSkeleton = () => (
-    <CardSkeletonContainer>
-        <CardSkeletonBody>
-            <Skeleton title={false} paragraph={{ rows: 4 }} />
-        </CardSkeletonBody>
-    </CardSkeletonContainer>
+    <Card width="100%" height="210px" padding="24px">
+        <Skeleton title={false} paragraph={{ rows: 4 }} />
+    </Card>
 );
 
 const AcrylAssertionSummaryContainer = styled.div`
