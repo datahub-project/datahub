@@ -44,6 +44,7 @@ MODEL_A = "05169CD2-E713-41E6-9600-1D8066D95445"
 MODEL_B = "7A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D"
 LAKEHOUSE_ID = "3C4D5E6F-7A8B-4C9D-8E0F-1A2B3C4D5E6F"
 SQL_ENDPOINT_ID = "6F2E7D8C-9B0A-4C1D-8E2F-3A4B5C6D7E8F"
+WAREHOUSE_ID = "9A8B7C6D-5E4F-4A3B-8C2D-1E0F9A8B7C6D"
 
 TABLE_TMDL = """table Policies
 
@@ -469,9 +470,26 @@ def test_lakehouse_endpoint_registered_and_failure_degrades_gracefully() -> None
     api.fill_metadata_from_definitions([workspace])
 
     assert workspace.fabric_artifacts[SQL_ENDPOINT_ID].physical_item_ids is None
-    assert any(
-        w.title == "Lakehouse SQL Endpoint Not Resolved" for w in api.reporter.warnings
+    assert api.reporter.fabric_lakehouse_endpoints_unresolved == 1
+    assert api.reporter.fabric_lakehouse_endpoints_registered == 0
+    assert any(w.title == "Fabric Endpoint Not Resolved" for w in api.reporter.warnings)
+
+
+def test_warehouse_registered_as_its_own_endpoint() -> None:
+    api = _api(
+        items=[FabricItem(WAREHOUSE_ID, "Claims_Warehouse", "Warehouse", WORKSPACE_ID)]
     )
+    workspace = _workspace()
+    api.fill_metadata_from_definitions([workspace])
+
+    # A warehouse's SQL endpoint id is the warehouse id: the DirectLake path
+    # resolves the artifact directly, no properties call is needed.
+    warehouse = workspace.fabric_artifacts[WAREHOUSE_ID]
+    assert warehouse.artifact_type == "Warehouse"
+    assert list(workspace.fabric_artifacts) == [WAREHOUSE_ID]
+    assert api.reporter.fabric_warehouse_endpoints_registered == 1
+    assert api.reporter.fabric_lakehouse_endpoints_unresolved == 0
+    api._PowerBiAPI__fabric_resolver.get_lakehouse_sql_endpoint_id.assert_not_called()  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize(
