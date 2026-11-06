@@ -47,8 +47,10 @@ LOAD_FIELDS_RE = re.compile(
 )
 # Clauses a preceding LOAD may have after its field list.
 LOAD_CLAUSE_RE = re.compile(r"\b(?:WHERE|WHILE|GROUP\s+BY|ORDER\s+BY)\b", re.IGNORECASE)
+# Qlik key fields are often named with a leading %, such as %OrderKey.
+_BARE_FIELD_NAME = r"(?:%|[^\W\d])[\w.%]*"
 _FIELD_NAME = (
-    r"(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>[^\W\d][\w.]*))"
+    rf"(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>{_BARE_FIELD_NAME}))"
 )
 # Greedy, so the last AS names the field.
 LOAD_ALIAS_RE = re.compile(
@@ -65,7 +67,7 @@ DATABASE_RE = re.compile(
 SET_VALUES_RE = re.compile(r"[-+*/]?=\s*\{[^{}]*\}")
 # Single-quoted text is a string literal in a chart expression, not a field.
 EXPRESSION_NAME_RE = re.compile(
-    r"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>[^\W\d][\w.]*)"
+    rf"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>{_BARE_FIELD_NAME})"
 )
 QUOTE_PAIRS = {"'": "'", '"': '"', "[": "]"}
 STATEMENT_SEPARATOR = ";"
@@ -394,6 +396,10 @@ def apply_preceding_loads(
     """Rename SQL columns to the fields the LOAD statements above them produce,
     carrying each field's upstream columns."""
     for load in reversed(preceding_loads):
+        if not load.keeps_all and not load.fields:
+            # Nothing in the field list could be read, such as a $(variable)
+            # holding it, so the columns below are kept rather than dropped.
+            continue
         by_name = {
             name.lower(): upstreams for name, upstreams in column_upstreams.items()
         }
