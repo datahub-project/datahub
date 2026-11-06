@@ -708,6 +708,23 @@ public class BuildIndicesIncrementalStepTest {
         Optional.of(IncrementalReindexState.Status.DUAL_WRITE_DISABLED));
   }
 
+  @Test
+  public void testKeptOldBackingIndexStaysProtectedWhenTheRebuildFails() throws Throwable {
+    // The row saved before the build still names the kept copy as a rollback write target, so it
+    // must keep the copy protected from orphan cleanup even if the build then fails.
+    givenPreviousState(previousRow(INDEX_NAME, IncrementalReindexState.Status.COMPLETED));
+    ReindexConfig droppedConfig = missingIndexConfig(INDEX_NAME);
+    doThrow(new IOException("ES unavailable"))
+        .when(indexBuilder)
+        .buildIndex(any(OperationContext.class), eq(droppedConfig));
+
+    assertEquals(step.executable().apply(upgradeContext).result(), DataHubUpgradeState.FAILED);
+    assertTrue(
+        IncrementalReindexState.getProtectedPhysicalIndicesForCleanup(
+                persistedState(), Map.of(), null, true)
+            .contains(OLD_BACKING_INDEX_NAME));
+  }
+
   @DataProvider(name = "fillStatuses")
   public Object[][] fillStatuses() {
     return new Object[][] {

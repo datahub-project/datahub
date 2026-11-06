@@ -700,11 +700,23 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         .forEach(property -> result.remove(IncrementalReindexState.key(indexName, property)));
     if (forgottenStatus == IncrementalReindexState.Status.COMPLETED
         && oldBackingIndexName.isPresent()
+        && !IncrementalReindexState.isOldBackingIndexIdSchemeStale(upgradeState, indexName)
+        && !IncrementalReindexState.isOldBackingIndexIncompleteMigration(upgradeState, indexName)
         && requireIndexBuilder(indexName).indexExists(opContext, oldBackingIndexName.get())) {
-      return IncrementalReindexState.setPhase1Completed(
-          IncrementalReindexState.setOldBackingIndexName(
-              result, indexName, oldBackingIndexName.get()),
-          indexName);
+      Map<String, String> kept =
+          IncrementalReindexState.setPhase1Completed(
+              IncrementalReindexState.setOldBackingIndexName(
+                  result, indexName, oldBackingIndexName.get()),
+              indexName);
+      // Without its reindex start the row reads as having no catch-up window, which drops the
+      // copy's cleanup protection while it is still a rollback write target.
+      for (String property :
+          List.of(
+              IncrementalReindexState.REINDEX_START_TIME, IncrementalReindexState.INDEX_VERSION)) {
+        IncrementalReindexState.get(upgradeState, indexName, property)
+            .ifPresent(value -> kept.put(IncrementalReindexState.key(indexName, property), value));
+      }
+      return kept;
     }
     if (forgottenStatus == IncrementalReindexState.Status.DUAL_WRITE_DISABLED
         || oldBackingIndexName.isPresent()) {
