@@ -938,8 +938,9 @@ test.describe('Types filter per category', () => {
     const docCount = await docEvents.count();
     const tagCount = await sidebar.getByText(/Added tag ".*"|Removed tag ".*"/, { exact: false }).count();
     const ownerCount = await sidebar.getByText(/Added owner ".*"|Removed owner ".*"/, { exact: false }).count();
-    if (tagCount === 0 && ownerCount === 0) {
-      test.skip(true, 'No tag or ownership events to verify filter hides them');
+    // Without documentation events the filtered list is empty and the absence checks prove nothing.
+    if (docCount === 0 || (tagCount === 0 && ownerCount === 0)) {
+      test.skip(true, 'Need documentation events and tag or ownership events to verify the filter');
       return;
     }
 
@@ -958,8 +959,8 @@ test.describe('Types filter per category', () => {
     const ownerCount = await ownerEvents.count();
     const docCount = await sidebar.getByText(/Documentation (added|updated)/, { exact: false }).count();
     const tagCount = await sidebar.getByText(/Added tag ".*"/, { exact: false }).count();
-    if (docCount === 0 && tagCount === 0) {
-      test.skip(true, 'No doc or tag events to verify Ownership filter hides them');
+    if (ownerCount === 0 || (docCount === 0 && tagCount === 0)) {
+      test.skip(true, 'Need ownership events and doc or tag events to verify the filter');
       return;
     }
 
@@ -1050,22 +1051,19 @@ test.describe('edge cases', () => {
     const searchInput = sidebar.getByPlaceholder('Search changes...');
     await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
 
-    // Type a specific term we know will match version events
-    await searchInput.fill('Version');
-    await expect(searchInput).toHaveValue('Version');
-    const afterFilter = sidebar.getByText('Version created');
+    const rows = sidebar.getByTestId('change-event-row');
+    const initialCount = await rows.count();
+    if (initialCount === 0) {
+      test.skip(true, 'No change events to filter');
+      return;
+    }
 
-    // Clear search — the entries should be back
+    // A term no change event contains empties the list, which proves the search filters it.
+    await searchInput.fill('zz-no-change-matches-this');
+    await expect(rows).toHaveCount(0);
+
     await searchInput.clear();
-    await expect(searchInput).toHaveValue('');
-    // After clear, "Version created" milestone should return if it was there before
-    const afterClear = sidebar.getByText('Version created');
-    // Either it was present before clearing and returns, or the test data doesn't
-    // have version milestones (acceptable).
-    const beforeCount = await afterFilter.count();
-    const afterCount = await afterClear.count();
-    // The count after clearing must be >= the count after filtering
-    expect(afterCount).toBeGreaterThanOrEqual(beforeCount);
+    await expect(rows).toHaveCount(initialCount);
   });
 
   test('sidebar handles entities with minimal history gracefully', async ({ page }) => {

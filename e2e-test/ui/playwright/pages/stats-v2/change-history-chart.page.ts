@@ -152,7 +152,7 @@ export class ChangeHistoryChart extends BasePage {
     const dayCell = this.getDayCell(dateString);
     await dayCell.scrollIntoViewIfNeeded();
     await dayCell.hover({ timeout });
-    await expect(this.getDayPopover(dateString)).toBeVisible();
+    await expect(this.getDayPopover(dateString)).toBeVisible({ timeout });
   }
 
   /**

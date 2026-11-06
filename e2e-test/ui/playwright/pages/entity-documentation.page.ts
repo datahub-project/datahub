@@ -172,7 +172,7 @@ export class EntityDocumentationPage extends BasePage {
         await this.page.keyboard.press('Escape').catch(() => undefined);
         await this.page
           .getByText('Update description')
-          .waitFor({ state: 'hidden' })
+          .waitFor({ state: 'hidden', timeout: TIMEOUTS.SHORT })
           .catch(() => undefined);
       }
     }

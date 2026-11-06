@@ -147,7 +147,7 @@ export class DomainsPage extends BasePage {
   async expectDomainRemovedFromEntity(domainName: string, loadedText: string): Promise<void> {
     await expect(async () => {
       await this.page.reload();
-      await expect(this.page.getByText(loadedText)).toBeVisible({ timeout: 30000 });
+      await expect(this.page.getByText(loadedText).first()).toBeVisible({ timeout: 30000 });
       await expect(this.page.getByText(domainName)).toBeHidden();
     }).toPass({ timeout: 60000 });
   }
