@@ -295,9 +295,11 @@ def test_config_redaction_kafka_client_properties():
                 "sasl.password": "my-api-secret",
                 "ssl.key.password": "my-key-password",
                 "sasl.oauthbearer.client.secret": "my-client-secret",
+                "ssl.key.pem": "-----BEGIN PRIVATE KEY-----",
             },
             "schema_registry_config": {
                 "basic.auth.user.info": "registry-key:registry-secret",
+                "value.converter.basic.auth.user.info": "registry-key:registry-secret",
             },
         },
     }
@@ -311,9 +313,11 @@ def test_config_redaction_kafka_client_properties():
                 "sasl.password": "********",
                 "ssl.key.password": "********",
                 "sasl.oauthbearer.client.secret": "********",
+                "ssl.key.pem": "********",
             },
             "schema_registry_config": {
                 "basic.auth.user.info": "********",
+                "value.converter.basic.auth.user.info": "********",
             },
         },
     }
