@@ -281,6 +281,18 @@ def test_preceding_loads_rename_sql_columns() -> None:
     }
 
 
+def test_preceding_load_function_is_not_a_column() -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD Year(order_date) AS OrderYear;\n"
+        "SQL SELECT Year, order_date FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(
+        table.preceding_loads,
+        {"Year": ["year_urn"], "order_date": ["order_date_urn"]},
+    ) == {"OrderYear": ["order_date_urn"]}
+
+
 @pytest.mark.parametrize(
     "field_list, expected",
     [
