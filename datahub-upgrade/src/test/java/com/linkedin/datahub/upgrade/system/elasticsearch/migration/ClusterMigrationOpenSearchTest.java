@@ -85,10 +85,15 @@ public class ClusterMigrationOpenSearchTest {
   private String usageSourceLiveStaging;
   private String graphLog;
   private long lostUpdateTime;
+  private Long savedWindowRepeatPauseMs;
 
   @BeforeClass
   public void startClusters() throws Exception {
     ClusterMigrationHarness.requireOptIn();
+    // A pass that still writes sleeps this long before the next round. Zero keeps a comparison
+    // that never matches from burning the pause on every one of its rounds.
+    savedWindowRepeatPauseMs = ClusterMigrationCopyStep.windowRepeatPauseMs;
+    ClusterMigrationCopyStep.windowRepeatPauseMs = 0;
     migrate = ClusterMigrationHarness.start();
     migrate.createServingIndices();
     graphSource = migrate.servingName(SearchComponent.GRAPH, "graph_service_v1");
@@ -114,6 +119,9 @@ public class ClusterMigrationOpenSearchTest {
 
   @AfterClass(alwaysRun = true)
   public void stopClusters() throws Exception {
+    if (savedWindowRepeatPauseMs != null) {
+      ClusterMigrationCopyStep.windowRepeatPauseMs = savedWindowRepeatPauseMs;
+    }
     if (rolledBack != null) {
       rolledBack.close();
     }
@@ -224,6 +232,16 @@ public class ClusterMigrationOpenSearchTest {
     } catch (NoSuchAlgorithmException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  /** Rewrites one numeric field so a mirrored document falls inside the copy's window. */
+  private static String stamp(String json, String field, long from, long to) {
+    String needle = "\"" + field + "\":" + from;
+    String stamped = json.replace(needle, "\"" + field + "\":" + to);
+    if (stamped.equals(json)) {
+      throw new IllegalArgumentException(field + " was not " + from);
+    }
+    return stamped;
   }
 
   private static String edge(int i) {
@@ -525,6 +543,55 @@ public class ClusterMigrationOpenSearchTest {
                 .id("ev-live")
                 .opType(DocWriteRequest.OpType.CREATE)
                 .source(usageEvent(usageBeforeRollover + usageAfterRollover), XContentType.JSON));
+    // One document per mutable family, mirrored and then left alone, with its guard inside the
+    // window. The pass can come out clean only when the target's stored source compares equal to
+    // the source document the script receives.
+    long now = System.currentTimeMillis();
+    migrate
+        .registry
+        .bulkProcessorFor(SearchComponent.GRAPH)
+        .add(
+            migrate.opContext,
+            "edge-current",
+            new UpdateRequest(graphSource, "edge-current")
+                .docAsUpsert(true)
+                .doc(
+                    stamp(edge(graphEdges + 1), "updatedOn", BASE + graphEdges + 1, now),
+                    XContentType.JSON));
+    migrate
+        .registry
+        .bulkProcessorFor(SearchComponent.SYSTEM_METADATA)
+        .add(
+            migrate.opContext,
+            "sm-current",
+            new UpdateRequest(sysmetaSource, "sm-current")
+                .docAsUpsert(true)
+                .doc(
+                    stamp(
+                        systemMetadata(sysmetaDocs + 1),
+                        "lastUpdated",
+                        BASE + sysmetaDocs + 1,
+                        now),
+                    XContentType.JSON));
+    migrate
+        .registry
+        .bulkProcessorFor(SearchComponent.TIMESERIES)
+        .add(
+            migrate.opContext,
+            "ts-current",
+            new IndexRequest(timeseriesSource)
+                .id("ts-current")
+                .source(
+                    stamp(
+                        stamp(
+                            profile(timeseriesDocs + 1),
+                            "@timestamp",
+                            BASE + timeseriesDocs + 1,
+                            now),
+                        "timestampMillis",
+                        BASE + timeseriesDocs + 1,
+                        now),
+                    XContentType.JSON));
     migrate.flushAll();
 
     ClusterHttp source = migrate.source();
@@ -536,6 +603,9 @@ public class ClusterMigrationOpenSearchTest {
     assertEquals(target.count(graphTarget, deletedEdgeOnly), 0, "the delete was mirrored");
     assertNotNull(target.jsonOrNull("GET", "/" + sysmetaTarget + "/_doc/sm-live", null));
     assertNotNull(target.jsonOrNull("GET", "/" + timeseriesTarget + "/_doc/ts-live", null));
+    assertNotNull(target.jsonOrNull("GET", "/" + graphTarget + "/_doc/edge-current", null));
+    assertNotNull(target.jsonOrNull("GET", "/" + sysmetaTarget + "/_doc/sm-current", null));
+    assertNotNull(target.jsonOrNull("GET", "/" + timeseriesTarget + "/_doc/ts-current", null));
     // Usage writes go to the live staging index, never to the target's own write index.
     assertEquals(target.count(usageLiveStaging, null), 1);
     assertEquals(target.count(usageTargetAlias + "-000001", null), 0);
@@ -577,11 +647,17 @@ public class ClusterMigrationOpenSearchTest {
       ClusterMigrationRow row = migrate.row(family, "primary", "secondary");
       assertEquals(
           row.status().orElseThrow(), ClusterMigrationState.Status.VERIFIED, family.name());
+      // Usage events are created once. Every other family's last pass is the one that found the
+      // target already current, including the mirrored document whose guard is inside the window.
+      if (family != SearchComponent.USAGE) {
+        assertEquals(ClusterMigrationCopyStep.writtenByWindowPass(row), 0L, family.name());
+      }
     }
     assertEquals(target.count(graphTarget, null), source.count(graphSource, null));
-    assertEquals(target.count(graphTarget, null), graphEdges); // seeded - 1 deleted + 1 live
-    assertEquals(target.count(sysmetaTarget, null), sysmetaDocs + 1);
-    assertEquals(target.count(timeseriesTarget, null), timeseriesDocs + 1);
+    // Seeded, minus the deleted edge, plus edge-live and edge-current.
+    assertEquals(target.count(graphTarget, null), graphEdges + 1);
+    assertEquals(target.count(sysmetaTarget, null), sysmetaDocs + 2);
+    assertEquals(target.count(timeseriesTarget, null), timeseriesDocs + 2);
     assertEquals(target.count(usageStatsTarget, null), timeseriesDocs);
     assertEquals(target.count(operationTarget, null), timeseriesDocs);
     assertEquals(target.count(assertionRunTarget, null), timeseriesDocs);

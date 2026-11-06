@@ -316,7 +316,11 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
             migration.getNames().target(opContext, set.logicalName()), set.logicalName());
       }
       final MirroredWriteLogReplayer replayer =
-          new MirroredWriteLogReplayer(targetHttp, sourceHttp, sourceIndexByTarget);
+          new MirroredWriteLogReplayer(
+              targetHttp,
+              sourceHttp,
+              sourceIndexByTarget,
+              family.isMutable() ? family.timeField() : null);
       final long replayed = replayer.replay(migration.getNames().logIndex(opContext), from);
       // The documents the target received before the copy began were mirrored while the previous
       // rollout's pods were still writing. One of those pods deleting such a document on the

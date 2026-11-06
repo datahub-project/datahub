@@ -177,16 +177,19 @@ public class InProcessCopierTest {
                 true,
                 "{\"_id\":\"a\",\"_source\":{\"updatedOn\":5,\"v\":\"a\"}}",
                 "{\"_id\":\"b\",\"_source\":{\"updatedOn\":6,\"v\":\"b\"}}",
-                "{\"_id\":\"c\",\"_source\":{\"updatedOn\":7,\"v\":\"c\"}}")));
+                "{\"_id\":\"c\",\"_source\":{\"updatedOn\":7,\"v\":\"c\"}}",
+                "{\"_id\":\"d\",\"_source\":{\"createdOn\":9,\"v\":\"d\"}}")));
     // a: the target's copy was older and is replaced; b: the target's is current and stays;
-    // c: the target lacked it and the upsert creates it.
+    // c: the target lacked it and the upsert creates it; d: a graph edge in the window by
+    // createdOn alone, so the guard is null and the script noops when the content matches.
     target.on(
         "POST",
         "/_bulk",
         StubCluster.Reply.ok(
             "{\"items\":[{\"update\":{\"status\":200,\"result\":\"updated\"}},"
                 + "{\"update\":{\"status\":200,\"result\":\"noop\"}},"
-                + "{\"update\":{\"status\":201,\"result\":\"created\"}}]}"));
+                + "{\"update\":{\"status\":201,\"result\":\"created\"}},"
+                + "{\"update\":{\"status\":200,\"result\":\"noop\"}}]}"));
 
     CrossClusterCopier.Result result =
         copier(10)
@@ -199,7 +202,7 @@ public class InProcessCopierTest {
     assertTrue(result.isComplete());
     // A replace counts as written, like a create: the target lacked the source's version of both.
     assertEquals(result.created(), 2);
-    assertEquals(result.alreadyPresent(), 1);
+    assertEquals(result.alreadyPresent(), 2);
     String body = target.calls("POST", "/_bulk").get(0).body();
     assertTrue(
         body.startsWith(
@@ -210,6 +213,11 @@ public class InProcessCopierTest {
         body.contains(
             "\"params\":{\"field\":\"updatedOn\",\"value\":5,\"doc\":{\"updatedOn\":5,\"v\":\"a\"}}},\"upsert\":{}}\n"),
         body);
+    assertTrue(
+        body.contains(
+            "\"params\":{\"field\":\"updatedOn\",\"value\":null,\"doc\":{\"createdOn\":9,\"v\":\"d\"}}},\"upsert\":{}}\n"),
+        body);
+    assertTrue(body.contains("boolean sameStamp = (mine == null && params.value == null)"), body);
     assertTrue(body.contains(InProcessCopier.GUARDED_REPLACE_SCRIPT.replace("\"", "\\\"")), body);
   }
 

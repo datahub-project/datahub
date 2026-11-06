@@ -31,14 +31,17 @@ public final class InProcessCopier implements CrossClusterCopier {
    * Replaces the target's document with the source's unless the target's is current: newer by the
    * guard field; stamped where the source's copy is not, since the write that stamped it came after
    * the source was read (a graph edge gains {@code updatedOn} on its first update); or the same by
-   * field and content, which is a mirrored write already delivered and must count as nothing
-   * written, or a pass could never come out clean under live traffic. On a document the target
-   * lacks the upsert runs this over an empty source, which the else branch fills.
+   * content, including when the guard is missing on both sides. A graph edge selected by {@code
+   * createdOn} alone has no {@code updatedOn}, and rewriting it on every pass would never come out
+   * clean. On a document the target lacks the upsert runs this over an empty source, which the else
+   * branch fills.
    */
   static final String GUARDED_REPLACE_SCRIPT =
       "def mine = ctx._source[params.field];"
-          + " if (mine != null && (params.value == null || mine > params.value"
-          + " || (mine == params.value && ctx._source == params.doc))) { ctx.op = 'none' }"
+          + " boolean sameStamp = (mine == null && params.value == null)"
+          + " || (mine != null && params.value != null && mine == params.value);"
+          + " if ((sameStamp && ctx._source == params.doc)"
+          + " || (mine != null && (params.value == null || mine > params.value))) { ctx.op = 'none' }"
           + " else { ctx._source.clear(); ctx._source.putAll(params.doc) }";
 
   // A mirrored write can land between the script's read and its write; the retry re-evaluates it.

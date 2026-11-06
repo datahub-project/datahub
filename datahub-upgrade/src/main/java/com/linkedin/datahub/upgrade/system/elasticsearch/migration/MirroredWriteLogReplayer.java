@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -39,6 +40,7 @@ public final class MirroredWriteLogReplayer {
   private final ClusterHttp target;
   private final ClusterHttp source;
   private final Map<String, String> sourceIndexByTarget;
+  @Nullable private final String guardField;
 
   /** Ids of target documents a logged entry could have touched, not yet reconciled, per index. */
   private final Map<String, Set<String>> pending = new LinkedHashMap<>();
@@ -57,9 +59,22 @@ public final class MirroredWriteLogReplayer {
       @Nonnull final ClusterHttp target,
       @Nonnull final ClusterHttp source,
       @Nonnull final Map<String, String> sourceIndexByTarget) {
+    this(target, source, sourceIndexByTarget, null);
+  }
+
+  /**
+   * @param guardField the family's version field, so a target document stamped later than the
+   *     source's copy is left as it is. Null compares nothing and writes the source's version.
+   */
+  public MirroredWriteLogReplayer(
+      @Nonnull final ClusterHttp target,
+      @Nonnull final ClusterHttp source,
+      @Nonnull final Map<String, String> sourceIndexByTarget,
+      @Nullable final String guardField) {
     this.target = target;
     this.source = source;
     this.sourceIndexByTarget = sourceIndexByTarget;
+    this.guardField = guardField;
   }
 
   /**
@@ -231,17 +246,17 @@ public final class MirroredWriteLogReplayer {
 
   /**
    * Makes the target's copies of {@code ids} equal to the source's: absent there, deleted here;
-   * present there, written here as the source holds them. Every write is conditioned on the version
-   * the target held when it was looked up, so a mirrored write that lands in between wins (the
-   * cluster answers 409 and the document is left alone): a newer mirrored update is not undone by
-   * the source's older copy, and a document the live writers re-created is not deleted.
+   * present there, written here as the source holds them. A target document whose guard is later
+   * than the source's is left as it is. Every other write is conditioned on the version the target
+   * held when it was looked up, so a mirrored write that lands in between wins (the cluster answers
+   * 409 and the document is left alone).
    */
   private void reconcile(@Nonnull final String targetIndex, @Nonnull final List<String> ids)
       throws IOException {
     final String sourceIndex = sourceIndexOf(targetIndex);
     for (int from = 0; from < ids.size(); from += RECONCILE_BATCH) {
       final List<String> batch = ids.subList(from, Math.min(ids.size(), from + RECONCILE_BATCH));
-      final Map<String, JsonNode> onTarget = held(target, targetIndex, batch, false);
+      final Map<String, JsonNode> onTarget = held(target, targetIndex, batch, guardField != null);
       final Map<String, JsonNode> onSource = held(source, sourceIndex, batch, true);
       final StringBuilder bulk = new StringBuilder();
       for (String id : batch) {
@@ -257,6 +272,10 @@ public final class MirroredWriteLogReplayer {
         } else if (targetDoc == null) {
           action.putObject("create").put("_index", targetIndex).put("_id", id);
           bulk.append(action).append('\n').append(sourceDoc.path("_source")).append('\n');
+        } else if (targetHoldsNewer(targetDoc, sourceDoc)) {
+          // The target's stamp is later than the source's. The version check below only notices a
+          // write that lands during this call, so a document already newer would be overwritten.
+          leftAlone++;
         } else {
           asHeld(action.putObject("index"), targetIndex, id, targetDoc);
           bulk.append(action).append('\n').append(sourceDoc.path("_source")).append('\n');
@@ -291,6 +310,23 @@ public final class MirroredWriteLogReplayer {
         }
       }
     }
+  }
+
+  /**
+   * Whether the target's guard is later than the source's, or present where the source's copy has
+   * none. A missing guard, or one that is not a number, is not treated as newer.
+   */
+  private boolean targetHoldsNewer(
+      @Nonnull final JsonNode targetDoc, @Nonnull final JsonNode sourceDoc) {
+    if (guardField == null) {
+      return false;
+    }
+    final JsonNode mine = targetDoc.path("_source").get(guardField);
+    if (mine == null || !mine.isNumber()) {
+      return false;
+    }
+    final JsonNode value = sourceDoc.path("_source").get(guardField);
+    return value == null || !value.isNumber() || mine.asLong() > value.asLong();
   }
 
   /** The documents of {@code ids} the index holds, by id, with the version each is held at. */
