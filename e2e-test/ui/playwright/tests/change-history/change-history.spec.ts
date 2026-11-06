@@ -30,7 +30,7 @@
  *   fallback of http://localhost:9002.
  */
 
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/base-test';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
 import { DomainTag, TestTag } from '../../utils/test-tags';
@@ -507,22 +507,14 @@ test.describe('sidebar keyboard and close interactions', () => {
     // Type a search term unlikely to match anything — the list should become empty
     // (or show only matching entries). We type something nonsensical.
     await searchInput.fill('xyzzy_no_match_12345');
-    // Give the filter a moment to apply (synchronous state update)
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(300);
 
     // After filtering with a non-matching term, version milestones and change events
     // should not be shown. The sidebar body should contain very little content.
-    const milestones = sidebar.getByText('Version created');
-    const docEvents = sidebar.getByText('Documentation added');
-    const milestoneCount = await milestones.count();
-    const docEventCount = await docEvents.count();
-    expect(milestoneCount + docEventCount).toBe(0);
+    await expect(sidebar.getByText('Version created')).toHaveCount(0);
+    await expect(sidebar.getByText('Documentation added')).toHaveCount(0);
 
     // Clear the search and entries should re-appear
     await searchInput.clear();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(300);
   });
 });
 
@@ -926,10 +918,24 @@ test.describe('Types filter per category', () => {
     return sidebar;
   }
 
+  // The Types filter starts with every category selected, so clicking one option deselects it.
+  // Clear the selection with "Select All", then pick the one category. The list filters on each
+  // click; leave the dropdown open, since Escape would close the whole history drawer.
+  async function selectOnlyCategory(page: Page, sidebar: Locator, category: string) {
+    await sidebar.getByText('Types').click();
+    const selectAll = page.getByText('Select All').last();
+    await expect(selectAll).toBeVisible({ timeout: TIMEOUTS.SHORT });
+    await selectAll.click();
+    await page.getByText(category, { exact: true }).last().click();
+    await expect(sidebar).toBeVisible();
+  }
+
   test('filtering to Documentation hides tag and ownership events', async ({ page }) => {
     const sidebar = await openSidebar(page);
 
     // Record whether tag/owner events exist before filtering
+    const docEvents = sidebar.getByText(/Documentation (added|updated)/, { exact: false });
+    const docCount = await docEvents.count();
     const tagCount = await sidebar.getByText(/Added tag ".*"|Removed tag ".*"/, { exact: false }).count();
     const ownerCount = await sidebar.getByText(/Added owner ".*"|Removed owner ".*"/, { exact: false }).count();
     if (tagCount === 0 && ownerCount === 0) {
@@ -937,16 +943,10 @@ test.describe('Types filter per category', () => {
       return;
     }
 
-    // Open the Types filter and select Documentation only
-    await sidebar.getByText('Types').click();
-    const docOption = page.getByText('Documentation').last();
-    await expect(docOption).toBeVisible({ timeout: TIMEOUTS.SHORT });
-    await docOption.click();
-    await page.keyboard.press('Escape');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
+    await selectOnlyCategory(page, sidebar, 'Documentation');
 
-    // Tag and owner events should now be hidden
+    // Documentation events stay, so the absence checks below run against a rendered, filtered list.
+    await expect(docEvents).toHaveCount(docCount);
     await expect(sidebar.getByText(/Added tag ".*"|Removed tag ".*"/, { exact: false })).toHaveCount(0);
     await expect(sidebar.getByText(/Added owner ".*"|Removed owner ".*"/, { exact: false })).toHaveCount(0);
   });
@@ -954,6 +954,8 @@ test.describe('Types filter per category', () => {
   test('filtering to Ownership hides documentation and tag events', async ({ page }) => {
     const sidebar = await openSidebar(page);
 
+    const ownerEvents = sidebar.getByText(/Added owner ".*"|Removed owner ".*"/, { exact: false });
+    const ownerCount = await ownerEvents.count();
     const docCount = await sidebar.getByText(/Documentation (added|updated)/, { exact: false }).count();
     const tagCount = await sidebar.getByText(/Added tag ".*"/, { exact: false }).count();
     if (docCount === 0 && tagCount === 0) {
@@ -961,13 +963,9 @@ test.describe('Types filter per category', () => {
       return;
     }
 
-    await sidebar.getByText('Types').click();
-    const ownershipOption = page.getByText('Owners').last();
-    await expect(ownershipOption).toBeVisible({ timeout: TIMEOUTS.SHORT });
-    await ownershipOption.click();
-    await page.keyboard.press('Escape');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
+    await selectOnlyCategory(page, sidebar, 'Owners');
+
+    await expect(ownerEvents).toHaveCount(ownerCount);
 
     await expect(sidebar.getByText(/Documentation (added|updated)/, { exact: false })).toHaveCount(0);
     await expect(sidebar.getByText(/Added tag ".*"/, { exact: false })).toHaveCount(0);
@@ -1054,14 +1052,12 @@ test.describe('edge cases', () => {
 
     // Type a specific term we know will match version events
     await searchInput.fill('Version');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(300);
+    await expect(searchInput).toHaveValue('Version');
     const afterFilter = sidebar.getByText('Version created');
 
     // Clear search — the entries should be back
     await searchInput.clear();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(300);
+    await expect(searchInput).toHaveValue('');
     // After clear, "Version created" milestone should return if it was there before
     const afterClear = sidebar.getByText('Version created');
     // Either it was present before clearing and returns, or the test data doesn't

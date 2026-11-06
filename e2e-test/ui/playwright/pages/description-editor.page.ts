@@ -1,7 +1,8 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
-import { TIMEOUTS, TABLE_LOAD_DELAY, LOAD_STATES } from '../utils/constants';
+import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
+import { GraphQLHelper } from '../helpers/graphql-helper';
 import { writeFile, deleteFileIfExists } from '../utils/file-utils';
 
 // Page object for entity description editor interactions
@@ -81,9 +82,9 @@ export default class DescriptionEditorPage extends BasePage {
       await this.uploadFileButton.click();
       await this.fileUploadInput.waitFor({ state: 'attached', timeout: TIMEOUTS.MEDIUM });
       await this.fileUploadInput.setInputFiles(tempFilePath);
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await this.page.waitForTimeout(TABLE_LOAD_DELAY);
-      // For invalid files, backend validation rejects silently - verify file wasn't added
+      // FileUploadContent rejects an unsupported type before inserting a node and reports it in an
+      // "Upload Failed" notification; wait for that so the absence check below is meaningful.
+      await expect(this.page.getByText('Upload Failed')).toBeVisible();
       const fileNode = this.editorFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
       await expect(fileNode).toBeHidden();
     } finally {
@@ -155,9 +156,11 @@ export default class DescriptionEditorPage extends BasePage {
     if (!(await this.descriptionEditorContainer.isVisible())) {
       await this.openEditor();
     }
+    // Publishing closes the modal before the save returns; wait for it so a test that navigates
+    // right away does not reload the stale description.
+    const saved = new GraphQLHelper(this.page).waitForGraphQLResponse('updateDescription');
     await this.clearDescription();
+    expect((await saved).errors).toBeUndefined();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TABLE_LOAD_DELAY);
   }
 }
