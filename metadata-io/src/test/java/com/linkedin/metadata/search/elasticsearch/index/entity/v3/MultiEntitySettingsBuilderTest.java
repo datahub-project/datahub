@@ -187,9 +187,11 @@ public class MultiEntitySettingsBuilderTest {
         if (analyzer.endsWith("_search")) {
           assertEquals(filters.get(2), "lowercase", analyzer);
           assertFalse(filters.contains("v3_camel_parts"), analyzer);
+          assertFalse(filters.contains("flatten_graph"), analyzer);
         } else {
           assertEquals(filters.get(2), "v3_camel_parts", analyzer);
-          assertEquals(filters.get(3), "lowercase", analyzer);
+          assertEquals(filters.get(3), "flatten_graph", analyzer);
+          assertEquals(filters.get(4), "lowercase", analyzer);
         }
       }
       if (expected.getKey().isEmpty()) {
@@ -516,7 +518,8 @@ public class MultiEntitySettingsBuilderTest {
     when(v3Config.getAnalyzerConfig()).thenReturn("search_entity_analyzer_config.yaml");
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV3EntityIndexType("datasetindex_v3")).thenReturn(true);
-    Set<String> builtInFilters = Set.of("asciifolding", "lowercase", "stop", "snowball");
+    Set<String> builtInFilters =
+        Set.of("asciifolding", "lowercase", "stop", "snowball", "flatten_graph");
 
     Map<String, Object> analysis =
         (Map<String, Object>)

@@ -65,6 +65,8 @@ public class SearchDocumentsResolver
   private static final String DEFAULT_QUERY = "*";
   private static final String SUB_TYPES_FIELD = "typeNames";
   private static final String CREATOR_FIELD = "creator";
+  private static final String CREATED_AT_FIELD = "createdAt";
+  private static final String LAST_MODIFIED_AT_FIELD = "lastModifiedAt";
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
@@ -133,7 +135,10 @@ public class SearchDocumentsResolver
             }
 
             final List<SortCriterion> sortCriteria = getSortCriteria(input.getSortInput());
-            final SortCriterion sortCriterion = sortCriteria.isEmpty() ? null : sortCriteria.get(0);
+            final SortCriterion sortCriterion =
+                sortCriteria.isEmpty()
+                    ? null
+                    : mapAuditSortField(context.getOperationContext(), sortCriteria.get(0));
 
             // Mirror AggregateAcrossEntitiesResolver: optional facets + searchFlags (maxAggValues).
             // Flags are applied inside DocumentService so GraphQL unit tests that mock the
@@ -223,6 +228,28 @@ public class SearchDocumentsResolver
    * Builds the base user criteria from the search input (excludes state filtering). These criteria
    * are common to both published and unpublished document searches.
    */
+  /**
+   * Search V3 stores audit times under {@code _system}, so the V2 sort names are remapped while V3
+   * is the keyword read path. Other sort fields pass through unchanged.
+   */
+  private SortCriterion mapAuditSortField(
+      @Nonnull final OperationContext opContext, @Nonnull final SortCriterion sortCriterion) {
+    final String v3Field;
+    if (CREATED_AT_FIELD.equals(sortCriterion.getField())) {
+      v3Field = MappingConstants.SYSTEM_CREATED_TIME_FIELD;
+    } else if (LAST_MODIFIED_AT_FIELD.equals(sortCriterion.getField())) {
+      v3Field = MappingConstants.SYSTEM_MODIFIED_TIME_FIELD;
+    } else {
+      return sortCriterion;
+    }
+    final String indexedField =
+        EntitySearchIndexResolver.indexedField(
+            _entityIndexConfiguration, opContext, sortCriterion.getField(), v3Field, Intent.SORT);
+    return indexedField.equals(sortCriterion.getField())
+        ? sortCriterion
+        : new SortCriterion().setField(indexedField).setOrder(sortCriterion.getOrder());
+  }
+
   private List<Criterion> buildBaseUserCriteria(
       SearchDocumentsInput input, @Nonnull OperationContext opContext) {
     List<Criterion> criteria = new ArrayList<>();

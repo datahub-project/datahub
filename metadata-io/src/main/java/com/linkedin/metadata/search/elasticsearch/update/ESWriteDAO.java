@@ -942,9 +942,19 @@ public class ESWriteDAO {
     }
   }
 
+  /**
+   * Same rule as {@code EntitySearchIndexResolver.shouldReadV3}: a missing V2 block with V3 on
+   * means V2 is off, so writes follow the index family reads use.
+   */
   private boolean v2EntityIndexDisabled() {
     EntityIndexConfiguration entityIndex = config.getEntityIndex();
-    return entityIndex != null && entityIndex.getV2() != null && !entityIndex.getV2().isEnabled();
+    if (entityIndex == null) {
+      return false;
+    }
+    if (entityIndex.getV2() != null) {
+      return !entityIndex.getV2().isEnabled();
+    }
+    return entityIndex.getV3() != null && entityIndex.getV3().isEnabled();
   }
 
   private static String toIndexName(

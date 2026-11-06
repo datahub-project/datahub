@@ -34,6 +34,7 @@ entity_analyzer_config:
               - v3_max_token_length
               - asciifolding
               - v3_camel_parts
+              - flatten_graph
               - lowercase
               - v3_underscore_parts
               - datahub_stop_words
@@ -56,6 +57,7 @@ entity_analyzer_config:
               - v3_max_token_length
               - asciifolding
               - v3_camel_parts
+              - flatten_graph
               - lowercase
               - v3_underscore_parts
               - datahub_stop_words
@@ -88,7 +90,8 @@ entity_analyzer_config:
             patterns:
               - "([^_]+)"
           # Words inside a camelCase token, next to the token itself. Index analyzers only: the
-          # synonym filter cannot parse its rules through a graph delimiter. A query is already
+          # synonym filter cannot parse its rules through a graph delimiter, and flatten_graph
+          # follows it because an index cannot store a token graph. A query is already
           # folded, so it matches the indexed words. A capitalized word such as Sample stays whole.
           # Digits stay attached, so batch2017 remains one token. Underscores stay for
           # v3_underscore_parts.

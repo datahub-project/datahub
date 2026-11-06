@@ -52,6 +52,7 @@ public final class BulkProcessorCompletionTracker {
   // have finished by then, so the mark is taken while the lock is still held in complete().
   private final Set<DocWriteRequest<?>> drainCountedRequests =
       Collections.newSetFromMap(new IdentityHashMap<>());
+  private static final int MAX_DRAIN_COUNTED_REQUESTS = 1024;
   private final ThreadPoolExecutor flushExecutor;
   private final AtomicBoolean flushInProgress = new AtomicBoolean();
   // The flush task submitted for the current in-progress flush. A racing drain awaits this real
@@ -605,10 +606,26 @@ public final class BulkProcessorCompletionTracker {
         continue;
       }
       drainBoundary.outcomes.incompleteOperations++;
+      if (submission.outcome == Outcome.PENDING) {
+        markDrainCounted(submission.request);
+      }
       discard(submission);
     }
 
     return drainBoundary.outcomes.toResult(flushException, drainBoundary.timedOut);
+  }
+
+  /**
+   * A write still pending when its drain gave up is counted incomplete, so the drain fails
+   * retryable and the caller redelivers. Its late callback finds no submission and would otherwise
+   * requeue a second copy. A write whose callback never arrives would keep its mark, so the set is
+   * dropped when it grows past the bound; the cost is one redundant requeue.
+   */
+  private void markDrainCounted(DocWriteRequest<?> request) {
+    if (drainCountedRequests.size() >= MAX_DRAIN_COUNTED_REQUESTS) {
+      drainCountedRequests.clear();
+    }
+    drainCountedRequests.add(request);
   }
 
   private void discard(Submission submission) {

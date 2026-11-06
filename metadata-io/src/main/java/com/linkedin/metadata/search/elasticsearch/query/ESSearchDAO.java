@@ -1417,9 +1417,11 @@ public class ESSearchDAO {
     Map<String, Object> context = new HashMap<>();
     context.put(
         SearchTemplateContextVariables.PREFIX_FIELD, autocompletePrefixField(entitySpec, field));
-    // The whole-name prefix reads the default name only. A caller-chosen field keeps the
-    // analyzed prefix alone, since the keyword subfield exists only on the name.
-    if (field == null || field.isBlank()) {
+    // The whole-name prefix reads the default name only, and only when the entity's name opted
+    // into v3.lowercase. A caller-chosen field keeps the analyzed prefix alone, since the
+    // lowercase subfield exists only on the name.
+    if (isDefaultAutocompleteField(field)
+        && new SearchFieldResolver(List.of(entitySpec)).hasLowercaseSubfield("name")) {
       context.put(
           SearchTemplateContextVariables.PREFIX_KEYWORD,
           SearchTemplateFields.lowercaseKeywordPath("name"));
@@ -1472,10 +1474,15 @@ public class ESSearchDAO {
     return shipped.getQuery();
   }
 
+  /** GraphQL sends {@code name} for the default autocomplete field, so it is not a custom pick. */
+  private static boolean isDefaultAutocompleteField(@Nullable String field) {
+    return field == null || field.isBlank() || "name".equals(field.strip());
+  }
+
   @Nonnull
   private static String autocompletePrefixField(
       @Nonnull EntitySpec entitySpec, @Nullable String field) {
-    if (field == null || field.isBlank()) {
+    if (isDefaultAutocompleteField(field)) {
       return "name" + V3SearchFields.TEXT_SUFFIX;
     }
     SearchFieldResolver resolver = new SearchFieldResolver(List.of(entitySpec));

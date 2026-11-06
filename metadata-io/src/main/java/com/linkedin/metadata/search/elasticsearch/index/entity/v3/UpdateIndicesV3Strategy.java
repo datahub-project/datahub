@@ -58,14 +58,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.client.config.RequestConfig;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestClientBuilder;
 import org.opensearch.client.indices.PutMappingRequest;
 
 /**
@@ -94,6 +99,24 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
   private final AtomicLong drainedSuccessfulV3Writes = new AtomicLong();
   private final AtomicLong drainedStaleVersionRejected = new AtomicLong();
+
+  // The MAE search client shares two pooled connections between the bulk processor and these
+  // puts. One put at a time leaves bulk writes a connection, and the attempts fit well inside
+  // the Kafka max.poll.interval.ms default of five minutes.
+  private static final int PUT_MAPPING_MAX_ATTEMPTS = 2;
+  private static final int PUT_MAPPING_SOCKET_TIMEOUT_MILLIS = 60_000;
+  private static final int PUT_MAPPING_DEFAULT_CONNECTION_REQUEST_TIMEOUT_MILLIS = 10_000;
+  private static final long PUT_MAPPING_RETRY_BACKOFF_MILLIS = 1_000L;
+  private static final long PUT_MAPPING_BUDGET_MILLIS = 150_000L;
+
+  /**
+   * Structured-property field ids each V3 index has acknowledged in this JVM. Filled only by
+   * acknowledged puts, never by reading mappings, so a failed put is sent again by the next batch.
+   */
+  private final Map<String, Set<String>> appliedStructuredPropertyFields =
+      new ConcurrentHashMap<>();
+
+  private final Object structuredPropertyMappingLock = new Object();
 
   private static final int MAX_READ_ATTEMPTS = 3;
   private static final String PRIMARY_HYDRATION_FAILURE_METRIC = "v3_primary_hydration_read_failed";
@@ -463,41 +486,246 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     if (definitions.isEmpty()) {
       return;
     }
-    final Map<String, Object> mappingBody;
-    try {
-      mappingBody = structuredPropertyMappingBody(opContext, definitions);
-    } catch (RuntimeException e) {
-      log.error(
-          "Failed to build V3 structured property mappings for {} definitions",
-          definitions.size(),
-          e);
-      return;
-    }
+    final Map<String, Object> mappingBody =
+        buildStructuredPropertyMappingBody(opContext, definitions);
     if (mappingBody.isEmpty()) {
       return;
     }
-    final List<String> indexNames = v3EntityIndexNames(opContext);
-    if (indexNames.isEmpty()) {
+    final Set<String> fieldIds = StructuredPropertyMappingCache.fieldNames(mappingBody);
+    if (fieldIds.isEmpty() || missingFieldIndices(opContext, fieldIds).isEmpty()) {
       return;
     }
+    synchronized (structuredPropertyMappingLock) {
+      // Another thread may have applied the same fields while this one waited.
+      final List<String> indexNames = missingFieldIndices(opContext, fieldIds);
+      if (indexNames.isEmpty()) {
+        return;
+      }
+      putStructuredPropertyMappings(
+          opContext, definitions.size(), indexNames, mappingBody, fieldIds);
+    }
+  }
+
+  /**
+   * The combined body for {@code definitions}. One definition that cannot be projected must not
+   * keep the rest of the batch from becoming searchable, so a failure retries each definition on
+   * its own and merges the bodies of those that build.
+   */
+  @Nonnull
+  private Map<String, Object> buildStructuredPropertyMappingBody(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Pair<Urn, StructuredPropertyDefinition>> definitions) {
     try {
-      log.info(
-          "Applying {} V3 structured property definition(s) to {} indices in one request",
-          definitions.size(),
-          indexNames.size());
-      final PutMappingRequest request =
-          new PutMappingRequest(indexNames.toArray(String[]::new)).source(mappingBody);
-      elasticSearchService
-          .getIndexBuilder(indexNames.get(0))
-          .getSearchClient()
-          .putIndexMapping(opContext, request, RequestOptions.DEFAULT);
-    } catch (Exception e) {
+      return structuredPropertyMappingBody(opContext, definitions);
+    } catch (RuntimeException e) {
       log.error(
-          "Combined V3 structured property mapping update failed for {} definitions; applying per index",
+          "Failed to build V3 structured property mappings for {} definitions; building each one",
           definitions.size(),
           e);
-      applyStructuredPropertyMappingsPerIndex(opContext, indexNames, mappingBody);
     }
+    final Map<String, Object> mergedFields = new LinkedHashMap<>();
+    Map<String, Object> structuredPropertiesTemplate = null;
+    for (Pair<Urn, StructuredPropertyDefinition> definition : definitions) {
+      try {
+        final Map<String, Object> body =
+            structuredPropertyMappingBody(opContext, List.of(definition));
+        final Map<String, Object> structuredProperties = structuredPropertiesOf(body);
+        if (structuredProperties == null) {
+          continue;
+        }
+        if (structuredPropertiesTemplate == null) {
+          structuredPropertiesTemplate = structuredProperties;
+        }
+        mergedFields.putAll(structuredPropertyFields(structuredProperties));
+      } catch (RuntimeException e) {
+        log.error(
+            "Failed to build V3 structured property mapping for {}; skipping it",
+            definition.getKey(),
+            e);
+      }
+    }
+    if (structuredPropertiesTemplate == null || mergedFields.isEmpty()) {
+      return Map.of();
+    }
+    final Map<String, Object> structuredProperties = new HashMap<>(structuredPropertiesTemplate);
+    structuredProperties.put("properties", mergedFields);
+    return Map.of(
+        "properties", Map.of(Constants.STRUCTURED_PROPERTY_MAPPING_FIELD, structuredProperties));
+  }
+
+  @Nullable
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> structuredPropertiesOf(
+      @Nonnull final Map<String, Object> body) {
+    if (body.get("properties") instanceof Map<?, ?> properties
+        && properties.get(Constants.STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> value) {
+      return (Map<String, Object>) value;
+    }
+    return null;
+  }
+
+  @Nonnull
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> structuredPropertyFields(
+      @Nonnull final Map<String, Object> structuredProperties) {
+    return structuredProperties.get("properties") instanceof Map<?, ?> fields
+        ? (Map<String, Object>) fields
+        : Map.of();
+  }
+
+  /** V3 entity indices that have not acknowledged every one of {@code fieldIds}. */
+  @Nonnull
+  private List<String> missingFieldIndices(
+      @Nonnull final OperationContext opContext, @Nonnull final Set<String> fieldIds) {
+    return mappingTargetIndexNames(opContext).stream()
+        .filter(
+            indexName ->
+                !appliedStructuredPropertyFields
+                    .getOrDefault(indexName, Set.of())
+                    .containsAll(fieldIds))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * The V3 aliases plus the separate index a fill in flight is building behind one. That index is
+   * not reachable through its alias yet, and a definition saved mid-fill would otherwise be missing
+   * from the mapping the fill's documents are written under.
+   */
+  @Nonnull
+  private List<String> mappingTargetIndexNames(@Nonnull final OperationContext opContext) {
+    final List<String> aliases = v3EntityIndexNames(opContext);
+    if (incrementalReindexWriteTargets == null) {
+      return aliases;
+    }
+    final Set<String> targets = new LinkedHashSet<>(aliases);
+    for (String alias : aliases) {
+      incrementalReindexWriteTargets.fillTargetFor(alias).ifPresent(targets::add);
+    }
+    return List.copyOf(targets);
+  }
+
+  private void recordAppliedFields(
+      @Nonnull final Collection<String> indexNames, @Nonnull final Set<String> fieldIds) {
+    for (String indexName : indexNames) {
+      appliedStructuredPropertyFields.merge(
+          indexName,
+          Set.copyOf(fieldIds),
+          (applied, added) -> {
+            final Set<String> merged = new HashSet<>(applied);
+            merged.addAll(added);
+            return Set.copyOf(merged);
+          });
+    }
+  }
+
+  /**
+   * One put naming every index in {@code indexNames}. A transport failure, 429 or 5xx is tried once
+   * more while the budget allows, then left unrecorded for the next batch. Any other failure, such
+   * as a 4xx mapping rejection, can come from one bad index failing the whole request, so each
+   * index is then applied on its own.
+   */
+  private void putStructuredPropertyMappings(
+      @Nonnull final OperationContext opContext,
+      final int definitionCount,
+      @Nonnull final List<String> indexNames,
+      @Nonnull final Map<String, Object> mappingBody,
+      @Nonnull final Set<String> fieldIds) {
+    final SearchClientShim<?> searchClient =
+        elasticSearchService.getIndexBuilder(indexNames.get(0)).getSearchClient();
+    final RequestOptions options = putMappingRequestOptions(searchClient);
+    final long deadline = System.currentTimeMillis() + PUT_MAPPING_BUDGET_MILLIS;
+    final long attemptMillis =
+        (long) options.getRequestConfig().getConnectionRequestTimeout()
+            + PUT_MAPPING_SOCKET_TIMEOUT_MILLIS;
+    for (int attempt = 1; ; attempt++) {
+      try {
+        log.info(
+            "Applying {} V3 structured property definition(s) to {} indices, attempt {}",
+            definitionCount,
+            indexNames.size(),
+            attempt);
+        searchClient.putIndexMapping(
+            opContext,
+            new PutMappingRequest(indexNames.toArray(String[]::new)).source(mappingBody),
+            options);
+        recordAppliedFields(indexNames, fieldIds);
+        return;
+      } catch (Exception e) {
+        if (!isRetryablePutMappingFailure(e)) {
+          log.error(
+              "V3 structured property mapping update rejected for {} definitions; applying per index",
+              definitionCount,
+              e);
+          applyStructuredPropertyMappingsPerIndex(opContext, indexNames, mappingBody, fieldIds);
+          return;
+        }
+        final boolean outOfBudget =
+            System.currentTimeMillis() + PUT_MAPPING_RETRY_BACKOFF_MILLIS + attemptMillis
+                > deadline;
+        if (attempt >= PUT_MAPPING_MAX_ATTEMPTS || outOfBudget) {
+          log.error(
+              "V3 structured property mapping update failed after {} attempt(s) for {} definitions"
+                  + " on indices {}; the next batch with these definitions sends it again",
+              attempt,
+              definitionCount,
+              indexNames,
+              e);
+          return;
+        }
+        log.warn(
+            "V3 structured property mapping update attempt {} failed; retrying in {}ms",
+            attempt,
+            PUT_MAPPING_RETRY_BACKOFF_MILLIS,
+            e);
+        try {
+          Thread.sleep(PUT_MAPPING_RETRY_BACKOFF_MILLIS);
+        } catch (InterruptedException interrupted) {
+          Thread.currentThread().interrupt();
+          return;
+        }
+      }
+    }
+  }
+
+  private static boolean isRetryablePutMappingFailure(@Nonnull final Exception failure) {
+    final OptionalInt httpStatus = SearchIndexFailureClassifier.findHttpStatus(failure);
+    if (httpStatus.isPresent()) {
+      return SearchIndexFailureClassifier.isRetryableHttpStatus(httpStatus.getAsInt());
+    }
+    Throwable current = failure;
+    while (current != null) {
+      if (current instanceof IOException || current instanceof TimeoutException) {
+        return true;
+      }
+      current = current.getCause() == current ? null : current.getCause();
+    }
+    return false;
+  }
+
+  /**
+   * A request config replaces the client's defaults rather than merging with them, so the connect
+   * and connection-request timeouts are set alongside the longer socket timeout.
+   */
+  @Nonnull
+  private static RequestOptions putMappingRequestOptions(
+      @Nonnull final SearchClientShim<?> searchClient) {
+    Integer connectionRequestTimeout = null;
+    final SearchClientShim.ShimConfiguration shimConfiguration =
+        searchClient.getShimConfiguration();
+    if (shimConfiguration != null) {
+      connectionRequestTimeout = shimConfiguration.getConnectionRequestTimeout();
+    }
+    if (connectionRequestTimeout == null || connectionRequestTimeout <= 0) {
+      connectionRequestTimeout = PUT_MAPPING_DEFAULT_CONNECTION_REQUEST_TIMEOUT_MILLIS;
+    }
+    return RequestOptions.DEFAULT.toBuilder()
+        .setRequestConfig(
+            RequestConfig.custom()
+                .setConnectTimeout(RestClientBuilder.DEFAULT_CONNECT_TIMEOUT_MILLIS)
+                .setConnectionRequestTimeout(connectionRequestTimeout)
+                .setSocketTimeout(PUT_MAPPING_SOCKET_TIMEOUT_MILLIS)
+                .build())
+        .build();
   }
 
   /**
@@ -587,15 +815,16 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
   /**
    * One {@code applyMappings} per index of the same body the combined request would have sent. A
-   * failure on one index does not stop the others.
+   * failure on one index does not stop the others, and only the indices that succeed are recorded.
    */
   private void applyStructuredPropertyMappingsPerIndex(
       @Nonnull final OperationContext opContext,
       @Nonnull final List<String> indexNames,
-      @Nonnull final Map<String, Object> mappingBody) {
-    final Map<String, Object> currentMappings = Map.of("properties", Map.of());
+      @Nonnull final Map<String, Object> mappingBody,
+      @Nonnull final Set<String> fieldIds) {
     for (String indexName : indexNames) {
       try {
+        final Map<String, Object> currentMappings = currentIndexMappings(opContext, indexName);
         final ReindexConfig indexState =
             ReindexConfig.builder()
                 .name(indexName)
@@ -604,10 +833,32 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                 .targetMappings(mappingBody)
                 .build();
         elasticSearchService.getIndexBuilder(indexName).applyMappings(opContext, indexState, false);
+        recordAppliedFields(List.of(indexName), fieldIds);
       } catch (Exception e) {
         log.error("Failed to apply V3 structured property mappings to index {}", indexName, e);
       }
     }
+  }
+
+  /**
+   * The index's own mapping, so a field that is already there is not classified as new and a
+   * definition whose type changed is not put in place. An unreadable mapping falls back to an empty
+   * one, which treats every field as an addition.
+   */
+  @Nonnull
+  private Map<String, Object> currentIndexMappings(
+      @Nonnull final OperationContext opContext, @Nonnull final String indexName) {
+    try {
+      final Map<String, Object> mapping =
+          elasticSearchService.indexMappingSource(opContext, indexName);
+      if (mapping != null && !mapping.isEmpty()) {
+        return mapping;
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Could not read the mapping of V3 index {}; treating every field as new", indexName, e);
+    }
+    return Map.of("properties", Map.of());
   }
 
   public void updateIndexMappings(

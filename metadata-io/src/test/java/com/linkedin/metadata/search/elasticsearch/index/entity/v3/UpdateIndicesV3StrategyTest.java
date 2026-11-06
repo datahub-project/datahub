@@ -99,21 +99,30 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.http.ConnectionClosedException;
 import org.apache.http.NoHttpResponseException;
+import org.apache.http.client.config.RequestConfig;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.PutMappingRequest;
 import org.opensearch.core.rest.RestStatus;
 import org.testng.annotations.BeforeMethod;
@@ -5247,48 +5256,13 @@ public class UpdateIndicesV3StrategyTest {
 
   @Test
   public void testBatchStructuredPropertyMappingsUseOnePutMapping() throws Exception {
-    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
-    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
-    UrnArray datasetTypes = new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"));
-    Urn firstUrn = UrnUtils.getUrn("urn:li:structuredProperty:scale_smoke.prop_00");
-    Urn secondUrn = UrnUtils.getUrn("urn:li:structuredProperty:scale_smoke.prop_01");
-    MCLItem firstEvent =
-        aspectEvent(
-            firstUrn,
-            mockAspectSpec,
-            propertyDefinition("scale_smoke.prop_00", datasetTypes),
-            ChangeType.UPSERT,
-            null,
-            null);
-    MCLItem secondEvent =
-        aspectEvent(
-            secondUrn,
-            mockAspectSpec,
-            propertyDefinition("scale_smoke.prop_01", datasetTypes),
-            ChangeType.UPSERT,
-            null,
-            null);
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any()))
-        .thenReturn(Optional.of(mockSearchDocument));
+    stubStructuredPropertyDefinitions();
     SearchClientShim<?> searchClient = stubMappingClient();
 
     strategy.processBatch(
-        operationContext,
-        Map.of(firstUrn, List.of(firstEvent), secondUrn, List.of(secondEvent)),
-        true);
+        operationContext, definitionBatch("scale_smoke.prop_00", "scale_smoke.prop_01"), true);
 
-    ArgumentCaptor<PutMappingRequest> requestCaptor =
-        ArgumentCaptor.forClass(PutMappingRequest.class);
-    verify(searchClient, times(1))
-        .putIndexMapping(eq(operationContext), requestCaptor.capture(), any());
-    assertEquals(Set.copyOf(List.of(requestCaptor.getValue().indices())), v3EntityIndexNames());
-    String mapping = requestCaptor.getValue().source().utf8ToString();
+    String mapping = capturedPutMapping(searchClient);
     assertTrue(mapping.contains("scale_smoke_prop_00"));
     assertTrue(mapping.contains("scale_smoke_prop_01"));
     verify(mockIndexBuilder, never())
@@ -5298,41 +5272,20 @@ public class UpdateIndicesV3StrategyTest {
             any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
   }
 
-  @Test
-  public void testBatchStructuredPropertyMappingFallsBackPerIndex() throws Exception {
-    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
-    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
-    UrnArray datasetTypes = new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"));
-    Urn firstUrn = UrnUtils.getUrn("urn:li:structuredProperty:scale_smoke.prop_00");
-    Urn secondUrn = UrnUtils.getUrn("urn:li:structuredProperty:scale_smoke.prop_01");
-    MCLItem firstEvent =
-        aspectEvent(
-            firstUrn,
-            mockAspectSpec,
-            propertyDefinition("scale_smoke.prop_00", datasetTypes),
-            ChangeType.UPSERT,
-            null,
-            null);
-    MCLItem secondEvent =
-        aspectEvent(
-            secondUrn,
-            mockAspectSpec,
-            propertyDefinition("scale_smoke.prop_01", datasetTypes),
-            ChangeType.UPSERT,
-            null,
-            null);
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any()))
-        .thenReturn(Optional.of(mockSearchDocument));
+  @DataProvider(name = "mappingRejections")
+  public Object[][] mappingRejections() {
+    return new Object[][] {
+      {new OpenSearchStatusException("mapper_parsing_exception", RestStatus.BAD_REQUEST)},
+      {es8HttpFailure(400)}
+    };
+  }
+
+  @Test(dataProvider = "mappingRejections")
+  public void testBatchStructuredPropertyMappingFallsBackPerIndex(RuntimeException rejection)
+      throws Exception {
+    stubStructuredPropertyDefinitions();
     SearchClientShim<?> searchClient = stubMappingClient();
-    doThrow(new IOException("combined mapping rejected"))
-        .when(searchClient)
-        .putIndexMapping(any(), any(), any());
+    doThrow(rejection).when(searchClient).putIndexMapping(any(), any(), any());
     Set<String> indexNames = v3EntityIndexNames();
     String failingIndex = indexNames.iterator().next();
     doAnswer(
@@ -5347,9 +5300,7 @@ public class UpdateIndicesV3StrategyTest {
         .applyMappings(any(OperationContext.class), any(ReindexConfig.class), eq(false));
 
     strategy.processBatch(
-        operationContext,
-        Map.of(firstUrn, List.of(firstEvent), secondUrn, List.of(secondEvent)),
-        true);
+        operationContext, definitionBatch("scale_smoke.prop_00", "scale_smoke.prop_01"), true);
 
     verify(searchClient, times(1)).putIndexMapping(eq(operationContext), any(), any());
     ArgumentCaptor<ReindexConfig> indexCaptor = ArgumentCaptor.forClass(ReindexConfig.class);
@@ -5361,6 +5312,156 @@ public class UpdateIndicesV3StrategyTest {
     assertTrue(
         indexCaptor.getAllValues().stream()
             .allMatch(ReindexConfig::isPureStructuredPropertyAddition));
+
+    // Only the index whose per-index apply failed is still missing the fields.
+    strategy.processBatch(
+        operationContext, definitionBatch("scale_smoke.prop_00", "scale_smoke.prop_01"), true);
+
+    ArgumentCaptor<PutMappingRequest> requestCaptor =
+        ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient, times(2))
+        .putIndexMapping(eq(operationContext), requestCaptor.capture(), any());
+    assertEquals(List.of(requestCaptor.getValue().indices()), List.of(failingIndex));
+  }
+
+  @Test
+  public void testRepeatedStructuredPropertyBatchSkipsPutMapping() throws Exception {
+    stubStructuredPropertyDefinitions();
+    SearchClientShim<?> searchClient = stubMappingClient();
+
+    strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true);
+    strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true);
+
+    verify(searchClient, times(1)).putIndexMapping(eq(operationContext), any(), any());
+
+    strategy.processBatch(
+        operationContext, definitionBatch("scale_smoke.prop_00", "scale_smoke.prop_02"), true);
+
+    ArgumentCaptor<PutMappingRequest> requestCaptor =
+        ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient, times(2))
+        .putIndexMapping(eq(operationContext), requestCaptor.capture(), any());
+    assertEquals(Set.copyOf(List.of(requestCaptor.getValue().indices())), v3EntityIndexNames());
+    assertTrue(requestCaptor.getValue().source().utf8ToString().contains("scale_smoke_prop_02"));
+  }
+
+  @Test
+  public void testConcurrentStructuredPropertyBatchesPutOnce() throws Exception {
+    stubStructuredPropertyDefinitions();
+    SearchClientShim<?> searchClient = stubMappingClient();
+    CountDownLatch putStarted = new CountDownLatch(1);
+    CountDownLatch releasePut = new CountDownLatch(1);
+    doAnswer(
+            invocation -> {
+              putStarted.countDown();
+              assertTrue(releasePut.await(30, TimeUnit.SECONDS));
+              return null;
+            })
+        .when(searchClient)
+        .putIndexMapping(any(), any(), any());
+    Map<Urn, List<MCLItem>> batch = definitionBatch("scale_smoke.prop_00");
+
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+    try {
+      Future<?> first = executor.submit(() -> strategy.processBatch(operationContext, batch, true));
+      assertTrue(putStarted.await(30, TimeUnit.SECONDS));
+      Future<?> second =
+          executor.submit(() -> strategy.processBatch(operationContext, batch, true));
+      releasePut.countDown();
+      first.get(30, TimeUnit.SECONDS);
+      second.get(30, TimeUnit.SECONDS);
+    } finally {
+      executor.shutdownNow();
+    }
+
+    verify(searchClient, times(1)).putIndexMapping(eq(operationContext), any(), any());
+  }
+
+  @Test
+  public void testStructuredPropertyPutMappingRetriesTimeoutOnce() throws Exception {
+    stubStructuredPropertyDefinitions();
+    SearchClientShim<?> searchClient = stubMappingClient();
+    doThrow(new IOException(new TimeoutException("Connection lease request time out")))
+        .doAnswer(invocation -> null)
+        .when(searchClient)
+        .putIndexMapping(any(), any(), any());
+
+    strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true);
+    strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true);
+
+    ArgumentCaptor<RequestOptions> optionsCaptor = ArgumentCaptor.forClass(RequestOptions.class);
+    verify(searchClient, times(2))
+        .putIndexMapping(eq(operationContext), any(), optionsCaptor.capture());
+    RequestConfig requestConfig = optionsCaptor.getValue().getRequestConfig();
+    assertEquals(requestConfig.getSocketTimeout(), 60_000);
+    assertTrue(requestConfig.getConnectionRequestTimeout() > 0);
+    verify(mockIndexBuilder, never())
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), anyBoolean());
+  }
+
+  @Test
+  public void testStructuredPropertyPutMappingGivesUpWithoutRecording() throws Exception {
+    stubStructuredPropertyDefinitions();
+    SearchClientShim<?> searchClient = stubMappingClient();
+    doThrow(new IOException(new TimeoutException("Connection lease request time out")))
+        .when(searchClient)
+        .putIndexMapping(any(), any(), any());
+
+    strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true);
+
+    verify(searchClient, times(2)).putIndexMapping(eq(operationContext), any(), any());
+    verify(mockIndexBuilder, never())
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), anyBoolean());
+
+    strategy.processBatch(operationContext, definitionBatch("scale_smoke.prop_00"), true);
+
+    verify(searchClient, times(4)).putIndexMapping(eq(operationContext), any(), any());
+  }
+
+  @Test
+  public void testUnprojectableDefinitionDoesNotBlockTheRestOfTheBatch() throws Exception {
+    stubStructuredPropertyDefinitions();
+    SearchClientShim<?> searchClient = stubMappingClient();
+
+    // A qualified name with a space cannot become a field name.
+    strategy.processBatch(
+        operationContext, definitionBatch("bad name", "scale_smoke.prop_00"), true);
+
+    String mapping = capturedPutMapping(searchClient);
+    assertTrue(mapping.contains("scale_smoke_prop_00"), mapping);
+    assertFalse(mapping.contains("bad name"), mapping);
+  }
+
+  private void stubStructuredPropertyDefinitions() throws Exception {
+    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any()))
+        .thenReturn(Optional.of(mockSearchDocument));
+  }
+
+  private Map<Urn, List<MCLItem>> definitionBatch(String... qualifiedNames) {
+    UrnArray datasetTypes = new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"));
+    Map<Urn, List<MCLItem>> batch = new HashMap<>();
+    for (String qualifiedName : qualifiedNames) {
+      Urn urn = UrnUtils.getUrn("urn:li:structuredProperty:" + qualifiedName);
+      batch.put(
+          urn,
+          List.of(
+              aspectEvent(
+                  urn,
+                  mockAspectSpec,
+                  propertyDefinition(qualifiedName, datasetTypes),
+                  ChangeType.UPSERT,
+                  null,
+                  null)));
+    }
+    return batch;
   }
 
   @Test

@@ -266,6 +266,24 @@ public class BulkProcessorCompletionTrackerTest {
     tracker.shutdownFlushExecutor();
   }
 
+  // A drain that times out on a pending write fails retryable and the caller redelivers. The late
+  // callback finds no submission, so the write must still read as counted by the drain or the
+  // listener would requeue a second copy.
+  @Test
+  public void testWriteStillPendingWhenDrainTimesOutIsCountedByThatDrain() {
+    BulkProcessorCompletionTracker tracker = new BulkProcessorCompletionTracker();
+    IndexRequest pending = new IndexRequest("datasetindex_v2").id("urn-pending");
+    tracker.track(pending, ignored -> {});
+
+    BulkProcessorFlushResult result = tracker.flushAndAwait(() -> {}, 50, TimeUnit.MILLISECONDS);
+
+    assertTrue(result.timedOut());
+    assertEquals(result.incompleteOperations(), 1);
+    assertTrue(tracker.countedByDrain(pending), "the late callback must not requeue this write");
+    assertFalse(tracker.countedByDrain(pending), "the mark is taken once");
+    tracker.shutdownFlushExecutor();
+  }
+
   // AI-862 drain-slot contention: only one drain may hold the slot at a time. When a predecessor
   // drain never releases it, a racing drain must not block forever — beginDrain gives up after its
   // own budget and returns a not-acquired boundary, and the flush reports a retryable timeout

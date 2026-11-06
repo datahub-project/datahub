@@ -197,6 +197,23 @@ public class ESWriteDAOTest {
   }
 
   @Test
+  public void testEntityWritesSkippedWhenV2BlockIsMissingAndV3IsOn() {
+    ElasticSearchConfiguration enabledConfig = searchConfig(true);
+    ESWriteDAO noV2BlockDAO =
+        new ESWriteDAO(
+            enabledConfig.toBuilder()
+                .entityIndex(enabledConfig.getEntityIndex().toBuilder().v2(null).build())
+                .build(),
+            mockSearchClient,
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
+
+    noV2BlockDAO.upsertDocument(opContext, TEST_ENTITY, "{\"field\":\"value\"}", TEST_DOC_ID);
+
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  @Test
   public void testUpsertDocument() {
     String document = "{\"field\":\"value\"}";
 

@@ -519,22 +519,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
    */
   @Test
   public void testQuickstartSearchProbes() throws Exception {
-    JsonNode file = judgments();
-    List<String> failures = new ArrayList<>();
-    List<SearchQualityReport.ProbeScore> probes = new ArrayList<>();
-    for (JsonNode judgment : file.path("judgments")) {
-      if (!"quickstart-search".equals(judgment.path("group").asText())) {
-        continue;
-      }
-      SearchQualityReport.ProbeScore probe = SearchQualityReport.probe(judgment, run(judgment));
-      probes.add(probe);
-      if (!probe.passed()) {
-        failures.add(probe.message());
-      }
-    }
-    Path report = writeReport("quickstartSearch", 0.0, List.of(), probes);
-    assertEquals(probes.size(), 2, "quickstart-search probes were not loaded");
-    assertTrue(failures.isEmpty(), withReport(String.join("\n", failures), report));
+    assertProbeGroup("quickstart-search", 2);
   }
 
   /** Caller sort on the closed sort-probe set. These queries are not part of either nDCG floor. */
