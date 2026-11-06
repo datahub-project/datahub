@@ -176,7 +176,11 @@ def test_infer_data_connection_reads_driver_and_database() -> None:
 def test_infer_data_connection_matches_whole_platform_names(
     name: str, platform: str
 ) -> None:
-    assert infer_data_connection(name, "").platform == platform
+    assert infer_data_connection("Warehouse", name).platform == platform
+
+
+def test_infer_data_connection_ignores_the_connection_name() -> None:
+    assert infer_data_connection("Snowflake Finance", "folder").platform is None
 
 
 def test_infer_data_connection_prefers_the_driver() -> None:
@@ -209,6 +213,35 @@ T: SQL SELECT * FROM db.s.t;
     assert [(t.label, t.connection) for t in parse_load_script(script)] == [("T", "A")]
 
 
+def test_parse_load_script_skips_rem_comments_in_control_blocks() -> None:
+    script = """
+LIB CONNECT TO 'A';
+IF vReload = 1 THEN
+  REM Don't load the archive here;
+  T: SQL SELECT * FROM db.s.t;
+ELSE
+  rem it's off;
+END IF
+U: SQL SELECT * FROM db.s.u;
+"""
+    assert [t.label for t in parse_load_script(script)] == ["T", "U"]
+
+
+def test_redact_connection_scrubs_nested_credentials() -> None:
+    connection = (
+        "Provider=MSOLEDBSQL;Data Source=https://svc_user:hunter2@db.example.com/x;"
+        'Extended Properties="UID=svc_user;PWD=hunter2;Encrypt=yes";'
+        "Initial Catalog=sales"
+    )
+
+    redacted = redact_connection(connection)
+
+    assert "svc_user" not in redacted
+    assert "hunter2" not in redacted
+    assert "Data Source=https://db.example.com/x" in redacted
+    assert "Initial Catalog=sales" in redacted
+
+
 def test_redact_connection_drops_credentials() -> None:
     connection = (
         "Driver={ODBC Driver 17 for SQL Server};Server=db.example.com;"
@@ -229,6 +262,7 @@ def test_redact_connection_drops_credentials() -> None:
         ("sales.dbo.orders", "mssql", None, True),
         ("sales.orders", "mssql", None, False),
         ("prod.sales.orders", "mssql", "prod", False),
+        ("prod.sales.orders", "mssql", "Prod", False),
         ("sales.orders", "mysql", None, True),
         ("orders", "oracle", None, True),
     ],
@@ -433,6 +467,16 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
             "=[Year] + Year", ["Year", "Year"], id="field_named_like_function"
         ),
         pytest.param("Count({<Year={2024}>} Region)", ["Year", "Region"], id="set"),
+        pytest.param(
+            "Count({<Region={'A'}+{\"B*\"}-{$(vSkip)}>} Amount)",
+            ["Region", "Amount"],
+            id="combined_set_values",
+        ),
+        pytest.param(
+            "Sum(DISTINCT TOTAL <Region> Amount) and not Flag",
+            ["Region", "Amount", "Flag"],
+            id="keywords",
+        ),
     ],
 )
 def test_expression_names_skip_function_calls(

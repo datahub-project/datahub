@@ -11,6 +11,19 @@ from datahub.ingestion.source.qlik_sense.data_classes import Chart, Sheet
 
 logger = logging.getLogger(__name__)
 
+# Engine JSON-RPC error code LOCERR_GENERIC_ACCESS_DENIED.
+ENGINE_ACCESS_DENIED = 5
+
+
+class EngineError(RuntimeError):
+    def __init__(self, error: Dict) -> None:
+        super().__init__(str(error))
+        self.code = error.get("code")
+
+    @property
+    def access_denied(self) -> bool:
+        return self.code == ENGINE_ACCESS_DENIED
+
 
 class WebsocketConnection:
     def __init__(
@@ -100,7 +113,7 @@ class WebsocketConnection:
     @staticmethod
     def _result(message: Dict) -> Dict:
         if "error" in message:
-            raise RuntimeError(str(message["error"]))
+            raise EngineError(message["error"])
         return message[Constant.RESULT]
 
     def _recv_matching(self, socket_connection: WebSocket, request_id: int) -> Dict:
@@ -249,7 +262,7 @@ class WebsocketConnection:
                 properties = self.websocket_send_request(method="GetProperties")[
                     Constant.QPROPERTY
                 ]
-            elif properties.get(Constant.QEXTENDSID):
+            if properties.get(Constant.QEXTENDSID):
                 # A linked master visualization keeps its hypercube on the master.
                 properties = self.websocket_send_request(
                     method="GetEffectiveProperties"

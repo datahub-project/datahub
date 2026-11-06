@@ -661,6 +661,22 @@ def test_chart_input_fields_match_app_fields() -> None:
             False,
             id="all_names_matched_with_unknown_schema",
         ),
+        pytest.param(
+            ["Region", "Count(DISTINCT Region)"],
+            True,
+            True,
+            ["Region"],
+            False,
+            id="keyword_with_unknown_schema",
+        ),
+        pytest.param(
+            ["Count({<Year={2024}+{$(vYear)}>} Region)"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="variable_in_combined_set_values",
+        ),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
@@ -737,6 +753,29 @@ def test_measure_definitions_mark_unread_measures(
     engine._add_measure_definitions(chart, None, "sheet-1", on_error=lambda _: None)
 
     assert chart.fields_complete is fields_complete
+
+
+def test_measure_definitions_follow_linked_master_visualization() -> None:
+    chart = Chart.model_validate(_chart_layout("linked")["qLayout"])
+    engine = _ScriptedEngine(
+        [
+            {"qProp": {"qInfo": {"qId": "linked"}, "qExtendsId": "master-viz"}},
+            {
+                "qProp": {
+                    "qHyperCubeDef": {"qMeasures": [{"qDef": {"qDef": "Sum(Sales)"}}]}
+                }
+            },
+        ]
+    )
+
+    engine._add_measure_definitions(chart, None, "sheet-1", on_error=lambda _: None)
+
+    assert [method for method, _ in engine.sent_on] == [
+        "GetProperties",
+        "GetEffectiveProperties",
+    ]
+    assert chart.field_expressions == ["Sum(Sales)"]
+    assert chart.fields_complete
 
 
 @pytest.mark.parametrize(
