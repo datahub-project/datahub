@@ -4,8 +4,10 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.gms.factory.search.EntityDocumentIdHasherFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -113,7 +115,8 @@ public class UpdateIndicesStrategyFactory {
       @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled,
       @Qualifier("incrementalReindexWriteTargets") @Nullable
           IncrementalReindexWriteTargets incrementalReindexWriteTargets,
-      StructuredPropertyMappingCache structuredPropertyMappingCache) {
+      StructuredPropertyMappingCache structuredPropertyMappingCache,
+      SearchClusterRegistry searchClusterRegistry) {
 
     EntityIndexVersionConfiguration v3Config =
         EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v3Cleanup).build();
@@ -132,6 +135,7 @@ public class UpdateIndicesStrategyFactory {
             configProvider.getElasticSearch().getEntityIndex().getSemanticSearch())
         .incrementalReindexWriteTargets(incrementalReindexWriteTargets)
         .structuredPropertyMappingCache(structuredPropertyMappingCache)
+        .v3SearchClient(searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3))
         .build();
   }
 

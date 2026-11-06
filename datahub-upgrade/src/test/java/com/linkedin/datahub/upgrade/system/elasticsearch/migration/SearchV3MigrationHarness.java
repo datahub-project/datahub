@@ -337,7 +337,7 @@ final class SearchV3MigrationHarness implements AutoCloseable {
     // Search side. The V3 builders take the V3 cluster's client: that is where V3 indices live.
     v3MappingOverride =
         new V3MappingOverride(
-            SearchTestUtils.createDelegatingMappingsBuilder(config.getEntityIndex()));
+            SearchTestUtils.createDelegatingMappingsBuilder(config.getEntityIndex(), v3Client));
     settingsBuilder =
         SearchTestUtils.createDelegatingSettingsBuilder(
             config.getEntityIndex(), config.getIndex(), indexConvention);

@@ -220,7 +220,8 @@ public abstract class SearchLineageFixtureConfiguration {
    * DelegatingMappingsBuilder with both v2 and v3 mappings builders.
    */
   private MappingsBuilder createMappingsBuilder() {
-    return createDelegatingMappingsBuilder(SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+    return createDelegatingMappingsBuilder(
+        SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION, searchClient);
   }
 
   @Bean(name = "searchLineageESIndexBuilder")
