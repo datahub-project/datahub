@@ -223,8 +223,6 @@ const ALCHEMY_APP_IMPORT_EXCLUDED_FILES = [
     'src/alchemy-components/components/Editor/readOnlyContent.tsx',
     'src/alchemy-components/components/Editor/toolbar/Toolbar.tsx',
     'src/alchemy-components/components/FileNode/FileNode.tsx',
-    'src/alchemy-components/components/IncidentStagePill/IncidentStagePill.tsx',
-    'src/alchemy-components/components/IncidentStagePill/constant.ts',
     'src/alchemy-components/components/LineageCard/LineageCard.stories.tsx',
     'src/alchemy-components/components/Modal/Modal.tsx',
     'src/alchemy-components/components/Select/Nested/types.ts',
