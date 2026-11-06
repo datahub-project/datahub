@@ -1,4 +1,4 @@
-import { Skeleton } from 'antd';
+import { Skeleton } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -16,12 +16,8 @@ const Header = styled.div`
 const Body = styled.div``;
 
 const HeaderSkeleton = styled(Skeleton.Input)`
-    && {
-        padding: 0px 12px 12px 0px;
-        height: 60px;
-        border-radius: 8px;
-        width: 540px;
-    }
+    margin: 0px 12px 12px 0px;
+    border-radius: 8px;
 `;
 
 const CardWrapper = styled.div`
@@ -29,29 +25,25 @@ const CardWrapper = styled.div`
 `;
 
 const CardSkeleton = styled(Skeleton.Input)`
-    && {
-        padding: 0px 12px 12px 0px;
-        height: 60px;
-        border-radius: 8px;
-        width: 100%;
-    }
+    margin: 0px 12px 12px 0px;
+    border-radius: 8px;
 `;
 
 export const TableLoadingSkeleton = () => {
     return (
         <>
             <Header>
-                <HeaderSkeleton active size="large" />
+                <HeaderSkeleton size="lg" width={540} height={60} />
             </Header>
             <Body>
                 <CardWrapper>
-                    <CardSkeleton active size="large" />
+                    <CardSkeleton size="lg" height={60} block />
                 </CardWrapper>
                 <CardWrapper>
-                    <CardSkeleton active size="large" />
+                    <CardSkeleton size="lg" height={60} block />
                 </CardWrapper>
                 <CardWrapper>
-                    <CardSkeleton active size="large" />
+                    <CardSkeleton size="lg" height={60} block />
                 </CardWrapper>
             </Body>
         </>

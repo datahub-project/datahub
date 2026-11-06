@@ -1,7 +1,6 @@
-import { Icon, Tooltip } from '@components';
+import { Divider, Icon, Tooltip } from '@components';
 import { Phone } from '@phosphor-icons/react/dist/csr/Phone';
 import { SlackLogo } from '@phosphor-icons/react/dist/csr/SlackLogo';
-import { Divider } from 'antd';
 import React from 'react';
 import { useTheme } from 'styled-components';
 

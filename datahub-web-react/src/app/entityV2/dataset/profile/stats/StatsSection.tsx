@@ -1,4 +1,4 @@
-import { Divider, Row, Typography } from 'antd';
+import { Divider, Heading } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -7,6 +7,17 @@ const Section = styled.div`
     padding-bottom: 40px;
     margin-bottom: 20px;
     width: 100%;
+`;
+
+const HeaderRow = styled.div`
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: space-between;
+`;
+
+// Keeps the bottom margin antd's level-3 Title had.
+const TitleWrapper = styled.div`
+    margin-bottom: 12px;
 `;
 
 const ThinDivider = styled(Divider)`
@@ -23,10 +34,14 @@ type Props = {
 export default function StatsSection({ children, title, rightFloatView }: Props) {
     return (
         <Section>
-            <Row justify="space-between">
-                <Typography.Title level={3}>{title}</Typography.Title>
+            <HeaderRow>
+                <TitleWrapper>
+                    <Heading type="h3" size="4xl" weight="semiBold">
+                        {title}
+                    </Heading>
+                </TitleWrapper>
                 {rightFloatView || <span />}
-            </Row>
+            </HeaderRow>
             <ThinDivider />
             {children}
         </Section>

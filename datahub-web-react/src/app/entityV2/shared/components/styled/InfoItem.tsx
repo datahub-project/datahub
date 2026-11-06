@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -12,7 +12,8 @@ const HeaderInfoItem = styled.div<{ onClick?: () => void; width?: string }>`
     }
 `;
 
-const HeaderInfoTitle = styled(Typography.Text)`
+const HeaderInfoTitle = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     font-size: 12px;
     color: ${(props) => props.theme.colors.textTertiary};
 `;

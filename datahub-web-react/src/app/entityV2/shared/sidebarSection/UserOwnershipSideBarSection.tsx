@@ -1,7 +1,6 @@
-import { Col } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CSSObject } from 'styled-components';
+import styled, { CSSObject } from 'styled-components';
 
 import { OwnershipContainer, ShowMoreText } from '@app/entityV2/shared/SidebarStyledComponents';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -18,6 +17,14 @@ const entityLinkTextStyle: CSSObject = {
     textOverflow: 'ellipsis',
     maxWidth: 150,
 };
+
+// Matches the antd Col span={11} it replaces.
+const EntityColumn = styled.div`
+    position: relative;
+    min-height: 1px;
+    flex: 0 0 45.83333333%;
+    max-width: 45.83333333%;
+`;
 
 type Props = {
     ownershipResults: SearchResults | undefined;
@@ -46,13 +53,13 @@ export const UserOwnershipSidebarSection = ({ ownershipResults }: Props) => {
                             const { entity } = ownership;
                             return (
                                 index < entityCount && (
-                                    <Col xs={11}>
+                                    <EntityColumn>
                                         <EntityLink
                                             key={entity.urn}
                                             entity={entity}
                                             displayTextStyle={entityLinkTextStyle}
                                         />
-                                    </Col>
+                                    </EntityColumn>
                                 )
                             );
                         })}

@@ -1,4 +1,4 @@
-import { Button, Typography } from 'antd';
+import { Button, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -16,7 +16,8 @@ import { Operation, UsageQueryResult } from '@types';
 /* eslint-disable i18next/no-literal-string -- route tab name identifiers, not UI text */
 /* eslint-enable i18next/no-literal-string */
 
-const HeaderInfoBody = styled(Typography.Text)`
+const HeaderInfoBody = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     font-size: 16px;
     color: ${(props) => props.theme.colors.text};
 `;
@@ -24,10 +25,6 @@ const HeaderInfoBody = styled(Typography.Text)`
 const HeaderContainer = styled.div`
     justify-content: space-between;
     display: flex;
-`;
-
-const StatsButton = styled(Button)`
-    margin-top: -4px;
 `;
 
 const StatsRow = styled.div`
@@ -78,9 +75,9 @@ export const SidebarStatsSection = () => {
         <div>
             <HeaderContainer>
                 <SidebarHeader title={t('sidebar.stats.sectionTitle')} />
-                <StatsButton onClick={() => routeToTab({ tabName: EntityTabPath.STATS })} type="link">
+                <Button variant="link" onClick={() => routeToTab({ tabName: EntityTabPath.STATS })}>
                     {t('sidebar.stats.moreStatsLink')}
-                </StatsButton>
+                </Button>
             </HeaderContainer>
             {/* Dataset Profile Entry */}
             {hasLatestProfiles && (

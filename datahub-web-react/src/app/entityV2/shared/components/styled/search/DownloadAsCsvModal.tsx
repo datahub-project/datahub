@@ -1,6 +1,5 @@
-import { Modal, Text } from '@components';
+import { Input, Modal, Text, notification } from '@components';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-import { Input, notification } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
@@ -232,12 +231,10 @@ export default function DownloadAsCsvModal({
                 </ImpactAnalysisWarning>
             )}
             <Input
-                data-testid="download-as-csv-input"
+                inputTestId="download-as-csv-input"
                 placeholder={FILENAME_PLACEHOLDER}
                 value={saveAsTitle}
-                onChange={(e) => {
-                    setSaveAsTitle(e.target.value);
-                }}
+                setValue={setSaveAsTitle}
             />
         </Modal>
     );

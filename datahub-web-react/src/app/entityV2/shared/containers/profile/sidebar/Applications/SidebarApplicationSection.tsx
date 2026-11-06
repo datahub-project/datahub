@@ -1,7 +1,6 @@
 import { toast } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Modal } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -12,6 +11,7 @@ import { SetApplicationModal } from '@app/entityV2/shared/containers/profile/sid
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { ApplicationLink } from '@app/sharedV2/tags/ApplicationLink';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -53,6 +53,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
     const urn = useMutationUrn();
     const [batchUnsetApplicationMutation] = useBatchUnsetApplicationMutation();
     const [showModal, setShowModal] = useState(false);
+    const [applicationUrnToRemove, setApplicationUrnToRemove] = useState<string | null>(null);
     const applications = entityData?.applications || [];
     const canEditApplication = !!entityData?.privileges?.canEditProperties;
 
@@ -82,17 +83,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
     };
 
     const onRemoveApplication = (applicationUrn: string) => {
-        Modal.confirm({
-            title: t('sidebar.application.removeConfirmTitle'),
-            content: t('sidebar.application.removeConfirmContent'),
-            onOk() {
-                removeApplication(applicationUrn);
-            },
-            onCancel() {},
-            okText: tc('yes'),
-            maskClosable: true,
-            closable: true,
-        });
+        setApplicationUrnToRemove(applicationUrn);
     };
 
     return (
@@ -150,6 +141,17 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
                     }}
                 />
             )}
+            <ConfirmationModal
+                isOpen={!!applicationUrnToRemove}
+                handleClose={() => setApplicationUrnToRemove(null)}
+                handleConfirm={() => {
+                    if (applicationUrnToRemove) removeApplication(applicationUrnToRemove);
+                    setApplicationUrnToRemove(null);
+                }}
+                modalTitle={t('sidebar.application.removeConfirmTitle')}
+                modalText={t('sidebar.application.removeConfirmContent')}
+                confirmButtonText={tc('yes')}
+            />
         </div>
     );
 };

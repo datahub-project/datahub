@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -22,7 +22,8 @@ import {
     SubTypes,
 } from '@types';
 
-const StatText = styled(Typography.Text)`
+const StatText = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 

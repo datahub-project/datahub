@@ -1,31 +1,35 @@
-import { Skeleton, Space } from 'antd';
+import { Skeleton } from '@components';
 import * as React from 'react';
 import styled from 'styled-components';
 
-const Wrapper = styled(Space)`
+const Wrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
     min-height: 50px;
     width: 100%;
 `;
 
+const NamesColumn = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
 const NameSkeleton = styled(Skeleton.Input)`
-    && {
-        height: 20px;
-        width: 240px;
-        border-radius: 4px;
-        background-color: ${(props) => props.theme.colors.bgSurface};
-        margin-right: 12px;
-    }
+    border-radius: 4px;
+    margin-right: 12px;
 `;
 
 export default function EntityTitleLoadingSection() {
     return (
-        <Wrapper direction="horizontal">
-            <Skeleton.Avatar active />
+        <Wrapper>
+            <Skeleton.Avatar />
 
-            <Space direction="vertical">
-                <NameSkeleton active />
-                <NameSkeleton active />
-            </Space>
+            <NamesColumn>
+                <NameSkeleton width={240} height={20} />
+                <NameSkeleton width={240} height={20} />
+            </NamesColumn>
         </Wrapper>
     );
 }

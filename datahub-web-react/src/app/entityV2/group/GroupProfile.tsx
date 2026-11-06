@@ -1,10 +1,9 @@
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
-import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
-import styled, { useTheme } from 'styled-components/macro';
+import styled from 'styled-components/macro';
 
 import { GroupAssets } from '@app/entityV2/group/GroupAssets';
 import GroupMembers from '@app/entityV2/group/GroupMembers';
@@ -57,6 +56,35 @@ const GroupProfileWrapper = styled.div`
     }
 `;
 
+// Column widths match the antd Col spans they replace (7/17 from md up, full width below).
+const SidebarColumn = styled.div`
+    position: relative;
+    min-height: 1px;
+    flex: 0 0 100%;
+    max-width: 100%;
+    height: 100%;
+
+    @media (min-width: 768px) {
+        flex: 0 0 29.16666667%;
+        max-width: 29.16666667%;
+    }
+    overflow: auto;
+`;
+
+const ContentColumn = styled.div`
+    position: relative;
+    min-height: 1px;
+    flex: 0 0 100%;
+    max-width: 100%;
+    border-left: 1px solid ${(props) => props.theme.colors.border};
+    height: 100%;
+
+    @media (min-width: 768px) {
+        flex: 0 0 70.83333333%;
+        max-width: 70.83333333%;
+    }
+`;
+
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
     ${(props) => props.isVisible && `border-right: 1px solid ${props.theme.colors.border};`}
@@ -79,7 +107,6 @@ type Props = {
 export default function GroupProfile({ urn }: Props) {
     const { t } = useTranslation('entity.types');
     const { t: tf } = useTranslation('common.feedback');
-    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const isCompact = React.useContext(CompactContext);
@@ -206,19 +233,12 @@ export default function GroupProfile({ urn }: Props) {
             {loading && <Message type="loading" content={tf('loading')} style={messageStyle} />}
             {data && data?.corpGroup && (
                 <GroupProfileWrapper>
-                    <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%', overflow: 'auto' }}>
+                    <SidebarColumn>
                         <GroupSidebar sidebarData={sidebarData} refetch={refetch} />
-                    </Col>
-                    <Col
-                        xl={17}
-                        lg={17}
-                        md={17}
-                        sm={24}
-                        xs={24}
-                        style={{ borderLeft: `1px solid ${theme.colors.border}`, height: '100%' }}
-                    >
+                    </SidebarColumn>
+                    <ContentColumn>
                         <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
-                    </Col>
+                    </ContentColumn>
                 </GroupProfileWrapper>
             )}
         </EntityContext.Provider>

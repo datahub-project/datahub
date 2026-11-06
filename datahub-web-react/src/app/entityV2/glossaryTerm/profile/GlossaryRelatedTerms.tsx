@@ -1,5 +1,4 @@
 import { Loader } from '@components';
-import { Menu } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -28,6 +27,33 @@ const MenuWrapper = styled.div`
     border-right: 2px solid ${(props) => props.theme.colors.border};
     flex-basis: 30%;
     flex-shrink: 1;
+`;
+
+// Vertical nav list in place of antd's inline Menu (alchemy Menu is a dropdown).
+const MenuList = styled.div`
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+`;
+
+const MenuItem = styled.button<{ $isSelected: boolean }>`
+    height: 40px;
+    margin: 4px 0;
+    padding: 0 16px 0 24px;
+    border: none;
+    border-right: 3px solid ${(props) => (props.$isSelected ? props.theme.colors.borderBrand : 'transparent')};
+    background: ${(props) => (props.$isSelected ? props.theme.colors.bgSelectedSubtle : 'transparent')};
+    color: ${(props) => (props.$isSelected ? props.theme.colors.textSelected : props.theme.colors.text)};
+    font-size: 14px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+
+    &:hover {
+        color: ${(props) => props.theme.colors.textSelected};
+    }
 `;
 
 const Content = styled.div`
@@ -62,7 +88,7 @@ export default function GlossayRelatedTerms() {
         notifyOnNetworkStatusChange: true,
     });
 
-    const onMenuClick = ({ key }: { key: string }) => {
+    const onMenuClick = (key: string) => {
         if ((RELATED_TERM_MENU_KEYS as string[]).includes(key)) {
             setSelectedKey(key as RelatedTermKey);
         }
@@ -92,20 +118,20 @@ export default function GlossayRelatedTerms() {
     return (
         <DetailWrapper>
             <MenuWrapper>
-                <Menu
-                    selectable={false}
-                    mode="inline"
-                    selectedKeys={[selectedKey]}
-                    onClick={(key) => {
-                        onMenuClick(key);
-                    }}
-                >
+                <MenuList role="menu">
                     {RELATED_TERM_MENU_KEYS.map((option) => (
-                        <Menu.Item data-testid={option} key={option}>
+                        <MenuItem
+                            type="button"
+                            role="menuitem"
+                            data-testid={option}
+                            key={option}
+                            $isSelected={option === selectedKey}
+                            onClick={() => onMenuClick(option)}
+                        >
                             {getRelatedTermTypeLabel(RelatedTermTypes[option])}
-                        </Menu.Item>
+                        </MenuItem>
                     ))}
-                </Menu>
+                </MenuList>
             </MenuWrapper>
             <Content>
                 {showLoader && <Loader />}

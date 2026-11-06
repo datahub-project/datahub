@@ -1,5 +1,5 @@
+import { Text } from '@components';
 import { User } from '@phosphor-icons/react/dist/csr/User';
-import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -11,7 +11,8 @@ import { SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderCompon
 
 import { Owner, OwnershipTypeEntity } from '@types';
 
-const OwnershipTypeNameText = styled(Typography.Text)`
+const OwnershipTypeNameText = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     font-weight: 500;
     font-size: 12px;
     color: ${(props) => props.theme.colors.textSecondary};

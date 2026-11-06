@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -35,7 +35,8 @@ const PreviewImage = styled.div`
     background-color: transparent;
 `;
 
-const EntityTitle = styled(Typography.Text)`
+const EntityTitle = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     &&& {
         margin-bottom: 0;
         font-size: 16px;
@@ -44,7 +45,8 @@ const EntityTitle = styled(Typography.Text)`
     }
 `;
 
-const PlatformText = styled(Typography.Text)`
+const PlatformText = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;

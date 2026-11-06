@@ -1,6 +1,8 @@
-import { FileOutlined, PartitionOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import { File } from '@phosphor-icons/react/dist/csr/File';
 import { GitBranch } from '@phosphor-icons/react/dist/csr/GitBranch';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -92,25 +94,25 @@ export class RepositoryEntity implements Entity<Repository> {
                     name: i18next.t('entity.types:tab.summary'),
                     path: EntityTabPath.SUMMARY,
                     component: RepositorySummaryTab,
-                    icon: ReadOutlined,
+                    icon: BookOpen,
                 },
                 {
                     name: i18next.t('entity.types:tab.documentation'),
                     path: EntityTabPath.DOCUMENTATION,
                     component: DocumentationTab,
-                    icon: FileOutlined,
+                    icon: File,
                 },
                 {
                     name: i18next.t('entity.types:tab.lineage'),
                     path: EntityTabPath.LINEAGE,
                     component: LineageTab,
-                    icon: PartitionOutlined,
+                    icon: TreeStructure,
                 },
                 {
                     name: i18next.t('entity.types:tab.properties'),
                     path: EntityTabPath.PROPERTIES,
                     component: PropertiesTab,
-                    icon: UnorderedListOutlined,
+                    icon: ListBullets,
                     getCount: (_, repository: GetRepositoryQuery) => {
                         return repository?.repository?.structuredProperties?.properties?.length || 0;
                     },

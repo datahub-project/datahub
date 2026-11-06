@@ -1,5 +1,5 @@
+import { Text } from '@components';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
-import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -24,7 +24,8 @@ import {
     SearchInsight,
 } from '@types';
 
-const StatText = styled(Typography.Text)`
+const StatText = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 

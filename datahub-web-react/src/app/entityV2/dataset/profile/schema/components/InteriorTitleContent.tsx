@@ -1,5 +1,4 @@
-import { Tooltip } from '@components';
-import { Typography } from 'antd';
+import { Text, Tooltip } from '@components';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
@@ -39,7 +38,8 @@ const DeprecatedContainer = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
-const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
+const FieldPathText = styled(Text).attrs({ type: 'span', size: 'inherit' })<{ $isCompact: boolean }>`
+    line-height: inherit;
     font-size: 12px;
     line-height: ${(props) => (props.$isCompact ? '14px' : '24px')};
     font-weight: 600;

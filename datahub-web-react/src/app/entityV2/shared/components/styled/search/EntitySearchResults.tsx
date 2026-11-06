@@ -1,4 +1,4 @@
-import { Checkbox, Empty, List } from 'antd';
+import { Checkbox, EmptyState } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -12,29 +12,24 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityPath, EntityType, SearchResult } from '@types';
 
-const StyledList = styled(List)`
+const StyledList = styled.div<{ $bordered: boolean }>`
     height: 100%;
     flex: 1;
     overflow: auto;
+    ${(props) =>
+        props.$bordered &&
+        `
+        border: 1px solid ${props.theme.colors.border};
+        border-radius: 2px;
+    `}
+`;
 
-    .ant-list-items > .ant-list-item {
-        padding-right: 0px;
-        padding-left: 0px;
-    }
+const EmptyWrapper = styled.div`
+    padding: 16px;
+`;
 
-    > .ant-list-header {
-        padding-right: 0px;
-        padding-left: 0px;
-        font-size: 14px;
-        font-weight: 600;
-        margin-left: -20px;
-        border-bottom: none;
-        padding-bottom: 0px;
-        padding-top: 15px;
-    }
-` as typeof List;
-
-const StyledCheckbox = styled(Checkbox)`
+// alchemy Checkbox spreads extra props onto its hidden input, so spacing lives on a wrapper.
+const CheckboxWrapper = styled.div`
     margin-right: 12px;
 `;
 
@@ -141,21 +136,17 @@ export const EntitySearchResults = ({
     const { isFullViewCard } = useSearchContext();
 
     return (
-        <StyledList
-            locale={{
-                emptyText: (
-                    <>
-                        <Empty description={noResultsMessage || tc('noResults')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                    </>
-                ),
-            }}
-            bordered={bordered}
-            dataSource={searchResults}
-            renderItem={(searchResult) => {
+        <StyledList $bordered={bordered}>
+            {!searchResults.length && (
+                <EmptyWrapper>
+                    <EmptyState title={noResultsMessage || tc('noResults')} size="sm" />
+                </EmptyWrapper>
+            )}
+            {searchResults.map((searchResult) => {
                 const { entity } = searchResult;
                 const expandedSection = isFullViewCard ? urnToExpandedSection[entity.urn] : undefined;
                 return (
-                    <MatchContextAndEntityContainer data-testid={`search-result-row-${entity.urn}`}>
+                    <MatchContextAndEntityContainer key={entity.urn} data-testid={`search-result-row-${entity.urn}`}>
                         <MatchContextContainer
                             selected={false}
                             item={searchResult}
@@ -170,16 +161,18 @@ export const EntitySearchResults = ({
                                 compactUserSearchCardStyle={compactUserSearchCardStyle || false}
                             >
                                 {isSelectMode && (
-                                    <StyledCheckbox
-                                        checked={selectedEntityUrns.indexOf(entity.urn) >= 0}
-                                        disabled={
-                                            selectLimit !== undefined &&
-                                            selectedEntities.length >= selectLimit &&
-                                            !selectedEntityUrns.includes(entity.urn)
-                                        }
-                                        onChange={(e) => onSelectEntity(entity, e.target.checked)}
-                                        data-testid={`checkbox-${entity.urn}`}
-                                    />
+                                    <CheckboxWrapper>
+                                        <Checkbox
+                                            isChecked={selectedEntityUrns.indexOf(entity.urn) >= 0}
+                                            isDisabled={
+                                                selectLimit !== undefined &&
+                                                selectedEntities.length >= selectLimit &&
+                                                !selectedEntityUrns.includes(entity.urn)
+                                            }
+                                            onCheckboxChange={(checked) => onSelectEntity(entity, checked)}
+                                            dataTestId={`checkbox-${entity.urn}`}
+                                        />
+                                    </CheckboxWrapper>
                                 )}
                                 {entityRegistry.renderSearchResult(entity.type, searchResult)}
                                 {entityAction && <EntityAction urn={entity.urn} type={entity.type} />}
@@ -187,7 +180,7 @@ export const EntitySearchResults = ({
                         </MatchContextContainer>
                     </MatchContextAndEntityContainer>
                 );
-            }}
-        />
+            })}
+        </StyledList>
     );
 };

@@ -1,4 +1,4 @@
-import { Skeleton } from 'antd';
+import { Skeleton } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -21,29 +21,13 @@ const ContentWrapper = styled.div`
     gap: 2px;
 `;
 
-const SkeletonContentLine = styled(Skeleton.Button)`
-    .ant-skeleton-button {
-        height: 14px;
-        width: 150px;
-        margin: 0;
-    }
-`;
-
-const SkeletonContentTimestampLine = styled(Skeleton.Button)`
-    .ant-skeleton-button {
-        height: 12px;
-        width: 150px;
-        margin: 0;
-    }
-`;
-
 export default function TimelineSkeleton() {
     const renderSkeletonItem = () => (
         <ItemWrapper>
-            <Skeleton.Avatar active />
+            <Skeleton.Avatar />
             <ContentWrapper>
-                <SkeletonContentLine active />
-                <SkeletonContentTimestampLine active />
+                <Skeleton.Button width={150} height={14} />
+                <Skeleton.Button width={150} height={12} />
             </ContentWrapper>
         </ItemWrapper>
     );

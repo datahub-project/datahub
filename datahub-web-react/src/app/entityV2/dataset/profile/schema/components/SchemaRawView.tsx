@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -28,11 +28,11 @@ export default function SchemaRawView({ schemaDiff, editMode, showKeySchema }: P
 
     return (
         <SchemaContainer>
-            <Typography.Text data-testid="schema-raw-view">
+            <Text type="span" size="inherit" style={{ lineHeight: 'inherit' }} data-testid="schema-raw-view">
                 <pre>
                     <code>{schemaRawDiff}</code>
                 </pre>
-            </Typography.Text>
+            </Text>
         </SchemaContainer>
     );
 }

@@ -1,8 +1,7 @@
-import { Avatar } from '@components';
-import { Badge, Divider, Space, Typography } from 'antd';
+import { Avatar, Divider, Heading, Pill, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
@@ -44,6 +43,22 @@ const HeaderContainer = styled.div`
     align-items: center;
 `;
 
+// Keep the bottom margins antd's Title levels 3 and 5 had.
+const NameHeadingWrapper = styled.div`
+    margin-bottom: 12px;
+`;
+
+const SectionHeadingWrapper = styled.div`
+    margin-bottom: 8px;
+`;
+
+const PillList = styled.div`
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+`;
+
 const NameContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -53,7 +68,6 @@ const NameContainer = styled.div`
 
 export default function UserHeader({ profileSrc, name, title, skills, teams, email }: Props) {
     const { t } = useTranslation('entity.types');
-    const theme = useTheme();
 
     return (
         <Row>
@@ -68,17 +82,30 @@ export default function UserHeader({ profileSrc, name, title, skills, teams, ema
                         />
                     </AvatarWrapper>
                     <NameContainer>
-                        <Typography.Title level={3}>{name}</Typography.Title>
+                        <NameHeadingWrapper>
+                            <Heading type="h3" size="4xl" weight="semiBold">
+                                {name}
+                            </Heading>
+                        </NameHeadingWrapper>
                         <TitleContainer>
                             {title && (
                                 <>
-                                    <Typography.Text>{title}</Typography.Text>
+                                    <Text type="span" size="inherit" style={{ lineHeight: 'inherit' }}>
+                                        {title}
+                                    </Text>
                                     <Divider type="vertical" />
                                 </>
                             )}
                             {email && (
                                 <a href={`mailto:${email}`}>
-                                    <Typography.Text strong>{email}</Typography.Text>
+                                    <Text
+                                        type="span"
+                                        size="inherit"
+                                        style={{ lineHeight: 'inherit' }}
+                                        weight="semiBold"
+                                    >
+                                        {email}
+                                    </Text>
                                 </a>
                             )}
                         </TitleContainer>
@@ -87,28 +114,26 @@ export default function UserHeader({ profileSrc, name, title, skills, teams, ema
                 <div>
                     <Traits>
                         <Skills>
-                            <Typography.Title level={5}>{t('user.askMeAbout')}</Typography.Title>
-                            <Space>
+                            <SectionHeadingWrapper>
+                                <Heading type="h5" size="lg" weight="semiBold">
+                                    {t('user.askMeAbout')}
+                                </Heading>
+                            </SectionHeadingWrapper>
+                            <PillList>
                                 {skills?.map((skill) => (
-                                    <Badge
-                                        style={{ backgroundColor: theme.colors.bgSurfaceBrand }}
-                                        count={skill}
-                                        key={skill}
-                                    />
+                                    <Pill label={skill} key={skill} color="primary" clickable={false} />
                                 ))}
-                            </Space>
+                            </PillList>
                         </Skills>
                         <div>
-                            <Typography.Title level={5}>{t('user.teamsHeading')}</Typography.Title>
-                            <Space>
-                                {teams?.map((team) => (
-                                    <Badge
-                                        style={{ backgroundColor: theme.colors.bgSurfaceSuccess }}
-                                        count={team}
-                                        key={team}
-                                    />
-                                ))}
-                            </Space>
+                            <SectionHeadingWrapper>
+                                <Heading type="h5" size="lg" weight="semiBold">
+                                    {t('user.teamsHeading')}
+                                </Heading>
+                            </SectionHeadingWrapper>
+                            <PillList>
+                                {teams?.map((team) => <Pill label={team} key={team} color="green" clickable={false} />)}
+                            </PillList>
                         </div>
                     </Traits>
                 </div>

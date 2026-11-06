@@ -1,5 +1,5 @@
+import { Button } from '@components';
 import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
-import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
@@ -62,7 +62,10 @@ export const AssetsSection = () => {
                     icon={<SquaresFour />}
                     title={t('shared.assetsCountTitle', { count: contentsCount })}
                 />
-                <Button type="link" onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
+                <Button
+                    variant="link"
+                    onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}
+                >
                     {tc('viewAll')}
                 </Button>
             </StyledHeaderWrapper>

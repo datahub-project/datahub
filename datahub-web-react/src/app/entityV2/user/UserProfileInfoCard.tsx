@@ -1,5 +1,4 @@
 import { Avatar } from '@components';
-import { Col } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -39,6 +38,41 @@ export type SidebarData = {
     dataHubRoles: Array<EntityRelationship>;
 };
 
+// Column widths match the antd Col spans they replace.
+const AvatarColumn = styled.div`
+    position: relative;
+    min-height: 1px;
+    flex: 0 0 100%;
+    max-width: 100%;
+
+    @media (min-width: 1200px) {
+        flex: 0 0 41.66666667%;
+        max-width: 41.66666667%;
+    }
+
+    @media (min-width: 1600px) {
+        flex: 0 0 33.33333333%;
+        max-width: 33.33333333%;
+    }
+`;
+
+const InfoColumn = styled.div`
+    position: relative;
+    min-height: 1px;
+    flex: 0 0 75%;
+    max-width: 75%;
+
+    @media (min-width: 1200px) {
+        flex: 0 0 41.66666667%;
+        max-width: 41.66666667%;
+    }
+
+    @media (min-width: 1600px) {
+        flex: 0 0 58.33333333%;
+        max-width: 58.33333333%;
+    }
+`;
+
 type Props = {
     sidebarData: SidebarData;
     refetch: () => void;
@@ -67,12 +101,12 @@ export const UserProfileInfoCard = ({ sidebarData, refetch, dataHubRoleName, isP
             <CustomAvatarContainer>
                 <GradientContainer />
                 <UserInfo>
-                    <Col xxl={8} xl={10} lg={24} md={24} sm={24} xs={24}>
+                    <AvatarColumn>
                         <ProfileAvatarWrapper>
                             <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.user} size="3xl" />
                         </ProfileAvatarWrapper>
-                    </Col>
-                    <Col xxl={14} xl={10} lg={18} md={18} sm={18} xs={18}>
+                    </AvatarColumn>
+                    <InfoColumn>
                         <UserBasicInfoContainer
                             name={name}
                             dataHubRoleName={dataHubRoleName}
@@ -81,7 +115,7 @@ export const UserProfileInfoCard = ({ sidebarData, refetch, dataHubRoleName, isP
                             slack={slack}
                             phone={phone}
                         />
-                    </Col>
+                    </InfoColumn>
                     {isProfileOwner && (
                         <EditProfileButtonContainer className="edit-button-container">
                             <SectionActionButton

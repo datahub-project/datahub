@@ -1,4 +1,4 @@
-import { Tag, Typography } from 'antd';
+import { Pill, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -38,7 +38,8 @@ const PreviewImage = styled.div`
     background-color: transparent;
 `;
 
-const EntityTitle = styled(Typography.Text)`
+const EntityTitle = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     &&& {
         margin-bottom: 0;
         font-size: 16px;
@@ -47,7 +48,8 @@ const EntityTitle = styled(Typography.Text)`
     }
 `;
 
-const PlatformText = styled(Typography.Text)`
+const PlatformText = styled(Text).attrs({ type: 'span', size: 'inherit' })`
+    line-height: inherit;
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
@@ -91,7 +93,13 @@ export const Preview = ({
                     <Link to={url}>
                         <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
                         <MemberCountContainer>
-                            <Tag>{t('shared.membersCount', { count: membersCount || 0 })}</Tag>
+                            <Pill
+                                label={t('shared.membersCount', { count: membersCount || 0 })}
+                                variant="squareOutline"
+                                color="gray"
+                                size="sm"
+                                clickable={false}
+                            />
                         </MemberCountContainer>
                     </Link>
                 </TitleContainer>

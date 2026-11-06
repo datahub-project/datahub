@@ -1,6 +1,5 @@
 import { Tooltip } from '@components';
 import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
-import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -22,7 +21,11 @@ const NameRow = styled.div`
     min-width: 0;
 `;
 
-const GroupName = styled(Typography.Title)`
+// Plain h3 keeps the heading semantics; alchemy Heading doesn't forward className for these overrides.
+const GroupName = styled.h3`
+    font-weight: 600;
+    line-height: 1.35;
+    margin-top: 0;
     word-wrap: break-word;
     text-align: left;
     flex: 1;
@@ -35,10 +38,6 @@ const GroupName = styled(Typography.Title)`
         text-overflow: ellipsis;
         overflow: hidden;
         white-space: nowrap;
-    }
-
-    .ant-typography-edit {
-        font-size: 12px;
     }
 `;
 
@@ -67,9 +66,7 @@ export const GroupInfoHeaderSection = ({
         <GroupHeader>
             <NameRow>
                 <Tooltip title={groupName}>
-                    <GroupName level={3} data-testid="group-profile-name">
-                        {groupName}
-                    </GroupName>
+                    <GroupName data-testid="group-profile-name">{groupName}</GroupName>
                 </Tooltip>
                 {isExternalGroup && (
                     <Tooltip title={getExternalGroupMembershipTooltip(externalGroupType)}>

@@ -1,6 +1,4 @@
-import { Tooltip } from '@components';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { Select } from 'antd';
+import { SimpleSelect, Tooltip } from '@components';
 import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
@@ -21,25 +19,8 @@ const Wrapper = styled.div`
     gap: 4px;
 `;
 
-const SchemaBlameSelector = styled(Select)`
-    &&& .ant-select-selector {
-        background: ${(props) => props.theme.colors.bgSurface};
-        font-size: 14px;
-        font-weight: 500;
-        line-height: 24px;
-        color: ${(props) => props.theme.colors.textSecondary};
-        min-width: 30px;
-        margin-right: 10px;
-        border-radius: 20px;
-    }
-`;
-
-const SchemaBlameSelectorOption = styled(Select.Option)`
-    &&& {
-        overflow: visible;
-        margin-top: 6px;
-        width: 100%;
-    }
+const SelectorWrapper = styled.div`
+    margin-right: 10px;
 `;
 
 interface VersionOption {
@@ -85,6 +66,19 @@ export default function VersionSelector({
         );
     }, [versionList, minTimestamp, maxTimestamp, isPrimary]);
 
+    const selectOptions = useMemo(
+        () =>
+            versionOptions.map((v) => ({
+                value: v.label,
+                label: `${v.label} - ${toRelativeTimeString(v.timestamp) || t('dataset.unknown')}`,
+            })),
+        [versionOptions, t],
+    );
+    const disabledValues = useMemo(
+        () => versionOptions.filter((v) => v.disabled).map((v) => v.label),
+        [versionOptions],
+    );
+
     useEffect(() => {
         // If the selected version is disabled, navigate to the first available version
         if (isPrimary || !selectedVersion) return;
@@ -103,34 +97,38 @@ export default function VersionSelector({
     return (
         <Wrapper>
             {platform && <PlatformIcon platform={platform} size={17} />}
-            <SchemaBlameSelector
-                value={selectedVersion}
-                onChange={(e) => {
-                    navigateToUrl({
-                        location,
-                        history,
-                        urlParam: isSibling ? SIBLING_VERSION_PARAM : SEMANTIC_VERSION_PARAM,
-                        value: e as string,
-                    });
-                }}
-                data-testid="schema-version-selector-dropdown"
-                suffixIcon={<CaretDown />}
-            >
-                {versionOptions.map((v) => (
-                    <SchemaBlameSelectorOption
-                        value={v.label}
-                        data-testid={`sem-ver-select-button-${v.label}`}
-                        disabled={v.disabled}
-                    >
+            <SelectorWrapper>
+                <SimpleSelect
+                    options={selectOptions}
+                    values={[selectedVersion]}
+                    disabledValues={disabledValues}
+                    onUpdate={(values) => {
+                        if (!values[0]) return;
+                        navigateToUrl({
+                            location,
+                            history,
+                            urlParam: isSibling ? SIBLING_VERSION_PARAM : SEMANTIC_VERSION_PARAM,
+                            value: values[0],
+                        });
+                    }}
+                    renderCustomOptionText={(option) => (
                         <Tooltip
-                            title={v.disabled ? t('dataset.incompatibleWithPrimaryVersion', { primaryVersion }) : ''}
+                            title={
+                                disabledValues.includes(option.value)
+                                    ? t('dataset.incompatibleWithPrimaryVersion', { primaryVersion })
+                                    : ''
+                            }
                             placement="left"
                         >
-                            {`${v.label} - ${toRelativeTimeString(v.timestamp) || t('dataset.unknown')}`}
+                            {option.label}
                         </Tooltip>
-                    </SchemaBlameSelectorOption>
-                ))}
-            </SchemaBlameSelector>
+                    )}
+                    optionDataTestId={(option) => `sem-ver-select-button-${option.value}`}
+                    dataTestId="schema-version-selector-dropdown"
+                    showClear={false}
+                    width="fit-content"
+                />
+            </SelectorWrapper>
         </Wrapper>
     );
 }

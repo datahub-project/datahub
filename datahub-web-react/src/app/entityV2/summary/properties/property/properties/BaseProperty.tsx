@@ -1,5 +1,4 @@
-import { Menu, Pill, Popover, Text } from '@components';
-import { Skeleton } from 'antd';
+import { Menu, Pill, Popover, Skeleton, Text } from '@components';
 import React, { useCallback, useMemo } from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -139,7 +138,7 @@ export default function BaseProperty<T>({
             <Content>
                 <ValuesWrapper data-testid="property-value">
                     {loading ? (
-                        <Skeleton.Button active />
+                        <Skeleton.Button />
                     ) : (
                         <>
                             {valuesToShow.length === 0 && <Text style={{ color: theme.colors.textSecondary }}>-</Text>}
