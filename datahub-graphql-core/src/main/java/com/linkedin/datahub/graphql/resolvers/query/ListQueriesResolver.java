@@ -19,12 +19,16 @@ import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -36,11 +40,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
 public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQueriesResult>> {
 
   // Visible for Testing
@@ -76,6 +78,18 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
   static final long MAX_QUERY_OVERFETCH_MILLIS = 30_000L;
 
   private final EntityClient _entityClient;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
+
+  public ListQueriesResolver(@Nonnull final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public ListQueriesResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
+    _entityClient = entityClient;
+    _entityIndexConfiguration = entityIndexConfiguration;
+  }
 
   @Override
   public CompletableFuture<ListQueriesResult> get(final DataFetchingEnvironment environment)
@@ -105,7 +119,13 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                         mapSortCriterion(input.getSortInput().getSortCriterion()))
                     : Collections.singletonList(
                         new SortCriterion()
-                            .setField(CREATED_AT_FIELD)
+                            .setField(
+                                EntitySearchIndexResolver.indexedField(
+                                    _entityIndexConfiguration,
+                                    context.getOperationContext(),
+                                    CREATED_AT_FIELD,
+                                    MappingConstants.SYSTEM_CREATED_TIME_FIELD,
+                                    Intent.SORT))
                             .setOrder(SortOrder.DESCENDING));
 
             // Per-query authorization is skippable when it's disabled, the caller is system-auth,

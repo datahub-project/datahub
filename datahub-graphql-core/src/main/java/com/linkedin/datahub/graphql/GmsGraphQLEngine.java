@@ -1346,7 +1346,9 @@ public class GmsGraphQLEngine {
                     new ListGlobalViewsResolver(this.entityClient, this.entityIndexConfiguration))
                 .dataFetcher(
                     "globalViewsSettings", new GlobalViewsSettingsResolver(this.settingsService))
-                .dataFetcher("listQueries", new ListQueriesResolver(this.entityClient))
+                .dataFetcher(
+                    "listQueries",
+                    new ListQueriesResolver(this.entityClient, this.entityIndexConfiguration))
                 .dataFetcher(
                     "getQuickFilters",
                     new GetQuickFiltersResolver(this.entityClient, this.viewService))
