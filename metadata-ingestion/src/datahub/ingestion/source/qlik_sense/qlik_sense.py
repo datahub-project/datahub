@@ -798,7 +798,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """
         logger.info("Qlik Sense plugin execution is started")
         allowed_spaces = self._get_allowed_spaces()
-        for allowed_space in allowed_spaces:
+        apps_read = 0
+        for space_number, allowed_space in enumerate(allowed_spaces, start=1):
+            logger.info(
+                f"Reading space {space_number} of {len(allowed_spaces)}: {allowed_space.name}"
+            )
             yield from self._gen_space_workunit(allowed_space)
             for item in self.qlik_api.get_items(
                 "personal"
@@ -815,6 +819,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                             "app could not be read from the Engine.",
                             context=item.id,
                         )
+                    apps_read += 1
+                    logger.info(
+                        f"Read app {item.qTitle} in space {allowed_space.name} ({apps_read} apps read)"
+                    )
                     yield from self._gen_app_workunit(item)
                 elif isinstance(item, QlikDataset):
                     yield from self._gen_dataset_workunit(item)
