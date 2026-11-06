@@ -132,6 +132,19 @@ public class EntityLineageResultResolverTest {
             any(Set.class));
   }
 
+  /** A totals-only result is an empty page at the requested start, not at 0. */
+  @Test
+  public void testCountPathReturnsTheRequestedStart() throws Exception {
+    when(environment.getArgument(eq("input")))
+        .thenReturn(ImmutableMap.of("direction", "UPSTREAM", "start", 40, "count", 100));
+    selecting("{ lineage { start total } }");
+
+    EntityLineageResult result = resolver.get(environment).get();
+
+    assertEquals(result.getStart().intValue(), 40);
+    assertEquals(result.getTotal().intValue(), 13);
+  }
+
   @Test
   public void testRelationshipsSelectionWalksTheGraph() throws Exception {
     selecting("{ lineage { total relationships { type } } }");
@@ -177,6 +190,10 @@ public class EntityLineageResultResolverTest {
     assertTrue(EntityLineageResultResolver.selectsRelationships(environment));
 
     selecting("{ lineage { ...counts } }", "fragment counts on EntityLineageResult { total }");
+    assertFalse(EntityLineageResultResolver.selectsRelationships(environment));
+
+    // Paging fields alone are answered as an empty page at the requested start.
+    selecting("{ lineage { start count total } }");
     assertFalse(EntityLineageResultResolver.selectsRelationships(environment));
 
     // A fragment the request does not define cannot be inspected: take the full walk.
