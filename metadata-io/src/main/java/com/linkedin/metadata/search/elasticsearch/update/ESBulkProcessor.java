@@ -1,11 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
+import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
@@ -46,7 +48,7 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default private Integer numRetries = 3;
   @Builder.Default private Long retryInterval = 1L;
   @Builder.Default private Integer threadCount = 1; // Default to single processor
-  @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
+  @Getter @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
   @Builder.Default private Boolean itemRequeueEnabled = true;
   @Builder.Default private Integer itemRequeueMaxAttempts = 3;
   @Builder.Default private Boolean ackAfterTransfer = false;
@@ -287,6 +289,12 @@ public class ESBulkProcessor implements Closeable {
 
   public void flush() {
     searchClient.flushBulkProcessor();
+  }
+
+  @Nonnull
+  public BulkProcessorFlushResult flushAndAwait() {
+    return searchClient.flushBulkProcessorAndAwait(
+        defaultTimeout.getMillis(), TimeUnit.MILLISECONDS);
   }
 
   /**

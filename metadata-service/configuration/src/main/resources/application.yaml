@@ -847,6 +847,9 @@ elasticsearch:
         engineType: ${ELASTICSEARCH_SHIM_ENGINE_TYPE:AUTO_DETECT}
         # Whether to auto-detect the engine type by connecting to the cluster
         autoDetectEngine: ${ELASTICSEARCH_SHIM_AUTO_DETECT:true}
+        # Engine version to assume (e.g. 2.19.0) instead of reading it from the cluster info API,
+        # which needs cluster:monitor/main. Blank = probe the cluster.
+        engineVersion: ${ELASTICSEARCH_SHIM_ENGINE_VERSION:}
       sslContext: # Required if the uri scheme is https and the cert is not already trusted
         protocol: ${ELASTICSEARCH_SSL_PROTOCOL:}
         secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:}
@@ -890,6 +893,7 @@ elasticsearch:
         enabled: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENABLED:}
         engineType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENGINE_TYPE:AUTO_DETECT}
         autoDetectEngine: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_AUTO_DETECT:true}
+        engineVersion: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENGINE_VERSION:}
       sslContext:
         protocol: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_PROTOCOL:}
         secureRandomImplementation: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_SECURE_RANDOM_IMPL:}
