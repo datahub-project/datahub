@@ -170,6 +170,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         for (ReindexConfig config : configsNeedingReindex) {
           Optional<IncrementalReindexState.Status> existingStatus =
               IncrementalReindexState.getStatus(upgradeState, config.name());
+          boolean retireRollbackTarget = false;
 
           // Skip indices that already completed or were swapped in a previous run, and indices
           // whose fill the non-blocking phase owns: the fill resumes from its own checkpoint.
@@ -201,7 +202,21 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             }
             // Forget the row, persisted before the index is touched, so the index is built below
             // as on a fresh install.
+            boolean hadOldBackingIndex =
+                IncrementalReindexState.get(
+                        upgradeState, config.name(), IncrementalReindexState.OLD_BACKING_INDEX_NAME)
+                    .filter(name -> !name.isEmpty())
+                    .isPresent();
             upgradeState = forgetMissingIndex(upgradeState, config.name(), existingStatus.get());
+            // Running consumers let go of a rollback write target only when the row reads
+            // DUAL_WRITE_DISABLED, so an old backing index that was not kept is retired that way.
+            retireRollbackTarget =
+                hadOldBackingIndex
+                    && IncrementalReindexState.get(
+                            upgradeState,
+                            config.name(),
+                            IncrementalReindexState.OLD_BACKING_INDEX_NAME)
+                        .isEmpty();
             checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
             log.error(
                 "Index {} was {} in a previous run but no longer exists; recreating it empty with"
@@ -244,6 +259,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             upgradeState =
                 IncrementalReindexState.setReindexCompleteTime(
                     upgradeState, config.name(), createTime);
+            if (retireRollbackTarget) {
+              upgradeState =
+                  IncrementalReindexState.setDualWriteDisabled(upgradeState, config.name());
+            }
             checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
             continue;
           }
@@ -662,10 +681,11 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
 
   /**
    * {@code upgradeState} without the row for {@code indexName}. The row's old backing index stays
-   * recorded only when the row was {@code COMPLETED} and the index still exists: rollback writes
-   * were still mirroring into that copy, so it stays protected from orphan cleanup and current for
-   * a rollback. A {@code DUAL_WRITE_DISABLED} row's copy was neither, and the name of a deleted
-   * index would send rollback writes to an index the engine then recreates with dynamic mappings.
+   * recorded only when the row was {@code COMPLETED} and the index still exists: with rollback
+   * dual-write on, writes were still mirroring into that copy, so it stays protected from orphan
+   * cleanup and current for a rollback. A {@code DUAL_WRITE_DISABLED} row's copy was neither, and
+   * the name of a deleted index would send rollback writes to an index the engine then recreates
+   * with dynamic mappings.
    */
   private Map<String, String> forgetMissingIndex(
       Map<String, String> upgradeState,

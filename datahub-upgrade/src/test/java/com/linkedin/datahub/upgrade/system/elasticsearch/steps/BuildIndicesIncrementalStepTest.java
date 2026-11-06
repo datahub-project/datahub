@@ -623,11 +623,11 @@ public class BuildIndicesIncrementalStepTest {
     inOrder.verify(entityService, calls(1)).ingestProposal(any(), any(), any(), anyBoolean());
     inOrder.verify(indexBuilder).buildIndex(any(OperationContext.class), eq(droppedConfig));
     Map<String, String> state = persistedState();
+    // Running consumers drop the deleted old backing index as a rollback write target only once
+    // the row reads DUAL_WRITE_DISABLED. The deleted index's dual-write start does not carry over.
     assertEquals(
         IncrementalReindexState.getStatus(state, INDEX_NAME),
-        Optional.of(IncrementalReindexState.Status.COMPLETED));
-    // A deleted old backing index must not stay a rollback write target, and the deleted
-    // index's dual-write start must not open a catch-up window for the new one.
+        Optional.of(IncrementalReindexState.Status.DUAL_WRITE_DISABLED));
     assertEquals(
         IncrementalReindexState.get(
             state, INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
@@ -670,10 +670,14 @@ public class BuildIndicesIncrementalStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(indexBuilder).buildIndex(any(OperationContext.class), eq(droppedConfig));
+    Map<String, String> state = persistedState();
     assertEquals(
         IncrementalReindexState.get(
-            persistedState(), INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+            state, INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
         Optional.empty());
+    assertEquals(
+        IncrementalReindexState.getStatus(state, INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.DUAL_WRITE_DISABLED));
   }
 
   @Test
