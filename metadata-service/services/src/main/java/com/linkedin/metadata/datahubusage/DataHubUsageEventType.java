@@ -177,7 +177,9 @@ public enum DataHubUsageEventType {
   GO_TO_PHYSICAL_CHILD_EVENT("GoToPhysicalChildEvent"),
   GO_TO_LOGICAL_PARENT_COLUMN_EVENT("GoToLogicalParentColumnEvent"),
   GO_TO_PHYSICAL_CHILD_COLUMN_EVENT("GoToPhysicalChildColumnEvent"),
-  LANGUAGE_CHANGE_EVENT("LanguageChangeEvent");
+  LANGUAGE_CHANGE_EVENT("LanguageChangeEvent"),
+  MFE_PAGE_VIEW_EVENT("MfePageViewEvent"),
+  MFE_LOAD_EVENT("MfeLoadEvent");
 
   private final String type;
 
