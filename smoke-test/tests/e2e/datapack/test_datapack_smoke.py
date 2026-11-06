@@ -131,8 +131,7 @@ class TestDemoDataBootstrap:
             str(_ISOLATION_PACK_FILE), _ISOLATION_NAME, tmp_path
         )
         dataset_urn = (
-            "urn:li:dataset:(urn:li:dataPlatform:datapacksmoke,"
-            f"{unique_name},PROD)"
+            f"urn:li:dataset:(urn:li:dataPlatform:datapacksmoke,{unique_name},PROD)"
         )
         pack_name = f"datapack-smoke-{unique_name}"
         cli_env = _datapack_cli_env(auth_session)
