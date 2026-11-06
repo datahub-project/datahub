@@ -187,6 +187,7 @@ def _container_urn(source: QlikSenseSource) -> str:
         "app_saved",
         "sheet_edited",
         "metadata_not_in_datahub",
+        "sink_failed_after_container",
         "first_read_failed",
         "recipe_changed",
         "container_soft_deleted",
@@ -201,7 +202,12 @@ def test_app_is_read_again(mock_datahub_graph: MagicMock, change: str) -> None: 
     qlik.engine_fails = change == "first_read_failed"
 
     first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
-    if change != "metadata_not_in_datahub":
+    if change == "sink_failed_after_container":
+        first_sheet = next(
+            index for index, wu in enumerate(first_wus) if ":dashboard:" in wu.get_urn()
+        )
+        datahub.write(first_wus[:first_sheet])
+    elif change != "metadata_not_in_datahub":
         datahub.write(first_wus)
     qlik.engine_fails = False
     container_urn = _container_urn(first)
