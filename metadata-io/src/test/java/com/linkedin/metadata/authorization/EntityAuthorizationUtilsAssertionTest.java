@@ -4,7 +4,9 @@ import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -45,6 +47,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -85,6 +88,7 @@ public class EntityAuthorizationUtilsAssertionTest {
     aspectRetriever = mock(AspectRetriever.class);
     when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
     when(opContext.isSystemAuth()).thenReturn(false);
+    when(opContext.withReadPreference(ReadPreference.PRIMARY)).thenReturn(opContext);
     when(opContext.getAuditStamp()).thenReturn(AuditStampUtils.createDefaultAuditStamp());
     when(aspectRetriever.getEntityRegistry()).thenReturn(registry);
     authUtilMock = Mockito.mockStatic(AuthUtil.class);
@@ -314,6 +318,8 @@ public class EntityAuthorizationUtilsAssertionTest {
     assertTrue(
         AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(
             opContext, List.of(ASSERTION_URN)));
+    // Targets are read from the primary, so a lagging replica cannot hide one.
+    verify(opContext, atLeastOnce()).withReadPreference(ReadPreference.PRIMARY);
   }
 
   private List<Pair<MetadataChangeProposal, Integer>> ingest(MetadataChangeProposal... mcps) {

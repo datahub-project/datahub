@@ -28,6 +28,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -180,7 +181,11 @@ public final class AssertionAuthorizationUtils {
                     new EntitySpec(urn.getEntityType(), urn.toString())));
   }
 
-  /** Loads the persisted {@code assertionInfo} for each assertion URN that has one. */
+  /**
+   * Loads the persisted {@code assertionInfo} for each assertion URN that has one. Callers that
+   * authorize a write with it pass a context pinned to the primary, so a lagging replica cannot
+   * hide a target.
+   */
   @Nonnull
   public static Map<Urn, AssertionInfo> fetchAssertionInfos(
       @Nonnull final OperationFingerprint operationContext,
@@ -224,7 +229,8 @@ public final class AssertionAuthorizationUtils {
     final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     final EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
     final Map<Urn, AssertionInfo> persisted =
-        fetchAssertionInfos(opContext, aspectRetriever, assertionUrns);
+        fetchAssertionInfos(
+            opContext.withReadPreference(ReadPreference.PRIMARY), aspectRetriever, assertionUrns);
     return assertionUrns.stream()
         .filter(
             urn -> {
@@ -269,7 +275,8 @@ public final class AssertionAuthorizationUtils {
     final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     final EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
     final Map<Urn, AssertionInfo> persisted =
-        fetchAssertionInfos(opContext, aspectRetriever, assertionUrns);
+        fetchAssertionInfos(
+            opContext.withReadPreference(ReadPreference.PRIMARY), aspectRetriever, assertionUrns);
     return persisted.values().stream()
         .map(info -> resolveAssertedEntityUrns(entityRegistry, info))
         .filter(targets -> !targets.isEmpty())
