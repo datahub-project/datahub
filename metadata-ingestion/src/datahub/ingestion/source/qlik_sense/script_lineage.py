@@ -39,6 +39,16 @@ PREFIX_RE = re.compile(
 SQL_RE = re.compile(
     r"^(?:SQL\s+)?(?P<sql>(?:SELECT|WITH)\b.*)$", re.IGNORECASE | re.DOTALL
 )
+BACKTICK_QUOTED_PLATFORMS = {"bigquery", "databricks", "hive", "mariadb", "mysql"}
+# Qlik's REST, JSON and XML connectors take SQL-like text that names no
+# database table, such as SELECT ... FROM JSON (wrap on) "root" WITH CONNECTION (...).
+CONNECTOR_SQL_RE = re.compile(
+    r"\bFROM\s+(?:JSON|XML|CSV)\b|\bWITH\s+CONNECTION\s*\(", re.IGNORECASE
+)
+# A bracket after a name or a closing bracket is an index, as in values[0].
+BRACKET_IDENTIFIER_RE = re.compile(
+    r"'[^']*'|\"[^\"]*\"|`[^`]*`|(?<![\w\])])\[(?P<name>[^\]]*)\]"
+)
 LOAD_RE = re.compile(r"^LOAD\b", re.IGNORECASE)
 LOAD_SOURCE_RE = re.compile(r"\b(?:FROM|RESIDENT|INLINE|AUTOGENERATE)\b", re.IGNORECASE)
 QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]")
@@ -348,3 +358,16 @@ def connection_lookup_names(name: str) -> List[str]:
     # Qlik Cloud scripts reference connections as `<space>:<connection>`.
     short_name = name.rsplit(SPACE_SEPARATOR, 1)[-1]
     return [name] if short_name == name else [name, short_name]
+
+
+def brackets_to_backticks(sql: str) -> str:
+    """ODBC drivers accept [name] identifiers and translate them for engines
+    such as Databricks that only quote with backticks."""
+    return BRACKET_IDENTIFIER_RE.sub(
+        lambda match: (
+            f"`{match.group('name')}`"
+            if match.group("name") is not None
+            else match.group(0)
+        ),
+        sql,
+    )

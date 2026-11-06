@@ -957,18 +957,54 @@ def test_onprem_script_table_without_known_connection_is_reported(
     assert list(source.reporter.unresolved_data_connections) == ["app-1: Sales SQL"]
 
 
+@pytest.mark.parametrize(
+    "sql, warns",
+    [
+        ("SELECT 1 AS one", False),
+        ("SELECT FROM WHERE", True),
+        (
+            'SELECT "id" FROM JSON (wrap on) "root" PK "__KEY_root" '
+            'WITH CONNECTION (URL "https://example.com/api")',
+            False,
+        ),
+    ],
+    ids=["no_tables", "unparsable", "connector_sql"],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
 def test_onprem_script_table_without_upstream_is_skipped(
-    mock_onprem: MagicMock,
+    mock_onprem: MagicMock, sql: str, warns: bool
 ) -> None:
     source, tables = _script_tables(
         mock_onprem,
         {},
-        script="LIB CONNECT TO 'Sales SQL';\nOne:\nSQL SELECT 1 AS one;",
+        script=f"LIB CONNECT TO 'Sales SQL';\nOne:\nSQL {sql};",
     )
 
     assert tables == []
-    assert source.reporter.warnings
+    assert bool(source.reporter.warnings) == warns
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_onprem_script_bracket_identifiers_parse_on_backtick_platforms(
+    mock_onprem: MagicMock,
+) -> None:
+    _, tables = _script_tables(
+        mock_onprem,
+        {
+            "data_connection_to_platform_instance": {
+                "Sales SQL": {"platform": "databricks", "database": "main"}
+            }
+        },
+        script=(
+            "LIB CONNECT TO 'Sales SQL';\nAccounts:\n"
+            "SQL SELECT account_id AS [Account id], tags[0] AS first_tag "
+            "FROM `sales`.`accounts`;"
+        ),
+    )
+
+    assert tables[0].upstream_urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,main.sales.accounts,PROD)"
+    ]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
