@@ -348,8 +348,9 @@ def test_aggregating_callback_inner_can_reenter():
     deliveries: List[Any] = []
 
     def inner(err: Any, msg: Any) -> None:
-        deliveries.append(err)
         agg.kafka_callback(None, MagicMock())
+        # After the nested call, so a raise there leaves ``deliveries`` empty.
+        deliveries.append(err)
 
     agg = _AggregatingKafkaCallback(total=2, inner=inner)
     mock_error = MagicMock()
