@@ -18,6 +18,7 @@ Usage in a recipe:
 """
 
 import json
+import logging
 import tempfile
 import uuid
 from datetime import datetime, timezone
@@ -35,7 +36,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
+
+logger = logging.getLogger(__name__)
 
 
 class DemoDataConfig(ConfigModel):
@@ -75,7 +79,8 @@ class DemoDataConfig(ConfigModel):
     server: Optional[str] = Field(
         default=None,
         description=(
-            "GMS URL for datapack ingest. When omitted, uses DATAHUB_GMS_URL, "
+            "GMS URL for datapack ingest. When omitted, uses the recipe's "
+            "datahub_api or datahub-rest sink, then DATAHUB_GMS_URL, "
             "~/.datahubenv, or http://localhost:8080."
         ),
     )
@@ -86,6 +91,37 @@ class DemoDataConfig(ConfigModel):
             "on top of env/~/.datahubenv or the localhost quickstart default."
         ),
     )
+
+
+def _recipe_client_config(
+    ctx: PipelineContext, config: DemoDataConfig
+) -> Optional[DatahubClientConfig]:
+    """Client config from the recipe's datahub_api or datahub-rest sink.
+
+    Returns None when the source config sets its own server, or when the recipe
+    has no DataHub target, so the loader falls back to env / ~/.datahubenv.
+    """
+    from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
+
+    pipeline_config = ctx.pipeline_config
+    if config.server or pipeline_config is None:
+        return None
+
+    client_config: Optional[DatahubClientConfig] = None
+    if pipeline_config.datahub_api is not None:
+        client_config = pipeline_config.datahub_api
+    elif (
+        pipeline_config.sink is not None and pipeline_config.sink.type == "datahub-rest"
+    ):
+        client_config = DatahubRestSinkConfig.model_validate(
+            pipeline_config.sink.config or {}
+        )
+
+    if client_config is not None and config.token:
+        client_config = client_config.model_copy(
+            update={"token": config.token, "auth": None}
+        )
+    return client_config
 
 
 @platform_name("Demo Data")
@@ -139,17 +175,27 @@ class DemoDataSource(Source):
             if as_of_dt.tzinfo is None:
                 as_of_dt = as_of_dt.replace(tzinfo=timezone.utc)
 
-        run_id = ctx.run_id or f"demo-data-{uuid.uuid4()}"
-        ingest_datapack_file_entries(
-            pack,
-            file_entries,
-            run_id,
-            server=config.server,
-            token=config.token,
-            no_time_shift=config.no_time_shift,
-            as_of=as_of_dt,
-            log_progress=False,
-        )
+        # The pack is emitted by the loader's own per-file pipelines rather than
+        # through this pipeline's sink, so dry-run and the sink target have to be
+        # honoured here explicitly.
+        if ctx.dry_run_mode:
+            logger.info(
+                f"Dry run: skipping ingest of {len(file_entries)} file(s) "
+                f"from data pack '{pack.name}'."
+            )
+        else:
+            run_id = ctx.run_id or f"demo-data-{uuid.uuid4()}"
+            ingest_datapack_file_entries(
+                pack,
+                file_entries,
+                run_id,
+                client_config=_recipe_client_config(ctx, config),
+                server=config.server,
+                token=config.token,
+                no_time_shift=config.no_time_shift,
+                as_of=as_of_dt,
+                log_progress=False,
+            )
 
         # Outer pipeline sink is unused; datapack ingest already completed above.
         empty_pack = tempfile.NamedTemporaryFile(
