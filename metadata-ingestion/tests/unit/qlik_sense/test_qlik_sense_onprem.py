@@ -313,6 +313,16 @@ def test_chart_keeps_dimension_in_error_state() -> None:
     ]
 
 
+def test_chart_without_title_is_kept() -> None:
+    layout = _chart_layout("untitled")["qLayout"]
+    del layout["title"]  # type: ignore[attr-defined]
+    del layout["subtitle"]  # type: ignore[attr-defined]
+
+    chart = Chart.model_validate(layout)
+
+    assert (chart.qId, chart.title, chart.subtitle) == ("untitled", "", "")
+
+
 class _ScriptedEngine(WebsocketConnection):
     """Replays Engine replies in order, keeping the real handle stack logic."""
 

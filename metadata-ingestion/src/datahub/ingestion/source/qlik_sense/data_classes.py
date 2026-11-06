@@ -177,8 +177,8 @@ class AxisProperty(_QlikBaseModel):
 class Chart(_QlikBaseModel):
     qId: str
     visualization: str
-    title: str
-    subtitle: str
+    title: str = ""
+    subtitle: str = ""
     qDimension: List[AxisProperty]
     qMeasure: List[AxisProperty]
 
