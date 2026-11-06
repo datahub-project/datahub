@@ -60,6 +60,15 @@ Draft release notes for the upcoming version. Add entries here as breaking chang
 
 Requirements:
 
+- **(System update / search backend)** Graph, timeseries, system-metadata and usage-event indices can
+  be moved to a second search cluster without downtime, on OpenSearch and Elasticsearch alike: set
+  `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_TARGET_CLUSTER` to a cluster declared under
+  `ELASTICSEARCH_CLUSTERS_*`, deploy (writes are mirrored and system-update copies and verifies the
+  history), wait for the family's migration row to reach `VERIFIED`, then flip
+  `ELASTICSEARCH_COMPONENT_CLUSTER_<FAMILY>` in a later deploy. Usage events on Elasticsearch are
+  copied per data-stream generation and adopted through the data stream modify API. See the
+  "Moving a non-entity index family to another cluster" section of `docs/deploy/environment-vars.md`.
+  **Action:** none; off by default.
 - CLI / Python SDK: (TBD)
 - Helm Chart: (TBD)
 

@@ -542,6 +542,75 @@ remains. Semantic search behavior is in
 [Semantic Search Configuration](../how-to/semantic-search-configuration.md#search-v3). Template
 ranking is in [Search](../how/search.md#search-v3-query-templates).
 
+#### Moving a non-entity index family to another cluster
+
+Graph, timeseries, system-metadata and usage-event indices can be moved to another named cluster
+without downtime and without rebuilding them from primary storage (timeseries aspects and usage
+events exist only in the index). Each family is migrated independently: `ELASTICSEARCH_COMPONENT_CLUSTER_<FAMILY>`
+keeps meaning "which cluster serves the family", and a migration block says which other cluster also
+receives its writes while system-update copies its history there and verifies it. The sequence is one
+deploy to migrate, one deploy to flip, and a bake with a reverse mirror so rollback is a flag flip:
+
+| Phase                | `ELASTICSEARCH_COMPONENT_CLUSTER_GRAPH` | `..._CLUSTER_MIGRATION_GRAPH_TARGET_CLUSTER` | `..._COPY_ENABLED` | Effect                                                                                                     |
+| -------------------- | --------------------------------------- | -------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| today                | `primary`                               | blank                                        | n/a                | unchanged                                                                                                  |
+| deploy N (migrate)   | `primary`                               | `secondary`                                  | `true`             | blocking step creates the target indices; GMS and MAE mirror writes; non-blocking step copies and verifies |
+| deploy N+1 (flip)    | `secondary`                             | `primary`                                    | `false`            | the target serves; writes are mirrored back so a rollback has no data gap; nothing is copied               |
+| rollback (if needed) | `primary`                               | `secondary`                                  | `false`            | the old cluster serves and is current                                                                      |
+| done                 | `secondary`                             | blank                                        | n/a                | mirror off; delete the old cluster's indices by hand                                                       |
+
+Watch `ClusterMigrationCopy_<family>` in the non-blocking system-update log. It waits up to
+`ELASTICSEARCH_CLUSTER_MIGRATION_LIVE_WRITER_WAIT_MINUTES` for both live writers (GMS and the MAE
+consumer) to report their mirror live, which they do within a minute of starting, so the non-blocking
+run of the migrating deploy normally carries the family to `VERIFIED` on its own. It also waits, within
+the same budget, until every writer of the previous rollout has stopped: each GMS and MAE consumer
+reports itself once a minute on `urn:li:dataHubUpgrade:ClusterMigrationWriters` whenever a second
+cluster is declared, whether or not it migrates anything, and a pod that started before the
+rollout's stamp and is still reporting is serving the old configuration without the mirror. A pod
+running a version without this report cannot be seen, so declare the second cluster in a deploy
+before the one that migrates. Before it verifies, the documents the target received before the copy
+began are reconciled against the source (a delete those pods made without the mirror is repaired
+there), and a pass over everything written since the mirror started repeats until a pass writes
+nothing on the target. Past the wait, or at `..._COPY_MAX_HOURS`, it returns and resumes on the next
+run or on demand with `SystemUpdateNonBlocking -n ClusterMigrationCopy`. The
+migration row (`urn:li:dataHubUpgrade:ClusterMigration_<family>_<source>_to_<target>`) carries the plan,
+per-partition progress and the verification counts; flip only after its status is `VERIFIED`. The
+blocking step refuses to point a family at another cluster only while its current migration's copy is
+part way through; a prepared or verified migration, the reverse mirror among them, can be pointed
+elsewhere and back, which is what the rollback does. Usage events mirrored to a cluster while it was
+not serving join its rollover alias (or data stream) on the first system update after it serves again.
+
+| Environment Variable                                                          | Default     | Description                                                                                                                                                                                                                                                                                                                               | Components                                     |
+| ----------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_TARGET_CLUSTER`                     | blank       | Cluster that also receives the family's writes. `<FAMILY>` is `GRAPH`, `TIMESERIES`, `SYSTEM_METADATA` or `USAGE`. Blank means no migration.                                                                                                                                                                                              | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_ENABLED`                       | `true`      | Whether system-update copies the family's history to the target and verifies it. `false` mirrors only (the bake after a flip); a `true` left on after the flip is set aside by the blocking job, since nothing is left to copy once the reverse migration has verified.                                                                   | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_MODE`                          | `inProcess` | `inProcess` pages the source and bulk-creates on the target through each cluster's own client; `remoteReindex` has the target's `_reindex` pull from the source; `external` skips the copy because a snapshot was restored by hand.                                                                                                       | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_PARALLELISM`                   | `4`         | Partitions copied at once, bounded by the connection pool of each cluster (its `threadCount`, at least 2).                                                                                                                                                                                                                                | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_BATCH_SIZE`                    | `1000`      | Documents per page or per remote reindex batch.                                                                                                                                                                                                                                                                                           | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_MAX_HOURS`                     | `0`         | Time budget per non-blocking run; `0` is unlimited. The copy resumes on the next run.                                                                                                                                                                                                                                                     | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_TARGET_DOCS_PER_PARTITION`     | `20000000`  | Partitions larger than this are split by the family's time field.                                                                                                                                                                                                                                                                         | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_SKEW_MS`                       | `300000`    | Margin subtracted from the start of the windowed pass and of the delete-log replay. The replay itself needs no margin: every document a logged operation touched is reconciled against the source, deleted where the source lacks it and written again where the source holds it.                                                         | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_EXTERNAL_WATERMARK_EPOCH_MS`   | blank       | `external` mode only: when the restored snapshot was taken.                                                                                                                                                                                                                                                                               | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_REMOTE_HOST`                   | blank       | `remoteReindex` only: the source as the target cluster's nodes reach it (`scheme://host:port`), for example an AWS VPC endpoint connection address; default the serving cluster's uri.                                                                                                                                                    | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_REMOTE_USERNAME` / `_PASSWORD` | blank       | `remoteReindex` only: credentials the target presents to the source; default the serving cluster's basic-auth user.                                                                                                                                                                                                                       | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_<FAMILY>_COPY_REMOTE_EXTERNAL`               | `false`     | `remoteReindex` only: set `true` between two AWS OpenSearch Service VPC domains. Self-managed engines reject the key.                                                                                                                                                                                                                     | System Update                                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_PROCESS_ROLE`                                | `gms`       | Which process a deployment is (`gms`, `mae`, `upgrade`); the MAE consumer and system-update profiles set theirs. Each process records its role on the family's migration row at startup, and the copy waits for `gms` and `mae`. A GMS that runs the MCL consumer itself (`MAE_CONSUMER_ENABLED` or `MCL_CONSUMER_ENABLED`) records both. | GMS, MAE Consumer, System Update               |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_LIVE_WRITER_WAIT_MINUTES`                    | `30`        | How long the non-blocking copy waits for GMS and the MAE consumer to record their mirror markers before it reads the source; `0` returns at once and leaves the copy to a later run.                                                                                                                                                      | System Update                                  |
+
+Mirrored writes ride the target cluster's own bulk processor and inherit its delivery semantics
+(ack-after-transfer, retries); a target outage during a migration is a write outage for that family.
+`inProcess` works with every connection configuration, IAM included, and needs nothing from either
+cluster. `remoteReindex` is server side but the source fetch is made by the target's nodes: on AWS it
+needs a VPC endpoint connection (or public endpoints), a source user with `cluster:monitor/main`, and
+basic auth unless the pair supports IAM pass-through; self-managed targets need `reindex.remote.allowlist`
+(OpenSearch) or `reindex.remote.whitelist` (Elasticsearch) in the node settings. Usage events are
+copied per backing index into staging indices (`<prefix>_datahub_usage_migration-*`) that are adopted
+into the target's rollover alias (OpenSearch) or data stream (Elasticsearch); the live staging index
+receives mirrored events until the flip, and the first non-blocking run after the flip, once the pods
+report the reverse mirror live, sweeps the old write index into it. It stays writable, since a
+rollback mirrors into it again. The delete log the mirror keeps while the copy runs is removed by the
+first system update after the row reaches `VERIFIED`.
+
 #### MAE consumer (`metadata-jobs/mae-consumer-job`)
 
 The MAE consumer runs in **its own** process and shares the same `ESBulkProcessor` / `searchClientShim` wiring as GMS. **By-query** `RequestOptions` use **`ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS`** for both GMS and MAE (not separate MAE overrides). **MAE-only** tuning is RestClient-oriented: **`MAE_ELASTICSEARCH_SOCKET_TIMEOUT`**, **`MAE_ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT`**, etc. **`ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS`** applies only to **system-update / build-indices** (`elasticsearch.buildIndices`). [`docker/datahub-mae-consumer/env/docker.env`](../../docker/datahub-mae-consumer/env/docker.env) sets longer values than generic quickstart defaults where appropriate.
