@@ -107,6 +107,8 @@ class PrecedingLoad(BaseModel):
     # LOAD * passes every field of the statement below through.
     keeps_all: bool = False
     fields: List[LoadField] = []
+    # A $(variable) left in the field list may hold any fields.
+    unreadable: bool = False
 
 
 class ScriptTable(BaseModel):
@@ -386,6 +388,8 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         if field:
             name = _first_group(field)
             load.fields.append(LoadField(name=name, sources=[name]))
+        elif "$(" in item:
+            load.unreadable = True
     return load
 
 
@@ -396,9 +400,9 @@ def apply_preceding_loads(
     """Rename SQL columns to the fields the LOAD statements above them produce,
     carrying each field's upstream columns."""
     for load in reversed(preceding_loads):
-        if not load.keeps_all and not load.fields:
-            # Nothing in the field list could be read, such as a $(variable)
-            # holding it, so the columns below are kept rather than dropped.
+        if load.unreadable and not load.keeps_all and not load.fields:
+            # The fields are unknown, so the columns below are kept rather
+            # than dropped.
             continue
         by_name = {
             name.lower(): upstreams for name, upstreams in column_upstreams.items()
