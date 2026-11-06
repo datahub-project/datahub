@@ -32,6 +32,8 @@ class QlikAPI:
     def __init__(self, config: QlikSourceConfig) -> None:
         self.spaces: Dict = {}
         self.users: Dict = {}
+        # Spaces and items that failed to load, so the source can report them.
+        self.unread_items: List[str] = []
         self.config = config
         if not config.tenant_hostname or config.api_key is None:
             raise ValueError("Qlik Cloud requires tenant_hostname and api_key")
@@ -88,6 +90,7 @@ class QlikAPI:
             ]
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch spaces. Exception: {e}")
+            self.unread_items.append("spaces")
         return spaces
 
     def _get_dataset(self, dataset_id: str, item_id: str) -> Optional[QlikDataset]:
@@ -356,17 +359,23 @@ class QlikAPI:
                     break
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch items. Exception: {e}")
+            self.unread_items.append(f"items of space {space_id}")
 
     def _load_item(self, item: Dict) -> Optional[Item]:
         resource_type = item[Constant.RESOURCETYPE]
+        loaded: Optional[Item]
         if resource_type == Constant.APP:
-            return self._get_app(app_id=item[Constant.RESOURCEID])
-        if resource_type == Constant.DATASET:
-            return self._get_dataset(
+            loaded = self._get_app(app_id=item[Constant.RESOURCEID])
+        elif resource_type == Constant.DATASET:
+            loaded = self._get_dataset(
                 dataset_id=item[Constant.RESOURCEID],
                 item_id=item[Constant.ID],
             )
-        return None
+        else:
+            return None
+        if loaded is None:
+            self.unread_items.append(item[Constant.RESOURCEID])
+        return loaded
 
     def get_items(self, space_id: str) -> Iterable[Item]:
         for future in BackpressureAwareExecutor.map(
@@ -378,6 +387,7 @@ class QlikAPI:
                 item = future.result()
             except Exception as e:
                 self._log_http_error(message=f"Unable to fetch item. Exception: {e}")
+                self.unread_items.append(f"item of space {space_id}")
                 continue
             if item:
                 yield item
