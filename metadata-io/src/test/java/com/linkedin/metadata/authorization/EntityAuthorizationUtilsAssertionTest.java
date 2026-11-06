@@ -216,14 +216,14 @@ public class EntityAuthorizationUtilsAssertionTest {
   }
 
   @Test
-  public void testRunEventWithoutTargetNeedsEditAssertionsOnAssertee() {
+  public void testRunEventWithoutTargetNeedsPrivilegeOnAssertion() {
+    // Without assertionInfo there is no asset to authorize against: Edit Assertions on the asset
+    // a result names would let a caller plant results on an assertion another asset defines later.
     MetadataChangeProposal proposal = runEvent(DATASET_URN);
     denyOnAssertion(false);
+    grantEditAssertionsOn(DATASET_URN);
 
     assertEquals(ingest(proposal), List.of(Pair.of(proposal, 403)));
-
-    grantEditAssertionsOn(DATASET_URN);
-    assertEquals(ingest(proposal), List.of(Pair.of(proposal, 200)));
   }
 
   @Test

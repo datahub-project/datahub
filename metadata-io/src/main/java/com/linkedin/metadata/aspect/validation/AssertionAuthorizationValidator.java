@@ -55,10 +55,9 @@ import lombok.extern.slf4j.Slf4j;
  * assertion targets, so a result cannot mark an assertion the actor may not edit as failing. The
  * assertee does not have to be one of the targets: clients such as dbt report results whose
  * assertee differs from the target by URN case, environment or project. A run event without an
- * assertee is rejected once the assertion has targets. An assertion with no {@code assertionInfo}
- * yet accepts run events for any entity the actor may edit assertions on, so clients that report
- * results before the definition keep working; those results stay in the assertion's run history
- * once it is defined.
+ * assertee is rejected once the assertion has targets. For an assertion with no {@code
+ * assertionInfo} yet only the assertee is checked here; the API-level gate then requires the
+ * privilege on the assertion itself.
  *
  * <p>Targets are read from the stored value when the batch is validated. With async ingestion an
  * earlier request may not have landed yet, so a write is checked against the value before that

@@ -398,7 +398,9 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
-  public void testRunEventWithoutTargetRequiresPrivilegeOnAsseteeOnly() {
+  public void testRunEventWithoutTargetStillNeedsPrivilegeOnAssertee() {
+    // With no assertionInfo the API gate requires the privilege on the assertion itself; the
+    // assertee, which receives the notifications, is checked here as well.
     Assert.assertFalse(validate(OperationFingerprint.EMPTY, runEventOn(DATASET_A)).isEmpty());
 
     grantEditAssertionsOn(DATASET_A);
