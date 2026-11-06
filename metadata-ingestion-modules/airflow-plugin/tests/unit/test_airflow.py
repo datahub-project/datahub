@@ -12,9 +12,11 @@ from airflow.models import Connection, DagBag
 from airflow.sdk import Asset
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.graph.config import ClientMode
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin.entities import Dataset, Urn
 from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
@@ -181,6 +183,23 @@ def test_datahub_emitter_operator_mces_is_deprecated_alias(mock_emit, caplog):
         new.execute({})
 
         assert [c.args[0] for c in mock_emit.call_args_list] == [mcps, mcps]
+
+
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit")
+def test_datahub_emitter_operator_renders_templates_in_string_lists(mock_emit):
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn=builder.make_dataset_urn("hive", "my_db.my_table"),
+        aspect=DatasetPropertiesClass(tags=["{{ ds }}"]),
+    )
+    with patch_airflow_connection(datahub_rest_connection_config) as config:
+        assert config.conn_id
+        task = DatahubEmitterOperator(
+            task_id="emit_templated", datahub_conn_id=config.conn_id, mcps=[mcp]
+        )
+        task.execute({"ds": "2023-01-01"})
+
+    [emitted] = mock_emit.call_args.args[0]
+    assert emitted.aspect.tags == ["2023-01-01"]
 
 
 @pytest.mark.parametrize(
