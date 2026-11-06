@@ -250,6 +250,7 @@ class App(Item):
     sheets: List[Sheet] = []
     tables: List[QlikTable] = []
     script: Optional[str] = None
+    script_read_failed: bool = False
     read_complete: bool = True
 
     @model_validator(mode="before")

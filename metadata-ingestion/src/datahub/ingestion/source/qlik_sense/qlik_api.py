@@ -19,6 +19,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Space,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
+    SPACE_SEPARATOR,
     DataConnectionInfo,
     infer_data_connection,
 )
@@ -210,29 +211,29 @@ class QlikAPI:
     ) -> List[QlikTable]:
         tables: List[QlikTable] = []
         # The app handle must be on top again afterwards, as GetScript runs on it.
-        depth = len(websocket_connection.handle)
-        try:
-            response = websocket_connection.websocket_send_request(
-                method="GetObject",
-                params=["LoadModel"],
-            )
-            if not response[Constant.QRETURN][Constant.QTYPE]:
-                logger.debug(f"App {app_id} has no LoadModel object")
-                return []
-            response = websocket_connection.websocket_send_request(method="GetLayout")
-            for table_dict in response[Constant.QLAYOUT][Constant.TABLES]:
-                tables.append(QlikTable.model_validate(table_dict))
-            self._add_qri_of_tables(tables, app_id)
-            logger.debug(
-                f"App {app_id} LoadModel tables: "
-                f"{[(t.tableName, t.type.value, t.dataconnectorPlatform, t.tableQri) for t in tables]}"
-            )
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch tables used by app {app_id}. Exception: {e}"
-            )
-        finally:
-            del websocket_connection.handle[depth:]
+        with websocket_connection.restore_handle():
+            try:
+                response = websocket_connection.websocket_send_request(
+                    method="GetObject",
+                    params=["LoadModel"],
+                )
+                if not response[Constant.QRETURN][Constant.QTYPE]:
+                    logger.debug(f"App {app_id} has no LoadModel object")
+                    return []
+                response = websocket_connection.websocket_send_request(
+                    method="GetLayout"
+                )
+                for table_dict in response[Constant.QLAYOUT][Constant.TABLES]:
+                    tables.append(QlikTable.model_validate(table_dict))
+                self._add_qri_of_tables(tables, app_id)
+                logger.debug(
+                    f"App {app_id} LoadModel tables: "
+                    f"{[(t.tableName, t.type.value, t.dataconnectorPlatform, t.tableQri) for t in tables]}"
+                )
+            except Exception as e:
+                self._log_http_error(
+                    message=f"Unable to fetch tables used by app {app_id}. Exception: {e}"
+                )
         return tables
 
     def _get_app_sheets(
@@ -270,13 +271,20 @@ class QlikAPI:
             logger.debug(f"App {app_id} load script has {len(script)} characters")
             return script
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch load script of app {app_id}. Exception: {e}"
+            # Cloud only lets Owner, Can manage and Can operate read the load script,
+            # so a denied read leaves the rest of the app complete.
+            logger.warning(
+                f"Unable to fetch load script of app {app_id}. Exception: {e}"
             )
+            logger.debug(msg=f"Load script of app {app_id}", exc_info=e)
         return None
 
     def get_data_connections(self) -> Dict[str, DataConnectionInfo]:
+        # Scripts name a connection as `<space>:<connection>`, or by its bare name
+        # when it is in the app's own space. Several spaces can hold a connection
+        # with the same name, so a bare name is only kept when it is unique.
         connections: Dict[str, DataConnectionInfo] = {}
+        by_name: Dict[str, List[DataConnectionInfo]] = {}
         try:
             url = f"{self.rest_api_url}/data-connections"
             while True:
@@ -295,7 +303,11 @@ class QlikAPI:
                             Constant.QTYPE,
                         )
                     )
-                    connections[name] = infer_data_connection(name, descriptor)
+                    info = infer_data_connection(name, descriptor)
+                    space_name = self.spaces.get(connection.get(Constant.SPACE) or "")
+                    if space_name:
+                        connections[f"{space_name}{SPACE_SEPARATOR}{name}"] = info
+                    by_name.setdefault(name, []).append(info)
                 next_link = response_dict.get(Constant.LINKS, {}).get(Constant.NEXT)
                 if not next_link:
                     break
@@ -305,7 +317,10 @@ class QlikAPI:
                 message=f"Unable to fetch data connections. Exception: {e}"
             )
             self.unread_items.append("data connections")
-        logger.debug(f"Qlik Cloud data connections: {list(connections.values())}")
+        for name, infos in by_name.items():
+            if len(infos) == 1:
+                connections.setdefault(name, infos[0])
+        logger.debug(f"Qlik Cloud data connections: {connections}")
         return connections
 
     def _get_app(self, app_id: str) -> Optional[App]:
@@ -314,7 +329,7 @@ class QlikAPI:
         try:
             assert self.config.tenant_hostname is not None
             assert self.config.api_key is not None
-            websocket_connection = WebsocketConnection(
+            websocket_connection = WebsocketConnection.for_cloud(
                 self.config.tenant_hostname,
                 self.config.api_key.get_secret_value(),
                 app_id,
@@ -331,6 +346,7 @@ class QlikAPI:
             app.tables = self._get_app_used_tables(websocket_connection, app_id)
             if not app.tables or not all(table.tableQri for table in app.tables):
                 app.script = self._get_app_script(websocket_connection, app_id)
+                app.script_read_failed = app.script is None
             app.read_complete = not self._thread_state.read_failed
             return app
         except Exception as e:

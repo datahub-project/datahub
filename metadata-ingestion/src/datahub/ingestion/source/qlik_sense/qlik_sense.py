@@ -55,9 +55,12 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     brackets_to_backticks,
     connection_lookup_names,
     drop_condition_variables,
+    has_qualified_name,
     infer_data_connection,
     is_connector_sql,
+    is_inline_connection,
     parse_load_script,
+    redact_connection,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -95,6 +98,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
+    column_refs_to_schema_field_urns,
     create_lineage_sql_parsed_result,
 )
 
@@ -495,21 +499,20 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ),
             None,
         )
-        # Inline ODBC/OLEDB connection strings carry the driver and database themselves.
-        inferred = next(
-            (
-                self._data_connections[name]
-                for name in names
-                if name in self._data_connections
-            ),
-            None,
-        ) or infer_data_connection(connection, connection)
-        platform = (configured.platform if configured else None) or inferred.platform
+        inferred = self._data_connections.get(connection)
+        # Inline ODBC/OLEDB connection strings carry the driver and database
+        # themselves. A bare name says nothing about the platform behind it.
+        if inferred is None and is_inline_connection(connection):
+            inferred = infer_data_connection(connection, connection)
+        platform = (configured.platform if configured else None) or (
+            inferred.platform if inferred else None
+        )
         if not platform:
             return None
         return PlatformDetail(
             platform=platform,
-            database=(configured.database if configured else None) or inferred.database,
+            database=(configured.database if configured else None)
+            or (inferred.database if inferred else None),
             default_schema=configured.default_schema if configured else None,
             env=configured.env
             if configured and "env" in configured.model_fields_set
@@ -541,9 +544,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if table.tableQri
             for name in (table.tableName, table.tableAlias)
         }
+        unqualified: List[str] = []
         for script_table in parse_load_script(app.script):
             if script_table.label.lower() in traced:
                 continue
+            connection = (
+                redact_connection(script_table.connection)
+                if script_table.connection
+                else None
+            )
             self.reporter.script_tables_found += 1
             if is_connector_sql(script_table.sql):
                 logger.debug(
@@ -554,11 +563,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             detail = self._resolve_script_connection(script_table.connection)
             logger.debug(
                 f"App {app.id} script table {script_table.label!r} via connection "
-                f"{script_table.connection!r} resolved to {detail}"
+                f"{connection!r} resolved to {detail}"
             )
             if not detail or not detail.platform:
                 self.reporter.unresolved_data_connections.append(
-                    f"{app.id}: {script_table.connection}"
+                    f"{app.id}: {connection}"
                 )
                 continue
             sql = drop_condition_variables(script_table.sql)
@@ -579,6 +588,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 result = self._parse_script_sql(
                     brackets_to_backticks(sql), detail.platform, detail
                 )
+            upstream_urns = [
+                urn
+                for urn in result.in_tables
+                if has_qualified_name(urn, detail.platform, detail.platform_instance)
+            ]
+            unqualified.extend(
+                urn for urn in result.in_tables if urn not in upstream_urns
+            )
+            if result.in_tables and not upstream_urns:
+                continue
             if not result.in_tables:
                 if not result.debug_info.table_error:
                     logger.debug(
@@ -597,16 +616,28 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 ScriptTableLineage(
                     label=script_table.label,
                     identifier=f"{app.id}.{script_table.label}".lower(),
-                    connection=script_table.connection,
+                    connection=connection,
                 ),
             )
             lineage.upstream_urns.extend(
-                urn for urn in result.in_tables if urn not in lineage.upstream_urns
+                urn for urn in upstream_urns if urn not in lineage.upstream_urns
             )
             for column in result.column_lineage or []:
                 lineage.column_upstreams.setdefault(
                     column.downstream.column, []
-                ).extend(column.upstream_schema_field_urns())
+                ).extend(
+                    column_refs_to_schema_field_urns(
+                        ref for ref in column.upstreams if ref.table in upstream_urns
+                    )
+                )
+        if unqualified:
+            self.reporter.warning(
+                title="Qlik load script table is missing its database or schema",
+                message="Lineage to these tables is skipped. Set `database` and "
+                "`default_schema` for their connection in "
+                "`data_connection_to_platform_instance`.",
+                context=f"app={app.id}, tables={sorted(set(unqualified))}",
+            )
         self.reporter.script_tables_with_lineage += len(tables)
         return list(tables.values())
 
@@ -697,7 +728,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             description=app.description,
             sub_types=[BIContainerSubTypes.QLIK_APP],
             parent_container_key=self._gen_space_key(app.spaceId),
-            extra_properties={Constant.QRI: app.qri, Constant.USAGE: app.qUsage},
+            extra_properties={
+                Constant.QRI: app.qri,
+                # Enterprise on Windows has no app usage.
+                **({Constant.USAGE: app.qUsage} if app.qUsage else {}),
+            },
             owner_urn=(
                 builder.make_user_urn(owner_username)
                 if self.config.ingest_owner and owner_username
@@ -863,6 +898,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     logger.info(
                         f"Read app {item.qTitle} in space {allowed_space.name} ({apps_read} apps read)"
                     )
+                    if item.script_read_failed:
+                        self.reporter.warning(
+                            title="Unable to read Qlik app load script",
+                            message="Load script lineage of this app is skipped. Reading "
+                            "load scripts needs the Owner, Can manage or Can operate role "
+                            "in managed spaces.",
+                            context=item.id,
+                        )
                     yield from self._gen_app_workunit(item)
                 elif isinstance(item, QlikDataset):
                     yield from self._gen_dataset_workunit(item)

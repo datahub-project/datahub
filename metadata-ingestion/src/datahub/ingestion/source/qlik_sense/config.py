@@ -147,6 +147,22 @@ class QlikDeployment(StrEnum):
     ON_PREM = "on_prem"
 
 
+_ON_PREM_FIELDS = {
+    "server",
+    "qrs_port",
+    "engine_port",
+    "client_cert",
+    "client_key",
+    "root_cert",
+    "server_cert_hostname",
+    "verify_server_hostname",
+    "user_directory",
+    "qrs_user_id",
+    "engine_user_id",
+    "ingest_unpublished_apps",
+}
+
+
 class QlikSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
@@ -169,10 +185,14 @@ class QlikSourceConfig(
     )
     qrs_port: int = Field(
         default=4242,
+        ge=1,
+        le=65535,
         description="Qlik Repository Service port used for on-prem inventory.",
     )
     engine_port: int = Field(
         default=4747,
+        ge=1,
+        le=65535,
         description="Qlik Engine port used for on-prem app, sheet, and chart reads.",
     )
     client_cert: Optional[str] = Field(
@@ -259,7 +279,20 @@ class QlikSourceConfig(
                 raise ValueError("On-prem Qlik Sense requires " + ", ".join(missing))
             return self
         if not self.tenant_hostname or self.api_key is None:
-            raise ValueError("Qlik Cloud requires tenant_hostname and api_key")
+            hint = (
+                " (set `deployment: on_prem` for Qlik Sense Enterprise on Windows)"
+                if self.model_fields_set & _ON_PREM_FIELDS
+                else ""
+            )
+            raise ValueError(f"Qlik Cloud requires tenant_hostname and api_key{hint}")
+        return self
+
+    @model_validator(mode="after")
+    def warn_unused_server_cert_hostname(self) -> "QlikSourceConfig":
+        if self.server_cert_hostname and not self.verify_server_hostname:
+            logger.warning(
+                "server_cert_hostname is ignored because verify_server_hostname is false"
+            )
         return self
 
     def ui_hostname(self) -> str:

@@ -114,14 +114,13 @@ class QlikOnPremAPI:
             )
             raise
 
-    def _log_http_error(self, message: str) -> Any:
+    def _log_http_error(self, message: str) -> None:
         self._thread_state.read_failed = True
         logger.warning(message)
         _, e, _ = sys.exc_info()
         if isinstance(e, requests.exceptions.HTTPError):
             logger.warning(f"HTTP status-code = {e.response.status_code}")
         logger.debug(msg=message, exc_info=e)
-        return e
 
     def _get(
         self, path: str, params: Optional[Dict[str, str]] = None
@@ -289,12 +288,11 @@ class QlikOnPremAPI:
                 params={"qOptions": {"qTypes": ["sheet"]}},
             )
             for sheet_dict in response[Constant.QLIST]:
-                depth = len(websocket_connection.handle)
-                sheet = self._get_sheet(
-                    websocket_connection=websocket_connection,
-                    sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
-                )
-                del websocket_connection.handle[depth:]
+                with websocket_connection.restore_handle():
+                    sheet = self._get_sheet(
+                        websocket_connection=websocket_connection,
+                        sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
+                    )
                 if sheet:
                     sheets.append(sheet)
         except Exception as e:
