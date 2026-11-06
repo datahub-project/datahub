@@ -4,6 +4,7 @@
 #
 #########################################################
 import functools
+import json
 import logging
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -48,7 +49,9 @@ from datahub.ingestion.source.identity.corp_user_status import (
     make_corp_user_status_aspect,
 )
 from datahub.ingestion.source.powerbi.config import (
+    PARAMETER_VALUE_MAX_LENGTH,
     POWERBI_TYPE_TO_DATA_PLATFORM_PAIR,
+    SECRET_PARAMETER_MARKERS,
     Constant,
     PowerBiAppUrlPattern,
     PowerBiDashboardSourceConfig,
@@ -136,6 +139,11 @@ from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+def _is_secret_parameter(name: str) -> bool:
+    lowered = name.lower()
+    return any(marker in lowered for marker in SECRET_PARAMETER_MARKERS)
 
 
 class _ModelReferenceResolver:
@@ -937,7 +945,79 @@ class Mapper:
             nativeDataType=data_type,
             description=description,
         )
+        if self.__config.extract_model_properties:
+            self._apply_field_model_properties(field, schema_field)
         return schema_field
+
+    @staticmethod
+    def _apply_field_model_properties(
+        field: Union[powerbi_data_classes.Column, powerbi_data_classes.Measure],
+        schema_field: SchemaFieldClass,
+    ) -> None:
+        """extract_model_properties: `isKey` and an explicit `isNullable` map
+        onto the schema field; everything else goes into its jsonProps."""
+        props = field.model_properties
+        if props is None:
+            return
+        if props.is_key:
+            schema_field.isPartOfKey = True
+        if props.is_nullable is not None:
+            schema_field.nullable = props.is_nullable
+        schema_field.jsonProps = props.to_json_props(is_hidden=field.isHidden)
+
+    def _table_custom_properties(
+        self,
+        table: powerbi_data_classes.Table,
+        dataset: powerbi_data_classes.PowerBIDataset,
+    ) -> Dict[str, str]:
+        custom_properties: Dict[str, str] = {Constant.DATASET_ID: dataset.id}
+        if not self.__config.extract_model_properties:
+            return custom_properties
+        if table.storage_mode:
+            custom_properties[Constant.STORAGE_MODE] = table.storage_mode
+        if table.partition_count is not None:
+            custom_properties[Constant.PARTITION_COUNT] = str(table.partition_count)
+        policy = table.refresh_policy
+        if policy is not None:
+            custom_properties[Constant.INCREMENTAL_REFRESH] = Constant.TRUE_VALUE
+            for key, value in (
+                (
+                    Constant.REFRESH_POLICY_ROLLING_WINDOW_GRANULARITY,
+                    policy.rolling_window_granularity,
+                ),
+                (
+                    Constant.REFRESH_POLICY_ROLLING_WINDOW_PERIODS,
+                    policy.rolling_window_periods,
+                ),
+                (
+                    Constant.REFRESH_POLICY_INCREMENTAL_GRANULARITY,
+                    policy.incremental_granularity,
+                ),
+                (
+                    Constant.REFRESH_POLICY_INCREMENTAL_PERIODS,
+                    policy.incremental_periods,
+                ),
+            ):
+                if value is not None:
+                    custom_properties[key] = value
+        if table.rls_filters:
+            rls_filters = sorted(table.rls_filters, key=lambda f: f.role)
+            custom_properties[Constant.RLS_ROLES] = json.dumps(
+                [
+                    {Constant.ROLE: f.role, Constant.FILTER: f.filter}
+                    for f in rls_filters
+                ]
+            )
+            custom_properties[Constant.RLS_ROLE_COUNT] = str(len(rls_filters))
+        for name, value in sorted(dataset.parameters.items()):
+            custom_properties[f"{Constant.PARAMETER_PREFIX}{name}"] = (
+                Constant.MASKED_VALUE
+                if _is_secret_parameter(name)
+                # The API returns strings, but a non-string or oversized value
+                # must not be able to break the aspect.
+                else str(value)[:PARAMETER_VALUE_MAX_LENGTH]
+            )
+        return custom_properties
 
     def to_datahub_schema(
         self,
@@ -1032,9 +1112,7 @@ class Mapper:
                 # dataset description; the scan API never supplies them.
                 description=table.description or dataset.description,
                 externalUrl=dataset.webUrl,
-                customProperties={
-                    "datasetId": dataset.id,
-                },
+                customProperties=self._table_custom_properties(table, dataset),
             )
 
             info_mcp = MetadataChangeProposalWrapper(

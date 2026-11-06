@@ -1,3 +1,4 @@
+import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -214,6 +215,9 @@ class Column:
     # definitions (workspace_apis mode).
     references: List[DaxFieldReference] = field(default_factory=list)
     has_row_context_iterators: bool = False
+    # TMDL model properties, emitted with extract_model_properties; only
+    # populated from TMDL definitions (workspace_apis mode).
+    model_properties: Optional["FieldModelProperties"] = None
 
 
 @dataclass
@@ -230,6 +234,58 @@ class Measure:
     # Only populated from TMDL definitions (workspace_apis mode).
     references: List[DaxFieldReference] = field(default_factory=list)
     has_row_context_iterators: bool = False
+    model_properties: Optional["FieldModelProperties"] = None
+
+
+# Power BI Desktop writes `summarizeBy: none` on most columns; it carries no
+# information, so it is neither emitted nor counted as a property.
+SUMMARIZE_BY_DEFAULT = "none"
+
+
+@dataclass(frozen=True)
+class FieldModelProperties:
+    """TMDL column / measure properties beyond the data type. `isHidden`
+    lives on the owning Column / Measure and is passed in when serializing."""
+
+    format_string: Optional[str] = None
+    display_folder: Optional[str] = None
+    data_category: Optional[str] = None
+    sort_by_column: Optional[str] = None
+    summarize_by: Optional[str] = None
+    is_key: bool = False
+    # TOM defaults isNullable to true, so TMDL only writes it when false.
+    is_nullable: Optional[bool] = None
+    has_kpi: bool = False
+
+    def _json_items(self, is_hidden: bool) -> Dict[str, Union[str, bool]]:
+        items: Dict[str, Union[str, bool]] = {}
+        if is_hidden:
+            items[Constant.IS_HIDDEN] = True
+        if self.has_kpi:
+            items[Constant.HAS_KPI] = True
+        for key, value in (
+            (Constant.FORMAT_STRING, self.format_string),
+            (Constant.DISPLAY_FOLDER, self.display_folder),
+            (Constant.DATA_CATEGORY, self.data_category),
+            (Constant.SORT_BY_COLUMN, self.sort_by_column),
+            (Constant.SUMMARIZE_BY, self.summarize_by),
+        ):
+            if value is not None and not (
+                key == Constant.SUMMARIZE_BY and value == SUMMARIZE_BY_DEFAULT
+            ):
+                items[key] = value
+        return items
+
+    def to_json_props(self, is_hidden: bool) -> Optional[str]:
+        """The properties not modelled on SchemaFieldClass (`isKey` and
+        `isNullable` are), as the field's jsonProps; None when there are none."""
+        items = self._json_items(is_hidden)
+        return json.dumps(items, sort_keys=True) if items else None
+
+    def has_non_default_properties(self, is_hidden: bool) -> bool:
+        return bool(
+            self.is_key or self.is_nullable is not None or self._json_items(is_hidden)
+        )
 
 
 def is_calculated_column(column: Column) -> bool:
@@ -239,6 +295,24 @@ def is_calculated_column(column: Column) -> bool:
     return (column.columnType or "").casefold() == (
         Constant.COLUMN_TYPE_CALCULATED.casefold()
     )
+
+
+@dataclass(frozen=True)
+class RefreshPolicy:
+    """TMDL `refreshPolicy` of a table: incremental refresh settings."""
+
+    rolling_window_granularity: Optional[str] = None
+    rolling_window_periods: Optional[str] = None
+    incremental_granularity: Optional[str] = None
+    incremental_periods: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class RlsTableFilter:
+    """A row-level-security role's DAX filter on one table."""
+
+    role: str
+    filter: str
 
 
 @dataclass
@@ -288,6 +362,11 @@ class Table:
     # tables it reads become same-platform upstreams. workspace_apis mode only.
     calculated_expression: Optional[str] = None
     description: Optional[str] = None
+    # Storage / partition metadata and RLS filters from TMDL; emitted as
+    # custom properties with extract_model_properties (workspace_apis mode).
+    partition_count: Optional[int] = None
+    refresh_policy: Optional[RefreshPolicy] = None
+    rls_filters: List[RlsTableFilter] = field(default_factory=list)
 
 
 @dataclass
