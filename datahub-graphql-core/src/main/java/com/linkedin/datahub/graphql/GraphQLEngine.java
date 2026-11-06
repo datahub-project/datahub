@@ -4,6 +4,7 @@ import static graphql.schema.idl.RuntimeWiring.*;
 
 import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler;
 import com.linkedin.datahub.graphql.instrumentation.DataHubFieldComplexityCalculator;
+import com.linkedin.datahub.graphql.instrumentation.DeprecatedFieldUsageInstrumentation;
 import com.linkedin.datahub.graphql.instrumentation.OtelContextCaptureInstrumentation;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLDocumentCacheConfiguration;
@@ -99,6 +100,7 @@ public class GraphQLEngine {
             graphQLQueryComplexityLimit, new DataHubFieldComplexityCalculator()));
 
     MeterRegistry meterRegistry = metricUtils != null ? metricUtils.getRegistry() : null;
+    instrumentations.add(new DeprecatedFieldUsageInstrumentation());
     if (meterRegistry != null && graphQLConfiguration.getMetrics().isEnabled()) {
       instrumentations.add(
           new GraphQLTimingInstrumentation(
