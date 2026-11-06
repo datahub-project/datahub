@@ -21,102 +21,16 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
 from datahub.metadata.schema_classes import SubTypesClass, UpstreamLineageClass
-
-ONPREM_CONFIG = {
-    "deployment": "on_prem",
-    "server": "qlik.example.com",
-    "client_cert": "/secrets/client.pem",
-    "client_key": "/secrets/client_key.pem",
-    "root_cert": "/secrets/root.pem",
-}
-
-STREAM = {
-    "id": "stream-1",
-    "name": "Everyone",
-    "createdDate": "2024-01-09T18:05:36Z",
-    "modifiedDate": "2024-01-15T11:07:00.333Z",
-    "owner": {"id": "user-1", "name": "Ada", "userId": "ada"},
-}
-
-APP = {
-    "id": "app-1",
-    "name": "Sales",
-    "description": "",
-    "createdDate": "2024-01-09T18:05:36.545Z",
-    "modifiedDate": "2024-01-15T11:07:00.333Z",
-    "stream": {"id": "stream-1", "name": "Everyone"},
-    "owner": {"id": "user-1", "name": "Ada", "userId": "ada"},
-}
-
-SHEET_META = {
-    "title": "Overview",
-    "description": "",
-    "owner": {"id": "user-1", "name": "Ada", "userId": "ada"},
-    "createdDate": "2024-01-15T11:01:49.704Z",
-    "modifiedDate": "2024-01-29T12:23:46.868Z",
-}
-
-
-LOAD_SCRIPT = """
-LIB CONNECT TO 'Sales SQL';
-Orders:
-SQL SELECT order_id, amount FROM dbo.orders;
-"""
-
-DATA_CONNECTION = {
-    "name": "Sales SQL",
-    "connectionstring": (
-        "OLEDB CONNECT TO [Provider=MSOLEDBSQL;Data Source=db.example.com;"
-        "Initial Catalog=sales_db]"
-    ),
-    "type": "OLEDB",
-}
-
-
-class _Response:
-    def __init__(self, payload: object, status_code: int = 200) -> None:
-        self._payload = payload
-        self.status_code = status_code
-
-    def json(self) -> object:
-        return self._payload
-
-    def raise_for_status(self) -> None:
-        if self.status_code >= 400:
-            error = requests.exceptions.HTTPError(f"{self.status_code} Client Error")
-            error.response = self  # type: ignore[assignment]
-            raise error
-
-
-def _qrs_get(
-    url: str, params: Optional[Dict[str, str]] = None, **_: object
-) -> _Response:
-    assert params is not None
-    assert len(params["xrfkey"]) == 16
-    if url.endswith("/about"):
-        return _Response({"buildVersion": "14.129.3"})
-    if url.endswith("/stream/full"):
-        return _Response([STREAM])
-    if url.endswith("/app/full"):
-        assert params["filter"] == "stream.id eq stream-1"
-        return _Response([APP])
-    if url.endswith("/dataconnection/full"):
-        return _Response([DATA_CONNECTION])
-    raise AssertionError(url)
-
-
-def _engine_calls() -> List[Dict[str, object]]:
-    return [
-        {"qReturn": {"qHandle": 1}},
-        {"qList": [{"qInfo": {"qId": "sheet-1", "qType": "sheet"}}]},
-        {"qReturn": {"qHandle": 2, "qType": "GenericObject"}},
-        {
-            "qLayout": {
-                "qMeta": SHEET_META,
-                "qChildList": {"qItems": []},
-            }
-        },
-    ]
+from tests.unit.qlik_sense.qlik_fakes import (
+    DATA_CONNECTION,
+    LOAD_SCRIPT,
+    ON_PREM,
+    ONPREM_CONFIG,
+    SHEET_META,
+    FakeResponse,
+    fake_engine_calls,
+    fake_qrs_get,
+)
 
 
 @patch(
@@ -128,9 +42,9 @@ def test_onprem_lists_stream_and_opens_app(
 ) -> None:
     session = mock_session_cls.return_value
     session.headers = {}
-    session.get.side_effect = _qrs_get
+    session.get.side_effect = fake_qrs_get
     websocket = MagicMock()
-    websocket.websocket_send_request.side_effect = _engine_calls()
+    websocket.websocket_send_request.side_effect = fake_engine_calls()
     websocket.get_script.return_value = LOAD_SCRIPT
     mock_engine.return_value = websocket
 
@@ -179,7 +93,7 @@ def test_onprem_keeps_app_when_engine_is_unreachable(
 ) -> None:
     session = mock_session_cls.return_value
     session.headers = {}
-    session.get.side_effect = _qrs_get
+    session.get.side_effect = fake_qrs_get
     mock_engine.side_effect = OSError("engine port closed")
 
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
@@ -216,7 +130,7 @@ def test_onprem_closes_engine_session_when_app_cannot_open(
 ) -> None:
     session = mock_session_cls.return_value
     session.headers = {}
-    session.get.side_effect = _qrs_get
+    session.get.side_effect = fake_qrs_get
     websocket = MagicMock()
     websocket.websocket_send_request.side_effect = RuntimeError("Access denied")
     mock_engine.return_value = websocket
@@ -274,21 +188,21 @@ class _ScriptedEngine(WebsocketConnection):
 
     def __init__(self, replies: List[object]) -> None:
         self.replies = replies
-        self.handle = [-1]
+        self._handles = [-1]
         self.socket_connection = None
         self.sent_on: List[Tuple[str, int]] = []
 
     def websocket_send_request(
         self, method: str, params: Optional[Union[Dict, List]] = None
     ) -> Dict:
-        self.sent_on.append((method, self.handle[-1]))
+        self.sent_on.append((method, self._handles[-1]))
         reply = self.replies.pop(0)
         if isinstance(reply, Exception):
             raise reply
         assert isinstance(reply, dict)
         handle = reply.get("qReturn", {}).get("qHandle")
         if handle:
-            self.handle.append(handle)
+            self._handles.append(handle)
         return reply
 
     def get_script(self) -> str:
@@ -317,7 +231,7 @@ def _read_onprem_app(
     mock_engine.return_value = engine
     session = mock_session_cls.return_value
     session.headers = {}
-    session.get.side_effect = _qrs_get
+    session.get.side_effect = fake_qrs_get
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     api.get_spaces()
     (app,) = api.get_items("stream-1")
@@ -345,7 +259,7 @@ def test_onprem_reads_charts_after_a_failed_chart(
     assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
     assert not app.read_complete
     assert engine.sent_on[4:] == [("GetChild", 2), ("GetChild", 2), ("GetLayout", 3)]
-    assert engine.handle == [-1, 1]
+    assert engine.handles == [-1, 1]
 
 
 @patch(
@@ -392,7 +306,7 @@ def test_onprem_reads_charts_inside_containers(
     ]
     assert app.read_complete
     assert ("GetChild", 4) in engine.sent_on
-    assert engine.handle == [-1, 1]
+    assert engine.handles == [-1, 1]
 
 
 @patch(
@@ -687,10 +601,10 @@ def test_onprem_qrs_errors_return_no_streams_or_apps(
     session = mock_session_cls.return_value
     session.headers = {}
 
-    def get(url: str, **kwargs: object) -> _Response:
+    def get(url: str, **kwargs: object) -> FakeResponse:
         if url.endswith("/about"):
-            return _qrs_get(url, **kwargs)  # type: ignore[arg-type]
-        return _Response({}, status_code=401)
+            return fake_qrs_get(url, **kwargs)  # type: ignore[arg-type]
+        return FakeResponse({}, status_code=401)
 
     session.get.side_effect = get
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
@@ -706,7 +620,7 @@ def test_onprem_qrs_rejecting_the_connection_check_fails_fast(
 ) -> None:
     session = mock_session_cls.return_value
     session.headers = {}
-    session.get.return_value = _Response({}, status_code=401)
+    session.get.return_value = FakeResponse({}, status_code=401)
 
     with pytest.raises(requests.exceptions.HTTPError):
         QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
@@ -740,18 +654,19 @@ def test_onprem_verify_server_hostname_false_skips_name_checks(
 ) -> None:
     session = mock_session_cls.return_value
     session.headers = {}
-    session.get.side_effect = _qrs_get
+    session.get.side_effect = fake_qrs_get
     config = QlikSourceConfig.model_validate(
-        {**ONPREM_CONFIG, "verify_server_hostname": False}
+        {"on_prem": {**ON_PREM, "verify_server_hostname": False}}
     )
 
     api = QlikOnPremAPI(config)
     api._open_engine("app-1")
 
-    assert config.tls_assert_hostname() is False
+    assert config.on_prem is not None
+    assert config.on_prem.tls_assert_hostname() is False
     assert session.verify == "/secrets/root.pem"
     _, adapter = session.mount.call_args.args
-    assert adapter._assert_hostname is False
+    assert adapter.poolmanager.connection_pool_kw["assert_hostname"] is False
     sslopt = mock_connect.call_args.kwargs["sslopt"]
     assert sslopt["check_hostname"] is False
     assert sslopt["cert_reqs"] == ssl.CERT_REQUIRED
@@ -764,14 +679,17 @@ def test_onprem_server_cert_hostname_overrides_tls_name(
     session = mock_session_cls.return_value
     session.headers = {}
     config = QlikSourceConfig.model_validate(
-        {**ONPREM_CONFIG, "server_cert_hostname": "qlik-central.example.com"}
+        {"on_prem": {**ON_PREM, "server_cert_hostname": "qlik-central.example.com"}}
     )
 
     api = QlikOnPremAPI(config)
 
     prefix, adapter = session.mount.call_args.args
     assert prefix == api.qrs_url
-    assert adapter._assert_hostname == "qlik-central.example.com"
+    assert (
+        adapter.poolmanager.connection_pool_kw["assert_hostname"]
+        == "qlik-central.example.com"
+    )
     assert config.ui_hostname() == "qlik-central.example.com"
 
 
@@ -798,12 +716,20 @@ def test_onprem_websocket_uses_cert_hostname(mock_connect: MagicMock) -> None:
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
 def test_cloud_websocket_raises_engine_error(mock_connect: MagicMock) -> None:
     socket = MagicMock()
-    socket.recv.return_value = json.dumps(
-        {"jsonrpc": "2.0", "id": 1, "error": {"code": 5, "message": "Access denied"}}
-    )
+    socket.recv.side_effect = [
+        json.dumps({"jsonrpc": "2.0", "method": "OnConnected", "params": {}}),
+        json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"qReturn": {"qHandle": 1}}}),
+        json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "error": {"code": 5, "message": "Access denied"},
+            }
+        ),
+    ]
     mock_connect.return_value = socket
     connection = WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
-    connection.handle.append(1)
+    connection.websocket_send_request(method="OpenDoc", params={"qDocName": "app-1"})
 
     with pytest.raises(RuntimeError, match="Access denied"):
         connection.get_script()
@@ -958,19 +884,19 @@ def test_onprem_unpublished_apps(
 
     def get(
         url: str, params: Optional[Dict[str, str]] = None, **_: object
-    ) -> _Response:
+    ) -> FakeResponse:
         if url.endswith("/app/full"):
             assert params is not None
             filters.append(params["filter"])
-            return _Response([])
-        return _qrs_get(url, params)
+            return FakeResponse([])
+        return fake_qrs_get(url, params)
 
     session = mock_session_cls.return_value
     session.headers = {}
     session.get.side_effect = get
     api = QlikOnPremAPI(
         QlikSourceConfig.model_validate(
-            {**ONPREM_CONFIG, "ingest_unpublished_apps": ingest_unpublished}
+            {"on_prem": {**ON_PREM, "ingest_unpublished_apps": ingest_unpublished}}
         )
     )
 

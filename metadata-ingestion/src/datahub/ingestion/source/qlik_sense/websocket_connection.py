@@ -25,7 +25,8 @@ class WebsocketConnection:
             url, header=header, sslopt=sslopt or {}
         )
         self.request_id = 0
-        self.handle = [-1]
+        # Engine object handles, innermost last; -1 is the global handle.
+        self._handles = [-1]
 
     @classmethod
     def for_cloud(
@@ -67,13 +68,17 @@ class WebsocketConnection:
             sslopt=sslopt,
         )
 
+    @property
+    def handles(self) -> List[int]:
+        return list(self._handles)
+
     @contextmanager
     def restore_handle(self) -> Iterator[None]:
-        depth = len(self.handle)
+        depth = len(self._handles)
         try:
             yield
         finally:
-            del self.handle[depth:]
+            del self._handles[depth:]
 
     def _build_websocket_request_dict(
         self, method: str, params: Optional[Union[Dict, List]] = None
@@ -82,35 +87,33 @@ class WebsocketConnection:
         return {
             "jsonrpc": "2.0",
             "id": self.request_id,
-            "handle": self.handle[-1],
+            "handle": self._handles[-1],
             "method": method,
             "params": params,
         }
 
-    def _recv_matching(self, request_id: int) -> Dict:
-        if not self.socket_connection:
-            return {}
+    @staticmethod
+    def _result(message: Dict) -> Dict:
+        if "error" in message:
+            raise RuntimeError(str(message["error"]))
+        return message[Constant.RESULT]
+
+    def _recv_matching(self, socket_connection: WebSocket, request_id: int) -> Dict:
         while True:
-            message = json.loads(self.socket_connection.recv())
-            if message.get("id") != request_id:
-                continue
-            if "error" in message:
-                raise RuntimeError(str(message["error"]))
-            return message[Constant.RESULT]
+            message = json.loads(socket_connection.recv())
+            if message.get("id") == request_id:
+                return self._result(message)
 
     def _send_request(self, request: Dict) -> Dict:
-        if self.socket_connection:
-            self.socket_connection.send(json.dumps(request))
-            if self._match_response_id:
-                return self._recv_matching(request["id"])
+        if not self.socket_connection:
+            return {}
+        self.socket_connection.send(json.dumps(request))
+        if self._match_response_id:
+            return self._recv_matching(self.socket_connection, request["id"])
+        resp = self.socket_connection.recv()
+        if request["handle"] == -1:
             resp = self.socket_connection.recv()
-            if request["handle"] == -1:
-                resp = self.socket_connection.recv()
-            message = json.loads(resp)
-            if "error" in message:
-                raise RuntimeError(str(message["error"]))
-            return message[Constant.RESULT]
-        return {}
+        return self._result(json.loads(resp))
 
     def websocket_send_request(
         self, method: str, params: Optional[Union[Dict, List]] = None
@@ -124,7 +127,7 @@ class WebsocketConnection:
         response = self._send_request(request=request)
         handle = response.get(Constant.QRETURN, {}).get(Constant.QHANDLE)
         if handle:
-            self.handle.append(handle)
+            self._handles.append(handle)
         return response
 
     def get_script(self) -> str:

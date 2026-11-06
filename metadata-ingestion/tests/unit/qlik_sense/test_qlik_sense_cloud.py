@@ -8,8 +8,14 @@ import requests_mock as requests_mock_module
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
-from datahub.ingestion.source.qlik_sense.data_classes import App, QlikTable, Sheet
+from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
+    QlikTable,
+    Sheet,
+    UnreadItem,
+)
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
+from datahub.ingestion.source.qlik_sense.qlik_base_api import ReadErrors
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
 from datahub.metadata.schema_classes import UpstreamLineageClass as UpstreamLineage
@@ -27,7 +33,7 @@ def test_load_model_failure_leaves_app_handle_on_top(
         )
     )
     websocket = MagicMock()
-    websocket.handle = [-1, 1]
+    websocket._handles = [-1, 1]
     websocket.restore_handle = partial(WebsocketConnection.restore_handle, websocket)
     replies: List[object] = [
         {"qReturn": {"qHandle": 2, "qType": "LoadModel"}},
@@ -38,13 +44,15 @@ def test_load_model_failure_leaves_app_handle_on_top(
         reply = replies.pop(0)
         if isinstance(reply, Exception):
             raise reply
-        websocket.handle.append(2)
+        websocket._handles.append(2)
         return reply
 
     websocket.websocket_send_request.side_effect = send
 
-    assert api._get_app_used_tables(websocket, "app-1") == []
-    assert websocket.handle == [-1, 1]
+    errors = ReadErrors()
+    assert api._get_app_used_tables(websocket, "app-1", errors) == []
+    assert websocket._handles == [-1, 1]
+    assert len(errors.messages) == 1
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
@@ -57,17 +65,19 @@ def test_missing_load_model_leaves_app_handle_on_top(
         )
     )
     websocket = MagicMock()
-    websocket.handle = [-1, 1]
+    websocket._handles = [-1, 1]
     websocket.restore_handle = partial(WebsocketConnection.restore_handle, websocket)
 
     def send(method: str, params: object = None) -> object:
-        websocket.handle.append(2)
+        websocket._handles.append(2)
         return {"qReturn": {"qHandle": 2, "qType": None}}
 
     websocket.websocket_send_request.side_effect = send
 
-    assert api._get_app_used_tables(websocket, "app-1") == []
-    assert websocket.handle == [-1, 1]
+    errors = ReadErrors()
+    assert api._get_app_used_tables(websocket, "app-1", errors) == []
+    assert websocket._handles == [-1, 1]
+    assert errors.messages == []
 
 
 @pytest.mark.parametrize(
@@ -87,7 +97,7 @@ def test_failed_request_is_recorded_as_unread(
 
     getattr(api, call)(*(["space-1"] if call == "get_items" else []))
 
-    assert api.unread_items == [unread]
+    assert api.unread_items == [UnreadItem(name=unread, cause="down")]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
@@ -102,24 +112,29 @@ def test_partly_read_app_is_marked_incomplete(
     app = MagicMock(tables=[])
     mock_app_cls.model_validate.return_value = app
 
-    def unreadable_sheets(*_: object) -> List[Sheet]:
-        api._log_http_error("Unable to fetch sheets")
+    def unreadable_sheets(
+        websocket: object, app_id: str, errors: ReadErrors
+    ) -> List[Sheet]:
+        errors.record("Unable to fetch sheets")
         return []
 
     with (
         patch.object(api, "_get_app_sheets", side_effect=unreadable_sheets),
         patch.object(api, "_get_app_used_tables", return_value=[]),
-        patch.object(api, "_get_app_script", return_value=None),
+        patch.object(api, "_read_load_script", return_value=None),
     ):
         assert api._get_app("app-1") is app
 
-    assert app.read_complete is False
+    assert app.read_errors == ["Unable to fetch sheets"]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_unread_items_are_reported_as_failures(mock_api_cls: MagicMock) -> None:
     mock_api_cls.return_value.get_spaces.return_value = []
-    mock_api_cls.return_value.unread_items = ["spaces", "data connections"]
+    mock_api_cls.return_value.unread_items = [
+        UnreadItem(name="spaces", cause="503 Server Error"),
+        UnreadItem(name="data connections", cause="timed out"),
+    ]
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
         PipelineContext(run_id="test-cloud"),
@@ -127,8 +142,11 @@ def test_unread_items_are_reported_as_failures(mock_api_cls: MagicMock) -> None:
 
     list(source.get_workunits_internal())
 
-    assert [failure.title for failure in source.reporter.failures] == [
-        "Unable to read from Qlik"
+    (failure,) = source.reporter.failures
+    assert failure.title == "Unable to read from Qlik"
+    assert list(failure.context) == [
+        "spaces: 503 Server Error",
+        "data connections: timed out",
     ]
 
 
@@ -154,7 +172,7 @@ def test_denied_load_script_keeps_app_complete(
 
     assert app.script is None
     assert app.script_read_failed is True
-    assert app.read_complete is True
+    assert app.read_errors == []
 
 
 def _cloud_app(**extra: object) -> App:
