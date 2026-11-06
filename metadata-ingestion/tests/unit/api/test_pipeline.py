@@ -98,7 +98,9 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            # We don't want to make actual API calls during this test.
+            report_to=None,
         )
         # assert that the default sink is a DatahubRestSink
         assert isinstance(pipeline.sink, DatahubRestSink)
@@ -231,7 +233,9 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            # We don't want to make actual API calls during this test.
+            report_to=None,
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
         # On degrade, sink_type must reflect the sink actually built, not the
@@ -267,7 +271,9 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            # We don't want to make actual API calls during this test.
+            report_to=None,
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
         assert pipeline.sink_type == "datahub-rest"
@@ -305,7 +311,9 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            # We don't want to make actual API calls during this test.
+            report_to=None,
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
         assert pipeline.sink_type == "datahub-rest"
@@ -335,7 +343,9 @@ class TestPipeline:
                         "type": "file",
                         "config": {"path": "test_file.json"},
                     },
-                }
+                },
+                # We don't want to make actual API calls during this test.
+                report_to=None,
             )
         assert isinstance(pipeline.sink, DatahubRestSink)
         assert pipeline.sink_type == "datahub-rest"
@@ -367,7 +377,9 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            # We don't want to make actual API calls during this test.
+            report_to=None,
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
         assert pipeline.sink_type == "datahub-rest"
@@ -419,7 +431,9 @@ class TestPipeline:
                     "type": "file",
                     "config": {"path": "test_file.json"},
                 },
-            }
+            },
+            # We don't want to make actual API calls during this test.
+            report_to=None,
         )
         # assert that the default sink is a DatahubRestSink
         assert isinstance(pipeline.sink, DatahubRestSink)
@@ -731,7 +745,9 @@ sink:
                         "token": "foo",
                     },
                 },
-            }
+            },
+            # We don't want to make actual API calls during this test.
+            report_to=None,
         )
 
         # Assert that the DataHubGraph is initialized with expected properties
