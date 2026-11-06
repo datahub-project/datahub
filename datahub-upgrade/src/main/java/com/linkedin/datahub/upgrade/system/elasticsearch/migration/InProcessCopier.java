@@ -28,13 +28,17 @@ public final class InProcessCopier implements CrossClusterCopier {
   private static final String NDJSON = "application/x-ndjson";
 
   /**
-   * Replaces the target's document with the source's unless the target's is newer by the guard
-   * field. On a document the target lacks the upsert runs this over an empty source, which the else
-   * branch fills.
+   * Replaces the target's document with the source's unless the target's is current: newer by the
+   * guard field; stamped where the source's copy is not, since the write that stamped it came after
+   * the source was read (a graph edge gains {@code updatedOn} on its first update); or the same by
+   * field and content, which is a mirrored write already delivered and must count as nothing
+   * written, or a pass could never come out clean under live traffic. On a document the target
+   * lacks the upsert runs this over an empty source, which the else branch fills.
    */
   static final String GUARDED_REPLACE_SCRIPT =
       "def mine = ctx._source[params.field];"
-          + " if (mine != null && params.value != null && mine > params.value) { ctx.op = 'none' }"
+          + " if (mine != null && (params.value == null || mine > params.value"
+          + " || (mine == params.value && ctx._source == params.doc))) { ctx.op = 'none' }"
           + " else { ctx._source.clear(); ctx._source.putAll(params.doc) }";
 
   // A mirrored write can land between the script's read and its write; the retry re-evaluates it.
@@ -265,11 +269,14 @@ public final class InProcessCopier implements CrossClusterCopier {
     for (JsonNode item : response.path("items")) {
       final JsonNode result = actionResult(item);
       final int status = result.path("status").asInt();
-      if (status == 201) {
+      if (status == 201 || (status == 200 && "updated".equals(result.path("result").asText()))) {
+        // Created, or a guarded replace that wrote the source's version over an older one: either
+        // way the target lacked what the source holds.
         created++;
       } else if (status == 200 || status == 409) {
-        // A create the target already had, or a guarded replace that updated or left the
-        // document alone.
+        // A create the target already had; a guarded replace that found the target current
+        // (noop); or one that lost every conflict retry to live mirrored writes of the same
+        // document, which are newer than anything read here.
         alreadyPresent++;
       } else {
         failures++;

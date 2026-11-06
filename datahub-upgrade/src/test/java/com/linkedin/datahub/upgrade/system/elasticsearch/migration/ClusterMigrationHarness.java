@@ -763,6 +763,9 @@ final class ClusterMigrationHarness implements AutoCloseable {
     container
         .withEnv("OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m")
         .withEnv("DISABLE_SECURITY_PLUGIN", "true")
+        // A developer machine near its Docker disk watermark would otherwise make the cluster
+        // refuse the staging indices the copy creates mid-run.
+        .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
         .withStartupTimeout(STARTUP_TIMEOUT);
     return container;
   }

@@ -19,9 +19,10 @@ public interface CrossClusterCopier {
    *
    * @param total documents the source held for the partition when the copy began (informational)
    * @param read documents the copy processed
-   * @param created documents created on the target by this copy
+   * @param created documents this copy wrote on the target: created, or for a guarded partition
+   *     replaced with the source's version because the target's was older
    * @param alreadyPresent documents the target already had (the mirror or an earlier attempt), or
-   *     for a guarded partition documents the target had and that were replaced or left alone
+   *     for a guarded partition documents the target held a current version of and left alone
    * @param failures documents the target rejected for another reason
    * @param paused true when the copy stopped early on request and can resume from its checkpoint
    */

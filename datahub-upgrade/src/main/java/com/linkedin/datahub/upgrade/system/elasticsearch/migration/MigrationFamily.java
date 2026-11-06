@@ -24,12 +24,23 @@ public final class MigrationFamily {
   private final SearchComponent family;
   @Nullable private final MigratableIndexed service;
 
+  /** Why the family cannot migrate on this deployment; null when it can. */
+  @Nullable private final String unsupportedReason;
+
   private MigrationFamily(
-      @Nonnull final SearchComponent family, @Nullable final MigratableIndexed service) {
+      @Nonnull final SearchComponent family,
+      @Nullable final MigratableIndexed service,
+      @Nullable final String unsupportedReason) {
     this.family = family;
     this.service = service;
+    this.unsupportedReason = unsupportedReason;
   }
 
+  /**
+   * Every family is constructed whatever backs it, so the upgrade comes up on a deployment that
+   * cannot migrate one of them (a Neo4j graph); only a migration configured for such a family
+   * fails, see {@link #checkSupported()}.
+   */
   @Nonnull
   public static MigrationFamily of(
       @Nonnull final SearchComponent family,
@@ -38,32 +49,49 @@ public final class MigrationFamily {
       @Nonnull final TimeseriesAspectService timeseriesAspectService) {
     switch (family) {
       case GRAPH:
-        return new MigrationFamily(family, indexed(graphService));
+        return backedBy(family, graphService);
       case SYSTEM_METADATA:
-        return new MigrationFamily(family, indexed(systemMetadataService));
+        return backedBy(family, systemMetadataService);
       case TIMESERIES:
-        return new MigrationFamily(family, indexed(timeseriesAspectService));
+        return backedBy(family, timeseriesAspectService);
       case USAGE:
-        return new MigrationFamily(family, null);
+        return new MigrationFamily(family, null, null);
       default:
         throw new IllegalArgumentException(family + " is not a migratable family");
     }
   }
 
   @Nonnull
-  private static MigratableIndexed indexed(@Nonnull final Object service) {
-    if (!(service instanceof MigratableIndexed)) {
-      throw new IllegalStateException(
-          service.getClass().getSimpleName()
-              + " cannot build its indices on another cluster; only Elasticsearch/OpenSearch"
-              + " families migrate");
+  private static MigrationFamily backedBy(
+      @Nonnull final SearchComponent family, @Nonnull final Object service) {
+    if (service instanceof MigratableIndexed) {
+      return new MigrationFamily(family, (MigratableIndexed) service, null);
     }
-    return (MigratableIndexed) service;
+    return new MigrationFamily(
+        family,
+        null,
+        service.getClass().getSimpleName()
+            + " cannot build its indices on another cluster; only Elasticsearch/OpenSearch"
+            + " families migrate");
   }
 
   @Nonnull
   public SearchComponent getFamily() {
     return family;
+  }
+
+  /** Whether this deployment's backend for the family can migrate at all. */
+  public boolean isSupported() {
+    return unsupportedReason == null;
+  }
+
+  /**
+   * @throws IllegalStateException when this deployment's backend for the family cannot migrate
+   */
+  public void checkSupported() {
+    if (unsupportedReason != null) {
+      throw new IllegalStateException(family.getConfigKey() + ": " + unsupportedReason);
+    }
   }
 
   /** The service whose mappings define the family's indices; null for usage events. */
@@ -101,28 +129,45 @@ public final class MigrationFamily {
         : List.of(timeField());
   }
 
-  /** The query that selects the documents written at or after {@code windowStart}. */
+  /**
+   * The query that selects the documents written at or after {@code from}, and at or before {@code
+   * to} when that is given.
+   */
   @Nonnull
-  public ObjectNode windowFilter(@Nonnull final ObjectMapper mapper, final long windowStart) {
+  public ObjectNode windowFilter(
+      @Nonnull final ObjectMapper mapper, final long from, @Nullable final Long to) {
     final List<String> fields = windowFields();
     if (fields.size() == 1) {
       final ObjectNode range = mapper.createObjectNode();
-      range.putObject("range").putObject(fields.get(0)).put("gte", windowStart);
+      bounds(range.putObject("range").putObject(fields.get(0)), from, to);
       return range;
     }
     final ObjectNode filter = mapper.createObjectNode();
     final ObjectNode bool = filter.putObject("bool");
     final ArrayNode should = bool.putArray("should");
     for (String field : fields) {
-      should.addObject().putObject("range").putObject(field).put("gte", windowStart);
+      bounds(should.addObject().putObject("range").putObject(field), from, to);
     }
     bool.put("minimum_should_match", 1);
     return filter;
   }
 
-  /** Whether a document can change after it is written, so a windowed pass must overwrite. */
+  private static void bounds(
+      @Nonnull final ObjectNode range, final long from, @Nullable final Long to) {
+    range.put("gte", from);
+    if (to != null) {
+      range.put("lte", to);
+    }
+  }
+
+  /**
+   * Whether a document can change after it is written, so a windowed pass must replace rather than
+   * create. Graph edges and system metadata rows are updated in place; a timeseries document keyed
+   * by a time bucket (usage statistics, a profile with an explicit timestamp) is upserted again
+   * when its bucket is re-ingested. Usage events alone are inserted once under a new id.
+   */
   public boolean isMutable() {
-    return family == SearchComponent.GRAPH || family == SearchComponent.SYSTEM_METADATA;
+    return family != SearchComponent.USAGE;
   }
 
   /**

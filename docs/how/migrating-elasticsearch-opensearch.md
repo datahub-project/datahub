@@ -84,7 +84,9 @@ ELASTICSEARCH_CLUSTERS_SECONDARY_PASSWORD=<password, if any>
 DataHub detects the engine of each cluster on its own. Leave
 `ELASTICSEARCH_CLUSTERS_SECONDARY_INDEX_PREFIX` unset: the copied indices then carry the
 deployment's index prefix and keep their names when OpenSearch becomes the primary cluster in step 5.
-Deploy. Nothing is served from OpenSearch yet.
+Deploy this step on its own, before step 3. Nothing is served from OpenSearch yet, but from now on
+every GMS and MAE consumer reports itself as a live writer, which is how the next deploy's copy knows
+when the pods of this one have gone.
 
 ### 3. Migrate the four index families
 

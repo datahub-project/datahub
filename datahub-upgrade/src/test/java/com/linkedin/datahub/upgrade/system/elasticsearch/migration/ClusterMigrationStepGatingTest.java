@@ -26,6 +26,7 @@ import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ClusterMigrationState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -162,6 +163,155 @@ public class ClusterMigrationStepGatingTest {
   }
 
   @Test
+  public void testAFamilyOnAnotherBackendComesUpAndOnlyAConfiguredMigrationOfItFails()
+      throws Exception {
+    // A Neo4j graph: system update must still construct (such deployments run it with no migration
+    // at all), and only a migration configured for that family fails, before it touches anything.
+    GraphService neo4j = mock(GraphService.class);
+    ClusterMigrationPrepare upgrade =
+        new ClusterMigrationPrepare(
+            opContext,
+            entityService,
+            registry(null, true, 0),
+            CONVENTION,
+            neo4j,
+            mock(ElasticSearchSystemMetadataService.class),
+            mock(ElasticSearchTimeseriesAspectService.class),
+            "v1");
+    assertEquals(upgrade.steps().size(), ClusterMigrationConfiguration.MIGRATABLE_FAMILIES.size());
+    assertTrue(upgrade.steps().stream().allMatch(step -> step.skip(context)));
+
+    MigrationFamily graphOnNeo4j =
+        MigrationFamily.of(
+            SearchComponent.GRAPH,
+            neo4j,
+            mock(ElasticSearchSystemMetadataService.class),
+            mock(ElasticSearchTimeseriesAspectService.class));
+    SearchClusterRegistry migrating = registry(SearchComponent.GRAPH, true, 0);
+    ClusterMigrationPrepareStep prepare =
+        new ClusterMigrationPrepareStep(
+            opContext, entityService, migrating, CONVENTION, graphOnNeo4j, "v1");
+    ClusterMigrationCopyStep copy =
+        new ClusterMigrationCopyStep(
+            opContext, entityService, migrating, CONVENTION, graphOnNeo4j, "v1");
+
+    assertFalse(prepare.skip(context));
+    assertEquals(prepare.executable().apply(context).result(), DataHubUpgradeState.FAILED);
+    assertEquals(copy.executable().apply(context).result(), DataHubUpgradeState.FAILED);
+    verify(targetClient, never()).performLowLevelRequest(any(), any());
+    verify(sourceClient, never()).performLowLevelRequest(any(), any());
+  }
+
+  @Test
+  public void testARejectedLogIndexMappingFailsThePrepare() throws Exception {
+    // Only a creation that raced this one is tolerated; a rejected mapping would leave the family
+    // without its delete log.
+    StubCluster target = new StubCluster(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    target.on("HEAD", "/graph_service_v1", new StubCluster.Reply(404, ""));
+    target.on(
+        "PUT",
+        "/cluster_migration_log_graph",
+        new StubCluster.Reply(
+            400,
+            "{\"error\":{\"type\":\"mapper_parsing_exception\",\"reason\":\"no such type\"}}"));
+    targetClient = target.shim;
+    ClusterMigrationPrepareStep step =
+        new ClusterMigrationPrepareStep(
+            opContext,
+            entityService,
+            registry(SearchComponent.GRAPH, true, 0),
+            CONVENTION,
+            graph,
+            "v1");
+
+    assertEquals(step.executable().apply(context).result(), DataHubUpgradeState.FAILED);
+
+    StubCluster raced = new StubCluster(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    raced.on("HEAD", "/graph_service_v1", new StubCluster.Reply(404, ""));
+    raced.on(
+        "PUT",
+        "/cluster_migration_log_graph",
+        new StubCluster.Reply(400, "{\"error\":{\"type\":\"resource_already_exists_exception\"}}"));
+    targetClient = raced.shim;
+    ClusterMigrationPrepareStep racedStep =
+        new ClusterMigrationPrepareStep(
+            opContext,
+            entityService,
+            registry(SearchComponent.GRAPH, true, 0),
+            CONVENTION,
+            graph,
+            "v1");
+
+    assertEquals(racedStep.executable().apply(context).result(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  @Test
+  public void testAWindowedPassThatWroteAnythingRunsAgainAndOnlyACleanOneVerifies()
+      throws Exception {
+    // The first pass finds a document the mirror had not delivered (a pod of the previous rollout
+    // was still serving the old configuration when the copy began); the second finds the target
+    // current, and only then is the family verified.
+    StubCluster source = new StubCluster(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    StubCluster target = new StubCluster(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    source.on("HEAD", "/graph_service_v1", StubCluster.Reply.ok(""));
+    source.on("POST", "/graph_service_v1/_refresh", StubCluster.Reply.ok("{}"));
+    source.on("POST", "/graph_service_v1/_count", StubCluster.Reply.ok("{\"count\":1}"));
+    source.on(
+        "POST",
+        "/graph_service_v1/_search",
+        call ->
+            call.body().contains("\"_source\":false")
+                // The verifier's sample of the newest documents.
+                ? StubCluster.Reply.ok("{\"hits\":{\"hits\":[]}}")
+                // The windowed pass's one page.
+                : StubCluster.Reply.ok(
+                    "{\"_scroll_id\":\"s\",\"hits\":{\"total\":{\"value\":1},"
+                        + "\"hits\":[{\"_id\":\"a\",\"_source\":{\"updatedOn\":5}}]}}"));
+    source.on(
+        "POST",
+        "/_search/scroll",
+        StubCluster.Reply.ok("{\"_scroll_id\":\"s\",\"hits\":{\"hits\":[]}}"));
+    source.on("DELETE", "/_search/scroll", StubCluster.Reply.ok("{}"));
+    target.on("POST", "/graph_service_v1/_refresh", StubCluster.Reply.ok("{}"));
+    target.on("POST", "/graph_service_v1/_count", StubCluster.Reply.ok("{\"count\":1}"));
+    List<String> bulkReplies =
+        new ArrayList<>(
+            List.of(
+                "{\"items\":[{\"update\":{\"status\":200,\"result\":\"updated\"}}]}",
+                "{\"items\":[{\"update\":{\"status\":200,\"result\":\"noop\"}}]}"));
+    target.on("POST", "/_bulk", call -> StubCluster.Reply.ok(bulkReplies.remove(0)));
+    sourceClient = source.shim;
+    targetClient = target.shim;
+    ClusterMigrationCopyStep.windowRepeatPauseMs = 0;
+    String upgradeId =
+        ClusterMigrationState.upgradeId(SearchComponent.GRAPH, "primary", "secondary");
+    ClusterMigrationRow row = ClusterMigrationRow.load(opContext, entityService, upgradeId);
+    row.setStatus(ClusterMigrationState.Status.WINDOW);
+    row.put(ClusterMigrationState.COPY_START_TIME, 100L);
+    row.put(ClusterMigrationState.mirrorActiveSinceKey(ClusterMigrationState.Process.GMS), 5L);
+    row.put(ClusterMigrationState.mirrorActiveSinceKey(ClusterMigrationState.Process.MAE), 7L);
+    row.persist(DataHubUpgradeState.IN_PROGRESS);
+    ClusterMigrationCopyStep step =
+        new ClusterMigrationCopyStep(
+            opContext,
+            entityService,
+            registry(SearchComponent.GRAPH, true, 0),
+            CONVENTION,
+            graph,
+            "v1");
+
+    assertEquals(step.executable().apply(context).result(), DataHubUpgradeState.SUCCEEDED);
+
+    assertEquals(
+        target.calls("POST", "/_bulk").size(),
+        2,
+        "the pass that wrote something was followed by one that wrote nothing");
+    assertEquals(
+        ClusterMigrationRow.load(opContext, entityService, upgradeId).status().orElseThrow(),
+        ClusterMigrationState.Status.VERIFIED);
+  }
+
+  @Test
   public void testCopyWaitsForBothLiveWritersBeforeReadingTheSource() throws Exception {
     ClusterMigrationRow row =
         ClusterMigrationRow.load(
@@ -189,6 +339,64 @@ public class ClusterMigrationStepGatingTest {
             .status()
             .orElseThrow(),
         ClusterMigrationState.Status.PREPARED);
+  }
+
+  @Test
+  public void testTheCopyWaitsWhileAWriterOfThePreviousRolloutStillReports() throws Exception {
+    // Both markers of this rollout are in, but a pod of the previous rollout (started before the
+    // stamp, serving the old configuration, so not mirroring) is still reporting: nothing may be
+    // read from the source until it stops.
+    sourceClient = new StubCluster(SearchClientShim.SearchEngineType.OPENSEARCH_2).shim;
+    String upgradeId =
+        ClusterMigrationState.upgradeId(SearchComponent.GRAPH, "primary", "secondary");
+    ClusterMigrationRow row = ClusterMigrationRow.load(opContext, entityService, upgradeId);
+    row.setStatus(ClusterMigrationState.Status.PREPARED);
+    row.put(ClusterMigrationState.ROLLOUT_STARTED_AT, 100L);
+    row.put(ClusterMigrationState.mirrorActiveSinceKey(ClusterMigrationState.Process.GMS), 150L);
+    row.put(ClusterMigrationState.mirrorActiveSinceKey(ClusterMigrationState.Process.MAE), 160L);
+    row.persist(DataHubUpgradeState.IN_PROGRESS);
+    long now = System.currentTimeMillis();
+    ClusterMigrationRow writers =
+        ClusterMigrationRow.load(
+            opContext, entityService, ClusterMigrationState.WRITERS_UPGRADE_ID);
+    writers.put(
+        ClusterMigrationState.writerKey("gms-old"), ClusterMigrationState.writerValue(50L, now));
+    writers.put(
+        ClusterMigrationState.writerKey("gms-new"), ClusterMigrationState.writerValue(150L, now));
+    writers.persist(DataHubUpgradeState.SUCCEEDED);
+    ClusterMigrationCopyStep step =
+        new ClusterMigrationCopyStep(
+            opContext,
+            entityService,
+            registry(SearchComponent.GRAPH, true, 0),
+            CONVENTION,
+            graph,
+            "v1");
+
+    assertEquals(step.executable().apply(context).result(), DataHubUpgradeState.SUCCEEDED);
+
+    assertEquals(
+        ClusterMigrationRow.load(opContext, entityService, upgradeId).status().orElseThrow(),
+        ClusterMigrationState.Status.PREPARED,
+        "nothing started while the old pod was still writing");
+    verify(sourceClient, never()).performLowLevelRequest(any(), any());
+
+    // The old pod terminated: three missed reports later it no longer counts.
+    writers =
+        ClusterMigrationRow.load(
+            opContext, entityService, ClusterMigrationState.WRITERS_UPGRADE_ID);
+    writers.put(
+        ClusterMigrationState.writerKey("gms-old"),
+        ClusterMigrationState.writerValue(
+            50L, now - ClusterMigrationState.WRITER_STALE_AFTER_MS - 1));
+    writers.persist(DataHubUpgradeState.SUCCEEDED);
+
+    step.executable().apply(context);
+
+    assertNotEquals(
+        ClusterMigrationRow.load(opContext, entityService, upgradeId).status().orElseThrow(),
+        ClusterMigrationState.Status.PREPARED,
+        "the copy started once the previous rollout's writers were gone");
   }
 
   @Test

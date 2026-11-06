@@ -191,7 +191,7 @@ final class UsagePostFlipSweep {
           nowServing.getName(),
           liveStaging);
     } else if (servingSet.backingIndices().contains(liveStaging)) {
-      adopter.finish(servingSet.layout(), liveStaging);
+      adopter.settle(servingSet.layout(), liveStaging, true);
     } else {
       adopter.adopt(servingSet.layout(), servingLogical, liveStaging, true);
     }

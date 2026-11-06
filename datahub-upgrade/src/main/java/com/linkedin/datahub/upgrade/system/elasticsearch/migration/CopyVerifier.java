@@ -118,6 +118,13 @@ final class CopyVerifier {
       missing = missingOnTarget(targetIndex, new ArrayList<>(missing));
     }
     if (!missing.isEmpty()) {
+      // A sampled document the source no longer holds was deleted since the sample was taken (graph
+      // edges are replaced on every ingestion run, and the newest are the ones in flux); the
+      // mirror removed it from the target, which is not a loss.
+      source.refresh(sourceIndex);
+      missing.retainAll(presentOn(source, sourceIndex, new ArrayList<>(missing)));
+    }
+    if (!missing.isEmpty()) {
       log.warn(
           "{}: {} of the {} newest documents of {} are missing on {} after {} looks: {}",
           stepId,
@@ -134,16 +141,28 @@ final class CopyVerifier {
   @Nonnull
   private Set<String> missingOnTarget(
       @Nonnull final String targetIndex, @Nonnull final List<String> ids) throws IOException {
-    final ObjectNode lookup = target.object();
+    final Set<String> missing = new HashSet<>(ids);
+    missing.removeAll(presentOn(target, targetIndex, ids));
+    return missing;
+  }
+
+  /** The ids among {@code ids} that the index holds; ids travel in the body, never in a path. */
+  @Nonnull
+  private static Set<String> presentOn(
+      @Nonnull final ClusterHttp cluster,
+      @Nonnull final String index,
+      @Nonnull final List<String> ids)
+      throws IOException {
+    final ObjectNode lookup = cluster.object();
     lookup.put("size", ids.size());
     lookup.put("_source", false);
     final ArrayNode values = lookup.putObject("query").putObject("ids").putArray("values");
     ids.forEach(values::add);
-    final Set<String> missing = new HashSet<>(ids);
+    final Set<String> present = new HashSet<>();
     for (JsonNode hit :
-        target.json("POST", "/" + targetIndex + "/_search", lookup).path("hits").path("hits")) {
-      missing.remove(hit.path("_id").asText());
+        cluster.json("POST", "/" + index + "/_search", lookup).path("hits").path("hits")) {
+      present.add(hit.path("_id").asText());
     }
-    return missing;
+    return present;
   }
 }

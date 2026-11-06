@@ -24,7 +24,7 @@ public final class StagingIndexAdopter {
   }
 
   /**
-   * @param finished true when nothing writes to the staging index any more; see {@link #finish}
+   * @param finished true when nothing writes to the staging index any more; see {@link #settle}
    */
   public void adopt(
       @Nonnull final IndexLayout layout,
@@ -34,17 +34,15 @@ public final class StagingIndexAdopter {
       throws IOException {
     switch (layout) {
       case ROLLOVER_ALIAS:
-        adoptIntoAlias(logicalName, stagingIndex);
+        addToAlias(logicalName, stagingIndex);
         break;
       case DATA_STREAM:
-        adoptIntoDataStream(logicalName, stagingIndex);
+        addToDataStream(logicalName, stagingIndex);
         break;
       default:
         throw new IllegalArgumentException("A concrete index is not adopted: " + stagingIndex);
     }
-    if (finished) {
-      finish(layout, stagingIndex);
-    }
+    settle(layout, stagingIndex, finished);
     log.info(
         "Adopted {} into {} {} as a historical member (finished={})",
         stagingIndex,
@@ -54,25 +52,34 @@ public final class StagingIndexAdopter {
   }
 
   /**
-   * Marks an adopted data-stream member that nothing writes to any more as a completed generation,
-   * so ILM treats it as rolled over. An alias member needs nothing.
+   * What a member needs once it is in, idempotent so a run interrupted between the join and this
+   * completes it on a member it finds already in place. An alias member loses the ISM policy the
+   * template attached (the policy's rollover action can only fail on a non-write index); a
+   * data-stream member that nothing writes to any more is marked a completed generation, so ILM
+   * treats it as rolled over.
    */
-  public void finish(@Nonnull final IndexLayout layout, @Nonnull final String stagingIndex)
+  public void settle(
+      @Nonnull final IndexLayout layout, @Nonnull final String stagingIndex, final boolean finished)
       throws IOException {
     switch (layout) {
       case ROLLOVER_ALIAS:
+        // A cluster without the plugin answers 400, 404 or 405 and has no policy to remove; a
+        // refusal is an error.
+        target.answer("POST", "/_plugins/_ism/remove/" + stagingIndex, null, "400", "404", "405");
         return;
       case DATA_STREAM:
-        final ObjectNode settings = target.object();
-        settings.put("index.lifecycle.indexing_complete", true);
-        target.json("PUT", "/" + stagingIndex + "/_settings", settings, "400");
+        if (finished) {
+          final ObjectNode settings = target.object();
+          settings.put("index.lifecycle.indexing_complete", true);
+          target.json("PUT", "/" + stagingIndex + "/_settings", settings, "400");
+        }
         return;
       default:
         throw new IllegalArgumentException("A concrete index is not adopted: " + stagingIndex);
     }
   }
 
-  private void adoptIntoAlias(@Nonnull final String alias, @Nonnull final String stagingIndex)
+  private void addToAlias(@Nonnull final String alias, @Nonnull final String stagingIndex)
       throws IOException {
     final ObjectNode body = target.object();
     final ArrayNode actions = body.putArray("actions");
@@ -81,14 +88,10 @@ public final class StagingIndexAdopter {
     add.put("alias", alias);
     add.put("is_write_index", false);
     target.json("POST", "/_aliases", body);
-    // The template's ISM policy attaches to every index matching the pattern; on a non-write
-    // member its rollover action can only fail. A cluster without the plugin answers 400, 404 or
-    // 405 and has no policy to remove; a refusal is an error.
-    target.answer("POST", "/_plugins/_ism/remove/" + stagingIndex, null, "400", "404", "405");
   }
 
-  private void adoptIntoDataStream(
-      @Nonnull final String dataStream, @Nonnull final String stagingIndex) throws IOException {
+  private void addToDataStream(@Nonnull final String dataStream, @Nonnull final String stagingIndex)
+      throws IOException {
     final ObjectNode body = target.object();
     final ObjectNode add = body.putArray("actions").addObject().putObject("add_backing_index");
     add.put("data_stream", dataStream);

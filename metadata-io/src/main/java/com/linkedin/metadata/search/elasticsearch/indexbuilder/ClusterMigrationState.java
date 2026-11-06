@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.linkedin.metadata.config.search.SearchComponent;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,6 +52,24 @@ public final class ClusterMigrationState {
 
   /** {@code mirrorActiveSince.<process>}: when that process first mirrored a write (epoch ms). */
   public static final String MIRROR_ACTIVE_SINCE_PREFIX = "mirrorActiveSince.";
+
+  /**
+   * The row every live writer (GMS, the MAE consumer) reports to once a minute while a second
+   * cluster is declared, whether or not it migrates anything: {@code writer.<instance>} holds the
+   * process's start time and the time of its last report. The copy waits until no writer that
+   * started before the rollout's stamp is still reporting, which is how it knows that the previous
+   * rollout's pods, which do not mirror, have stopped writing. Those pods report although their
+   * configuration knows no migration, which is why the row is shared rather than per family.
+   */
+  public static final String WRITERS_UPGRADE_ID = UPGRADE_ID_PREFIX + "Writers";
+
+  public static final String WRITER_PREFIX = "writer.";
+
+  /** A writer that has not reported for this long is gone: three missed minute reports. */
+  public static final long WRITER_STALE_AFTER_MS = 3 * 60_000L;
+
+  /** A report older than this is dropped from the row the next time a writer reports. */
+  public static final long WRITER_RETENTION_MS = 24 * 60 * 60_000L;
 
   public static final String COPY_MODE = "copyMode";
   public static final String COPY_START_TIME = "copyStartTime";
@@ -117,7 +136,70 @@ public final class ClusterMigrationState {
     }
   }
 
+  /** One live writer's report: the process's start time and when it last reported. */
+  public record Writer(@Nonnull String instance, long startedAt, long lastSeen) {}
+
   private ClusterMigrationState() {}
+
+  @Nonnull
+  public static String writerKey(@Nonnull final String instance) {
+    return WRITER_PREFIX + instance;
+  }
+
+  @Nonnull
+  public static String writerValue(final long startedAt, final long lastSeen) {
+    return startedAt + ":" + lastSeen;
+  }
+
+  /**
+   * The report under a {@code writer.<instance>} key, or null for a key or value not of that shape.
+   */
+  @Nullable
+  public static Writer parseWriter(@Nonnull final String key, @Nullable final String value) {
+    if (!key.startsWith(WRITER_PREFIX) || value == null) {
+      return null;
+    }
+    final int colon = value.indexOf(':');
+    if (colon <= 0) {
+      return null;
+    }
+    try {
+      return new Writer(
+          key.substring(WRITER_PREFIX.length()),
+          Long.parseLong(value.substring(0, colon)),
+          Long.parseLong(value.substring(colon + 1)));
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
+  @Nonnull
+  public static List<Writer> writers(@Nonnull final Map<String, String> writersRow) {
+    final List<Writer> writers = new ArrayList<>();
+    for (Map.Entry<String, String> entry : writersRow.entrySet()) {
+      final Writer writer = parseWriter(entry.getKey(), entry.getValue());
+      if (writer != null) {
+        writers.add(writer);
+      }
+    }
+    return writers;
+  }
+
+  /**
+   * The writers that started before {@code rolloutStartedAt} and reported within {@link
+   * #WRITER_STALE_AFTER_MS} of {@code now}: pods of the previous rollout still serving, which do
+   * not mirror the family being migrated.
+   */
+  @Nonnull
+  public static List<Writer> previousRolloutWritersReporting(
+      @Nonnull final Map<String, String> writersRow, final long rolloutStartedAt, final long now) {
+    return writers(writersRow).stream()
+        .filter(
+            writer ->
+                writer.startedAt() < rolloutStartedAt
+                    && writer.lastSeen() >= now - WRITER_STALE_AFTER_MS)
+        .toList();
+  }
 
   /** {@code ClusterMigration_<family>_<source>_to_<target>}, the upgrade id and row identity. */
   @Nonnull

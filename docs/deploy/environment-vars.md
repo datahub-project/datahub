@@ -562,9 +562,17 @@ deploy to migrate, one deploy to flip, and a bake with a reverse mirror so rollb
 Watch `ClusterMigrationCopy_<family>` in the non-blocking system-update log. It waits up to
 `ELASTICSEARCH_CLUSTER_MIGRATION_LIVE_WRITER_WAIT_MINUTES` for both live writers (GMS and the MAE
 consumer) to report their mirror live, which they do within a minute of starting, so the non-blocking
-run of the migrating deploy normally carries the family to `VERIFIED` on its own. Past that wait, or
-at `..._COPY_MAX_HOURS`, it returns and resumes on the next run or on demand with
-`SystemUpdateNonBlocking -n ClusterMigrationCopy`. The
+run of the migrating deploy normally carries the family to `VERIFIED` on its own. It also waits, within
+the same budget, until every writer of the previous rollout has stopped: each GMS and MAE consumer
+reports itself once a minute on `urn:li:dataHubUpgrade:ClusterMigrationWriters` whenever a second
+cluster is declared, whether or not it migrates anything, and a pod that started before the
+rollout's stamp and is still reporting is serving the old configuration without the mirror. A pod
+running a version without this report cannot be seen, so declare the second cluster in a deploy
+before the one that migrates. Before it verifies, the documents the target received before the copy
+began are reconciled against the source (a delete those pods made without the mirror is repaired
+there), and a pass over everything written since the mirror started repeats until a pass writes
+nothing on the target. Past the wait, or at `..._COPY_MAX_HOURS`, it returns and resumes on the next
+run or on demand with `SystemUpdateNonBlocking -n ClusterMigrationCopy`. The
 migration row (`urn:li:dataHubUpgrade:ClusterMigration_<family>_<source>_to_<target>`) carries the plan,
 per-partition progress and the verification counts; flip only after its status is `VERIFIED`. The
 blocking step refuses to point a family at another cluster only while its current migration's copy is

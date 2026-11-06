@@ -32,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
  * poll: the live writes never depend on this bookkeeping.
  */
 @Slf4j
-public final class UpgradeRowMirrorLiveMarker {
+public final class UpgradeRowMirrorLiveMarker implements UpgradeRowPoll {
   static final long POLL_INTERVAL_MS = 60_000L;
 
   private final DataHubUpgradeResultStore store;
@@ -70,12 +70,14 @@ public final class UpgradeRowMirrorLiveMarker {
     return recorded;
   }
 
+  @Override
   @Nonnull
   public Urn getUpgradeUrn() {
     return upgradeUrn;
   }
 
   /** Reads the row once: records the markers it lacks and sets the delete log from its status. */
+  @Override
   public void poll() {
     try {
       final EnvelopedAspect latest = store.readLatest(systemOpContext, upgradeUrn);

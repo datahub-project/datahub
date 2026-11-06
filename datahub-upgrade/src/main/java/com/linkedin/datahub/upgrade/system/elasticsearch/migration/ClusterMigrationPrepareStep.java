@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.migration;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -89,6 +90,7 @@ public class ClusterMigrationPrepareStep implements UpgradeStep {
   private UpgradeStepResult prepare() throws Exception {
     final SearchClusterRegistry.FamilyMigration migration =
         registry.migrationFor(family.getFamily()).orElseThrow();
+    family.checkSupported();
     final String upgradeId =
         ClusterMigrationState.upgradeId(
             family.getFamily(), migration.getSourceCluster(), migration.getTargetCluster());
@@ -417,7 +419,19 @@ public class ClusterMigrationPrepareStep implements UpgradeStep {
     properties.putObject(MirroredWriteLog.FIELD_INDEX).put("type", "keyword");
     properties.putObject(MirroredWriteLog.FIELD_ID).put("type", "keyword");
     properties.putObject(MirroredWriteLog.FIELD_QUERY).put("type", "text").put("index", false);
-    targetHttp.json("PUT", "/" + logIndex, body, "400");
+    final JsonNode reply = targetHttp.json("PUT", "/" + logIndex, body, "400");
+    if (reply.has("error")) {
+      // After the check above the only 400 expected is a creation that raced this one; a rejected
+      // mapping or setting would leave the family without its delete log.
+      if (!"resource_already_exists_exception".equals(reply.path("error").path("type").asText())) {
+        throw new IOException("Could not create mirrored write log " + logIndex + ": " + reply);
+      }
+      log.info(
+          "Mirrored write log {} already exists on cluster '{}'",
+          logIndex,
+          migration.getTargetCluster());
+      return;
+    }
     log.info(
         "Created mirrored write log {} on cluster '{}'", logIndex, migration.getTargetCluster());
   }

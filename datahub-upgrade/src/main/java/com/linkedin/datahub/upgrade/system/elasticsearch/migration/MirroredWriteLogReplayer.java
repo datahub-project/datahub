@@ -21,11 +21,13 @@ import lombok.extern.slf4j.Slf4j;
  * mirror delete it on both clusters, and then create it on the target. A document the live writers
  * delete and write again keeps whatever timestamp its aspect carries, so no clock can tell such a
  * document from a resurrected one; the source can, since it is the family's truth until the flip.
- * For each logged entry the documents it matches on the target are looked up on the source: those
- * the source lacks are deleted, those it holds are written again as the source has them. The script
- * of a logged update is therefore not re-applied; the source's version of the document replaces
- * whatever the update would have produced. Entries are idempotent, so a replay interrupted halfway
- * is simply run again.
+ * For each logged entry the documents it matches, on the target and on the source, are compared:
+ * those the source lacks are deleted from the target, those it holds are written there as the
+ * source has them. The script of a logged update is therefore not re-applied; the source's version
+ * of the document replaces whatever the update would have produced. Matching on the source as well
+ * is what restores a document a by-query delete removed from the target but not from the source (an
+ * asynchronous one that failed there after it was mirrored); the target's side of the match can no
+ * longer name it. Entries are idempotent, so a replay interrupted halfway is simply run again.
  */
 @Slf4j
 public final class MirroredWriteLogReplayer {
@@ -42,6 +44,7 @@ public final class MirroredWriteLogReplayer {
   private final Map<String, Set<String>> pending = new LinkedHashMap<>();
 
   private int pendingCount;
+  private long matched;
   private long deleted;
   private long rewritten;
   private long leftAlone;
@@ -111,6 +114,31 @@ public final class MirroredWriteLogReplayer {
     return replayed;
   }
 
+  /**
+   * Reconciles every document on the target that {@code query} matches, the way a logged by-query
+   * entry is. The copy step hands it the documents the target received while the previous rollout's
+   * pods were still writing: a delete one of them made without the mirror leaves a document only
+   * the target holds, nothing logged it, and the source alone can tell.
+   *
+   * @return documents the query matched on the target
+   */
+  public long reconcileMatching(@Nonnull final String targetIndex, @Nonnull final ObjectNode query)
+      throws IOException {
+    final long before = matched;
+    rememberMatching(target, targetIndex, targetIndex, query.toString());
+    reconcileAll();
+    log.info(
+        "Reconciled {} documents of {} matching {}: {} deleted, {} written again from the source,"
+            + " {} left to a mirrored write that got there first",
+        matched - before,
+        targetIndex,
+        query,
+        deleted,
+        rewritten,
+        leftAlone);
+    return matched - before;
+  }
+
   private void collect(@Nonnull final JsonNode entry) throws IOException {
     final String kind = entry.path(MirroredWriteLog.FIELD_KIND).asText();
     final String index = entry.path(MirroredWriteLog.FIELD_INDEX).asText();
@@ -120,9 +148,9 @@ public final class MirroredWriteLogReplayer {
         break;
       case DELETE_BY_QUERY:
       case UPDATE_BY_QUERY:
-        for (String id : matchingIds(index, entry.path(MirroredWriteLog.FIELD_QUERY).asText())) {
-          remember(index, id);
-        }
+        final String query = entry.path(MirroredWriteLog.FIELD_QUERY).asText();
+        rememberMatching(target, index, index, query);
+        rememberMatching(source, sourceIndexOf(index), index, query);
         break;
       default:
         throw new IOException("Unknown mirrored write log entry kind " + kind);
@@ -136,45 +164,61 @@ public final class MirroredWriteLogReplayer {
     }
   }
 
-  /** Ids the query matches on the target now; ids only travel in request bodies, never in paths. */
-  @Nonnull
-  private List<String> matchingIds(@Nonnull final String index, @Nonnull final String queryJson)
+  /**
+   * Remembers every id the query matches on {@code cluster} now, page by page, so one wide
+   * operation never holds all of its ids at once; ids only travel in request bodies, never in
+   * paths.
+   */
+  private void rememberMatching(
+      @Nonnull final ClusterHttp cluster,
+      @Nonnull final String index,
+      @Nonnull final String targetIndex,
+      @Nonnull final String queryJson)
       throws IOException {
-    final List<String> ids = new ArrayList<>();
-    final ObjectNode body = target.object();
+    final ObjectNode body = cluster.object();
     body.put("size", MATCH_PAGE);
     body.put("_source", false);
-    body.set("query", target.getMapper().readTree(queryJson));
+    body.set("query", cluster.getMapper().readTree(queryJson));
     body.putArray("sort").add("_doc");
     JsonNode page =
-        target.jsonOrNull("POST", "/" + index + "/_search?scroll=" + SCROLL_KEEP_ALIVE, body);
+        cluster.jsonOrNull("POST", "/" + index + "/_search?scroll=" + SCROLL_KEEP_ALIVE, body);
     if (page == null) {
-      return ids;
+      return;
     }
     String scrollId = page.path("_scroll_id").asText();
     try {
       while (true) {
         final JsonNode hits = page.path("hits").path("hits");
         for (JsonNode hit : hits) {
-          ids.add(hit.path("_id").asText());
+          matched++;
+          remember(targetIndex, hit.path("_id").asText());
         }
         if (hits.size() < MATCH_PAGE) {
           break;
         }
-        final ObjectNode next = target.object();
+        final ObjectNode next = cluster.object();
         next.put("scroll", SCROLL_KEEP_ALIVE);
         next.put("scroll_id", scrollId);
-        page = target.json("POST", "/_search/scroll", next);
+        page = cluster.json("POST", "/_search/scroll", next);
         scrollId = page.path("_scroll_id").asText(scrollId);
       }
     } finally {
       if (!scrollId.isEmpty()) {
-        final ObjectNode clear = target.object();
+        final ObjectNode clear = cluster.object();
         clear.putArray("scroll_id").add(scrollId);
-        target.send("DELETE", "/_search/scroll", clear, "404");
+        cluster.send("DELETE", "/_search/scroll", clear, "404");
       }
     }
-    return ids;
+  }
+
+  @Nonnull
+  private String sourceIndexOf(@Nonnull final String targetIndex) throws IOException {
+    final String sourceIndex = sourceIndexByTarget.get(targetIndex);
+    if (sourceIndex == null) {
+      throw new IOException(
+          "The mirrored write log names " + targetIndex + ", which no source index maps to");
+    }
+    return sourceIndex;
   }
 
   private void reconcileAll() throws IOException {
@@ -194,11 +238,7 @@ public final class MirroredWriteLogReplayer {
    */
   private void reconcile(@Nonnull final String targetIndex, @Nonnull final List<String> ids)
       throws IOException {
-    final String sourceIndex = sourceIndexByTarget.get(targetIndex);
-    if (sourceIndex == null) {
-      throw new IOException(
-          "The mirrored write log names " + targetIndex + ", which no source index maps to");
-    }
+    final String sourceIndex = sourceIndexOf(targetIndex);
     for (int from = 0; from < ids.size(); from += RECONCILE_BATCH) {
       final List<String> batch = ids.subList(from, Math.min(ids.size(), from + RECONCILE_BATCH));
       final Map<String, JsonNode> onTarget = held(target, targetIndex, batch, false);

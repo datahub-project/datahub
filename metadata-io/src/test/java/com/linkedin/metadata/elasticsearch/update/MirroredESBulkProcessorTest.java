@@ -176,6 +176,23 @@ public class MirroredESBulkProcessorTest {
   }
 
   @Test
+  public void testAByQueryTheServingClusterRefusedIsNeitherMirroredNorLogged() throws Exception {
+    // The serving processor logs the failure and answers empty; the serving cluster still holds
+    // what the query matched, so the target must keep it too, and no replay may take it away.
+    when(servingShim.deleteByQuery(any(), any(), any()))
+        .thenThrow(new RuntimeException("search phase failed"));
+
+    var response =
+        mirrored(true)
+            .deleteByQuery(
+                opContext, QueryBuilders.termQuery("relationshipType", "x"), SERVING_INDEX);
+
+    assertTrue(response.isEmpty());
+    verify(targetShim, never()).deleteByQuery(any(), any(), any());
+    verify(targetShim, never()).addBulk(any(), any(), any());
+  }
+
+  @Test
   public void testUpdateByQueryIsMirroredAndLoggedByItsQuery() throws Exception {
     when(servingShim.updateByQuery(any(), any(), any()))
         .thenReturn(mock(BulkByScrollResponse.class));

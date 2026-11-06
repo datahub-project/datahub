@@ -44,6 +44,24 @@ public class StagingIndexAdopterTest {
   }
 
   @Test
+  public void testSettlingAMemberAlreadyInPlaceCompletesAnInterruptedAdoption() throws Exception {
+    // The join succeeded on an earlier run that died before the rest; a retry must not add the
+    // member again, but must still finish it.
+    StubCluster target = new StubCluster(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+    target.on("PUT", "/stg/_settings", StubCluster.Reply.ok("{}"));
+
+    new StagingIndexAdopter(target.http()).settle(IndexLayout.DATA_STREAM, "stg", true);
+
+    assertEquals(target.calls("POST", "/_data_stream/_modify").size(), 0);
+    assertTrue(
+        target
+            .calls("PUT", "/stg/_settings")
+            .get(0)
+            .body()
+            .contains("\"index.lifecycle.indexing_complete\":true"));
+  }
+
+  @Test
   public void testLiveStagingIndexJoinsTheDataStreamWithoutBeingClosedOff() throws Exception {
     StubCluster target = new StubCluster(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
     target.on("POST", "/_data_stream/_modify", StubCluster.Reply.ok("{}"));

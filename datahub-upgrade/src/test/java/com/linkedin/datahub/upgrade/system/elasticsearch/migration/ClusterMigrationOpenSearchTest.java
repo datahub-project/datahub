@@ -530,8 +530,10 @@ public class ClusterMigrationOpenSearchTest {
     ClusterHttp source = migrate.source();
     ClusterHttp target = migrate.target();
     assertNotNull(target.jsonOrNull("GET", "/" + graphTarget + "/_doc/edge-live", null));
-    assertNull(source.jsonOrNull("GET", "/" + graphSource + "/_doc/edge-0", null));
-    assertNull(target.jsonOrNull("GET", "/" + graphTarget + "/_doc/edge-0", null));
+    ObjectNode deletedEdgeOnly = source.object();
+    deletedEdgeOnly.putObject("ids").putArray("values").add(deletedEdge);
+    assertEquals(source.count(graphSource, deletedEdgeOnly), 0, "deleted on the serving cluster");
+    assertEquals(target.count(graphTarget, deletedEdgeOnly), 0, "the delete was mirrored");
     assertNotNull(target.jsonOrNull("GET", "/" + sysmetaTarget + "/_doc/sm-live", null));
     assertNotNull(target.jsonOrNull("GET", "/" + timeseriesTarget + "/_doc/ts-live", null));
     // Usage writes go to the live staging index, never to the target's own write index.

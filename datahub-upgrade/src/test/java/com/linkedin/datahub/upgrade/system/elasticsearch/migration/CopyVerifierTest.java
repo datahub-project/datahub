@@ -83,4 +83,64 @@ public class CopyVerifierTest {
     assertEquals(target.calls("POST", "/graph_service_v1/_search").size(), CopyVerifier.RECHECKS);
     assertEquals(target.calls("POST", "/graph_service_v1/_refresh").size(), CopyVerifier.RECHECKS);
   }
+
+  @Test
+  public void testADocumentTheSourceDeletedSinceTheSampleIsNotMissing() throws Exception {
+    // Graph edges are replaced on every ingestion run: "b" was among the newest when sampled and
+    // was deleted a moment later, which the mirror carried to the target.
+    StubCluster source = new StubCluster(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    StubCluster target = new StubCluster(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    source.on("POST", "/graph_service_v1/_refresh", StubCluster.Reply.ok("{}"));
+    source.on("POST", "/graph_service_v1/_count", StubCluster.Reply.ok("{\"count\":1}"));
+    source.on(
+        "POST",
+        "/graph_service_v1/_search",
+        call ->
+            call.body().contains("\"ids\"")
+                ? StubCluster.Reply.ok("{\"hits\":{\"hits\":[{\"_id\":\"a\"}]}}")
+                : StubCluster.Reply.ok("{\"hits\":{\"hits\":[{\"_id\":\"a\"},{\"_id\":\"b\"}]}}"));
+    target.on("POST", "/graph_service_v1/_refresh", StubCluster.Reply.ok("{}"));
+    target.on("POST", "/graph_service_v1/_count", StubCluster.Reply.ok("{\"count\":1}"));
+    target.on(
+        "POST",
+        "/graph_service_v1/_search",
+        StubCluster.Reply.ok("{\"hits\":{\"hits\":[{\"_id\":\"a\"}]}}"));
+    OperationContext opContext = source.opContext();
+    MigrationFamily graph =
+        MigrationFamily.of(
+            SearchComponent.GRAPH,
+            mock(ElasticSearchGraphService.class),
+            mock(ElasticSearchSystemMetadataService.class),
+            mock(ElasticSearchTimeseriesAspectService.class));
+    SearchClusterRegistry.FamilyMigration migration =
+        new SearchClusterRegistry.FamilyMigration(
+            SearchComponent.GRAPH,
+            "primary",
+            "secondary",
+            FamilyMigrationSettings.builder().build(),
+            MigrationIndexNames.forFamily(
+                IndexConventionImpl.noPrefix("MD5", new EntityIndexConfiguration()),
+                SearchComponent.GRAPH,
+                null),
+            null);
+    ClusterMigrationRow row =
+        ClusterMigrationRow.load(
+            opContext, new ClusterMigrationHarness.InMemoryUpgradeRows().entityService(), "m");
+    UpgradeContext context = mock(UpgradeContext.class);
+    when(context.report()).thenReturn(new DefaultUpgradeReport());
+    SourceIndexSet set =
+        new SourceIndexSet(
+            "graph_service_v1",
+            IndexLayout.CONCRETE,
+            List.of("graph_service_v1"),
+            "graph_service_v1");
+
+    int missing =
+        new CopyVerifier(opContext, source.http(), target.http(), graph, "step", 0L)
+            .verify(context, row, migration, List.of(set));
+
+    assertEquals(missing, 0);
+    assertEquals(
+        row.get(ClusterMigrationState.VERIFY_PREFIX + "graph_service_v1.sampledMissing"), "0");
+  }
 }

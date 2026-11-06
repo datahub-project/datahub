@@ -59,7 +59,10 @@ public class UsageStagingAdoptionTest {
     assertTrue(added.get(0).contains("\"index\":\"tgt_datahub_usage_migration-000002\""));
     assertTrue(added.get(1).contains("\"index\":\"tgt_datahub_usage_migration-live\""));
     assertFalse(
-        added.toString().contains("migration-000001"), "a member already in place is left alone");
+        added.toString().contains("migration-000001"), "a member already in place is not re-added");
+    // ... but is settled again, in case the earlier run died between the join and the rest.
+    assertEquals(
+        target.calls("POST", "/_plugins/_ism/remove/tgt_datahub_usage_migration-000001").size(), 1);
     // Nothing is write-blocked and nothing is finished on an alias.
     assertTrue(target.calls.stream().noneMatch(call -> call.path().endsWith("/_settings")));
   }

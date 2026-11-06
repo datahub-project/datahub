@@ -80,6 +80,7 @@
             <class name="com.linkedin.metadata.elasticsearch.update.MirroredESBulkProcessorTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.ClusterMigrationStateTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.UpgradeRowMirrorLiveMarkerTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.UpgradeRowWriterHeartbeatTest"/>
         </classes>
     </test>
 </suite>

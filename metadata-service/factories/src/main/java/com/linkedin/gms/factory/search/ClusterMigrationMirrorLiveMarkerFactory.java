@@ -5,12 +5,15 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.PreProcessHooks;
-import com.linkedin.metadata.config.search.ClusterMigrationConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultStore;
 import com.linkedin.metadata.entity.upgrade.EntityClientUpgradeResultStore;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ClusterMigrationState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.MirrorLiveMarkerScheduler;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.UpgradeRowMirrorLiveMarker;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.UpgradeRowPoll;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.UpgradeRowWriterHeartbeat;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -25,11 +28,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Gives every configured family migration its mirror-live marker and starts polling. The registry
- * builds the mirrors before the system operation context exists (the context is stamped with the
- * registry), so the markers, which read and persist through that context, are created here. The
- * upgrade result store goes through the system entity client so the same wiring serves GMS, the
- * standalone MAE consumer and system-update.
+ * Gives every configured family migration its mirror-live marker, makes every live writer report
+ * itself while a second cluster is declared, and starts polling. The registry builds the mirrors
+ * before the system operation context exists (the context is stamped with the registry), so the
+ * markers, which read and persist through that context, are created here. The upgrade result store
+ * goes through the system entity client so the same wiring serves GMS, the standalone MAE consumer
+ * and system-update.
  */
 @Slf4j
 @Configuration
@@ -44,38 +48,64 @@ public class ClusterMigrationMirrorLiveMarkerFactory {
       final ConfigurationProvider configurationProvider,
       @Value("${MAE_CONSUMER_ENABLED:false}") final String maeConsumerEnabled,
       @Value("${MCL_CONSUMER_ENABLED:false}") final String mclConsumerEnabled) {
-    final List<UpgradeRowMirrorLiveMarker> markers = new ArrayList<>();
-    if (!registry.familyMigrations().isEmpty()) {
-      final ClusterMigrationConfiguration migrationConfig =
-          configurationProvider.getElasticSearch().getClusterMigration();
-      final Set<ClusterMigrationState.Process> roles =
-          processRoles(
-              migrationConfig.getProcessRole(),
-              PreProcessHooks.isMclConsumerEnabled(maeConsumerEnabled, mclConsumerEnabled));
-      final DataHubUpgradeResultStore store =
-          new EntityClientUpgradeResultStore(systemEntityClient);
-      for (SearchClusterRegistry.FamilyMigration migration : registry.familyMigrations()) {
-        final Urn upgradeUrn =
-            BootstrapStep.getUpgradeUrn(
-                ClusterMigrationState.upgradeId(
-                    migration.getFamily(),
-                    migration.getSourceCluster(),
-                    migration.getTargetCluster()));
-        markers.add(
-            new UpgradeRowMirrorLiveMarker(
-                store, systemOpContext, upgradeUrn, roles, migration.getWriteLog()));
-        log.info(
-            "Mirroring {} writes from cluster '{}' to '{}' as {} (row {})",
-            migration.getFamily().getConfigKey(),
-            migration.getSourceCluster(),
-            migration.getTargetCluster(),
-            roles,
-            upgradeUrn);
-      }
+    final ElasticSearchConfiguration esConfig = configurationProvider.getElasticSearch();
+    final Set<ClusterMigrationState.Process> roles =
+        processRoles(
+            esConfig.getClusterMigration().getProcessRole(),
+            PreProcessHooks.isMclConsumerEnabled(maeConsumerEnabled, mclConsumerEnabled));
+    final DataHubUpgradeResultStore store = new EntityClientUpgradeResultStore(systemEntityClient);
+    final List<UpgradeRowPoll> polls = new ArrayList<>();
+    // A live writer reports whether or not it migrates anything: the pods a migration's copy must
+    // wait out are those of the previous rollout, whose configuration knows no migration. A single
+    // cluster can migrate nothing, so such deployments report nothing; system update is not a
+    // live writer.
+    if (!roles.contains(ClusterMigrationState.Process.UPGRADE)
+        && declaresASecondCluster(esConfig)) {
+      final UpgradeRowWriterHeartbeat heartbeat =
+          new UpgradeRowWriterHeartbeat(
+              store,
+              systemOpContext,
+              BootstrapStep.getUpgradeUrn(ClusterMigrationState.WRITERS_UPGRADE_ID),
+              UpgradeRowWriterHeartbeat.localInstance());
+      polls.add(heartbeat);
+      log.info(
+          "Reporting this process ({}) as live writer '{}' on {}",
+          roles,
+          heartbeat.getInstance(),
+          heartbeat.getUpgradeUrn());
     }
-    final MirrorLiveMarkerScheduler scheduler = new MirrorLiveMarkerScheduler(markers);
+    for (SearchClusterRegistry.FamilyMigration migration : registry.familyMigrations()) {
+      final Urn upgradeUrn =
+          BootstrapStep.getUpgradeUrn(
+              ClusterMigrationState.upgradeId(
+                  migration.getFamily(),
+                  migration.getSourceCluster(),
+                  migration.getTargetCluster()));
+      polls.add(
+          new UpgradeRowMirrorLiveMarker(
+              store, systemOpContext, upgradeUrn, roles, migration.getWriteLog()));
+      log.info(
+          "Mirroring {} writes from cluster '{}' to '{}' as {} (row {})",
+          migration.getFamily().getConfigKey(),
+          migration.getSourceCluster(),
+          migration.getTargetCluster(),
+          roles,
+          upgradeUrn);
+    }
+    final MirrorLiveMarkerScheduler scheduler = new MirrorLiveMarkerScheduler(polls);
     scheduler.start();
     return scheduler;
+  }
+
+  /** Whether more than one cluster has a uri, the precondition of any migration. */
+  static boolean declaresASecondCluster(@Nonnull final ElasticSearchConfiguration esConfig) {
+    long withUri = 0;
+    for (SearchClusterSettings cluster : esConfig.resolvedClusters().values()) {
+      if (cluster.getUri() != null && !cluster.getUri().isBlank()) {
+        withUri++;
+      }
+    }
+    return withUri >= 2;
   }
 
   /**

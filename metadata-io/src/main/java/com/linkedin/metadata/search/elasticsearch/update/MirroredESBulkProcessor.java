@@ -25,6 +25,9 @@ import org.opensearch.script.Script;
  * target cluster's own processor and therefore inherits its delivery semantics: ack-after-transfer,
  * retries and failure draining apply to it exactly as they apply to a primary write. A target
  * outage during a migration is a write outage for that family, by design; nothing here swallows it.
+ * A by-query operation the serving cluster refused (the processor logs that and answers empty) is
+ * not applied to the target either, and not logged: the serving cluster still holds what it
+ * matched, so the target must too, and a replay must not take it away.
  *
  * <p>Family-scoped on purpose: one processor serves every family on a cluster, so wrapping the
  * cluster's processor would mirror families that are not migrating.
@@ -103,6 +106,9 @@ public class MirroredESBulkProcessor extends ESBulkProcessor {
       String... indices) {
     final Optional<BulkByScrollResponse> response =
         serving.deleteByQuery(opContext, queryBuilder, refresh, limit, timeout, indices);
+    if (response.isEmpty()) {
+      return response;
+    }
     final String[] targets = targets(opContext, indices);
     target.deleteByQuery(opContext, queryBuilder, refresh, limit, timeout, targets);
     logByQuery(opContext, MirroredWriteLog.Kind.DELETE_BY_QUERY, targets, queryBuilder);
@@ -118,6 +124,9 @@ public class MirroredESBulkProcessor extends ESBulkProcessor {
       String... indices) {
     final Optional<BulkByScrollResponse> response =
         serving.updateByQuery(opContext, script, queryBuilder, indices);
+    if (response.isEmpty()) {
+      return response;
+    }
     final String[] targets = targets(opContext, indices);
     target.updateByQuery(opContext, script, queryBuilder, targets);
     logByQuery(opContext, MirroredWriteLog.Kind.UPDATE_BY_QUERY, targets, queryBuilder);
@@ -135,6 +144,9 @@ public class MirroredESBulkProcessor extends ESBulkProcessor {
       String... indices) {
     final Optional<String> task =
         serving.deleteByQueryAsync(opContext, queryBuilder, refresh, limit, timeout, indices);
+    if (task.isEmpty()) {
+      return task;
+    }
     final String[] targets = targets(opContext, indices);
     target.deleteByQueryAsync(opContext, queryBuilder, refresh, limit, timeout, targets);
     logByQuery(opContext, MirroredWriteLog.Kind.DELETE_BY_QUERY, targets, queryBuilder);

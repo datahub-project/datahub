@@ -65,6 +65,11 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
   private static final long PARTITION_RETRY_BACKOFF_MS = TimeUnit.SECONDS.toMillis(10);
   private static final long VERIFY_RECHECK_PAUSE_MS = TimeUnit.SECONDS.toMillis(5);
 
+  /** Between windowed passes while one keeps writing; not final so a test need not wait it out. */
+  static long windowRepeatPauseMs = TimeUnit.SECONDS.toMillis(30);
+
+  private static final int MAX_WINDOW_ROUNDS = 20;
+
   private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final SearchClusterRegistry registry;
@@ -120,6 +125,7 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
   private UpgradeStepResult run(@Nonnull final UpgradeContext context) throws Exception {
     final SearchClusterRegistry.FamilyMigration migration =
         registry.migrationFor(family.getFamily()).orElseThrow();
+    family.checkSupported();
     final SearchClusterRegistry.ClusterConnection source =
         registry.connection(migration.getSourceCluster());
     final SearchClusterRegistry.ClusterConnection target =
@@ -145,7 +151,7 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
         return noRow(upgradeId);
       }
       row = awaitLiveWriters(row, liveWriterWaitMinutes);
-      if (ClusterMigrationState.liveWritersMirroringSince(row.state()).isEmpty()) {
+      if (!liveWritersReady(row)) {
         return waitingForLiveWriters(context, row, "the usage sweep");
       }
       usageSweep.run(context, migration, endedUsage.get(), source, target);
@@ -166,11 +172,11 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
     final CopySettings copy = migration.getSettings().getCopy();
     final CopyMode mode = copy.copyMode();
     row = awaitLiveWriters(row, liveWriterWaitMinutes);
-    final Optional<Long> mirroringSince =
-        ClusterMigrationState.liveWritersMirroringSince(row.state());
-    if (mirroringSince.isEmpty()) {
+    if (!liveWritersReady(row)) {
       return waitingForLiveWriters(context, row, "the copy");
     }
+    final Optional<Long> mirroringSince =
+        ClusterMigrationState.liveWritersMirroringSince(row.state());
     dropCursorsOfAnotherCopier(row, mode);
     final List<String> logicalNames = family.logicalNames(opContext, indexConvention);
     if (ServingRebuildGuard.inFlight(opContext, entityService, upgradeVersion, logicalNames)) {
@@ -249,16 +255,52 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
       row.put(WINDOW_START, windowStart);
       final CrossClusterCopier windowCopier =
           windowCopier(mode, copier, copy, source, target, upgradeId);
-      final PartitionOutcome outcome =
-          runWindowPass(row, migration, sourceSets, windowCopier, windowStart, shouldStop);
-      if (outcome.failed > 0) {
-        row.setStatus(Status.FAILED);
+      // A pass that wrote anything found writes the mirror had not delivered: by pods of the
+      // previous rollout that were still serving the old configuration when the copy began, or by
+      // a mirror failure. Only a pass that writes nothing shows the target current, so the pass
+      // repeats until one does; nothing is verified on the strength of a pass that repaired.
+      for (int round = 1; ; round++) {
+        final PartitionOutcome outcome =
+            runWindowPass(row, migration, sourceSets, windowCopier, windowStart, shouldStop);
+        if (outcome.failed > 0) {
+          row.setStatus(Status.FAILED);
+          row.persist(DataHubUpgradeState.IN_PROGRESS);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+        }
+        if (outcome.paused > 0) {
+          row.persist(DataHubUpgradeState.IN_PROGRESS);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+        }
+        final long written = writtenByWindowPass(row);
+        if (written == 0) {
+          break;
+        }
+        context
+            .report()
+            .addLine(
+                id()
+                    + ": windowed pass "
+                    + round
+                    + " wrote "
+                    + written
+                    + " document(s) the mirror had not delivered; running it again");
+        forgetWindowPartitions(row);
         row.persist(DataHubUpgradeState.IN_PROGRESS);
-        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-      }
-      if (outcome.paused > 0) {
-        row.persist(DataHubUpgradeState.IN_PROGRESS);
-        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+        if (round >= MAX_WINDOW_ROUNDS) {
+          context
+              .report()
+              .addLine(
+                  id()
+                      + ": the windowed pass kept finding undelivered writes for "
+                      + MAX_WINDOW_ROUNDS
+                      + " rounds; not verified, it resumes on the next run");
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+        }
+        if (shouldStop.getAsBoolean()) {
+          context.report().addLine(id() + ": budget reached, the windowed pass resumes next run");
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+        }
+        Thread.sleep(windowRepeatPauseMs);
       }
       status = Status.REPLAY;
       row.setStatus(status);
@@ -267,18 +309,39 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
 
     if (status == Status.REPLAY) {
       final long from = row.getLong(WINDOW_START).orElseThrow();
+      final long copyStart = row.getLong(ClusterMigrationState.COPY_START_TIME).orElseThrow();
       final Map<String, String> sourceIndexByTarget = new HashMap<>();
       for (SourceIndexSet set : sourceSets) {
         sourceIndexByTarget.put(
             migration.getNames().target(opContext, set.logicalName()), set.logicalName());
       }
-      final long replayed =
-          new MirroredWriteLogReplayer(targetHttp, sourceHttp, sourceIndexByTarget)
-              .replay(migration.getNames().logIndex(opContext), from);
+      final MirroredWriteLogReplayer replayer =
+          new MirroredWriteLogReplayer(targetHttp, sourceHttp, sourceIndexByTarget);
+      final long replayed = replayer.replay(migration.getNames().logIndex(opContext), from);
+      // The documents the target received before the copy began were mirrored while the previous
+      // rollout's pods were still writing. One of those pods deleting such a document on the
+      // source,
+      // without the mirror, leaves it on the target alone, and only the source can say so.
+      long overlap = 0;
+      for (SourceIndexSet set : sourceSets) {
+        if (set.isRollover()) {
+          continue;
+        }
+        overlap +=
+            replayer.reconcileMatching(
+                migration.getNames().target(opContext, set.logicalName()),
+                family.windowFilter(opContext.getObjectMapper(), from, copyStart));
+      }
       row.put(ClusterMigrationState.REPLAY_WATERMARK, System.currentTimeMillis());
       context
           .report()
-          .addLine(id() + ": replayed " + replayed + " mirrored delete/by-query entries");
+          .addLine(
+              id()
+                  + ": replayed "
+                  + replayed
+                  + " mirrored delete/by-query entries and reconciled "
+                  + overlap
+                  + " document(s) the target received before the copy began");
       status = Status.ADOPTING;
       row.setStatus(status);
       row.persist(DataHubUpgradeState.IN_PROGRESS);
@@ -351,13 +414,20 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
       @Nonnull final ClusterMigrationRow row,
       @Nonnull final String what) {
     log.info(
-        "{}: GMS and the MAE consumer have not reported their {} mirror live (markers: {});"
+        "{}: GMS and the MAE consumer have not reported their {} mirror live, or a writer of the"
+            + " previous rollout is still reporting (markers: {}; previous rollout's writers: {});"
             + " {} resumes on a later run",
         id(),
         family.getFamily().getConfigKey(),
         recordedMarkers(row),
+        previousRolloutWriters(row),
         what);
-    context.report().addLine(id() + ": waiting for the live writers' mirror markers");
+    context
+        .report()
+        .addLine(
+            id()
+                + ": waiting for the live writers' mirror markers and for the previous rollout's"
+                + " writers to stop");
     return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
   }
 
@@ -366,9 +436,10 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
    * unmirrored pod made after the copy read the document would be missing on the target. The same
    * holds for the usage sweep after a flip, which must not read the old cluster's write index while
    * an old pod can still write to it. GMS and the MAE consumer record their markers within a minute
-   * of starting, so waiting out the rollout lets the non-blocking run of the deploy finish on its
-   * own; past the wait the step returns and a later run resumes. The row is reloaded so that what
-   * the step persists afterwards keeps the markers.
+   * of starting, and the previous rollout's pods stop reporting within minutes of terminating, so
+   * waiting out the rollout lets the non-blocking run of the deploy finish on its own; past the
+   * wait the step returns and a later run resumes. The row is reloaded so that what the step
+   * persists afterwards keeps the markers.
    */
   @Nonnull
   private ClusterMigrationRow awaitLiveWriters(
@@ -376,21 +447,51 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
     ClusterMigrationRow current = row;
     final long deadline = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(waitMinutes);
     int polls = 0;
-    while (ClusterMigrationState.liveWritersMirroringSince(current.state()).isEmpty()
-        && System.currentTimeMillis() < deadline) {
+    while (!liveWritersReady(current) && System.currentTimeMillis() < deadline) {
       if (polls++ % LIVE_WRITER_LOG_EVERY_POLLS == 0) {
         log.info(
             "{}: waiting up to {} min for GMS and the MAE consumer to report their {} mirror live"
-                + " (markers so far: {})",
+                + " and for the previous rollout's writers to stop (markers so far: {}; previous"
+                + " rollout's writers still reporting: {})",
             id(),
             waitMinutes,
             family.getFamily().getConfigKey(),
-            recordedMarkers(current));
+            recordedMarkers(current),
+            previousRolloutWriters(current));
       }
       Thread.sleep(LIVE_WRITER_POLL_MS);
       current = ClusterMigrationRow.load(opContext, entityService, row.getUrn().getId());
     }
     return current;
+  }
+
+  /**
+   * Whether every live writer of this rollout mirrors and none of the previous rollout's is still
+   * writing: the GMS and MAE markers are recorded for this rollout, and no writer that started
+   * before the row's rollout stamp has reported within the last few minutes. A row without a stamp
+   * (a developer stack, the harness) cannot tell the rollouts apart and is gated by the markers
+   * alone.
+   */
+  private boolean liveWritersReady(@Nonnull final ClusterMigrationRow row) {
+    return ClusterMigrationState.liveWritersMirroringSince(row.state()).isPresent()
+        && previousRolloutWriters(row).isEmpty();
+  }
+
+  /** The previous rollout's writers still reporting, by instance; see {@link #liveWritersReady}. */
+  @Nonnull
+  private List<String> previousRolloutWriters(@Nonnull final ClusterMigrationRow row) {
+    final Optional<Long> rolloutStartedAt = row.getLong(ClusterMigrationState.ROLLOUT_STARTED_AT);
+    if (rolloutStartedAt.isEmpty()) {
+      return List.of();
+    }
+    final ClusterMigrationRow writers =
+        ClusterMigrationRow.load(
+            opContext, entityService, ClusterMigrationState.WRITERS_UPGRADE_ID);
+    return ClusterMigrationState.previousRolloutWritersReporting(
+            writers.state(), rolloutStartedAt.get(), System.currentTimeMillis())
+        .stream()
+        .map(ClusterMigrationState.Writer::instance)
+        .toList();
   }
 
   /**
@@ -881,6 +982,25 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
             });
   }
 
+  /** How many documents the last windowed pass wrote on the target, over all of its partitions. */
+  static long writtenByWindowPass(@Nonnull final ClusterMigrationRow row) {
+    long written = 0;
+    for (Map.Entry<String, String> entry : row.state().entrySet()) {
+      if (!entry.getKey().startsWith(ClusterMigrationState.PARTITION_PREFIX)) {
+        continue;
+      }
+      final String rest = entry.getKey().substring(ClusterMigrationState.PARTITION_PREFIX.length());
+      final int dot = rest.indexOf('.');
+      if (dot <= 0
+          || Integer.parseInt(rest.substring(0, dot)) < WINDOW_PARTITION_BASE
+          || !PARTITION_CREATED.equals(rest.substring(dot + 1))) {
+        continue;
+      }
+      written += Long.parseLong(entry.getValue());
+    }
+    return written;
+  }
+
   /**
    * The copier of the windowed pass. A mutable family's pass replaces documents the target holds in
    * an older version, which only the in-process copier can do (a remote reindex never sees the
@@ -902,10 +1022,10 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
 
   /**
    * Insurance over everything written since the live writers started mirroring (or since the
-   * operator's snapshot): a pass filtered on the family's time field. Immutable families
-   * (timeseries, usage) copy with create semantics, which restores anything the mirror lost;
-   * mutable families (graph, system metadata) replace each document in the window unless the
-   * target's is newer, so a lost update is repaired without undoing a later mirrored write.
+   * operator's snapshot): a pass filtered on the family's time field. Usage events, written once,
+   * copy with create semantics, which restores anything the mirror lost; every other family's
+   * documents are updated in place, so the pass replaces each document in the window unless the
+   * target's is current, and a lost update is repaired without undoing a later mirrored write.
    * Rollover layouts are covered by the mirror into the live staging index and by the post-flip
    * sweep, so only concrete indices get a pass.
    */
@@ -925,7 +1045,7 @@ public class ClusterMigrationCopyStep implements UpgradeStep {
       if (set.isRollover()) {
         continue;
       }
-      final ObjectNode filter = family.windowFilter(opContext.getObjectMapper(), windowStart);
+      final ObjectNode filter = family.windowFilter(opContext.getObjectMapper(), windowStart, null);
       partitions.add(
           new CopyPartition(
               WINDOW_PARTITION_BASE + i++,

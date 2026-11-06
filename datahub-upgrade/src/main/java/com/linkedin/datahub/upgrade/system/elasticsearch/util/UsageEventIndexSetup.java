@@ -106,7 +106,9 @@ public final class UsageEventIndexSetup {
 
   /**
    * The complete layout on a cluster with no legacy usage index, which is what a migration target
-   * is. Idempotent: every piece tolerates already existing.
+   * is. Idempotent: every piece tolerates already existing. A refused policy fails it outright: the
+   * serving cluster's setup can carry on without one, but a target without the layout could never
+   * adopt a copy, and finding that out at adoption time would waste the copy.
    */
   public static void createFresh(
       @Nonnull final OperationContext opContext,
@@ -117,10 +119,15 @@ public final class UsageEventIndexSetup {
       final int usageRefreshSeconds)
       throws Exception {
     final boolean openSearch = cluster.getSearchClient().getEngineType().isOpenSearch();
-    if (createPolicyAndTemplate(
+    if (!createPolicyAndTemplate(
         opContext, cluster, openSearch, names, numShards, numReplicas, usageRefreshSeconds)) {
-      createWriteTarget(opContext, cluster, openSearch, names);
+      throw new IllegalStateException(
+          "The usage event layout could not be created: the lifecycle policy "
+              + names.policy()
+              + " was refused, so no copy could be adopted into "
+              + names.writeTarget());
     }
+    createWriteTarget(opContext, cluster, openSearch, names);
     UsageEventIndexUtils.applyRefreshInterval(
         opContext, cluster, names.writeTarget(), usageRefreshSeconds);
   }
