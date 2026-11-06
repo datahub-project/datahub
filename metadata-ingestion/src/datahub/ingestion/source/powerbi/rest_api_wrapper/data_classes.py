@@ -330,13 +330,25 @@ class Relationship:
 
 @dataclass
 class DatasetRefresh:
-    """Latest entry of GET /groups/{ws}/datasets/{id}/refreshes."""
+    """One entry of GET /groups/{ws}/datasets/{id}/refreshes."""
 
     request_id: Optional[str]
     refresh_type: Optional[str]
     status: Optional[str]
     start_time: Optional[str]
     end_time: Optional[str]
+    # Raw error payload of a Failed refresh (a JSON string in the API).
+    service_exception_json: Optional[str] = None
+
+
+@dataclass
+class DatasetRefreshSchedule:
+    """GET /groups/{ws}/datasets/{id}/refreshSchedule."""
+
+    days: List[str]
+    times: List[str]
+    local_time_zone_id: Optional[str]
+    enabled: Optional[bool]
 
 
 @dataclass(frozen=True)
@@ -405,7 +417,10 @@ class PowerBIDataset:
     dependent_on_artifact_id: Optional[str] = None
     # Populated only in workspace_apis mode (from TMDL / refresh history).
     relationships: List["Relationship"] = field(default_factory=list)
+    # Newest completed / newest failed refresh among the fetched history.
     last_refresh: Optional["DatasetRefresh"] = None
+    last_failed_refresh: Optional["DatasetRefresh"] = None
+    refresh_schedule: Optional["DatasetRefreshSchedule"] = None
 
     def get_urn_part(self):
         return f"datasets.{self.id}"

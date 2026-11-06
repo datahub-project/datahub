@@ -22,6 +22,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FABRIC_ARTIFACT_LAKEHOUSE,
     Column,
     DatasetRefresh,
+    DatasetRefreshSchedule,
     DaxFieldReference,
     FabricArtifact,
     FieldModelProperties,
@@ -623,49 +624,219 @@ def test_relationships_become_foreign_keys_with_datahub_field_semantics() -> Non
     assert not policies_schema.foreignKeys
 
 
-def test_refresh_operation_only_for_completed_refresh_with_parseable_time() -> None:
+COMPLETED_REFRESH = DatasetRefresh(
+    "req",
+    "Scheduled",
+    "Completed",
+    "2022-02-01T20:56:55.927Z",
+    "2022-02-01T20:57:05.053Z",
+)
+COMPLETED_END_MS = 1643749025053
+NEWER_FAILED_REFRESH = DatasetRefresh(
+    "req-failed",
+    "Scheduled",
+    "Failed",
+    "2022-02-02T20:56:55Z",
+    "2022-02-02T20:57:05Z",
+    service_exception_json='{"errorCode":"ModelRefreshFailed_CredentialsNotSpecified",'
+    '"errorDescription":"' + "x" * 2000 + '"}',
+)
+NEWER_FAILED_END_MS = 1643835425000
+OLDER_FAILED_REFRESH = DatasetRefresh(
+    "req-failed-old",
+    "Scheduled",
+    "Failed",
+    "2022-01-31T20:56:55Z",
+    "2022-01-31T20:57:05Z",
+    service_exception_json="not json at all " + "y" * 2000,
+)
+OLDER_FAILED_END_MS = 1643662625000
+
+
+def _refresh_operations(
+    mapper: Mapper, dataset: PowerBIDataset, table: Table
+) -> List[OperationClass]:
+    operations = []
+    for mcp in mapper._refresh_operation_mcps(dataset, _urn(mapper, table)):
+        assert isinstance(mcp.aspect, OperationClass)
+        operations.append(mcp.aspect)
+    return operations
+
+
+def test_completed_refresh_operation() -> None:
     mapper = _mapper(_config(extract_refresh_history=True))
     table = Table(name="T", full_name="Model.T")
+    dataset = _dataset([table], last_refresh=COMPLETED_REFRESH)
 
-    completed = _dataset(
-        [table],
-        last_refresh=DatasetRefresh(
-            "req",
-            "Scheduled",
-            "Completed",
-            "2022-02-01T20:56:55.927Z",
-            "2022-02-01T20:57:05.053Z",
-        ),
-    )
-    mcp = mapper._refresh_operation_mcp(completed, _urn(mapper, table))
-    assert mcp is not None
-    assert isinstance(mcp.aspect, OperationClass)
-    assert mcp.aspect.operationType == OperationTypeClass.CUSTOM
-    assert mcp.aspect.customOperationType == "REFRESH"
-    assert mcp.aspect.lastUpdatedTimestamp == 1643749025053
-    assert mcp.aspect.customProperties == {
+    operations = _refresh_operations(mapper, dataset, table)
+
+    assert len(operations) == 1
+    assert operations[0].operationType == OperationTypeClass.CUSTOM
+    assert operations[0].customOperationType == "REFRESH"
+    assert operations[0].timestampMillis == COMPLETED_END_MS
+    assert operations[0].lastUpdatedTimestamp == COMPLETED_END_MS
+    assert operations[0].customProperties == {
         "refreshType": "Scheduled",
         "status": "Completed",
         "requestId": "req",
         "startTime": "2022-02-01T20:56:55.927Z",
     }
 
-    failed = _dataset(
-        [table],
-        last_refresh=DatasetRefresh(
-            "req", "Scheduled", "Failed", None, "2022-02-01T20:57:05Z"
-        ),
-    )
-    assert mapper._refresh_operation_mcp(failed, _urn(mapper, table)) is None
 
+def test_failed_refresh_newer_than_completed_points_last_updated_at_completed() -> None:
+    # The data was last updated by the completed refresh, so the newer
+    # failure's lastUpdatedTimestamp (which feeds the dataset's last-modified
+    # time) keeps pointing at it. The error payload is parsed and truncated.
+    mapper = _mapper(_config(extract_refresh_history=True))
+    table = Table(name="T", full_name="Model.T")
+    dataset = _dataset(
+        [table],
+        last_refresh=COMPLETED_REFRESH,
+        last_failed_refresh=NEWER_FAILED_REFRESH,
+    )
+
+    operations = _refresh_operations(mapper, dataset, table)
+
+    assert [op.customProperties["status"] for op in operations] == [  # type: ignore[index]
+        "Completed",
+        "Failed",
+    ]
+    failed = operations[1]
+    assert failed.timestampMillis == NEWER_FAILED_END_MS
+    assert failed.lastUpdatedTimestamp == COMPLETED_END_MS
+    assert failed.customProperties is not None
+    assert failed.customProperties["requestId"] == "req-failed"
+    assert (
+        failed.customProperties["errorCode"]
+        == "ModelRefreshFailed_CredentialsNotSpecified"
+    )
+    description = failed.customProperties["errorDescription"]
+    assert len(description) == 1000
+    assert description.endswith("...")
+    assert "serviceException" not in failed.customProperties
+    assert mapper._Mapper__reporter.refresh_failed_without_completed_baseline == 0  # type: ignore[attr-defined]
+
+
+def test_failed_refresh_older_than_completed_keeps_its_own_time() -> None:
+    # An older failure is not the newest Operation, so it must not be stamped
+    # with the newer completed time; a non-JSON payload is kept raw.
+    mapper = _mapper(_config(extract_refresh_history=True))
+    table = Table(name="T", full_name="Model.T")
+    dataset = _dataset(
+        [table],
+        last_refresh=COMPLETED_REFRESH,
+        last_failed_refresh=OLDER_FAILED_REFRESH,
+    )
+
+    operations = _refresh_operations(mapper, dataset, table)
+
+    failed = operations[1]
+    assert failed.timestampMillis == OLDER_FAILED_END_MS
+    assert failed.lastUpdatedTimestamp == OLDER_FAILED_END_MS
+    assert failed.customProperties is not None
+    raw = failed.customProperties["serviceException"]
+    assert raw.startswith("not json at all ")
+    assert len(raw) == 1000
+    assert "errorCode" not in failed.customProperties
+    assert mapper._Mapper__reporter.refresh_failed_without_completed_baseline == 0  # type: ignore[attr-defined]
+
+
+def test_failed_refresh_without_completed_baseline_is_counted_and_warned() -> None:
+    mapper = _mapper(_config(extract_refresh_history=True))
+    table = Table(name="T", full_name="Model.T")
+    dataset = _dataset([table], last_failed_refresh=NEWER_FAILED_REFRESH)
+
+    operations = _refresh_operations(mapper, dataset, table)
+
+    assert len(operations) == 1
+    assert operations[0].timestampMillis == NEWER_FAILED_END_MS
+    # 0 is "unknown" to auto_patch_last_modified and to the UI.
+    assert operations[0].lastUpdatedTimestamp == 0
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.refresh_failed_without_completed_baseline == 1
+    assert [w.title for w in reporter.warnings] == ["Dataset Last Updated Unknown"]
+
+
+def test_refresh_counters_and_warnings_fire_once_per_dataset() -> None:
+    # Operations are emitted on every table, but the baseline decision and
+    # the unparseable-time count belong to the dataset.
+    mapper = _mapper(_config(extract_refresh_history=True))
+    tables = [
+        Table(name="A", full_name="Model.A"),
+        Table(name="B", full_name="Model.B"),
+    ]
+    dataset = _dataset(
+        tables,
+        last_refresh=DatasetRefresh("req", "Scheduled", "Completed", None, "yesterday"),
+        last_failed_refresh=NEWER_FAILED_REFRESH,
+    )
+
+    for table in tables:
+        operations = _refresh_operations(mapper, dataset, table)
+        assert len(operations) == 1
+        assert operations[0].lastUpdatedTimestamp == 0
+
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.refresh_history_unparseable == 1
+    assert reporter.refresh_failed_without_completed_baseline == 1
+    assert [w.title for w in reporter.warnings] == ["Dataset Last Updated Unknown"]
+
+
+def test_refresh_without_usable_end_time_is_skipped() -> None:
+    mapper = _mapper(_config(extract_refresh_history=True))
+    table = Table(name="T", full_name="Model.T")
+
+    unfinished = _dataset(
+        [table],
+        last_failed_refresh=DatasetRefresh("req", "Scheduled", "Failed", None, None),
+    )
+    assert _refresh_operations(mapper, unfinished, table) == []
+
+    # Plans are memoised per dataset id, so a second scenario needs its own
+    # mapper.
+    mapper = _mapper(_config(extract_refresh_history=True))
     unparseable = _dataset(
         [table],
         last_refresh=DatasetRefresh("req", "Scheduled", "Completed", None, "yesterday"),
     )
-    assert mapper._refresh_operation_mcp(unparseable, _urn(mapper, table)) is None
+    assert _refresh_operations(mapper, unparseable, table) == []
     assert mapper._Mapper__reporter.refresh_history_unparseable == 1  # type: ignore[attr-defined]
 
-    assert _mapper()._refresh_operation_mcp(completed, _urn(mapper, table)) is None
+
+def test_refresh_operations_need_the_flag() -> None:
+    mapper = _mapper()
+    table = Table(name="T", full_name="Model.T")
+    dataset = _dataset(
+        [table],
+        last_refresh=COMPLETED_REFRESH,
+        last_failed_refresh=NEWER_FAILED_REFRESH,
+    )
+    assert _refresh_operations(mapper, dataset, table) == []
+
+
+def test_refresh_schedule_becomes_dataset_custom_properties() -> None:
+    schedule = DatasetRefreshSchedule(
+        days=["Monday", "Friday"],
+        times=["07:00", "18:30"],
+        local_time_zone_id="UTC",
+        enabled=True,
+    )
+    assert Mapper._refresh_schedule_properties(schedule) == {
+        "refreshSchedule.days": "Monday,Friday",
+        "refreshSchedule.times": "07:00,18:30",
+        "refreshSchedule.localTimeZoneId": "UTC",
+        "refreshSchedule.enabled": "true",
+    }
+
+    disabled = DatasetRefreshSchedule(
+        days=[], times=[], local_time_zone_id=None, enabled=False
+    )
+    assert Mapper._refresh_schedule_properties(disabled) == {
+        "refreshSchedule.days": "",
+        "refreshSchedule.times": "",
+        "refreshSchedule.enabled": "false",
+    }
+    assert Mapper._refresh_schedule_properties(None) == {}
 
 
 def test_page_input_fields_resolve_against_dataset_schema() -> None:

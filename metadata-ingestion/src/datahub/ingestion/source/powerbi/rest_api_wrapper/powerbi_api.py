@@ -2,6 +2,7 @@ import json
 import logging
 import sys
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import (
     Any,
     Dict,
@@ -221,6 +222,35 @@ class EntityPartitionSource:
     source_expression: Optional[str] = None
     remote_model: Optional[RemoteModelReference] = None
     remote_table_name: Optional[str] = None
+
+
+def _http_status(e: Exception) -> Optional[int]:
+    if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+        return e.response.status_code
+    return None
+
+
+def _http_error_body(e: Exception) -> Dict[str, Any]:
+    """The Power BI error envelope of an HTTPError, or {} when there is none."""
+    if not isinstance(e, requests.exceptions.HTTPError) or e.response is None:
+        return {}
+    try:
+        body = e.response.json()
+    except ValueError:
+        return {}
+    if not isinstance(body, dict):
+        return {}
+    error = body.get(Constant.ERROR)
+    return error if isinstance(error, dict) else {}
+
+
+def _is_refresh_schedule_not_supported(error: Dict[str, Any]) -> bool:
+    if error.get(Constant.CODE) not in Constant.REFRESH_SCHEDULE_NOT_SUPPORTED_CODES:
+        return False
+    message = str(error.get(Constant.MESSAGE) or "").lower()
+    return any(
+        phrase in message for phrase in Constant.REFRESH_SCHEDULE_NOT_SUPPORTED_PHRASES
+    )
 
 
 def make_resolver(config: PowerBiDashboardSourceConfig, resolver_cls: Type[R]) -> R:
@@ -1129,21 +1159,86 @@ class PowerBiAPI:
     ) -> None:
         if not self.__config.extract_refresh_history:
             return
+        context = f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}"
         try:
-            dataset.last_refresh = (
-                self.__regular_api_resolver.get_latest_dataset_refresh(
-                    workspace_id=workspace.id, dataset_id=dataset.id
-                )
+            refreshes = self.__regular_api_resolver.get_dataset_refreshes(
+                workspace_id=workspace.id, dataset_id=dataset.id
             )
-            self.reporter.refresh_history_fetched += 1
         except Exception as e:
+            # System datasets (e.g. the workspace usage-metrics model) cannot
+            # be refreshed and answer 415 to the refresh-history call.
+            if _http_status(e) == HTTPStatus.UNSUPPORTED_MEDIA_TYPE:
+                self.reporter.datasets_not_refreshable += 1
+                logger.debug(f"Dataset is not refreshable, skipping: {context}")
+                return
             self.log_http_error(
                 message=f"Unable to fetch refresh history for dataset {dataset.id}"
             )
             self.reporter.warning(
                 title="Refresh History Not Fetched",
-                message="Dataset refresh history could not be fetched; no Operation aspect will be emitted for its tables.",
-                context=f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}",
+                message="Dataset refresh history could not be fetched; no Operation aspect will be emitted for its tables. "
+                "The refresh schedule is still fetched separately; if that fails too, the tables carry no refreshSchedule properties either.",
+                context=context,
+                exc=e,
+            )
+            refreshes = None
+        if refreshes is not None:
+            self.reporter.refresh_history_fetched += 1
+            # Entries are newest first.
+            dataset.last_refresh = next(
+                (
+                    refresh
+                    for refresh in refreshes
+                    if refresh.status == Constant.REFRESH_STATUS_COMPLETED
+                ),
+                None,
+            )
+            dataset.last_failed_refresh = next(
+                (
+                    refresh
+                    for refresh in refreshes
+                    if refresh.status == Constant.REFRESH_STATUS_FAILED
+                ),
+                None,
+            )
+        self._fill_refresh_schedule(workspace, dataset, context)
+
+    def _fill_refresh_schedule(
+        self, workspace: Workspace, dataset: PowerBIDataset, context: str
+    ) -> None:
+        try:
+            dataset.refresh_schedule = (
+                self.__regular_api_resolver.get_dataset_refresh_schedule(
+                    workspace_id=workspace.id, dataset_id=dataset.id
+                )
+            )
+            self.reporter.refresh_schedule_fetched += 1
+        except Exception as e:
+            status = _http_status(e)
+            # 404 means no schedule is configured: a normal state, not a loss.
+            if status == HTTPStatus.NOT_FOUND:
+                self.reporter.refresh_schedule_not_configured += 1
+                logger.debug(f"No refresh schedule configured: {context}")
+                return
+            if status == HTTPStatus.BAD_REQUEST:
+                error = _http_error_body(e)
+                logger.info(f"Refresh schedule returned 400 for {context}: {error}")
+                if _is_refresh_schedule_not_supported(error):
+                    self.reporter.refresh_schedule_not_supported += 1
+                    self.reporter.info(
+                        title="Refresh Schedule Not Applicable",
+                        message="The dataset kind has no import refresh schedule (DirectQuery, live-connection or push dataset); no refreshSchedule properties are emitted for its tables.",
+                        context=context,
+                    )
+                    return
+            self.reporter.refresh_schedule_failed += 1
+            self.log_http_error(
+                message=f"Unable to fetch refresh schedule for dataset {dataset.id}"
+            )
+            self.reporter.warning(
+                title="Refresh Schedule Not Fetched",
+                message="Dataset refresh schedule could not be fetched; its tables will carry no refreshSchedule custom properties.",
+                context=context,
                 exc=e,
             )
 

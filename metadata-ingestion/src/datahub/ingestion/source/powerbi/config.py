@@ -225,13 +225,48 @@ class Constant:
 
     # workspace_apis mode: regular-API endpoints and refresh-history keys
     DATASET_REFRESHES = "DATASET_REFRESHES"
+    DATASET_REFRESH_SCHEDULE = "DATASET_REFRESH_SCHEDULE"
     WORKSPACE_USERS = "WORKSPACE_USERS"
     REQUEST_ID = "requestId"
     REFRESH_TYPE = "refreshType"
     START_TIME = "startTime"
     END_TIME = "endTime"
+    SERVICE_EXCEPTION_JSON = "serviceExceptionJson"
     REFRESH_STATUS_COMPLETED = "Completed"
+    REFRESH_STATUS_FAILED = "Failed"
+    # Operation.lastUpdatedTimestamp is required; 0 is read as "unknown"
+    LAST_UPDATED_UNKNOWN = 0
     CUSTOM_OPERATION_REFRESH = "REFRESH"
+    # Operation customProperties keys carrying a failed refresh's error payload:
+    # the parsed serviceExceptionJson fields, or the raw string when unparseable
+    SERVICE_EXCEPTION = "serviceException"
+    ERROR_CODE = "errorCode"
+    ERROR_DESCRIPTION = "errorDescription"
+    # Error descriptions can embed whole stack traces; keep custom properties
+    # to a size a UI can show.
+    REFRESH_ERROR_MAX_LENGTH = 1000
+    TRUNCATION_MARKER = "..."
+    # Power BI error envelope: {"error": {"code": ..., "message": ...}}
+    ERROR = "error"
+    CODE = "code"
+    MESSAGE = "message"
+    # A 400 from GET .../refreshSchedule with this code and one of these
+    # phrases in the message means the dataset kind has no import refresh
+    # schedule (DirectQuery / live-connection / push datasets); any other 400
+    # is reported as a real failure.
+    REFRESH_SCHEDULE_NOT_SUPPORTED_CODES = ("InvalidRequest",)
+    REFRESH_SCHEDULE_NOT_SUPPORTED_PHRASES = (
+        "model-based dataset",
+        "directquery",
+        "push dataset",
+    )
+    # GET .../refreshSchedule keys and the datasetProperties customProperties
+    # they are emitted under
+    DAYS = "days"
+    TIMES = "times"
+    ENABLED = "enabled"
+    LOCAL_TIME_ZONE_ID = "localTimeZoneId"
+    REFRESH_SCHEDULE_PROPERTY_PREFIX = "refreshSchedule."
     VISUAL_COUNT = "visualCount"
     VISUAL_TYPES = "visualTypes"
     TOP = "$top"
@@ -458,6 +493,16 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # fields the scan does not expose.
     scan_fields_not_in_definition: int = 0
     definition_fields_not_in_scan: int = 0
+    # Datasets whose refresh-history call answered 415: system datasets such
+    # as the workspace usage-metrics model cannot be refreshed.
+    datasets_not_refreshable: int = 0
+    # Failed refreshes emitted with no completed refresh in the fetched
+    # history window to anchor the dataset's last-updated time on.
+    refresh_failed_without_completed_baseline: int = 0
+    refresh_schedule_fetched: int = 0
+    refresh_schedule_not_configured: int = 0
+    refresh_schedule_not_supported: int = 0
+    refresh_schedule_failed: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -1124,10 +1169,12 @@ class PowerBiDashboardSourceConfig(
     )
     extract_refresh_history: bool = pydantic.Field(
         default=False,
-        description="Fetch each dataset's most recent refresh and emit it as an Operation "
-        "aspect on the dataset's tables. Adds one API call per dataset; works in both "
-        "metadata API modes and needs only the Viewer role, but uses the workspace "
-        "API, so it cannot be combined with `admin_apis_only`.",
+        description="Fetch each dataset's recent refreshes and configured refresh "
+        "schedule. The latest completed and the latest failed refresh are emitted as "
+        "Operation aspects on the dataset's tables, and the schedule as "
+        "`refreshSchedule.*` custom properties. Adds two API calls per dataset; works "
+        "in both metadata API modes and needs only the Viewer role, but uses the "
+        "workspace API, so it cannot be combined with `admin_apis_only`.",
     )
 
     @classmethod
