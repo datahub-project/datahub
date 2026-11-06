@@ -458,6 +458,7 @@ class QlikOnPremAPI:
             self._log_http_error(
                 message=f"Unable to fetch data connections. Exception: {e}"
             )
+            self.unread_items.append("data connections")
         logger.debug(f"QRS data connections: {list(connections.values())}")
         return connections
 
