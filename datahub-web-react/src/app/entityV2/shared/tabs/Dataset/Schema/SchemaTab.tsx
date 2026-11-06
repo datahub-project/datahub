@@ -99,7 +99,6 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     // cells only fall back to "unavailable" when no full metadata arrived at all.
     const fullMetadataMissing = !!fullMetadataError && !entityWithSchema?.schemaMetadata;
     let editableSchemaMetadata: any = entityWithSchema?.editableSchemaMetadata || undefined;
-    const editedPrimaryKeys = entityWithSchema?.editablePrimaryKeys?.primaryKeys;
     const separateSiblings = useIsSeparateSiblingsMode();
     const siblingUrn = entityData?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
     const usageStats = baseEntity?.dataset?.usageStats;
@@ -160,6 +159,8 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         skip: !urn || hideSemanticVersions,
     });
 
+    // The edited primary key is not versioned, so older schema versions show only their source key.
+    const editedPrimaryKeys = isLatestVersion ? entityWithSchema?.editablePrimaryKeys?.primaryKeys : undefined;
     let editMode = true;
     if (!isLatestVersion) {
         schemaMetadata = versionedSchema;

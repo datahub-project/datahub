@@ -11,6 +11,20 @@ describe('getEffectivePrimaryKeys', () => {
         expect(['id', 'day', 'col_a'].map((path) => isPrimaryKeyField(keys, field(path)))).toEqual([true, true, false]);
     });
 
+    it('matches source keys exactly', () => {
+        const keyField = field('[version=2.0].[key=True].[type=Key].[type=string].id');
+        const valueField = field('[version=2.0].[type=Value].[type=string].id');
+        const keys = getEffectivePrimaryKeys(
+            { primaryKeys: [keyField.fieldPath], fields: [keyField, valueField] },
+            null,
+        );
+        expect(isPrimaryKeyField(keys, keyField)).toBe(true);
+        expect(isPrimaryKeyField(keys, valueField)).toBe(false);
+        expect(isPrimaryKeyField(getEffectivePrimaryKeys({ primaryKeys: ['id'], fields: [] }, null), field('ID'))).toBe(
+            false,
+        );
+    });
+
     it('uses the edited key when the source declares none', () => {
         const schema = { primaryKeys: [], fields: [field('id'), field('col_a')] };
         expect(isPrimaryKeyField(getEffectivePrimaryKeys(schema, ['col_a']), field('col_a'))).toBe(true);
