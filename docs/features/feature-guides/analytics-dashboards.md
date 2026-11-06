@@ -63,7 +63,7 @@ Fair use policy: [DataHub SaaS terms](https://datahub.com/saasterms/)
 
 <FeatureAvailability />
 
-Product Analytics shows asset and adoption metrics for DataHub Cloud.
+Product Analytics shows asset and adoption metrics for DataHub.
 
 <p align="center">
   <img 
