@@ -1,0 +1,8 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.0.0/schema.json",
+  "name": "a1b2c3d4e5f6a7b8c9d0",
+  "displayName": "Loss Overview",
+  "displayOption": "FitToPage",
+  "height": 720,
+  "width": 1280
+}
