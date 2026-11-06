@@ -131,7 +131,7 @@ export class DomainsPage extends BasePage {
     await this.entityMenuDeleteButton.click();
     const deleted = this.graphql.waitForGraphQLResponse('deleteDomain', (variables) => variables.urn === domainUrn);
     await this.page.getByRole('button', { name: 'Yes' }).click();
-    expect((await deleted).errors).toBeUndefined();
+    expect(await deleted).toMatchObject({ data: { deleteDomain: true } });
     await this.page.waitForLoadState('networkidle', { timeout: 15000 });
   }
 

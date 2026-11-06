@@ -160,7 +160,7 @@ export default class DescriptionEditorPage extends BasePage {
     // right away does not reload the stale description.
     const saved = new GraphQLHelper(this.page).waitForGraphQLResponse('updateDescription');
     await this.clearDescription();
-    expect((await saved).errors).toBeUndefined();
+    expect(await saved).toMatchObject({ data: { updateDescription: true } });
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 }

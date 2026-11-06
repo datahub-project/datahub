@@ -124,9 +124,15 @@ export class ApplicationsPage extends BasePage {
   }
 
   async searchApplication(query: string): Promise<void> {
+    // The list searches after a debounce, so wait for the result for this query rather than
+    // returning while the previous results are still shown.
+    const searched = this.graphql.waitForGraphQLResponse('getSearchResultsForMultiple', (variables) => {
+      const input = variables.input as { query?: string } | undefined;
+      return input?.query === query;
+    });
     await this.searchInput.fill('');
     await this.searchInput.type(query);
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await searched;
   }
 
   async verifyNoSearchResults(): Promise<void> {
@@ -189,7 +195,7 @@ export class ApplicationsPage extends BasePage {
   async confirmDeletion(): Promise<void> {
     const deleted = this.graphql.waitForGraphQLResponse('deleteApplication');
     await this.deleteConfirmButton.click();
-    expect((await deleted).errors).toBeUndefined();
+    expect(await deleted).toMatchObject({ data: { deleteApplication: true } });
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
