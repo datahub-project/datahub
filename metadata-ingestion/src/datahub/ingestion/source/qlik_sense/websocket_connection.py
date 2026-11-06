@@ -299,24 +299,24 @@ class WebsocketConnection:
                 # there is nothing to read.
                 logger.debug(f"Master measure {library_id} does not exist")
                 continue
-            depth = len(self.handle)
-            try:
-                reply = self.websocket_send_request(
-                    method="GetMeasure", params={"qId": library_id}
-                )
-                if not reply.get(Constant.QRETURN, {}).get(Constant.QHANDLE):
-                    logger.debug(f"Master measure {library_id} does not exist")
-                    continue
-                q_layout = self.websocket_send_request(method="GetLayout")[
-                    Constant.QLAYOUT
-                ]
-                expression = q_layout.get(Constant.QMEASURE, {}).get(Constant.QDEF)
-                if expression:
-                    expressions[library_id] = expression
-            except Exception as e:
-                on_error(f"Unable to read master measure {library_id}. Exception: {e}")
-            finally:
-                del self.handle[depth:]
+            with self.restore_handle():
+                try:
+                    reply = self.websocket_send_request(
+                        method="GetMeasure", params={"qId": library_id}
+                    )
+                    if not reply.get(Constant.QRETURN, {}).get(Constant.QHANDLE):
+                        logger.debug(f"Master measure {library_id} does not exist")
+                        continue
+                    q_layout = self.websocket_send_request(method="GetLayout")[
+                        Constant.QLAYOUT
+                    ]
+                    expression = q_layout.get(Constant.QMEASURE, {}).get(Constant.QDEF)
+                    if expression:
+                        expressions[library_id] = expression
+                except Exception as e:
+                    on_error(
+                        f"Unable to read master measure {library_id}. Exception: {e}"
+                    )
         for chart in charts:
             for library_id in chart.measure_library_ids:
                 if library_id in expressions:
@@ -328,28 +328,26 @@ class WebsocketConnection:
         """Every master measure of the app and its expression, empty if the list has
         none, from one session object. None if it cannot be read.
         Must be called on the app handle."""
-        depth = len(self.handle)
-        try:
-            self.websocket_send_request(
-                method="CreateSessionObject",
-                params=[
-                    {
-                        Constant.QINFO: {Constant.QTYPE: "MeasureList"},
-                        "qMeasureListDef": {
-                            Constant.QTYPE: "measure",
-                            Constant.QDATA: {"measure": "/qMeasure"},
-                        },
-                    }
-                ],
-            )
-            items = self.websocket_send_request(method="GetLayout")[Constant.QLAYOUT][
-                "qMeasureList"
-            ][Constant.QITEMS]
-        except Exception as e:
-            logger.debug(f"Unable to list master measures. Exception: {e}")
-            return None
-        finally:
-            del self.handle[depth:]
+        with self.restore_handle():
+            try:
+                self.websocket_send_request(
+                    method="CreateSessionObject",
+                    params=[
+                        {
+                            Constant.QINFO: {Constant.QTYPE: "MeasureList"},
+                            "qMeasureListDef": {
+                                Constant.QTYPE: "measure",
+                                Constant.QDATA: {"measure": "/qMeasure"},
+                            },
+                        }
+                    ],
+                )
+                items = self.websocket_send_request(method="GetLayout")[
+                    Constant.QLAYOUT
+                ]["qMeasureList"][Constant.QITEMS]
+            except Exception as e:
+                logger.debug(f"Unable to list master measures. Exception: {e}")
+                return None
         return {
             item[Constant.QINFO][Constant.QID]: item.get(Constant.QDATA, {})
             .get("measure", {})

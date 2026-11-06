@@ -380,17 +380,20 @@ def strip_set_values(expression: str) -> str:
 
 
 def expression_names(expression: str) -> List[str]:
-    """Names an expression may read as fields. Function names and keywords come
-    back too, so callers keep only names that are fields of the app."""
-    return [
-        name
-        for match in EXPRESSION_NAME_RE.finditer(strip_set_values(expression))
-        if (
-            name := match.group("bracket")
-            or match.group("double")
-            or match.group("bare")
-        )
-    ]
+    """Names an expression may read as fields. Keywords come back too, so
+    callers keep only names that are fields of the app."""
+    expression = strip_set_values(expression)
+    names: List[str] = []
+    for match in EXPRESSION_NAME_RE.finditer(expression):
+        bare = match.group("bare")
+        if bare and expression[match.end() :].lstrip().startswith("("):
+            # A function call such as Year(OrderDate), even when an app field
+            # has the same name.
+            continue
+        name = match.group("bracket") or match.group("double") or bare
+        if name:
+            names.append(name)
+    return names
 
 
 def _platform_in(text: str) -> Optional[str]:

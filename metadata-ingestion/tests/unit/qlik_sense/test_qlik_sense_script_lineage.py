@@ -1,10 +1,11 @@
-from typing import Optional
+from typing import List, Optional
 
 import pytest
 
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     connection_lookup_names,
     drop_condition_variables,
+    expression_names,
     has_qualified_name,
     infer_data_connection,
     is_connector_sql,
@@ -285,3 +286,20 @@ def test_is_connector_sql(sql: str, expected: bool) -> None:
 )
 def test_drop_condition_variables(sql: str, expected: str) -> None:
     assert drop_condition_variables(sql) == expected
+
+
+@pytest.mark.parametrize(
+    "expression, names",
+    [
+        pytest.param("=Sum(Year(OrderDate))", ["OrderDate"], id="nested_functions"),
+        pytest.param("=Year (OrderDate)", ["OrderDate"], id="space_before_call"),
+        pytest.param(
+            "=[Year] + Year", ["Year", "Year"], id="field_named_like_function"
+        ),
+        pytest.param("Count({<Year={2024}>} Region)", ["Year", "Region"], id="set"),
+    ],
+)
+def test_expression_names_skip_function_calls(
+    expression: str, names: List[str]
+) -> None:
+    assert expression_names(expression) == names

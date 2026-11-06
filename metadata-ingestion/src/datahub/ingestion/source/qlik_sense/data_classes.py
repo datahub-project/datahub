@@ -203,6 +203,11 @@ class Chart(_QlikBaseModel):
                 for field_def in dimension.get(Constant.QGROUPFIELDDEFS) or []
             ],
         )
+        if any(
+            not dimension.get(Constant.QGROUPFIELDDEFS)
+            for dimension in values["qDimension"]
+        ):
+            values["fields_complete"] = False
         return values
 
 

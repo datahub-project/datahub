@@ -344,6 +344,8 @@ def test_chart_keeps_dimension_in_error_state() -> None:
         ("Region", "0"),
         (None, None),
     ]
+    # Neither dimension lists its fields, so the chart may read any of them.
+    assert not chart.fields_complete
 
 
 def test_chart_without_title_is_kept() -> None:
@@ -681,6 +683,8 @@ def test_chart_input_fields_match_app_fields() -> None:
         "Net Sales",
         "=Upper(region)",
         "Sum({<Region={\"Segment\", 'Net Sales'}>} [Net Sales]) / Count(ORDER_ID)",
+        # Segment is called as a function here, not read as a field.
+        "=Sum(Segment (order_id))",
     ]
 
     assert [
@@ -695,12 +699,15 @@ def test_chart_input_fields_match_app_fields() -> None:
 
 
 @pytest.mark.parametrize(
-    "expressions, fields_complete, matched_fields, keeps_all_tables",
+    "expressions, fields_complete, unknown_schema, matched_fields, keeps_all_tables",
     [
-        pytest.param(["Sum(unknown_field)"], True, [], True, id="no_field_matches"),
+        pytest.param(
+            ["Sum(unknown_field)"], True, False, [], True, id="no_field_matches"
+        ),
         pytest.param(
             ["Region", "Sum($(vSales))"],
             True,
+            False,
             ["Region"],
             True,
             id="variable_measure",
@@ -708,6 +715,7 @@ def test_chart_input_fields_match_app_fields() -> None:
         pytest.param(
             ["Count({<Year={$(vYear)}>} Region)"],
             True,
+            False,
             ["Region"],
             False,
             id="variable_in_set_modifier",
@@ -715,11 +723,28 @@ def test_chart_input_fields_match_app_fields() -> None:
         pytest.param(
             ["Count({<Year={$(=Only({1} Year))}>} Region)"],
             True,
+            False,
             ["Region"],
             False,
             id="nested_expansion_in_set_modifier",
         ),
-        pytest.param(["Region"], False, ["Region"], True, id="unread_measure"),
+        pytest.param(["Region"], False, False, ["Region"], True, id="unread_measure"),
+        pytest.param(
+            ["Region", "Sum(amount)"],
+            True,
+            True,
+            ["Region"],
+            True,
+            id="unmatched_name_with_unknown_schema",
+        ),
+        pytest.param(
+            ["Region"],
+            True,
+            True,
+            ["Region"],
+            False,
+            id="all_names_matched_with_unknown_schema",
+        ),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
@@ -727,6 +752,7 @@ def test_chart_inputs_when_fields_are_unknown(
     mock_onprem: MagicMock,
     expressions: List[str],
     fields_complete: bool,
+    unknown_schema: bool,
     matched_fields: List[str],
     keeps_all_tables: bool,
 ) -> None:
@@ -741,12 +767,15 @@ def test_chart_inputs_when_fields_are_unknown(
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)",
     ]
+    # A SQL SELECT * script table has no known columns.
     app_fields = QlikSenseSource._index_app_fields(
-        {app_tables[1]: [SchemaField(name="Region")]}
+        {app_tables[0]: [], app_tables[1]: [SchemaField(name="Region")]}
     )
 
     workunits = list(
-        source._gen_charts_workunit([chart], app_tables, app_fields, "app-1")
+        source._gen_charts_workunit(
+            [chart], app_tables, app_fields, unknown_schema, "app-1"
+        )
     )
     (chart_info,) = filter(
         None, (wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)

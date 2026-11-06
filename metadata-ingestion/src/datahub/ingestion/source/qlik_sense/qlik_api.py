@@ -252,12 +252,11 @@ class QlikAPI:
                 },
             )
             for sheet_dict in response[Constant.QLIST]:
-                depth = len(websocket_connection.handle)
-                sheet = self._get_sheet(
-                    websocket_connection=websocket_connection,
-                    sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
-                )
-                del websocket_connection.handle[depth:]
+                with websocket_connection.restore_handle():
+                    sheet = self._get_sheet(
+                        websocket_connection=websocket_connection,
+                        sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
+                    )
                 if sheet:
                     sheets.append(sheet)
             websocket_connection.add_master_measure_definitions(

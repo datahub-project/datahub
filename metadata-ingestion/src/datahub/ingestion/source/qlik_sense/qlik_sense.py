@@ -501,6 +501,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         charts: List[Chart],
         input_tables_urns: List[str],
         app_fields: Dict[str, List[AppField]],
+        has_unknown_schema: bool,
         app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -520,13 +521,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "Measure": str(chart.qMeasure),
             }
             chart_fields = self._get_chart_input_fields(chart, app_fields)
-            # The fields behind a $(variable) expansion are unknown, so the chart
-            # may read any of the app's tables, as may a measure that could not
-            # be read. Set modifier values only filter.
-            reads_unknown_fields = not chart.fields_complete or any(
-                "$(" in strip_set_values(expression)
-                for expression in chart.field_expressions
-            )
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
@@ -535,13 +529,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     description=chart.visualization,
                     lastModified=ChangeAuditStampsClass(),
                     customProperties=custom_properties,
-                    inputs=(
-                        input_tables_urns
-                        if reads_unknown_fields
-                        else list(
-                            dict.fromkeys(field.dataset_urn for field in chart_fields)
-                        )
-                        or input_tables_urns
+                    inputs=self._get_chart_inputs(
+                        chart,
+                        chart_fields,
+                        app_fields,
+                        input_tables_urns,
+                        has_unknown_schema,
                     ),
                 ),
             ).as_workunit()
@@ -555,7 +548,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                             schemaFieldUrn=builder.make_schema_field_urn(
                                 field.dataset_urn, field.field.name
                             ),
-                            schemaField=self._gen_schema_fields([field.field])[0],
+                            schemaField=self._gen_schema_field(field.field),
                         )
                         for field in chart_fields
                     ]
@@ -569,23 +562,61 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     @staticmethod
+    def _chart_field_names(
+        expression: str, app_fields: Dict[str, List[AppField]]
+    ) -> List[str]:
+        # A dimension is usually a bare field name, which may contain spaces.
+        return (
+            [expression]
+            if expression.lower() in app_fields
+            else expression_names(expression)
+        )
+
+    @staticmethod
     def _get_chart_input_fields(
         chart: Chart, app_fields: Dict[str, List[AppField]]
     ) -> List[AppField]:
         matched: Dict[str, AppField] = {}
         for expression in chart.field_expressions:
-            # A dimension is usually a bare field name, which may contain spaces.
-            names = (
-                [expression]
-                if expression.lower() in app_fields
-                else expression_names(expression)
-            )
-            for name in names:
+            for name in QlikSenseSource._chart_field_names(expression, app_fields):
                 for app_field in app_fields.get(name.lower(), []):
                     matched.setdefault(
                         f"{app_field.dataset_urn}.{app_field.field.name}", app_field
                     )
         return list(matched.values())
+
+    def _get_chart_inputs(
+        self,
+        chart: Chart,
+        chart_fields: List[AppField],
+        app_fields: Dict[str, List[AppField]],
+        input_tables_urns: List[str],
+        has_unknown_schema: bool,
+    ) -> List[str]:
+        # The fields behind a $(variable) expansion are unknown, so the chart
+        # may read any of the app's tables, as may a measure that could not be
+        # read, or a name that is not a known field while some table's columns
+        # are unknown (e.g. SELECT *). Set modifier values only filter.
+        if (
+            not chart.fields_complete
+            or any(
+                "$(" in strip_set_values(expression)
+                for expression in chart.field_expressions
+            )
+            or (
+                has_unknown_schema
+                and any(
+                    name.lower() not in app_fields
+                    for expression in chart.field_expressions
+                    for name in self._chart_field_names(expression, app_fields)
+                )
+            )
+        ):
+            return input_tables_urns
+        return (
+            list(dict.fromkeys(field.dataset_urn for field in chart_fields))
+            or input_tables_urns
+        )
 
     @staticmethod
     def _index_app_fields(
@@ -606,6 +637,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         app: App,
         input_tables_urns: List[str],
         app_fields: Dict[str, List[AppField]],
+        has_unknown_schema: bool,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Sheet to Datahub dashboard
@@ -634,7 +666,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
             yield from self._gen_charts_workunit(
-                sheet.charts, input_tables_urns, app_fields, app.id
+                sheet.charts,
+                input_tables_urns,
+                app_fields,
+                has_unknown_schema,
+                app.id,
             )
 
     def _gen_app_table_upstream_lineage(
@@ -1032,7 +1068,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         yield from container_workunits
         yield from self._gen_sheets_workunit(
-            app, input_tables_urns, self._index_app_fields(table_fields)
+            app,
+            input_tables_urns,
+            self._index_app_fields(table_fields),
+            any(not fields for fields in table_fields.values()),
         )
         yield from self._gen_app_tables_workunit(app.tables, app.id)
         yield from self._gen_script_tables_workunit(script_tables, app.id)
@@ -1087,26 +1126,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         else:
             return None
 
+    @staticmethod
+    def _gen_schema_field(field: QlikDatasetSchemaField) -> SchemaField:
+        return SchemaField(
+            fieldPath=field.name,
+            type=SchemaFieldDataTypeClass(
+                type=(
+                    FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
+                    if field.dataType
+                    else NullType()
+                )
+            ),
+            nativeDataType=field.dataType if field.dataType else "",
+            nullable=field.nullable,
+            isPartOfKey=field.primaryKey,
+        )
+
     def _gen_schema_fields(
         self, schema: List[QlikDatasetSchemaField]
     ) -> List[SchemaField]:
-        schema_fields: List[SchemaField] = []
-        for field in schema:
-            schema_field = SchemaField(
-                fieldPath=field.name,
-                type=SchemaFieldDataTypeClass(
-                    type=(
-                        FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
-                        if field.dataType
-                        else NullType()
-                    )
-                ),
-                nativeDataType=field.dataType if field.dataType else "",
-                nullable=field.nullable,
-                isPartOfKey=field.primaryKey,
-            )
-            schema_fields.append(schema_field)
-        return schema_fields
+        return [self._gen_schema_field(field) for field in schema]
 
     def _gen_schema_metadata(
         self, dataset_identifier: str, dataset_schema: List[QlikDatasetSchemaField]
