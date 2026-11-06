@@ -9,6 +9,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Tuple,
     Union,
 )
 
@@ -194,6 +195,7 @@ class Constant:
     # Scan-API column types reproduced for TMDL-sourced columns
     COLUMN_TYPE_DATA = "Data"
     COLUMN_TYPE_CALCULATED = "Calculated"
+    DAX_REFERENCE_NOT_RESOLVED = "DAX Reference Not Resolved"
     NULL_DATA_TYPE = "Null"
 
 
@@ -333,7 +335,23 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     relationships_parsed: int = 0
     relationships_skipped: int = 0
     relationships_unresolved: int = 0
-    measure_references_unresolved: int = 0
+    # DAX references (calculated columns, calculated tables, measures) that
+    # resolved to / did not resolve to a table or field of the parsed model.
+    # Each distinct (table, field, reference) is counted once, however many
+    # times its dataset is mapped.
+    dax_references_resolved: int = 0
+    dax_references_unresolved: int = 0
+    # Bare `[Column]` references inside a table iterator (SUMX, FILTER, ...):
+    # the column exists but belongs to the iterated table, which cannot be
+    # told without evaluating the DAX, so no edge and no warning.
+    dax_references_unattributed: int = 0
+    _dax_references_seen: Set[Tuple[str, str, str]] = dataclass_field(
+        default_factory=set
+    )
+    # Native-SQL column lineage whose output column is not a source column
+    # of the Power BI table (calculated column, or a column the model dropped).
+    cll_dropped_not_a_source_column: int = 0
+    cll_dropped_columns: LossyList[str] = dataclass_field(default_factory=LossyList)
     semantic_models_not_processed: int = 0
     refresh_history_fetched: int = 0
     refresh_history_unparseable: int = 0
@@ -927,6 +945,23 @@ class PowerBiDashboardSourceConfig(
         "Requires `metadata_api_mode: workspace_apis`, `extract_reports` and "
         "`extract_dataset_schema`.",
     )
+    extract_dax_reference_lineage: bool = pydantic.Field(
+        default=False,
+        description="Derive lineage inside a semantic model from its DAX: a calculated "
+        "column gets column-level edges from the columns and measures its expression "
+        "reads, a measure that references another measure gets an edge from it, and a "
+        "calculated table gets table-level lineage from the tables its expression "
+        "reads. Edges are only emitted to tables and fields that exist in the model. "
+        "A DAX reference that does not resolve is counted and reported as a "
+        "`DAX Reference Not Resolved` warning; DAX is only read from TMDL definitions "
+        "(`metadata_api_mode: workspace_apis`), and without this flag only the "
+        "table-qualified references of measures and the tables read by calculated "
+        "tables are checked. Enabling it makes the connector write `upstreamLineage` "
+        "on tables that previously had none (for example a table whose only lineage "
+        "is a measure reading another measure), replacing upstreams authored in the "
+        "UI for those tables. Requires `metadata_api_mode: workspace_apis` and "
+        "`extract_column_level_lineage`.",
+    )
     extract_refresh_history: bool = pydantic.Field(
         default=False,
         description="Fetch each dataset's most recent refresh and emit it as an Operation "
@@ -1023,7 +1058,7 @@ class PowerBiDashboardSourceConfig(
 
     @model_validator(mode="after")
     def validate_definition_enrichment_flags(self) -> "PowerBiDashboardSourceConfig":
-        # Both flags are derived from TMDL / report definitions, which only the
+        # These flags are derived from TMDL / report definitions, which only the
         # workspace_apis mode fetches, and attach to schema fields.
         for flag, extra_requirements in (
             ("extract_model_relationships", ("extract_dataset_schema",)),
@@ -1031,6 +1066,7 @@ class PowerBiDashboardSourceConfig(
                 "extract_report_field_usage",
                 ("extract_dataset_schema", "extract_reports"),
             ),
+            ("extract_dax_reference_lineage", ("extract_column_level_lineage",)),
         ):
             if not getattr(self, flag):
                 continue

@@ -25,6 +25,8 @@ source:
     # Enrichment read from the semantic-model and report definitions (workspace_apis only)
     # extract_model_relationships: true
     # extract_report_field_usage: true
+    # Column lineage derived from DAX (calculated columns, measure-to-measure references)
+    # extract_dax_reference_lineage: true
     # Latest dataset refresh as an Operation aspect (works in both modes)
     # extract_refresh_history: true
 

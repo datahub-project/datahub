@@ -1,4 +1,3 @@
-import dataclasses
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -91,7 +90,7 @@ class Workspace:
     # the /groups/me alias by its owner).
     webUrl: Optional[str] = None
     # Fabric artifacts (Lakehouse, Warehouse, SQLAnalyticsEndpoint) for DirectLake lineage
-    fabric_artifacts: Dict[str, "FabricArtifact"] = dataclasses.field(
+    fabric_artifacts: Dict[str, "FabricArtifact"] = field(
         default_factory=dict
     )  # key = artifact id
 
@@ -168,6 +167,32 @@ class MeasureProfile:
     sample_values: Optional[List[str]] = None
 
 
+@dataclass(frozen=True)
+class DaxFieldReference:
+    """A `'Table'[Field]` (or bare `[Field]`, table None) reference in DAX,
+    found in a measure's or a calculated column's expression."""
+
+    table: Optional[str]
+    field: str
+
+
+# Earlier name, kept for callers that still import it.
+MeasureReference = DaxFieldReference
+
+
+@dataclass
+class DaxReferences:
+    """Model fields and tables a DAX expression reads, distinct and in order
+    of first appearance."""
+
+    fields: List[DaxFieldReference] = field(default_factory=list)
+    tables: List[str] = field(default_factory=list)
+    # True when the expression calls an iterator or other table function
+    # (SUMX, FILTER, RELATEDTABLE, ...): inside it a bare `[Column]` belongs
+    # to the iterated table, not to the table that owns the expression.
+    has_row_context_iterators: bool = False
+
+
 @dataclass
 class Column:
     name: str
@@ -180,14 +205,15 @@ class Column:
     expression: Optional[str] = None
     description: Optional[str] = None
     measure_profile: Optional[MeasureProfile] = None
-
-
-@dataclass(frozen=True)
-class MeasureReference:
-    """A `'Table'[Field]` (or bare `[Measure]`, table None) reference in DAX."""
-
-    table: Optional[str]
-    field: str
+    # Name of the column in the M query output (TMDL `sourceColumn`); the
+    # upstream column lineage resolves against it when it differs from the
+    # Power BI display name. Only populated from TMDL definitions.
+    source_column: Optional[str] = None
+    # Model fields a calculated column's DAX reads, and whether that DAX
+    # iterates other tables (see DaxReferences). Only populated from TMDL
+    # definitions (workspace_apis mode).
+    references: List[DaxFieldReference] = field(default_factory=list)
+    has_row_context_iterators: bool = False
 
 
 @dataclass
@@ -198,11 +224,21 @@ class Measure:
     dataType: str = "measure"
     datahubDataType: Union[
         BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
-    ] = dataclasses.field(default_factory=NullTypeClass)
+    ] = field(default_factory=NullTypeClass)
     description: Optional[str] = None
     measure_profile: Optional[MeasureProfile] = None
     # Only populated from TMDL definitions (workspace_apis mode).
-    references: List[MeasureReference] = dataclasses.field(default_factory=list)
+    references: List[DaxFieldReference] = field(default_factory=list)
+    has_row_context_iterators: bool = False
+
+
+def is_calculated_column(column: Column) -> bool:
+    """Computed by DAX inside the model, so it has no column in the
+    partition's source. The scanner API and TMDL do not agree on casing
+    ("Calculated", "DATA")."""
+    return (column.columnType or "").casefold() == (
+        Constant.COLUMN_TYPE_CALCULATED.casefold()
+    )
 
 
 @dataclass

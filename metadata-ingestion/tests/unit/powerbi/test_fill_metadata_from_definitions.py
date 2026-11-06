@@ -38,6 +38,10 @@ TABLE_TMDL = """table Policies
 \t\tdataType: int64
 \t\tsourceColumn: POLICY_ID
 
+\tcolumn PremiumBand = IF(Policies[PolicyId] > 10, "High", "Low")
+\t\tdataType: string
+\t\ttype: calculated
+
 \tpartition Policies = m
 \t\tmode: import
 \t\tsource =
@@ -155,8 +159,17 @@ def test_datasets_and_tables_come_from_definitions() -> None:
     assert [t.name for t in dataset.tables] == ["Policies"]
     assert dataset.tables[0].expression is not None
     assert dataset.tables[0].expression.startswith("let")
-    assert dataset.tables[0].columns is not None
-    assert dataset.tables[0].columns[0].dataType == "Int64"
+    columns = dataset.tables[0].columns
+    assert columns is not None
+    assert columns[0].dataType == "Int64"
+    assert columns[0].source_column == "POLICY_ID"
+    assert columns[0].columnType == "Data"
+    assert columns[0].references == []
+    assert columns[1].columnType == "Calculated"
+    assert columns[1].source_column is None
+    assert [(r.table, r.field) for r in columns[1].references] == [
+        ("Policies", "PolicyId")
+    ]
     assert api.dataset_registry[MODEL_A] is dataset
     assert api.reporter.fabric_definitions_fetched == 1
     assert api.reporter.tmdl_tables_parsed == 1
