@@ -170,15 +170,50 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         for (ReindexConfig config : configsNeedingReindex) {
           Optional<IncrementalReindexState.Status> existingStatus =
               IncrementalReindexState.getStatus(upgradeState, config.name());
+          boolean retireRollbackTarget = false;
 
           // Skip indices that already completed or were swapped in a previous run, and indices
           // whose fill the non-blocking phase owns: the fill resumes from its own checkpoint.
           if (ownedByThisDeploy(upgradeState, config.name())) {
-            log.info(
-                "Index {} already {} in previous run, skipping",
+            if (config.exists() || IncrementalReindexState.isBackfillStatus(existingStatus.get())) {
+              log.info(
+                  "Index {} already {} in previous run, skipping",
+                  config.name(),
+                  existingStatus.get());
+              continue;
+            }
+            // A finished row whose index no longer exists: something outside this upgrade deleted
+            // the index after the row was written. Skipped, the index would come back on the next
+            // write with the engine's dynamic mappings.
+            if (fills.containsKey(config.name())) {
+              // Not replanned here. The fill's catch-up verdict lives on the catch-up result,
+              // which this step does not own, so a refill under the same upgrade version would
+              // skip its catch-up replay and leave the migration stamp incomplete.
+              log.error(
+                  "Index {} was {} in a previous run but no longer exists, and its fill from"
+                      + " primary storage cannot be planned again under this upgrade version. To"
+                      + " rebuild it, remove this index's entries from both the {} and {} upgrade"
+                      + " results",
+                  config.name(),
+                  existingStatus.get(),
+                  id(),
+                  IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX + "_" + upgradeVersion);
+              continue;
+            }
+            // Forget the row, persisted before the index is touched, so the index is built below
+            // as on a fresh install.
+            upgradeState = forgetMissingIndex(upgradeState, config.name(), existingStatus.get());
+            retireRollbackTarget =
+                IncrementalReindexState.getStatus(upgradeState, config.name())
+                    .filter(IncrementalReindexState.Status.DUAL_WRITE_DISABLED::equals)
+                    .isPresent();
+            checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
+            log.error(
+                "Index {} was {} in a previous run but no longer exists; recreating it empty with"
+                    + " its target mappings. Its documents must be restored (RestoreIndices"
+                    + " rebuilds an entity index from primary storage)",
                 config.name(),
                 existingStatus.get());
-            continue;
           }
 
           ESIndexBuilder indexBuilder = requireIndexBuilder(config.name());
@@ -214,6 +249,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             upgradeState =
                 IncrementalReindexState.setReindexCompleteTime(
                     upgradeState, config.name(), createTime);
+            if (retireRollbackTarget) {
+              upgradeState =
+                  IncrementalReindexState.setDualWriteDisabled(upgradeState, config.name());
+            }
             checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
             continue;
           }
@@ -615,8 +654,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
 
   /**
    * Whether this deploy's state already accounts for {@code indexName}: the row is finished, or a
-   * fill the non-blocking phase owns is in flight. Such a row is never planned again; a FAILED row
-   * is, and an index with no row at all is judged from what the index itself shows.
+   * fill the non-blocking phase owns is in flight. Such a row is not planned again, except a
+   * finished row whose index no longer exists and is not filled from primary storage, which Phase 1
+   * forgets and builds again. A FAILED row is planned again, and an index with no row at all is
+   * judged from what the index itself shows.
    */
   private static boolean ownedByThisDeploy(Map<String, String> upgradeState, String indexName) {
     return IncrementalReindexState.getStatus(upgradeState, indexName)
@@ -626,6 +667,62 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                     || status == IncrementalReindexState.Status.DUAL_WRITE_DISABLED
                     || IncrementalReindexState.isBackfillStatus(status))
         .orElse(false);
+  }
+
+  /**
+   * {@code upgradeState} with the row for {@code indexName} reduced to what must outlive the
+   * rebuild, so a rerun after a failed build reaches the same row:
+   *
+   * <ul>
+   *   <li>a {@code COMPLETED} row whose old backing index still exists keeps that status and index:
+   *       with rollback dual-write on, writes were still mirroring into that copy, so it stays
+   *       current for a rollback;
+   *   <li>a {@code DUAL_WRITE_DISABLED} row, or one whose old backing index is gone, reads {@code
+   *       DUAL_WRITE_DISABLED}: running consumers let go of a rollback write target only then, and
+   *       the name of a deleted index would send writes to an index the engine recreates with
+   *       dynamic mappings;
+   *   <li>any other row is dropped.
+   * </ul>
+   */
+  private Map<String, String> forgetMissingIndex(
+      Map<String, String> upgradeState,
+      String indexName,
+      IncrementalReindexState.Status forgottenStatus)
+      throws IOException {
+    Optional<String> oldBackingIndexName =
+        IncrementalReindexState.get(
+                upgradeState, indexName, IncrementalReindexState.OLD_BACKING_INDEX_NAME)
+            .filter(name -> !name.isEmpty());
+    Map<String, String> result = new HashMap<>(upgradeState);
+    IncrementalReindexState.getAllIndexStates(upgradeState)
+        .getOrDefault(indexName, Map.of())
+        .keySet()
+        .forEach(property -> result.remove(IncrementalReindexState.key(indexName, property)));
+    if (forgottenStatus == IncrementalReindexState.Status.COMPLETED
+        && oldBackingIndexName.isPresent()
+        && !IncrementalReindexState.isOldBackingIndexIdSchemeStale(upgradeState, indexName)
+        && !IncrementalReindexState.isOldBackingIndexIncompleteMigration(upgradeState, indexName)
+        && requireIndexBuilder(indexName).indexExists(opContext, oldBackingIndexName.get())) {
+      Map<String, String> kept =
+          IncrementalReindexState.setPhase1Completed(
+              IncrementalReindexState.setOldBackingIndexName(
+                  result, indexName, oldBackingIndexName.get()),
+              indexName);
+      // Without its reindex start the row reads as having no catch-up window, which drops the
+      // copy's cleanup protection while it is still a rollback write target.
+      for (String property :
+          List.of(
+              IncrementalReindexState.REINDEX_START_TIME, IncrementalReindexState.INDEX_VERSION)) {
+        IncrementalReindexState.get(upgradeState, indexName, property)
+            .ifPresent(value -> kept.put(IncrementalReindexState.key(indexName, property), value));
+      }
+      return kept;
+    }
+    if (forgottenStatus == IncrementalReindexState.Status.DUAL_WRITE_DISABLED
+        || oldBackingIndexName.isPresent()) {
+      return IncrementalReindexState.setDualWriteDisabled(result, indexName);
+    }
+    return result;
   }
 
   /**
