@@ -304,6 +304,7 @@ class QlikAPI:
         return connections
 
     def _get_app(self, app_id: str) -> Optional[App]:
+        websocket_connection: Optional[WebsocketConnection] = None
         try:
             assert self.config.tenant_hostname is not None
             assert self.config.api_key is not None
@@ -324,12 +325,14 @@ class QlikAPI:
             app.tables = self._get_app_used_tables(websocket_connection, app_id)
             if not app.tables or not all(table.tableQri for table in app.tables):
                 app.script = self._get_app_script(websocket_connection, app_id)
-            websocket_connection.close_websocket()
             return app
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch app with id {app_id}. Exception: {e}"
             )
+        finally:
+            if websocket_connection:
+                websocket_connection.close_websocket()
         return None
 
     def _list_items(self, space_id: str) -> Iterable[Dict]:
