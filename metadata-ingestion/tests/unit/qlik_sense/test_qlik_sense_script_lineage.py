@@ -114,6 +114,30 @@ END IF
     ]
 
 
+def test_parse_load_script_switch_without_default_keeps_value_from_before() -> None:
+    script = """
+LIB CONNECT TO 'Prod SQL';
+SWITCH vEnv
+CASE 'PROD'
+  LIB CONNECT TO 'Prod SQL';
+CASE 'UAT'
+  LIB CONNECT TO 'Prod SQL';
+END SWITCH
+Same: SQL SELECT * FROM dbo.orders;
+LIB CONNECT TO 'Test SQL';
+SWITCH vEnv
+CASE 'PROD'
+  LIB CONNECT TO 'Prod SQL';
+END SWITCH
+Differs: SQL SELECT * FROM dbo.orders;
+"""
+    # No CASE may match, so the connection from before SWITCH is an outcome too.
+    assert [(t.label, t.connection) for t in parse_load_script(script)] == [
+        ("Same", "Prod SQL"),
+        ("Differs", None),
+    ]
+
+
 def test_infer_data_connection_reads_driver_and_database() -> None:
     sql_server = infer_data_connection(
         "Sales SQL",
