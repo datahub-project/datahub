@@ -681,6 +681,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     Mockito.when(
             entityService.getLatestAspects(
                 Mockito.any(OperationContext.class), Mockito.anySet(), Mockito.anySet()))
+        .thenCallRealMethod();
+    Mockito.when(
+            entityService.getLatestAspects(
+                Mockito.any(OperationContext.class),
+                Mockito.anySet(),
+                Mockito.anySet(),
+                Mockito.anyBoolean()))
         .thenAnswer(
             invocation -> {
               Map<Urn, List<RecordTemplate>> aspects = new HashMap<>();
