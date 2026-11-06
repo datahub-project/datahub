@@ -122,6 +122,8 @@ and then click "Initialize".
 This one-time step will kick off the back-filling process for existing terms. If you only want to begin propagating
 terms going forward, you can skip this step.
 
+Initialize fills in Snowflake comments from descriptions written in DataHub. For each table and column with a description written in DataHub, it writes that description where the Snowflake comment is empty or different, and leaves matching comments alone. It never clears a comment. It doesn't write descriptions from ingestion or from a YAML file applied with `datahub dataset upsert`; those reach Snowflake only when their text changes. It skips objects Snowflake doesn't have, or that the automation's role can't see. Running Initialize again writes only comments that no longer match. In the Automations page, Initialize stays greyed out until the run finishes.
+
 :::info
 
 The back-filling of tags will be available in a future release.
@@ -139,6 +141,17 @@ Tags and glossary terms will appear as Snowflake tags on your tables and columns
 ### Descriptions
 
 DataHub descriptions will be synced as Snowflake comments on tables and columns, visible in the Snowflake UI and accessible via `SHOW TABLES` and `DESCRIBE TABLE` commands.
+
+Descriptions written in DataHub come first. If someone wrote a description in DataHub, in the UI or through the API, that is what Snowflake gets, even when ingestion later brings in different text. If nobody wrote one, Snowflake gets the description from ingestion or from a YAML file applied with `datahub dataset upsert`, each time that text changes.
+
+When you delete a description you wrote in DataHub, in the UI or through the API, the Snowflake comment is cleared too. After a delete in the UI, DataHub writes nothing else to it until someone writes a new description in DataHub. After a removal through the API, a later change to the description from ingestion is synced again.
+
+The Snowflake comment is not cleared when:
+
+- an ingestion run is rolled back, or the dataset is deleted in DataHub
+- you delete a description that came from Snowflake itself
+- you remove a description from a YAML file
+- the whole editable-description record of a table, or of its columns, is deleted through the API (setting a description to null or to an empty string clears it)
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/view-snowflake-tags.png"/>
