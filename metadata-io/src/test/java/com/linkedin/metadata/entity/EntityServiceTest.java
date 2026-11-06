@@ -1636,6 +1636,48 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   }
 
   @Test
+  public void testStreamAspectsReturnsOnlyTheLatestVersion() {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:streamAspectsLatest");
+    CorpUserInfo first = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    CorpUserInfo second = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+    String aspectName = AspectGenerationUtils.getAspectName(first);
+    for (CorpUserInfo aspect : List.of(first, second)) {
+      _entityServiceImpl.ingestAspects(
+          opContext,
+          AspectsBatchImpl.builder()
+              .retrieverContext(opContext.getRetrieverContext())
+              .items(
+                  List.of(
+                      ChangeItemImpl.builder()
+                          .urn(entityUrn)
+                          .aspectName(aspectName)
+                          .recordTemplate(aspect)
+                          .auditStamp(TEST_AUDIT_STAMP)
+                          .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                          .build(opContext.getAspectRetriever())))
+              .build(opContext),
+          true,
+          true);
+    }
+    // The first write is kept as version 1, which is history rather than the aspect's value.
+    assertNotNull(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 1));
+
+    List<String> emails;
+    try (Stream<EntityAspect> stream =
+        _aspectDao.streamAspects(CORP_USER_ENTITY_NAME, aspectName)) {
+      emails =
+          stream
+              .filter(entityAspect -> entityAspect.getUrn().equals(entityUrn.toString()))
+              .map(
+                  entityAspect ->
+                      RecordUtils.toRecordTemplate(CorpUserInfo.class, entityAspect.getMetadata())
+                          .getEmail())
+              .collect(Collectors.toList());
+    }
+    assertEquals(emails, List.of("second@test.com"));
+  }
+
+  @Test
   public void testIngestGetLatestAspect() throws AssertionError {
     Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
 
