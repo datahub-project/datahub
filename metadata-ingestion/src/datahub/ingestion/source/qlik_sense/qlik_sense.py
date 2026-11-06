@@ -51,6 +51,7 @@ from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
+    SPACE_SEPARATOR,
     DataConnectionInfo,
     ResolvedConnection,
     ScriptTable,
@@ -489,8 +490,21 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self._data_connections = self.qlik_api.get_data_connections()
         return self._data_connections
 
+    def _find_data_connection(
+        self, connection: str, space_id: str
+    ) -> Optional[DataConnectionInfo]:
+        connections = self._get_data_connections()
+        # Qlik Cloud looks a bare connection name up in the app's own space
+        # first, so it wins over a same-named connection in another space.
+        space_name = self.qlik_api.spaces.get(space_id)
+        if space_name and SPACE_SEPARATOR not in connection:
+            own = connections.get(f"{space_name}{SPACE_SEPARATOR}{connection}")
+            if own is not None:
+                return own
+        return connections.get(connection)
+
     def _resolve_script_connection(
-        self, connection: Optional[str]
+        self, connection: Optional[str], space_id: str
     ) -> Optional[ResolvedConnection]:
         if not connection:
             return None
@@ -503,7 +517,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ),
             None,
         )
-        inferred = self._get_data_connections().get(connection)
+        inferred = self._find_data_connection(connection, space_id)
         # Inline ODBC/OLEDB connection strings carry the driver and database
         # themselves. A bare name says nothing about the platform behind it.
         if inferred is None and is_inline_connection(connection):
@@ -626,7 +640,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     "a Qlik connector, not a database table"
                 )
                 continue
-            connection = self._resolve_script_connection(script_table.connection)
+            connection = self._resolve_script_connection(
+                script_table.connection, app.spaceId
+            )
             logger.debug(
                 f"App {app.id} script table {script_table.label!r} via connection "
                 f"{connection_name!r} resolved to {connection}"

@@ -24,7 +24,10 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     SPACE_SEPARATOR,
     DataConnectionInfo,
 )
-from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    EngineError,
+    WebsocketConnection,
+)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -65,7 +68,7 @@ class QlikAPI(QlikBaseAPI):
             response = self.session.get(next_url)
             response.raise_for_status()
             page = response.json()
-            yield from page[Constant.DATA]
+            yield from page.get(Constant.DATA) or []
             next_url = (page.get(Constant.LINKS, {}).get(Constant.NEXT) or {}).get(
                 Constant.HREF
             )
@@ -242,12 +245,21 @@ class QlikAPI(QlikBaseAPI):
             app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
             app.tables = self._get_app_used_tables(websocket_connection, app_id, errors)
             if not app.tables or not all(table.tableQri for table in app.tables):
-                # Cloud only lets Owner, Can manage and Can operate read the load
-                # script, so a denied read leaves the rest of the app complete.
-                app.script = self._read_load_script(
-                    websocket_connection, app_id, on_error=log_read_error
-                )
-                app.script_read_failed = app.script is None
+                try:
+                    app.script = websocket_connection.get_script()
+                except Exception as e:
+                    if isinstance(e, EngineError) and e.access_denied:
+                        # Cloud only lets Owner, Can manage and Can operate read
+                        # the load script, so a denied read leaves the rest of
+                        # the app complete.
+                        log_read_error(
+                            f"Access denied to load script of app {app_id}: {e}"
+                        )
+                        app.script_read_failed = True
+                    else:
+                        errors.record(
+                            f"Unable to fetch load script of app {app_id}. Exception: {e}"
+                        )
             app.read_errors = errors.messages
             return app
         finally:

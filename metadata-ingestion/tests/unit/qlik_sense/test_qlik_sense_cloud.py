@@ -17,7 +17,11 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import ReadErrors
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
-from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.ingestion.source.qlik_sense.script_lineage import infer_data_connection
+from datahub.ingestion.source.qlik_sense.websocket_connection import (
+    EngineError,
+    WebsocketConnection,
+)
 from datahub.metadata.schema_classes import UpstreamLineageClass as UpstreamLineage
 
 CLOUD_CONFIG = {"tenant_hostname": "tenant.example.com", "api_key": "key"}
@@ -165,26 +169,35 @@ def test_close_error_keeps_loaded_app(
     with (
         patch.object(api, "_get_app_sheets", return_value=[]),
         patch.object(api, "_get_app_used_tables", return_value=[]),
-        patch.object(api, "_read_load_script", return_value=None),
     ):
         app = api._get_app("app-1")
 
     assert app is mock_app_cls.model_validate.return_value
 
 
+@pytest.mark.parametrize(
+    "error, denied",
+    [
+        (EngineError({"code": 5, "message": "Access denied"}), True),
+        (EngineError({"code": 11, "message": "Internal error"}), False),
+        (TimeoutError("timed out"), False),
+    ],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
 @patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
-def test_denied_load_script_keeps_app_complete(
+def test_only_denied_load_script_keeps_app_complete(
     mock_session_cls: MagicMock,
     mock_websocket_cls: MagicMock,
     mock_app_cls: MagicMock,
+    error: Exception,
+    denied: bool,
 ) -> None:
     api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
-    app = MagicMock(tables=[])
+    app = _cloud_app()
     mock_app_cls.model_validate.return_value = app
     websocket = mock_websocket_cls.for_cloud.return_value
-    websocket.get_script.side_effect = RuntimeError("Access denied")
+    websocket.get_script.side_effect = error
 
     with (
         patch.object(api, "_get_app_sheets", return_value=[]),
@@ -193,8 +206,8 @@ def test_denied_load_script_keeps_app_complete(
         assert api._get_app("app-1") is app
 
     assert app.script is None
-    assert app.script_read_failed is True
-    assert app.read_errors == []
+    assert app.script_read_failed is denied
+    assert app.read_complete is denied
 
 
 def _cloud_app(**extra: object) -> App:
@@ -274,6 +287,46 @@ def test_data_connections_are_keyed_by_space(
         "Sales:Warehouse": "postgres",
         "Orders": "mssql",
     }
+
+
+def test_data_connections_page_without_data_is_empty(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    base_url = "https://tenant.example.com/api/v1"
+    requests_mock.get(f"{base_url}/api-keys", json={})
+    requests_mock.get(f"{base_url}/data-connections", json={"links": {}})
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+
+    assert api.get_data_connections() == {}
+    assert api.unread_items == []
+
+
+@pytest.mark.parametrize(
+    "app_space, platform", [("space-1", "snowflake"), ("space-3", None)]
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_bare_connection_name_resolves_in_app_space(
+    mock_api_cls: MagicMock, app_space: str, platform: str
+) -> None:
+    mock_api_cls.return_value.spaces = {
+        "space-1": "Finance",
+        "space-2": "Sales",
+        "space-3": "Marketing",
+    }
+    # Two spaces hold a "Warehouse" connection, so the bare name is not
+    # listed on its own.
+    mock_api_cls.return_value.get_data_connections.return_value = {
+        "Finance:Warehouse": infer_data_connection("Warehouse", "snowflake"),
+        "Sales:Warehouse": infer_data_connection("Warehouse", "postgres"),
+    }
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    resolved = source._resolve_script_connection("Warehouse", app_space)
+
+    assert (resolved.platform if resolved else None) == platform
 
 
 def _blackbox_table(select: str) -> QlikTable:

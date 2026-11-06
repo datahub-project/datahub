@@ -56,6 +56,12 @@ def test_onprem_config_requires_certificates():
         QlikSourceConfig.model_validate({"on_prem": {"server": "qlik.example.com"}})
 
 
+@pytest.mark.parametrize("field", ["server", "client_cert", "client_key", "root_cert"])
+def test_onprem_config_rejects_empty_connection_fields(field):
+    with pytest.raises(ValueError, match=field):
+        QlikSourceConfig.model_validate({"on_prem": {**ON_PREM, field: ""}})
+
+
 def test_onprem_config_accepts_certificate_paths():
     config = QlikSourceConfig.model_validate({"on_prem": ON_PREM})
 
