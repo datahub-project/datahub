@@ -355,7 +355,11 @@ class _ScriptedEngine(WebsocketConnection):
         return LOAD_SCRIPT
 
 
-def _sheet_replies(chart_ids: List[str]) -> List[object]:
+def _sheet_replies(
+    chart_ids: List[str], chart_properties: Optional[List[Dict]] = None
+) -> List[object]:
+    # Without chart_properties the property tree is empty, so each chart's
+    # properties are read on their own.
     return [
         {"qReturn": {"qHandle": 1}},
         {"qList": [{"qInfo": {"qId": "sheet-1", "qType": "sheet"}}]},
@@ -366,6 +370,15 @@ def _sheet_replies(chart_ids: List[str]) -> List[object]:
                 "qChildList": {
                     "qItems": [{"qInfo": {"qId": chart_id}} for chart_id in chart_ids]
                 },
+            }
+        },
+        {
+            "qPropEntry": {
+                "qProperty": {"qInfo": {"qId": "sheet-1"}},
+                "qChildren": [
+                    {"qProperty": prop, "qChildren": []}
+                    for prop in chart_properties or []
+                ],
             }
         },
     ]
@@ -406,6 +419,7 @@ def test_onprem_reads_charts_after_a_failed_chart(
     assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
     assert not app.read_complete
     assert engine.sent_on[4:] == [
+        ("GetFullPropertyTree", 2),
         ("GetChild", 2),
         ("GetChild", 2),
         ("GetLayout", 3),
@@ -476,25 +490,42 @@ def test_onprem_reads_chart_field_expressions(
         "qMeasureInfo": [{"qFallbackTitle": "Sales"}, {"qFallbackTitle": "Orders"}],
     }
     engine = _ScriptedEngine(
-        _sheet_replies(["sales", "count"])
-        + [
-            {"qReturn": {"qHandle": 3}},
-            layout,
-            {
-                "qProp": {
+        _sheet_replies(
+            ["sales", "count"],
+            [
+                {
+                    "qInfo": {"qId": "sales"},
                     "qHyperCubeDef": {
                         "qMeasures": [
                             {"qDef": {"qDef": "Sum([Net Sales])"}},
                             {"qLibraryId": "orders", "qDef": {"qDef": ""}},
                         ]
+                    },
+                },
+                {
+                    "qInfo": {"qId": "count"},
+                    "qHyperCubeDef": {"qMeasures": [{"qLibraryId": "orders"}]},
+                },
+            ],
+        )
+        + [
+            {"qReturn": {"qHandle": 3}},
+            layout,
+            {"qReturn": {"qHandle": 5}},
+            _chart_layout("count"),
+            {"qReturn": {"qHandle": 4, "qType": "GenericObject"}},
+            {
+                "qLayout": {
+                    "qMeasureList": {
+                        "qItems": [
+                            {
+                                "qInfo": {"qId": "orders"},
+                                "qData": {"measure": {"qDef": "Count(order_id)"}},
+                            }
+                        ]
                     }
                 }
             },
-            {"qReturn": {"qHandle": 5}},
-            _chart_layout("count"),
-            {"qProp": {"qHyperCubeDef": {"qMeasures": [{"qLibraryId": "orders"}]}}},
-            {"qReturn": {"qHandle": 4, "qType": "GenericMeasure"}},
-            {"qLayout": {"qMeasure": {"qDef": "Count(order_id)"}}},
         ]
     )
     app = _read_onprem_app(mock_session_cls, mock_engine, engine)
@@ -504,9 +535,9 @@ def test_onprem_reads_chart_field_expressions(
         ["Count(order_id)"],
     ]
     assert app.read_complete
-    assert [sent for sent in engine.sent_on if sent[0] == "GetMeasure"] == [
-        ("GetMeasure", 1)
-    ]
+    assert not {"GetProperties", "GetMeasure"} & {
+        method for method, _ in engine.sent_on
+    }
     assert engine.handle == [-1, 1]
 
 
@@ -636,7 +667,7 @@ def test_measure_definitions_mark_unread_measures(
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
     engine = _ScriptedEngine([reply])
 
-    engine._add_measure_definitions(chart, "sheet-1", on_error=lambda _: None)
+    engine._add_measure_definitions(chart, None, "sheet-1", on_error=lambda _: None)
 
     assert chart.fields_complete is fields_complete
 
@@ -646,6 +677,7 @@ def test_unread_master_measure_marks_chart_fields_incomplete() -> None:
     chart.measure_library_ids = ["measure-1", "measure-2"]
     engine = _ScriptedEngine(
         [
+            RuntimeError("Session objects not allowed"),
             RuntimeError("Access denied"),
             {"qReturn": {"qHandle": 3}},
             {"qLayout": {"qMeasure": {"qDef": "Sum(Sales)"}}},

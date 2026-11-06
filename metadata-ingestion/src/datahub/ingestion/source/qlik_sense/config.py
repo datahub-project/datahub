@@ -115,6 +115,9 @@ class Constant:
     # Chart field references
     QGROUPFIELDDEFS = "qGroupFieldDefs"
     QPROPERTY = "qProp"
+    QPROPENTRY = "qPropEntry"
+    QPROPERTYTREEITEM = "qProperty"
+    QCHILDREN = "qChildren"
     QHYPERCUBEDEF = "qHyperCubeDef"
     QMEASURES = "qMeasures"
     QDEF = "qDef"

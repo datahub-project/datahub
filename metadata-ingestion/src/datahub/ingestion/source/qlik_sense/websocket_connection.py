@@ -119,18 +119,46 @@ class WebsocketConnection:
         response = self.websocket_send_request(method="GetScript")
         return response.get(Constant.QSCRIPT) or ""
 
+    def get_object_properties(self) -> Dict[str, Dict]:
+        """Properties of the open object and every object below it, by id, in one
+        request rather than one per chart. Empty if they cannot be read."""
+        try:
+            entry = self.websocket_send_request(method="GetFullPropertyTree")[
+                Constant.QPROPENTRY
+            ]
+        except Exception as e:
+            logger.debug(f"Unable to read the property tree. Exception: {e}")
+            return {}
+        properties: Dict[str, Dict] = {}
+        entries = [entry]
+        while entries:
+            entry = entries.pop()
+            prop = entry.get(Constant.QPROPERTYTREEITEM, {})
+            object_id = prop.get(Constant.QINFO, {}).get(Constant.QID)
+            if object_id:
+                properties[object_id] = prop
+            entries.extend(entry.get(Constant.QCHILDREN, []))
+        return properties
+
     def get_charts(
-        self, object_id: str, sheet_id: str, on_error: Callable[[str], None]
+        self,
+        object_id: str,
+        sheet_id: str,
+        on_error: Callable[[str], None],
+        properties: Optional[Dict[str, Dict]] = None,
     ) -> List[Chart]:
         """Charts of a sheet object, including the charts held in a container's tabs.
-        Must be called on the handle of the object's parent."""
+        Must be called on the handle of the object's parent. `properties` holds
+        prefetched object properties; a chart missing from it is read on its own."""
         depth = len(self.handle)
         try:
             self.websocket_send_request(method="GetChild", params={"qId": object_id})
             q_layout = self.websocket_send_request(method="GetLayout")[Constant.QLAYOUT]
             if Constant.HYPERCUBE in q_layout:
                 chart = Chart.model_validate(q_layout)
-                self._add_measure_definitions(chart, sheet_id, on_error)
+                self._add_measure_definitions(
+                    chart, (properties or {}).get(chart.qId), sheet_id, on_error
+                )
                 return [chart]
             object_type = q_layout.get(Constant.QINFO, {}).get(Constant.QTYPE)
             if object_type != Constant.CONTAINER:
@@ -146,7 +174,7 @@ class WebsocketConnection:
             for item in q_layout.get(Constant.QCHILDLIST, {}).get(Constant.QITEMS, []):
                 tab_id = item.get(Constant.QDATA, {}).get(Constant.CONTAINERCHILDID)
                 for chart in self.get_charts(
-                    item[Constant.QINFO][Constant.QID], sheet_id, on_error
+                    item[Constant.QINFO][Constant.QID], sheet_id, on_error, properties
                 ):
                     if not chart.title:
                         chart.title = tab_labels.get(tab_id) or ""
@@ -161,13 +189,18 @@ class WebsocketConnection:
             del self.handle[depth:]
 
     def _add_measure_definitions(
-        self, chart: Chart, sheet_id: str, on_error: Callable[[str], None]
+        self,
+        chart: Chart,
+        properties: Optional[Dict],
+        sheet_id: str,
+        on_error: Callable[[str], None],
     ) -> None:
         # The layout only carries measure titles; the expressions are in the properties.
         try:
-            properties = self.websocket_send_request(method="GetProperties")[
-                Constant.QPROPERTY
-            ]
+            if properties is None:
+                properties = self.websocket_send_request(method="GetProperties")[
+                    Constant.QPROPERTY
+                ]
         except Exception as e:
             on_error(
                 f"Unable to read the measures of chart {chart.qId} of sheet {sheet_id}. Exception: {e}"
@@ -193,10 +226,19 @@ class WebsocketConnection:
         """Fill in the expressions of master measures used by the charts.
         Must be called on the app handle."""
         charts = [chart for sheet in sheets for chart in sheet.charts]
-        expressions: Dict[str, str] = {}
-        for library_id in dict.fromkeys(
-            library_id for chart in charts for library_id in chart.measure_library_ids
-        ):
+        library_ids = list(
+            dict.fromkeys(
+                library_id
+                for chart in charts
+                for library_id in chart.measure_library_ids
+            )
+        )
+        if not library_ids:
+            return
+        expressions = self._get_master_measure_list()
+        for library_id in library_ids:
+            if library_id in expressions:
+                continue
             depth = len(self.handle)
             try:
                 self.websocket_send_request(
@@ -218,6 +260,42 @@ class WebsocketConnection:
                     chart.field_expressions.append(expressions[library_id])
                 else:
                     chart.fields_complete = False
+
+    def _get_master_measure_list(self) -> Dict[str, str]:
+        """Every master measure expression of the app from one session object.
+        Must be called on the app handle."""
+        depth = len(self.handle)
+        try:
+            self.websocket_send_request(
+                method="CreateSessionObject",
+                params=[
+                    {
+                        Constant.QINFO: {Constant.QTYPE: "MeasureList"},
+                        "qMeasureListDef": {
+                            Constant.QTYPE: "measure",
+                            Constant.QDATA: {"measure": "/qMeasure"},
+                        },
+                    }
+                ],
+            )
+            items = (
+                self.websocket_send_request(method="GetLayout")[Constant.QLAYOUT]
+                .get("qMeasureList", {})
+                .get(Constant.QITEMS, [])
+            )
+        except Exception as e:
+            logger.debug(f"Unable to list master measures. Exception: {e}")
+            return {}
+        finally:
+            del self.handle[depth:]
+        expressions: Dict[str, str] = {}
+        for item in items:
+            expression = (
+                item.get(Constant.QDATA, {}).get("measure", {}).get(Constant.QDEF)
+            )
+            if expression:
+                expressions[item[Constant.QINFO][Constant.QID]] = expression
+        return expressions
 
     def close_websocket(self) -> None:
         if self.socket_connection:
