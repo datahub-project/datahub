@@ -16,6 +16,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     QlikTable,
     SchemaField,
 )
+from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -832,6 +833,23 @@ def test_cloud_websocket_raises_engine_error(mock_connect: MagicMock) -> None:
 
     with pytest.raises(RuntimeError, match="Access denied"):
         connection.get_script()
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+def test_cloud_app_read_failure_closes_engine_session(
+    mock_engine: MagicMock, mock_session_cls: MagicMock
+) -> None:
+    websocket = mock_engine.return_value
+    websocket.websocket_send_request.side_effect = RuntimeError("Access denied")
+    api = QlikAPI(
+        QlikSourceConfig.model_validate(
+            {"tenant_hostname": "tenant.example.com", "api_key": "key"}
+        )
+    )
+
+    assert api._get_app("app-1") is None
+    websocket.close_websocket.assert_called_once()
 
 
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")

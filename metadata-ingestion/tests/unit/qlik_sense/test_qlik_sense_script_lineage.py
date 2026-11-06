@@ -86,6 +86,34 @@ SQL SELECT * FROM dbo.orders;
     assert [t.connection for t in parse_load_script(script)] == ["Warehouse SQL"]
 
 
+def test_parse_load_script_merges_switch_cases_and_branch_variables() -> None:
+    script = """
+SWITCH vEnv
+CASE 'PROD'
+  LIB CONNECT TO 'Prod SQL';
+  SET vSchema = 'dbo';
+  SET vDb = 'sales';
+CASE 'TEST'
+  LIB CONNECT TO 'Test SQL';
+  SET vSchema = 'test';
+  SET vDb = 'sales';
+DEFAULT
+  LIB CONNECT TO 'Prod SQL';
+  SET vSchema = 'dbo';
+  SET vDb = 'sales';
+END SWITCH
+SQL SELECT * FROM $(vDb).$(vSchema).orders;
+IF vMode = 'IF x THEN y' THEN
+  LIB CONNECT TO 'Prod SQL';
+  Inner: SQL SELECT * FROM dbo.inner_only;
+END IF
+"""
+    assert [(t.label, t.connection, t.sql) for t in parse_load_script(script)] == [
+        ("table_1", None, "SELECT * FROM sales.$(vSchema).orders"),
+        ("Inner", "Prod SQL", "SELECT * FROM dbo.inner_only"),
+    ]
+
+
 def test_infer_data_connection_reads_driver_and_database() -> None:
     sql_server = infer_data_connection(
         "Sales SQL",

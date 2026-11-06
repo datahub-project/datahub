@@ -1,7 +1,7 @@
 import re
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 CONNECT_RE = re.compile(
     r"^(?:(?:LIB|ODBC|OLEDB|CUSTOM)\s+)?CONNECT(?:32|64)?\s+TO\s+"
@@ -11,10 +11,14 @@ CONNECT_RE = re.compile(
 DISCONNECT_RE = re.compile(r"^DISCONNECT\b", re.IGNORECASE)
 # Control statements end at the line break rather than a semicolon, so they
 # lead the statement that follows them.
+# Quoted text may contain THEN, so only an unquoted THEN ends a condition.
+_CONDITION = r"(?:[^\n'\"\[]|'[^'\n]*'|\"[^\"\n]*\"|\[[^\]\n]*\])*?\bTHEN\b"
 CONTROL_RE = re.compile(
-    r"^(?:(?P<elseif>ELSE\s*IF\b[^\n]*?\bTHEN\b)|(?P<if>IF\b[^\n]*?\bTHEN\b)"
-    r"|(?P<else>ELSE\b)|(?P<endif>END\s*IF\b|ENDIF\b)|END\s*SUB\b|END\s*SWITCH\b"
-    r"|DEFAULT\b|(?:SUB|FOR|NEXT|DO|LOOP|SWITCH|CASE)\b[^\n]*)\s*",
+    rf"^(?:(?P<elseif>ELSE\s*IF\b{_CONDITION})|(?P<if>IF\b{_CONDITION})"
+    r"|(?P<else>ELSE\b)|(?P<endif>END\s*IF\b|ENDIF\b)"
+    r"|(?P<endswitch>END\s*SWITCH\b)|(?P<default>DEFAULT\b)"
+    r"|(?P<switch>SWITCH\b[^\n]*)|(?P<case>CASE\b[^\n]*)"
+    r"|END\s*SUB\b|(?:SUB|FOR|NEXT|DO|LOOP)\b[^\n]*)\s*",
     re.IGNORECASE,
 )
 VARIABLE_RE = re.compile(
@@ -145,54 +149,90 @@ def _first_group(match: "re.Match[str]") -> str:
     return next(value for value in match.groupdict().values() if value is not None)
 
 
-class _IfBlock(BaseModel):
-    connection_before: Optional[str]
-    branch_connections: List[Optional[str]] = []
-    has_else: bool = False
+class _BranchState(BaseModel):
+    connection: Optional[str] = None
+    variables: Dict[str, str] = {}
 
 
-class _ConnectionTracker(BaseModel):
-    """The connection in effect at each statement. Branches cannot be evaluated,
-    so a connection chosen inside an IF only survives it when every branch agrees."""
+class _Block(BaseModel):
+    before: _BranchState
+    branches: List[_BranchState] = []
+    has_default: bool = False
+    # Statements between SWITCH and its first CASE run in no branch.
+    in_case: bool = False
 
-    current: Optional[str] = None
-    blocks: List[_IfBlock] = []
+
+class _ControlFlowTracker(BaseModel):
+    """The connection and variables in effect at each statement. Conditions
+    cannot be evaluated, so a value set inside an IF or SWITCH only survives it
+    when every branch agrees."""
+
+    state: _BranchState = Field(default_factory=_BranchState)
+    blocks: List[_Block] = []
 
     def strip_control_statements(self, statement: str) -> str:
         while True:
             control = CONTROL_RE.match(statement)
             if not control or not control.end():
                 return statement
-            if control.group("if"):
-                self.blocks.append(_IfBlock(connection_before=self.current))
-            elif self.blocks and (control.group("elseif") or control.group("else")):
-                block = self.blocks[-1]
-                block.branch_connections.append(self.current)
-                block.has_else = block.has_else or bool(control.group("else"))
-                self.current = block.connection_before
-            elif self.blocks and control.group("endif"):
-                block = self.blocks.pop()
-                outcomes = [*block.branch_connections, self.current]
-                if not block.has_else:
-                    outcomes.append(block.connection_before)
-                self.current = outcomes[0] if len(set(outcomes)) == 1 else None
+            if control.group("if") or control.group("switch"):
+                self.blocks.append(
+                    _Block(
+                        before=self.state.model_copy(deep=True),
+                        in_case=bool(control.group("if")),
+                    )
+                )
+            elif self.blocks and (
+                control.group("elseif")
+                or control.group("else")
+                or control.group("case")
+                or control.group("default")
+            ):
+                self._next_branch(
+                    self.blocks[-1],
+                    is_default=bool(control.group("else") or control.group("default")),
+                )
+            elif self.blocks and (control.group("endif") or control.group("endswitch")):
+                self._end_block(self.blocks.pop())
             statement = statement[control.end() :]
 
+    def _next_branch(self, block: _Block, is_default: bool) -> None:
+        if block.in_case:
+            block.branches.append(self.state)
+        block.in_case = True
+        block.has_default = block.has_default or is_default
+        self.state = block.before.model_copy(deep=True)
 
-def _record_variable(statement: str, variables: Dict[str, str]) -> bool:
-    match = VARIABLE_RE.match(statement)
-    if not match:
-        return False
-    value = match.group("value").strip()
-    literal = STRING_LITERAL_RE.fullmatch(value)
-    if literal:
-        variables[match.group("name")] = _first_group(literal)
-    elif match.group("kind").upper() == "SET":
-        variables[match.group("name")] = value
-    else:
-        # LET evaluates an expression, so its value is unknown here.
-        variables.pop(match.group("name"), None)
-    return True
+    def _end_block(self, block: _Block) -> None:
+        outcomes = [*block.branches, self.state] if block.in_case else block.branches
+        if not block.has_default:
+            outcomes.append(block.before)
+        first, *rest = outcomes
+        self.state = _BranchState(
+            connection=first.connection
+            if all(other.connection == first.connection for other in rest)
+            else None,
+            variables={
+                name: value
+                for name, value in first.variables.items()
+                if all(other.variables.get(name) == value for other in rest)
+            },
+        )
+
+    def record_variable(self, statement: str) -> bool:
+        match = VARIABLE_RE.match(statement)
+        if not match:
+            return False
+        value = match.group("value").strip()
+        literal = STRING_LITERAL_RE.fullmatch(value)
+        if literal:
+            self.state.variables[match.group("name")] = _first_group(literal)
+        elif match.group("kind").upper() == "SET":
+            self.state.variables[match.group("name")] = value
+        else:
+            # LET evaluates an expression, so its value is unknown here.
+            self.state.variables.pop(match.group("name"), None)
+        return True
 
 
 def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
@@ -207,24 +247,22 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
 def parse_load_script(script: str) -> List[ScriptTable]:
     script = _strip_comments(script)
     tables: List[ScriptTable] = []
-    connection = _ConnectionTracker()
+    flow = _ControlFlowTracker()
     pending_label: Optional[str] = None
-    variables: Dict[str, str] = {}
     for statement in _split_statements(script):
-        statement = _expand_variables(
-            connection.strip_control_statements(statement), variables
-        )
+        statement = flow.strip_control_statements(statement)
+        statement = _expand_variables(statement, flow.state.variables)
         if not statement:
             continue
-        if _record_variable(statement, variables):
+        if flow.record_variable(statement):
             pending_label = None
             continue
         connect = CONNECT_RE.match(statement)
         if connect:
-            connection.current = _first_group(connect).strip()
+            flow.state.connection = _first_group(connect).strip()
             continue
         if DISCONNECT_RE.match(statement):
-            connection.current = None
+            flow.state.connection = None
             continue
 
         label: Optional[str] = None
@@ -241,7 +279,7 @@ def parse_load_script(script: str) -> List[ScriptTable]:
             tables.append(
                 ScriptTable(
                     label=table_label,
-                    connection=connection.current,
+                    connection=flow.state.connection,
                     sql=sql.group("sql"),
                 )
             )
