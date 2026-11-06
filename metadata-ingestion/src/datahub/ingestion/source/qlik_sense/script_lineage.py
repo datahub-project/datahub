@@ -49,6 +49,15 @@ CONNECTOR_SQL_RE = re.compile(
 BRACKET_IDENTIFIER_RE = re.compile(
     r"'[^']*'|\"[^\"]*\"|`[^`]*`|(?<![\w\])])\[(?P<name>[^\]]*)\]"
 )
+# A variable the script never set, used as a whole condition such as
+# ON a = b $(vWhere) AND c = 1. It cannot name a table, so dropping it only
+# loses a filter.
+CONDITION_VARIABLE_RE = re.compile(
+    r"(?<=\s)\$\([^()]*\)(?=\s+(?:AND|OR)\b)", re.IGNORECASE
+)
+KEYWORD_BEFORE_CONDITION_RE = re.compile(
+    r"(?:\b(?:WHERE|AND|OR)|\()\s*$", re.IGNORECASE
+)
 LOAD_RE = re.compile(r"^LOAD\b", re.IGNORECASE)
 LOAD_SOURCE_RE = re.compile(r"\b(?:FROM|RESIDENT|INLINE|AUTOGENERATE)\b", re.IGNORECASE)
 QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]")
@@ -368,6 +377,15 @@ def brackets_to_backticks(sql: str) -> str:
             f"`{match.group('name')}`"
             if match.group("name") is not None
             else match.group(0)
+        ),
+        sql,
+    )
+
+
+def drop_condition_variables(sql: str) -> str:
+    return CONDITION_VARIABLE_RE.sub(
+        lambda match: (
+            "1 = 1" if KEYWORD_BEFORE_CONDITION_RE.search(sql, 0, match.start()) else ""
         ),
         sql,
     )
