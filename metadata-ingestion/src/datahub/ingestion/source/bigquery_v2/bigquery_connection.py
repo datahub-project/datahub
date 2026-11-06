@@ -1,6 +1,7 @@
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
+import requests
 from google.api_core.client_info import ClientInfo
 from google.auth.credentials import Credentials
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
@@ -22,6 +23,23 @@ from datahub.ingestion.source.common.gcp_wif_config import (
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+# google-cloud sends timeout=None, so a reply lost on the network blocks forever. This
+# is above BigQuery's 4-minute server-side limit, so only a lost reply reaches it.
+_DEFAULT_REQUEST_TIMEOUT_SEC = 300
+
+
+def _default_request_timeout(session: requests.Session) -> None:
+    request: Callable[..., requests.Response] = session.request
+
+    def request_with_timeout(
+        *args: Any, timeout: Any = None, **kwargs: Any
+    ) -> requests.Response:
+        if timeout is None:
+            timeout = _DEFAULT_REQUEST_TIMEOUT_SEC
+        return request(*args, timeout=timeout, **kwargs)
+
+    session.request = request_with_timeout  # type: ignore[method-assign]
 
 
 def _get_bigquery_client_info() -> ClientInfo:
@@ -143,12 +161,14 @@ class BigQueryConnectionConfig(GCPWIFConfig):
 
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = {**self.extra_client_options}
-        return bigquery.Client(
+        client = bigquery.Client(
             self.project_on_behalf,
             credentials=self._credentials,
             client_info=_get_bigquery_client_info(),
             **client_options,
         )
+        _default_request_timeout(client._http)
+        return client
 
     def get_projects_client(self) -> resourcemanager_v3.ProjectsClient:
         return resourcemanager_v3.ProjectsClient(credentials=self._credentials)
