@@ -59,6 +59,7 @@ export * from './components/Timeline';
 export * from './components/ToggleCard';
 export * from './components/Tooltip';
 export * from './components/Utils';
+export * from './components/VerticalTabs';
 export * from './components/WhiskerChart';
 export * from './components/InfiniteScrollList';
 // Editor and CodeBlock are intentionally not re-exported. Each lazy-loads its
