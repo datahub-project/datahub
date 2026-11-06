@@ -168,7 +168,7 @@ public class IncrementalReindexFlowTest {
             entityService,
             aspectDao,
             List.of(),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             new BuildIndicesConfiguration(),
             mock(UpdateIndicesService.class));
@@ -261,7 +261,7 @@ public class IncrementalReindexFlowTest {
             entityService,
             aspectDao,
             List.of(),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             new BuildIndicesConfiguration(),
             mock(UpdateIndicesService.class));
