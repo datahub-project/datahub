@@ -481,6 +481,41 @@ def test_onprem_reads_charts_inside_containers(
     "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_container_that_holds_itself_is_read_once(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    container = {
+        "qLayout": {
+            "qInfo": {"qId": "tabs", "qType": "container"},
+            "qChildList": {
+                "qItems": [{"qInfo": {"qId": "tabs"}}, {"qInfo": {"qId": "chart"}}]
+            },
+        }
+    }
+    engine = _ScriptedEngine(
+        _sheet_replies(["tabs"])
+        + [
+            {"qReturn": {"qHandle": 3}},
+            container,
+            {"qReturn": {"qHandle": 4}},
+            _chart_layout("chart"),
+            {"qProp": {}},
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert [chart.qId for chart in app.sheets[0].charts] == ["chart"]
+    assert app.read_complete
+    assert [sent for sent in engine.sent_on if sent[0] == "GetChild"] == [
+        ("GetChild", 2),
+        ("GetChild", 3),
+    ]
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_reads_chart_field_expressions(
     mock_session_cls: MagicMock, mock_engine: MagicMock
 ) -> None:
