@@ -24,6 +24,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.metadata.schema_classes import ChartInfoClass, InputFieldsClass
 
 ONPREM_CONFIG = {
     "deployment": "on_prem",
@@ -465,7 +466,7 @@ def test_onprem_reads_chart_field_expressions(
         "qMeasureInfo": [{"qFallbackTitle": "Sales"}, {"qFallbackTitle": "Orders"}],
     }
     engine = _ScriptedEngine(
-        _sheet_replies(["sales"])
+        _sheet_replies(["sales", "count"])
         + [
             {"qReturn": {"qHandle": 3}},
             layout,
@@ -479,19 +480,23 @@ def test_onprem_reads_chart_field_expressions(
                     }
                 }
             },
+            {"qReturn": {"qHandle": 5}},
+            _chart_layout("count"),
+            {"qProp": {"qHyperCubeDef": {"qMeasures": [{"qLibraryId": "orders"}]}}},
             {"qReturn": {"qHandle": 4, "qType": "GenericMeasure"}},
             {"qLayout": {"qMeasure": {"qDef": "Count(order_id)"}}},
         ]
     )
     app = _read_onprem_app(mock_session_cls, mock_engine, engine)
 
-    assert app.sheets[0].charts[0].field_expressions == [
-        "Region",
-        "Sum([Net Sales])",
-        "Count(order_id)",
+    assert [chart.field_expressions for chart in app.sheets[0].charts] == [
+        ["Region", "Sum([Net Sales])", "Count(order_id)"],
+        ["Count(order_id)"],
     ]
     assert app.read_complete
-    assert ("GetMeasure", 1) in engine.sent_on
+    assert [sent for sent in engine.sent_on if sent[0] == "GetMeasure"] == [
+        ("GetMeasure", 1)
+    ]
     assert engine.handle == [-1, 1]
 
 
@@ -501,24 +506,54 @@ def test_chart_input_fields_match_app_fields() -> None:
     app_fields = QlikSenseSource._index_app_fields(
         {
             orders: [SchemaField(name="order_id"), SchemaField(name="Net Sales")],
-            customers: [SchemaField(name="order_id"), SchemaField(name="Region")],
+            customers: [
+                SchemaField(name="order_id"),
+                SchemaField(name="Region"),
+                SchemaField(name="Segment"),
+            ],
         }
     )
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
     chart.field_expressions = [
+        "Net Sales",
         "=Upper(region)",
-        "Sum({<Region={'Net Sales'}>} [Net Sales]) / Count(ORDER_ID)",
+        "Sum({<Region={\"Segment\", 'Net Sales'}>} [Net Sales]) / Count(ORDER_ID)",
     ]
 
     assert [
         (field.dataset_urn, field.field.name)
         for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
     ] == [
-        (customers, "Region"),
         (orders, "Net Sales"),
+        (customers, "Region"),
         (orders, "order_id"),
         (customers, "order_id"),
     ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_chart_without_matched_fields_keeps_app_tables(mock_onprem: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.field_expressions = ["Sum(unknown_field)"]
+    app_tables = [
+        "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)",
+    ]
+
+    workunits = list(source._gen_charts_workunit([chart], app_tables, {}, "app-1"))
+    (chart_info,) = filter(
+        None, (wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)
+    )
+    (input_fields,) = filter(
+        None, (wu.get_aspect_of_type(InputFieldsClass) for wu in workunits)
+    )
+
+    assert chart_info.inputs == app_tables
+    assert input_fields.fields == []
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")

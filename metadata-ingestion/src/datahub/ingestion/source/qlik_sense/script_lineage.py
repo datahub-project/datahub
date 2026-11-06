@@ -47,6 +47,9 @@ DATABASE_RE = re.compile(
     r"(?P<db>[^;\]\"']+)",
     re.IGNORECASE,
 )
+# The values in a set modifier, such as {"Net*"} in {<Region={"Net*"}>}, are
+# search strings even when double-quoted.
+SET_VALUES_RE = re.compile(r"[-+*/]?=\s*\{[^{}]*\}")
 # Single-quoted text is a string literal in a chart expression, not a field.
 EXPRESSION_NAME_RE = re.compile(
     r"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>[^\W\d][\w.]*)"
@@ -299,7 +302,7 @@ def expression_names(expression: str) -> List[str]:
     back too, so callers keep only names that are fields of the app."""
     return [
         name
-        for match in EXPRESSION_NAME_RE.finditer(expression)
+        for match in EXPRESSION_NAME_RE.finditer(SET_VALUES_RE.sub("", expression))
         if (
             name := match.group("bracket")
             or match.group("double")

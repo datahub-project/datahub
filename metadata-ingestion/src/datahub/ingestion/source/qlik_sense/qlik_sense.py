@@ -530,7 +530,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> List[AppField]:
         matched: Dict[str, AppField] = {}
         for expression in chart.field_expressions:
-            for name in expression_names(expression):
+            # A dimension is usually a bare field name, which may contain spaces.
+            names = (
+                [expression]
+                if expression.lower() in app_fields
+                else expression_names(expression)
+            )
+            for name in names:
                 for app_field in app_fields.get(name.lower(), []):
                     matched.setdefault(
                         f"{app_field.dataset_urn}.{app_field.field.name}", app_field
