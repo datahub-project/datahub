@@ -248,13 +248,19 @@ public class EntityAuthorizationUtilsAssertionTest {
   }
 
   @Test
-  public void testRunEventSchemaFieldAsserteeCheckedOnParentDataset() {
-    MetadataChangeProposal proposal =
-        runEvent(UrnUtils.getUrn("urn:li:schemaField:(" + DATASET_URN + ",col_a)"));
-    denyOnAssertion(false);
+  public void testMalformedSchemaFieldDeniedNotFailed() {
+    // The gate runs before URN validation, so a schema field without a parent URN must not throw.
+    Urn malformed = UrnUtils.getUrn("urn:li:schemaField:(notaurn,col_a)");
+    mockPersisted(freshnessOn(DATASET_URN));
+    MetadataChangeProposal runEvent = runEvent(malformed);
+    MetadataChangeProposal info =
+        upsert(
+            Constants.ASSERTION_INFO_ASPECT_NAME, freshnessOn(DATASET_URN).setEntityUrn(malformed));
+    denyOnAssertion(true);
     grantEditAssertionsOn(DATASET_URN);
 
-    assertEquals(ingest(proposal), List.of(Pair.of(proposal, 200)));
+    assertEquals(ingest(runEvent), List.of(Pair.of(runEvent, 403)));
+    assertEquals(ingest(info), List.of(Pair.of(info, 403)));
   }
 
   @Test

@@ -16,7 +16,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -145,12 +144,22 @@ public final class AssertionAuthorizationUtils {
     }
   }
 
-  /** Maps a schema field to its parent asset, where assertion privileges are granted. */
+  /**
+   * Maps a schema field to its parent asset, where assertion privileges are granted. A schema field
+   * whose key does not start with a URN is returned as is: this runs before URN validation, so a
+   * malformed value is denied or rejected rather than failing the request.
+   */
   @Nonnull
-  public static Urn toAsset(@Nonnull final Urn urn) {
-    return SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType())
-        ? UrnUtils.getUrn(urn.getEntityKey().get(0))
-        : urn;
+  private static Urn toAsset(@Nonnull final Urn urn) {
+    if (!SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType()) || urn.getEntityKey().size() == 0) {
+      return urn;
+    }
+    try {
+      return Urn.createFromString(urn.getEntityKey().get(0));
+    } catch (URISyntaxException e) {
+      log.debug("Schema field {} has no parent URN", urn);
+      return urn;
+    }
   }
 
   /**
@@ -204,10 +213,9 @@ public final class AssertionAuthorizationUtils {
    * events and the actor may edit assertions on every entity they name: clients such as dbt and
    * Great Expectations can send results before (or, in async emit modes, ahead of the persisting
    * of) {@code assertionInfo}. Other aspects, such as {@code status}, need {@code assertionInfo}
-   * first or in the same request. Run event assertees need not be targets; each is checked on its
-   * asset (a schema field maps to its parent), alongside the targets. {@code
-   * AssertionAuthorizationValidator} applies the same rule to writes that pass on the assertion
-   * itself.
+   * first or in the same request. Run event assertees need not be targets; each is checked
+   * alongside the targets. {@code AssertionAuthorizationValidator} applies the same rule to writes
+   * that pass on the assertion itself.
    */
   @Nonnull
   static Set<Urn> filterAuthorizedViaAssertedEntities(
@@ -264,7 +272,7 @@ public final class AssertionAuthorizationUtils {
       } else {
         assertees
             .computeIfAbsent(write.urn(), k -> new HashSet<>())
-            .add(toAsset(write.runEvent().getAsserteeUrn()));
+            .add(write.runEvent().getAsserteeUrn());
       }
       if (ASSERTION_INFO_ASPECT_NAME.equals(write.aspectName())) {
         infoWrites.computeIfAbsent(write.urn(), k -> new ArrayList<>()).add(write);
