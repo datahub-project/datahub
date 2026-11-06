@@ -49,8 +49,11 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.script_lineage import (
+    BACKTICK_QUOTED_PLATFORMS,
+    CONNECTOR_SQL_RE,
     DataConnectionInfo,
     ScriptTableLineage,
+    brackets_to_backticks,
     connection_lookup_names,
     infer_data_connection,
     parse_load_script,
@@ -89,7 +92,10 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaFieldDataTypeClass,
 )
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -510,6 +516,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=configured.platform_instance if configured else None,
         )
 
+    def _parse_script_sql(
+        self, sql: str, platform: str, detail: PlatformDetail
+    ) -> SqlParsingResult:
+        return create_lineage_sql_parsed_result(
+            query=sql,
+            default_db=detail.database,
+            default_schema=detail.default_schema,
+            platform=platform,
+            platform_instance=detail.platform_instance,
+            env=detail.env,
+            graph=self.ctx.graph,
+        )
+
     def _build_script_tables(self, app: App) -> List[ScriptTableLineage]:
         if not app.script:
             return []
@@ -525,6 +544,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if script_table.label.lower() in traced:
                 continue
             self.reporter.script_tables_found += 1
+            if CONNECTOR_SQL_RE.search(script_table.sql):
+                logger.debug(
+                    f"App {app.id} script table {script_table.label!r} reads from "
+                    "a Qlik connector, not a database table"
+                )
+                continue
             detail = self._resolve_script_connection(script_table.connection)
             logger.debug(
                 f"App {app.id} script table {script_table.label!r} via connection "
@@ -535,16 +560,21 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     f"{app.id}: {script_table.connection}"
                 )
                 continue
-            result = create_lineage_sql_parsed_result(
-                query=script_table.sql,
-                default_db=detail.database,
-                default_schema=detail.default_schema,
-                platform=detail.platform,
-                platform_instance=detail.platform_instance,
-                env=detail.env,
-                graph=self.ctx.graph,
-            )
+            result = self._parse_script_sql(script_table.sql, detail.platform, detail)
+            if (
+                result.debug_info.table_error
+                and detail.platform in BACKTICK_QUOTED_PLATFORMS
+                and "[" in script_table.sql
+            ):
+                result = self._parse_script_sql(
+                    brackets_to_backticks(script_table.sql), detail.platform, detail
+                )
             if not result.in_tables:
+                if not result.debug_info.table_error:
+                    logger.debug(
+                        f"App {app.id} script table {script_table.label!r} reads no tables"
+                    )
+                    continue
                 self.reporter.warning(
                     title="Unable to parse Qlik load script SQL",
                     message="Upstream lineage for this script table is skipped.",
