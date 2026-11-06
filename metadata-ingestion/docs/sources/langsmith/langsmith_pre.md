@@ -15,16 +15,16 @@
 
 ### Concepts
 
-| LangSmith Concept    | DataHub Entity                           | Notes                                                |
-| -------------------- | ---------------------------------------- | ---------------------------------------------------- |
-| **Project**          | Container (subtype: LangSmith Project)   | Top-level grouping of traces                         |
-| **Trace** (root run) | DataProcessInstance (subtype: LLM Trace) | Full end-to-end LLM invocation                       |
-| **Child span**       | DataProcessInstance (subtype: LLM Span)  | Retriever, LLM, tool, chain spans; opt-in            |
-| **Dataset**          | Dataset                                  | Evaluation datasets for LLM testing                  |
-| **LLM model**        | MLModel                                  | Stub entity from span metadata; upstream lineage     |
-| **Feedback score**   | Assertion + AssertionRunEvent            | One assertion per (feedback key, run name); pass/fail by threshold; opt-in |
-| Feedback (inline)    | Properties on DataProcessInstance        | Aggregated scores embedded as custom properties      |
-| **Span execution flow** | DataProcessInstanceInput (inputEdges) | DPI-to-DPI lineage edges showing call graph; opt-in via include_child_spans |
+| LangSmith Concept       | DataHub Entity                           | Notes                                                                       |
+| ----------------------- | ---------------------------------------- | --------------------------------------------------------------------------- |
+| **Project**             | Container (subtype: LangSmith Project)   | Top-level grouping of traces                                                |
+| **Trace** (root run)    | DataProcessInstance (subtype: LLM Trace) | Full end-to-end LLM invocation                                              |
+| **Child span**          | DataProcessInstance (subtype: LLM Span)  | Retriever, LLM, tool, chain spans; opt-in                                   |
+| **Dataset**             | Dataset                                  | Evaluation datasets for LLM testing                                         |
+| **LLM model**           | MLModel                                  | Stub entity from span metadata; upstream lineage                            |
+| **Feedback score**      | Assertion + AssertionRunEvent            | One assertion per (feedback key, run name); pass/fail by threshold; opt-in  |
+| Feedback (inline)       | Properties on DataProcessInstance        | Aggregated scores embedded as custom properties                             |
+| **Span execution flow** | DataProcessInstanceInput (inputEdges)    | DPI-to-DPI lineage edges showing call graph; opt-in via include_child_spans |
 
 Token usage (prompt/completion/total tokens) is captured as ML metrics on each trace,
 enabling cost and usage tracking within DataHub.

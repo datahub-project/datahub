@@ -236,9 +236,9 @@ potential mitigation: config option to normalize names or revert to per-key-only
 - Golden file: regenerated (assertion URNs + description + customProperties changed)
 - `langsmith_pre.md`: updated entity mapping table and assertions section
 
-| LangSmith Concept              | DataHub Entity              | Notes                                          |
-| ------------------------------ | --------------------------- | ---------------------------------------------- |
-| **Feedback score on trace**    | `Assertion` + `AssertionRunEvent` | Custom assertion type; one per feedback key |
+| LangSmith Concept           | DataHub Entity                    | Notes                                       |
+| --------------------------- | --------------------------------- | ------------------------------------------- |
+| **Feedback score on trace** | `Assertion` + `AssertionRunEvent` | Custom assertion type; one per feedback key |
 
 ## v1.5 Scope (implemented) - Span execution flow as DataHub lineage
 

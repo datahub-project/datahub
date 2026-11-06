@@ -155,7 +155,7 @@ class LangSmithSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("LangSmith")
 @config_class(LangSmithConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Extracts descriptions for LangSmith projects and datasets.",
