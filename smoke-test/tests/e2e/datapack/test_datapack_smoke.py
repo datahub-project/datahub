@@ -2,14 +2,14 @@
 
 Tests run against a live DataHub instance and verify:
   1. `datahub datapack list` returns registry packs
-  2. `datahub datapack load bootstrap` loads data into DataHub
-  3. demo-data source (default config) loads bootstrap data
+  2. `datahub datapack load` of an isolation pack ingests a dataset test_e2e does not use
+  3. `datahub datapack unload` of that pack removes only that dataset
   4. demo-data source with showcase-ecommerce loads rich metadata
-  5. `datahub datapack unload` cleans up loaded data
 """
 
 import json
 import logging
+from pathlib import Path
 from typing import Dict, List
 
 import pytest
@@ -25,6 +25,14 @@ from utilities.domains import Domain
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.domain(Domain.INGESTION)
+
+# Not present in bootstrap_mce.json. Unload of this pack must not soft-delete
+# the catalog that test_e2e searches.
+_ISOLATION_PACK_NAME = "datapack-smoke-isolation"
+_ISOLATION_PACK_FILE = Path(__file__).parent / "isolation_probe.json"
+_ISOLATION_DATASET_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:datapacksmoke,isolation_probe,PROD)"
+)
 
 # Showcase pack definitions file sets status.removed=false then propertyDefinition.
 # After datapack unload (rollback), these entities are soft-deleted with no definition.
@@ -99,34 +107,50 @@ class TestDatapackCLI:
 
 
 class TestDemoDataBootstrap:
-    """Test that the demo-data source loads bootstrap data by default."""
+    """Load and unload a pack whose URNs are not in bootstrap_mce.json."""
 
     def test_load_bootstrap_via_cli(self, auth_session):
-        """datahub datapack load bootstrap ingests data into DataHub."""
+        """datahub datapack load ingests the isolation dataset."""
+        pack_url = _ISOLATION_PACK_FILE.resolve().as_uri()
         result = run_datahub_cmd(
-            ["datapack", "load", "bootstrap", "--no-time-shift"],
+            [
+                "datapack",
+                "load",
+                _ISOLATION_PACK_NAME,
+                "--url",
+                pack_url,
+                "--trust-custom",
+                "--no-time-shift",
+            ],
             env=_datapack_cli_env(auth_session),
         )
         assert result.exit_code == 0, f"CLI failed: {result.output}"
 
         @with_test_retry()
         def _check():
-            # Bootstrap pack contains SampleCypressHiveDataset among others
             query = """{
-                search(input: {type: DATASET, query: "*", start: 0, count: 0}) {
-                    total
+                search(input: {type: DATASET, query: "isolation_probe", start: 0, count: 10}) {
+                    searchResults {
+                        entity {
+                            urn
+                        }
+                    }
                 }
             }"""
             res = execute_graphql(auth_session, query)
-            total = res["data"]["search"]["total"]
-            assert total > 0, "Expected datasets after loading bootstrap pack"
+            urns = [
+                hit["entity"]["urn"] for hit in res["data"]["search"]["searchResults"]
+            ]
+            assert _ISOLATION_DATASET_URN in urns, (
+                f"Expected isolation dataset after loading the pack, got {urns}"
+            )
 
         _check()
 
     def test_unload_bootstrap_via_cli(self, auth_session):
-        """datahub datapack unload removes previously loaded data."""
+        """datahub datapack unload removes the isolation pack, not bootstrap_mce.json."""
         result = run_datahub_cmd(
-            ["datapack", "unload", "bootstrap"],
+            ["datapack", "unload", _ISOLATION_PACK_NAME],
             env=_datapack_cli_env(auth_session),
         )
         assert result.exit_code == 0, f"CLI failed: {result.output}"
