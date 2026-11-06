@@ -1,10 +1,19 @@
+from typing import List, Tuple
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
+)
+from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
+from tests.unit.qlik_sense.test_qlik_sense_onprem import (  # type: ignore[import-untyped]
+    LOAD_SCRIPT,
+    ONPREM_CONFIG,
+    _engine_calls,
+    _qrs_get,
 )
 
 
@@ -37,3 +46,59 @@ def test_stateful_ingestion_registers_stale_removal_processor(mock_qlik_api):
         )
     ]
     assert len(matching) == 1
+
+
+def _onprem_run(
+    graph: MagicMock, run_id: str, engine_fails: bool
+) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
+    def open_engine(**_: object) -> MagicMock:
+        if engine_fails:
+            raise OSError("engine port closed")
+        websocket = MagicMock()
+        websocket.websocket_send_request.side_effect = _engine_calls()
+        websocket.get_script.return_value = LOAD_SCRIPT
+        return websocket
+
+    with (
+        patch(
+            "datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session"
+        ) as session_cls,
+        patch(
+            "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem",
+            side_effect=open_engine,
+        ),
+    ):
+        session_cls.return_value.headers = {}
+        session_cls.return_value.get.side_effect = _qrs_get
+        ctx = PipelineContext(run_id=run_id, pipeline_name="qlik-onprem", graph=graph)
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate(
+                {
+                    **ONPREM_CONFIG,
+                    "stateful_ingestion": {
+                        "enabled": True,
+                        "remove_stale_metadata": True,
+                    },
+                }
+            ),
+            ctx,
+        )
+        workunits = list(source.get_workunits())
+        source.close()
+        for _, committable in ctx.get_committables():
+            committable.commit()
+    return source, workunits
+
+
+def test_engine_outage_does_not_soft_delete_app_contents(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    _, first_wus = _onprem_run(mock_datahub_graph, "run-1", engine_fails=False)
+    second, second_wus = _onprem_run(mock_datahub_graph, "run-2", engine_fails=True)
+
+    assert any(":dashboard:" in wu.get_urn() for wu in first_wus)
+    assert not any(":dashboard:" in wu.get_urn() for wu in second_wus)
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+    assert [failure.title for failure in second.reporter.failures] == [
+        "Unable to fully read Qlik app"
+    ]
