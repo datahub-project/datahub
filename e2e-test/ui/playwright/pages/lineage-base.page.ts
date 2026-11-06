@@ -181,6 +181,12 @@ export class LineageBasePage extends BasePage {
     });
   }
 
+  async checkEdgeNotExists(node1Urn: string, node2Urn: string): Promise<void> {
+    await expect(this.page.getByTestId(`rf__edge-${node1Urn}-:-${node2Urn}`)).toHaveCount(0, {
+      timeout: 10000,
+    });
+  }
+
   /** Column-level lineage edge between two rendered columns, e.g. drawn on column hover/select. */
   getColumnEdge(node1Urn: string, col1Name: string, node2Urn: string, col2Name: string): Locator {
     return this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`);
