@@ -257,15 +257,28 @@ class WebsocketConnection:
         )
         if not library_ids:
             return
-        expressions = self._get_master_measure_list()
+        listed = self._get_master_measure_list()
+        expressions = {
+            library_id: expression
+            for library_id, expression in (listed or {}).items()
+            if expression
+        }
         for library_id in library_ids:
             if library_id in expressions:
                 continue
+            if listed is not None and library_id not in listed:
+                # The chart refers to a master measure that was deleted, so
+                # there is nothing to read.
+                logger.debug(f"Master measure {library_id} does not exist")
+                continue
             depth = len(self.handle)
             try:
-                self.websocket_send_request(
+                reply = self.websocket_send_request(
                     method="GetMeasure", params={"qId": library_id}
                 )
+                if not reply.get(Constant.QRETURN, {}).get(Constant.QHANDLE):
+                    logger.debug(f"Master measure {library_id} does not exist")
+                    continue
                 q_layout = self.websocket_send_request(method="GetLayout")[
                     Constant.QLAYOUT
                 ]
@@ -283,8 +296,9 @@ class WebsocketConnection:
                 else:
                     chart.fields_complete = False
 
-    def _get_master_measure_list(self) -> Dict[str, str]:
-        """Every master measure expression of the app from one session object.
+    def _get_master_measure_list(self) -> Optional[Dict[str, str]]:
+        """Every master measure of the app and its expression, empty if the list has
+        none, from one session object. None if it cannot be read.
         Must be called on the app handle."""
         depth = len(self.handle)
         try:
@@ -300,24 +314,21 @@ class WebsocketConnection:
                     }
                 ],
             )
-            items = (
-                self.websocket_send_request(method="GetLayout")[Constant.QLAYOUT]
-                .get("qMeasureList", {})
-                .get(Constant.QITEMS, [])
-            )
+            items = self.websocket_send_request(method="GetLayout")[Constant.QLAYOUT][
+                "qMeasureList"
+            ][Constant.QITEMS]
         except Exception as e:
             logger.debug(f"Unable to list master measures. Exception: {e}")
-            return {}
+            return None
         finally:
             del self.handle[depth:]
-        expressions: Dict[str, str] = {}
-        for item in items:
-            expression = (
-                item.get(Constant.QDATA, {}).get("measure", {}).get(Constant.QDEF)
-            )
-            if expression:
-                expressions[item[Constant.QINFO][Constant.QID]] = expression
-        return expressions
+        return {
+            item[Constant.QINFO][Constant.QID]: item.get(Constant.QDATA, {})
+            .get("measure", {})
+            .get(Constant.QDEF)
+            or ""
+            for item in items
+        }
 
     def close_websocket(self) -> None:
         if self.socket_connection:
