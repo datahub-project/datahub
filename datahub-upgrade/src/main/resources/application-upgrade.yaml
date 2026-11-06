@@ -26,9 +26,12 @@ datahub:
         enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
 searchService:
   cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
-# System update renders the templates that shipped with this build. This profile overrides
-# application.yaml and a shared SEARCH_V3_TEMPLATES_SOURCE.
 elasticsearch:
+  # The process role the non-entity index migration records on its rows (gms, mae, upgrade).
+  clusterMigration:
+    processRole: upgrade
+  # System update renders the templates that shipped with this build. This profile overrides
+  # application.yaml and a shared SEARCH_V3_TEMPLATES_SOURCE.
   search:
     v3:
       templates:

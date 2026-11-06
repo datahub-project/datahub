@@ -52,6 +52,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -91,7 +92,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   private final EntityService<?> entityService;
   private final AspectDao aspectDao;
   private final List<ElasticSearchIndexed> indexedServices;
-  private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
+  private final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties;
   private final String upgradeVersion;
   private final BuildIndicesConfiguration buildIndicesConfig;
   @Nonnull private final UpdateIndicesService updateIndicesService;
@@ -103,7 +104,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       EntityService<?> entityService,
       AspectDao aspectDao,
       List<ElasticSearchIndexed> indexedServices,
-      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
+      Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties,
       String upgradeVersion,
       @Nullable BuildIndicesConfiguration buildIndicesConfig,
       @Nonnull UpdateIndicesService updateIndicesService) {
@@ -791,11 +792,14 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
    * failure stays non-terminal, so a re-run tries that index again.
    */
   private Map<String, Pair<ESIndexBuilder, ReindexConfig>> buildIndexBuildersAndConfigs() {
+    // Read once, before the per-service handling: a failed read fails the step with its own cause
+    // instead of leaving every service without configs.
+    Set<Pair<Urn, StructuredPropertyDefinition>> definitions = structuredProperties.get();
     Map<String, Pair<ESIndexBuilder, ReindexConfig>> result = new LinkedHashMap<>();
     for (ElasticSearchIndexed service : indexedServices) {
       final List<ReindexConfig> configs;
       try {
-        configs = service.buildReindexConfigs(opContext, structuredProperties);
+        configs = service.buildReindexConfigs(opContext, definitions);
       } catch (Exception e) {
         log.warn("Error building reindex configurations", e);
         continue;
