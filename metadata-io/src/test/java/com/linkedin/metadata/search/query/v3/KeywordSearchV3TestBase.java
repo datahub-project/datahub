@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.query.v3;
 
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
@@ -54,6 +55,7 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -452,7 +454,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 ENTITY_TYPES,
                 List.of(EMPTY_ENTITY_TYPE),
                 EXTRA_ENTITY_TYPES,
-                List.of(DASHBOARD_ENTITY_NAME))
+                List.of(DASHBOARD_ENTITY_NAME, CORP_USER_ENTITY_NAME))
             .flatMap(List::stream)
             .collect(Collectors.toList())) {
       List<String> indexNames = new ArrayList<>();
@@ -2287,6 +2289,50 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         searchService.autoComplete(opContext, CHART_ENTITY_NAME, "reg", "title", null, 10);
     assertEquals(urns(region), List.of(ORDERS_CHART));
     assertEquals(region.getSuggestions(), List.of("looker"));
+  }
+
+  @Test
+  public void testPeopleAutoCompleteMatchesEveryTokenAsAPrefix() throws Exception {
+    Urn fitzgerald = UrnUtils.getUrn("urn:li:corpuser:jfitzgerald");
+    Urn johnathan = UrnUtils.getUrn("urn:li:corpuser:jkillroy");
+    Urn killroy = UrnUtils.getUrn("urn:li:corpuser:killroyj");
+    UpdateIndicesV3Strategy indexer = longQueryIndexer();
+    indexer.processBatch(
+        opContext,
+        Map.of(
+            fitzgerald, events(fitzgerald, person("John Fitzgerald")),
+            johnathan, events(johnathan, person("Johnathan Killroy")),
+            killroy, events(killroy, person("John Killroy"))),
+        false);
+    syncAfterWrite(getBulkProcessor());
+    try {
+      // The template's phrase prefix alone needs "john" as a whole word right before "k...".
+      List<Urn> matched =
+          urns(
+              searchService.autoComplete(
+                  opContext, CORP_USER_ENTITY_NAME, "John K", null, null, 10));
+      assertEquals(matched, List.of(killroy, johnathan));
+
+      // A dataset is not in allTokensMustPrefixMatchEntities: only the phrase prefix applies.
+      assertEquals(
+          urns(
+              searchService.autoComplete(
+                  opContext, DATASET_ENTITY_NAME, "ord ers", null, null, 10)),
+          List.of());
+    } finally {
+      indexer.processBatch(
+          opContext,
+          Map.of(
+              fitzgerald, keyDeletion(fitzgerald),
+              johnathan, keyDeletion(johnathan),
+              killroy, keyDeletion(killroy)),
+          false);
+      syncAfterWrite(getBulkProcessor());
+    }
+  }
+
+  private static CorpUserInfo person(String fullName) {
+    return new CorpUserInfo().setActive(true).setFullName(fullName).setDisplayName(fullName);
   }
 
   @Test
