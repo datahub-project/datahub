@@ -515,9 +515,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return []
         tables: Dict[str, ScriptTableLineage] = {}
         # Tables the data model already traces are ingested from it instead.
-        traced = {table.tableName for table in app.tables if table.tableQri}
+        traced = {
+            name.lower()
+            for table in app.tables
+            if table.tableQri
+            for name in (table.tableName, table.tableAlias)
+        }
         for script_table in parse_load_script(app.script):
-            if script_table.label in traced:
+            if script_table.label.lower() in traced:
                 continue
             self.reporter.script_tables_found += 1
             detail = self._resolve_script_connection(script_table.connection)
@@ -801,6 +806,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 else allowed_space.id
             ):
                 if isinstance(item, App):
+                    if not item.read_complete:
+                        # Reporting a failure also stops stale entity removal from
+                        # soft-deleting what this app's last full read produced.
+                        self.reporter.failure(
+                            title="Unable to fully read Qlik app",
+                            message="Some sheets, charts or load script lineage of this "
+                            "app could not be read from the Engine.",
+                            context=item.id,
+                        )
                     yield from self._gen_app_workunit(item)
                 elif isinstance(item, QlikDataset):
                     yield from self._gen_dataset_workunit(item)

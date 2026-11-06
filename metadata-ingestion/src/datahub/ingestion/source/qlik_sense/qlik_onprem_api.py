@@ -3,6 +3,7 @@ import secrets
 import socket
 import ssl
 import sys
+import threading
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -77,6 +78,7 @@ class QlikOnPremAPI:
         self.config = config
         self.spaces: Dict[str, str] = {}
         self.users: Dict[str, str] = {}
+        self._thread_state = threading.local()
         server = config.server
         client_cert = config.client_cert
         client_key = config.client_key
@@ -111,6 +113,7 @@ class QlikOnPremAPI:
             raise
 
     def _log_http_error(self, message: str) -> Any:
+        self._thread_state.read_failed = True
         logger.warning(message)
         _, e, _ = sys.exc_info()
         if isinstance(e, requests.exceptions.HTTPError):
@@ -328,6 +331,7 @@ class QlikOnPremAPI:
         return sheets
 
     def _load_app(self, app_dict: Dict) -> Optional[App]:
+        self._thread_state.read_failed = False
         try:
             app = self._app_from_qrs(app_dict)
         except Exception as e:
@@ -341,6 +345,7 @@ class QlikOnPremAPI:
             self._log_http_error(
                 message=f"Unable to connect to the Engine for app {app.id}. Exception: {e}"
             )
+            app.read_complete = False
             return app
         try:
             websocket_connection.websocket_send_request(
@@ -368,6 +373,7 @@ class QlikOnPremAPI:
                 websocket_connection.close_websocket()
             except Exception as e:
                 logger.debug(f"Unable to close Engine session of app {app.id}: {e}")
+        app.read_complete = not self._thread_state.read_failed
         return app
 
     def get_data_connections(self) -> Dict[str, DataConnectionInfo]:

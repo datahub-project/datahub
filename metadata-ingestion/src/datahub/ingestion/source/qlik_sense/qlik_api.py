@@ -219,6 +219,8 @@ class QlikAPI:
         self, websocket_connection: WebsocketConnection, app_id: str
     ) -> List[QlikTable]:
         tables: List[QlikTable] = []
+        # The app handle must be on top again afterwards, as GetScript runs on it.
+        depth = len(websocket_connection.handle)
         try:
             response = websocket_connection.websocket_send_request(
                 method="GetObject",
@@ -230,7 +232,7 @@ class QlikAPI:
             response = websocket_connection.websocket_send_request(method="GetLayout")
             for table_dict in response[Constant.QLAYOUT][Constant.TABLES]:
                 tables.append(QlikTable.model_validate(table_dict))
-            websocket_connection.handle.pop()
+            del websocket_connection.handle[depth:]
             self._add_qri_of_tables(tables, app_id)
             logger.debug(
                 f"App {app_id} LoadModel tables: "
@@ -240,6 +242,7 @@ class QlikAPI:
             self._log_http_error(
                 message=f"Unable to fetch tables used by app {app_id}. Exception: {e}"
             )
+        del websocket_connection.handle[depth:]
         return tables
 
     def _get_app_sheets(
