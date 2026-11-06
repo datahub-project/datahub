@@ -67,6 +67,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ScriptTableLineage,
     brackets_to_backticks,
     connection_lookup_names,
+    drop_condition_variables,
     infer_data_connection,
     parse_load_script,
 )
@@ -745,14 +746,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     f"{app.id}: {script_table.connection}"
                 )
                 continue
-            result = self._parse_script_sql(script_table.sql, detail.platform, detail)
+            sql = drop_condition_variables(script_table.sql)
+            if "$(" in sql:
+                # orders_$(vYear) would parse as a table named orders_$.
+                self.reporter.warning(
+                    title="Qlik load script SQL uses a variable that is not set",
+                    message="Upstream lineage for this script table is skipped.",
+                    context=f"app={app.id}, table={script_table.label}",
+                )
+                continue
+            result = self._parse_script_sql(sql, detail.platform, detail)
             if (
                 result.debug_info.table_error
                 and detail.platform in BACKTICK_QUOTED_PLATFORMS
-                and "[" in script_table.sql
+                and "[" in sql
             ):
                 result = self._parse_script_sql(
-                    brackets_to_backticks(script_table.sql), detail.platform, detail
+                    brackets_to_backticks(sql), detail.platform, detail
                 )
             if not result.in_tables:
                 if not result.debug_info.table_error:
