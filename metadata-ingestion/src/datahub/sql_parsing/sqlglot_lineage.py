@@ -2329,16 +2329,20 @@ def _try_extract_select(
             statement.expression
         )  # Get the SELECT expression from the INSERT
 
-        # MSSQL-specific: Map INSERT column names to SELECT column names
-        # This fixes column lineage when INSERT columns != SELECT columns
+        # Map INSERT column names to SELECT expressions positionally, so that
+        # column lineage names the downstream columns after the INSERT column
+        # list instead of the SELECT output names. This applies to every
+        # dialect: sqlglot represents an explicit INSERT column list as a
+        # Schema in statement.this whose expressions are the target columns.
         # Example: INSERT INTO t (col_a) SELECT col_b FROM src
         #   Should create: downstream=col_a, upstream=col_b
         #   Without fix:   downstream=col_b, upstream=col_b (WRONG!)
         if (
-            dialect
-            and is_dialect_instance(dialect, "tsql")
-            and statement.this
-            and hasattr(statement.this, "expressions")
+            # Only a Schema target carries an INSERT column list. Other targets
+            # can also expose expressions - e.g. a ClickHouse table function in
+            # INSERT INTO FUNCTION remote(...) SELECT ..., whose expressions are
+            # function arguments, not column names - and must not be mapped.
+            isinstance(statement.this, sqlglot.exp.Schema)
             and statement.this.expressions
             and isinstance(select_statement, sqlglot.exp.Select)
         ):
@@ -2353,17 +2357,31 @@ def _try_extract_select(
                 for insert_col, select_expr in zip(
                     insert_columns, select_expressions, strict=False
                 ):
-                    insert_col_name = (
-                        insert_col.alias_or_name
-                        if hasattr(insert_col, "alias_or_name")
-                        else str(insert_col)
-                    )
+                    # Reuse the INSERT column's own Identifier as the alias so
+                    # its quoting is preserved: rebuilding one from the name
+                    # string would drop the quoted flag, and a quoted
+                    # mixed-case target would then fold to lowercase on
+                    # dialects like Postgres, Redshift, and DuckDB.
+                    if isinstance(insert_col, sqlglot.exp.Identifier):
+                        insert_col_identifier = insert_col.copy()
+                    else:
+                        insert_col_identifier = sqlglot.exp.to_identifier(
+                            insert_col.alias_or_name
+                            if hasattr(insert_col, "alias_or_name")
+                            else str(insert_col)
+                        )
                     # Create an explicit Alias node: expr AS insert_col_name
-                    # The Alias node should survive optimization better than just setting alias property
+                    # The Alias node should survive optimization better than just setting alias property.
+                    # If the SELECT expression already has an alias, replace it instead of
+                    # wrapping it in a second Alias node, which would render as a doubled
+                    # "AS x AS y" in the extracted column logic.
+                    # Defensive copy to preserve the original statement in case the aliased ones need to be mutated
+                    expr_to_alias = select_expr.copy()
+                    if isinstance(expr_to_alias, sqlglot.exp.Alias):
+                        expr_to_alias = expr_to_alias.this
                     aliased_expr = sqlglot.exp.Alias(
-                        # Defensive copy to preserve the original statement in case the aliased ones need to be mutated
-                        this=select_expr.copy(),
-                        alias=sqlglot.exp.to_identifier(insert_col_name),
+                        this=expr_to_alias,
+                        alias=insert_col_identifier,
                     )
                     new_selects.append(aliased_expr)
 
