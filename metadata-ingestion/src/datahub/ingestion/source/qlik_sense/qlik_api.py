@@ -29,6 +29,8 @@ class QlikAPI:
     def __init__(self, config: QlikSourceConfig) -> None:
         self.spaces: Dict = {}
         self.users: Dict = {}
+        # Spaces and items that failed to load, so the source can report them.
+        self.unread_items: List[str] = []
         self.config = config
         if not config.tenant_hostname or config.api_key is None:
             raise ValueError("Qlik Cloud requires tenant_hostname and api_key")
@@ -75,6 +77,7 @@ class QlikAPI:
             ]
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch spaces. Exception: {e}")
+            self.unread_items.append("spaces")
         return spaces
 
     def _get_dataset(self, dataset_id: str, item_id: str) -> Optional[QlikDataset]:
@@ -285,6 +288,7 @@ class QlikAPI:
             self._log_http_error(
                 message=f"Unable to fetch data connections. Exception: {e}"
             )
+            self.unread_items.append("data connections")
         logger.debug(f"Qlik Cloud data connections: {list(connections.values())}")
         return connections
 
@@ -337,6 +341,8 @@ class QlikAPI:
                             app = self._get_app(app_id=item[Constant.RESOURCEID])
                             if app:
                                 items.append(app)
+                            else:
+                                self.unread_items.append(item[Constant.RESOURCEID])
                         elif resource_type == Constant.DATASET:
                             dataset = self._get_dataset(
                                 dataset_id=item[Constant.RESOURCEID],
@@ -344,6 +350,8 @@ class QlikAPI:
                             )
                             if dataset:
                                 items.append(dataset)
+                            else:
+                                self.unread_items.append(item[Constant.RESOURCEID])
                 if Constant.NEXT in response_dict[Constant.LINKS]:
                     url = response_dict[Constant.LINKS][Constant.NEXT][Constant.HREF]
                 else:
@@ -351,4 +359,5 @@ class QlikAPI:
 
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch items. Exception: {e}")
+            self.unread_items.append(f"items of space {space_id}")
         return items

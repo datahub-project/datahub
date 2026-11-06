@@ -1,5 +1,7 @@
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -14,6 +16,7 @@ from tests.unit.qlik_sense.test_qlik_sense_onprem import (  # type: ignore[impor
     ONPREM_CONFIG,
     _engine_calls,
     _qrs_get,
+    _Response,
 )
 
 
@@ -49,8 +52,18 @@ def test_stateful_ingestion_registers_stale_removal_processor(mock_qlik_api):
 
 
 def _onprem_run(
-    graph: MagicMock, run_id: str, engine_fails: bool
+    graph: MagicMock,
+    run_id: str,
+    engine_fails: bool,
+    failing_endpoint: Optional[str] = None,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
+    def qrs_get(
+        url: str, params: Optional[Dict[str, str]] = None, **kwargs: object
+    ) -> _Response:
+        if failing_endpoint and url.endswith(failing_endpoint):
+            raise OSError("QRS unavailable")
+        return _qrs_get(url, params, **kwargs)
+
     def open_engine(**_: object) -> MagicMock:
         if engine_fails:
             raise OSError("engine port closed")
@@ -69,7 +82,7 @@ def _onprem_run(
         ),
     ):
         session_cls.return_value.headers = {}
-        session_cls.return_value.get.side_effect = _qrs_get
+        session_cls.return_value.get.side_effect = qrs_get
         ctx = PipelineContext(run_id=run_id, pipeline_name="qlik-onprem", graph=graph)
         source = QlikSenseSource(
             QlikSourceConfig.model_validate(
@@ -101,4 +114,23 @@ def test_engine_outage_does_not_soft_delete_app_contents(
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
     assert [failure.title for failure in second.reporter.failures] == [
         "Unable to fully read Qlik app"
+    ]
+
+
+@pytest.mark.parametrize("failing_endpoint", ["/app/full", "/dataconnection/full"])
+def test_qrs_failure_does_not_soft_delete(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    failing_endpoint: str,
+) -> None:
+    _onprem_run(mock_datahub_graph, "run-1", engine_fails=False)
+    second, second_wus = _onprem_run(
+        mock_datahub_graph,
+        "run-2",
+        engine_fails=False,
+        failing_endpoint=failing_endpoint,
+    )
+
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+    assert [failure.title for failure in second.reporter.failures] == [
+        "Unable to read from Qlik"
     ]
