@@ -1,3 +1,5 @@
+from typing import Dict, List
+
 import pytest
 
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -213,16 +215,26 @@ def test_preceding_loads_rename_sql_columns() -> None:
     }
 
 
-def test_unreadable_preceding_load_keeps_sql_columns() -> None:
+@pytest.mark.parametrize(
+    "field_list, expected",
+    [
+        pytest.param("$(vOrderFields)", {"order_id": ["order_id_urn"]}, id="variable"),
+        pytest.param("Upper(order_id)", {}, id="unaliased_expression"),
+    ],
+)
+def test_preceding_load_without_readable_fields(
+    field_list: str, expected: Dict[str, List[str]]
+) -> None:
     (table,) = parse_load_script(
-        """
+        f"""
 LIB CONNECT TO 'Sales SQL';
 Orders:
-LOAD $(vOrderFields);
+LOAD {field_list};
 SQL SELECT order_id FROM dbo.orders;
 """
     )
 
-    assert apply_preceding_loads(
-        table.preceding_loads, {"order_id": ["order_id_urn"]}
-    ) == {"order_id": ["order_id_urn"]}
+    assert (
+        apply_preceding_loads(table.preceding_loads, {"order_id": ["order_id_urn"]})
+        == expected
+    )

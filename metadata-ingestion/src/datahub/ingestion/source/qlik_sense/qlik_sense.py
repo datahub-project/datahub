@@ -61,6 +61,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.script_lineage import (
+    SET_VALUES_RE,
     DataConnectionInfo,
     ScriptTableLineage,
     apply_preceding_loads,
@@ -490,9 +491,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             }
             chart_fields = self._get_chart_input_fields(chart, app_fields)
             # The fields behind a $(variable) expansion are unknown, so the chart
-            # may read any of the app's tables.
+            # may read any of the app's tables. Set modifier values only filter.
             reads_unknown_fields = any(
-                "$(" in expression for expression in chart.field_expressions
+                "$(" in SET_VALUES_RE.sub("", expression)
+                for expression in chart.field_expressions
             )
 
             yield MetadataChangeProposalWrapper(
