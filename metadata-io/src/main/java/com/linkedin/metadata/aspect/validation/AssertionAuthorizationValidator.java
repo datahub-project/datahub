@@ -54,11 +54,11 @@ import lombok.extern.slf4j.Slf4j;
  * ReportAssertionResultResolver} (notifications are addressed to it), and on every entity the
  * assertion targets, so a result cannot mark an assertion the actor may not edit as failing. The
  * assertee does not have to be one of the targets: clients such as dbt report results whose
- * assertee differs from the target by URN case, environment or project. A schema field assertee is
- * checked on its parent asset, as targets are. A run event without an assertee is rejected once the
- * assertion has targets. An assertion with no {@code assertionInfo} yet accepts run events for any
- * entity the actor may edit assertions on, so clients that report results before the definition
- * keep working; those results stay in the assertion's run history once it is defined.
+ * assertee differs from the target by URN case, environment or project. A run event without an
+ * assertee is rejected once the assertion has targets. An assertion with no {@code assertionInfo}
+ * yet accepts run events for any entity the actor may edit assertions on, so clients that report
+ * results before the definition keep working; those results stay in the assertion's run history
+ * once it is defined.
  *
  * <p>Targets are read from the stored value when the batch is validated. With async ingestion an
  * earlier request may not have landed yet, so a write is checked against the value before that
@@ -170,7 +170,7 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
         continue;
       }
       Set<Urn> required = new HashSet<>(targets);
-      required.add(AssertionAuthorizationUtils.toAsset(assertee));
+      required.add(assertee);
       Set<Urn> denied =
           required.stream()
               .filter(

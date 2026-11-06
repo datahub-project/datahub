@@ -352,18 +352,6 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
-  public void testRunEventSchemaFieldAsserteeCheckedOnParentDataset() {
-    mockPersisted(freshnessOn(DATASET_A));
-    grantEditAssertionsOn(DATASET_A);
-    Urn field = UrnUtils.getUrn("urn:li:schemaField:(" + DATASET_B + ",col_a)");
-
-    Assert.assertFalse(validate(OperationFingerprint.EMPTY, runEventOn(field)).isEmpty());
-
-    grantEditAssertionsOn(DATASET_B);
-    Assert.assertTrue(validate(OperationFingerprint.EMPTY, runEventOn(field)).isEmpty());
-  }
-
-  @Test
   public void testSameBatchInfoAndRunEventForNewTarget() {
     grantEditAssertionsOn(DATASET_A);
 
