@@ -9,16 +9,21 @@ import pytest
 import requests
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import App, Chart, QlikTable
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
-from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
+from datahub.ingestion.source.qlik_sense.qlik_onprem_api import (
+    UNPUBLISHED_APPS_NAME,
+    QlikOnPremAPI,
+)
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     ScriptTableLineage,
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.metadata.schema_classes import SubTypesClass, UpstreamLineageClass
 
 ONPREM_CONFIG = {
     "deployment": "on_prem",
@@ -293,6 +298,24 @@ def test_onprem_loads_apps_in_parallel(
         assert isinstance(item, App)
         expected_sheets = [] if app_id == "app-2" else ["Overview"]
         assert [sheet.title for sheet in item.sheets] == expected_sheets
+        # A failed read must not leak into other apps read on the same thread.
+        assert item.read_complete is (app_id != "app-2")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_unexpected_app_error_records_app_id(
+    mock_session_cls: MagicMock,
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = _qrs_get
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+    api.get_spaces()
+
+    with patch.object(api, "_read_app", side_effect=RuntimeError("boom")):
+        assert list(api.get_items("stream-1")) == []
+
+    assert api.unread_items == [APP["id"]]
 
 
 def test_chart_keeps_dimension_in_error_state() -> None:
@@ -481,20 +504,6 @@ def test_onprem_container_that_holds_itself_is_read_once(
         ("GetChild", 2),
         ("GetChild", 3),
     ]
-
-
-@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
-@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
-def test_onprem_source_uses_onprem_client(
-    mock_cloud: MagicMock, mock_onprem: MagicMock
-) -> None:
-    QlikSenseSource(
-        QlikSourceConfig.model_validate(ONPREM_CONFIG),
-        PipelineContext(run_id="test-onprem"),
-    )
-
-    mock_onprem.assert_called_once()
-    mock_cloud.assert_not_called()
 
 
 def _script_tables(
@@ -870,7 +879,7 @@ def test_cloud_websocket_raises_engine_error(mock_connect: MagicMock) -> None:
         {"jsonrpc": "2.0", "id": 1, "error": {"code": 5, "message": "Access denied"}}
     )
     mock_connect.return_value = socket
-    connection = WebsocketConnection("tenant.example.com", "key", "app-1")
+    connection = WebsocketConnection.for_cloud("tenant.example.com", "key", "app-1")
     connection.handle.append(1)
 
     with pytest.raises(RuntimeError, match="Access denied"):
@@ -882,7 +891,7 @@ def test_cloud_websocket_raises_engine_error(mock_connect: MagicMock) -> None:
 def test_cloud_app_read_failure_closes_engine_session(
     mock_engine: MagicMock, mock_session_cls: MagicMock
 ) -> None:
-    websocket = mock_engine.return_value
+    websocket = mock_engine.for_cloud.return_value
     websocket.websocket_send_request.side_effect = RuntimeError("Access denied")
     api = QlikAPI(
         QlikSourceConfig.model_validate(
@@ -931,3 +940,149 @@ def test_onprem_websocket_skips_notifications(mock_connect: MagicMock) -> None:
     assert mock_connect.call_args.args[0] == "wss://qlik.example.com:4747/app/app-1"
     assert mock_connect.call_args.kwargs["sslopt"]["cert_reqs"] == ssl.CERT_REQUIRED
     assert mock_connect.call_args.kwargs["header"]["X-Qlik-User"].endswith("sa_engine")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_onprem_script_tables_workunits(mock_onprem: MagicMock) -> None:
+    source, tables = _script_tables(mock_onprem, {})
+
+    workunits = list(source._gen_script_tables_workunit(tables, "app-1"))
+
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.orders,PROD)"
+    (lineage,) = [
+        aspect
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(UpstreamLineageClass))
+    ]
+    assert [upstream.dataset for upstream in lineage.upstreams] == [upstream_urn]
+    assert sorted(
+        (fgl.upstreams or [], fgl.downstreams or [])
+        for fgl in lineage.fineGrainedLineages or []
+    ) == [
+        (
+            [f"urn:li:schemaField:({upstream_urn},amount)"],
+            [f"urn:li:schemaField:({dataset_urn},amount)"],
+        ),
+        (
+            [f"urn:li:schemaField:({upstream_urn},order_id)"],
+            [f"urn:li:schemaField:({dataset_urn},order_id)"],
+        ),
+    ]
+    (subtypes,) = [
+        subtype for wu in workunits if (subtype := wu.get_aspect_of_type(SubTypesClass))
+    ]
+    assert subtypes.typeNames == [DatasetSubTypes.QLIK_DATASET]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_onprem_script_bare_connection_name_is_not_guessed(
+    mock_onprem: MagicMock,
+) -> None:
+    source, tables = _script_tables(
+        mock_onprem,
+        {},
+        script="LIB CONNECT TO 'Snowflake_Finance';\nOrders:\nSQL SELECT id FROM db.s.orders;",
+    )
+
+    assert tables == []
+    assert list(source.reporter.unresolved_data_connections) == [
+        "app-1: Snowflake_Finance"
+    ]
+
+
+INLINE_CREDENTIALS = "UID=svc_reader;PWD=hunter2-secret"
+
+
+@pytest.mark.parametrize(
+    "driver, resolves",
+    [("ODBC Driver 17 for SQL Server", True), ("Unknown Driver", False)],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_onprem_inline_connection_credentials_are_not_emitted(
+    mock_onprem: MagicMock, driver: str, resolves: bool
+) -> None:
+    source, tables = _script_tables(
+        mock_onprem,
+        {},
+        script=(
+            f"ODBC CONNECT TO [Driver={{{driver}}};Server=db.example.com;"
+            f"Database=sales_db;{INLINE_CREDENTIALS}];\n"
+            "Orders:\nSQL SELECT order_id FROM dbo.orders;"
+        ),
+        connections={},
+    )
+
+    workunits = list(source._gen_script_tables_workunit(tables, "app-1"))
+    emitted = json.dumps([wu.metadata.to_obj() for wu in workunits])  # type: ignore[union-attr]
+    reported = json.dumps(source.reporter.as_obj(), default=str)
+
+    assert bool(tables) == resolves
+    for secret in ("svc_reader", "hunter2-secret"):
+        assert secret not in emitted
+        assert secret not in reported
+    assert "Database=sales_db" in (emitted if resolves else reported)
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_onprem_script_table_without_database_is_dropped(
+    mock_onprem: MagicMock,
+) -> None:
+    source, tables = _script_tables(
+        mock_onprem,
+        {},
+        script=(
+            "LIB CONNECT TO 'Sales SQL';\n"
+            "Orders:\nSQL SELECT o.id FROM orders o JOIN sales_db.dbo.items i ON o.id = i.id;\n"
+            "Customers:\nSQL SELECT id FROM customers;"
+        ),
+    )
+
+    assert [(table.label, table.upstream_urns) for table in tables] == [
+        (
+            "Orders",
+            ["urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.items,PROD)"],
+        )
+    ]
+    assert [warning.title for warning in source.reporter.warnings] == [
+        "Qlik load script table is missing its database or schema"
+    ]
+
+
+@pytest.mark.parametrize("ingest_unpublished", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_unpublished_apps(
+    mock_session_cls: MagicMock, ingest_unpublished: bool
+) -> None:
+    filters: List[str] = []
+
+    def get(
+        url: str, params: Optional[Dict[str, str]] = None, **_: object
+    ) -> _Response:
+        if url.endswith("/app/full"):
+            assert params is not None
+            filters.append(params["filter"])
+            return _Response([])
+        return _qrs_get(url, params)
+
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = get
+    api = QlikOnPremAPI(
+        QlikSourceConfig.model_validate(
+            {**ONPREM_CONFIG, "ingest_unpublished_apps": ingest_unpublished}
+        )
+    )
+
+    spaces = api.get_spaces()
+    for space in spaces:
+        list(api.get_items(space.id))
+
+    assert [space.name for space in spaces] == (
+        ["Everyone", UNPUBLISHED_APPS_NAME] if ingest_unpublished else ["Everyone"]
+    )
+    assert filters == (
+        ["stream.id eq stream-1", "published eq false"]
+        if ingest_unpublished
+        else ["stream.id eq stream-1"]
+    )

@@ -1,7 +1,8 @@
 import json
 import logging
 import ssl
-from typing import Callable, Dict, List, Literal, Optional, Set, Union
+from contextlib import contextmanager
+from typing import Callable, Dict, Iterator, List, Literal, Optional, Set, Union
 
 from websocket import WebSocket, create_connection
 
@@ -12,16 +13,33 @@ logger = logging.getLogger(__name__)
 
 
 class WebsocketConnection:
-    def __init__(self, tenant_hostname: str, api_key: str, app_id: str) -> None:
-        self.websocket_url = f"wss://{tenant_hostname}/app"
-        self._match_response_id = False
+    def __init__(
+        self,
+        url: str,
+        header: Dict[str, str],
+        match_response_id: bool = False,
+        sslopt: Optional[Dict[str, object]] = None,
+    ) -> None:
+        self._match_response_id = match_response_id
         self.socket_connection: Optional[WebSocket] = create_connection(
-            f"{self.websocket_url}/{app_id}",
-            header={"Authorization": f"Bearer {api_key}"},
+            url,
+            header=header,
+            sslopt=sslopt or {},
+            # The pure-Python frame check costs more CPU than the rest of an app
+            # read, and recv() already rejects invalid UTF-8 when it decodes.
             skip_utf8_validation=True,
         )
         self.request_id = 0
         self.handle = [-1]
+
+    @classmethod
+    def for_cloud(
+        cls, tenant_hostname: str, api_key: str, app_id: str
+    ) -> "WebsocketConnection":
+        return cls(
+            f"wss://{tenant_hostname}/app/{app_id}",
+            header={"Authorization": f"Bearer {api_key}"},
+        )
 
     @classmethod
     def for_on_prem(
@@ -37,9 +55,6 @@ class WebsocketConnection:
     ) -> "WebsocketConnection":
         # Direct Engine access. Certificate auth does not go through the proxy,
         # and the engine interleaves JSON-RPC replies with push notifications.
-        connection = cls.__new__(cls)
-        connection.websocket_url = f"wss://{host}:{port}/app"
-        connection._match_response_id = True
         sslopt: Dict[str, object] = {
             "certfile": client_cert,
             "keyfile": client_key,
@@ -50,17 +65,20 @@ class WebsocketConnection:
             sslopt["check_hostname"] = False
         elif assert_hostname:
             sslopt["server_hostname"] = assert_hostname
-        connection.socket_connection = create_connection(
-            f"{connection.websocket_url}/{app_id}",
+        return cls(
+            f"wss://{host}:{port}/app/{app_id}",
             header={"X-Qlik-User": user_header},
+            match_response_id=True,
             sslopt=sslopt,
-            # The pure-Python frame check costs more CPU than the rest of an app
-            # read, and recv() already rejects invalid UTF-8 when it decodes.
-            skip_utf8_validation=True,
         )
-        connection.request_id = 0
-        connection.handle = [-1]
-        return connection
+
+    @contextmanager
+    def restore_handle(self) -> Iterator[None]:
+        depth = len(self.handle)
+        try:
+            yield
+        finally:
+            del self.handle[depth:]
 
     def _build_websocket_request_dict(
         self, method: str, params: Optional[Union[Dict, List]] = None
@@ -133,39 +151,43 @@ class WebsocketConnection:
         if object_id in seen:
             return []
         seen.add(object_id)
-        depth = len(self.handle)
-        try:
-            self.websocket_send_request(method="GetChild", params={"qId": object_id})
-            q_layout = self.websocket_send_request(method="GetLayout")[Constant.QLAYOUT]
-            if Constant.HYPERCUBE in q_layout:
-                return [Chart.model_validate(q_layout)]
-            object_type = q_layout.get(Constant.QINFO, {}).get(Constant.QTYPE)
-            if object_type != Constant.CONTAINER:
-                logger.debug(
-                    f"Skipping {object_type} object {object_id} of sheet {sheet_id}: it has no hypercube"
+        with self.restore_handle():
+            try:
+                self.websocket_send_request(
+                    method="GetChild", params={"qId": object_id}
+                )
+                q_layout = self.websocket_send_request(method="GetLayout")[
+                    Constant.QLAYOUT
+                ]
+                if Constant.HYPERCUBE in q_layout:
+                    return [Chart.model_validate(q_layout)]
+                object_type = q_layout.get(Constant.QINFO, {}).get(Constant.QTYPE)
+                if object_type != Constant.CONTAINER:
+                    logger.debug(
+                        f"Skipping {object_type} object {object_id} of sheet {sheet_id}: it has no hypercube"
+                    )
+                    return []
+                tab_labels = {
+                    tab.get(Constant.REFID): tab.get(Constant.LABEL)
+                    for tab in q_layout.get(Constant.CHILDREN, [])
+                }
+                charts: List[Chart] = []
+                for item in q_layout.get(Constant.QCHILDLIST, {}).get(
+                    Constant.QITEMS, []
+                ):
+                    tab_id = item.get(Constant.QDATA, {}).get(Constant.CONTAINERCHILDID)
+                    for chart in self.get_charts(
+                        item[Constant.QINFO][Constant.QID], sheet_id, on_error, seen
+                    ):
+                        if not chart.title:
+                            chart.title = tab_labels.get(tab_id) or ""
+                        charts.append(chart)
+                return charts
+            except Exception as e:
+                on_error(
+                    f"Unable to fetch chart {object_id} of sheet {sheet_id}. Exception: {e}"
                 )
                 return []
-            tab_labels = {
-                tab.get(Constant.REFID): tab.get(Constant.LABEL)
-                for tab in q_layout.get(Constant.CHILDREN, [])
-            }
-            charts: List[Chart] = []
-            for item in q_layout.get(Constant.QCHILDLIST, {}).get(Constant.QITEMS, []):
-                tab_id = item.get(Constant.QDATA, {}).get(Constant.CONTAINERCHILDID)
-                for chart in self.get_charts(
-                    item[Constant.QINFO][Constant.QID], sheet_id, on_error, seen
-                ):
-                    if not chart.title:
-                        chart.title = tab_labels.get(tab_id) or ""
-                    charts.append(chart)
-            return charts
-        except Exception as e:
-            on_error(
-                f"Unable to fetch chart {object_id} of sheet {sheet_id}. Exception: {e}"
-            )
-            return []
-        finally:
-            del self.handle[depth:]
 
     def close_websocket(self) -> None:
         if self.socket_connection:

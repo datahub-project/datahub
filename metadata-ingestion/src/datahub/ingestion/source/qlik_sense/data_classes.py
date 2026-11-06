@@ -251,6 +251,7 @@ class App(Item):
     tables: List[QlikTable] = []
     script: Optional[str] = None
     fingerprint: Optional[str] = None
+    script_read_failed: bool = False
     read_complete: bool = True
 
     @model_validator(mode="before")

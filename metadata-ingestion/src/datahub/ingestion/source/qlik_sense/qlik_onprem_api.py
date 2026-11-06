@@ -148,14 +148,13 @@ class QlikOnPremAPI:
             )
             raise
 
-    def _log_http_error(self, message: str) -> Any:
+    def _log_http_error(self, message: str) -> None:
         self._thread_state.read_failed = True
         logger.warning(message)
         _, e, _ = sys.exc_info()
         if isinstance(e, requests.exceptions.HTTPError):
             logger.warning(f"HTTP status-code = {e.response.status_code}")
         logger.debug(msg=message, exc_info=e)
-        return e
 
     def _get(
         self, path: str, params: Optional[Dict[str, str]] = None
@@ -323,12 +322,11 @@ class QlikOnPremAPI:
                 params={"qOptions": {"qTypes": ["sheet"]}},
             )
             for sheet_dict in response[Constant.QLIST]:
-                depth = len(websocket_connection.handle)
-                sheet = self._get_sheet(
-                    websocket_connection=websocket_connection,
-                    sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
-                )
-                del websocket_connection.handle[depth:]
+                with websocket_connection.restore_handle():
+                    sheet = self._get_sheet(
+                        websocket_connection=websocket_connection,
+                        sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
+                    )
                 if sheet:
                     sheets.append(sheet)
         except Exception as e:
@@ -338,6 +336,19 @@ class QlikOnPremAPI:
         return sheets
 
     def _load_app(
+        self,
+        app_dict: Dict,
+        is_unchanged: Optional[Callable[[str, str], bool]],
+    ) -> Union[App, UnchangedApp, None]:
+        try:
+            return self._read_or_skip_app(app_dict, is_unchanged)
+        except Exception as e:
+            app_id = str(app_dict.get(Constant.ID))
+            self._log_http_error(message=f"Unable to load app {app_id}. Exception: {e}")
+            self.unread_items.append(app_id)
+            return None
+
+    def _read_app(
         self, app_dict: Dict, fingerprint: Optional[str] = None
     ) -> Optional[App]:
         self._thread_state.read_failed = False
@@ -387,7 +398,7 @@ class QlikOnPremAPI:
         app.read_complete = not self._thread_state.read_failed
         return app
 
-    def _read_app(
+    def _read_or_skip_app(
         self,
         app_dict: Dict,
         is_unchanged: Optional[Callable[[str, str], bool]],
@@ -407,7 +418,7 @@ class QlikOnPremAPI:
                     f"Unable to check whether app {app_dict.get(Constant.ID)} "
                     f"changed, reading it instead. Exception: {e}"
                 )
-        return self._load_app(app_dict, fingerprint)
+        return self._read_app(app_dict, fingerprint)
 
     def app_fingerprint(self, app_dict: Dict) -> Optional[str]:
         """Hash of everything the Repository Service knows about the app that the
@@ -483,7 +494,7 @@ class QlikOnPremAPI:
         # QRS and Engine reads are network-bound; the GIL is only held while
         # decoding replies.
         for future in BackpressureAwareExecutor.map(
-            self._read_app,
+            self._load_app,
             ((app_dict, is_unchanged) for app_dict in app_dicts),
             max_workers=self.config.max_workers,
         ):
