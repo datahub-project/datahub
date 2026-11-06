@@ -259,9 +259,7 @@ class QlikOnPremAPI:
                 meta[Constant.OWNERID] = self._remember_owner(meta.get("owner"))
             sheet = Sheet.model_validate(meta)
             if Constant.QCHILDLIST not in sheet_dict:
-                logger.warning(
-                    f"Sheet {sheet.title} with id {sheet_id} does not have any charts. sheet_dict: {sheet_dict}"
-                )
+                logger.debug(f"Sheet {sheet.title} with id {sheet_id} has no charts")
                 return sheet
             for i, chart_dict in enumerate(
                 sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
