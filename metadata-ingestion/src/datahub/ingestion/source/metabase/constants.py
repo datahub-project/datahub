@@ -42,8 +42,15 @@ _SPECIAL_CHARS_PATTERN: Pattern[str] = re.compile(r"[^a-zA-Z0-9_]")
 _MULTIPLE_UNDERSCORES_PATTERN: Pattern[str] = re.compile(r"_+")
 
 # Metabase template expression patterns stripped before SQL parsing.
-_OPTIONAL_CLAUSE_PATTERN: Pattern[str] = re.compile(r"\[\[.+?\]\]")
-_TEMPLATE_VARIABLE_PATTERN: Pattern[str] = re.compile(r"\{\{.+?\}\}")
+# re.DOTALL is required because hand-formatted native queries commonly
+# wrap optional clauses and variables across multiple lines, e.g.:
+#   [[
+#     AND order_date BETWEEN {{start_date}} AND {{end_date}}
+#   ]]
+# Without it, "." does not match "\n" and the brackets are left in the
+# query, producing invalid SQL that breaks downstream parsing.
+_OPTIONAL_CLAUSE_PATTERN: Pattern[str] = re.compile(r"\[\[.+?\]\]", re.DOTALL)
+_TEMPLATE_VARIABLE_PATTERN: Pattern[str] = re.compile(r"\{\{.+?\}\}", re.DOTALL)
 
 # JDBC connection-string constants used when sanitizing the `db` detail field
 _JDBC_URI_SCHEMES = ("file:", "mem:")
