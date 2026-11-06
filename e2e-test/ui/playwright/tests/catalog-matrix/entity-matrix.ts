@@ -201,3 +201,12 @@ export async function clearGlossaryTerms(gmsRequest: APIRequestContext, entity: 
 export async function clearDomains(gmsRequest: APIRequestContext, entity: CoreEntity): Promise<void> {
   await writeAspect(gmsRequest, entity, 'domains', { domains: [] });
 }
+
+/** Reset the entity to not deprecated. */
+export async function clearDeprecation(gmsRequest: APIRequestContext, entity: CoreEntity): Promise<void> {
+  await writeAspect(gmsRequest, entity, 'deprecation', {
+    deprecated: false,
+    note: '',
+    actor: 'urn:li:corpuser:datahub',
+  });
+}
