@@ -912,7 +912,15 @@ class Mapper:
         if dataflow is None:
             if first_sighting:
                 self.__reporter.dataflow_references_not_ingested += 1
-            self.__reporter.warning(
+            # Without extract_dataflows (always the case in admin_scan) no
+            # dataflow is ingested by choice, so a skipped edge is expected on
+            # every run and is not something to fix: report it as info.
+            report_skip = (
+                self.__reporter.warning
+                if self.__config.extract_dataflows
+                else self.__reporter.info
+            )
+            report_skip(
                 title="Dataflow Not Ingested",
                 message=self._dataflow_not_ingested_advice(reference.dataflow_id),
                 context=context,
@@ -937,6 +945,11 @@ class Mapper:
 
     def _dataflow_not_ingested_advice(self, dataflow_id: str) -> str:
         skipped = "A semantic model reads a dataflow that was not ingested in this run, so the lineage edge is skipped. "
+        if self.__config.metadata_api_mode != PowerBiMetadataApiMode.WORKSPACE_APIS:
+            return (
+                skipped + "Dataflow ingestion needs metadata_api_mode: workspace_apis "
+                "with extract_dataflows enabled."
+            )
         if not self.__config.extract_dataflows:
             return skipped + "Enable extract_dataflows to ingest dataflows."
         if (
@@ -948,7 +961,10 @@ class Mapper:
                 + "The dataflow was listed but its definition could not be fetched "
                 "or parsed; see the failure reported for it."
             )
-        return skipped + "Include the dataflow's workspace in workspace_id_pattern."
+        return (
+            skipped + "Include the dataflow's workspace in workspace_id_pattern. Only "
+            "Dataflow Gen2 items are ingested, so a Gen1 dataflow is never resolved."
+        )
 
     def make_dataset_urn_for_dataflow_entity(
         self,
