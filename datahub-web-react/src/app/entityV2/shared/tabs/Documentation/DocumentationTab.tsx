@@ -141,7 +141,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 </Text>
                             </DocumentationContainer>
                         )}
-                        {!hideLinksButton && <RelatedSection />}
                     </div>
                 </>
             ) : (
@@ -172,6 +171,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     </EmptyTab>
                 </EmptyTabWrapper>
             )}
+            {!hideLinksButton && <RelatedSection />}
             {showModal && (
                 <DescriptionPreviewModal
                     editMode={(isEditing && true) || false}
