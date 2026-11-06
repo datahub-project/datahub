@@ -174,13 +174,18 @@ class WebsocketConnection:
             )
             chart.fields_complete = False
             return
-        for measure in properties.get(Constant.QHYPERCUBEDEF, {}).get(
+        measures = properties.get(Constant.QHYPERCUBEDEF, {}).get(
             Constant.QMEASURES, []
-        ):
+        )
+        if len(measures) < len(chart.qMeasure):
+            chart.fields_complete = False
+        for measure in measures:
             if measure.get(Constant.QLIBRARYID):
                 chart.measure_library_ids.append(measure[Constant.QLIBRARYID])
             elif measure.get(Constant.QDEF, {}).get(Constant.QDEF):
                 chart.field_expressions.append(measure[Constant.QDEF][Constant.QDEF])
+            else:
+                chart.fields_complete = False
 
     def add_master_measure_definitions(
         self, sheets: List[Sheet], on_error: Callable[[str], None]
