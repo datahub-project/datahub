@@ -71,7 +71,6 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
                 onOpenChange={(val) => setSchemaFilterSelectOpen(val)}
                 content={
                     <SchemaFilterSelectContent
-                        close={() => setSchemaFilterSelectOpen(false)}
                         schemaFilterTypes={schemaFilterTypes}
                         setSchemaFilterTypes={setSchemaFilterTypes}
                     />
