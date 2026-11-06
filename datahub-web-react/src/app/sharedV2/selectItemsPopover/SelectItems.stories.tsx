@@ -3,7 +3,7 @@ import { Meta, StoryObj } from '@storybook/react';
 import { Button } from 'antd';
 import React from 'react';
 
-import { SelectItemPopover, SelectItemPopoverProps } from '@components/components/SelectItemsPopover/SelectItemPopover';
+import { SelectItemPopover, SelectItemPopoverProps } from '@app/sharedV2/selectItemsPopover/SelectItemPopover';
 import {
     defaultGlossaryTermEntities,
     defaultTagEntities,
@@ -12,15 +12,14 @@ import {
     mockTagEntityRegistry,
     mockTagSelectedEntities,
     tagMocks,
-} from '@components/components/SelectItemsPopover/__mock.data';
-
+} from '@app/sharedV2/selectItemsPopover/__mock.data';
 import Tag from '@src/app/sharedV2/tags/tag/Tag';
 import { EntityRegistryContext } from '@src/entityRegistryContext';
 import { Entity, EntityType, Tag as TagType } from '@src/types.generated';
 
 // Storybook meta configuration
 const meta: Meta<SelectItemPopoverProps> = {
-    title: 'Component / Select Items Popover',
+    title: 'Entity / Select Items Popover',
     component: SelectItemPopover,
     parameters: {
         layout: 'centered',
