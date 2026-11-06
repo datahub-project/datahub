@@ -6,9 +6,12 @@ import { MemoryRouter } from 'react-router';
 
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import PreviewContext from '@app/entityV2/shared/PreviewContext';
+import { DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
 import { SearchResultLineageStatusProvider } from '@app/searchV2/SearchResultLineageStatusContext';
+import { hexToRgb } from '@app/sharedV2/colors/colorUtils';
+import lightTheme from '@conf/theme/colorThemes/light';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { EntityRegistryContext } from '@src/entityRegistryContext';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
@@ -24,7 +27,11 @@ const searchResult = {
 
 function renderFooter(
     previewData: Record<string, unknown> | null,
-    { asSearchResult = true, lineageCountsFailed = false } = {},
+    {
+        asSearchResult = true,
+        lineageCountsFailed = false,
+        lastUpdatedMs,
+    }: { asSearchResult?: boolean; lineageCountsFailed?: boolean; lastUpdatedMs?: DatasetLastUpdatedMs } = {},
 ) {
     const entityRegistry = getTestEntityRegistry();
     const footer = (
@@ -34,6 +41,7 @@ function renderFooter(
             urn={URN}
             entityRegistry={entityRegistry}
             isFullViewCard
+            lastUpdatedMs={lastUpdatedMs}
         />
     );
     const withPreview = (
@@ -122,5 +130,27 @@ describe('DefaultPreviewCardFooter lineage badge', () => {
 
         expect(screen.queryByTestId('lineage-badge-placeholder')).not.toBeInTheDocument();
         expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    });
+});
+
+describe('DefaultPreviewCardFooter freshness clock', () => {
+    const SIXTY_DAYS_AGO = Date.now() - 60 * 24 * 60 * 60 * 1000;
+    const AGE_RED = 'rgb(245, 34, 45)';
+    const NEUTRAL = `rgb(${hexToRgb(lightTheme.icon).join(', ')})`;
+    const clockColor = () => getComputedStyle(screen.getByTestId('freshness').querySelector('svg') as SVGElement).color;
+    const preview = { urn: URN, type: EntityType.Dataset };
+
+    it('shows the time of a view in the neutral icon color', () => {
+        renderFooter(preview, {
+            lastUpdatedMs: { property: 'lastModified', lastUpdatedMs: SIXTY_DAYS_AGO, definitionTime: true },
+        });
+        expect(clockColor()).toBe(NEUTRAL);
+    });
+
+    it('colors an old table time by its age', () => {
+        renderFooter(preview, {
+            lastUpdatedMs: { property: 'lastModified', lastUpdatedMs: SIXTY_DAYS_AGO, definitionTime: false },
+        });
+        expect(clockColor()).toBe(AGE_RED);
     });
 });

@@ -57,6 +57,9 @@ fragment searchResultCardFields on Entity {
         subTypes {
             typeNames
         }
+        viewProperties {
+            materialized
+        }
         siblings {
             isPrimary
         }
@@ -596,6 +599,9 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     subTypes {
         typeNames
     }
+    viewProperties {
+        materialized
+    }
     parentContainers {
         ...parentContainersFields
     }
@@ -651,6 +657,9 @@ fragment siblingSearchDatasetFields on Dataset {
     }
     subTypes {
         typeNames
+    }
+    viewProperties {
+        materialized
     }
     parentContainers {
         ...parentContainersFields
