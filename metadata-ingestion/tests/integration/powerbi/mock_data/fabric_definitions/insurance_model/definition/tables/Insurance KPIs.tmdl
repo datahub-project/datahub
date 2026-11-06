@@ -1,0 +1,35 @@
+/// Home for KPI measures; has no data of its own.
+table 'Insurance KPIs'
+	lineageTag: 00000005-1111-4222-8333-000000000005
+
+	/// Sum of written premium.
+	measure 'Total Premium' = SUM('Policies'[WrittenPremium])
+		formatString: $#,##0
+		lineageTag: 00000017-1111-4222-8333-000000000017
+
+	measure 'Total Paid Losses' = SUM('Claims'[PaidAmount])
+		formatString: $#,##0
+		lineageTag: 0000000b-1111-4222-8333-00000000000b
+
+	/// Measure-to-measure dependency: losses / premium.
+	measure 'Loss Ratio' =
+			VAR Losses = [Total Paid Losses]
+			RETURN DIVIDE(Losses, [Total Premium], 0)
+		formatString: 0.0%
+		lineageTag: 00000015-1111-4222-8333-000000000015
+
+	measure 'Open Claims' = CALCULATE(COUNTROWS('Claims'), 'Claims'[Status] = "Open")
+		formatString: #,##0
+		lineageTag: 00000003-1111-4222-8333-000000000003
+
+	column Value
+		dataType: int64
+		isHidden
+		lineageTag: 0000000c-1111-4222-8333-00000000000c
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Value]
+
+	partition 'Insurance KPIs' = calculated
+		mode: import
+		source = ROW("Value", 1)
