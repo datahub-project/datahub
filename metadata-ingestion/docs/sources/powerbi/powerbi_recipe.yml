@@ -27,6 +27,9 @@ source:
     # extract_report_field_usage: true
     # Column lineage derived from DAX (calculated columns, measure-to-measure references)
     # extract_dax_reference_lineage: true
+    # Field properties (formatString, displayFolder, isHidden, ...), storage mode, partitions,
+    # incremental refresh, RLS role filters (never members) and masked dataset parameters
+    # extract_model_properties: true
     # Latest dataset refresh as an Operation aspect (works in both modes)
     # extract_refresh_history: true
 
