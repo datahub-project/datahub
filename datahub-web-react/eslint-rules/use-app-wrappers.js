@@ -10,16 +10,18 @@
  *
  * Alchemy files and the component's own wrapper are exempt.
  *
- * Options: { components: [{ name: 'Editor', wrapper: 'src/app/sharedV2/editor/Editor.tsx' }] }
- * `name` is both the exported component and its folder under src/alchemy-components/components.
+ * Options: { components: [{ name: 'Editor', folder: 'Editor', wrapper: 'src/app/sharedV2/editor/Editor.tsx' }] }
+ * - name: the exported alchemy component
+ * - folder: its folder under src/alchemy-components/components
+ * - wrapper: the app file that wraps it
  */
 
 const ALCHEMY_ROOTS = ['@components', '@src/alchemy-components'];
 
-function importsFromComponent(source, name) {
+function importsFromComponent(source, folder) {
     return ALCHEMY_ROOTS.some((root) => {
-        const folder = `${root}/components/${name}`;
-        return source === root || source === folder || source.startsWith(`${folder}/`);
+        const folderPath = `${root}/components/${folder}`;
+        return source === root || source === folderPath || source.startsWith(`${folderPath}/`);
     });
 }
 
@@ -41,8 +43,12 @@ module.exports = {
                         type: 'array',
                         items: {
                             type: 'object',
-                            properties: { name: { type: 'string' }, wrapper: { type: 'string' } },
-                            required: ['name', 'wrapper'],
+                            properties: {
+                                name: { type: 'string' },
+                                folder: { type: 'string' },
+                                wrapper: { type: 'string' },
+                            },
+                            required: ['name', 'folder', 'wrapper'],
                             additionalProperties: false,
                         },
                     },
@@ -65,7 +71,7 @@ module.exports = {
             const source = node.parent.source?.value;
             if (typeof source !== 'string') return;
             const component = components.find(
-                ({ name }) => name === importedName && importsFromComponent(source, name),
+                ({ name, folder }) => name === importedName && importsFromComponent(source, folder),
             );
             if (!component) return;
             context.report({

@@ -304,7 +304,7 @@ module.exports = {
         // Alchemy components that app code renders through an app wrapper: one entry per component.
         'rulesdir/use-app-wrappers': [
             'error',
-            { components: [{ name: 'Editor', wrapper: 'src/app/sharedV2/editor/Editor.tsx' }] },
+            { components: [{ name: 'Editor', folder: 'Editor', wrapper: 'src/app/sharedV2/editor/Editor.tsx' }] },
         ],
         'no-console': 'off',
         'no-plusplus': 'off',
