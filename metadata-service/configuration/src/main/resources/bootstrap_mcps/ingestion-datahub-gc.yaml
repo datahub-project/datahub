@@ -12,9 +12,11 @@
       timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
       interval: '{{schedule.interval}}{{^schedule.interval}}0 1 * * *{{/schedule.interval}}'
     config:
-{{#ingestion.version}}
-      version: '{{{.}}}'
-{{/ingestion.version}}
+      # 'bundled' runs the CLI pre-built into the executor image (datahub-actions or
+      # datahub-executor), so this system source always matches the deployed release
+      # and never resolves packages at run time. It deliberately does not fall back to
+      # the server's defaultCliVersion, which on-prem deployments often leave stale.
+      version: '{{&ingestion.version}}{{^ingestion.version}}bundled{{/ingestion.version}}'
       recipe:
         source:
           type: 'datahub-gc'
@@ -54,7 +56,9 @@
               limit_entities_delete: {{execution_request_cleanup.limit_entities_delete}}{{^execution_request_cleanup.limit_entities_delete}}10000{{/execution_request_cleanup.limit_entities_delete}}
               max_read_errors: {{execution_request_cleanup.max_read_errors}}{{^execution_request_cleanup.max_read_errors}}10{{/execution_request_cleanup.max_read_errors}}
               source_type_overrides: {{&execution_request_cleanup.source_type_overrides}}{{^execution_request_cleanup.source_type_overrides}}{}{{/execution_request_cleanup.source_type_overrides}}
-      extraArgs: {}
+      extraArgs:
+        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}[]{{/ingestion.extra_pip_requirements}}'
+        extra_env_vars: '{{&ingestion.extra_env_vars}}{{^ingestion.extra_env_vars}}{}{{/ingestion.extra_env_vars}}'
       debugMode: false
       executorId: default
     source:
