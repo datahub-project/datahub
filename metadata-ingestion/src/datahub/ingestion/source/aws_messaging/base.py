@@ -1,7 +1,9 @@
-from typing import Any, Callable, FrozenSet, Iterable, Optional
+from typing import Any, Callable, Dict, FrozenSet, Iterable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
+from requests.exceptions import RequestException
 
+from datahub.configuration.common import GraphError
 from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import CapabilityReport, TestableSource
@@ -9,11 +11,13 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
 from datahub.ingestion.source.aws_messaging.clients import (
+    CloudTrailLakeClient,
     EventBridgeClient,
     LambdaClient,
     PipesClient,
     S3NotificationClient,
 )
+from datahub.ingestion.source.aws_messaging.cloudtrail import ProducerLineage
 from datahub.ingestion.source.aws_messaging.config import (
     AwsMessagingConfigBase,
     GlueSchemaRegistryConfigBase,
@@ -23,6 +27,7 @@ from datahub.ingestion.source.aws_messaging.constants import (
     EVENTBRIDGE_PIPES_PLATFORM,
     EVENTBRIDGE_PLATFORM,
     LAMBDA_PLATFORM,
+    OBSERVED_PRODUCERS_PROPERTY,
     AwsService,
     JobEdgeKind,
     LineageRelationship,
@@ -51,7 +56,10 @@ from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    SchemaMetadataClass,
+)
 
 
 class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
@@ -149,6 +157,89 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             pipes_region_key=self.region_key(EVENTBRIDGE_PIPES_PLATFORM),
             jobs=self.jobs,
         )
+        producers_config = config.cloudtrail_producers
+        self.producers: Optional[ProducerLineage] = (
+            ProducerLineage(
+                config=producers_config,
+                report=report,
+                client=CloudTrailLakeClient(
+                    config.make_client(
+                        self.session,
+                        AwsService.CLOUDTRAIL,
+                        # Lake queries run in the event data store's own region.
+                        region=self._event_data_store_region(),
+                    ),
+                    report,
+                ),
+                urns=self.urns,
+                resolver=self.resolver,
+                lambdas=self.lambdas,
+            )
+            if producers_config.enabled
+            else None
+        )
+
+    def collect_producers(self) -> None:
+        """CloudTrail producers. Runs before `service_lineage_workunits`, which
+        emits the Lambda jobs this adds outputs to."""
+        if self.producers is None:
+            return
+        if self.producers.query():
+            self.producers.add_lambda_edges()
+            return
+        # Lambda outputs seen through CloudTrail are unknown this run.
+        self.jobs.mark_unknown(LAMBDA_PLATFORM, JobEdgeKind.PRODUCES)
+        if self.ctx.graph is None:
+            self.base_report.warning(
+                title="Observed producers not kept",
+                message=(
+                    "The CloudTrail query failed and there is no DataHub connection to "
+                    "read the previous observed_producers, so they are cleared until "
+                    "the next successful run."
+                ),
+            )
+
+    def dataset_custom_properties(
+        self, urn: str, properties: Dict[str, str]
+    ) -> Dict[str, str]:
+        """Adds observed_producers to this run's datasetProperties.
+
+        The query runs before the first dataset is written, so the full write
+        already holds this run's value. When it failed, nothing is known about
+        who sends, so the value DataHub already holds is kept."""
+        if self.producers is None:
+            return properties
+        if self.producers.query():
+            observed = self.producers.observed_producers(urn)
+        elif self.ctx.graph is not None:
+            try:
+                existing = self.ctx.graph.get_aspect(urn, DatasetPropertiesClass)
+            except (GraphError, RequestException) as e:
+                self.base_report.warning(
+                    title="Previous observed producers not read",
+                    message=(
+                        "The CloudTrail query failed and the value already in "
+                        "DataHub couldn't be read, so observed_producers is not "
+                        "written for this dataset this run."
+                    ),
+                    context=urn,
+                    exc=e,
+                )
+                existing = None
+            observed = (
+                (existing.customProperties or {}).get(OBSERVED_PRODUCERS_PROPERTY)
+                if existing is not None
+                else None
+            )
+        else:
+            observed = None
+        if not observed:
+            return properties
+        return {**properties, OBSERVED_PRODUCERS_PROPERTY: observed}
+
+    def _event_data_store_region(self) -> Optional[str]:
+        store = parse_arn(self.base_config.cloudtrail_producers.event_data_store)
+        return store.region if store is not None and store.region else None
 
     def collect_s3_notifications(self) -> None:
         if not self.base_config.lineage.s3_notifications:
