@@ -4,15 +4,20 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 Analytics has two pages. Usage Stats tracks usage on a DataHub Cloud contract. Product Analytics shows asset and adoption metrics for DataHub Cloud. Usage Stats appears only when its feature flag is on. Otherwise, Product Analytics is the only page on Analytics.
 
-# Usage Stats Dashboard
+## Usage Stats Dashboard
 
 <FeatureAvailability saasOnly stage="public-beta" />
 
 Usage Stats provides visibility of usage on a DataHub Cloud contract for the service period. Start and end dates are formatted in UTC.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d92ec9d2a9db23ab041fd7fea2ea6127f7b605e3/imgs/admin/usage-stats-dashboard.png)
+<p align="center">
+  <img 
+       width="90%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/d92ec9d2a9db23ab041fd7fea2ea6127f7b605e3/imgs/admin/usage-stats-dashboard.png" 
+       alt="Usage Stats Dashboard"/>
+</p>
 
-## Metered usage cards
+### Metered usage cards
 
 Each contracted product has one card. A card is a line chart of usage over time against what the contract includes.
 
@@ -26,14 +31,14 @@ Each contracted product has one card. A card is a line chart of usage over time 
 
 Each card shows the allowances in effect for the period.
 
-## Usage Over Time
+### Usage Over Time
 
 This section charts usage over a period you choose.
 
-- Instance selector: on the charts, select an instance to view its usage.&#32;
-- Charts use stacked bars or lines.
-- Period presets: current period, forecast to period end, last 24 hours, 30 days, 90 days, last year.
-- Custom range: set your own start and end dates.
+- Instance selector: on the charts, select an instance to view its usage
+- Charts use stacked bars or lines
+- Period presets: current period, forecast to period end, last 24 hours, 30 days, 90 days, last year
+- Custom range: set your own start and end dates
 
 Two charts show product adoption:
 
@@ -42,31 +47,37 @@ Two charts show product adoption:
 
 API calls can be broken down by request API: MCP, REST/OpenAPI or GraphQL.
 
-## Upcoming Grants
+### Upcoming Grants
 
 This section lists credit and allowance grants that have not started yet under the contract. Each grant shows its start date and, if the grant has one, its end date. Dates are formatted in UTC.
 
 Grants that have already started, and expired grants, do not appear here. In-effect allowances appear in the metered usage cards at the top of the dashboard.
 
-## Fair Use
+### Fair Use
 
 This section shows live hourly charts for each dimension the fair use policy covers. A link to the policy sits beside the charts.
 
 Fair use policy: [DataHub SaaS terms](https://datahub.com/saasterms/)
 
-# Product Analytics Dashboard
+## Product Analytics Dashboard
 
 <FeatureAvailability />
 
 Product Analytics shows asset and adoption metrics for DataHub Cloud.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d92ec9d2a9db23ab041fd7fea2ea6127f7b605e3/imgs/admin/product-analytics-dashboard.png)
+<p align="center">
+  <img 
+       width="90%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/d92ec9d2a9db23ab041fd7fea2ea6127f7b605e3/imgs/admin/product-analytics-dashboard.png" 
+       alt="Product Analytics Dashboard"/>
+</p>
 
-## Highlight tiles
 
-Summarized counts of assets in DataHub Cloud. Weekly and Monthly Active Users are visible if the Usage Stats Dashboard is not enabled, otherwise refer to Usage Stats.&#32;&#32;
+### Highlight tiles
 
-## Data Landscape Summary
+Summarized counts of assets in DataHub Cloud. Weekly and Monthly Active Users are visible if the Usage Stats Dashboard is not enabled, otherwise refer to Usage Stats.
+
+### Data Landscape Summary
 
 A snapshot of the catalog, not usage.
 
@@ -75,11 +86,11 @@ A snapshot of the catalog, not usage.
 - Entities with term: number of entities with associated glossary terms
 - Entities by environment: number of entities by environment
 
-## Domain Landscape Summary
+### Domain Landscape Summary
 
 The same chart types as the Data Landscape Summary, filtered by a domain dropdown.;
 
-## Usage Analytics
+### Usage Analytics
 
 How people use the UI.
 
@@ -93,17 +104,17 @@ How people use the UI.
 - Section views per entity type
 - Actions by event type
 
-## Ask DataHub
+### Ask DataHub
 
 Only visible on DataHub Cloud.
 
-- Ask DataHub weekly active users.&#32;
+- Ask DataHub weekly active users
 - Questions asked (past 3 months)
 - Questions by platform (last 30 days)
 - Top Ask DataHub users
-- Top tools used.&#32;
+- Top tools used
 
-## MCP
+### MCP
 
 Only visible on DataHub Cloud.
 
