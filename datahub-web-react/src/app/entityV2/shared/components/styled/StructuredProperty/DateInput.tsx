@@ -10,8 +10,9 @@ interface Props {
 }
 
 export default function DateInput({ selectedValues, updateSelectedValues }: Props) {
-    function updateInput(_: Dayjs | null, value: string) {
-        updateSelectedValues([value]);
+    // antd 5 types dateString as string | string[] to cover multi-select pickers; this one is single
+    function updateInput(_: Dayjs | null, value: string | string[]) {
+        updateSelectedValues(([] as string[]).concat(value));
     }
 
     const currentValue = selectedValues[0] ? dayjs(selectedValues[0]) : undefined;

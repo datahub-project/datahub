@@ -11,7 +11,6 @@ import {
     useFilterOptionsBySearchQuery,
     useLoadSearchOptions,
 } from '@app/searchV2/filters/value/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const DEBOUNCE_MS = 300;
 
@@ -37,7 +36,6 @@ export default function EntityValueMenu({
     className,
 }: Props) {
     const { t } = useTranslation('search');
-    const entityRegistry = useEntityRegistry();
     const isSearchable = !!field.entityTypes?.length;
     const { displayName } = field;
 
@@ -82,7 +80,6 @@ export default function EntityValueMenu({
                 entity: option.entity,
                 displayName: option.displayName,
             },
-            entityRegistry,
             includeCount,
             selectedFilterOptions: values.map((value) => {
                 return { field: field.field, value: value.value, entity: value.entity };

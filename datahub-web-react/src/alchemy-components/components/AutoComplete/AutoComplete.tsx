@@ -37,7 +37,7 @@ export default function AutoComplete({
         if (open !== undefined) setInternalOpen(open);
     }, [open]);
 
-    const onChangeHandler = (newValue: string, option: OptionType | OptionType[]) => {
+    const onChangeHandler = (newValue: string, option?: OptionType | OptionType[]) => {
         if (!internalOpen && newValue !== '') setInternalOpen(true);
         onChange?.(newValue, option);
     };

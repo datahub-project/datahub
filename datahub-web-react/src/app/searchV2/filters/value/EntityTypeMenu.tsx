@@ -11,7 +11,6 @@ import {
     useLoadAggregationOptions,
 } from '@app/searchV2/filters/value/utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER } from '@app/searchV2/utils/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityType } from '@src/types.generated';
 
 interface Props {
@@ -41,7 +40,6 @@ export default function EntityTypeMenu({
     aggregationsEntityTypes,
     showDefaultOptions = true,
 }: Props) {
-    const entityRegistry = useEntityRegistry();
     const { displayName } = field;
 
     // Ideally we would not have staged values, and filters would update automatically.
@@ -82,7 +80,6 @@ export default function EntityTypeMenu({
                     displayName: option.displayName,
                 },
                 includeCount,
-                entityRegistry,
                 selectedFilterOptions: values.map((value) => {
                     return { field: field.field, value: value.value };
                 }),

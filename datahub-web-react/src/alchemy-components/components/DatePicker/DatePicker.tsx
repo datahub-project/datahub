@@ -64,7 +64,7 @@ export function DatePicker({
                     {...(resolvedFormat ? { format: resolvedFormat } : {})}
                     value={value}
                     inputRender={wrappedInputRender && ((props) => wrappedInputRender?.(props))}
-                    onChange={(newValue) => setInternalValue(newValue)}
+                    onChange={(newValue) => setInternalValue(newValue as DatePickerValue)}
                     onOpenChange={(open) => setIsOpen(open)}
                     disabled={disabled}
                     disabledDate={disabledDate}
