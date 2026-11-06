@@ -9,7 +9,7 @@ import pytest
 import requests
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     Chart,
@@ -901,8 +901,14 @@ def test_cloud_app_read_failure_closes_engine_session(
         )
     )
 
-    assert api._get_app("app-1") is None
+    assert (
+        api._load_item(
+            {Constant.RESOURCETYPE: Constant.APP, Constant.RESOURCEID: "app-1"}
+        )
+        is None
+    )
     websocket.close_websocket.assert_called_once()
+    assert api.unread_items == ["app-1"]
 
 
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
