@@ -8,10 +8,10 @@ import { useDebounce } from 'react-use';
 import { Positioner, selectionPositioner } from 'remirror/extensions';
 import styled, { keyframes } from 'styled-components';
 
-import { MentionsDropdown } from '@components/components/Editor/extensions/mentions/MentionsDropdown';
 import { useDataHubMentions } from '@components/components/Editor/extensions/mentions/useDataHubMentions';
 import { calculateMentionsPlacement } from '@components/components/Editor/extensions/mentions/utils';
 
+import { MentionsDropdown } from '@app/sharedV2/editor/mentions/MentionsDropdown';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
 

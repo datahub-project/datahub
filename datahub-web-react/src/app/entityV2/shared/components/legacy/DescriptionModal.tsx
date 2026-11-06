@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Editor } from '@components/components/Editor';
 import { EditorProps } from '@components/components/Editor/types';
 import { ModalButton } from '@components/components/Modal/Modal';
+
+import { Editor } from '@app/sharedV2/editor/Editor';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;

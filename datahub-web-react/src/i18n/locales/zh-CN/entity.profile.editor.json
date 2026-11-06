@@ -11,7 +11,7 @@
     "link.linkUrl": "链接 URL",
     "link.text": "文本",
     "link.title": "添加链接",
-    "mentions.failedToFindEntity": "未找到实体",
+    "mentions.notFound": "未找到实体",
     "table.deleteColumn": "删除列",
     "table.deleteRow": "删除行",
     "table.deleteTable": "删除表格",
