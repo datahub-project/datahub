@@ -248,3 +248,24 @@ SQL SELECT order_id FROM dbo.orders;
         apply_preceding_loads(table.preceding_loads, {"order_id": ["order_id_urn"]})
         == expected
     )
+
+
+@pytest.mark.parametrize(
+    "between",
+    [
+        pytest.param("Xml: LOAD Value FROM_FIELD (Raw, Payload);", id="from_field"),
+        pytest.param("LOAD Value;\nLIB CONNECT TO 'Sales SQL';", id="connect"),
+        pytest.param("LOAD Value;\nDISCONNECT;", id="disconnect"),
+    ],
+)
+def test_load_that_does_not_precede_select_keeps_sql_columns(between: str) -> None:
+    (table,) = parse_load_script(
+        f"""
+LIB CONNECT TO 'Sales SQL';
+{between}
+Orders:
+SQL SELECT order_id FROM dbo.orders;
+"""
+    )
+
+    assert table.preceding_loads == []

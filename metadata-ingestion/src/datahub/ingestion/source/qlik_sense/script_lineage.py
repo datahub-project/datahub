@@ -40,7 +40,9 @@ SQL_RE = re.compile(
     r"^(?:SQL\s+)?(?P<sql>(?:SELECT|WITH)\b.*)$", re.IGNORECASE | re.DOTALL
 )
 LOAD_RE = re.compile(r"^LOAD\b", re.IGNORECASE)
-LOAD_SOURCE_RE = re.compile(r"\b(?:FROM|RESIDENT|INLINE|AUTOGENERATE)\b", re.IGNORECASE)
+LOAD_SOURCE_RE = re.compile(
+    r"\b(?:FROM|FROM_FIELD|RESIDENT|INLINE|AUTOGENERATE)\b", re.IGNORECASE
+)
 QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]")
 LOAD_FIELDS_RE = re.compile(
     r"^LOAD\s+(?:DISTINCT\s+)?(?P<fields>.*)$", re.IGNORECASE | re.DOTALL
@@ -296,9 +298,13 @@ def parse_load_script(script: str) -> List[ScriptTable]:
         connect = CONNECT_RE.match(statement)
         if connect:
             flow.state.connection = _first_group(connect).strip()
+            pending_label = None
+            pending_loads = []
             continue
         if DISCONNECT_RE.match(statement):
             flow.state.connection = None
+            pending_label = None
+            pending_loads = []
             continue
 
         label: Optional[str] = None
