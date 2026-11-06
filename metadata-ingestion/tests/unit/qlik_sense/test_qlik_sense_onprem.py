@@ -600,6 +600,37 @@ def test_chart_inputs_when_fields_are_unknown(
     ] == matched_fields
 
 
+@pytest.mark.parametrize(
+    "reply, fields_complete",
+    [
+        pytest.param(RuntimeError("Access denied"), False, id="properties_unread"),
+        pytest.param(
+            {"qProp": {"qHyperCubeDef": {"qMeasures": [{"qDef": {}}]}}},
+            False,
+            id="measure_without_definition",
+        ),
+        pytest.param(
+            {
+                "qProp": {
+                    "qHyperCubeDef": {"qMeasures": [{"qDef": {"qDef": "Sum(Sales)"}}]}
+                }
+            },
+            True,
+            id="measure_expression",
+        ),
+    ],
+)
+def test_measure_definitions_mark_unread_measures(
+    reply: object, fields_complete: bool
+) -> None:
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    engine = _ScriptedEngine([reply])
+
+    engine._add_measure_definitions(chart, "sheet-1", on_error=lambda _: None)
+
+    assert chart.fields_complete is fields_complete
+
+
 def test_unread_master_measure_marks_chart_fields_incomplete() -> None:
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
     chart.measure_library_ids = ["measure-1", "measure-2"]

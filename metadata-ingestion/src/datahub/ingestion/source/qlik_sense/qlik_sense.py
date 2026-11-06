@@ -293,13 +293,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         try:
             properties = graph.get_aspect(container_urn, ContainerPropertiesClass)
             status = graph.get_aspect(container_urn, Status)
+            # Children stale entity removal deleted after they left Qlik are not
+            # in the checkpoint, so only a deleted child the app still produces
+            # needs a re-read.
+            previous_urns = set(previous.urns)
             soft_deleted_child = next(
-                iter(
-                    graph.get_urns_by_filter(
+                (
+                    urn
+                    for urn in graph.get_urns_by_filter(
                         container=container_urn,
                         status=RemovedStatusFilter.ONLY_SOFT_DELETED,
-                        batch_size=1,
                     )
+                    if urn in previous_urns
                 ),
                 None,
             )
