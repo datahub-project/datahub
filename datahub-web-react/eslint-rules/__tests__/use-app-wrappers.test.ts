@@ -7,8 +7,8 @@ import tsParser from '@typescript-eslint/parser';
 import rule from '../use-app-wrappers.js';
 
 const COMPONENTS = [
-    { name: 'Editor', wrapper: 'src/app/sharedV2/editor/Editor.tsx' },
-    { name: 'Tabs', wrapper: 'src/app/sharedV2/tabs/Tabs.tsx' },
+    { name: 'Editor', folder: 'Editor', wrapper: 'src/app/sharedV2/editor/Editor.tsx' },
+    { name: 'Tabs', folder: 'Tabs', wrapper: 'src/app/sharedV2/tabs/Tabs.tsx' },
 ];
 
 const APP_FILE = '/repo/datahub-web-react/src/app/entityV2/Page.tsx';
@@ -62,6 +62,10 @@ describe('use-app-wrappers', () => {
 
         expect(lint("import { Editor } from '@components/components/Editor';", wrapper)).toEqual([]);
         expect(lint("import { Tabs } from '@components';", wrapper)).toHaveLength(1);
+    });
+
+    it('checks the folder, not the name', () => {
+        expect(lint("import { Editor } from '@components/components/Tabs/Tabs';")).toEqual([]);
     });
 
     it('ignores alchemy files', () => {
