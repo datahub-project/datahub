@@ -31,6 +31,13 @@ table Claims
 		summarizeBy: sum
 		sourceColumn: PAID_AMOUNT
 
+	/// Calculated column: the policy's state, looked up through the relationship.
+	column PolicyState = RELATED('Policies'[State]) // see 'Regions'[Name] for the long form
+		dataType: string
+		lineageTag: 6a512182-55e9-413f-9e52-1d917a6f5e44
+		summarizeBy: none
+		type: calculated
+
 	partition Claims = m
 		mode: import
 		source =
