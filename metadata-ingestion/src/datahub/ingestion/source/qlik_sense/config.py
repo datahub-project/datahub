@@ -105,6 +105,13 @@ class Constant:
     PERSONAL_SPACE_NAME = "personal_space"
     # Hypercube
     HYPERCUBE = "qHyperCube"
+    # Container objects hold charts as tabs
+    CONTAINER = "container"
+    QDATA = "qData"
+    CONTAINERCHILDID = "containerChildId"
+    CHILDREN = "children"
+    REFID = "refId"
+    LABEL = "label"
 
 
 @dataclass
