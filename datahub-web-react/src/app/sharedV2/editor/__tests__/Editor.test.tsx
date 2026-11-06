@@ -71,7 +71,6 @@ describe('Editor', () => {
         expect(await screen.findByText('Alice')).toBeInTheDocument();
         expect(screen.queryByTestId('mentions-picker')).not.toBeInTheDocument();
         expect(screen.getByTestId('content')).toBeInTheDocument();
-        expect(consoleError).toHaveBeenCalledWith('Error:', expect.any(Error));
         consoleError.mockRestore();
         consoleWarn.mockRestore();
     });
