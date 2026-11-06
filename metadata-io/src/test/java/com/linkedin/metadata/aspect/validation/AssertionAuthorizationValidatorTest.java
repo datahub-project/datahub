@@ -461,6 +461,17 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
+  public void testSoftDeleteAndRestoreSkipTargetThatNoLongerExists() {
+    mockPersisted(freshnessOn(DATASET_A));
+    mockDeleted(DATASET_A);
+
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, statusUpsert(true)).isEmpty());
+
+    mockPersistedStatus(new Status().setRemoved(true));
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, statusUpsert(false)).isEmpty());
+  }
+
+  @Test
   public void testStatusWriteThatKeepsRemovedNotChecked() {
     // Ingestion writes status removed=false for every entity it emits; that changes nothing.
     mockPersisted(freshnessOn(DATASET_A));

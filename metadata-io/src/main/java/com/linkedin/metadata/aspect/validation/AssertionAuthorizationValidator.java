@@ -65,9 +65,9 @@ import lombok.extern.slf4j.Slf4j;
  * restoring an assertion (a change to {@code status.removed}, either way) requires the same. An
  * assertion without {@code assertionInfo} is left to the API-level gate. This lives here rather
  * than in the API gate so OpenAPI, Rest.li and MCP {@code DELETE} all reach it. Detaching an
- * assertion from an entity, or deleting it, does not require the privilege on a target that no
- * longer exists, as when reference cleanup follows the hard delete of that entity; attaching always
- * does.
+ * assertion from an entity, deleting it, or soft deleting or restoring it does not require the
+ * privilege on a target that no longer exists, as when reference cleanup follows the hard delete of
+ * that entity; attaching always does.
  *
  * <p>Run events need the privilege on the run event's {@code asserteeUrn}, matching {@code
  * ReportAssertionResultResolver} (notifications are addressed to it), and on every entity the
@@ -144,13 +144,15 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
       }
       if (STATUS_ASPECT_NAME.equals(aspectName)) {
         validateStatusChange(
+                operationContext,
                 item,
                 currentStatus,
                 AssertionAuthorizationUtils.resolveAssertedEntityUrns(
                     entityRegistry, current.get(urn)),
                 aspectRetriever,
                 session,
-                authorizedEntities)
+                authorizedEntities,
+                existing)
             .ifPresent(failures::add);
         continue;
       }
@@ -306,17 +308,19 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
 
   /**
    * Soft deleting or restoring an assertion takes it off, or puts it back on, the assets it
-   * targets, so a change to {@code removed} needs the privilege on every target. Other status
-   * writes are left to the API-level gate.
+   * targets, so a change to {@code removed} needs the privilege on every target that still exists,
+   * as a hard delete does. Other status writes are left to the API-level gate.
    */
   @Nonnull
   private Optional<AspectValidationException> validateStatusChange(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull BatchItem item,
       @Nonnull Map<Urn, Status> currentStatus,
       @Nonnull Set<Urn> targets,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull AuthorizationSession session,
-      @Nonnull Map<Urn, Boolean> authorizedEntities) {
+      @Nonnull Map<Urn, Boolean> authorizedEntities,
+      @Nonnull Map<Urn, Boolean> existing) {
     Urn urn = item.getUrn();
     Status before = currentStatus.get(urn);
     Status after;
@@ -334,6 +338,7 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
       return Optional.empty();
     }
     Set<Urn> denied = denied(session, targets, authorizedEntities);
+    denied.removeAll(missing(operationContext, aspectRetriever, denied, existing));
     if (denied.isEmpty()) {
       return Optional.empty();
     }
