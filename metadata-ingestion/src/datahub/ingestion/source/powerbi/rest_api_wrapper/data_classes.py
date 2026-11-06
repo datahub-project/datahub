@@ -2,7 +2,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
@@ -339,6 +339,17 @@ class DatasetRefresh:
     end_time: Optional[str]
 
 
+@dataclass(frozen=True)
+class RemoteModelReference:
+    """Another Power BI semantic model that a composite model reads through a
+    `DirectQuery to AS` shared expression: named by workspace and model, and
+    by dataset id when the expression carries one."""
+
+    workspace_name: str
+    model_name: str
+    dataset_id: Optional[str] = None
+
+
 @dataclass
 class Table:
     name: str
@@ -367,6 +378,11 @@ class Table:
     partition_count: Optional[int] = None
     refresh_policy: Optional[RefreshPolicy] = None
     rls_filters: List[RlsTableFilter] = field(default_factory=list)
+    # A composite model's remote table (TMDL `partition ... = entity` with
+    # `mode: directQuery` over a `DirectQuery to AS` expression): the semantic
+    # model it reads and the table's name in that model. workspace_apis only.
+    remote_model: Optional[RemoteModelReference] = None
+    remote_table_name: Optional[str] = None
 
 
 @dataclass
@@ -421,6 +437,19 @@ class PowerBIDataset:
 
 
 FieldReferenceKind = Literal["column", "measure"]
+
+
+@dataclass
+class RemoteModelMatch:
+    """Outcome of resolving a RemoteModelReference against the datasets
+    ingested this run: the dataset, or none, or `ambiguous` when the
+    workspace and model name matched more than one dataset."""
+
+    dataset: Optional[PowerBIDataset] = None
+    ambiguous: bool = False
+
+
+RemoteModelLookup = Callable[[RemoteModelReference], RemoteModelMatch]
 
 
 @dataclass(frozen=True)
