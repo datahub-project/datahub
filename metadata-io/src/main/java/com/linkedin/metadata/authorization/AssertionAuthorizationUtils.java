@@ -249,6 +249,33 @@ public final class AssertionAuthorizationUtils {
         .collect(Collectors.toSet());
   }
 
+  /**
+   * Whether the actor may delete the run history of {@code urns} through an API that deletes
+   * timeseries values directly, without an aspect write the validator sees. For an assertion with
+   * {@code assertionInfo} that needs {@code EDIT_ENTITY_ASSERTIONS} / {@code EDIT_ENTITY} on every
+   * entity it targets, as deleting the assertion does; other URNs are left to the caller's check.
+   */
+  public static boolean isAuthorizedToDeleteRunHistory(
+      @Nonnull OperationContext opContext, @Nonnull final Collection<Urn> urns) {
+    final Set<Urn> assertionUrns =
+        urns.stream()
+            .filter(AssertionAuthorizationUtils::isAssertionEntity)
+            .collect(Collectors.toSet());
+    if (assertionUrns.isEmpty()
+        || opContext.isSystemAuth()
+        || !AuthUtil.isRestApiAuthorizationEnabled()) {
+      return true;
+    }
+    final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
+    final EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+    final Map<Urn, AssertionInfo> persisted =
+        fetchAssertionInfos(opContext, aspectRetriever, assertionUrns);
+    return persisted.values().stream()
+        .map(info -> resolveAssertedEntityUrns(entityRegistry, info))
+        .filter(targets -> !targets.isEmpty())
+        .allMatch(targets -> isAuthorizedToEditAssertionsOnEntities(opContext, targets));
+  }
+
   /** Summarizes what a request writes to each assertion for the asserted-entity fallback. */
   @Nonnull
   static AssertionWrites collectAssertionWrites(

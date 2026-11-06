@@ -299,6 +299,23 @@ public class EntityAuthorizationUtilsAssertionTest {
             opContext, ApiOperation.DELETE, List.of(ASSERTION_URN)));
   }
 
+  @Test
+  public void testRunHistoryDeleteNeedsPrivilegeOnPersistedTarget() {
+    mockPersisted(freshnessOn(DATASET_URN));
+
+    assertFalse(
+        AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(
+            opContext, List.of(ASSERTION_URN)));
+    assertTrue(
+        AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(
+            opContext, List.of(DATASET_URN)));
+
+    grantEditAssertionsOn(DATASET_URN);
+    assertTrue(
+        AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(
+            opContext, List.of(ASSERTION_URN)));
+  }
+
   private List<Pair<MetadataChangeProposal, Integer>> ingest(MetadataChangeProposal... mcps) {
     return EntityAuthorizationUtils.isAPIAuthorizedIngest(opContext, registry, List.of(mcps));
   }
