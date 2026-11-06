@@ -107,7 +107,7 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-/* eslint-disable @typescript-eslint/lines-between-class-members */
+/* eslint-disable lines-between-class-members */
 class MockDatasetEntity implements EntityV2<Dataset> {
     type = EntityType.Dataset;
     icon = () => <></>;
@@ -125,7 +125,7 @@ class MockDatasetEntity implements EntityV2<Dataset> {
     getGraphName = () => '';
 }
 
-/* eslint-enable @typescript-eslint/lines-between-class-members */
+/* eslint-enable lines-between-class-members */
 
 export const sandbox: Story = {
     tags: ['dev'],

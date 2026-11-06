@@ -127,7 +127,7 @@ export enum UnionType {
 
 export const UNIT_SEPARATOR = '␟';
 
-const FilterModes = {
+export const FilterModes = {
     BASIC: 'basic',
     ADVANCED: 'advanced',
 } as const;

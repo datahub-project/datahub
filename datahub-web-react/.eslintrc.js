@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable import/newline-after-import */
 const path = require('path');
 
@@ -259,7 +259,7 @@ module.exports = {
     parser: '@typescript-eslint/parser',
     extends: [
         'airbnb',
-        'airbnb-typescript',
+        require.resolve('./eslint-airbnb-typescript'),
         'airbnb/hooks',
         'plugin:@typescript-eslint/recommended',
         'plugin:vitest/recommended',
@@ -330,6 +330,8 @@ module.exports = {
             {
                 varsIgnorePattern: '^_',
                 argsIgnorePattern: '^_',
+                // @typescript-eslint v8 started checking catch-clause variables by default; keep the v5 behavior
+                caughtErrors: 'none',
             },
         ],
         'vitest/prefer-to-be': 'off',
