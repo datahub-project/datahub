@@ -144,6 +144,7 @@ class QlikAPI:
             if Constant.QCHILDLIST not in sheet_dict:
                 logger.debug(f"Sheet {sheet.title} with id {sheet_id} has no charts")
                 return sheet
+            properties = websocket_connection.get_object_properties()
             for i, chart_dict in enumerate(
                 sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
             ):
@@ -151,6 +152,7 @@ class QlikAPI:
                     chart_dict[Constant.QINFO][Constant.QID],
                     sheet_id,
                     on_error=self._log_http_error,
+                    properties=properties,
                 ):
                     if not chart.title:
                         chart.title = f"Object {i + 1} of Sheet '{sheet.title}'"
