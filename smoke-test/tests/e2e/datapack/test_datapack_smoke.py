@@ -18,7 +18,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import StatusClass
-from tests.e2e.utils import execute_graphql, run_datahub_cmd, with_test_retry
+from tests.e2e.utils import (
+    execute_graphql,
+    materialize_with_unique_name,
+    run_datahub_cmd,
+    with_test_retry,
+)
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
@@ -26,13 +31,10 @@ logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.domain(Domain.INGESTION)
 
-# Not present in bootstrap_mce.json. Unload of this pack must not soft-delete
-# the catalog that test_e2e searches.
-_ISOLATION_PACK_NAME = "datapack-smoke-isolation"
+# Not present in bootstrap_mce.json. The token is only the dataset key, so a
+# run-unique rewrite does not touch the description.
 _ISOLATION_PACK_FILE = Path(__file__).parent / "isolation_probe.json"
-_ISOLATION_DATASET_URN = (
-    "urn:li:dataset:(urn:li:dataPlatform:datapacksmoke,isolation_probe,PROD)"
-)
+_ISOLATION_NAME = "isolation_probe"
 
 # Showcase pack definitions file sets status.removed=false then propertyDefinition.
 # After datapack unload (rollback), these entities are soft-deleted with no definition.
@@ -106,54 +108,95 @@ class TestDatapackCLI:
         assert "verified" in result.output
 
 
+def _search_dataset_urns(auth_session, query_text: str) -> List[str]:
+    query = f"""{{
+        search(input: {{type: DATASET, query: "{query_text}", start: 0, count: 10}}) {{
+            searchResults {{
+                entity {{
+                    urn
+                }}
+            }}
+        }}
+    }}"""
+    res = execute_graphql(auth_session, query)
+    return [hit["entity"]["urn"] for hit in res["data"]["search"]["searchResults"]]
+
+
 class TestDemoDataBootstrap:
     """Load and unload a pack whose URNs are not in bootstrap_mce.json."""
 
-    def test_load_bootstrap_via_cli(self, auth_session):
-        """datahub datapack load ingests the isolation dataset."""
-        pack_url = _ISOLATION_PACK_FILE.resolve().as_uri()
-        result = run_datahub_cmd(
-            [
-                "datapack",
-                "load",
-                _ISOLATION_PACK_NAME,
-                "--url",
-                pack_url,
-                "--trust-custom",
-                "--no-time-shift",
-            ],
-            env=_datapack_cli_env(auth_session),
+    def test_load_and_unload_isolation_pack(self, auth_session, tmp_path):
+        """A run-unique pack is searchable after load and gone after unload."""
+        pack_file, unique_name = materialize_with_unique_name(
+            str(_ISOLATION_PACK_FILE), _ISOLATION_NAME, tmp_path
         )
-        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        dataset_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:datapacksmoke,"
+            f"{unique_name},PROD)"
+        )
+        pack_name = f"datapack-smoke-{unique_name}"
+        cli_env = _datapack_cli_env(auth_session)
+        unloaded = False
 
-        @with_test_retry()
-        def _check():
-            query = """{
-                search(input: {type: DATASET, query: "isolation_probe", start: 0, count: 10}) {
-                    searchResults {
-                        entity {
-                            urn
-                        }
-                    }
-                }
-            }"""
-            res = execute_graphql(auth_session, query)
-            urns = [
-                hit["entity"]["urn"] for hit in res["data"]["search"]["searchResults"]
-            ]
-            assert _ISOLATION_DATASET_URN in urns, (
-                f"Expected isolation dataset after loading the pack, got {urns}"
+        def _unload() -> None:
+            nonlocal unloaded
+            result = run_datahub_cmd(
+                ["datapack", "unload", pack_name],
+                env=cli_env,
             )
+            assert result.exit_code == 0, f"CLI failed: {result.output}"
+            unloaded = True
 
-        _check()
+        try:
+            result = run_datahub_cmd(
+                [
+                    "datapack",
+                    "load",
+                    pack_name,
+                    "--url",
+                    Path(pack_file).resolve().as_uri(),
+                    "--trust-custom",
+                    "--no-time-shift",
+                ],
+                env=cli_env,
+            )
+            assert result.exit_code == 0, f"CLI failed: {result.output}"
 
-    def test_unload_bootstrap_via_cli(self, auth_session):
-        """datahub datapack unload removes the isolation pack, not bootstrap_mce.json."""
-        result = run_datahub_cmd(
-            ["datapack", "unload", _ISOLATION_PACK_NAME],
-            env=_datapack_cli_env(auth_session),
-        )
-        assert result.exit_code == 0, f"CLI failed: {result.output}"
+            @with_test_retry()
+            def _check_loaded() -> None:
+                urns = _search_dataset_urns(auth_session, unique_name)
+                assert dataset_urn in urns, (
+                    f"Expected isolation dataset after loading the pack, got {urns}"
+                )
+
+            _check_loaded()
+            _unload()
+
+            @with_test_retry()
+            def _check_gone() -> None:
+                urns = _search_dataset_urns(auth_session, unique_name)
+                assert dataset_urn not in urns, (
+                    f"Expected isolation dataset to be gone after unload, got {urns}"
+                )
+
+            _check_gone()
+        finally:
+            if not unloaded:
+                try:
+                    cleanup = run_datahub_cmd(
+                        ["datapack", "unload", pack_name],
+                        env=cli_env,
+                    )
+                    if cleanup.exit_code != 0:
+                        logger.warning(
+                            "cleanup failed for datapack %s: %s",
+                            pack_name,
+                            cleanup.output,
+                        )
+                except Exception:
+                    logger.warning(
+                        "cleanup failed for datapack %s", pack_name, exc_info=True
+                    )
 
 
 class TestShowcaseData:
