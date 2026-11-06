@@ -167,9 +167,11 @@ class QlikDataset(Item):
 
 
 class AxisProperty(_QlikBaseModel):
-    Title: str = Field(alias="qFallbackTitle")
-    Min: str = Field(alias="qMin")
-    Max: str = Field(alias="qMax")
+    # A dimension or measure in an error state, such as one on a removed field,
+    # comes back with only its qError.
+    Title: Optional[str] = Field(default=None, alias="qFallbackTitle")
+    Min: Optional[str] = Field(default=None, alias="qMin")
+    Max: Optional[str] = Field(default=None, alias="qMax")
 
 
 class Chart(_QlikBaseModel):
