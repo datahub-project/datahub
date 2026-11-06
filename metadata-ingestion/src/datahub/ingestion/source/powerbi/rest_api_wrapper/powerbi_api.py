@@ -986,6 +986,8 @@ class PowerBiAPI:
         self, e: Exception, context: str, item_kind: str
     ) -> None:
         self.reporter.fabric_definitions_failed += 1
+        if item_kind == FABRIC_KIND_SEMANTIC_MODELS:
+            self.reporter.semantic_model_definitions_failed += 1
         if isinstance(e, FabricLroTimeoutError):
             self.reporter.fabric_lro_timeouts += 1
         self.log_http_error(
@@ -1264,6 +1266,7 @@ class PowerBiAPI:
                 definition_format=FABRIC_FORMAT_TMDL,
             )
             self.reporter.fabric_definitions_fetched += 1
+            self.reporter.semantic_model_definitions_fetched += 1
         except Exception as e:
             self._report_definition_failure(e, context, FABRIC_KIND_SEMANTIC_MODELS)
             return
@@ -1428,16 +1431,17 @@ class PowerBiAPI:
 
     def report_if_no_definitions_fetched(self) -> None:
         """Call once after every batch has been processed: with every
-        getDefinition failed the run would otherwise emit no semantic-model
-        metadata at all while looking healthy."""
+        semantic model getDefinition failed the run would otherwise emit no
+        semantic-model metadata at all while looking healthy. Report
+        definitions are left out, since they neither replace nor cause that loss."""
         if (
-            self.reporter.fabric_definitions_failed
-            and not self.reporter.fabric_definitions_fetched
+            self.reporter.semantic_model_definitions_failed
+            and not self.reporter.semantic_model_definitions_fetched
         ):
             self.reporter.failure(
                 title="No Item Definitions Fetched",
-                message="Every Fabric getDefinition call failed; no semantic-model schema or lineage has been ingested. Check the Contributor role, the 'Service principals can use Fabric APIs' tenant setting and scan_timeout.",
-                context=f"failed={self.reporter.fabric_definitions_failed}",
+                message="Every semantic model getDefinition call failed; no semantic-model schema or lineage has been ingested. Check the Contributor role, the 'Service principals can use Fabric APIs' tenant setting and scan_timeout.",
+                context=f"failed={self.reporter.semantic_model_definitions_failed}",
             )
 
     def fill_metadata_from_scan_result(

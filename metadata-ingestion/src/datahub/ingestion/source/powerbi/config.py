@@ -318,6 +318,9 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # workspace_apis mode (Fabric item definitions)
     fabric_definitions_fetched: int = 0
     fabric_definitions_failed: int = 0
+    # Semantic models only: the all-failed check must not count reports.
+    semantic_model_definitions_fetched: int = 0
+    semantic_model_definitions_failed: int = 0
     fabric_report_definitions_denied: int = 0
     dataset_parameters_failed: int = 0
     fabric_lro_timeouts: int = 0

@@ -457,6 +457,53 @@ def test_paginated_report_definition_failure_is_a_warning_with_fallback(
     api._get_resolver.return_value.get_report_datasources.assert_called_once()
 
 
+def test_paginated_report_without_a_dataset_binding_falls_back_to_datasources() -> None:
+    external = ItemDefinition(
+        format=None,
+        parts=[
+            DefinitionPart(
+                "report.rdl",
+                "<Report><ConnectString>Data Source=sqlhost;Initial Catalog=sales;"
+                "</ConnectString></Report>",
+            )
+        ],
+    )
+    api = _api(definitions={"rdl-1": external})
+    api._get_resolver = MagicMock()  # type: ignore[method-assign]
+    api._get_resolver.return_value.get_report_datasources.return_value = []
+    report = _paginated_report()
+
+    api._resolve_paginated_report_lineage(report, _workspace())
+
+    assert report.dataset_id is None
+    api._get_resolver.return_value.get_report_datasources.assert_called_once()
+
+
+def test_report_definitions_do_not_decide_the_all_models_failed_check() -> None:
+    # A fetched report definition must not hide that every model failed.
+    api = _api(
+        definitions={MODEL_A: _http_error(500), "rdl-1": _rdl_definition(MODEL_A)}
+    )
+    api.fill_metadata_from_definitions([_workspace()])
+    api._resolve_paginated_report_lineage(_paginated_report(), _workspace())
+    api.report_if_no_definitions_fetched()
+
+    assert api.reporter.fabric_definitions_fetched == 1
+    assert any(f.title == "No Item Definitions Fetched" for f in api.reporter.failures)
+
+
+def test_failed_report_definition_alone_does_not_escalate() -> None:
+    api = _api(definitions={"rdl-1": _http_error(500)})
+    api._get_resolver = MagicMock()  # type: ignore[method-assign]
+    api._get_resolver.return_value.get_report_datasources.return_value = []
+
+    api._resolve_paginated_report_lineage(_paginated_report(), _workspace())
+    api.report_if_no_definitions_fetched()
+
+    assert api.reporter.fabric_definitions_failed == 1
+    assert not api.reporter.failures
+
+
 def test_incomplete_table_part_is_a_warning_and_keeps_the_table() -> None:
     broken = _definition(TABLE_TMDL + "\tcolumn Broken Name\n\t\tdataType: string\n")
     api = _api(definitions={MODEL_A: broken})
