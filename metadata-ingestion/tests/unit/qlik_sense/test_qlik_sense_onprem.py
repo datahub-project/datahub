@@ -532,24 +532,38 @@ def test_chart_input_fields_match_app_fields() -> None:
 
 
 @pytest.mark.parametrize(
-    "expressions, matched_fields, keeps_all_tables",
+    "expressions, fields_complete, matched_fields, keeps_all_tables",
     [
-        pytest.param(["Sum(unknown_field)"], [], True, id="no_field_matches"),
+        pytest.param(["Sum(unknown_field)"], True, [], True, id="no_field_matches"),
         pytest.param(
-            ["Region", "Sum($(vSales))"], ["Region"], True, id="variable_measure"
+            ["Region", "Sum($(vSales))"],
+            True,
+            ["Region"],
+            True,
+            id="variable_measure",
         ),
         pytest.param(
             ["Count({<Year={$(vYear)}>} Region)"],
+            True,
             ["Region"],
             False,
             id="variable_in_set_modifier",
         ),
+        pytest.param(
+            ["Count({<Year={$(=Only({1} Year))}>} Region)"],
+            True,
+            ["Region"],
+            False,
+            id="nested_expansion_in_set_modifier",
+        ),
+        pytest.param(["Region"], False, ["Region"], True, id="unread_measure"),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
 def test_chart_inputs_when_fields_are_unknown(
     mock_onprem: MagicMock,
     expressions: List[str],
+    fields_complete: bool,
     matched_fields: List[str],
     keeps_all_tables: bool,
 ) -> None:
@@ -559,6 +573,7 @@ def test_chart_inputs_when_fields_are_unknown(
     )
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
     chart.field_expressions = expressions
+    chart.fields_complete = fields_complete
     app_tables = [
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)",
@@ -583,6 +598,25 @@ def test_chart_inputs_when_fields_are_unknown(
         for field in input_fields.fields
         if field.schemaField
     ] == matched_fields
+
+
+def test_unread_master_measure_marks_chart_fields_incomplete() -> None:
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.measure_library_ids = ["measure-1", "measure-2"]
+    engine = _ScriptedEngine(
+        [
+            RuntimeError("Access denied"),
+            {"qReturn": {"qHandle": 3}},
+            {"qLayout": {"qMeasure": {"qDef": "Sum(Sales)"}}},
+        ]
+    )
+
+    engine.add_master_measure_definitions(
+        [MagicMock(charts=[chart])], on_error=lambda _: None
+    )
+
+    assert "Sum(Sales)" in chart.field_expressions
+    assert not chart.fields_complete
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
