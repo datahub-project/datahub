@@ -10,6 +10,17 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 
 
+def test_get_quoted_identifier_for_role():
+    quote = SnowflakeIdentifierBuilder.get_quoted_identifier_for_role
+    assert quote("TEST_ROLE") == '"TEST_ROLE"'
+    assert quote('Quote"InName') == '"Quote""InName"'
+    # `show grants` already quotes names that need it - don't quote them twice.
+    assert quote('"Mixed_Case_Role"', already_rendered=True) == '"Mixed_Case_Role"'
+    # A raw name is escaped even when its own edge characters are quotes, since
+    # there the quotes are part of the name rather than SQL quoting around it.
+    assert quote('"weird"') == '"""weird"""'
+
+
 class TestSnowflakeIdentifierBuilderMarketplace:
     """Unit tests for marketplace-related functionality in SnowflakeIdentifierBuilder"""
 
