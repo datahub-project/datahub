@@ -54,8 +54,6 @@ class OperationCircuitBreaker(AbstractCircuitBreaker):
         Checks if the circuit breaker is active
 
         :param urn: The Datahub dataset unique identifier.
-        :param datahub_rest_conn_id: The REST DataHub connection id to communicate with DataHub
-            which is set as Airflow connection.
         :param partition: The partition to check the operation.
         :param source_type: The source type to filter on. If not set it will accept any source type.
             See valid types here: https://docs.datahub.com/docs/graphql/enums#operationsourcetype
