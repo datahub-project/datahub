@@ -217,11 +217,6 @@ module.exports = {
           },
           items: [
             {
-              label: "Overview",
-              type: "doc",
-              id: "docs/managed-datahub/observe/assertions",
-            },
-            {
               label: "Column Assertions",
               type: "doc",
               id: "docs/managed-datahub/observe/column-assertions",
@@ -690,11 +685,6 @@ module.exports = {
             id: "docs/features/feature-guides/logical-models/overview",
           },
           items: [
-            {
-              label: "Overview",
-              type: "doc",
-              id: "docs/features/feature-guides/logical-models/overview",
-            },
             {
               label: "Centralized Management",
               type: "doc",
