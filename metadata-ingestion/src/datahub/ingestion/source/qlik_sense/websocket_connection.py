@@ -172,6 +172,7 @@ class WebsocketConnection:
             on_error(
                 f"Unable to read the measures of chart {chart.qId} of sheet {sheet_id}. Exception: {e}"
             )
+            chart.fields_complete = False
             return
         for measure in properties.get(Constant.QHYPERCUBEDEF, {}).get(
             Constant.QMEASURES, []
@@ -207,11 +208,11 @@ class WebsocketConnection:
             finally:
                 del self.handle[depth:]
         for chart in charts:
-            chart.field_expressions.extend(
-                expressions[library_id]
-                for library_id in chart.measure_library_ids
-                if library_id in expressions
-            )
+            for library_id in chart.measure_library_ids:
+                if library_id in expressions:
+                    chart.field_expressions.append(expressions[library_id])
+                else:
+                    chart.fields_complete = False
 
     def close_websocket(self) -> None:
         if self.socket_connection:

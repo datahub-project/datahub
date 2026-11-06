@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import json
 import logging
@@ -61,7 +62,6 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.script_lineage import (
-    SET_VALUES_RE,
     DataConnectionInfo,
     ScriptTableLineage,
     apply_preceding_loads,
@@ -69,6 +69,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     expression_names,
     infer_data_connection,
     parse_load_script,
+    strip_set_values,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -491,9 +492,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             }
             chart_fields = self._get_chart_input_fields(chart, app_fields)
             # The fields behind a $(variable) expansion are unknown, so the chart
-            # may read any of the app's tables. Set modifier values only filter.
-            reads_unknown_fields = any(
-                "$(" in SET_VALUES_RE.sub("", expression)
+            # may read any of the app's tables, as may a measure that could not
+            # be read. Set modifier values only filter.
+            reads_unknown_fields = not chart.fields_complete or any(
+                "$(" in strip_set_values(expression)
                 for expression in chart.field_expressions
             )
 
@@ -920,31 +922,59 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 for column in script_table.column_upstreams
             ]
         input_tables_urns = list(table_fields)
-        yield from gen_containers(
-            container_key=self._gen_app_key(app.id),
-            name=app.qTitle,
-            description=app.description,
-            sub_types=[BIContainerSubTypes.QLIK_APP],
-            parent_container_key=self._gen_space_key(app.spaceId),
-            extra_properties={
-                Constant.QRI: app.qri,
-                Constant.USAGE: app.qUsage,
-                **({Constant.FINGERPRINT: app.fingerprint} if app.fingerprint else {}),
-            },
-            owner_urn=(
-                builder.make_user_urn(owner_username)
-                if self.config.ingest_owner and owner_username
-                else None
-            ),
-            external_url=f"https://{self.ui_host}/sense/app/{app.id}/overview",
-            created=int(app.createdAt.timestamp() * 1000),
-            last_modified=int(app.updatedAt.timestamp() * 1000),
+        container_workunits = list(
+            gen_containers(
+                container_key=self._gen_app_key(app.id),
+                name=app.qTitle,
+                description=app.description,
+                sub_types=[BIContainerSubTypes.QLIK_APP],
+                parent_container_key=self._gen_space_key(app.spaceId),
+                extra_properties={
+                    Constant.QRI: app.qri,
+                    Constant.USAGE: app.qUsage,
+                },
+                owner_urn=(
+                    builder.make_user_urn(owner_username)
+                    if self.config.ingest_owner and owner_username
+                    else None
+                ),
+                external_url=f"https://{self.ui_host}/sense/app/{app.id}/overview",
+                created=int(app.createdAt.timestamp() * 1000),
+                last_modified=int(app.updatedAt.timestamp() * 1000),
+            )
         )
+        yield from container_workunits
         yield from self._gen_sheets_workunit(
             app, input_tables_urns, self._index_app_fields(table_fields)
         )
         yield from self._gen_app_tables_workunit(app.tables, app.id)
         yield from self._gen_script_tables_workunit(script_tables, app.id)
+        if app.fingerprint:
+            # Skipping an unchanged app trusts this fingerprint, so it is written
+            # only after everything else the app produced.
+            yield self._gen_fingerprint_workunit(container_workunits, app.fingerprint)
+
+    def _gen_fingerprint_workunit(
+        self, container_workunits: List[MetadataWorkUnit], fingerprint: str
+    ) -> MetadataWorkUnit:
+        properties = next(
+            aspect
+            for aspect in (
+                wu.get_aspect_of_type(ContainerPropertiesClass)
+                for wu in container_workunits
+            )
+            if aspect
+        )
+        stamped = copy.deepcopy(properties)
+        stamped.customProperties = {
+            **(stamped.customProperties or {}),
+            Constant.FINGERPRINT: fingerprint,
+        }
+        urn = container_workunits[0].get_urn()
+        return MetadataWorkUnit(
+            id=f"{urn}-fingerprint",
+            mcp=MetadataChangeProposalWrapper(entityUrn=urn, aspect=stamped),
+        )
 
     def _gen_qlik_dataset_urn(self, dataset_identifier: str) -> str:
         return builder.make_dataset_urn_with_platform_instance(

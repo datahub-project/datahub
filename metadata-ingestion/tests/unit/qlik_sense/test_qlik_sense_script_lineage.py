@@ -219,10 +219,20 @@ def test_preceding_loads_rename_sql_columns() -> None:
     "field_list, expected",
     [
         pytest.param("$(vOrderFields)", {"order_id": ["order_id_urn"]}, id="variable"),
+        pytest.param(
+            "order_id AS OrderKey, $(vMoreFields)",
+            {"order_id": ["order_id_urn"], "OrderKey": ["order_id_urn"]},
+            id="variable_with_fields",
+        ),
+        pytest.param(
+            "$(vFields) AS Renamed",
+            {"order_id": ["order_id_urn"], "Renamed": []},
+            id="variable_in_alias",
+        ),
         pytest.param("Upper(order_id)", {}, id="unaliased_expression"),
     ],
 )
-def test_preceding_load_without_readable_fields(
+def test_preceding_load_with_unknown_fields(
     field_list: str, expected: Dict[str, List[str]]
 ) -> None:
     (table,) = parse_load_script(

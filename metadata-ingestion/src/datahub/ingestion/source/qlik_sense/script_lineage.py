@@ -64,7 +64,7 @@ DATABASE_RE = re.compile(
 )
 # The values in a set modifier, such as {"Net*"} in {<Region={"Net*"}>}, are
 # search strings even when double-quoted.
-SET_VALUES_RE = re.compile(r"[-+*/]?=\s*\{[^{}]*\}")
+SET_VALUES_START_RE = re.compile(r"[-+*/]?=\s*\{")
 # Single-quoted text is a string literal in a chart expression, not a field.
 EXPRESSION_NAME_RE = re.compile(
     rf"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>{_BARE_FIELD_NAME})"
@@ -336,6 +336,21 @@ def parse_load_script(script: str) -> List[ScriptTable]:
     return tables
 
 
+def strip_set_values(expression: str) -> str:
+    """Drop set modifier values, which can nest braces as in {$(=Only({1} Year))}."""
+    kept: List[str] = []
+    position = 0
+    while match := SET_VALUES_START_RE.search(expression, position):
+        kept.append(expression[position : match.start()])
+        depth = 1
+        position = match.end()
+        while position < len(expression) and depth:
+            depth += {"{": 1, "}": -1}.get(expression[position], 0)
+            position += 1
+    kept.append(expression[position:])
+    return "".join(kept)
+
+
 def _split_top_level(text: str) -> List[str]:
     items: List[str] = []
     depth = 0
@@ -371,6 +386,8 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         if item == "*":
             load.keeps_all = True
             continue
+        if "$(" in item:
+            load.unreadable = True
         alias = LOAD_ALIAS_RE.match(item)
         if alias:
             load.fields.append(
@@ -388,8 +405,6 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         if field:
             name = _first_group(field)
             load.fields.append(LoadField(name=name, sources=[name]))
-        elif "$(" in item:
-            load.unreadable = True
     return load
 
 
@@ -400,15 +415,12 @@ def apply_preceding_loads(
     """Rename SQL columns to the fields the LOAD statements above them produce,
     carrying each field's upstream columns."""
     for load in reversed(preceding_loads):
-        if load.unreadable and not load.keeps_all and not load.fields:
-            # The fields are unknown, so the columns below are kept rather
-            # than dropped.
-            continue
         by_name = {
             name.lower(): upstreams for name, upstreams in column_upstreams.items()
         }
         column_upstreams = {
-            **(column_upstreams if load.keeps_all else {}),
+            # A $(variable) may hold any of the columns below, so they are kept.
+            **(column_upstreams if load.keeps_all or load.unreadable else {}),
             **{
                 field.name: list(
                     dict.fromkeys(
@@ -428,7 +440,7 @@ def expression_names(expression: str) -> List[str]:
     back too, so callers keep only names that are fields of the app."""
     return [
         name
-        for match in EXPRESSION_NAME_RE.finditer(SET_VALUES_RE.sub("", expression))
+        for match in EXPRESSION_NAME_RE.finditer(strip_set_values(expression))
         if (
             name := match.group("bracket")
             or match.group("double")
