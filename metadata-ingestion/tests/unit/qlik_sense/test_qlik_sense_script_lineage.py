@@ -39,6 +39,53 @@ def test_parse_load_script_tracks_connections_and_labels() -> None:
     assert "'a;b // c /* d */'" in tables[0].sql
 
 
+def test_parse_load_script_resolves_variables_and_control_blocks() -> None:
+    script = """
+SET vLib = 'Warehouse SQL';
+LET vSchema = 'dbo';
+LET vComputed = 'lib://' & vLib;
+IF vReload = 1 THEN
+  LIB CONNECT TO '$(vLib)';
+END IF
+Orders:
+SQL SELECT * FROM $(vSchema).orders;
+IF vEnv = 'PROD' THEN
+  LIB CONNECT TO '$(vLib)';
+  Prod: SQL SELECT * FROM dbo.prod_only;
+ELSE
+  LIB CONNECT TO 'Test SQL';
+END IF
+FOR EACH vTable IN 'a', 'b'
+  SQL SELECT * FROM $(vTable);
+NEXT vTable
+LIB CONNECT TO '$(vComputed)';
+SELECT * FROM dbo.events;
+"""
+    tables = parse_load_script(script)
+
+    assert [(t.label, t.connection, t.sql) for t in tables] == [
+        # Skipping the IF leaves no connection, so the branches disagree.
+        ("Orders", None, "SELECT * FROM dbo.orders"),
+        ("Prod", "Warehouse SQL", "SELECT * FROM dbo.prod_only"),
+        ("table_3", None, "SELECT * FROM $(vTable)"),
+        ("table_4", "$(vComputed)", "SELECT * FROM dbo.events"),
+    ]
+
+
+def test_parse_load_script_keeps_connection_all_branches_agree_on() -> None:
+    script = """
+IF vEnv = 'PROD' THEN
+  LIB CONNECT TO 'Warehouse SQL';
+ELSEIF vEnv = 'UAT' THEN
+  LIB CONNECT TO 'Warehouse SQL';
+ELSE
+  LIB CONNECT TO 'Warehouse SQL';
+ENDIF
+SQL SELECT * FROM dbo.orders;
+"""
+    assert [t.connection for t in parse_load_script(script)] == ["Warehouse SQL"]
+
+
 def test_infer_data_connection_reads_driver_and_database() -> None:
     sql_server = infer_data_connection(
         "Sales SQL",

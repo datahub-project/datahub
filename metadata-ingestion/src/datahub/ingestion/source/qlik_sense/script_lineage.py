@@ -9,6 +9,20 @@ CONNECT_RE = re.compile(
     re.IGNORECASE,
 )
 DISCONNECT_RE = re.compile(r"^DISCONNECT\b", re.IGNORECASE)
+# Control statements end at the line break rather than a semicolon, so they
+# lead the statement that follows them.
+CONTROL_RE = re.compile(
+    r"^(?:(?P<elseif>ELSE\s*IF\b[^\n]*?\bTHEN\b)|(?P<if>IF\b[^\n]*?\bTHEN\b)"
+    r"|(?P<else>ELSE\b)|(?P<endif>END\s*IF\b|ENDIF\b)|END\s*SUB\b|END\s*SWITCH\b"
+    r"|DEFAULT\b|(?:SUB|FOR|NEXT|DO|LOOP|SWITCH|CASE)\b[^\n]*)\s*",
+    re.IGNORECASE,
+)
+VARIABLE_RE = re.compile(
+    r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
+STRING_LITERAL_RE = re.compile(r"'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"")
+VARIABLE_REFERENCE_RE = re.compile(r"\$\((?P<name>[^()=]+)\)")
 LABEL_RE = re.compile(
     r"^(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>[^\W\d][\w.\-]*))\s*:(?!/)"
 )
@@ -127,18 +141,86 @@ def _first_group(match: "re.Match[str]") -> str:
     return next(value for value in match.groupdict().values() if value is not None)
 
 
+class _IfBlock(BaseModel):
+    connection_before: Optional[str]
+    branch_connections: List[Optional[str]] = []
+    has_else: bool = False
+
+
+class _ConnectionTracker(BaseModel):
+    """The connection in effect at each statement. Branches cannot be evaluated,
+    so a connection chosen inside an IF only survives it when every branch agrees."""
+
+    current: Optional[str] = None
+    blocks: List[_IfBlock] = []
+
+    def strip_control_statements(self, statement: str) -> str:
+        while True:
+            control = CONTROL_RE.match(statement)
+            if not control or not control.end():
+                return statement
+            if control.group("if"):
+                self.blocks.append(_IfBlock(connection_before=self.current))
+            elif self.blocks and (control.group("elseif") or control.group("else")):
+                block = self.blocks[-1]
+                block.branch_connections.append(self.current)
+                block.has_else = block.has_else or bool(control.group("else"))
+                self.current = block.connection_before
+            elif self.blocks and control.group("endif"):
+                block = self.blocks.pop()
+                outcomes = [*block.branch_connections, self.current]
+                if not block.has_else:
+                    outcomes.append(block.connection_before)
+                self.current = outcomes[0] if len(set(outcomes)) == 1 else None
+            statement = statement[control.end() :]
+
+
+def _record_variable(statement: str, variables: Dict[str, str]) -> bool:
+    match = VARIABLE_RE.match(statement)
+    if not match:
+        return False
+    value = match.group("value").strip()
+    literal = STRING_LITERAL_RE.fullmatch(value)
+    if literal:
+        variables[match.group("name")] = _first_group(literal)
+    elif match.group("kind").upper() == "SET":
+        variables[match.group("name")] = value
+    else:
+        # LET evaluates an expression, so its value is unknown here.
+        variables.pop(match.group("name"), None)
+    return True
+
+
+def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
+    return VARIABLE_REFERENCE_RE.sub(
+        lambda reference: variables.get(
+            reference.group("name").strip(), reference.group(0)
+        ),
+        statement,
+    )
+
+
 def parse_load_script(script: str) -> List[ScriptTable]:
     script = _strip_comments(script)
     tables: List[ScriptTable] = []
-    connection: Optional[str] = None
+    connection = _ConnectionTracker()
     pending_label: Optional[str] = None
+    variables: Dict[str, str] = {}
     for statement in _split_statements(script):
+        statement = _expand_variables(
+            connection.strip_control_statements(statement), variables
+        )
+        if not statement:
+            continue
+        if _record_variable(statement, variables):
+            pending_label = None
+            continue
         connect = CONNECT_RE.match(statement)
         if connect:
-            connection = _first_group(connect).strip()
+            connection.current = _first_group(connect).strip()
             continue
         if DISCONNECT_RE.match(statement):
-            connection = None
+            connection.current = None
             continue
 
         label: Optional[str] = None
@@ -154,7 +236,9 @@ def parse_load_script(script: str) -> List[ScriptTable]:
             table_label = label or pending_label or f"table_{len(tables) + 1}"
             tables.append(
                 ScriptTable(
-                    label=table_label, connection=connection, sql=sql.group("sql")
+                    label=table_label,
+                    connection=connection.current,
+                    sql=sql.group("sql"),
                 )
             )
             pending_label = None

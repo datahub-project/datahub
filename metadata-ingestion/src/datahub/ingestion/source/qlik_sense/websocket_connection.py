@@ -1,10 +1,14 @@
 import json
+import logging
 import ssl
-from typing import Dict, List, Literal, Optional, Union
+from typing import Callable, Dict, List, Literal, Optional, Union
 
 from websocket import WebSocket, create_connection
 
 from datahub.ingestion.source.qlik_sense.config import Constant
+from datahub.ingestion.source.qlik_sense.data_classes import Chart
+
+logger = logging.getLogger(__name__)
 
 
 class WebsocketConnection:
@@ -114,6 +118,45 @@ class WebsocketConnection:
         """Load script of the open app. Must be called on the app handle."""
         response = self.websocket_send_request(method="GetScript")
         return response.get(Constant.QSCRIPT) or ""
+
+    def get_charts(
+        self, object_id: str, sheet_id: str, on_error: Callable[[str], None]
+    ) -> List[Chart]:
+        """Charts of a sheet object, including the charts held in a container's tabs.
+        Must be called on the handle of the object's parent."""
+        depth = len(self.handle)
+        try:
+            self.websocket_send_request(method="GetChild", params={"qId": object_id})
+            q_layout = self.websocket_send_request(method="GetLayout")[Constant.QLAYOUT]
+            if Constant.HYPERCUBE in q_layout:
+                return [Chart.model_validate(q_layout)]
+            object_type = q_layout.get(Constant.QINFO, {}).get(Constant.QTYPE)
+            if object_type != Constant.CONTAINER:
+                logger.debug(
+                    f"Skipping {object_type} object {object_id} of sheet {sheet_id}: it has no hypercube"
+                )
+                return []
+            tab_labels = {
+                tab.get(Constant.REFID): tab.get(Constant.LABEL)
+                for tab in q_layout.get(Constant.CHILDREN, [])
+            }
+            charts: List[Chart] = []
+            for item in q_layout.get(Constant.QCHILDLIST, {}).get(Constant.QITEMS, []):
+                tab_id = item.get(Constant.QDATA, {}).get(Constant.CONTAINERCHILDID)
+                for chart in self.get_charts(
+                    item[Constant.QINFO][Constant.QID], sheet_id, on_error
+                ):
+                    if not chart.title:
+                        chart.title = tab_labels.get(tab_id) or ""
+                    charts.append(chart)
+            return charts
+        except Exception as e:
+            on_error(
+                f"Unable to fetch chart {object_id} of sheet {sheet_id}. Exception: {e}"
+            )
+            return []
+        finally:
+            del self.handle[depth:]
 
     def close_websocket(self) -> None:
         if self.socket_connection:
