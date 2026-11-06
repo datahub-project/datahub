@@ -1597,6 +1597,34 @@ def test_slowest_downstreams_report_is_bounded(
     assert "urn_slow" in caplog.text
 
 
+def test_gen_metadata_records_downstream_resolution_times() -> None:
+    tmp = _snowflake_urn("db.tmp.stage")
+    src = _snowflake_urn("db.src.source")
+    target = _snowflake_urn("db.dst.target")
+
+    aggregator = _temp_table_aggregator(generate_operations=True)
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.tmp.stage select x from db.src.source",
+            tmp,
+            {"x": [src]},
+            _ts(1),
+        )
+    )
+    aggregator.add(
+        _preparsed_insert(
+            "insert into db.dst.target select x from db.tmp.stage",
+            target,
+            {"x": [tmp]},
+            _ts(2),
+        )
+    )
+    list(aggregator.gen_metadata())
+
+    assert target in aggregator.report.slowest_downstreams_lineage_seconds
+    assert target in aggregator.report.slowest_downstreams_operations_seconds
+
+
 def test_table_swap_id() -> None:
     assert (
         TableSwap(

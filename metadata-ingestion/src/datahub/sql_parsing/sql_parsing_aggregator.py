@@ -2159,7 +2159,6 @@ class SqlParsingAggregator(Closeable):
         """Replaces each upstream column of a temp table with that temp column's
         upstreams. Each column's upstreams keep first-occurrence order, without
         duplicates."""
-        # temp table -> column -> upstream columns of that temp table column.
         temp_column_upstreams: Dict[UrnStr, Dict[str, OrderedSet[ColumnRef]]] = {}
         for temp_table, temp_lineage in temp_column_lineage.items():
             by_column: Dict[str, OrderedSet[ColumnRef]] = defaultdict(OrderedSet)
