@@ -203,6 +203,11 @@ class Chart(_QlikBaseModel):
                 for field_def in dimension.get(Constant.QGROUPFIELDDEFS) or []
             ],
         )
+        if any(
+            not dimension.get(Constant.QGROUPFIELDDEFS)
+            for dimension in values["qDimension"]
+        ):
+            values["fields_complete"] = False
         return values
 
 
@@ -269,6 +274,7 @@ class App(Item):
     tables: List[QlikTable] = []
     script: Optional[str] = None
     fingerprint: Optional[str] = None
+    script_read_failed: bool = False
     read_complete: bool = True
 
     @model_validator(mode="before")

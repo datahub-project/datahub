@@ -21,7 +21,11 @@ Variables set with `SET`, or with `LET` and a quoted string, are expanded in con
 
 A `LOAD` stacked on a `SELECT` (a preceding load) gives the table its field names: `amount AS [Net Sales]` becomes field `Net Sales` with column lineage from `amount`, and an expression such as `Year(order_date) AS Year` gets column lineage from every column it reads. `LOAD *` keeps the `SELECT` columns, and so does a preceding load whose field list uses a `$(variable)`, since the variable may hold any of them. The fields it does name are still added. Unquoted field names may start with `%`, as Qlik key fields often do. A field from an expression without `AS` is left out, since Qlik names it after the expression text. A table loaded with `RESIDENT` from another script table gets no lineage.
 
-A `SELECT` whose connection resolves to no platform is skipped, and the connection is listed under `unresolved_data_connections` in the ingestion report. A `SELECT` that cannot be parsed, for example one that uses an unexpanded variable in a table name, is skipped and reported as a warning.
+A connection named in `LIB CONNECT TO` resolves through the data connections the connector can list, or through `data_connection_to_platform_instance`. The platform is never guessed from the connection name. On Qlik Cloud, a name without a space prefix only resolves when one listed connection has that name. An inline `ODBC CONNECT TO` or `OLEDB CONNECT TO` connection string resolves from its driver or provider. User names, passwords, tokens, and keys in an inline connection string are removed before it is reported or ingested.
+
+A `SELECT` whose connection resolves to no platform is skipped, and the connection is listed under `unresolved_data_connections` in the ingestion report. A `SELECT` that cannot be parsed, for example one that uses an unexpanded variable in a table name, is skipped and reported as a warning. On SQL Server, Snowflake, PostgreSQL, Redshift, Databricks, BigQuery, and MySQL, a table whose database or schema is neither in the SQL nor resolved for its connection is left out of lineage and reported as a warning. Set `database` and `default_schema` for the connection to include it.
+
+On Qlik Cloud, only the Owner and users with **Can manage** or **Can operate** in a managed space can read an app's load script. When the script cannot be read, the app is still ingested and the run reports a warning.
 
 #### Charts in containers
 
