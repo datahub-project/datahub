@@ -1968,6 +1968,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetProfile
     canViewDatasetOperations
     canManageAssetSummary
+    canEditDataContract
     canEditLifecycleStage
 }
 
