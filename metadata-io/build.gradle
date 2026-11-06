@@ -165,6 +165,7 @@ dependencies {
   compileOnlyApi externalDependency.djlApi
   compileOnlyApi externalDependency.djlHuggingFaceTokenizers
   // Provider unit tests exercise the real ONNX/DJL libraries.
+  testImplementation testFixtures(project(':metadata-utils'))
   testImplementation externalDependency.onnxRuntime
   testImplementation externalDependency.djlApi
   testImplementation externalDependency.djlHuggingFaceTokenizers

@@ -1,5 +1,5 @@
 import { SnowflakeFormDetails } from '@pages/ingestion/base/sources/SnowflakeSource';
-import { test } from '../../fixtures/base-test';
+import { test, expect } from '../../fixtures/base-test';
 import { IngestionV3Page } from '../../pages/ingestion/v3/ingestion-v3.page';
 import { generateRandomString, withRandomSuffix } from '../../utils/random';
 import { INGESTION_CLI_VERSION } from '../../utils/constants';
@@ -11,6 +11,9 @@ const EXECUTE_SOURCE_URN = 'urn:li:dataHubIngestionSource:playwright-v3-execute-
 const RUN_DETAILS_SOURCE = 'playwright v3 run details source';
 const SEARCH_SOURCE_1 = 'playwright v3 sources search apple';
 const SEARCH_SOURCE_2 = 'playwright v3 sources search banana';
+const FILTER_SOURCE = 'playwright v3 filter source';
+const FILTER_CLI_SOURCE = 'playwright v3 filter cli source';
+const FILTER_SEARCH = 'playwright v3 filter';
 
 test.use({ featureName: 'ingestion-v3' });
 
@@ -21,8 +24,6 @@ test.describe('ingestion sources', () => {
     ingestionPage = new IngestionV3Page(page, logger, logDir);
 
     await apiMock.setFeatureFlags({
-      showIngestionPageRedesign: true,
-      ingestionOnboardingRedesignV1: true,
       showNavBarRedesign: true,
     });
 
@@ -99,7 +100,7 @@ test.describe('ingestion sources', () => {
     cleanup.track(sourceUrn);
   });
 
-  test('execute an ingestion source', async () => {
+  test('execute an ingestion source', { tag: [TestTag.P0, DomainTag.Ingestion] }, async () => {
     test.slow();
 
     await ingestionPage.sourcesTab.runIngestionSource(EXECUTE_SOURCE_URN, EXECUTE_SOURCE);
@@ -115,7 +116,20 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.clearSearch();
   });
 
-  test('view run details page', async () => {
+  test('filter ingestion sources by UI', async () => {
+    await ingestionPage.sourcesTab.typeSearchQuery(FILTER_SEARCH);
+    await ingestionPage.sourcesTab.expectSourceVisible(FILTER_SOURCE);
+    await ingestionPage.sourcesTab.expectSourceVisible(FILTER_CLI_SOURCE);
+    await ingestionPage.sourcesTab.expectCliPillVisible();
+
+    await ingestionPage.sourcesTab.selectTypeFilter('UI');
+
+    await ingestionPage.sourcesTab.expectSourceNotVisible(FILTER_CLI_SOURCE);
+    await ingestionPage.sourcesTab.expectCliPillNotVisible();
+    await ingestionPage.sourcesTab.expectSourceVisible(FILTER_SOURCE);
+  });
+
+  test('view run details page', async ({ page }) => {
     // Source and its SUCCESS execution are pre-seeded via fixtures/data.json.
     await ingestionPage.sourcesTab.search(RUN_DETAILS_SOURCE);
     await ingestionPage.sourcesTab.expectSourceVisible(RUN_DETAILS_SOURCE);
@@ -127,5 +141,18 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.expectRunSuccessVisible();
 
     await ingestionPage.sourcesTab.navigateBackToIngestion();
+
+    await expect(page).toHaveURL((url) => url.searchParams.get('query') === RUN_DETAILS_SOURCE);
+    await ingestionPage.sourcesTab.expectSourceVisible(RUN_DETAILS_SOURCE);
+  });
+
+  test('keep the list search after cancelling create source', async ({ page }) => {
+    await ingestionPage.sourcesTab.search(SEARCH_SOURCE_1);
+
+    await ingestionPage.sourcesTab.openCreateSourceModal();
+    await ingestionPage.sourcesTab.cancelCreateSourceModal();
+
+    await expect(page).toHaveURL((url) => url.searchParams.get('query') === SEARCH_SOURCE_1);
+    await ingestionPage.sourcesTab.expectSourceVisible(SEARCH_SOURCE_1);
   });
 });

@@ -103,7 +103,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.clusters.*.sslContext.keyPassword",
           "elasticsearch.clusters.*.sslContext.trustStorePassword",
           "elasticsearch.clusters.*.sslContext.keyStorePassword",
-          "elasticsearch.clusters.*.proxy.password");
+          "elasticsearch.clusters.*.proxy.password",
+          // Source credentials a remote-reindex copy hands to the target cluster
+          "elasticsearch.clusterMigration.*.copy.remote.password");
 
   /**
    * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
@@ -203,6 +205,16 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Search V3 template URN slots vary by intent, surface, and search engine.
           "elasticsearch.search.v3.templates.defaults.*.*",
           "elasticsearch.search.v3.templates.surfaces.*.*.*",
+          // Per-family non-entity index migration (graph, timeseries, systemMetadata, usage)
+          "elasticsearch.clusterMigration.processRole",
+          "elasticsearch.clusterMigration.liveWriterWaitMinutes",
+          "elasticsearch.clusterMigration.*.targetCluster",
+          "elasticsearch.clusterMigration.*.copy.*",
+          "elasticsearch.clusterMigration.*.copy.remote.host",
+          "elasticsearch.clusterMigration.*.copy.remote.username",
+          "elasticsearch.clusterMigration.*.copy.remote.external",
+          "elasticsearch.clusterMigration.*.copy.remote.socketTimeout",
+          "elasticsearch.clusterMigration.*.copy.remote.connectTimeout",
           // Postgres PgQueue configuration (non-credential settings)
           "postgres.pgQueue.topicDefaults.*",
           "postgres.pgQueue.topics.*.*",
@@ -610,8 +622,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showHasSiblingsFilter",
           "featureFlags.showHomePageRedesign",
           "featureFlags.showHomepageUserRole",
-          "featureFlags.showIngestionPageRedesign",
-          "featureFlags.ingestionOnboardingRedesignV1",
           "featureFlags.showIntroducePage",
           "featureFlags.showLineageExpandMore",
           "featureFlags.showManageStructuredProperties",
@@ -837,6 +847,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.prioritizedDatahubEntityTypes.value",
           "elasticsearch.search.prioritizedDatahubEntityTypes.add",
           "elasticsearch.search.prioritizedDatahubEntityTypes.remove",
+          "elasticsearch.search.v3.businessAttributeExpansionEnabled",
           "elasticsearch.search.v3.templates.cacheMaximumSize",
           "elasticsearch.search.v3.templates.concurrency.corePoolSize",
           "elasticsearch.search.v3.templates.concurrency.keepAlive",

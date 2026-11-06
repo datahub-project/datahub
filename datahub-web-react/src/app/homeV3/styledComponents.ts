@@ -22,7 +22,6 @@ export const HomePageContainer = styled.div`
     position: relative;
     flex: 1;
     overflow: hidden;
-    margin: 5px;
     border-radius: 12px;
     box-shadow: ${(props) => props.theme.colors.shadowLg};
     background-color: ${(props) => props.theme.colors.bg};
