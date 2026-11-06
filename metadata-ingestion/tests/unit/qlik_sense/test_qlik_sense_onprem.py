@@ -532,15 +532,26 @@ def test_chart_input_fields_match_app_fields() -> None:
 
 
 @pytest.mark.parametrize(
-    "expressions, matched_fields",
+    "expressions, matched_fields, keeps_all_tables",
     [
-        pytest.param(["Sum(unknown_field)"], [], id="no_field_matches"),
-        pytest.param(["Region", "Sum($(vSales))"], ["Region"], id="variable_measure"),
+        pytest.param(["Sum(unknown_field)"], [], True, id="no_field_matches"),
+        pytest.param(
+            ["Region", "Sum($(vSales))"], ["Region"], True, id="variable_measure"
+        ),
+        pytest.param(
+            ["Count({<Year={$(vYear)}>} Region)"],
+            ["Region"],
+            False,
+            id="variable_in_set_modifier",
+        ),
     ],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
-def test_chart_keeps_app_tables_when_fields_are_unknown(
-    mock_onprem: MagicMock, expressions: List[str], matched_fields: List[str]
+def test_chart_inputs_when_fields_are_unknown(
+    mock_onprem: MagicMock,
+    expressions: List[str],
+    matched_fields: List[str],
+    keeps_all_tables: bool,
 ) -> None:
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(ONPREM_CONFIG),
@@ -566,7 +577,7 @@ def test_chart_keeps_app_tables_when_fields_are_unknown(
         None, (wu.get_aspect_of_type(InputFieldsClass) for wu in workunits)
     )
 
-    assert chart_info.inputs == app_tables
+    assert chart_info.inputs == (app_tables if keeps_all_tables else app_tables[1:])
     assert [
         field.schemaField.fieldPath
         for field in input_fields.fields
