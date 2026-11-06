@@ -345,6 +345,7 @@ def test_onprem_reads_charts_after_a_failed_chart(
 
     assert isinstance(app, App)
     assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
+    assert not app.read_complete
     assert sent_on[4:] == [("GetChild", 2), ("GetChild", 2), ("GetLayout", 3)]
     assert websocket.handle == [-1, 1]
 
