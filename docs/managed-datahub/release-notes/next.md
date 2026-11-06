@@ -31,6 +31,7 @@ TBD
 Breaking Changes:
 
 - **(UI / Lineage)** The `LINEAGE_GRAPH_V2` and `LINEAGE_GRAPH_V3` feature flags (GMS environment variables) have been removed, along with the older lineage graph visualizations they gated. DataHub now always renders the latest lineage graph experience. **Action:** if you set `LINEAGE_GRAPH_V2` or `LINEAGE_GRAPH_V3` in your GMS environment or Helm values, remove them — they are no longer recognized. There is no longer a way to switch back to the previous lineage visualizations.
+- **(Remote Executor)** SQS executors now run the ingestion-log garbage collector, which is on by default (`DATAHUB_EXECUTOR_LOG_GC_ENABLED=true`). Until now only Kafka executors ran it. A minute after the executor starts, and every hour after that, it deletes per-run log folders under `/tmp/datahub/logs/` that are older than 14 days, then the oldest folders while the directory is over 10 GB. Folders written in the last hour are kept. **Action:** none for most deployments. To keep all local logs, set `DATAHUB_EXECUTOR_LOG_GC_ENABLED=false` on the executor. See [Remote Executor best practices → Storage](../remote-executor/best-practices.md#storage).
 
 New Features:
 
