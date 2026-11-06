@@ -187,6 +187,21 @@ def test_onprem_keeps_app_when_engine_is_unreachable(
     app = items[0]
     assert isinstance(app, App)
     assert app.sheets == []
+    assert not app.read_complete
+
+    with patch(
+        "datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI",
+        return_value=api,
+    ):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate(ONPREM_CONFIG),
+            PipelineContext(run_id="test-onprem"),
+        )
+        list(source.get_workunits_internal())
+
+    assert [failure.title for failure in source.reporter.failures] == [
+        "Unable to fully read Qlik app"
+    ]
 
 
 @patch(
@@ -451,12 +466,14 @@ def test_onprem_script_mapping_default_schema_qualifies_bare_tables(
     ]
 
 
-def _qlik_table(name: str, qri: Optional[str] = None) -> QlikTable:
+def _qlik_table(
+    name: str, qri: Optional[str] = None, alias: Optional[str] = None
+) -> QlikTable:
     return QlikTable.model_validate(
         {
             "tableName": name,
             "boxType": "blackbox",
-            "tableAlias": name,
+            "tableAlias": alias or name,
             "dataconnectorName": "Sales SQL",
             "connectionInfo": {
                 "id": "conn-1",
@@ -476,13 +493,18 @@ def test_script_skips_tables_the_data_model_already_traces(
     script = (
         "LIB CONNECT TO 'Sales SQL';\n"
         "Orders:\nSQL SELECT order_id FROM dbo.orders;\n"
-        "Customers:\nSQL SELECT customer_id FROM dbo.customers;"
+        "Customers:\nSQL SELECT customer_id FROM dbo.customers;\n"
+        "Products:\nSQL SELECT product_id FROM dbo.products;"
     )
     _, tables = _script_tables(
         mock_onprem,
         {},
         script=script,
-        tables=[_qlik_table("Orders", "qri:db:orders"), _qlik_table("Customers")],
+        tables=[
+            _qlik_table("dbo.orders", "qri:db:orders", alias="ORDERS"),
+            _qlik_table("Products", "qri:db:products"),
+            _qlik_table("Customers"),
+        ],
     )
 
     assert [table.label for table in tables] == ["Customers"]

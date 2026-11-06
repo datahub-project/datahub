@@ -1,3 +1,5 @@
+import pytest
+
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     connection_lookup_names,
     infer_data_connection,
@@ -54,6 +56,20 @@ def test_infer_data_connection_reads_driver_and_database() -> None:
     assert databricks.platform == "databricks"
 
     assert infer_data_connection("Files", "folder").platform is None
+
+
+@pytest.mark.parametrize(
+    "name, platform",
+    [
+        ("MySQL Server", "mysql"),
+        ("PostgreSQL Server", "postgres"),
+        ("Sales SQL Server", "mssql"),
+    ],
+)
+def test_infer_data_connection_matches_whole_platform_names(
+    name: str, platform: str
+) -> None:
+    assert infer_data_connection(name, "").platform == platform
 
 
 def test_connection_lookup_names_strips_cloud_space() -> None:
