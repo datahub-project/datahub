@@ -733,6 +733,39 @@ def test_measure_definitions_mark_unread_measures(
     assert chart.fields_complete is fields_complete
 
 
+@pytest.mark.parametrize(
+    "replies",
+    [
+        pytest.param(
+            [
+                {"qReturn": {"qHandle": 3}},
+                {"qLayout": {"qMeasureList": {"qItems": []}}},
+            ],
+            id="missing_from_list",
+        ),
+        pytest.param(
+            [
+                RuntimeError("Session objects not allowed"),
+                {"qReturn": {"qType": "GenericMeasure", "qHandle": None}},
+            ],
+            id="no_handle",
+        ),
+    ],
+)
+def test_deleted_master_measure_is_not_a_read_error(replies: List[object]) -> None:
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.measure_library_ids = ["deleted"]
+    engine = _ScriptedEngine(replies)
+    errors: List[str] = []
+
+    engine.add_master_measure_definitions([MagicMock(charts=[chart])], errors.append)
+
+    assert errors == []
+    assert not chart.fields_complete
+    assert engine.replies == []
+    assert engine.handle == [-1]
+
+
 def test_unread_master_measure_marks_chart_fields_incomplete() -> None:
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
     chart.measure_library_ids = ["measure-1", "measure-2"]
