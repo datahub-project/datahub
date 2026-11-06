@@ -17,19 +17,18 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
-from tests.unit.qlik_sense.test_qlik_sense_onprem import (  # type: ignore[import-untyped]
+from tests.unit.qlik_sense.qlik_fakes import (
     APP,
     DATA_CONNECTION,
     LOAD_SCRIPT,
-    ONPREM_CONFIG,
+    ON_PREM,
     STREAM,
-    _engine_calls,
-    _Response,
+    FakeResponse,
+    fake_engine_calls,
 )
 
 CONFIG = {
-    **ONPREM_CONFIG,
-    "skip_unchanged_apps": True,
+    "on_prem": {**ON_PREM, "skip_unchanged_apps": True},
     "stateful_ingestion": {"enabled": True, "remove_stale_metadata": True},
 }
 APP_OBJECTS = [
@@ -42,14 +41,14 @@ APP_OBJECTS = [
 ]
 
 
-SECOND_APP = {**APP, "id": "app-2", "name": "Marketing"}
+SECOND_APP: Dict[str, object] = {**APP, "id": "app-2", "name": "Marketing"}
 SECOND_STREAM = {**STREAM, "id": "stream-2", "name": "Finance"}
 
 
 def _app_engine_calls(app_id: str) -> List[Dict[str, object]]:
     # Sheet ids are unique across apps in Qlik.
     return json.loads(
-        json.dumps(_engine_calls()).replace('"sheet-1"', f'"sheet-of-{app_id}"')
+        json.dumps(fake_engine_calls()).replace('"sheet-1"', f'"sheet-of-{app_id}"')
     )
 
 
@@ -68,14 +67,14 @@ class _Qlik:
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
-    ) -> _Response:
+    ) -> FakeResponse:
         if url.endswith("/about"):
-            return _Response({"buildVersion": "14.129.3"})
+            return FakeResponse({"buildVersion": "14.129.3"})
         if url.endswith("/stream/full"):
-            return _Response([STREAM, SECOND_STREAM])
+            return FakeResponse([STREAM, SECOND_STREAM])
         if url.endswith("/app/full"):
             assert params is not None
-            return _Response(
+            return FakeResponse(
                 [
                     app
                     for app in [self.app, *self.other_apps]
@@ -85,10 +84,10 @@ class _Qlik:
         if url.endswith("/app/object/full"):
             assert params is not None and params["filter"].startswith("app.id eq ")
             if self.objects_fail:
-                return _Response({}, status_code=503)
-            return _Response(self.objects)
+                return FakeResponse({}, status_code=503)
+            return FakeResponse(self.objects)
         if url.endswith("/dataconnection/full"):
-            return _Response([self.data_connection])
+            return FakeResponse([self.data_connection])
         raise AssertionError(url)
 
     def open_engine(self, app_id: str, **_: object) -> MagicMock:
@@ -97,7 +96,7 @@ class _Qlik:
             raise OSError("engine port closed")
         websocket = MagicMock()
         websocket.websocket_send_request.side_effect = (
-            _engine_calls() if app_id == "app-1" else _app_engine_calls(app_id)
+            fake_engine_calls() if app_id == "app-1" else _app_engine_calls(app_id)
         )
         websocket.get_script.return_value = LOAD_SCRIPT
         return websocket
@@ -133,7 +132,10 @@ class _DataHub:
 
 
 def _run(
-    graph: MagicMock, qlik: _Qlik, run_id: str, **overrides: object
+    graph: MagicMock,
+    qlik: _Qlik,
+    run_id: str,
+    **overrides: object,
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
     with (
         patch(
@@ -148,7 +150,19 @@ def _run(
         session_cls.return_value.get.side_effect = qlik.qrs_get
         ctx = PipelineContext(run_id=run_id, pipeline_name="qlik-onprem", graph=graph)
         source = QlikSenseSource(
-            QlikSourceConfig.model_validate({**CONFIG, **overrides}), ctx
+            QlikSourceConfig.model_validate(
+                {
+                    **CONFIG,
+                    "on_prem": {
+                        **ON_PREM,
+                        "skip_unchanged_apps": overrides.pop(
+                            "skip_unchanged_apps", True
+                        ),
+                    },
+                    **overrides,
+                }
+            ),
+            ctx,
         )
         workunits = list(source.get_workunits())
         source.close()

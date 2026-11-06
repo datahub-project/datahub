@@ -1,7 +1,5 @@
 import logging
-import sys
-import threading
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 from urllib.parse import quote
 
 import requests
@@ -15,35 +13,35 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Item,
     QlikDataset,
     QlikTable,
-    Sheet,
     Space,
+)
+from datahub.ingestion.source.qlik_sense.qlik_base_api import (
+    IsUnchanged,
+    QlikBaseAPI,
+    ReadErrors,
+    log_read_error,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     SPACE_SEPARATOR,
     DataConnectionInfo,
-    infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
-from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 # Logger instance
 logger = logging.getLogger(__name__)
 
 
-class QlikAPI:
+class QlikAPI(QlikBaseAPI):
     def __init__(self, config: QlikSourceConfig) -> None:
-        self.spaces: Dict = {}
-        self.users: Dict = {}
-        # Spaces and items that failed to load, so the source can report them.
-        self.unread_items: List[str] = []
-        self._thread_state = threading.local()
-        self.config = config
+        super().__init__(config)
         if not config.tenant_hostname or config.api_key is None:
             raise ValueError("Qlik Cloud requires tenant_hostname and api_key")
+        self.tenant_hostname = config.tenant_hostname
+        self.api_key = config.api_key.get_secret_value()
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "Authorization": f"Bearer {config.api_key.get_secret_value()}",
+                "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
             }
         )
@@ -57,58 +55,42 @@ class QlikAPI:
             raise_on_status=False,
         )
         self.session.mount("https://", HTTPAdapter(max_retries=retry))
-        self.rest_api_url = f"https://{config.tenant_hostname}/api/v1"
+        self.rest_api_url = f"https://{self.tenant_hostname}/api/v1"
         # Test connection by fetching list of api keys
         logger.info(f"Trying to connect to {self.rest_api_url}")
         self.session.get(f"{self.rest_api_url}/api-keys").raise_for_status()
 
-    def _log_http_error(self, message: str) -> Any:
-        self._thread_state.read_failed = True
-        logger.warning(message)
-        _, e, _ = sys.exc_info()
-        if isinstance(e, requests.exceptions.HTTPError):
-            logger.warning(f"HTTP status-code = {e.response.status_code}")
-        logger.debug(msg=message, exc_info=e)
-        return e
+    def _paginate(self, url: str) -> Iterable[Dict]:
+        next_url: Optional[str] = url
+        while next_url:
+            response = self.session.get(next_url)
+            response.raise_for_status()
+            page = response.json()
+            yield from page[Constant.DATA]
+            next_url = (page.get(Constant.LINKS, {}).get(Constant.NEXT) or {}).get(
+                Constant.HREF
+            )
 
     def get_spaces(self) -> List[Space]:
         spaces: List[Space] = []
         try:
-            url = f"{self.rest_api_url}/spaces"
-            while True:
-                response = self.session.get(url)
-                response.raise_for_status()
-                response_dict = response.json()
-                for space_dict in response_dict[Constant.DATA]:
-                    space = Space.model_validate(space_dict)
-                    spaces.append(space)
-                    self.spaces[space.id] = space.name
-                if Constant.NEXT in response_dict[Constant.LINKS]:
-                    url = response_dict[Constant.LINKS][Constant.NEXT][Constant.HREF]
-                else:
-                    break
+            for space_dict in self._paginate(f"{self.rest_api_url}/spaces"):
+                space = Space.model_validate(space_dict)
+                spaces.append(space)
+                self.spaces[space.id] = space.name
             # Add personal space entity
             spaces.append(Space.model_validate(PERSONAL_SPACE_DICT))
-            self.spaces[PERSONAL_SPACE_DICT[Constant.ID]] = PERSONAL_SPACE_DICT[
-                Constant.NAME
-            ]
+            self.spaces[Constant.PERSONAL_SPACE_ID] = Constant.PERSONAL_SPACE_NAME
         except Exception as e:
-            self._log_http_error(message=f"Unable to fetch spaces. Exception: {e}")
-            self.unread_items.append("spaces")
+            self._record_unread("spaces", f"Unable to fetch spaces. Exception: {e}", e)
         return spaces
 
-    def _get_dataset(self, dataset_id: str, item_id: str) -> Optional[QlikDataset]:
-        try:
-            response = self.session.get(f"{self.rest_api_url}/data-sets/{dataset_id}")
-            response.raise_for_status()
-            response_dict = response.json()
-            response_dict[Constant.ITEMID] = item_id
-            return QlikDataset.model_validate(response_dict)
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch dataset with id {dataset_id}. Exception: {e}"
-            )
-        return None
+    def _get_dataset(self, dataset_id: str, item_id: str) -> QlikDataset:
+        response = self.session.get(f"{self.rest_api_url}/data-sets/{dataset_id}")
+        response.raise_for_status()
+        response_dict = response.json()
+        response_dict[Constant.ITEMID] = item_id
+        return QlikDataset.model_validate(response_dict)
 
     def get_user_name(self, user_id: str) -> Optional[str]:
         try:
@@ -122,50 +104,19 @@ class QlikAPI:
                 self.users[user_id] = user_name
                 return user_name
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch user with id {user_id}. Exception: {e}"
-            )
+            log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
         return None
 
-    def _get_sheet(
-        self,
-        websocket_connection: WebsocketConnection,
-        sheet_id: str,
-    ) -> Optional[Sheet]:
-        try:
-            websocket_connection.websocket_send_request(
-                method="GetObject", params={"qId": sheet_id}
-            )
-            response = websocket_connection.websocket_send_request(method="GetLayout")
-            sheet_dict = response[Constant.QLAYOUT]
-            if Constant.OWNERID not in sheet_dict[Constant.QMETA]:
-                # That means sheet is private sheet
-                return None
-            sheet = Sheet.model_validate(sheet_dict[Constant.QMETA])
-            if Constant.QCHILDLIST not in sheet_dict:
-                logger.debug(f"Sheet {sheet.title} with id {sheet_id} has no charts")
-                return sheet
-            properties = websocket_connection.get_object_properties()
-            for i, chart_dict in enumerate(
-                sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
-            ):
-                for chart in websocket_connection.get_charts(
-                    chart_dict[Constant.QINFO][Constant.QID],
-                    sheet_id,
-                    on_error=self._log_http_error,
-                    properties=properties,
-                ):
-                    if not chart.title:
-                        chart.title = f"Object {i + 1} of Sheet '{sheet.title}'"
-                    sheet.charts.append(chart)
-            return sheet
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch sheet with id {sheet_id}. Exception: {e}"
-            )
-        return None
+    def _open_engine(self, app_id: str) -> WebsocketConnection:
+        return WebsocketConnection.for_cloud(self.tenant_hostname, self.api_key, app_id)
 
-    def _add_qri_of_tables(self, tables: List[QlikTable], app_id: str) -> None:
+    def _sheet_meta(self, meta: Dict, sheet_id: str) -> Optional[Dict]:
+        # A sheet without an owner is a private sheet.
+        return meta if Constant.OWNERID in meta else None
+
+    def _add_qri_of_tables(
+        self, tables: List[QlikTable], app_id: str, errors: ReadErrors
+    ) -> None:
         table_qri_dict: Dict[str, str] = {}
         app_qri = quote(f"qri:app:sense://{app_id}", safe="")
         try:
@@ -204,12 +155,15 @@ class QlikAPI:
                 if table.tableName in table_qri_dict:
                     table.tableQri = table_qri_dict[table.tableName]
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to add QRI for tables of app {app_id}. Exception: {e}"
+            errors.record(
+                f"Unable to add QRI for tables of app {app_id}. Exception: {e}"
             )
 
     def _get_app_used_tables(
-        self, websocket_connection: WebsocketConnection, app_id: str
+        self,
+        websocket_connection: WebsocketConnection,
+        app_id: str,
+        errors: ReadErrors,
     ) -> List[QlikTable]:
         tables: List[QlikTable] = []
         # The app handle must be on top again afterwards, as GetScript runs on it.
@@ -227,62 +181,16 @@ class QlikAPI:
                 )
                 for table_dict in response[Constant.QLAYOUT][Constant.TABLES]:
                     tables.append(QlikTable.model_validate(table_dict))
-                self._add_qri_of_tables(tables, app_id)
+                self._add_qri_of_tables(tables, app_id, errors)
                 logger.debug(
                     f"App {app_id} LoadModel tables: "
                     f"{[(t.tableName, t.type.value, t.dataconnectorPlatform, t.tableQri) for t in tables]}"
                 )
             except Exception as e:
-                self._log_http_error(
-                    message=f"Unable to fetch tables used by app {app_id}. Exception: {e}"
+                errors.record(
+                    f"Unable to fetch tables used by app {app_id}. Exception: {e}"
                 )
         return tables
-
-    def _get_app_sheets(
-        self, websocket_connection: WebsocketConnection, app_id: str
-    ) -> List[Sheet]:
-        sheets: List[Sheet] = []
-        try:
-            response = websocket_connection.websocket_send_request(
-                method="GetObjects",
-                params={
-                    "qOptions": {
-                        "qTypes": ["sheet"],
-                    }
-                },
-            )
-            for sheet_dict in response[Constant.QLIST]:
-                with websocket_connection.restore_handle():
-                    sheet = self._get_sheet(
-                        websocket_connection=websocket_connection,
-                        sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
-                    )
-                if sheet:
-                    sheets.append(sheet)
-            websocket_connection.add_master_measure_definitions(
-                sheets, on_error=self._log_http_error
-            )
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch sheets for app {app_id}. Exception: {e}"
-            )
-        return sheets
-
-    def _get_app_script(
-        self, websocket_connection: WebsocketConnection, app_id: str
-    ) -> Optional[str]:
-        try:
-            script = websocket_connection.get_script()
-            logger.debug(f"App {app_id} load script has {len(script)} characters")
-            return script
-        except Exception as e:
-            # Cloud only lets Owner, Can manage and Can operate read the load script,
-            # so a denied read leaves the rest of the app complete.
-            logger.warning(
-                f"Unable to fetch load script of app {app_id}. Exception: {e}"
-            )
-            logger.debug(msg=f"Load script of app {app_id}", exc_info=e)
-        return None
 
     def get_data_connections(self) -> Dict[str, DataConnectionInfo]:
         # Scripts name a connection as `<space>:<connection>`, or by its bare name
@@ -291,54 +199,39 @@ class QlikAPI:
         connections: Dict[str, DataConnectionInfo] = {}
         by_name: Dict[str, List[DataConnectionInfo]] = {}
         try:
-            url = f"{self.rest_api_url}/data-connections"
-            while True:
-                response = self.session.get(url)
-                response.raise_for_status()
-                response_dict = response.json()
-                for connection in response_dict.get(Constant.DATA, []):
-                    name = connection.get(Constant.QNAME)
-                    if not name:
-                        continue
-                    descriptor = ";".join(
-                        str(connection.get(key) or "")
-                        for key in (
-                            Constant.DATASOURCEID,
-                            Constant.QCONNECTSTATEMENT,
-                            Constant.QTYPE,
-                        )
-                    )
-                    info = infer_data_connection(name, descriptor)
-                    space_name = self.spaces.get(connection.get(Constant.SPACE) or "")
-                    if space_name:
-                        connections[f"{space_name}{SPACE_SEPARATOR}{name}"] = info
-                    by_name.setdefault(name, []).append(info)
-                next_link = response_dict.get(Constant.LINKS, {}).get(Constant.NEXT)
-                if not next_link:
-                    break
-                url = next_link[Constant.HREF]
+            for connection in self._paginate(f"{self.rest_api_url}/data-connections"):
+                name = connection.get(Constant.QNAME)
+                if not name:
+                    continue
+                info = self._infer_connection(
+                    name,
+                    connection,
+                    (
+                        Constant.DATASOURCEID,
+                        Constant.QCONNECTSTATEMENT,
+                        Constant.QTYPE,
+                    ),
+                )
+                space_name = self.spaces.get(connection.get(Constant.SPACE) or "")
+                if space_name:
+                    connections[f"{space_name}{SPACE_SEPARATOR}{name}"] = info
+                by_name.setdefault(name, []).append(info)
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch data connections. Exception: {e}"
+            self._record_unread(
+                "data connections",
+                f"Unable to fetch data connections. Exception: {e}",
+                e,
             )
-            self.unread_items.append("data connections")
         for name, infos in by_name.items():
             if len(infos) == 1:
                 connections.setdefault(name, infos[0])
         logger.debug(f"Qlik Cloud data connections: {connections}")
         return connections
 
-    def _get_app(self, app_id: str) -> Optional[App]:
-        websocket_connection: Optional[WebsocketConnection] = None
-        self._thread_state.read_failed = False
+    def _get_app(self, app_id: str) -> App:
+        errors = ReadErrors()
+        websocket_connection = self._open_engine(app_id)
         try:
-            assert self.config.tenant_hostname is not None
-            assert self.config.api_key is not None
-            websocket_connection = WebsocketConnection.for_cloud(
-                self.config.tenant_hostname,
-                self.config.api_key.get_secret_value(),
-                app_id,
-            )
             websocket_connection.websocket_send_request(
                 method="OpenDoc",
                 params={"qDocName": app_id},
@@ -347,81 +240,51 @@ class QlikAPI:
                 method="GetAppLayout"
             )
             app = App.model_validate(response[Constant.QLAYOUT])
-            app.sheets = self._get_app_sheets(websocket_connection, app_id)
-            app.tables = self._get_app_used_tables(websocket_connection, app_id)
+            app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
+            app.tables = self._get_app_used_tables(websocket_connection, app_id, errors)
             if not app.tables or not all(table.tableQri for table in app.tables):
-                app.script = self._get_app_script(websocket_connection, app_id)
+                # Cloud only lets Owner, Can manage and Can operate read the load
+                # script, so a denied read leaves the rest of the app complete.
+                app.script = self._read_load_script(
+                    websocket_connection, app_id, on_error=log_read_error
+                )
                 app.script_read_failed = app.script is None
-            app.read_complete = not self._thread_state.read_failed
+            app.read_errors = errors.messages
             return app
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch app with id {app_id}. Exception: {e}"
-            )
         finally:
-            if websocket_connection:
-                try:
-                    websocket_connection.close_websocket()
-                except Exception as e:
-                    logger.debug(f"Unable to close Engine session of app {app_id}: {e}")
-        return None
+            self._close_engine(websocket_connection, app_id)
 
     def _list_items(self, space_id: str) -> Iterable[Dict]:
         try:
-            url = f"{self.rest_api_url}/items?spaceId={space_id}"
-            while True:
-                response = self.session.get(url)
-                response.raise_for_status()
-                response_dict = response.json()
-                for item in response_dict[Constant.DATA]:
-                    # spaceId none indicates item present in personal space
-                    if not item.get(Constant.SPACEID):
-                        item[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
-                    if self.config.space_pattern.allowed(
-                        self.spaces[item[Constant.SPACEID]]
-                    ):
-                        yield item
-                if Constant.NEXT in response_dict[Constant.LINKS]:
-                    url = response_dict[Constant.LINKS][Constant.NEXT][Constant.HREF]
-                else:
-                    break
+            for item in self._paginate(f"{self.rest_api_url}/items?spaceId={space_id}"):
+                # spaceId none indicates item present in personal space
+                if not item.get(Constant.SPACEID):
+                    item[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
+                if self.config.space_pattern.allowed(
+                    self.spaces[item[Constant.SPACEID]]
+                ):
+                    yield item
         except Exception as e:
-            self._log_http_error(message=f"Unable to fetch items. Exception: {e}")
-            self.unread_items.append(f"items of space {space_id}")
+            self._record_unread(
+                f"items of space {space_id}",
+                f"Unable to fetch items. Exception: {e}",
+                e,
+            )
 
-    def _load_item(self, item: Dict) -> Optional[Item]:
+    def _load_item(
+        self, item: Dict, is_unchanged: Optional[IsUnchanged]
+    ) -> Optional[Item]:
         resource_type = item[Constant.RESOURCETYPE]
-        loaded: Optional[Item]
+        resource_id = item[Constant.RESOURCEID]
         try:
             if resource_type == Constant.APP:
-                loaded = self._get_app(app_id=item[Constant.RESOURCEID])
-            elif resource_type == Constant.DATASET:
-                loaded = self._get_dataset(
-                    dataset_id=item[Constant.RESOURCEID],
-                    item_id=item[Constant.ID],
-                )
-            else:
-                return None
+                return self._get_app(resource_id)
+            if resource_type == Constant.DATASET:
+                return self._get_dataset(resource_id, item[Constant.ID])
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to load item {item[Constant.RESOURCEID]}. Exception: {e}"
+            self._record_unread(
+                resource_id,
+                f"Unable to fetch {resource_type} with id {resource_id}. Exception: {e}",
+                e,
             )
-            loaded = None
-        if loaded is None:
-            self.unread_items.append(item[Constant.RESOURCEID])
-        return loaded
-
-    def get_items(self, space_id: str) -> Iterable[Item]:
-        for future in BackpressureAwareExecutor.map(
-            self._load_item,
-            ((item,) for item in self._list_items(space_id)),
-            max_workers=self.config.max_workers,
-        ):
-            try:
-                item = future.result()
-            except Exception as e:
-                self._log_http_error(message=f"Unable to fetch item. Exception: {e}")
-                self.unread_items.append(f"item of space {space_id}")
-                continue
-            if item:
-                yield item
+        return None

@@ -8,7 +8,7 @@ This source extracts the following:
 - Qlik Datasets as Datahub Datasets with schema metadata.
 - Tables in each app's data model as DataHub Datasets with subtype `Qlik Table`, with schema metadata and upstream lineage when available.
 - Sheets as Datahub dashboard and charts present inside sheets.
-- On-prem streams, apps, sheets, and charts when `deployment` is `on_prem`.
+- On-prem streams, apps, sheets, and charts when the `on_prem` block is set.
 
 ### Prerequisites
 
@@ -21,7 +21,7 @@ Before running ingestion, ensure network connectivity to the source, valid authe
 
 #### Qlik Sense Enterprise on Windows
 
-Set `deployment: on_prem`. Qlik Cloud API keys are not used. Export the client certificate, client key, and root certificate from the QMC as PEM files. The ingestion host must reach the Repository Service (port 4242) and the Engine (port 4747) on the central node. Certificate calls run with administrator rights. The default accounts are `INTERNAL\sa_repository` for inventory and `INTERNAL\sa_engine` for app content.
+Set the `on_prem` block instead of `tenant_hostname` and `api_key`. Export the client certificate, client key, and root certificate from the QMC as PEM files. The ingestion host must reach the Repository Service (port 4242) and the Engine (port 4747) on the central node. Certificate calls run with administrator rights. The default accounts are `INTERNAL\sa_repository` for inventory and `INTERNAL\sa_engine` for app content.
 
 This mode ingests streams, apps, sheets, and charts, plus lineage from the `SELECT` statements in each app's load script. It does not ingest Qlik Cloud datasets or QVD lineage.
 
@@ -35,10 +35,10 @@ The server certificate is verified against `root_cert`. Qlik issues it to the ce
 source:
   type: qlik-sense
   config:
-    deployment: on_prem
-    server: 10.0.0.10
-    server_cert_hostname: qlik-central.example.com
-    client_cert: /secrets/client.pem
-    client_key: /secrets/client_key.pem
-    root_cert: /secrets/root.pem
+    on_prem:
+      server: 10.0.0.10
+      server_cert_hostname: qlik-central.example.com
+      client_cert: /secrets/client.pem
+      client_key: /secrets/client_key.pem
+      root_cert: /secrets/root.pem
 ```
