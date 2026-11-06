@@ -6,6 +6,7 @@ This source extracts the following:
 
 - Accessible spaces and apps within that spaces as Container.
 - Qlik Datasets as Datahub Datasets with schema metadata.
+- Tables in each app's data model as Datahub Datasets with subtype `Qlik Table`, with schema metadata and upstream lineage.
 - Sheets as Datahub dashboard and charts present inside sheets.
 - On-prem streams, apps, sheets, and charts when `deployment` is `on_prem`.
 
