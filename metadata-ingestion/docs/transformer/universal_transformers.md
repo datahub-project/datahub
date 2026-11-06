@@ -28,6 +28,7 @@ The domain and ownership transformers on this page are drop-in replacements for 
 | --------------- | ------------------------------------------------------------------------------------------------------ |
 | `domains`       | - [Simple Add Domain](#simple-add-domain)<br/> - [Pattern Add Domain](#pattern-add-domain)             |
 | `ownership`     | - [Simple Add Ownership](#simple-add-ownership)<br/> - [Pattern Add Ownership](#pattern-add-ownership) |
+| `deprecation`   | - [Mark Deprecated](#mark-deprecated)                                                                  |
 | `browsePathsV2` | - [Set browsePaths](#set-browsepaths)                                                                  |
 
 ## Domain Transformers
@@ -206,6 +207,79 @@ This is useful when you want containers to inherit domains or ownership from the
 :::info
 When multiple entities in the same container have different owners or domains, all values are merged additively onto the container. For example, if dataset A has owner `alice` and dataset B has owner `bob`, and both are in the same container, that container gets both `alice` and `bob` as owners.
 :::
+
+## Deprecation Transformers
+
+### Mark Deprecated
+
+Marks assets as deprecated (or un-deprecated). Useful for flagging legacy tables or dashboards during ingestion.
+
+If `urns` is empty, **every** entity flowing through the pipeline is affected. If `urns` is populated, only matching entities are modified.
+
+#### Config Details
+
+| Field               | Required | Type         | Default                   | Description                                                                                     |
+| ------------------- | -------- | ------------ | ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `deprecated`        |          | boolean      | `true`                    | Whether to mark as deprecated                                                                   |
+| `note`              |          | string       | `""`                      | Human-readable deprecation reason                                                               |
+| `actor`             |          | string       | `urn:li:corpuser:datahub` | Who performed the deprecation                                                                   |
+| `urns`              |          | list[string] | `[]`                      | URNs to deprecate (empty = all entities in the pipeline)                                        |
+| `replacement`       |          | string       | `null`                    | URN of the replacement entity                                                                   |
+| `decommission_time` |          | integer      | current time              | Planned decommission timestamp (epoch millis). Defaults to pipeline start time.                 |
+| `semantics`         |          | enum         | `OVERWRITE`               | `OVERWRITE` replaces blindly. `PATCH` merges with server — preserves existing note/actor/dates. |
+| `replace_existing`  |          | boolean      | `false`                   | (Inherited, unused for this transformer — semantics controls merge behavior.)                   |
+
+#### Supported Entity Types
+
+`dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`, `container`
+
+#### Examples
+
+Mark specific datasets as deprecated:
+
+```yaml
+transformers:
+  - type: "mark_deprecated"
+    config:
+      deprecated: true
+      note: "Replaced by new_table"
+      urns:
+        - "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.old_table,PROD)"
+```
+
+Mark all entities in the pipeline as deprecated:
+
+```yaml
+transformers:
+  - type: "mark_deprecated"
+    config:
+      deprecated: true
+      note: "Source system decommissioned"
+```
+
+Un-deprecate specific assets:
+
+```yaml
+transformers:
+  - type: "mark_deprecated"
+    config:
+      deprecated: false
+      note: "Restored — false alarm"
+      urns:
+        - "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+```
+
+Use PATCH semantics to preserve existing note/actor/dates (only fills in what is missing):
+
+```yaml
+transformers:
+  - type: "mark_deprecated"
+    config:
+      semantics: PATCH
+      deprecated: true
+      note: "Source decommissioned"
+      replacement: "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.new_table,PROD)"
+```
 
 ## Set browsePaths
 
