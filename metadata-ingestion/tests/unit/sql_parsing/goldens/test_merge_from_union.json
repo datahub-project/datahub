@@ -9,7 +9,118 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.base_union,PROD)"
     ],
-    "column_lineage": null,
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.base_union,PROD)",
+                "column": "platform",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_ios,PROD)",
+                    "column": "platform"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_web,PROD)",
+                    "column": "platform"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`dbt_internal_source`.`platform` AS `platform`"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.base_union,PROD)",
+                "column": "pageview_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_ios,PROD)",
+                    "column": "pageview_id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_web,PROD)",
+                    "column": "pageview_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`dbt_internal_source`.`pageview_id` AS `pageview_id`"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.base_union,PROD)",
+                "column": "query",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_ios,PROD)",
+                    "column": "query"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_web,PROD)",
+                    "column": "query"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`dbt_internal_source`.`query` AS `query`"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.base_union,PROD)",
+                "column": "referrer",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_ios,PROD)",
+                    "column": "referrer"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_web,PROD)",
+                    "column": "referrer"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`dbt_internal_source`.`referrer` AS `referrer`"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.base_union,PROD)",
+                "column": "partition_time",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_ios,PROD)",
+                    "column": "partition_time"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_web,PROD)",
+                    "column": "partition_time"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`dbt_internal_source`.`partition_time` AS `partition_time`"
+            }
+        }
+    ],
     "joins": [],
     "debug_info": {
         "confidence": 0.2,

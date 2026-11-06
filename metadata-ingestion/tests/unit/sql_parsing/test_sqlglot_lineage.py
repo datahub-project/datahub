@@ -599,7 +599,8 @@ def test_select_ambiguous_column_no_schema() -> None:
 
 
 def test_merge_from_union() -> None:
-    # TODO: We don't support merge statements yet, but the union should still get handled.
+    # The VALUES are bare column names, so they resolve against the USING source
+    # and through its SELECT * UNION ALL to both of the tables it reads.
 
     assert_sql_result(
         """
@@ -624,6 +625,94 @@ SELECT * FROM `demo-pipelines-stg`.`referrer`.`prep_from_web` WHERE partition_ti
 """,
         dialect="bigquery",
         expected_file=RESOURCE_DIR / "test_merge_from_union.json",
+    )
+
+
+def test_snowflake_merge_column_mapping() -> None:
+    # Downstream columns are the target columns written by the WHEN clauses, not
+    # the USING source's output columns. A column written by several clauses
+    # carries every clause's upstreams, including the target's own column.
+    assert_sql_result(
+        """\
+MERGE INTO db.sch.customer_totals t
+USING (
+    SELECT customer_id, order_total, order_ts FROM db.sch.orders WHERE order_total > 0
+) s ON t.customer_id = s.customer_id
+WHEN MATCHED THEN UPDATE SET
+    t.lifetime_total = t.lifetime_total + s.order_total,
+    t.last_order_ts = s.order_ts
+WHEN NOT MATCHED THEN INSERT (customer_id, lifetime_total, last_order_ts)
+    VALUES (s.customer_id, s.order_total, s.order_ts)
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_merge_column_mapping.json",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.orders,PROD)": {
+                "customer_id": "NUMBER",
+                "order_total": "NUMBER",
+                "order_ts": "TIMESTAMP_NTZ",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.customer_totals,PROD)": {
+                "customer_id": "NUMBER",
+                "lifetime_total": "NUMBER",
+                "last_order_ts": "TIMESTAMP_NTZ",
+            },
+        },
+    )
+
+
+def test_merge_insert_without_column_list_keeps_source_columns() -> None:
+    # Without a column list there is nothing to map the VALUES onto, so the
+    # USING source's own output columns are kept.
+    result = sqlglot_lineage(
+        """\
+MERGE INTO db.sch.tgt t USING (SELECT x, y FROM db.sch.src) s ON t.a = s.x
+WHEN NOT MATCHED THEN INSERT VALUES (s.x, s.y)
+""",
+        schema_resolver=SchemaResolver(
+            platform="snowflake",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.error is None
+    assert result.column_lineage is not None
+    assert [cl.downstream.column for cl in result.column_lineage] == ["x", "y"]
+    src_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.src,PROD)"
+    assert [
+        [(u.table, u.column) for u in cl.upstreams] for cl in result.column_lineage
+    ] == [[(src_urn, "x")], [(src_urn, "y")]]
+
+
+def test_snowflake_merge_scalar_subquery_in_values() -> None:
+    # Bare column names in INSERT VALUES are qualified with the USING alias, but a
+    # column inside a nested subquery belongs to that subquery's own scope: `c`
+    # and `o.id` come from db.sch.other, not from the source.
+    assert_sql_result(
+        """\
+MERGE INTO db.sch.tgt t USING db.sch.src s ON t.id = s.id
+WHEN MATCHED THEN UPDATE SET
+    t.x = (SELECT MAX(c) FROM db.sch.other o WHERE o.id = s.id)
+WHEN NOT MATCHED THEN INSERT (id, x)
+    VALUES (id, (SELECT MAX(c) FROM db.sch.other o WHERE o.id = s.id))
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_merge_scalar_subquery_in_values.json",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.src,PROD)": {
+                "id": "NUMBER",
+                "amount": "NUMBER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.other,PROD)": {
+                "id": "NUMBER",
+                "c": "NUMBER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tgt,PROD)": {
+                "id": "NUMBER",
+                "x": "NUMBER",
+            },
+        },
     )
 
 
