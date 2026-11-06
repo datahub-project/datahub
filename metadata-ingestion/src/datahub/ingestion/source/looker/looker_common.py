@@ -936,7 +936,7 @@ class LookerUtil:
             globalTags=(
                 LookerUtil._get_tags_from_field_type(field, reporter)
                 if tag_measures_and_dimensions is True
-                else None
+                else GlobalTagsClass(tags=[])
             ),
             isPartOfKey=field.is_primary_key,
         )
