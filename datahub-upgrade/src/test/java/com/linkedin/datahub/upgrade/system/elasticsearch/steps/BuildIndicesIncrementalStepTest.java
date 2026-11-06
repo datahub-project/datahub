@@ -702,6 +702,7 @@ public class BuildIndicesIncrementalStepTest {
 
     givenPreviousState(afterFailure);
     assertEquals(step.executable().apply(upgradeContext).result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder, times(2)).buildIndex(any(OperationContext.class), eq(droppedConfig));
     assertEquals(
         IncrementalReindexState.getStatus(persistedState(), INDEX_NAME),
         Optional.of(IncrementalReindexState.Status.DUAL_WRITE_DISABLED));
