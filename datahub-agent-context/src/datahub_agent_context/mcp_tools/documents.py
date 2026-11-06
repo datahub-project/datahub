@@ -191,10 +191,24 @@ def _merge_search_results(
     )
 
     # Build merged response, preserving facets from keyword search
+    # The keyword server total reflects only the keyword result set. When the
+    # semantic search contributes documents the keyword query did not match, the
+    # keyword total can understate the interleaved union (even dropping below the
+    # number of returned results). The backend cannot provide the union cardinality
+    # directly, so report at least the fetched union size and at least the keyword
+    # total to keep `total >= count` and reflect the available matches.
+    keyword_total = (
+        keyword_results.get("total") if isinstance(keyword_results, dict) else None
+    )
+    merged_count = len(merged_results)
+    if keyword_total is None:
+        resolved_total = merged_count
+    else:
+        resolved_total = max(keyword_total, merged_count)
     merged_response: Dict[str, Any] = {
         "searchResults": merged_results,
-        "total": len(merged_results),
-        "count": len(merged_results),
+        "total": resolved_total,
+        "count": merged_count,
     }
 
     # Include facets from keyword search (more reliable for filtering)
@@ -290,7 +304,9 @@ def _hybrid_search_documents(
 
     # Apply pagination to merged results
     all_results = merged.get("searchResults", [])
-    total_merged = len(all_results)
+    # Preserve the server-reported total from the underlying search(es) rather
+    # than reporting the fetched/deduped page size as the total.
+    total_matches = merged.get("total", len(all_results))
 
     # Slice to get the requested page
     paginated_results = all_results[offset : offset + num_results]
@@ -299,7 +315,7 @@ def _hybrid_search_documents(
     merged["searchResults"] = paginated_results
     merged["start"] = offset
     merged["count"] = len(paginated_results)
-    merged["total"] = total_merged
+    merged["total"] = total_matches
 
     # Add metadata if we hit the fetch limit
     if hit_fetch_limit:
@@ -339,6 +355,15 @@ def search_documents(
     - Top keyword result appears first (exact match priority)
     - Each result includes searchType: "keyword", "semantic", or "both"
     - Results appearing in both searches are high-confidence matches
+
+    HYBRID `total` AND PAGINATION:
+    - `total` reflects the keyword search's full match count (and is never
+      smaller than the number of returned results). It can understate documents
+      that only the semantic query matches, since the platform does not expose a
+      combined union count.
+    - Hybrid search fetches at most MAX_HYBRID_FETCH_RESULTS (100) results before
+      merging, so offsets much beyond 100 return an empty page and set
+      `_hybridSearchLimitReached: true`. Use a narrower query before paginating.
 
     Example: search_documents(
         query="kubernetes deployment",
@@ -408,6 +433,9 @@ def search_documents(
             result = search_documents(query="deployment")
     """
     graph = get_graph()
+    # Cap the caller-facing page size at 50. Internal fetch sizes (used by the
+    # hybrid merge) are allowed to exceed this so pagination can go deeper.
+    num_results = min(num_results, 50)
     with PerfTimer() as timer:
         # If semantic_query is provided, run hybrid search
         if semantic_query:
@@ -462,8 +490,6 @@ def _search_documents_impl(
     offset: int = 0,
 ) -> dict:
     """Internal implementation for document search with keyword or semantic strategy."""
-    # Cap num_results at 50
-    num_results = min(num_results, 50)
 
     # Parse SQL-like filter string and compile to orFilters
     # entity_types is discarded — the GQL queries already hardcode types: [DOCUMENT]
