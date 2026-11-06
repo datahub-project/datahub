@@ -481,6 +481,32 @@ def test_onprem_reads_charts_inside_containers(
     "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_does_not_open_objects_that_are_not_charts(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    engine = _ScriptedEngine(
+        _sheet_replies(
+            ["filters", "sales"],
+            [
+                {"qInfo": {"qId": "filters", "qType": "filterpane"}},
+                {"qInfo": {"qId": "sales"}, "qHyperCubeDef": {"qMeasures": []}},
+            ],
+        )
+        + [{"qReturn": {"qHandle": 3}}, _chart_layout("sales")]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert [chart.qId for chart in app.sheets[0].charts] == ["sales"]
+    assert app.read_complete
+    assert [sent for sent in engine.sent_on if sent[0] == "GetChild"] == [
+        ("GetChild", 2)
+    ]
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_container_that_holds_itself_is_read_once(
     mock_session_cls: MagicMock, mock_engine: MagicMock
 ) -> None:

@@ -156,6 +156,18 @@ class WebsocketConnection:
         if object_id in seen:
             return []
         seen.add(object_id)
+        prop = (properties or {}).get(object_id)
+        if (
+            prop is not None
+            and Constant.QHYPERCUBEDEF not in prop
+            and prop.get(Constant.QINFO, {}).get(Constant.QTYPE) != Constant.CONTAINER
+        ):
+            # Getting a layout makes the Engine calculate the object, which is
+            # slow for filter panes and other objects that are not charts.
+            logger.debug(
+                f"Skipping object {object_id} of sheet {sheet_id}: not a chart"
+            )
+            return []
         depth = len(self.handle)
         try:
             self.websocket_send_request(method="GetChild", params={"qId": object_id})
