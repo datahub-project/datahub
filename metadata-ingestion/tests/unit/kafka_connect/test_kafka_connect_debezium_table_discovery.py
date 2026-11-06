@@ -58,7 +58,7 @@ class TestGetTableNamesFromConfigOrDiscovery:
         )
 
         result = connector._get_table_names_from_config_or_discovery(
-            connector_config, "testdb", "postgres"
+            "testdb", "postgres"
         )
 
         assert result == ["public.users", "public.orders", "private.data"]
@@ -76,7 +76,7 @@ class TestGetTableNamesFromConfigOrDiscovery:
         )
 
         result = connector._get_table_names_from_config_or_discovery(
-            connector_config, "testdb", "postgres"
+            "testdb", "postgres"
         )
 
         assert result == []
@@ -94,9 +94,7 @@ class TestGetTableNamesFromConfigOrDiscovery:
             connector_config, schema_resolver=schema_resolver, use_schema_resolver=True
         )
 
-        result = connector._get_table_names_from_config_or_discovery(
-            connector_config, None, "postgres"
-        )
+        result = connector._get_table_names_from_config_or_discovery(None, "postgres")
 
         assert result == ["public.users"]
 
@@ -121,7 +119,7 @@ class TestGetTableNamesFromConfigOrDiscovery:
             return_value=["public.users", "public.orders", "public.products"],
         ):
             result = connector._get_table_names_from_config_or_discovery(
-                connector_config, "testdb", "postgres"
+                "testdb", "postgres"
             )
 
         assert result == ["public.users", "public.orders", "public.products"]
@@ -142,7 +140,7 @@ class TestGetTableNamesFromConfigOrDiscovery:
         # Mock _discover_tables_from_database to return empty
         with patch.object(connector, "_discover_tables_from_database", return_value=[]):
             result = connector._get_table_names_from_config_or_discovery(
-                connector_config, "testdb", "postgres"
+                "testdb", "postgres"
             )
 
         assert result == []
@@ -327,7 +325,7 @@ class TestApplyTableFilters:
         connector = create_debezium_connector(connector_config)
 
         tables = ["public.users", "public.orders", "private.data"]
-        result = connector._apply_table_filters(connector_config, tables)
+        result = connector._apply_table_filters(tables)
 
         assert result == tables
 
@@ -343,7 +341,7 @@ class TestApplyTableFilters:
         connector = create_debezium_connector(connector_config)
 
         tables = ["public.users", "public.orders", "public.products", "private.data"]
-        result = connector._apply_table_filters(connector_config, tables)
+        result = connector._apply_table_filters(tables)
 
         assert sorted(result) == ["public.orders", "public.users"]
 
@@ -359,7 +357,7 @@ class TestApplyTableFilters:
         connector = create_debezium_connector(connector_config)
 
         tables = ["public.users", "public.orders", "private.data"]
-        result = connector._apply_table_filters(connector_config, tables)
+        result = connector._apply_table_filters(tables)
 
         assert sorted(result) == ["public.orders", "public.users"]
 
@@ -375,7 +373,7 @@ class TestApplyTableFilters:
         connector = create_debezium_connector(connector_config)
 
         tables = ["public.user1", "public.user2", "public.userX", "public.orders"]
-        result = connector._apply_table_filters(connector_config, tables)
+        result = connector._apply_table_filters(tables)
 
         assert sorted(result) == ["public.user1", "public.user2"]
 
@@ -391,7 +389,7 @@ class TestApplyTableFilters:
         connector = create_debezium_connector(connector_config)
 
         tables = ["public.users", "private.data"]
-        result = connector._apply_table_filters(connector_config, tables)
+        result = connector._apply_table_filters(tables)
 
         assert result == []
 
@@ -407,7 +405,7 @@ class TestApplyTableFilters:
         connector = create_debezium_connector(connector_config)
 
         tables = ["public.users", "public.temp_staging", "public.temp_test"]
-        result = connector._apply_table_filters(connector_config, tables)
+        result = connector._apply_table_filters(tables)
 
         assert result == ["public.users"]
 
@@ -429,7 +427,7 @@ class TestApplyTableFilters:
             "public.temp_staging",
             "private.data",
         ]
-        result = connector._apply_table_filters(connector_config, tables)
+        result = connector._apply_table_filters(tables)
 
         # Include public.*, then exclude public.temp.*
         assert sorted(result) == ["public.orders", "public.users"]
@@ -446,7 +444,7 @@ class TestApplyTableFilters:
         connector = create_debezium_connector(connector_config)
 
         tables = ["public.users", "public.orders"]
-        result = connector._apply_table_filters(connector_config, tables)
+        result = connector._apply_table_filters(tables)
 
         assert result == ["public.users"]
 
@@ -462,7 +460,7 @@ class TestApplyTableFilters:
         connector = create_debezium_connector(connector_config)
 
         tables = ["public.users", "public.temp_staging"]
-        result = connector._apply_table_filters(connector_config, tables)
+        result = connector._apply_table_filters(tables)
 
         assert result == ["public.users"]
 
