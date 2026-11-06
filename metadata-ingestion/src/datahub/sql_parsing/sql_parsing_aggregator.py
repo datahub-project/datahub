@@ -423,14 +423,16 @@ class SqlAggregatorReport(Report):
         default_factory=LossyList
     )
     make_schema_resolver_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
-    # Seconds spent resolving each downstream's queries and building its aspect,
-    # for the slowest downstreams only.
+    # Seconds spent resolving each downstream's queries through temp tables,
+    # for the slowest downstreams only, slowest first.
     slowest_downstreams_lineage_seconds: TopKDict[UrnStr, float] = dataclasses.field(
-        default_factory=TopKDict
+        default_factory=lambda: TopKDict(top_k=_SLOWEST_DOWNSTREAMS_TRACKED)
     )
     slowest_downstreams_operations_seconds: TopKDict[UrnStr, float] = dataclasses.field(
-        default_factory=TopKDict
+        default_factory=lambda: TopKDict(top_k=_SLOWEST_DOWNSTREAMS_TRACKED)
     )
+    # Downstreams whose resolution took over 60 s, counted once per pass.
+    num_slow_downstreams: int = 0
 
     # Lineage-related.
     schema_resolver_count: Optional[int] = None
@@ -1653,12 +1655,24 @@ class SqlParsingAggregator(Closeable):
             self.report.num_lineage_skipped_due_to_filters += 1
             return
 
-        timer = PerfTimer()
-        timer.start()
+        start = time.perf_counter()
         queries: List[QueryMetadata] = [
             self._resolve_query_with_temp_tables(self._query_map[query_id])
             for query_id in query_ids
         ]
+        resolution_seconds = time.perf_counter() - start
+        self._track_downstream_resolution_time(
+            downstream_urn,
+            len(queries),
+            {
+                query_id
+                for query in queries
+                if query.composed_of
+                for query_id in query.composed_of.all_queries
+            },
+            resolution_seconds,
+            self.report.slowest_downstreams_lineage_seconds,
+        )
 
         # Sort the queries by highest precedence first, then by latest timestamp.
         # In case of ties, prefer queries with a known query type.
@@ -1786,19 +1800,6 @@ class SqlParsingAggregator(Closeable):
 
         upstream_aspect.fineGrainedLineages = (
             upstream_aspect.fineGrainedLineages or None
-        )
-
-        self._track_downstream_resolution_time(
-            downstream_urn,
-            len(queries),
-            {
-                query_id
-                for query in queries
-                if query.composed_of
-                for query_id in query.composed_of.all_queries
-            },
-            timer.elapsed_seconds(),
-            self.report.slowest_downstreams_lineage_seconds,
         )
 
         if not upstream_aspect.upstreams and not upstream_aspect.fineGrainedLineages:
@@ -2197,17 +2198,23 @@ class SqlParsingAggregator(Closeable):
         slowest: TopKDict[UrnStr, float],
     ) -> None:
         if seconds > _SLOW_DOWNSTREAM_WARNING_SECONDS:
+            self.report.num_slow_downstreams += 1
             logger.warning(
                 f"Resolving temp tables for {downstream_urn} took {seconds:.1f}s: "
                 f"{num_queries} queries, composed of {len(composed_queries)} queries"
             )
 
-        if len(slowest) >= _SLOWEST_DOWNSTREAMS_TRACKED:
+        if downstream_urn in slowest:
+            seconds = max(seconds, slowest[downstream_urn])
+        elif len(slowest) >= _SLOWEST_DOWNSTREAMS_TRACKED:
             fastest = min(slowest, key=slowest.__getitem__)
             if slowest[fastest] >= seconds:
                 return
             del slowest[fastest]
         slowest[downstream_urn] = seconds
+        ranked = sorted(slowest.items(), key=lambda item: item[1], reverse=True)
+        slowest.clear()
+        slowest.update(ranked)
 
     @staticmethod
     def _compute_upstream_fields(

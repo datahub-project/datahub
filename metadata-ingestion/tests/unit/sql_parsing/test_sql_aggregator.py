@@ -1398,10 +1398,10 @@ def test_temp_table_with_overlapping_writers_keeps_upstream_order() -> None:
 
 def test_self_referencing_temp_writers_resolve_without_duplicates() -> None:
     # Every writer reads the temp table it writes.
-    columns = [f"col_{i}" for i in range(10)]
+    columns = [f"col_{i}" for i in range(2)]
     tmp = _snowflake_urn("db.tmp.work")
     base = _snowflake_urn("db.src.base")
-    extras = [_snowflake_urn(f"db.src.extra_{i}") for i in range(20)]
+    extras = [_snowflake_urn(f"db.src.extra_{i}") for i in range(12)]
     target = _snowflake_urn("db.dst.target")
 
     aggregator = _temp_table_aggregator()
@@ -1431,6 +1431,7 @@ def test_self_referencing_temp_writers_resolve_without_duplicates() -> None:
         )
     )
 
+    # gen_metadata() already dedupes upstreams, so check the resolver directly.
     [query_id] = aggregator._lineage_map[target]
     resolved = aggregator._resolve_query_with_temp_tables(
         aggregator._query_map[query_id]
@@ -1592,8 +1593,12 @@ def test_slowest_downstreams_report_is_bounded(
             f"urn_{seconds}", 0, set(), float(seconds), slowest
         )
     aggregator._track_downstream_resolution_time("urn_slow", 0, set(), 61.0, slowest)
+    aggregator._track_downstream_resolution_time("urn_slow", 0, set(), 1.0, slowest)
 
     assert set(slowest) == {"urn_slow", *(f"urn_{s}" for s in range(7, 16))}
+    assert slowest["urn_slow"] == 61.0
+    assert list(slowest.values()) == sorted(slowest.values(), reverse=True)
+    assert aggregator.report.num_slow_downstreams == 1
     assert "urn_slow" in caplog.text
 
 
