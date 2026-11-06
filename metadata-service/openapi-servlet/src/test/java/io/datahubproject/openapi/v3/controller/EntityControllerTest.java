@@ -2663,6 +2663,9 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                             .setType(AssertionType.DATASET)
                             .setEntityUrn(datasetUrn)
                             .data()))));
+    // A live target; run history of an assertion whose target is gone may be deleted freely.
+    when(testAspectRetriever.entityExists(any(), eq(Set.of(datasetUrn))))
+        .thenReturn(Map.of(datasetUrn, true));
     com.linkedin.metadata.aspect.EnvelopedAspect latest =
         new com.linkedin.metadata.aspect.EnvelopedAspect()
             .setAspect(
