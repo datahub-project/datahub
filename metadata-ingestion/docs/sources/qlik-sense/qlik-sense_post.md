@@ -29,7 +29,7 @@ Charts inside a container object's tabs are ingested as charts of the sheet. An 
 
 #### Chart input fields
 
-Each chart lists the Qlik table fields it reads as input fields, and its inputs are narrowed to the tables those fields belong to. Fields are taken from the chart's dimensions and measure expressions, including master measures. A name in an expression counts only when it matches a field of one of the app's ingested tables. Quoted values in set modifiers, such as `"Net*"` in `{<Region={"Net*"}>}`, are search strings and are not matched. For tables traced from a load script, those are the columns the SQL parser found, under the names a preceding load gives them. A field shared by several tables, such as a key field, is listed for each of them. When no field matches, or an expression uses a `$(variable)` whose fields are unknown, the chart keeps all of the app's tables as inputs.
+Each chart lists the Qlik table fields it reads as input fields, and its inputs are narrowed to the tables those fields belong to. Fields are taken from the chart's dimensions and measure expressions, including master measures. A name in an expression counts only when it matches a field of one of the app's ingested tables. Quoted values in set modifiers, such as `"Net*"` in `{<Region={"Net*"}>}`, are search strings and are not matched. For tables traced from a load script, those are the columns the SQL parser found, under the names a preceding load gives them. A field shared by several tables, such as a key field, is listed for each of them. When no field matches, a measure cannot be read, or an expression uses a `$(variable)` whose fields are unknown, the chart keeps all of the app's tables as inputs.
 
 #### Large sites
 

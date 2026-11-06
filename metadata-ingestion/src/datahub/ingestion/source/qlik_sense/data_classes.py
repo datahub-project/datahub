@@ -185,6 +185,7 @@ class Chart(_QlikBaseModel):
     field_expressions: List[str] = []
     # Master measures keep their expression on the app rather than the chart.
     measure_library_ids: List[str] = []
+    fields_complete: bool = True
 
     @model_validator(mode="before")
     @classmethod
