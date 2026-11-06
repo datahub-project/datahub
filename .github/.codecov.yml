@@ -75,6 +75,8 @@ flag_management:
 fixes:
   - "config/::datahub-frontend/app/config/"
   - "utils/::datahub-frontend/app/utils/"
+  # StartupModule.java lives at app/ but declares `package modules;`.
+  - "modules/StartupModule.java::datahub-frontend/app/StartupModule.java"
 
 component_management:
   individual_components:
@@ -107,6 +109,12 @@ coverage:
       default:
         target: 75% # for new code added in the patch
         only_pulls: true
+        # The blocking status keeps counting exactly the files it counted before datahub-frontend's
+        # Java coverage was uploaded (frontend-java flag). Codecov still shows that coverage, and
+        # its wiring files count toward the informational codecov/patch/wiring status, but it
+        # never blocks a PR.
+        paths:
+          - "!datahub-frontend/**"
 
 ignore:
   # Import-time / interpreter-startup hooks: their import-time wiring only runs in
