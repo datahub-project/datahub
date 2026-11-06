@@ -622,6 +622,50 @@ def test_onprem_script_table_without_upstream_is_skipped(
     assert bool(source.reporter.warnings) == warns
 
 
+@pytest.mark.parametrize(
+    "condition",
+    [
+        "ON o.id = d.order_id\r\n$(vWhere)\r\nAND (d.code LIKE 'A%')",
+        "ON o.id = d.order_id WHERE $(vWhere) AND d.code LIKE 'A%'",
+    ],
+    ids=["after_join", "after_where"],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_onprem_script_unset_condition_variable_keeps_lineage(
+    mock_onprem: MagicMock, condition: str
+) -> None:
+    _, tables = _script_tables(
+        mock_onprem,
+        {},
+        script=(
+            "LIB CONNECT TO 'Sales SQL';\nOrders:\nSQL SELECT o.id, d.code "
+            f"FROM sales_db.dbo.orders o LEFT JOIN sales_db.dbo.details d {condition};"
+        ),
+    )
+
+    assert sorted(tables[0].upstream_urns) == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.details,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sales_db.dbo.orders,PROD)",
+    ]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_onprem_script_unset_variable_in_table_name_is_skipped(
+    mock_onprem: MagicMock,
+) -> None:
+    source, tables = _script_tables(
+        mock_onprem,
+        {},
+        script=(
+            "LIB CONNECT TO 'Sales SQL';\nOrders:\n"
+            "SQL SELECT id FROM sales_db.dbo.orders_$(vYear) WHERE id > 1 AND id < 9;"
+        ),
+    )
+
+    assert tables == []
+    assert source.reporter.warnings
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
 def test_onprem_script_bracket_identifiers_parse_on_backtick_platforms(
     mock_onprem: MagicMock,
