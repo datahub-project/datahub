@@ -158,6 +158,25 @@ def test_unchanged_app_is_skipped_and_kept(mock_datahub_graph: MagicMock) -> Non
         assert app_urns <= set(_stale_urns(later))
 
 
+def test_app_is_read_when_checkpoint_cannot_be_loaded(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    with patch(
+        "datahub.ingestion.source.qlik_sense.app_state.QlikAppStateHandler.previous",
+        side_effect=RuntimeError("checkpoint unavailable"),
+    ):
+        second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert qlik.engine_opens == 2
+    assert second.reporter.apps_read == 1
+    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+
+
 def _container_urn(source: QlikSenseSource) -> str:
     return source._gen_app_key("app-1").as_urn()
 

@@ -419,13 +419,21 @@ class QlikOnPremAPI:
         app_dict: Dict,
         is_unchanged: Optional[Callable[[str, str], bool]],
     ) -> Union[App, UnchangedApp, None]:
-        fingerprint = self.app_fingerprint(app_dict) if is_unchanged else None
-        if (
-            is_unchanged
-            and fingerprint
-            and is_unchanged(app_dict[Constant.ID], fingerprint)
-        ):
-            return UnchangedApp(id=app_dict[Constant.ID], fingerprint=fingerprint)
+        fingerprint: Optional[str] = None
+        if is_unchanged:
+            # Dropping the app here would let stale entity removal delete it, so
+            # any error while checking for changes falls back to reading it.
+            try:
+                fingerprint = self.app_fingerprint(app_dict)
+                if fingerprint and is_unchanged(app_dict[Constant.ID], fingerprint):
+                    return UnchangedApp(
+                        id=app_dict[Constant.ID], fingerprint=fingerprint
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Unable to check whether app {app_dict.get(Constant.ID)} "
+                    f"changed, reading it instead. Exception: {e}"
+                )
         return self._load_app(app_dict, fingerprint)
 
     def app_fingerprint(self, app_dict: Dict) -> Optional[str]:
