@@ -158,6 +158,21 @@ def test_unchanged_app_is_skipped_and_kept(mock_datahub_graph: MagicMock) -> Non
         assert app_urns <= set(_stale_urns(later))
 
 
+def test_app_with_removed_child_is_still_skipped(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    datahub.soft_deleted.add("urn:li:dashboard:(qlik-sense,qlik-sense.removed-sheet)")
+    second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert qlik.engine_opens == 1
+    assert second.reporter.apps_skipped_unchanged == 1
+
+
 def test_app_is_read_when_checkpoint_cannot_be_loaded(
     mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
