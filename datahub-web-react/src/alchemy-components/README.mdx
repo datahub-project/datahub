@@ -22,21 +22,18 @@ import type { ButtonProps } from '@components';
 
 ### Theme Usage
 
-This component library comes with a complete theme utility that pre-defines all of our styling atoms and makes them accessible at `@components/theme`.
+Style components with the semantic color tokens on the styled-components theme. They follow the active light or dark theme automatically:
 
 ```tsx
-import { colors } from '@components/theme';
+import styled from 'styled-components';
 
-function YourComponent() {
-	return (
-		<div style={{ bgColor: colors.green.400 }}>
-			This div has a green background!
-		</div>
-	)
-}
+const SuccessBanner = styled.div`
+    background: ${(props) => props.theme.colors.bgSurfaceSuccess};
+    color: ${(props) => props.theme.colors.textSuccess};
+`;
 ```
 
-You can access the theme types at `@components/theme/types` and the theme config at `@components/theme/config`.
+You can access the theme config and style-prop types at `@components/theme/config`.
 
 ### Writing Docs
 
@@ -65,7 +62,7 @@ Building a component library is a collaborative effort! We're aiming to provide 
   -- Booleans are prefixed with `is`: `isLoading` or `isDisabled`.
 - All style props have a corresponding theme type, ie. `FontSizeOptions`.
 - All components have an export of default props.
-- Styles are defined using `style objects` instead of `tagged template literals`.
+- Styles are defined using `styled-components` tagged template literals.
 - Stories are organized into the correct directory .
 
 ### FAQs

@@ -68,15 +68,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
+          java: false
+          gradle: false
           python-version: "3.12"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
-        with:
-          enable-cache: true
 
       - name: Install dependencies
         run: uv pip install requests --system

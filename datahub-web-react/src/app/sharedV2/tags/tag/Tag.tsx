@@ -5,8 +5,8 @@ import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import { formatAttributionOrigin, getAttributionOrigin, isExternal } from '@app/entity/shared/propagation/utils';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import { formatAttributionOrigin, getAttributionOrigin, isExternal } from '@app/entityV2/shared/propagation/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';

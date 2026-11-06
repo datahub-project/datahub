@@ -7,17 +7,30 @@ import com.linkedin.common.FabricType
  * Key for a GlossaryNode
  */
 @Aspect = {
-  "name": "glossaryNodeKey"
+  "name": "glossaryNodeKey",
+  "schemaVersion": 2
 }
 record GlossaryNodeKey {
 
+  /**
+   * Unique id for the node. Callers may supply one; otherwise creation stores a UUID.
+   * The display name is GlossaryNodeInfo.name.
+   */
   @Searchable = {
     "v3": {
       "queryByDefault": true,
-      "lowercase": true
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
     },
     "fieldType": "WORD_GRAM",
-    "enableAutocomplete": true
+    "enableAutocomplete": true,
+    "fieldName": "id"
   }
   name: string
 

@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
-import RequiredPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
+import OptionalPromptsRemaining from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
+import RequiredPromptsRemaining from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
 import {
     CTAWrapper,
     Content,

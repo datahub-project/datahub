@@ -232,6 +232,12 @@ public class AspectTestUtils {
     }
 
     @Override
+    public java.util.Optional<com.linkedin.metadata.models.EntitySpec> findEntitySpec(
+        String entityName) {
+      return delegate.findEntitySpec(entityName);
+    }
+
+    @Override
     public com.linkedin.metadata.models.EventSpec getEventSpec(String eventName) {
       return delegate.getEventSpec(eventName);
     }

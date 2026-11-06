@@ -102,8 +102,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
   @Test
   public void testHandleActorAccessExceptionUnauthorized()
       throws ExecutionException, InterruptedException {
-    ActorAccessException exception =
-        new ActorAccessException("Selecting a search template requires MANAGE_SYSTEM_OPERATIONS");
+    ActorAccessException exception = new ActorAccessException("Actor is not authorized");
     Mockito.when(mockParameters.getException()).thenReturn(exception);
 
     DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
@@ -111,8 +110,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertNotNull(result);
     assertEquals(result.getErrors().size(), 1);
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
-    assertEquals(
-        error.getMessage(), "Selecting a search template requires MANAGE_SYSTEM_OPERATIONS");
+    assertEquals(error.getMessage(), "Actor is not authorized");
     assertEquals(error.getErrorCode(), 403);
   }
 

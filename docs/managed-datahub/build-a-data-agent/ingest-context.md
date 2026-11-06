@@ -53,15 +53,13 @@ Agents trust what they read, so outdated pages do more harm than good. Import th
 
 A few hours here pays off in every answer. You can do all of this from a table's page in DataHub.
 
+- **Certify what you trust.** Certify the tables and documents your team stands behind, so your agent uses them first. See [Certification](../../features/feature-guides/context/certification.md).
 - **Deprecate look-alike tables.** If people keep querying an outdated copy by mistake, mark it deprecated. Your agent will avoid it.
 - **Document guardrails.** For your most error-prone tables, write a short document with the rules people learn the hard way ("filter out `is_test`", "amounts are in cents"), and relate it to those tables. Your agent sees it whenever it looks them up.
 - **Describe your key tables.** Start with the ten or twenty that matter most. A sentence each is enough.
 - **Assign owners,** so DataHub knows who reviews changes.
 - **Define key terms,** such as "active customer," in the [Business Glossary](../../glossary/business-glossary.md), and link them to the columns that implement them.
 - **Assign everything to your domain,** including documents, so you can point your agent at this area later.
-
-<!-- TODO(certification): When certification ships, add a bullet near the top, e.g.
-"**Certify what you trust.** Certify the tables and docs your team stands behind. Certified context gets a boost when agents search." Link to the certification feature guide. -->
 
 Each of these is a signal DataHub uses to rank what your agent sees. See [Technical context](./key-concepts.md#technical-context).
 

@@ -100,5 +100,9 @@
     "searchActions.owners.addTitle": "Tulajdonosok hozzáadása",
     "searchActions.owners.removeTitle": "Tulajdonosok eltávolítása",
     "searchActions.tags.addTitle": "Címkék hozzáadása",
-    "searchActions.tags.removeTitle": "Címkék eltávolítása"
+    "searchActions.tags.removeTitle": "Címkék eltávolítása",
+    "structuredProperty.addMore": "+ Több hozzáadása",
+    "structuredProperty.selectPlaceholder": "Kiválasztás",
+    "viewAll.resultsIncomplete": "Az eredmények hiányosak lehetnek.",
+    "viewAll.searchAllAssets": "Az összes betöltött {{platform}} eszköz keresése"
 }

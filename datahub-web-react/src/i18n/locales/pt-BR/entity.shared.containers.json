@@ -131,7 +131,7 @@
     "sidebar.domain.setModalTitle": "Definir Domínio",
     "sidebar.domain.updatedSuccess": "Domínio Atualizado!",
     "sidebar.entityTypeCount_one": "{{count}} {{type}}",
-    "sidebar.entityTypeCount_other": "{{count}} {{type}}s",
+    "sidebar.entityTypeCount_other": "{{count}} {{type}}",
     "sidebar.formInfo.assignedBodyText": "Você foi solicitado a concluir um conjunto de requisitos para esta entity.",
     "sidebar.formInfo.awaitingDocumentationTitle": "Aguardando Documentação",
     "sidebar.formInfo.awaitingVerificationTitle": "Aguardando Verificação",
