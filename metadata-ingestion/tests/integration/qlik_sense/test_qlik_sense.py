@@ -758,7 +758,7 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 6,
+        "id": 7,
         "handle": 2,
         "method": "GetChild",
         "params": {"qId": "QYUUb"},
@@ -773,7 +773,7 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 7,
+        "id": 8,
         "handle": 3,
         "method": "GetLayout",
         "params": {},
@@ -860,35 +860,51 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 8,
-        "handle": 3,
-        "method": "GetProperties",
+        "id": 6,
+        "handle": 2,
+        "method": "GetFullPropertyTree",
         "params": {},
     }:
         return {
-            "qProp": {
-                "qInfo": {"qId": "QYUUb", "qType": "scatterplot"},
-                "qHyperCubeDef": {
-                    "qDimensions": [{"qDef": {"qFieldDefs": ["City"]}}],
-                    "qMeasures": [
-                        {"qLibraryId": "", "qDef": {"qDef": "Sum(Date)"}},
-                        {"qLibraryId": "mWins", "qDef": {"qDef": ""}},
-                    ],
-                },
+            "qPropEntry": {
+                "qProperty": {"qInfo": {"qId": "f4f57386-263a-4ec9-b40c-abcd2467f423"}},
+                "qChildren": [
+                    {
+                        "qProperty": {
+                            "qInfo": {"qId": "QYUUb", "qType": "scatterplot"},
+                            "qHyperCubeDef": {
+                                "qDimensions": [{"qDef": {"qFieldDefs": ["City"]}}],
+                                "qMeasures": [
+                                    {"qLibraryId": "", "qDef": {"qDef": "Sum(Date)"}},
+                                    {"qLibraryId": "mWins", "qDef": {"qDef": ""}},
+                                ],
+                            },
+                        },
+                        "qChildren": [],
+                    }
+                ],
             }
         }
     elif request == {
         "jsonrpc": "2.0",
         "id": 9,
         "handle": 1,
-        "method": "GetMeasure",
-        "params": {"qId": "mWins"},
+        "method": "CreateSessionObject",
+        "params": [
+            {
+                "qInfo": {"qType": "MeasureList"},
+                "qMeasureListDef": {
+                    "qType": "measure",
+                    "qData": {"measure": "/qMeasure"},
+                },
+            }
+        ],
     }:
         return {
             "qReturn": {
-                "qType": "GenericMeasure",
+                "qType": "GenericObject",
                 "qHandle": 5,
-                "qGenericId": "mWins",
+                "qGenericId": "measure-list",
             }
         }
     elif request == {
@@ -900,10 +916,19 @@ def mock_websocket_response(*args, **kwargs):
     }:
         return {
             "qLayout": {
-                "qInfo": {"qId": "mWins", "qType": "measure"},
-                "qMeasure": {
-                    "qLabel": "Wins",
-                    "qDef": "Count({<WonBy={'Runs'}>} [WinningTeam])",
+                "qInfo": {"qId": "measure-list", "qType": "MeasureList"},
+                "qMeasureList": {
+                    "qItems": [
+                        {
+                            "qInfo": {"qId": "mWins", "qType": "measure"},
+                            "qData": {
+                                "measure": {
+                                    "qLabel": "Wins",
+                                    "qDef": "Count({<WonBy={'Runs'}>} [WinningTeam])",
+                                }
+                            },
+                        }
+                    ]
                 },
             }
         }
