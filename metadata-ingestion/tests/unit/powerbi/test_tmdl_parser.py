@@ -218,6 +218,45 @@ def test_parse_directlake_entity_partition() -> None:
     assert partition.source is None
 
 
+def test_parse_directlake_entity_name_with_spaces_is_unquoted() -> None:
+    table = parse_table(
+        "table 'Claim Events'\n"
+        "\n"
+        "\tpartition 'Claim Events' = entity\n"
+        "\t\tmode: directLake\n"
+        "\t\tsource\n"
+        "\t\t\tentityName: 'claim events'\n"
+        "\t\t\tschemaName: dbo\n"
+        "\t\t\texpressionSource: DatabaseQuery\n"
+    )
+    assert table is not None
+    assert table.partition is not None
+    assert table.partition.entity_name == "claim events"
+    assert table.partition.schema_name == "dbo"
+
+
+def test_parse_entity_partition_unquotes_expression_source() -> None:
+    # A composite model's remote table names a shared expression with spaces,
+    # which TMDL quotes; the lookup into shared_expressions needs the bare name.
+    table = parse_table(
+        "table Policies\n"
+        "\n"
+        "\tcolumn PolicyId\n"
+        "\t\tdataType: int64\n"
+        "\n"
+        "\tpartition Policies = entity\n"
+        "\t\tmode: directQuery\n"
+        "\t\tsource\n"
+        "\t\t\tentityName: Policies\n"
+        "\t\t\texpressionSource: 'DirectQuery to AS - Insurance Model'\n"
+    )
+    assert table is not None
+    assert table.partition is not None
+    assert table.partition.mode == "directQuery"
+    assert table.partition.entity_name == "Policies"
+    assert table.partition.expression_source == "DirectQuery to AS - Insurance Model"
+
+
 def test_parse_query_partition_keeps_sql_and_following_properties() -> None:
     table = parse_table(QUERY_TABLE)
     assert table is not None
