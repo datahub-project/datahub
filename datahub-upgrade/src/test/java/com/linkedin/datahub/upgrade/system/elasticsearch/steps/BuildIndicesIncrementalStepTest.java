@@ -725,6 +725,37 @@ public class BuildIndicesIncrementalStepTest {
             .contains(OLD_BACKING_INDEX_NAME));
   }
 
+  @Test
+  public void testRebuildRetiresAnOldBackingIndexFromAnotherIdScheme() throws Throwable {
+    assertStaleCopyIsRetired(
+        IncrementalReindexState.setOldBackingIndexIdSchemeStale(
+            previousRow(INDEX_NAME, IncrementalReindexState.Status.COMPLETED), INDEX_NAME));
+  }
+
+  @Test
+  public void testRebuildRetiresAnOldBackingIndexFromAnIncompleteMigration() throws Throwable {
+    assertStaleCopyIsRetired(
+        IncrementalReindexState.setOldBackingIndexIncompleteMigration(
+            previousRow(INDEX_NAME, IncrementalReindexState.Status.COMPLETED), INDEX_NAME));
+  }
+
+  private void assertStaleCopyIsRetired(Map<String, String> previousState) throws Throwable {
+    // The copy still exists, but live writes were not mirrored into it, so it is not kept.
+    givenPreviousState(previousState);
+    ReindexConfig droppedConfig = missingIndexConfig(INDEX_NAME);
+
+    assertEquals(step.executable().apply(upgradeContext).result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(droppedConfig));
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.DUAL_WRITE_DISABLED));
+    assertEquals(
+        IncrementalReindexState.get(
+            state, INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.empty());
+  }
+
   @DataProvider(name = "fillStatuses")
   public Object[][] fillStatuses() {
     return new Object[][] {
