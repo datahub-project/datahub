@@ -1,12 +1,12 @@
 import { ApolloClient, ApolloProvider, InMemoryCache } from '@apollo/client';
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_STATE, UserContext } from '@app/context/userContext';
 import { DocumentTreeContext, DocumentTreeProvider, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { DOCUMENT_PAGE_SIZE, useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import * as documentGenerated from '@graphql/document.generated';
 
@@ -533,13 +533,20 @@ describe('useLoadDocumentTree', () => {
     // could ever re-trigger a load, so `loading` could get stuck `true` forever once the
     // sentinel unmounted. These tests exercise the explicit clear-and-refetch fix directly.
     describe('active View changes', () => {
-        const viewWrapper = ({ children, viewUrn }: any) => (
+        // Testing Library doesn't pass hook props to the wrapper, so wrappers read the View from here
+        let selectedViewUrn = 'urn:li:dataHubView:a';
+
+        beforeEach(() => {
+            selectedViewUrn = 'urn:li:dataHubView:a';
+        });
+
+        const viewWrapper = ({ children }: { children: React.ReactNode }) => (
             <ApolloProvider client={mockClient}>
                 <UserContext.Provider
                     value={{
                         loaded: true,
                         urn: 'urn:li:corpuser:test',
-                        localState: { selectedViewUrn: viewUrn },
+                        localState: { selectedViewUrn },
                         state: DEFAULT_STATE,
                         updateLocalState: () => null,
                         updateState: () => null,
@@ -558,14 +565,14 @@ describe('useLoadDocumentTree', () => {
 
             const { rerender } = renderHook(() => useLoadDocumentTree(), {
                 wrapper: viewWrapper,
-                initialProps: { viewUrn: 'urn:li:dataHubView:a' },
             });
 
             await waitFor(() => expect(mockSearchDocumentsLazyQuery).toHaveBeenCalled());
             mockInitializeTree.mockClear();
             mockSearchDocumentsLazyQuery.mockClear();
 
-            rerender({ viewUrn: 'urn:li:dataHubView:b' });
+            selectedViewUrn = 'urn:li:dataHubView:b';
+            rerender();
 
             // The clear happens synchronously in the same effect that kicks off the refetch.
             expect(mockInitializeTree).toHaveBeenCalledWith([]);
@@ -588,14 +595,13 @@ describe('useLoadDocumentTree', () => {
 
             const { rerender } = renderHook(() => useLoadDocumentTree(), {
                 wrapper: viewWrapper,
-                initialProps: { viewUrn: 'urn:li:dataHubView:a' },
             });
 
             await waitFor(() => expect(mockSearchDocumentsLazyQuery).toHaveBeenCalled());
             mockInitializeTree.mockClear();
             mockSearchDocumentsLazyQuery.mockClear();
 
-            rerender({ viewUrn: 'urn:li:dataHubView:a' });
+            rerender();
 
             expect(mockInitializeTree).not.toHaveBeenCalled();
             expect(mockSearchDocumentsLazyQuery).not.toHaveBeenCalled();
@@ -620,13 +626,13 @@ describe('useLoadDocumentTree', () => {
             // Use the real DocumentTreeProvider here (rather than the mocked context value used
             // elsewhere in this file) so getRootNodes/initializeTree are actually wired together —
             // that coupling is exactly what the original "already populated" guard bug hid.
-            const realWrapper = ({ children, viewUrn }: any) => (
+            const realWrapper = ({ children }: { children: React.ReactNode }) => (
                 <ApolloProvider client={mockClient}>
                     <UserContext.Provider
                         value={{
                             loaded: true,
                             urn: 'urn:li:corpuser:test',
-                            localState: { selectedViewUrn: viewUrn },
+                            localState: { selectedViewUrn },
                             state: DEFAULT_STATE,
                             updateLocalState: () => null,
                             updateState: () => null,
@@ -644,13 +650,14 @@ describe('useLoadDocumentTree', () => {
                     const ctx = useDocumentTree();
                     return { tree, ctx };
                 },
-                { wrapper: realWrapper, initialProps: { viewUrn: 'urn:li:dataHubView:a' } },
+                { wrapper: realWrapper },
             );
 
             await waitFor(() => expect(result.current.tree.loading).toBe(false));
             expect(result.current.ctx.getRootNodes().map((n) => n.urn)).toEqual(['urn:li:document:viewA-doc']);
 
-            rerender({ viewUrn: 'urn:li:dataHubView:b' });
+            selectedViewUrn = 'urn:li:dataHubView:b';
+            rerender();
 
             // Must resolve back to false — a regression here means the sidebar spinner
             // never clears (see the bug description above).

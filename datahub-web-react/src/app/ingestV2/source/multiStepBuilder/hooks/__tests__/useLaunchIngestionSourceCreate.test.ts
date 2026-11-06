@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildGitHubDocumentsIngestionState } from '@app/context/import/buildGitHubDocumentsIngestionState';
 import { useLaunchIngestionSourceCreate } from '@app/ingestV2/source/multiStepBuilder/hooks/useLaunchIngestionSourceCreate';
 import { PageRoutes } from '@conf/Global';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockPush = vi.fn();
 

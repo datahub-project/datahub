@@ -1,7 +1,6 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import useDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useDomains';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { EntityType, FilterOperator, SortOrder } from '@types';

@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useEntityContext } from '@app/entityV2/shared/EntityContext';
@@ -10,6 +9,7 @@ import {
     TERMS_PROPERTY,
 } from '@app/entityV2/summary/properties/constants';
 import useBasicAssetProperties from '@app/entityV2/summary/properties/hooks/useBasicAssetProperties';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 
