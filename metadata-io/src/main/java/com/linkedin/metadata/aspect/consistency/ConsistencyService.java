@@ -21,7 +21,9 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
 import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.retry.ExponentialBackoffRetry;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -74,6 +76,8 @@ import org.opensearch.search.SearchHit;
 public class ConsistencyService {
   private static final UnknownDataGuard UNKNOWN_DATA =
       UnknownDataGuard.forSite(ConsistencyService.class, "consistency check of");
+  private static final int SCROLL_MAX_ATTEMPTS = 3;
+  private static final long SCROLL_INITIAL_BACKOFF_MS = 1000L;
 
   private final EntityService<?> entityService;
   private final ESSystemMetadataDAO esSystemMetadataDAO;
@@ -364,17 +368,9 @@ public class ConsistencyService {
     // Scroll system metadata index. A null response is a failed search, not the end of the
     // results. Treating it as exhaustion starts the index pass, skips the remaining SQL pages,
     // and can still publish a cursor so the job looks finished.
-    SearchResponse response =
-        esSystemMetadataDAO.scroll(
-            opContext,
-            query,
-            request.isIncludeSoftDeleted(),
-            request.getScrollId(),
-            null, // pitId
-            "5m", // keepAlive
-            request.getBatchSize());
+    final SearchResponse response = scrollWithRetry(opContext, query, request, resolvedEntityType);
 
-    if (response == null || response.getHits() == null || response.getHits().getHits() == null) {
+    if (response.getHits() == null || response.getHits().getHits() == null) {
       throw new IllegalStateException("Failed to scroll system metadata for " + resolvedEntityType);
     }
 
@@ -562,6 +558,48 @@ public class ConsistencyService {
         .issues(issues)
         .scrollId(sqlScrollId != null ? sqlScrollId : followScroll)
         .build();
+  }
+
+  /** Scrolls the system-metadata index, retrying failed searches; throws if every attempt fails. */
+  @Nonnull
+  private SearchResponse scrollWithRetry(
+      @Nonnull OperationContext opContext,
+      @Nonnull final BoolQueryBuilder query,
+      @Nonnull final CheckBatchRequest request,
+      @Nonnull final String entityType) {
+    final SearchResponse[] response = new SearchResponse[1];
+    final boolean succeeded =
+        ExponentialBackoffRetry.run(
+            SCROLL_MAX_ATTEMPTS,
+            SCROLL_INITIAL_BACKOFF_MS,
+            () -> {
+              response[0] =
+                  esSystemMetadataDAO.scroll(
+                      opContext,
+                      query,
+                      request.isIncludeSoftDeleted(),
+                      request.getScrollId(),
+                      null, // pitId
+                      "5m", // keepAlive
+                      request.getBatchSize());
+              if (response[0] == null) {
+                throw new IOException("System metadata scroll returned no response");
+              }
+            },
+            (attempt, error) ->
+                log.warn(
+                    "System metadata scroll for entity type {} failed (attempt {} of {}): {}",
+                    entityType,
+                    attempt,
+                    SCROLL_MAX_ATTEMPTS,
+                    error != null ? error.getMessage() : null));
+    if (!succeeded) {
+      throw new IllegalStateException(
+          String.format(
+              "System metadata scroll for entity type %s failed after %d attempts",
+              entityType, SCROLL_MAX_ATTEMPTS));
+    }
+    return response[0];
   }
 
   /**
