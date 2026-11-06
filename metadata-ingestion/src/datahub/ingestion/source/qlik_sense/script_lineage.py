@@ -50,6 +50,11 @@ PLATFORM_KEYWORDS: Dict[str, str] = {
     "oracle": "oracle",
     "mysql": "mysql",
 }
+# A keyword only counts at the start of a word, so "MySQL Server" is not "sql server".
+PLATFORM_KEYWORD_RES: Dict[str, "re.Pattern[str]"] = {
+    keyword: re.compile(rf"(?<![a-z]){re.escape(keyword)}")
+    for keyword in PLATFORM_KEYWORDS
+}
 
 
 class ScriptTable(BaseModel):
@@ -166,7 +171,12 @@ def parse_load_script(script: str) -> List[ScriptTable]:
 def infer_data_connection(name: str, descriptor: str) -> DataConnectionInfo:
     text = f"{name} {descriptor}".lower()
     platform = next(
-        (value for keyword, value in PLATFORM_KEYWORDS.items() if keyword in text), None
+        (
+            value
+            for keyword, value in PLATFORM_KEYWORDS.items()
+            if PLATFORM_KEYWORD_RES[keyword].search(text)
+        ),
+        None,
     )
     database = DATABASE_RE.search(descriptor)
     return DataConnectionInfo(
