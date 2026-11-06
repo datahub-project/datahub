@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.telemetry;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -35,6 +36,12 @@ public final class TelemetryUtils {
       _clientId = ((TelemetryClientId) clientIdTemplate).getClientId();
     }
     return _clientId;
+  }
+
+  /** The cache is process-wide, so a test that stubs the aspect must clear it for later tests. */
+  @VisibleForTesting
+  public static void resetClientIdCache() {
+    _clientId = null;
   }
 
   private static void createClientIdIfNotPresent(

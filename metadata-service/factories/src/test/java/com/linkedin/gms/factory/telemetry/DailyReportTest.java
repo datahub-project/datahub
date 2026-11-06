@@ -29,6 +29,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.search.SearchHits;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -76,6 +77,12 @@ public class DailyReportTest {
     when(mockIndexConvention.getEntityIndexName(any(OperationFingerprint.class), anyString()))
         .thenAnswer(invocation -> invocation.getArgument(1) + "index_v2");
     when(mockGitVersion.getVersion()).thenReturn("test-version");
+  }
+
+  @AfterMethod
+  public void tearDown() {
+    // Constructing a DailyReport caches the stubbed client id process-wide.
+    TelemetryUtils.resetClientIdCache();
   }
 
   /**
