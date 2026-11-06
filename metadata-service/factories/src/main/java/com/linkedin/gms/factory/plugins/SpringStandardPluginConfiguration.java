@@ -912,6 +912,14 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ASSERTION_ENTITY_NAME)
                             .aspectName(ASSERTION_RUN_EVENT_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ASSERTION_ENTITY_NAME)
+                            .aspectName(ASSERTION_RUN_SUMMARY_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ASSERTION_ENTITY_NAME)
+                            .aspectName(STATUS_ASPECT_NAME)
                             .build()))
                 .build());
   }

@@ -2489,9 +2489,9 @@ metadataChangeProposal:
     aspectAuthorization:
       assertion:
         # Requires Edit Assertions (or Edit Entity) on the asserted asset to attach, re-target,
-        # delete or report results for an assertion through any write API
+        # delete, soft delete or report results for an assertion through any write API
         enabled: ${MCP_VALIDATION_ASSERTION_AUTHORIZATION:true}
-        # Run events dated further ahead of the server clock are rejected
+        # Run events and run summaries dated further ahead of the server clock are rejected
         maxFutureSkewSeconds: ${MCP_VALIDATION_ASSERTION_MAX_FUTURE_SKEW_SECONDS:300}
       corpUserCredentials:
         enabled: ${MCP_VALIDATION_CORP_USER_CREDENTIALS:true}
