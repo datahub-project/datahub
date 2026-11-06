@@ -1,3 +1,4 @@
+import json
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 
@@ -41,14 +42,29 @@ APP_OBJECTS = [
 ]
 
 
+SECOND_APP = {**APP, "id": "app-2", "name": "Marketing"}
+SECOND_STREAM = {**STREAM, "id": "stream-2", "name": "Finance"}
+
+
+def _app_engine_calls(app_id: str) -> List[Dict[str, object]]:
+    # Sheet ids are unique across apps in Qlik.
+    return json.loads(
+        json.dumps(_engine_calls()).replace('"sheet-1"', f'"sheet-of-{app_id}"')
+    )
+
+
 class _Qlik:
-    """QRS and Engine stand-in whose app can be edited between runs."""
+    """QRS and Engine stand-in whose apps can be edited between runs."""
 
     def __init__(self) -> None:
         self.app = dict(APP)
+        self.other_apps: List[Dict[str, object]] = []
         self.objects = [dict(obj) for obj in APP_OBJECTS]
+        self.data_connection = dict(DATA_CONNECTION)
         self.engine_opens = 0
         self.engine_fails = False
+        self.engine_fails_for: Set[str] = set()
+        self.objects_fail = False
 
     def qrs_get(
         self, url: str, params: Optional[Dict[str, str]] = None, **_: object
@@ -56,22 +72,33 @@ class _Qlik:
         if url.endswith("/about"):
             return _Response({"buildVersion": "14.129.3"})
         if url.endswith("/stream/full"):
-            return _Response([STREAM])
+            return _Response([STREAM, SECOND_STREAM])
         if url.endswith("/app/full"):
-            return _Response([self.app])
+            assert params is not None
+            return _Response(
+                [
+                    app
+                    for app in [self.app, *self.other_apps]
+                    if params["filter"] == f"stream.id eq {app['stream']['id']}"  # type: ignore[index]
+                ]
+            )
         if url.endswith("/app/object/full"):
-            assert params is not None and params["filter"] == "app.id eq app-1"
+            assert params is not None and params["filter"].startswith("app.id eq ")
+            if self.objects_fail:
+                return _Response({}, status_code=503)
             return _Response(self.objects)
         if url.endswith("/dataconnection/full"):
-            return _Response([DATA_CONNECTION])
+            return _Response([self.data_connection])
         raise AssertionError(url)
 
-    def open_engine(self, **_: object) -> MagicMock:
+    def open_engine(self, app_id: str, **_: object) -> MagicMock:
         self.engine_opens += 1
-        if self.engine_fails:
+        if self.engine_fails or app_id in self.engine_fails_for:
             raise OSError("engine port closed")
         websocket = MagicMock()
-        websocket.websocket_send_request.side_effect = _engine_calls()
+        websocket.websocket_send_request.side_effect = (
+            _engine_calls() if app_id == "app-1" else _app_engine_calls(app_id)
+        )
         websocket.get_script.return_value = LOAD_SCRIPT
         return websocket
 
@@ -209,6 +236,10 @@ def _container_urn(source: QlikSenseSource) -> str:
         "sheet_soft_deleted",
         "datahub_fingerprint_differs",
         "ignore_old_state",
+        "data_connection_changed",
+        "app_reloaded",
+        "app_moved_stream",
+        "datahub_unreachable",
     ],
 )
 def test_app_is_read_again(mock_datahub_graph: MagicMock, change: str) -> None:  # noqa: F811
@@ -233,6 +264,17 @@ def test_app_is_read_again(mock_datahub_graph: MagicMock, change: str) -> None: 
         qlik.objects[0]["modifiedDate"] = "2024-02-01T09:00:00.000Z"
     if change == "recipe_changed":
         overrides["env"] = "DEV"
+    if change == "data_connection_changed":
+        qlik.data_connection["connectionstring"] = (
+            "OLEDB CONNECT TO [Provider=MSOLEDBSQL;Data Source=db.example.com;"
+            "Initial Catalog=archive_db]"
+        )
+    if change == "app_reloaded":
+        qlik.app["lastReloadTime"] = "2024-02-01T09:00:00.000Z"
+    if change == "app_moved_stream":
+        qlik.app["stream"] = {"id": "stream-2", "name": "Finance"}
+    if change == "datahub_unreachable":
+        mock_datahub_graph.get_aspect.side_effect = RuntimeError("timed out")
     if change == "container_soft_deleted":
         datahub.aspects[(container_urn, StatusClass.ASPECT_NAME)] = StatusClass(
             removed=True
@@ -257,6 +299,10 @@ def test_app_is_read_again(mock_datahub_graph: MagicMock, change: str) -> None: 
     assert qlik.engine_opens == 2
     assert second.reporter.apps_skipped_unchanged == 0
     assert second.reporter.apps_read == 1
+    if change == "datahub_unreachable":
+        assert [warning.title for warning in second.reporter.warnings] == [
+            "Unable to check whether Qlik apps changed"
+        ]
 
 
 def test_failed_read_keeps_entities_from_last_read(
@@ -274,6 +320,96 @@ def test_failed_read_keeps_entities_from_last_read(
     third, _ = _run(mock_datahub_graph, qlik, "run-3")
 
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
+    assert not [wu for wu in second_wus if wu.id.endswith("-fingerprint")]
     assert set(_stale_urns(first)) <= set(_stale_urns(second))
     assert third.reporter.apps_read == 1
     assert qlik.engine_opens == 3
+
+
+def _soft_deleted_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    return {wu.get_urn() for wu in workunits if wu.id.startswith("soft-delete-")}
+
+
+def test_app_is_skipped_when_only_max_workers_changes(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    second, _ = _run(mock_datahub_graph, qlik, "run-2", max_workers=1)
+
+    assert qlik.engine_opens == 1
+    assert second.reporter.apps_skipped_unchanged == 1
+
+
+@pytest.mark.parametrize("skip_unchanged_apps", [True, False])
+def test_deleted_app_is_soft_deleted(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+    skip_unchanged_apps: bool,
+) -> None:
+    qlik = _Qlik()
+    qlik.other_apps = [SECOND_APP]
+    datahub = _DataHub(mock_datahub_graph)
+
+    first, first_wus = _run(
+        mock_datahub_graph, qlik, "run-1", skip_unchanged_apps=skip_unchanged_apps
+    )
+    datahub.write(first_wus)
+    qlik.other_apps = []
+    second, second_wus = _run(
+        mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=skip_unchanged_apps
+    )
+
+    deleted_app_urns = {
+        first._gen_app_key("app-2").as_urn(),
+        "urn:li:dashboard:(qlik-sense,sheet-of-app-2)",
+    }
+    assert deleted_app_urns <= {wu.get_urn() for wu in first_wus}
+    assert deleted_app_urns <= _soft_deleted_urns(second_wus)
+    assert first._gen_app_key("app-1").as_urn() not in _soft_deleted_urns(second_wus)
+    assert not second.reporter.failures
+
+
+def test_partly_read_app_without_checkpoint_is_a_failure(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    qlik.other_apps = [SECOND_APP]
+    datahub = _DataHub(mock_datahub_graph)
+
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1", skip_unchanged_apps=False)
+    datahub.write(first_wus)
+    qlik.engine_fails_for = {"app-2"}
+    second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert "urn:li:dashboard:(qlik-sense,sheet-of-app-2)" in {
+        wu.get_urn() for wu in first_wus
+    }
+    assert not _soft_deleted_urns(second_wus)
+    assert "Unable to fully read Qlik app" in [
+        failure.title for failure in second.reporter.failures
+    ]
+
+
+def test_app_is_read_when_fingerprint_cannot_be_computed(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    qlik.objects_fail = True
+    second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert qlik.engine_opens == 2
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert not _soft_deleted_urns(second_wus)
+    container = first._gen_app_key("app-1").as_urn()
+    assert not [
+        wu
+        for wu in second_wus
+        if wu.get_urn() == container and wu.id.endswith("-fingerprint")
+    ]
