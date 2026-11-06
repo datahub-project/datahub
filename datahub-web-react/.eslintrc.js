@@ -247,25 +247,6 @@ const TS_RESTRICTED_IMPORT_PATHS = [
     },
 ];
 
-// Alchemy components that app code renders through an app wrapper, which plugs in app behavior.
-// App code imports the wrapper; only the wrapper itself imports the alchemy component.
-const APP_WRAPPED_ALCHEMY_COMPONENTS = [
-    {
-        name: 'Editor',
-        modules: ['Editor', 'Editor/Editor', 'Editor/EditorImpl'],
-        wrapper: 'src/app/sharedV2/editor/Editor.tsx',
-        message: "Import Editor from '@app/sharedV2/editor/Editor': it adds DataHub mentions and the file upload flag.",
-    },
-];
-
-function appWrappedAlchemyImportPaths(components) {
-    return components.flatMap(({ name, modules, message }) =>
-        ['@components', '@src/alchemy-components']
-            .flatMap((root) => [root, ...modules.map((module) => `${root}/components/${module}`)])
-            .map((importPath) => ({ name: importPath, importNames: [name], message })),
-    );
-}
-
 module.exports = {
     parser: '@typescript-eslint/parser',
     extends: [
@@ -320,6 +301,11 @@ module.exports = {
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
         '@typescript-eslint/no-restricted-imports': ['error', { paths: TS_RESTRICTED_IMPORT_PATHS }],
         'rulesdir/no-phosphor-generic-imports': 'error',
+        // Alchemy components that app code renders through an app wrapper: one entry per component.
+        'rulesdir/use-app-wrappers': [
+            'error',
+            { components: [{ name: 'Editor', wrapper: 'src/app/sharedV2/editor/Editor.tsx' }] },
+        ],
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
@@ -432,39 +418,6 @@ module.exports = {
                 ],
             },
         },
-        // App code uses the app wrappers of APP_WRAPPED_ALCHEMY_COMPONENTS. Sets the typescript-eslint rule,
-        // so it repeats the base paths; each wrapper may import its own alchemy component.
-        {
-            files: ['src/**/*.ts', 'src/**/*.tsx'],
-            excludedFiles: ['src/alchemy-components/**'],
-            rules: {
-                '@typescript-eslint/no-restricted-imports': [
-                    'error',
-                    {
-                        paths: [
-                            ...TS_RESTRICTED_IMPORT_PATHS,
-                            ...appWrappedAlchemyImportPaths(APP_WRAPPED_ALCHEMY_COMPONENTS),
-                        ],
-                    },
-                ],
-            },
-        },
-        ...APP_WRAPPED_ALCHEMY_COMPONENTS.map((component) => ({
-            files: [component.wrapper],
-            rules: {
-                '@typescript-eslint/no-restricted-imports': [
-                    'error',
-                    {
-                        paths: [
-                            ...TS_RESTRICTED_IMPORT_PATHS,
-                            ...appWrappedAlchemyImportPaths(
-                                APP_WRAPPED_ALCHEMY_COMPONENTS.filter((other) => other !== component),
-                            ),
-                        ],
-                    },
-                ],
-            },
-        })),
         // antd → alchemy. New files and first-time antd imports error.
         {
             files: ['src/**/*.ts', 'src/**/*.tsx'],
