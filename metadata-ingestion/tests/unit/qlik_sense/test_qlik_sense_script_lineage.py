@@ -5,7 +5,9 @@ import pytest
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     apply_preceding_loads,
     connection_lookup_names,
+    drop_condition_variables,
     infer_data_connection,
+    is_connector_sql,
     parse_load_script,
 )
 
@@ -254,6 +256,10 @@ SQL SELECT order_id FROM dbo.orders;
     "between",
     [
         pytest.param("Xml: LOAD Value FROM_FIELD (Raw, Payload);", id="from_field"),
+        pytest.param(
+            "Scores: LOAD Id, Score EXTENSION Model.Predict(Orders{Id});",
+            id="extension",
+        ),
         pytest.param("LOAD Value;\nLIB CONNECT TO 'Sales SQL';", id="connect"),
         pytest.param("LOAD Value;\nDISCONNECT;", id="disconnect"),
     ],
@@ -269,3 +275,71 @@ SQL SELECT order_id FROM dbo.orders;
     )
 
     assert table.preceding_loads == []
+    assert apply_preceding_loads(
+        table.preceding_loads, {"order_id": ["order_id_urn"]}
+    ) == {"order_id": ["order_id_urn"]}
+
+
+@pytest.mark.parametrize(
+    "field_list",
+    [
+        pytest.param("order_id, from_field", id="field_named_from_field"),
+        pytest.param("order_id, extension", id="field_named_extension"),
+        pytest.param("order_id, '$(vReloadDate)' AS loaded", id="variable_in_string"),
+    ],
+)
+def test_preceding_load_fields_that_look_like_clauses(field_list: str) -> None:
+    (table,) = parse_load_script(
+        f"""
+LIB CONNECT TO 'Sales SQL';
+Orders:
+LOAD {field_list};
+SQL SELECT order_id, from_field, extension, amount FROM dbo.orders;
+"""
+    )
+
+    assert "amount" not in apply_preceding_loads(
+        table.preceding_loads,
+        {name: [f"{name}_urn"] for name in ("order_id", "from_field", "extension", "amount")},
+    )
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        ('SELECT "id" FROM JSON (wrap on) "root"', True),
+        ('SELECT "id" FROM XML "root"', True),
+        ('SELECT id FROM t WITH CONNECTION (URL "https://example.com")', True),
+        ("SELECT id FROM json", False),
+        ("SELECT id FROM t WHERE note = 'FROM JSON (x)'", False),
+    ],
+)
+def test_is_connector_sql(sql: str, expected: bool) -> None:
+    assert is_connector_sql(sql) == expected
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        ("ON a = b $(v) AND c = 1", "ON a = b  AND c = 1"),
+        ("ON $(v) AND c = 1", "ON 1 = 1 AND c = 1"),
+        ("WHERE ($(v) OR c = 1)", "WHERE (1 = 1 OR c = 1)"),
+        ("WHERE c = 1 AND $(v)", "WHERE c = 1 AND 1 = 1"),
+        ("WHERE $(v)", "WHERE 1 = 1"),
+        ("WHERE c = $(v) AND d = 1", "WHERE c = $(v) AND d = 1"),
+        ("FROM $(vTable) t WHERE c = 1", "FROM $(vTable) t WHERE c = 1"),
+        ("FROM dbo.orders_$(vYear) AND", "FROM dbo.orders_$(vYear) AND"),
+    ],
+    ids=[
+        "between_conditions",
+        "join_start",
+        "in_parentheses",
+        "clause_end",
+        "whole_where",
+        "value",
+        "table",
+        "table_suffix",
+    ],
+)
+def test_drop_condition_variables(sql: str, expected: str) -> None:
+    assert drop_condition_variables(sql) == expected
