@@ -32,6 +32,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldRes
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -116,16 +117,11 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
             List<SortCriterion> sortCriteria =
                 input.getSortInput() != null
                     ? Collections.singletonList(
-                        mapSortCriterion(input.getSortInput().getSortCriterion()))
+                        remapCreatedAtSort(
+                            context.getOperationContext(), input.getSortInput().getSortCriterion()))
                     : Collections.singletonList(
                         new SortCriterion()
-                            .setField(
-                                EntitySearchIndexResolver.indexedField(
-                                    _entityIndexConfiguration,
-                                    context.getOperationContext(),
-                                    CREATED_AT_FIELD,
-                                    MappingConstants.SYSTEM_CREATED_TIME_FIELD,
-                                    Intent.SORT))
+                            .setField(createdAtSortField(context.getOperationContext()))
                             .setOrder(SortOrder.DESCENDING));
 
             // Per-query authorization is skippable when it's disabled, the caller is system-auth,
@@ -315,6 +311,29 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
       results.add(unresolvedQuery);
     }
     return results;
+  }
+
+  /**
+   * The created-time sort reads the V3 system field when keyword read is on. Other fields pass
+   * through, since only the audit stamp moves under Search V3.
+   */
+  private SortCriterion remapCreatedAtSort(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final com.linkedin.datahub.graphql.generated.SortCriterion sortCriterion) {
+    SortCriterion mapped = mapSortCriterion(sortCriterion);
+    if (CREATED_AT_FIELD.equals(mapped.getField())) {
+      mapped.setField(createdAtSortField(opContext));
+    }
+    return mapped;
+  }
+
+  private String createdAtSortField(@Nonnull final OperationContext opContext) {
+    return EntitySearchIndexResolver.indexedField(
+        _entityIndexConfiguration,
+        opContext,
+        CREATED_AT_FIELD,
+        MappingConstants.SYSTEM_CREATED_TIME_FIELD,
+        Intent.SORT);
   }
 
   @Nullable
