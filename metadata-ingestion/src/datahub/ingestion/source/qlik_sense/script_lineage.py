@@ -81,6 +81,10 @@ DRIVER_RE = re.compile(
     re.IGNORECASE,
 )
 CONNECTION_PROPERTY_RE = re.compile(r"(?P<key>[^;=]*)=(?P<value>\{[^}]*\}|[^;]*)")
+# Property lists nested in a value, such as Extended Properties="UID=a;PWD=b"
+# or a URL query string.
+NESTED_PROPERTY_RE = re.compile(r"(?P<key>[\w ]+)=[^;&\"'}\]]*")
+URL_USERINFO_RE = re.compile(r"(?<=://)[^/@\s;\"']+@")
 CREDENTIAL_KEYS = {
     "uid",
     "user",
@@ -162,10 +166,24 @@ class ResolvedConnection(BaseModel):
     default_schema: Optional[str] = None
 
 
+def _is_control_only(text: str) -> bool:
+    text = text.lstrip()
+    while text:
+        control = CONTROL_RE.match(text)
+        if not control or not control.end():
+            return False
+        text = text[control.end() :]
+    return True
+
+
 def _strip_comments(script: str) -> str:
     kept: List[str] = []
     closing: Optional[str] = None
     statement_start = True
+    # Control statements end at the line break, so a line holding only
+    # control statements also starts a statement.
+    control_prefix = True
+    line_begin = 0
     i = 0
     while i < len(script):
         char = script[i]
@@ -194,6 +212,14 @@ def _strip_comments(script: str) -> str:
         kept.append(char)
         if not closing and char == STATEMENT_SEPARATOR:
             statement_start = True
+            control_prefix = True
+            line_begin = len(kept)
+        elif not closing and char == "\n":
+            if control_prefix and _is_control_only("".join(kept[line_begin:])):
+                statement_start = True
+            else:
+                control_prefix = False
+            line_begin = len(kept)
         elif not char.isspace():
             statement_start = False
         i += 1
@@ -423,7 +449,7 @@ def infer_data_connection(name: str, descriptor: str) -> DataConnectionInfo:
     platform = next(
         (
             platform
-            for platform in map(_platform_in, [*drivers, descriptor, name])
+            for platform in map(_platform_in, [*drivers, descriptor])
             if platform
         ),
         None,
@@ -447,11 +473,19 @@ def _is_credential_key(key: str) -> bool:
     return key in CREDENTIAL_KEYS or any(part in key for part in CREDENTIAL_KEY_PARTS)
 
 
+def _redact_value(value: str) -> str:
+    value = URL_USERINFO_RE.sub("", value)
+    return NESTED_PROPERTY_RE.sub(
+        lambda match: "" if _is_credential_key(match.group("key")) else match.group(0),
+        value,
+    )
+
+
 def redact_connection(connection: str) -> str:
     if not is_inline_connection(connection):
         return connection
     return ";".join(
-        match.group(0).strip()
+        f"{match.group('key')}={_redact_value(match.group('value'))}".strip()
         for match in CONNECTION_PROPERTY_RE.finditer(connection)
         if not _is_credential_key(match.group("key"))
     )
@@ -464,7 +498,8 @@ def has_qualified_name(
     if not required:
         return True
     name = DatasetUrn.from_string(urn).name
-    if platform_instance and name.startswith(f"{platform_instance}."):
+    # The SQL parser lowercases the instance in the URN.
+    if platform_instance and name.lower().startswith(f"{platform_instance.lower()}."):
         name = name[len(platform_instance) + 1 :]
     return len(name.split(".")) >= required
 

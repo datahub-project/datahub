@@ -162,16 +162,20 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
 
 class QlikOnPremConfig(ConfigModel):
     server: str = Field(
+        min_length=1,
         description="Qlik Sense Enterprise hostname. Must match the certificate name. "
         "Repository Service and Engine ports are reached on this host.",
     )
     client_cert: str = Field(
+        min_length=1,
         description="Path to the PEM client certificate exported from the QMC.",
     )
     client_key: str = Field(
+        min_length=1,
         description="Path to the PEM client key exported from the QMC.",
     )
     root_cert: str = Field(
+        min_length=1,
         description="Path to the PEM root certificate exported from the QMC.",
     )
     qrs_port: int = Field(
@@ -228,7 +232,8 @@ class QlikOnPremConfig(ConfigModel):
     def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":
         if self.server_cert_hostname and not self.verify_server_hostname:
             logger.warning(
-                "server_cert_hostname is ignored because verify_server_hostname is false"
+                "server_cert_hostname is ignored for TLS hostname verification because "
+                "verify_server_hostname is false. It is still used for Qlik UI URLs."
             )
         return self
 
