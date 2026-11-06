@@ -1,0 +1,38 @@
+"""
+An entity whose privileges for the current user can be resolved.
+Resolving privileges runs around 17 authorization checks per entity, so avoid selecting it
+through this interface in queries that return many entities, such as search results or lineage.
+"""
+interface HasPrivileges {
+  """
+  Privileges given to the current user for the entity
+  """
+  privileges: EntityPrivileges
+}
+
+extend type Api implements HasPrivileges
+extend type Application implements HasPrivileges
+extend type BusinessAttribute implements HasPrivileges
+extend type Chart implements HasPrivileges
+extend type Container implements HasPrivileges
+extend type CorpGroup implements HasPrivileges
+extend type CorpUser implements HasPrivileges
+extend type Dashboard implements HasPrivileges
+extend type DataFlow implements HasPrivileges
+extend type DataJob implements HasPrivileges
+extend type DataProduct implements HasPrivileges
+extend type Dataset implements HasPrivileges
+extend type Document implements HasPrivileges
+extend type Domain implements HasPrivileges
+extend type ERModelRelationship implements HasPrivileges
+extend type GlossaryNode implements HasPrivileges
+extend type GlossaryTerm implements HasPrivileges
+extend type MLFeature implements HasPrivileges
+extend type MLFeatureTable implements HasPrivileges
+extend type MLModel implements HasPrivileges
+extend type MLModelGroup implements HasPrivileges
+extend type MLPrimaryKey implements HasPrivileges
+extend type Metric implements HasPrivileges
+extend type QueryEntity implements HasPrivileges
+extend type Repository implements HasPrivileges
+extend type SemanticModel implements HasPrivileges

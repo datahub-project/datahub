@@ -920,6 +920,105 @@ elasticsearch:
     systemMetadata: ${ELASTICSEARCH_COMPONENT_CLUSTER_SYSTEM_METADATA:primary}
     usage: ${ELASTICSEARCH_COMPONENT_CLUSTER_USAGE:primary}
 
+  # Per-family move of a non-entity index family (graph, timeseries, systemMetadata, usage) to
+  # another named cluster. componentCluster.<family> stays the serving cluster for reads and primary
+  # writes; targetCluster names the cluster that also receives the family's writes while system-update
+  # copies the family's history there (copy.enabled) and verifies it. Blank targetCluster = off.
+  # copy.mode: inProcess (default; the upgrade pages the source and bulk-creates on the target through
+  # each cluster's own client), remoteReindex (the target's _reindex pulls from the source; needs source
+  # credentials the target can present and, on self-managed clusters, reindex.remote.allowlist), or
+  # external (operator restored a snapshot; only catch-up and verification run).
+  clusterMigration:
+    # gms | mae | upgrade; application-mae.yaml and application-upgrade.yaml set theirs.
+    processRole: ${ELASTICSEARCH_CLUSTER_MIGRATION_PROCESS_ROLE:gms}
+    # The non-blocking copy waits this long for GMS and the MAE consumer to record their mirror
+    # markers (they do within a minute of starting); 0 returns at once and resumes on a later run.
+    liveWriterWaitMinutes: ${ELASTICSEARCH_CLUSTER_MIGRATION_LIVE_WRITER_WAIT_MINUTES:30}
+    graph:
+      targetCluster: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_TARGET_CLUSTER:}
+      copy:
+        enabled: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_ENABLED:true}
+        mode: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_MODE:inProcess}
+        parallelism: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_PARALLELISM:4}
+        batchSize: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_BATCH_SIZE:1000}
+        requestsPerSecond: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REQUESTS_PER_SECOND:-1}
+        maxHours: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_MAX_HOURS:0}
+        targetDocsPerPartition: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_TARGET_DOCS_PER_PARTITION:20000000}
+        skewMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_SKEW_MS:300000}
+        cursorKeepAlive: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_CURSOR_KEEP_ALIVE:5m}
+        checkpointEveryPages: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_CHECKPOINT_EVERY_PAGES:10}
+        externalWatermarkEpochMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_EXTERNAL_WATERMARK_EPOCH_MS:}
+        remote:
+          host: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_HOST:}
+          username: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_USERNAME:}
+          password: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_PASSWORD:}
+          external: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_EXTERNAL:false}
+          socketTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_SOCKET_TIMEOUT:5m}
+          connectTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_CONNECT_TIMEOUT:30s}
+    timeseries:
+      targetCluster: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_TARGET_CLUSTER:}
+      copy:
+        enabled: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_ENABLED:true}
+        mode: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_MODE:inProcess}
+        parallelism: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_PARALLELISM:4}
+        batchSize: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_BATCH_SIZE:1000}
+        requestsPerSecond: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REQUESTS_PER_SECOND:-1}
+        maxHours: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_MAX_HOURS:0}
+        targetDocsPerPartition: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_TARGET_DOCS_PER_PARTITION:20000000}
+        skewMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_SKEW_MS:300000}
+        cursorKeepAlive: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_CURSOR_KEEP_ALIVE:5m}
+        checkpointEveryPages: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_CHECKPOINT_EVERY_PAGES:10}
+        externalWatermarkEpochMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_EXTERNAL_WATERMARK_EPOCH_MS:}
+        remote:
+          host: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_HOST:}
+          username: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_USERNAME:}
+          password: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_PASSWORD:}
+          external: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_EXTERNAL:false}
+          socketTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_SOCKET_TIMEOUT:5m}
+          connectTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_CONNECT_TIMEOUT:30s}
+    systemMetadata:
+      targetCluster: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_TARGET_CLUSTER:}
+      copy:
+        enabled: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_ENABLED:true}
+        mode: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_MODE:inProcess}
+        parallelism: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_PARALLELISM:4}
+        batchSize: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_BATCH_SIZE:1000}
+        requestsPerSecond: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REQUESTS_PER_SECOND:-1}
+        maxHours: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_MAX_HOURS:0}
+        targetDocsPerPartition: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_TARGET_DOCS_PER_PARTITION:20000000}
+        skewMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_SKEW_MS:300000}
+        cursorKeepAlive: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_CURSOR_KEEP_ALIVE:5m}
+        checkpointEveryPages: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_CHECKPOINT_EVERY_PAGES:10}
+        externalWatermarkEpochMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_EXTERNAL_WATERMARK_EPOCH_MS:}
+        remote:
+          host: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_HOST:}
+          username: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_USERNAME:}
+          password: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_PASSWORD:}
+          external: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_EXTERNAL:false}
+          socketTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_SOCKET_TIMEOUT:5m}
+          connectTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_CONNECT_TIMEOUT:30s}
+    usage:
+      targetCluster: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_TARGET_CLUSTER:}
+      copy:
+        enabled: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_ENABLED:true}
+        mode: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_MODE:inProcess}
+        parallelism: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_PARALLELISM:4}
+        batchSize: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_BATCH_SIZE:1000}
+        requestsPerSecond: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REQUESTS_PER_SECOND:-1}
+        maxHours: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_MAX_HOURS:0}
+        targetDocsPerPartition: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_TARGET_DOCS_PER_PARTITION:20000000}
+        skewMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_SKEW_MS:300000}
+        cursorKeepAlive: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_CURSOR_KEEP_ALIVE:5m}
+        checkpointEveryPages: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_CHECKPOINT_EVERY_PAGES:10}
+        externalWatermarkEpochMs: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_EXTERNAL_WATERMARK_EPOCH_MS:}
+        remote:
+          host: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_HOST:}
+          username: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_USERNAME:}
+          password: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_PASSWORD:}
+          external: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_EXTERNAL:false}
+          socketTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_SOCKET_TIMEOUT:5m}
+          connectTimeout: ${ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_CONNECT_TIMEOUT:30s}
+
   entityIndex:
     v2:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:true}
@@ -1999,11 +2098,11 @@ systemUpdate:
     rolloutProgressLogIntervalSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_PROGRESS_LOG_INTERVAL_SECONDS:60}
 
 structuredProperties:
-  enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
+  enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings; system update builds index mappings from the definitions
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
-  systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
+  systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # lets system update reindex for structured property mapping differences (removed property, type or copy_to mismatch)
   # Reindex when existing SP field ES types disagree with definition-driven targets (e.g. float vs double).
-  # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
+  # Requires systemUpdateEnabled and ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true as well.
   typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
   # Reindex when an existing SP field's copy_to disagrees with the definition-driven target.
   # Requires systemUpdateEnabled and ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
