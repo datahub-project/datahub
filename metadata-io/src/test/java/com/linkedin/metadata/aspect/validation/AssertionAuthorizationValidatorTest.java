@@ -483,6 +483,22 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
+  public void testUnreadableRunEventPatchDeniedNotFailed() {
+    // Under alternate MCP validation the item carries the raw PATCH payload.
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+    MetadataChangeProposal patch =
+        genericPatchProposal(List.of(patchOp("/status", AssertionRunStatus.COMPLETE.name())))
+            .setAspectName(ASSERTION_RUN_EVENT_ASPECT_NAME);
+
+    List<AspectValidationException> failures =
+        validate(OperationFingerprint.EMPTY, proposedItem(patch));
+
+    Assert.assertEquals(failures.size(), 1);
+    Assert.assertEquals(failures.get(0).getAspectName(), ASSERTION_RUN_EVENT_ASPECT_NAME);
+  }
+
+  @Test
   public void testDeleteDeniedWithoutEditAssertionsOnTarget() {
     mockPersisted(freshnessOn(DATASET_A));
     grantEditAssertionsOn(DATASET_B);

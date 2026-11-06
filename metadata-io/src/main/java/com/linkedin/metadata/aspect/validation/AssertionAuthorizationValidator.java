@@ -204,13 +204,23 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
       Set<Urn> targets =
           AssertionAuthorizationUtils.resolveAssertedEntityUrns(
               entityRegistry, current.get(item.getUrn()));
-      AssertionRunEvent runEvent = item.getAspect(AssertionRunEvent.class);
-      if (runEvent != null && runEvent.getTimestampMillis() > maxTimestampMillis) {
+      Long timestampMillis;
+      Urn assertee;
+      try {
+        AssertionRunEvent runEvent = item.getAspect(AssertionRunEvent.class);
+        timestampMillis = runEvent == null ? null : runEvent.getTimestampMillis();
+        assertee =
+            runEvent == null || !runEvent.hasAsserteeUrn() ? null : runEvent.getAsserteeUrn();
+      } catch (RuntimeException e) {
+        // Under alternate MCP validation a PATCH payload is not a readable record; fail closed.
+        log.debug("Unable to read assertionRunEvent for {}", item.getUrn(), e);
+        failures.add(authFailure(item, "Unable to read assertionRunEvent for authorization"));
+        continue;
+      }
+      if (timestampMillis != null && timestampMillis > maxTimestampMillis) {
         failures.add(futureTimestampFailure(item));
         continue;
       }
-      Urn assertee =
-          runEvent == null || !runEvent.hasAsserteeUrn() ? null : runEvent.getAsserteeUrn();
       if (assertee == null) {
         if (!targets.isEmpty()) {
           failures.add(
