@@ -1,3 +1,5 @@
+import { notification } from '@components';
+import i18next from 'i18next';
 import { useEffect, useState } from 'react';
 
 import {
@@ -23,6 +25,9 @@ import { useSearchAcrossLineageStructureLazyQuery } from '@graphql/search.genera
 import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '@types';
 
 const PER_HOP_LIMIT = 2;
+
+// Shared key so the upstream and downstream instances of this hook show one toast, not two.
+const LOAD_ERROR_NOTIFICATION_KEY = 'lineage-load-error';
 
 export const DEFAULT_SEARCH_FLAGS = {
     groupingSpec: { groupingCriteria: [] },
@@ -87,6 +92,21 @@ export default function useSearchAcrossLineage(
 
     const [processed] = useState(new Set<string>());
 
+    const handleFetchFailure = () => {
+        // Stop the spinner and release the loading gate WITHOUT marking the fetch COMPLETE: a failed
+        // node must stay retryable. COMPLETE + isExpanded hides the expand control and makes
+        // useOnClickExpandLineage skip the refetch, so a failed expand would look finished. UNFETCHED
+        // clears LOADING; the gate is released by the nodeVersion bump below, not by the status.
+        const node = nodes.get(urn);
+        if (node) {
+            node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.UNFETCHED };
+        }
+        processed.add(urn);
+        setNodeVersion((version) => version + 1);
+        setDisplayVersion(([version]) => [version + 1, []]);
+        notification.error({ key: LOAD_ERROR_NOTIFICATION_KEY, message: i18next.t('lineage:timeSelector.loadError') });
+    };
+
     const [fetchLineage] = useSearchAcrossLineageStructureLazyQuery({
         variables: { input },
         fetchPolicy: skipCache ? 'no-cache' : undefined,
@@ -135,6 +155,7 @@ export default function useSearchAcrossLineage(
                 setDisplayVersion(([version]) => [version + 1, nodesToZoom]);
             }
         },
+        onError: handleFetchFailure,
     });
 
     useEffect(() => {

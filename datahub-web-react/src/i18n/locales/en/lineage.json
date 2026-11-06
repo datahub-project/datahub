@@ -132,6 +132,7 @@
     "timeSelector.last7Days": "Last 7 days",
     "timeSelector.lastNDays_one": "Last {{count}} day",
     "timeSelector.lastNDays_other": "Last {{count}} days",
+    "timeSelector.loadError": "Couldn't load lineage for the selected time range. Please try again.",
     "timeSelector.noTimeRangeSelected": "No time range selected",
     "timeSelector.unknownRange": "Unknown time range",
     "timeSelector.until": "Until {{date}}",
