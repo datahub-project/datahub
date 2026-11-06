@@ -5,7 +5,9 @@ import pytest
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     apply_preceding_loads,
     connection_lookup_names,
+    drop_condition_variables,
     infer_data_connection,
+    is_connector_sql,
     parse_load_script,
 )
 
@@ -269,3 +271,44 @@ SQL SELECT order_id FROM dbo.orders;
     )
 
     assert table.preceding_loads == []
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        ('SELECT "id" FROM JSON (wrap on) "root"', True),
+        ('SELECT "id" FROM XML "root"', True),
+        ('SELECT id FROM t WITH CONNECTION (URL "https://example.com")', True),
+        ("SELECT id FROM json", False),
+        ("SELECT id FROM t WHERE note = 'FROM JSON (x)'", False),
+    ],
+)
+def test_is_connector_sql(sql: str, expected: bool) -> None:
+    assert is_connector_sql(sql) == expected
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        ("ON a = b $(v) AND c = 1", "ON a = b  AND c = 1"),
+        ("ON $(v) AND c = 1", "ON 1 = 1 AND c = 1"),
+        ("WHERE ($(v) OR c = 1)", "WHERE (1 = 1 OR c = 1)"),
+        ("WHERE c = 1 AND $(v)", "WHERE c = 1 AND 1 = 1"),
+        ("WHERE $(v)", "WHERE 1 = 1"),
+        ("WHERE c = $(v) AND d = 1", "WHERE c = $(v) AND d = 1"),
+        ("FROM $(vTable) t WHERE c = 1", "FROM $(vTable) t WHERE c = 1"),
+        ("FROM dbo.orders_$(vYear) AND", "FROM dbo.orders_$(vYear) AND"),
+    ],
+    ids=[
+        "between_conditions",
+        "join_start",
+        "in_parentheses",
+        "clause_end",
+        "whole_where",
+        "value",
+        "table",
+        "table_suffix",
+    ],
+)
+def test_drop_condition_variables(sql: str, expected: str) -> None:
+    assert drop_condition_variables(sql) == expected
