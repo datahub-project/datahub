@@ -326,7 +326,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _keep_previous_urns(self, app_id: str) -> List[str]:
-        previous = self.app_state.previous(app_id)
+        try:
+            previous = self.app_state.previous(app_id)
+        except Exception as e:
+            # Reporting a failure stops stale entity removal from soft-deleting
+            # what the app's last read produced.
+            self.reporter.failure(
+                title="Unable to load the last checkpoint of a Qlik app",
+                message="Entities from the app's last read could not be kept, so "
+                "stale metadata removal is skipped for this run.",
+                context=app_id,
+                exc=e,
+            )
+            return []
         if previous is None:
             return []
         assert self.stale_entity_removal_handler is not None
