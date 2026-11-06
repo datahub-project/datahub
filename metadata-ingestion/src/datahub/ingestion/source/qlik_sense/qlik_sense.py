@@ -756,7 +756,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         dataset_properties.customProperties.update(
             {
-                Constant.TYPE: "Qlik Table",
+                Constant.TYPE: DatasetSubTypes.QLIK_TABLE,
                 Constant.DATACONNECTORID: table.dataconnectorid,
                 Constant.DATACONNECTORNAME: table.dataconnectorName,
             }
