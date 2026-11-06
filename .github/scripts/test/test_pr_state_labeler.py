@@ -533,8 +533,8 @@ class TestCollaboratorsPermission:
 
 
 class TestReviewFixes:
-    def test_adds_new_label_before_removing_old(self):
-        """A failed add must not leave the PR with no state label."""
+    def test_adds_non_terminal_label_before_removing_old(self):
+        """Non-terminal target: a failed remove leaves two labels the next run cleans up."""
         processor = make_processor(dry_run=False)
         pr = make_pr(
             author="external-user",
@@ -590,3 +590,19 @@ class TestReviewFixes:
 
         with pytest.raises(RuntimeError, match="cannot list repository collaborators"):
             processor.process_prs()
+
+    def test_removes_old_label_before_adding_terminal(self):
+        """Terminal target: remove first, since searches skip terminal-labeled PRs."""
+        processor = make_processor(dry_run=False)
+        pr = make_pr(
+            author="external-user",
+            labels=[NEEDS_REVIEW, "area/ingestion"],
+            reviews=[make_review("reviewer-a", "APPROVED", T1)],
+        )
+        calls = []
+        pr.add_to_labels.side_effect = lambda label: calls.append(("add", label))
+        pr.remove_from_labels.side_effect = lambda label: calls.append(("remove", label))
+
+        processor.process_single_pr(pr)
+
+        assert calls == [("remove", NEEDS_REVIEW), ("add", MERGE_PENDING_CI)]

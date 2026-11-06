@@ -103,9 +103,14 @@ class GithubPRProcessor:
     ) -> None:
         """Make new_label the PR's only state label.
 
-        Adds before removing, so a failed API call can't leave the PR with no
-        state label, and removes every other state label (they're mutually
-        exclusive), not just the highest-precedence one.
+        Removes every other state label (they're mutually exclusive), not just
+        the highest-precedence one. Order matters if an API call fails midway:
+        - non-terminal target: add first. A failed remove leaves two state
+          labels, which the next run cleans up.
+        - terminal target: remove first. Searches exclude terminal-labeled PRs,
+          so a terminal label left alongside a stale one would never be cleaned
+          up. A failed add instead leaves no state label, and the removal bumps
+          updated_at, so the next run re-evaluates the PR.
         """
         mode = "[dry run] " if self.dry_run else ""
         stale = [
@@ -123,10 +128,16 @@ class GithubPRProcessor:
         logger.info(f"PR #{pr.number}: {mode}{change}")
         if self.dry_run:
             return
-        if needs_add:
-            pr.add_to_labels(new_label)
-        for label in stale:
-            pr.remove_from_labels(label)
+        if new_label in TERMINAL_STATES:
+            for label in stale:
+                pr.remove_from_labels(label)
+            if needs_add:
+                pr.add_to_labels(new_label)
+        else:
+            if needs_add:
+                pr.add_to_labels(new_label)
+            for label in stale:
+                pr.remove_from_labels(label)
 
     def _has_manual_label_changes(
         self,
