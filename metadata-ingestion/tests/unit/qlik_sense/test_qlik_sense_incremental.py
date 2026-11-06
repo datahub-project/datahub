@@ -147,15 +147,15 @@ def test_unchanged_app_is_skipped_and_kept(mock_datahub_graph: MagicMock) -> Non
     first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
     datahub.write(first_wus)
     second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
-    third, _ = _run(mock_datahub_graph, qlik, "run-3")
+    third, third_wus = _run(mock_datahub_graph, qlik, "run-3")
 
     assert qlik.engine_opens == 1
-    assert second.reporter.apps_skipped_unchanged == 1
-    assert third.reporter.apps_skipped_unchanged == 1
-    assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
     app_urns = set(_stale_urns(first))
     assert any(":chart:" in urn or ":dashboard:" in urn for urn in app_urns)
-    assert app_urns <= set(_stale_urns(second))
+    for later, later_wus in ((second, second_wus), (third, third_wus)):
+        assert later.reporter.apps_skipped_unchanged == 1
+        assert not [wu for wu in later_wus if wu.id.startswith("soft-delete-")]
+        assert app_urns <= set(_stale_urns(later))
 
 
 def _container_urn(source: QlikSenseSource) -> str:
