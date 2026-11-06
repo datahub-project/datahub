@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.RateLimiter;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -12,8 +14,8 @@ import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -31,8 +33,20 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class SiblingGraphService {
 
+  /**
+   * Upper bound on the members of one sibling group counted together. Every member goes into the
+   * count request several times, so this also bounds the request size.
+   */
+  public static final int MAX_GROUP_MEMBERS = 1_000;
+
+  /** Sibling aspects read per batch while walking a group. */
+  public static final int GROUP_READ_BATCH_SIZE = 500;
+
   private final EntityService _entityService;
   private final GraphService _graphService;
+
+  /** Keeps the capped-group warning to about once a minute per server. */
+  private final RateLimiter _capWarning = RateLimiter.create(1.0 / 60);
 
   @Nonnull
   public EntityLineageResult getLineage(
@@ -193,27 +207,8 @@ public class SiblingGraphService {
       boolean includeGhostEntities) {
     final int sampleSize = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), count);
 
-    final Set<Urn> group = new LinkedHashSet<>();
-    group.add(entityUrn);
-    if (!separateSiblings) {
-      // Follow sibling lists transitively, as getLineage does when it recurses into each sibling.
-      // Lists are not always symmetric: the dbt sibling hook sets a dbt node's list to its
-      // warehouse table alone but appends to the table's list, so two dbt nodes on one table are
-      // only connected through the table.
-      final Deque<Urn> toVisit = new ArrayDeque<>(List.of(entityUrn));
-      while (!toVisit.isEmpty()) {
-        Siblings siblings =
-            (Siblings)
-                _entityService.getLatestAspect(opContext, toVisit.poll(), SIBLINGS_ASPECT_NAME);
-        if (siblings != null && siblings.hasSiblings()) {
-          for (Urn sibling : siblings.getSiblings()) {
-            if (group.add(sibling)) {
-              toVisit.add(sibling);
-            }
-          }
-        }
-      }
-    }
+    final Set<Urn> group =
+        separateSiblings ? Set.of(entityUrn) : siblingGroup(opContext, entityUrn);
 
     final LineageCountResult counted =
         _graphService.getLineageCount(
@@ -236,10 +231,73 @@ public class SiblingGraphService {
 
     return new EntityLineageResult()
         .setStart(0)
-        .setCount(sampleSize)
+        // count is the size of the returned relationships, which a totals-only result leaves empty.
+        .setCount(0)
         .setTotal(counted.getTotal())
         .setFiltered(filtered)
         .setRelationships(new LineageRelationshipArray());
+  }
+
+  /**
+   * {@code urn} and every dataset reachable from it through sibling lists, transitively, as
+   * getLineage reaches them when it recurses into each sibling. Lists are not always symmetric: the
+   * dbt sibling hook sets a dbt node's list to its warehouse table alone but appends to the table's
+   * list, so two dbt nodes on one table are only connected through the table.
+   *
+   * <p>Sibling aspects are read one hop at a time in batches, and the walk stops growing at {@link
+   * #MAX_GROUP_MEMBERS}. In a group over the cap, members beyond it are not excluded from its
+   * counts.
+   */
+  @Nonnull
+  public Set<Urn> siblingGroup(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    final Set<Urn> group = new LinkedHashSet<>(List.of(urn));
+    Set<Urn> frontier = Set.of(urn);
+    walk:
+    while (!frontier.isEmpty()) {
+      final Set<Urn> next = new LinkedHashSet<>();
+      for (List<Urn> batch : Iterables.partition(frontier, GROUP_READ_BATCH_SIZE)) {
+        for (List<Urn> siblings : siblingLists(opContext, batch)) {
+          for (Urn sibling : siblings) {
+            if (group.contains(sibling)) {
+              continue;
+            }
+            if (group.size() >= MAX_GROUP_MEMBERS) {
+              if (_capWarning.tryAcquire()) {
+                log.warn(
+                    "Sibling group of {} has more than {} members; counting lineage for the first {}",
+                    urn,
+                    MAX_GROUP_MEMBERS,
+                    MAX_GROUP_MEMBERS);
+              }
+              break walk;
+            }
+            group.add(sibling);
+            next.add(sibling);
+          }
+        }
+      }
+      frontier = next;
+    }
+    return Collections.unmodifiableSet(group);
+  }
+
+  /** The sibling list of each of {@code urns}, in batch order, from one batched read. */
+  @Nonnull
+  private List<List<Urn>> siblingLists(
+      @Nonnull OperationContext opContext, @Nonnull List<Urn> urns) {
+    final Map<Urn, List<RecordTemplate>> aspects =
+        _entityService.getLatestAspects(
+            opContext, new HashSet<>(urns), ImmutableSet.of(SIBLINGS_ASPECT_NAME), false);
+    final List<List<Urn>> lists = new ArrayList<>(urns.size());
+    for (Urn urn : urns) {
+      lists.add(
+          aspects.getOrDefault(urn, List.of()).stream()
+              .filter(aspect -> aspect instanceof Siblings && ((Siblings) aspect).hasSiblings())
+              .findFirst()
+              .<List<Urn>>map(aspect -> ((Siblings) aspect).getSiblings())
+              .orElse(List.of()));
+    }
+    return lists;
   }
 
   /**
@@ -250,7 +308,7 @@ public class SiblingGraphService {
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> resultUrns) {
     final Map<Urn, List<RecordTemplate>> siblingAspects =
         _entityService.getLatestAspects(
-            opContext, resultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
+            opContext, resultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME), false);
     return resultUrns.stream()
         .filter(
             urn -> {
