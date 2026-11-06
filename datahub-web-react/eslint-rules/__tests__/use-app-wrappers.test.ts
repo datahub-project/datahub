@@ -7,8 +7,12 @@ import tsParser from '@typescript-eslint/parser';
 import rule from '../use-app-wrappers.js';
 
 const COMPONENTS = [
-    { name: 'Editor', folder: 'Editor', wrapper: 'src/app/sharedV2/editor/Editor.tsx' },
-    { name: 'Tabs', folder: 'Tabs', wrapper: 'src/app/sharedV2/tabs/Tabs.tsx' },
+    {
+        name: 'Editor',
+        folder: 'Editor',
+        wrappers: ['src/app/sharedV2/editor/Editor.tsx', 'src/app/chat/ChatEditor.tsx'],
+    },
+    { name: 'Tabs', folder: 'Tabs', wrappers: ['src/app/sharedV2/tabs/Tabs.tsx'] },
 ];
 
 const APP_FILE = '/repo/datahub-web-react/src/app/entityV2/Page.tsx';
@@ -62,6 +66,13 @@ describe('use-app-wrappers', () => {
 
         expect(lint("import { Editor } from '@components/components/Editor';", wrapper)).toEqual([]);
         expect(lint("import { Tabs } from '@components';", wrapper)).toHaveLength(1);
+    });
+
+    it('lets every listed wrapper import the component and points app code to the first one', () => {
+        const secondWrapper = '/repo/datahub-web-react/src/app/chat/ChatEditor.tsx';
+
+        expect(lint("import { Editor } from '@components';", secondWrapper)).toEqual([]);
+        expect(lint("import { Editor } from '@components';")[0]).toContain("'@app/sharedV2/editor/Editor'");
     });
 
     it('checks the folder, not the name', () => {
