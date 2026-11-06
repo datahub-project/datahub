@@ -1,10 +1,11 @@
 import warnings
-from typing import List, Sequence, Union
+from typing import Iterable, List, Union
 from unittest import mock
 
 import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.errors import DataHubDeprecationWarning
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
@@ -54,7 +55,7 @@ HOOKS: List[Hook] = [
 
 def _emitted(
     hook: Hook,
-    items: Sequence[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]],
+    items: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]],
 ) -> List[MetadataChangeProposalWrapper]:
     with mock.patch.object(type(hook), "make_emitter") as make_emitter:
         hook.emit(items)
@@ -63,7 +64,7 @@ def _emitted(
 
 @pytest.mark.parametrize("hook", HOOKS, ids=lambda h: type(h).__name__)
 def test_hook_sends_mce_as_one_mcp_per_aspect(hook: Hook) -> None:
-    with pytest.warns(DeprecationWarning, match="MetadataChangeEvent"):
+    with pytest.warns(DataHubDeprecationWarning, match="MetadataChangeEvent"):
         emitted = _emitted(hook, [MCE, MCPW])
 
     assert all(isinstance(e, MetadataChangeProposalWrapper) for e in emitted)
@@ -81,11 +82,22 @@ def test_hook_does_not_warn_on_mcps(hook: Hook) -> None:
 
 
 def test_hook_accepts_a_generator() -> None:
-    with pytest.warns(DeprecationWarning):
-        # emit() is typed Sequence, but a generator must not lose items either.
-        emitted = _emitted(
-            DatahubRestHook(),
-            (item for item in [MCPW, MCE, MCPW]),  # type: ignore[arg-type]
-        )
+    items: List[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]] = [
+        MCPW,
+        MCE,
+        MCPW,
+    ]
+    with pytest.warns(DataHubDeprecationWarning):
+        emitted = _emitted(DatahubRestHook(), (item for item in items))
 
     assert len(emitted) == 2 + len(MCE.proposedSnapshot.aspects)
+
+
+def test_hook_warns_on_mce_without_aspects(caplog: pytest.LogCaptureFixture) -> None:
+    empty = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(urn=URN, aspects=[])
+    )
+    with pytest.warns(DataHubDeprecationWarning):
+        assert _emitted(DatahubRestHook(), [empty]) == []
+
+    assert "produced zero MCPs" in caplog.text

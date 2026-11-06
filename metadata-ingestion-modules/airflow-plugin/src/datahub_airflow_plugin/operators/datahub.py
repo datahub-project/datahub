@@ -1,5 +1,6 @@
+import logging
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
 
 from airflow.sdk import BaseOperator
 from avrogen.dict_wrapper import DictWrapper
@@ -16,6 +17,8 @@ from datahub_airflow_plugin.hooks.datahub import (
 if TYPE_CHECKING:
     from airflow.sdk import Context
     from jinja2 import Environment
+
+logger = logging.getLogger(__name__)
 
 
 class DatahubBaseOperator(BaseOperator):
@@ -56,9 +59,9 @@ class DatahubEmitterOperator(DatahubBaseOperator):
         self,
         *,
         datahub_conn_id: str,
-        mcps: Optional[Sequence[MetadataChangeProposalWrapper]] = None,
+        mcps: Optional[Iterable[MetadataChangeProposalWrapper]] = None,
         mces: Optional[
-            Sequence[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
+            Iterable[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
         ] = None,
         **kwargs: Any,
     ):
@@ -66,18 +69,16 @@ class DatahubEmitterOperator(DatahubBaseOperator):
             datahub_conn_id=datahub_conn_id,
             **kwargs,
         )
-        # Copied to a list because execute() iterates it twice (render, then emit).
-        self.metadata: Sequence[
-            Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
-        ]
+        # Copied to a list so a one-shot iterable survives execute(), which renders
+        # the items in place and then emits them.
+        self.metadata: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
         if mces is not None:
             if mcps is not None:
                 raise ValueError("Pass either mcps= or mces=, not both")
-            warnings.warn(
-                "DatahubEmitterOperator(mces=...) is deprecated; use mcps=.",
-                DataHubDeprecationWarning,
-                stacklevel=2,
-            )
+            message = "DatahubEmitterOperator(mces=...) is deprecated; use mcps=."
+            warnings.warn(message, DataHubDeprecationWarning, stacklevel=2)
+            # Hidden by Python's default DeprecationWarning filter outside __main__.
+            logger.warning(message)
             self.metadata = list(mces)
         elif mcps is not None:
             self.metadata = list(mcps)

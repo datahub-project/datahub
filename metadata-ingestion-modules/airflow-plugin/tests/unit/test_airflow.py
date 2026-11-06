@@ -103,7 +103,7 @@ def test_datahub_rest_hook(mock_emitter):
             datahub_component="airflow-plugin",
         )
         instance = mock_emitter.return_value
-        instance.emit.assert_called_with(next(iter(mcps_from_mce(lineage_mce))))
+        instance.emit.assert_called_once_with(next(iter(mcps_from_mce(lineage_mce))))
 
 
 @mock.patch("datahub.emitter.rest_emitter.DataHubRestEmitter", autospec=True)
@@ -123,7 +123,7 @@ def test_datahub_rest_hook_with_timeout(mock_emitter):
             datahub_component="airflow-plugin",
         )
         instance = mock_emitter.return_value
-        instance.emit.assert_called_with(next(iter(mcps_from_mce(lineage_mce))))
+        instance.emit.assert_called_once_with(next(iter(mcps_from_mce(lineage_mce))))
 
 
 @mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
@@ -188,7 +188,7 @@ def test_datahub_emitter_operator_emits_a_generator(mock_emit):
         task = DatahubEmitterOperator(
             task_id="gen",
             datahub_conn_id=config.conn_id,
-            mcps=(mcp for mcp in mcps),  # type: ignore[arg-type]
+            mcps=(mcp for mcp in mcps),
         )
         task.execute({"ds": "2023-01-01"})
 

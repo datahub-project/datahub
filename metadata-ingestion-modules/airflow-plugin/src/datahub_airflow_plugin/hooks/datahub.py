@@ -1,15 +1,6 @@
+import logging
 import warnings
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from airflow.exceptions import AirflowException
 
@@ -42,9 +33,11 @@ if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
     from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 
+logger = logging.getLogger(__name__)
+
 
 def _mces_as_mcps(
-    items: Sequence[
+    items: Iterable[
         Union[
             MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
         ]
@@ -55,15 +48,22 @@ def _mces_as_mcps(
     for item in items:
         if isinstance(item, MetadataChangeEvent):
             if not warned:
-                warnings.warn(
+                message = (
                     "Passing MetadataChangeEvent to DataHub hooks and DatahubEmitterOperator "
                     "is deprecated; it is sent as one MetadataChangeProposalWrapper per "
-                    "aspect. Pass MetadataChangeProposalWrapper objects instead.",
-                    DataHubDeprecationWarning,
-                    stacklevel=3,
+                    "aspect. Pass MetadataChangeProposalWrapper objects instead."
                 )
+                warnings.warn(message, DataHubDeprecationWarning, stacklevel=3)
+                # Python only shows DeprecationWarning from __main__ and airflow.*
+                # modules, so the warning alone never reaches the task log.
+                logger.warning(message)
                 warned = True
-            yield from mcps_from_mce(item)
+            mcps = list(mcps_from_mce(item))
+            if not mcps:
+                logger.warning(
+                    f"MCE for {item.proposedSnapshot.urn} produced zero MCPs"
+                )
+            yield from mcps
         else:
             yield item
 
@@ -155,7 +155,7 @@ class DatahubRestHook(BaseHook):
 
     def emit(
         self,
-        items: Sequence[
+        items: Iterable[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -236,7 +236,7 @@ class DatahubKafkaHook(BaseHook):
 
     def emit(
         self,
-        items: Sequence[
+        items: Iterable[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -300,7 +300,7 @@ class SynchronizedFileHook(BaseHook):
 
     def emit(
         self,
-        items: Sequence[
+        items: Iterable[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -363,7 +363,7 @@ class DatahubGenericHook(BaseHook):
 
     def emit(
         self,
-        items: Sequence[
+        items: Iterable[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
@@ -385,8 +385,6 @@ class DatahubCompositeHook(BaseHook):
     :type datahub_conn_ids: List[str]
     """
 
-    hooks: List[DatahubGenericHook] = []
-
     def __init__(self, datahub_conn_ids: List[str]) -> None:
         self.datahub_conn_ids = datahub_conn_ids
 
@@ -400,7 +398,7 @@ class DatahubCompositeHook(BaseHook):
 
     def emit(
         self,
-        items: Sequence[
+        items: Iterable[
             Union[
                 MetadataChangeEvent,
                 MetadataChangeProposal,
