@@ -592,7 +592,8 @@ public class SearchTestUtils {
           new V2MappingsBuilder(
               entityIndexConfiguration,
               com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim
-                  .PARTIAL_NGRAM_CONFIG));
+                  .PARTIAL_NGRAM_CONFIG,
+              ESUtils.KEYWORD_MAXLENGTH));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
