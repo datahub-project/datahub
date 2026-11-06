@@ -209,13 +209,12 @@ public final class AssertionAuthorizationUtils {
    * {@code assertionInfo}, by each value the request's {@code assertionInfo} writes produce when
    * applied in request order (so re-targeting needs both sides), and by the request's run events.
    *
-   * <p>An assertion with no target yet is included only when the request writes nothing but run
-   * events and the actor may edit assertions on every entity they name: clients such as dbt and
-   * Great Expectations can send results before (or, in async emit modes, ahead of the persisting
-   * of) {@code assertionInfo}. Other aspects, such as {@code status}, need {@code assertionInfo}
-   * first or in the same request. Run event assertees need not be targets; each is checked
-   * alongside the targets. {@code AssertionAuthorizationValidator} applies the same rule to writes
-   * that pass on the assertion itself.
+   * <p>An assertion with no target yet, stored or in the request, is never included: there is no
+   * asset to authorize against, so any write to it, run events included, needs the privilege on the
+   * assertion itself. Otherwise a caller could plant results on an assertion another asset defines
+   * later. Run event assertees need not be targets; each is checked alongside the targets. {@code
+   * AssertionAuthorizationValidator} applies the target and assertee checks to writes that pass on
+   * the assertion itself.
    */
   @Nonnull
   static Set<Urn> filterAuthorizedViaAssertedEntities(
@@ -241,12 +240,10 @@ public final class AssertionAuthorizationUtils {
                 }
                 targets.addAll(resolveAssertedEntityUrns(entityRegistry, current));
               }
-              final Set<Urn> assertees = writes.runEventAssertees().getOrDefault(urn, Set.of());
               if (targets.isEmpty()) {
-                return writes.runEventOnly().contains(urn)
-                    && isAuthorizedToEditAssertionsOnEntities(opContext, assertees);
+                return false;
               }
-              targets.addAll(assertees);
+              targets.addAll(writes.runEventAssertees().getOrDefault(urn, Set.of()));
               return isAuthorizedToEditAssertionsOnEntities(opContext, targets);
             })
         .collect(Collectors.toSet());
@@ -258,18 +255,11 @@ public final class AssertionAuthorizationUtils {
       @Nonnull final Collection<AssertionWrite> requestWrites) {
     final Map<Urn, List<AssertionWrite>> infoWrites = new HashMap<>();
     final Map<Urn, Set<Urn>> assertees = new HashMap<>();
-    // Starts as every assertion written; those with any non-run-event write are removed below.
-    final Set<Urn> runEventOnly = new HashSet<>();
-    final Set<Urn> notRunEventOnly = new HashSet<>();
     for (AssertionWrite write : requestWrites) {
-      runEventOnly.add(write.urn());
-      final boolean isRunEvent = ASSERTION_RUN_EVENT_ASPECT_NAME.equals(write.aspectName());
-      if (!isRunEvent
-          || ChangeType.DELETE.equals(write.changeType())
-          || write.runEvent() == null
-          || !write.runEvent().hasAsserteeUrn()) {
-        notRunEventOnly.add(write.urn());
-      } else {
+      if (ASSERTION_RUN_EVENT_ASPECT_NAME.equals(write.aspectName())
+          && !ChangeType.DELETE.equals(write.changeType())
+          && write.runEvent() != null
+          && write.runEvent().hasAsserteeUrn()) {
         assertees
             .computeIfAbsent(write.urn(), k -> new HashSet<>())
             .add(write.runEvent().getAsserteeUrn());
@@ -278,8 +268,7 @@ public final class AssertionAuthorizationUtils {
         infoWrites.computeIfAbsent(write.urn(), k -> new ArrayList<>()).add(write);
       }
     }
-    runEventOnly.removeAll(notRunEventOnly);
-    return new AssertionWrites(infoWrites, runEventOnly, assertees);
+    return new AssertionWrites(infoWrites, assertees);
   }
 
   /** One aspect write to an assertion in a request. */
@@ -319,14 +308,13 @@ public final class AssertionAuthorizationUtils {
   }
 
   /**
-   * Per-assertion view of a request: its {@code assertionInfo} writes in request order, assertions
-   * that only receive run events, and entities named by the request's run events.
+   * Per-assertion view of a request: its {@code assertionInfo} writes in request order and the
+   * entities named by the request's run events.
    */
   record AssertionWrites(
       @Nonnull Map<Urn, List<AssertionWrite>> infoWrites,
-      @Nonnull Set<Urn> runEventOnly,
       @Nonnull Map<Urn, Set<Urn>> runEventAssertees) {
-    static final AssertionWrites NONE = new AssertionWrites(Map.of(), Set.of(), Map.of());
+    static final AssertionWrites NONE = new AssertionWrites(Map.of(), Map.of());
   }
 
   /** The PATCH as a batch item, so it can be applied to the persisted assertionInfo. */
