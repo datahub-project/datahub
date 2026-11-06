@@ -123,6 +123,30 @@ public class ESBulkProcessor implements Closeable {
   }
 
   /**
+   * A view over {@code view}'s client and already-generated bulk processors. Never regenerates
+   * them: the builder constructor replaces the shim's processors, which would orphan the live ones.
+   * Subclasses use this to add behavior around writes without owning a processor.
+   */
+  protected ESBulkProcessor(@Nonnull ESBulkProcessor view) {
+    this.searchClient = view.searchClient;
+    this.async = view.async;
+    this.batchDelete = view.batchDelete;
+    this.bulkRequestsLimit = view.bulkRequestsLimit;
+    this.bulkFlushPeriod = view.bulkFlushPeriod;
+    this.numRetries = view.numRetries;
+    this.retryInterval = view.retryInterval;
+    this.threadCount = view.threadCount;
+    this.defaultTimeout = view.defaultTimeout;
+    this.itemRequeueEnabled = view.itemRequeueEnabled;
+    this.itemRequeueMaxAttempts = view.itemRequeueMaxAttempts;
+    this.ackAfterTransfer = view.ackAfterTransfer;
+    this.ackAfterTransferTimeoutSeconds = view.ackAfterTransferTimeoutSeconds;
+    this.byQueryRequestOptions = view.byQueryRequestOptions;
+    this.writeRequestRefreshPolicy = view.writeRequestRefreshPolicy;
+    this.metricUtils = view.metricUtils;
+  }
+
+  /**
    * Add a request with URN-based routing for entity document consistency. This method routes all
    * operations for the same URN to the same BulkProcessor to ensure consistent ordering and avoid
    * conflicts when updating the same entity.
