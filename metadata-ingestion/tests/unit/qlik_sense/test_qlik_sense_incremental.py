@@ -233,6 +233,28 @@ def test_app_is_read_when_checkpoint_cannot_be_loaded(
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
 
 
+def test_failed_read_with_unloadable_checkpoint_is_a_failure(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    qlik.engine_fails = True
+    with patch(
+        "datahub.ingestion.source.qlik_sense.app_state.QlikAppStateHandler.previous",
+        side_effect=RuntimeError("checkpoint unavailable"),
+    ):
+        second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert second.reporter.apps_read == 1
+    assert not _soft_deleted_urns(second_wus)
+    assert "Unable to load the last checkpoint of a Qlik app" in [
+        failure.title for failure in second.reporter.failures
+    ]
+
+
 def _container_urn(source: QlikSenseSource) -> str:
     return source._gen_app_key("app-1").as_urn()
 
