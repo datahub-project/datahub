@@ -386,6 +386,8 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         if item == "*":
             load.keeps_all = True
             continue
+        if "$(" in item:
+            load.unreadable = True
         alias = LOAD_ALIAS_RE.match(item)
         if alias:
             load.fields.append(
@@ -403,8 +405,6 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         if field:
             name = _first_group(field)
             load.fields.append(LoadField(name=name, sources=[name]))
-        elif "$(" in item:
-            load.unreadable = True
     return load
 
 
@@ -415,15 +415,12 @@ def apply_preceding_loads(
     """Rename SQL columns to the fields the LOAD statements above them produce,
     carrying each field's upstream columns."""
     for load in reversed(preceding_loads):
-        if load.unreadable and not load.keeps_all and not load.fields:
-            # The fields are unknown, so the columns below are kept rather
-            # than dropped.
-            continue
         by_name = {
             name.lower(): upstreams for name, upstreams in column_upstreams.items()
         }
         column_upstreams = {
-            **(column_upstreams if load.keeps_all else {}),
+            # A $(variable) may hold any of the columns below, so they are kept.
+            **(column_upstreams if load.keeps_all or load.unreadable else {}),
             **{
                 field.name: list(
                     dict.fromkeys(
