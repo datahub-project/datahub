@@ -6,7 +6,7 @@
 import functools
 import json
 import logging
-from dataclasses import dataclass, field as dataclass_field
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
@@ -16,6 +16,7 @@ from dateutil import parser as date_parser
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
+from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -141,7 +142,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.metadata.urns import ChartUrn, DatasetUrn
-from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, ColumnRef
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
@@ -434,7 +435,17 @@ class ResolvedInputFields:
     unresolved: int = 0
     # Datasets the resolved fields belong to, in first-seen order; a visual's
     # table-level inputs are exactly these, never the whole model.
-    dataset_urns: List[str] = dataclass_field(default_factory=list)
+    dataset_urns: List[str] = field(default_factory=list)
+
+
+@dataclass
+class FabricEndpointMatch:
+    """Lakehouse / Warehouse ids behind the endpoint a Sql.Database query
+    named; empty when none matched, ambiguous when a display name matched
+    more than one item."""
+
+    item_ids: List[str] = field(default_factory=list)
+    ambiguous: bool = False
 
 
 class Mapper:
@@ -465,6 +476,11 @@ class Mapper:
         # (table urn, dataflow id, entity) references already counted, so a
         # model mapped several times (report + tile) is reported once.
         self.__counted_dataflow_references: Set[Tuple[str, str, str]] = set()
+        # (table urn, endpoint, schema, source table) Sql.Database references
+        # over Fabric endpoints already counted, for the same reason.
+        self.__counted_fabric_endpoint_references: Set[
+            Tuple[str, str, Optional[str], str]
+        ] = set()
         self.workspace_key: Optional[ContainerKey] = None
         # Refresh Operations are decided once per dataset and emitted on each
         # of its tables, so counters and warnings fire per dataset.
@@ -703,17 +719,7 @@ class Mapper:
             logger.debug(f"No source expression for DirectLake table {table.full_name}")
             return mcps
 
-        # Resolve platform instance using server_to_platform_instance mapping
-        # Mapping: workspace_id -> (platform_instance, env)
-        # The platform_instance typically represents the Fabric tenant identifier,
-        # matching how the OneLake connector uses platform_instance to group workspaces by tenant.
-        # Falls back to None if no mapping is found.
-        platform_detail = self.__dataplatform_instance_resolver.get_platform_instance(
-            PowerBIPlatformDetail(
-                data_platform_pair=SupportedDataPlatform.FABRIC_ONELAKE.value,
-                data_platform_server=workspace.id,  # Use workspace ID as the mapping key
-            )
-        )
+        platform_detail = self._onelake_platform_detail(workspace)
 
         # Resolve item ids for lineage URN. For SQLAnalyticsEndpoint we use physical_item_ids
         # (from relations.dependentOnArtifactId) so lineage URNs match the OneLake connector;
@@ -739,7 +745,7 @@ class Mapper:
                 item_id=item_id,
                 table_name=table.source_expression,
                 schema_name=table.source_schema,  # Can be None for schemas-disabled lakehouses
-                env=platform_detail.env or self.__config.env,
+                env=platform_detail.env,
                 platform_instance=platform_detail.platform_instance,  # None if not mapped
             )
             upstream_urn = self.lineage_urn_to_lowercase(upstream_urn)
@@ -807,6 +813,8 @@ class Mapper:
             f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_lineage}"
         )
 
+        self._resolve_fabric_endpoint_references(upstream_lineage, workspace, ds_urn)
+
         self._add_upstreams_from_m_lineage(
             upstream_lineage, ds_urn, upstream, cll_lineage, column_lineage=True
         )
@@ -833,6 +841,182 @@ class Mapper:
 
         return mcps
 
+    def _resolve_fabric_endpoint_references(
+        self,
+        upstream_lineage: List[
+            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+        ],
+        workspace: powerbi_data_classes.Workspace,
+        ds_urn: str,
+    ) -> None:
+        """Swap each ``Sql.Database`` upstream over a Fabric SQL analytics
+        endpoint for the OneLake table(s) behind it, so the edge lands on the
+        same URN the OneLake connector emits instead of a generic ``mssql``
+        one. An endpoint that is not among the workspace's Fabric items (a
+        lakehouse in another workspace, or one whose properties were refused)
+        keeps the ``mssql`` edge the connector always emitted and is
+        reported, since only the OneLake edge is lost."""
+        for lineage in upstream_lineage:
+            for reference in lineage.fabric_endpoint_references:
+                reference_key = (
+                    ds_urn,
+                    reference.database.lower(),
+                    reference.schema_name,
+                    reference.table_name,
+                )
+                first_sighting = (
+                    reference_key not in self.__counted_fabric_endpoint_references
+                )
+                self.__counted_fabric_endpoint_references.add(reference_key)
+                match = self._fabric_endpoint_match(workspace, reference.database)
+                if match.ambiguous:
+                    if first_sighting:
+                        self.__reporter.fabric_endpoint_references_ambiguous += 1
+                    self._warn_fabric_endpoint_reference(
+                        title="Fabric Endpoint Name Ambiguous",
+                        message="A Sql.Database query names a Fabric SQL analytics endpoint by display name, and several Lakehouses or Warehouses of the workspace share that name; the table keeps a generic mssql upstream instead of guessing the OneLake table.",
+                        reference=reference,
+                        workspace=workspace,
+                        ds_urn=ds_urn,
+                    )
+                    continue
+                if not match.item_ids:
+                    if first_sighting:
+                        self.__reporter.fabric_endpoint_references_unresolved += 1
+                    self._warn_fabric_endpoint_reference(
+                        title="Fabric Endpoint Not Resolved",
+                        message="A Sql.Database query reads a Fabric SQL analytics endpoint that is not a Lakehouse or Warehouse of its workspace (for example an item in a workspace outside the workspace patterns, or one whose properties could not be fetched); the table keeps a generic mssql upstream instead of the OneLake table.",
+                        reference=reference,
+                        workspace=workspace,
+                        ds_urn=ds_urn,
+                    )
+                    continue
+                if first_sighting:
+                    self.__reporter.fabric_endpoint_references_resolved += 1
+                platform_detail = self._onelake_platform_detail(workspace)
+                onelake_urns = [
+                    make_onelake_urn(
+                        workspace_id=workspace.id,
+                        item_id=item_id,
+                        table_name=reference.table_name,
+                        schema_name=reference.schema_name,
+                        env=platform_detail.env,
+                        platform_instance=platform_detail.platform_instance,
+                    )
+                    for item_id in match.item_ids
+                ]
+                self._replace_upstream_urn(lineage, reference.mssql_urn, onelake_urns)
+
+    def _onelake_platform_detail(
+        self, workspace: powerbi_data_classes.Workspace
+    ) -> PlatformDetail:
+        """platform_instance and env of OneLake URNs come only from
+        server_to_platform_instance keyed by the workspace id (the OneLake
+        connector groups workspaces by tenant the same way); the env falls
+        back to the mapping's own default, not the Power BI env."""
+        return self.__dataplatform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=SupportedDataPlatform.FABRIC_ONELAKE.value,
+                data_platform_server=workspace.id,
+            )
+        )
+
+    def _warn_fabric_endpoint_reference(
+        self,
+        title: str,
+        message: str,
+        reference: datahub.ingestion.source.powerbi.m_query.data_classes.FabricSqlEndpointReference,
+        workspace: powerbi_data_classes.Workspace,
+        ds_urn: str,
+    ) -> None:
+        self.__reporter.warning(
+            title=title,
+            message=message,
+            context=(
+                f"table={ds_urn}, workspace={workspace.name}, "
+                f"server={reference.server}, database={reference.database}, "
+                f"source={reference.schema_name}.{reference.table_name}"
+            ),
+        )
+
+    @staticmethod
+    def _fabric_endpoint_match(
+        workspace: powerbi_data_classes.Workspace, database: str
+    ) -> FabricEndpointMatch:
+        """The OneLake item(s) behind the endpoint a ``Sql.Database`` query
+        named: by endpoint id first (as DirectLake's shared expression
+        writes it), else by item display name (as Power BI Desktop writes
+        it). A name shared by several items is ambiguous rather than a
+        guess."""
+        key = database.strip().lower()
+        by_id = [a for a in workspace.fabric_artifacts.values() if a.id.lower() == key]
+        if by_id:
+            return FabricEndpointMatch(item_ids=Mapper._physical_item_ids(by_id))
+        by_name = [
+            a for a in workspace.fabric_artifacts.values() if a.name.lower() == key
+        ]
+        item_ids = Mapper._physical_item_ids(by_name)
+        return FabricEndpointMatch(item_ids=item_ids, ambiguous=len(item_ids) > 1)
+
+    @staticmethod
+    def _physical_item_ids(
+        artifacts: List[powerbi_data_classes.FabricArtifact],
+    ) -> List[str]:
+        """Distinct Lakehouse / Warehouse ids the artifacts stand for: an
+        endpoint artifact contributes its physical items, any other its own
+        id."""
+        item_ids: List[str] = []
+        for artifact in artifacts:
+            candidates = (
+                artifact.physical_item_ids or []
+                if artifact.artifact_type == FABRIC_ARTIFACT_SQL_ANALYTICS_ENDPOINT
+                else [artifact.id]
+            )
+            for item_id in candidates:
+                if item_id.lower() not in {i.lower() for i in item_ids}:
+                    item_ids.append(item_id)
+        return item_ids
+
+    @staticmethod
+    def _replace_upstream_urn(
+        lineage: datahub.ingestion.source.powerbi.m_query.data_classes.Lineage,
+        old_urn: str,
+        new_urns: List[str],
+    ) -> None:
+        onelake_pair = SupportedDataPlatform.FABRIC_ONELAKE.value
+        upstreams: List[
+            datahub.ingestion.source.powerbi.m_query.data_classes.DataPlatformTable
+        ] = []
+        for upstream in lineage.upstreams:
+            if upstream.urn != old_urn:
+                upstreams.append(upstream)
+                continue
+            upstreams.extend(
+                datahub.ingestion.source.powerbi.m_query.data_classes.DataPlatformTable(
+                    data_platform_pair=onelake_pair,
+                    urn=urn,
+                    from_fabric_endpoint=True,
+                )
+                for urn in new_urns
+            )
+        lineage.upstreams = upstreams
+        column_lineage: List[ColumnLineageInfo] = []
+        for cll in lineage.column_lineage:
+            column_refs: List[ColumnRef] = []
+            for column_ref in cll.upstreams:
+                if column_ref.table != old_urn:
+                    column_refs.append(column_ref)
+                    continue
+                column_refs.extend(
+                    ColumnRef(table=urn, column=column_ref.column) for urn in new_urns
+                )
+            column_lineage.append(
+                ColumnLineageInfo(
+                    downstream=cll.downstream, upstreams=column_refs, logic=cll.logic
+                )
+            )
+        lineage.column_lineage = column_lineage
+
     def _add_upstreams_from_m_lineage(
         self,
         upstream_lineage: List[
@@ -852,7 +1036,12 @@ class Mapper:
                 platform_name = (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
                 )
-                if not self.__config.is_platform_in_dataset_type_mapping(platform_name):
+                if (
+                    not upstream_dpt.from_fabric_endpoint
+                    and not self.__config.is_platform_in_dataset_type_mapping(
+                        platform_name
+                    )
+                ):
                     logger.debug(
                         f"Skipping upstream table for {ds_urn}. The platform {platform_name} is not part of dataset_type_mapping",
                     )
@@ -991,10 +1180,13 @@ class Mapper:
         entity: powerbi_data_classes.DataflowQuery,
         ds_urn: str,
         bindings: Dict[str, str],
+        workspace: powerbi_data_classes.Workspace,
     ) -> List[MetadataChangeProposalWrapper]:
         """Upstream lineage of one dataflow entity. *bindings* holds the
         mashup's parseable queries; wrapping them in one let lets a query
-        that references another query resolve to that query's source."""
+        that references another query resolve to that query's source.
+        *workspace* supplies the Fabric items a Sql.Database query over an
+        endpoint host is mapped to, as for semantic-model tables."""
         if entity.name not in bindings:
             return []
         table = powerbi_data_classes.Table(
@@ -1009,6 +1201,7 @@ class Mapper:
             ctx=self.__ctx,
             config=self.__config,
         )
+        self._resolve_fabric_endpoint_references(upstream_lineage, workspace, ds_urn)
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
         # Dataflow entities carry no schema, so there is nothing for a
@@ -1086,7 +1279,9 @@ class Mapper:
         )
         if self.__config.extract_lineage:
             mcps.extend(
-                self.extract_dataflow_entity_lineage(dataflow, entity, ds_urn, bindings)
+                self.extract_dataflow_entity_lineage(
+                    dataflow, entity, ds_urn, bindings, workspace
+                )
             )
         return mcps
 

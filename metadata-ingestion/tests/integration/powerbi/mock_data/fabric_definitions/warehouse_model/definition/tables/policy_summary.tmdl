@@ -1,0 +1,27 @@
+/// DirectLake table over the warehouse 'policy_summary' table.
+table policy_summary
+	lineageTag: 00000021-1111-4222-8333-000000000021
+	sourceLineageTag: [dbo].[policy_summary]
+
+	column policy_id
+		dataType: int64
+		sourceProviderType: bigint
+		lineageTag: 00000022-1111-4222-8333-000000000022
+		sourceLineageTag: policy_id
+		summarizeBy: none
+		sourceColumn: policy_id
+
+	column premium
+		dataType: double
+		sourceProviderType: float
+		lineageTag: 00000023-1111-4222-8333-000000000023
+		sourceLineageTag: premium
+		summarizeBy: sum
+		sourceColumn: premium
+
+	partition policy_summary = entity
+		mode: directLake
+		source
+			entityName: policy_summary
+			schemaName: dbo
+			expressionSource: WarehouseQuery
