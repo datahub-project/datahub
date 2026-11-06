@@ -32,6 +32,11 @@ module.exports = {
         },
         {
           type: "link",
+          label: "Product Tours",
+          href: "https://tours.datahub.com/",
+        },
+        {
+          type: "link",
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
         },
