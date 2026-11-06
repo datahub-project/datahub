@@ -98,24 +98,35 @@ class GithubPRProcessor:
     def _set_current_state_label(
         self,
         pr: github.PullRequest.PullRequest,
-        current_state: Optional[str],
+        current_labels: Set[str],
         new_label: str,
     ) -> None:
-        mode = "[dry run] " if self.dry_run else ""
+        """Make new_label the PR's only state label.
 
-        if current_state == new_label:
+        Adds before removing, so a failed API call can't leave the PR with no
+        state label, and removes every other state label (they're mutually
+        exclusive), not just the highest-precedence one.
+        """
+        mode = "[dry run] " if self.dry_run else ""
+        stale = [
+            label for label in STATE_LABELS if label in current_labels and label != new_label
+        ]
+        needs_add = new_label not in current_labels
+
+        if not needs_add and not stale:
             logger.info(f"PR #{pr.number}: {new_label} is already the current state")
-        elif current_state:
-            logger.info(
-                f"PR #{pr.number}: {mode}Adding {new_label} and removing {current_state}"
-            )
-            if not self.dry_run:
-                pr.remove_from_labels(current_state)
-                pr.add_to_labels(new_label)
-        else:
-            logger.info(f"PR #{pr.number}: {mode}Adding {new_label}")
-            if not self.dry_run:
-                pr.add_to_labels(new_label)
+            return
+
+        change = f"Adding {new_label}" if needs_add else f"Keeping {new_label}"
+        if stale:
+            change += f" and removing {', '.join(stale)}"
+        logger.info(f"PR #{pr.number}: {mode}{change}")
+        if self.dry_run:
+            return
+        if needs_add:
+            pr.add_to_labels(new_label)
+        for label in stale:
+            pr.remove_from_labels(label)
 
     def _has_manual_label_changes(
         self,
@@ -201,8 +212,10 @@ class GithubPRProcessor:
         if has_recent_comments:
             activity.append("comments")
 
+        # Committer date, not author date: an amended or rebased commit keeps its
+        # original author date but is (re)committed when it's pushed.
         has_recent_commits = any(
-            commit.commit.author.date > since and len(commit.parents) <= 1
+            commit.commit.committer.date > since and len(commit.parents) <= 1
             for commit in pr.get_commits()
         )
         if has_recent_commits:
@@ -268,7 +281,7 @@ class GithubPRProcessor:
         )
         has_approval = _has_review_approval and not _has_changes_requested
 
-        set_state = functools.partial(self._set_current_state_label, pr, current_state)
+        set_state = functools.partial(self._set_current_state_label, pr, current_labels)
 
         # State machine
         if has_approval:
@@ -329,6 +342,10 @@ class GithubPRProcessor:
             since = datetime.now(timezone.utc) - timedelta(hours=self.updated_within_hours)
             query += f" updated:>={since.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         logger.info(f"Search: {query}")
+
+        # Load collaborators once up front: a permissions error here must fail
+        # the run, not be caught and skipped by the per-PR handler below.
+        self._get_collaborators()
 
         prs = self.github_client.search_issues(query)
 

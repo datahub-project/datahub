@@ -56,9 +56,12 @@ def make_comment(login: str, created_at: datetime, user_type: str = "User") -> M
     return comment
 
 
-def make_commit(date: datetime, num_parents: int = 1) -> MagicMock:
+def make_commit(
+    date: datetime, num_parents: int = 1, author_date: datetime = None
+) -> MagicMock:
     commit = MagicMock()
-    commit.commit.author.date = date
+    commit.commit.committer.date = date
+    commit.commit.author.date = author_date or date
     commit.parents = [MagicMock()] * num_parents
     return commit
 
@@ -394,11 +397,7 @@ class TestDryRun:
 class TestProcess404Handling:
     def test_404_on_get_pull_is_skipped(self):
         """A 404 when fetching a PR should be skipped, not fatal."""
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "fake-token"}):
-            with patch("pr_state_labeler.github.Github") as MockGithub:
-                processor = GithubPRProcessor(repo_name="test-org/test-repo", dry_run=True)
-
-        processor._get_collaborators = MagicMock(return_value={"reviewer-a"})
+        processor = make_processor()
 
         # Mock search_issues returning one issue
         issue = MagicMock()
@@ -417,11 +416,7 @@ class TestProcess404Handling:
 
     def test_404_during_process_single_pr_is_skipped(self):
         """A 404 raised inside process_single_pr (e.g. get_reviews) should be skipped."""
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "fake-token"}):
-            with patch("pr_state_labeler.github.Github"):
-                processor = GithubPRProcessor(repo_name="test-org/test-repo", dry_run=True)
-
-        processor._get_collaborators = MagicMock(return_value={"reviewer-a"})
+        processor = make_processor()
 
         issue = MagicMock()
         issue.number = 42
@@ -442,11 +437,7 @@ class TestProcess404Handling:
 
     def test_non_404_github_exception_is_reraised(self):
         """Non-404 GithubException (e.g. 500) should propagate."""
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "fake-token"}):
-            with patch("pr_state_labeler.github.Github"):
-                processor = GithubPRProcessor(repo_name="test-org/test-repo", dry_run=True)
-
-        processor._get_collaborators = MagicMock(return_value={"reviewer-a"})
+        processor = make_processor()
 
         issue = MagicMock()
         issue.number = 42
@@ -463,13 +454,7 @@ class TestProcess404Handling:
 class TestLimit:
     def test_limit_caps_prs_processed(self):
         """--limit N should stop after N PRs."""
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "fake-token"}):
-            with patch("pr_state_labeler.github.Github"):
-                processor = GithubPRProcessor(
-                    repo_name="test-org/test-repo", dry_run=True, limit=2
-                )
-
-        processor._get_collaborators = MagicMock(return_value={"reviewer-a"})
+        processor = make_processor(limit=2)
 
         issues = [MagicMock(number=i) for i in range(1, 6)]  # 5 issues
         processor.github_client.search_issues.return_value = issues
@@ -545,3 +530,63 @@ class TestCollaboratorsPermission:
 
         with pytest.raises(RuntimeError, match="cannot list repository collaborators"):
             processor._get_collaborators()
+
+
+class TestReviewFixes:
+    def test_adds_new_label_before_removing_old(self):
+        """A failed add must not leave the PR with no state label."""
+        processor = make_processor(dry_run=False)
+        pr = make_pr(
+            author="external-user",
+            labels=[NEEDS_REVIEW, "area/ingestion"],
+            reviews=[make_review("reviewer-a", "CHANGES_REQUESTED", T1)],
+        )
+        calls = []
+        pr.add_to_labels.side_effect = lambda label: calls.append(("add", label))
+        pr.remove_from_labels.side_effect = lambda label: calls.append(("remove", label))
+
+        processor.process_single_pr(pr)
+
+        assert calls == [("add", PENDING_SUBMITTER_RESPONSE), ("remove", NEEDS_REVIEW)]
+
+    def test_removes_all_other_state_labels(self):
+        """Conflicting lower-precedence state labels are cleaned up too."""
+        processor = make_processor(dry_run=False)
+        pr = make_pr(
+            author="external-user",
+            labels=[PENDING_SUBMITTER_RESPONSE, NEEDS_REVIEW, "area/ingestion"],
+            reviews=[make_review("reviewer-a", "CHANGES_REQUESTED", T1)],
+        )
+
+        processor.process_single_pr(pr)
+
+        # Already pending-submitter-response: keep it, drop the stale needs-review.
+        pr.add_to_labels.assert_not_called()
+        pr.remove_from_labels.assert_called_once_with(NEEDS_REVIEW)
+
+    def test_amended_commit_after_review_counts_as_activity(self):
+        """A commit pushed after review counts even if its author date predates the review."""
+        processor = make_processor(dry_run=False)
+        pr = make_pr(
+            author="external-user",
+            labels=[PENDING_SUBMITTER_RESPONSE, "area/ingestion"],
+            reviews=[make_review("reviewer-a", "CHANGES_REQUESTED", T1)],
+            commits=[make_commit(T2, author_date=T0)],  # authored before, pushed after
+        )
+
+        processor.process_single_pr(pr)
+
+        pr.add_to_labels.assert_called_once_with(NEEDS_REVIEW)
+
+    def test_collaborator_403_fails_the_run(self):
+        """A permissions error must fail the run, not be skipped PR by PR."""
+        with patch.dict(os.environ, {"GITHUB_TOKEN": "fake-token"}):
+            with patch("pr_state_labeler.github.Github"):
+                processor = GithubPRProcessor(repo_name="test-org/test-repo")
+        processor.repo.get_collaborators.side_effect = github.GithubException(
+            status=403, data={"message": "Forbidden"}, headers={}
+        )
+        processor.github_client.search_issues.return_value = [MagicMock(number=1)]
+
+        with pytest.raises(RuntimeError, match="cannot list repository collaborators"):
+            processor.process_prs()
