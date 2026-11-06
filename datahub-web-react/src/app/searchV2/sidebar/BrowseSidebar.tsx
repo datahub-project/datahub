@@ -8,6 +8,10 @@ import EntityBrowse from '@app/searchV2/sidebar/EntityBrowse';
 import PlatformBrowse from '@app/searchV2/sidebar/PlatformBrowse';
 import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
 import { TreeContainer } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
+import {
+    SEARCH_BROWSE_SIDEBAR_WIDTH_STORAGE_KEY,
+    SIDEBAR_MIN_WIDTH,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 /**
@@ -73,6 +77,8 @@ const BrowseSidebar = ({ visible }: Props) => {
                 id="browse-v2"
                 dataTestId="browse-v2-results"
                 collapseButtonTestId="browse-v2-toggle"
+                defaultWidth={SIDEBAR_MIN_WIDTH}
+                widthStorageKey={SEARCH_BROWSE_SIDEBAR_WIDTH_STORAGE_KEY}
             >
                 {/* Render prop keeps the browse tree mounted across collapse; collapsed, the
                     platform rows render as an icon-only column. */}

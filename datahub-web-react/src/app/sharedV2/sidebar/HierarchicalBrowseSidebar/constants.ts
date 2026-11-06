@@ -8,6 +8,9 @@ export const SIDEBAR_MAX_WIDTH = 500;
 /** Shared across Glossary / Domains / Documents / Metrics. */
 export const SIDEBAR_WIDTH_STORAGE_KEY = 'hierarchicalBrowseSidebarWidth';
 
+/** Search "Navigate" sidebar keeps its own width so it can start narrow. */
+export const SEARCH_BROWSE_SIDEBAR_WIDTH_STORAGE_KEY = 'searchBrowseSidebarWidth';
+
 /**
  * Leading entity glyph size for tree rows (expanded + collapsed).
  * Domains / Glossary badges, Phosphor doc/metric icons, and home house all use this.
