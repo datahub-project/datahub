@@ -1,5 +1,6 @@
 import logging
 import sys
+import threading
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import quote
 
@@ -34,6 +35,7 @@ class QlikAPI:
         self.users: Dict = {}
         # Spaces and items that failed to load, so the source can report them.
         self.unread_items: List[str] = []
+        self._thread_state = threading.local()
         self.config = config
         if not config.tenant_hostname or config.api_key is None:
             raise ValueError("Qlik Cloud requires tenant_hostname and api_key")
@@ -60,6 +62,7 @@ class QlikAPI:
         self.session.get(f"{self.rest_api_url}/api-keys").raise_for_status()
 
     def _log_http_error(self, message: str) -> Any:
+        self._thread_state.read_failed = True
         logger.warning(message)
         _, e, _ = sys.exc_info()
         if isinstance(e, requests.exceptions.HTTPError):
@@ -307,6 +310,7 @@ class QlikAPI:
 
     def _get_app(self, app_id: str) -> Optional[App]:
         websocket_connection: Optional[WebsocketConnection] = None
+        self._thread_state.read_failed = False
         try:
             assert self.config.tenant_hostname is not None
             assert self.config.api_key is not None
@@ -327,6 +331,7 @@ class QlikAPI:
             app.tables = self._get_app_used_tables(websocket_connection, app_id)
             if not app.tables or not all(table.tableQri for table in app.tables):
                 app.script = self._get_app_script(websocket_connection, app_id)
+            app.read_complete = not self._thread_state.read_failed
             return app
         except Exception as e:
             self._log_http_error(
