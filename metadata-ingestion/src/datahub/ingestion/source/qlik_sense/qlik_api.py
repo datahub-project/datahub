@@ -9,7 +9,6 @@ from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfi
 from datahub.ingestion.source.qlik_sense.data_classes import (
     PERSONAL_SPACE_DICT,
     App,
-    Chart,
     Item,
     QlikDataset,
     QlikTable,
@@ -108,30 +107,6 @@ class QlikAPI:
             )
         return None
 
-    def _get_chart(
-        self,
-        websocket_connection: WebsocketConnection,
-        chart_id: str,
-        sheet_id: str,
-    ) -> Optional[Chart]:
-        try:
-            websocket_connection.websocket_send_request(
-                method="GetChild", params={"qId": chart_id}
-            )
-            response = websocket_connection.websocket_send_request(method="GetLayout")
-            q_layout = response[Constant.QLAYOUT]
-            if Constant.HYPERCUBE not in q_layout:
-                logger.warning(
-                    f"Chart with id {chart_id} of sheet {sheet_id} does not have hypercube. q_layout: {q_layout}"
-                )
-                return None
-            return Chart.model_validate(q_layout)
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch chart {chart_id} of sheet {sheet_id}. Exception: {e}"
-            )
-        return None
-
     def _get_sheet(
         self,
         websocket_connection: WebsocketConnection,
@@ -155,16 +130,14 @@ class QlikAPI:
             for i, chart_dict in enumerate(
                 sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
             ):
-                chart = self._get_chart(
-                    websocket_connection,
+                for chart in websocket_connection.get_charts(
                     chart_dict[Constant.QINFO][Constant.QID],
                     sheet_id,
-                )
-                if chart:
+                    on_error=self._log_http_error,
+                ):
                     if not chart.title:
                         chart.title = f"Object {i + 1} of Sheet '{sheet.title}'"
                     sheet.charts.append(chart)
-                websocket_connection.handle.pop()
             return sheet
         except Exception as e:
             self._log_http_error(

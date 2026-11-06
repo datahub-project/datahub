@@ -1,6 +1,6 @@
 import json
 import ssl
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -236,14 +236,34 @@ def _chart_layout(chart_id: str) -> Dict[str, object]:
     }
 
 
-@patch(
-    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
-)
-@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
-def test_onprem_reads_charts_after_a_failed_chart(
-    mock_session_cls: MagicMock, mock_engine: MagicMock
-) -> None:
-    replies: List[object] = [
+class _ScriptedEngine(WebsocketConnection):
+    """Replays Engine replies in order, keeping the real handle stack logic."""
+
+    def __init__(self, replies: List[object]) -> None:
+        self.replies = replies
+        self.handle = [-1]
+        self.socket_connection = None
+        self.sent_on: List[Tuple[str, int]] = []
+
+    def websocket_send_request(
+        self, method: str, params: Optional[Union[Dict, List]] = None
+    ) -> Dict:
+        self.sent_on.append((method, self.handle[-1]))
+        reply = self.replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        assert isinstance(reply, dict)
+        handle = reply.get("qReturn", {}).get("qHandle")
+        if handle:
+            self.handle.append(handle)
+        return reply
+
+    def get_script(self) -> str:
+        return LOAD_SCRIPT
+
+
+def _sheet_replies(chart_ids: List[str]) -> List[object]:
+    return [
         {"qReturn": {"qHandle": 1}},
         {"qList": [{"qInfo": {"qId": "sheet-1", "qType": "sheet"}}]},
         {"qReturn": {"qHandle": 2, "qType": "GenericObject"}},
@@ -251,45 +271,95 @@ def test_onprem_reads_charts_after_a_failed_chart(
             "qLayout": {
                 "qMeta": SHEET_META,
                 "qChildList": {
-                    "qItems": [{"qInfo": {"qId": "broken"}}, {"qInfo": {"qId": "ok"}}]
+                    "qItems": [{"qInfo": {"qId": chart_id}} for chart_id in chart_ids]
                 },
             }
         },
-        RuntimeError("Access denied"),
-        {"qReturn": {"qHandle": 3, "qType": "GenericObject"}},
-        _chart_layout("ok"),
     ]
-    websocket = MagicMock()
-    websocket.handle = [-1]
-    sent_on: List[Tuple[str, int]] = []
 
-    def send(method: str, params: object = None) -> object:
-        sent_on.append((method, websocket.handle[-1]))
-        reply = replies.pop(0)
-        if isinstance(reply, Exception):
-            raise reply
-        assert isinstance(reply, dict)
-        handle = reply.get("qReturn", {}).get("qHandle")
-        if handle:
-            websocket.handle.append(handle)
-        return reply
 
-    websocket.websocket_send_request.side_effect = send
-    websocket.get_script.return_value = LOAD_SCRIPT
-    mock_engine.return_value = websocket
+def _read_onprem_app(
+    mock_session_cls: MagicMock, mock_engine: MagicMock, engine: _ScriptedEngine
+) -> App:
+    mock_engine.return_value = engine
     session = mock_session_cls.return_value
     session.headers = {}
     session.get.side_effect = _qrs_get
-
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     api.get_spaces()
     (app,) = api.get_items("stream-1")
-
     assert isinstance(app, App)
+    return app
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_reads_charts_after_a_failed_chart(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    engine = _ScriptedEngine(
+        _sheet_replies(["broken", "ok"])
+        + [
+            RuntimeError("Access denied"),
+            {"qReturn": {"qHandle": 3, "qType": "GenericObject"}},
+            _chart_layout("ok"),
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
     assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
     assert not app.read_complete
-    assert sent_on[4:] == [("GetChild", 2), ("GetChild", 2), ("GetLayout", 3)]
-    assert websocket.handle == [-1, 1]
+    assert engine.sent_on[4:] == [("GetChild", 2), ("GetChild", 2), ("GetLayout", 3)]
+    assert engine.handle == [-1, 1]
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_reads_charts_inside_containers(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    untitled = _chart_layout("in-tab")
+    untitled["qLayout"]["title"] = ""  # type: ignore[index]
+    engine = _ScriptedEngine(
+        _sheet_replies(["button", "tabs"])
+        + [
+            {"qReturn": {"qHandle": 3}},
+            {"qLayout": {"qInfo": {"qId": "button", "qType": "action-button"}}},
+            {"qReturn": {"qHandle": 4}},
+            {
+                "qLayout": {
+                    "qInfo": {"qId": "tabs", "qType": "container"},
+                    "children": [{"refId": "t1", "label": "Monthly"}],
+                    "qChildList": {
+                        "qItems": [
+                            {
+                                "qInfo": {"qId": "in-tab"},
+                                "qData": {"containerChildId": "t1"},
+                            },
+                            {"qInfo": {"qId": "titled"}, "qData": {}},
+                        ]
+                    },
+                }
+            },
+            {"qReturn": {"qHandle": 5}},
+            untitled,
+            {"qReturn": {"qHandle": 6}},
+            _chart_layout("titled"),
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert [(c.qId, c.title) for c in app.sheets[0].charts] == [
+        ("in-tab", "Monthly"),
+        ("titled", "Chart titled"),
+    ]
+    assert app.read_complete
+    assert ("GetChild", 4) in engine.sent_on
+    assert engine.handle == [-1, 1]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
