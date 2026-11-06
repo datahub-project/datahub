@@ -73,6 +73,18 @@ class DataPlatformTable:
     urn: str
 
 
+@dataclass(frozen=True)
+class DataflowReference:
+    """A ``PowerPlatform.Dataflows`` / ``PowerBI.Dataflows`` navigation to one
+    entity of a dataflow. The mapper turns it into an edge only when that
+    dataflow was ingested in the same run, since the entity's URN cannot be
+    verified from the reference alone."""
+
+    workspace_id: Optional[str]
+    dataflow_id: str
+    entity: str
+
+
 @dataclass
 class Lineage:
     upstreams: List[DataPlatformTable]
@@ -81,6 +93,7 @@ class Lineage:
     # renames are applied afterwards by mapping the upstream side back. Native SQL
     # lineage applies renames to the query's output names inside parse_custom_sql.
     downstream_names_are_powerbi_fields: bool = True
+    dataflow_references: List[DataflowReference] = field(default_factory=list)
 
     @staticmethod
     def empty() -> "Lineage":
@@ -104,3 +117,5 @@ class FunctionName(Enum):
     ODBC_QUERY = "Odbc.Query"
     STARBURST_AAD_DATA_ACCESS = "StarburstAad.Contents"
     STARBURST_PRESTO_DATA_ACCESS = "StarburstPresto.Contents"
+    POWERPLATFORM_DATAFLOWS = "PowerPlatform.Dataflows"
+    POWERBI_DATAFLOWS = "PowerBI.Dataflows"

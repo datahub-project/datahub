@@ -3686,7 +3686,8 @@
           "description": "Enabled by default",
           "subtype_modifier": [
             "Workspace",
-            "Semantic Model"
+            "Semantic Model",
+            "Dataflow"
           ],
           "supported": true
         },
@@ -3752,7 +3753,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default, configured using `extract_lineage`. In `metadata_api_mode: workspace_apis` lineage comes from the semantic-model definitions (TMDL partitions) without admin API access.",
+          "description": "Enabled by default, configured using `extract_lineage`. In `metadata_api_mode: workspace_apis` lineage comes from the semantic-model definitions (TMDL partitions) without admin API access. With `extract_dataflows` (workspace_apis only) Dataflow Gen2 entities get upstream lineage from their M queries and downstream lineage to the semantic-model tables that read them.",
           "subtype_modifier": null,
           "supported": true
         },

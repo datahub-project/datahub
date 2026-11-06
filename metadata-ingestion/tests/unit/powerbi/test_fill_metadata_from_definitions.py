@@ -10,7 +10,6 @@ import requests
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
-    PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FieldModelProperties,
@@ -32,6 +31,11 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import (
     PowerBiAPI,
     registry_key,
+)
+from tests.unit.powerbi.powerbi_test_helpers import (
+    make_api,
+    make_config,
+    make_workspace,
 )
 
 WORKSPACE_ID = "64ED5CAD-7C10-4684-8180-826122881108"
@@ -99,33 +103,16 @@ def _http_error(status: int) -> requests.HTTPError:
 
 
 def _config(**overrides: Any) -> PowerBiDashboardSourceConfig:
-    base: Dict[str, Any] = {
-        "tenant_id": "fake",
-        "client_id": "foo",
-        "client_secret": "bar",
+    defaults: Dict[str, Any] = {
         "metadata_api_mode": "workspace_apis",
         "extract_lineage": False,
         "extract_column_level_lineage": False,
     }
-    base.update(overrides)
-    return PowerBiDashboardSourceConfig.model_validate(base)
+    return make_config(**{**defaults, **overrides})
 
 
 def _workspace(workspace_type: str = "Workspace") -> Workspace:
-    return Workspace(
-        id=WORKSPACE_ID,
-        name="demo-workspace",
-        type=workspace_type,
-        webUrl=None,
-        datasets={},
-        dashboards={},
-        reports={},
-        report_endorsements={},
-        dashboard_endorsements={},
-        scan_result={},
-        independent_datasets={},
-        app=None,
-    )
+    return make_workspace(workspace_id=WORKSPACE_ID, workspace_type=workspace_type)
 
 
 def _definition(text: str = TABLE_TMDL) -> ItemDefinition:
@@ -144,15 +131,6 @@ def _api(
 ) -> PowerBiAPI:
     """A PowerBiAPI with mocked resolvers; `definitions` maps item id to an
     ItemDefinition or an exception to raise for that item."""
-    api = PowerBiAPI.__new__(PowerBiAPI)
-    api._PowerBiAPI__config = config or _config()  # type: ignore[attr-defined]
-    api.reporter = PowerBiDashboardSourceReport()
-    api.dataset_registry = {}
-    api.datasets_by_workspace_and_name = {}
-    api.ambiguous_remote_model_keys = set()
-    api.log_http_error = MagicMock()  # type: ignore[method-assign]
-    api._PowerBiAPI__workspace_users = {}  # type: ignore[attr-defined]
-
     regular = MagicMock()
     regular.get_datasets.return_value = (
         datasets
@@ -160,7 +138,6 @@ def _api(
         else [{"id": MODEL_A, "name": "Insurance Model"}]
     )
     regular.get_dataset_parameters.return_value = {}
-    api._PowerBiAPI__regular_api_resolver = regular  # type: ignore[attr-defined]
 
     fabric = MagicMock()
     fabric.list_items.return_value = items if items is not None else []
@@ -176,8 +153,9 @@ def _api(
         return result
 
     fabric.get_item_definition.side_effect = get_item_definition
-    api._PowerBiAPI__fabric_resolver = fabric  # type: ignore[attr-defined]
-    return api
+    return make_api(
+        config or _config(), regular_resolver=regular, fabric_resolver=fabric
+    )
 
 
 def test_workspace_type_filter_excludes_workspace_without_api_calls() -> None:

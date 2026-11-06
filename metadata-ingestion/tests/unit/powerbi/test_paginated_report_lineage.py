@@ -31,19 +31,13 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     RegularAPIResolver,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from tests.unit.powerbi.powerbi_test_helpers import make_api, make_config
 
 PBI_DATASET_DB = "sobe_wowvirtualserver-a8149dea-aa76-44e7-b6a2-cb888b71443f"
 
 
 def _config(**overrides: object) -> PowerBiDashboardSourceConfig:
-    base = {
-        "client_id": "foo",
-        "client_secret": "bar",
-        "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
-        "convert_lineage_urns_to_lowercase": False,
-    }
-    base.update(overrides)
-    return PowerBiDashboardSourceConfig.parse_obj(base)
+    return make_config(**{"convert_lineage_urns_to_lowercase": False, **overrides})
 
 
 def _paginated_report(datasources: List[ReportDatasource]) -> Report:
@@ -138,15 +132,9 @@ def _api(
     raise_error: bool = False,
     dataset_registry: Optional[dict] = None,
 ) -> PowerBiAPI:
-    api = PowerBiAPI.__new__(PowerBiAPI)
-    # Name-mangled private config attribute.
-    api._PowerBiAPI__config = _config(  # type: ignore[attr-defined]
-        admin_apis_only=admin_apis_only
+    api = make_api(
+        _config(admin_apis_only=admin_apis_only), dataset_registry=dataset_registry
     )
-    api.reporter = PowerBiDashboardSourceReport()
-    api.dataset_registry = dataset_registry or {}
-    # log_http_error inspects sys.exc_info(); stub it (it's not under test here).
-    api.log_http_error = MagicMock()  # type: ignore[method-assign]
 
     resolver = MagicMock()
     if raise_error:

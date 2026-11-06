@@ -291,6 +291,13 @@ class Constant:
     COMPOSITE_MODEL_SOURCE_TABLE_NOT_FOUND = "Composite Model Source Table Not Found"
     COMPOSITE_MODEL_COLUMN_NOT_RESOLVED = "Composite Model Column Not Resolved"
     NULL_DATA_TYPE = "Null"
+    # viewProperties.viewLanguage of M expressions
+    M_QUERY_LANGUAGE = "m_query"
+    # Dataflow Gen2 (extract_dataflows)
+    DATAFLOW_ID = "dataflowId"
+    DATAFLOW_NAME = "dataflowName"
+    DATAFLOW_ID_PROPERTY = "dataflow_id"
+    DATAFLOWS_URL_SEGMENT = "dataflows"
 
 
 # A dataset parameter whose name contains one of these (case-insensitively,
@@ -529,6 +536,18 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     refresh_schedule_not_configured: int = 0
     refresh_schedule_not_supported: int = 0
     refresh_schedule_failed: int = 0
+    # Dataflow Gen2 (extract_dataflows). Definition counts are kept apart
+    # from fabric_definitions_* so "every semantic-model definition failed"
+    # still escalates when dataflows alone succeeded.
+    dataflow_definitions_fetched: int = 0
+    dataflows_fetched: int = 0
+    dataflow_entities_parsed: int = 0
+    dataflow_queries_unparseable: int = 0
+    # Distinct (table, dataflow, entity) references, not per emission.
+    dataflow_references_resolved: int = 0
+    dataflow_references_not_ingested: int = 0
+    # PowerPlatform.Dataflows navigations without a dataflowId/entity step.
+    dataflow_references_unresolved: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -1221,6 +1240,18 @@ class PowerBiDashboardSourceConfig(
         "in both metadata API modes and needs only the Viewer role, but uses the "
         "workspace API, so it cannot be combined with `admin_apis_only`.",
     )
+    extract_dataflows: bool = pydantic.Field(
+        default=False,
+        description="Ingest Dataflow Gen2 items: each dataflow becomes a container in its "
+        "workspace and each of its load-enabled queries a dataset with subtype `Dataflow Entity`, "
+        "with upstream lineage parsed from the query's M expression and downstream "
+        "lineage to the semantic-model tables that read it through "
+        "`PowerPlatform.Dataflows` / `PowerBI.Dataflows`. Dataflow datasets are named "
+        "`dataflows.<dataflow id>.<query name>`: keyed by id like dashboards and charts, "
+        "so they cannot collide with a semantic model of the same name, and "
+        "deliberately unaffected by `include_workspace_name_in_dataset_urn`. Adds one "
+        "Fabric getDefinition call per dataflow. Requires `metadata_api_mode: workspace_apis`.",
+    )
 
     @classmethod
     def probe_provider_class(cls) -> type:
@@ -1366,6 +1397,16 @@ class PowerBiDashboardSourceConfig(
             missing = [name for name in extra_requirements if not getattr(self, name)]
             if missing:
                 raise ValueError(f"{flag} requires these flags enabled: {missing}")
+        # Dataflow Gen2 items are listed and fetched in Phase 1 of
+        # workspace_apis mode only; enrich_from_item_definitions overlays the
+        # scanned semantic models and never lists dataflows.
+        if (
+            self.extract_dataflows
+            and self.metadata_api_mode != PowerBiMetadataApiMode.WORKSPACE_APIS
+        ):
+            raise ValueError(
+                "extract_dataflows requires metadata_api_mode: workspace_apis."
+            )
         return self
 
     @model_validator(mode="after")

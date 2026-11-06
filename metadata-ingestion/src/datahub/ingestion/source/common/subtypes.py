@@ -51,6 +51,9 @@ class DatasetSubTypes(StrEnum):
     CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
     SEMANTIC_MODEL_DATASET = "Semantic Model Dataset"
+    # A load-enabled query of a Power BI Dataflow Gen2; the dataflow itself is
+    # a container with BIContainerSubTypes.POWERBI_DATAFLOW.
+    POWERBI_DATAFLOW_ENTITY = "Dataflow Entity"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
     SAP_ANALYTICAL_MODEL = "Analytic Model"
@@ -127,6 +130,7 @@ class BIContainerSubTypes(StrEnum):
     POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
+    POWERBI_DATAFLOW = "Dataflow"
     QLIK_SPACE = "Qlik Space"
     QLIK_APP = "Qlik App"
     SIGMA_WORKSPACE = "Sigma Workspace"

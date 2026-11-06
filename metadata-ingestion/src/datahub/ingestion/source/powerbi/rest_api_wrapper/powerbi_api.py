@@ -42,6 +42,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     AppReport,
     Column,
     Dashboard,
+    Dataflow,
     FabricArtifact,
     Measure,
     Page,
@@ -58,17 +59,24 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     new_powerbi_dashboards,
     new_powerbi_dataset,
     new_powerbi_reports,
+    urn_safe_name,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
     DataResolverBase,
     RegularAPIResolver,
 )
+from datahub.ingestion.source.powerbi.rest_api_wrapper.dataflow_definition_parser import (
+    MASHUP_PART_SUFFIX,
+    parse_dataflow_definition,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     FABRIC_FORMAT_TMDL,
+    FABRIC_ITEM_DATAFLOW,
     FABRIC_ITEM_LAKEHOUSE,
     FABRIC_ITEM_SQL_ENDPOINT,
     FABRIC_ITEM_WAREHOUSE,
+    FABRIC_KIND_DATAFLOWS,
     FABRIC_KIND_PAGINATED_REPORTS,
     FABRIC_KIND_REPORTS,
     FABRIC_KIND_SEMANTIC_MODELS,
@@ -190,7 +198,7 @@ def form_full_table_name(
     table_name: str,
 ) -> str:
     full_table_name: str = "{}.{}".format(
-        dataset_name.replace(" ", "_"), table_name.replace(" ", "_")
+        urn_safe_name(dataset_name), urn_safe_name(table_name)
     )
 
     if config.include_workspace_name_in_dataset_urn:
@@ -353,6 +361,15 @@ class PowerBiAPI:
             )
         )
         self.ambiguous_remote_model_keys: Set[str] = set()
+        # Dataflows ingested this run, by lower-cased id (GUIDs are
+        # case-insensitive), so a semantic model's PowerPlatform.Dataflows
+        # reference (which may cross workspaces) is linked only to an entity
+        # that was actually emitted. Dataflows are few and small compared to
+        # semantic models, so a plain dict is fine. dataflows_listed also
+        # holds the ids whose definition fetch failed, to tell "not in the
+        # run" from "failed this run" when reporting a dangling reference.
+        self.dataflow_registry: Dict[str, Dataflow] = {}
+        self.dataflows_listed: Set[str] = set()
 
     def _new_fabric_resolver(
         self,
@@ -1305,6 +1322,28 @@ class PowerBiAPI:
                     exc=e,
                 )
             return
+        if item_kind == FABRIC_KIND_DATAFLOWS:
+            # Same reasoning: the mashup is the only source of a dataflow's
+            # entities, so without it they are missing from the run.
+            if data_resolver.is_permission_error(e):
+                self.reporter.failure(
+                    title="Fabric API Permission Denied",
+                    message=f"getDefinition was refused for this dataflow. {permission_hint}",
+                    context=context,
+                    exc=e,
+                )
+            else:
+                self.reporter.failure(
+                    title="Dataflow Definition Not Fetched",
+                    message=(
+                        "getDefinition failed for this dataflow; its entities and "
+                        "lineage are missing from this run. If the long-running "
+                        "operation timed out, increase scan_timeout."
+                    ),
+                    context=context,
+                    exc=e,
+                )
+            return
         # Report definitions only enrich existing entities (visual field usage,
         # paginated-report dataset binding); losing them does not lose entities.
         if data_resolver.is_permission_error(e):
@@ -2074,20 +2113,115 @@ class PowerBiAPI:
                 workspace.fabric_artifacts = self._fabric_artifacts_from_items(
                     workspace, items
                 )
+                if self.__config.extract_dataflows:
+                    self._fill_workspace_dataflows(workspace, items)
             except Exception as e:
                 self.log_http_error(
                     message=f"Unable to list Fabric items for workspace {workspace.name}"
                 )
-                self.reporter.warning(
-                    title="Fabric Items Not Listed",
-                    message="The Fabric item listing failed; DirectLake lineage will be missing for this workspace.",
-                    context=f"workspace={workspace.name} id={workspace.id}",
-                    exc=e,
-                )
+                if self.__config.extract_dataflows:
+                    # The listing is the only way to discover dataflows, so
+                    # losing it loses their entities, not just enrichment.
+                    self.reporter.failure(
+                        title="Fabric Items Not Listed",
+                        message="The Fabric item listing failed; this workspace's dataflows and DirectLake lineage are missing from this run.",
+                        context=f"workspace={workspace.name} id={workspace.id}",
+                        exc=e,
+                    )
+                else:
+                    self.reporter.warning(
+                        title="Fabric Items Not Listed",
+                        message="The Fabric item listing failed; DirectLake lineage will be missing for this workspace.",
+                        context=f"workspace={workspace.name} id={workspace.id}",
+                        exc=e,
+                    )
 
             self._fill_workspace_datasets_from_definitions(workspace)
 
         return excluded_ids
+
+    def _fill_workspace_dataflows(
+        self, workspace: Workspace, items: List[FabricItem]
+    ) -> None:
+        """Dataflow Gen2 items with their mashup queries, registered for
+        cross-workspace references."""
+        workspace.dataflows = {}
+        for item in items:
+            if item.type != FABRIC_ITEM_DATAFLOW:
+                continue
+            self.dataflows_listed.add(item.id.lower())
+            dataflow = self._dataflow_from_item(workspace, item)
+            if dataflow is None:
+                continue
+            workspace.dataflows[dataflow.id] = dataflow
+            self.dataflow_registry[dataflow.id.lower()] = dataflow
+
+    def _dataflow_from_item(
+        self, workspace: Workspace, item: FabricItem
+    ) -> Optional[Dataflow]:
+        """A dataflow whose definition cannot be fetched, or whose mashup
+        yields no query at all, is a failure (its entities are missing); an
+        unreadable query-metadata part or a single unrecognised member only
+        degrades the result (``shared`` keyword fallback, one query missing)
+        and is a warning."""
+        context = (
+            f"workspace={workspace.name}, dataflow={item.display_name} id={item.id}"
+        )
+        try:
+            definition = self._require_fabric_resolver().get_item_definition(
+                workspace_id=workspace.id,
+                item_id=item.id,
+                item_kind=FABRIC_KIND_DATAFLOWS,
+            )
+            self.reporter.dataflow_definitions_fetched += 1
+        except Exception as e:
+            self._report_definition_failure(e, context, FABRIC_KIND_DATAFLOWS)
+            return None
+
+        parsed = parse_dataflow_definition(definition.parts)
+        failed_parts = definition.failed_parts + parsed.failed_parts
+        if not parsed.has_mashup or (parsed.failed_members and not parsed.queries):
+            self.reporter.failure(
+                title="Dataflow Mashup Not Parsed",
+                message="The dataflow definition has no readable mashup.pq part, or none of its members could be parsed; its entities and lineage are missing from this run.",
+                context=f"{context}, parts={failed_parts or [MASHUP_PART_SUFFIX]}, members={parsed.failed_members}",
+            )
+            return None
+        if failed_parts:
+            self.reporter.warning(
+                title="Dataflow Part Not Parsed",
+                message="Some parts of the dataflow definition could not be decoded or parsed; entities are told apart from helper queries by the `shared` keyword alone.",
+                context=f"{context}, parts={failed_parts}",
+            )
+        for failed_member in parsed.failed_members:
+            self.reporter.dataflow_queries_unparseable += 1
+            self.reporter.warning(
+                title="Dataflow Query Not Parsed",
+                message="A statement of the dataflow mashup is not a recognisable query; it is skipped and lineage through it is missing.",
+                context=f"{context}, statement={failed_member!r}",
+            )
+
+        dataflow = Dataflow(
+            id=item.id,
+            name=item.display_name or item.id,
+            description=item.description,
+            workspace_name=workspace.name,
+            queries=parsed.queries,
+            webUrl=(
+                f"{workspace.webUrl}/{Constant.DATAFLOWS_URL_SEGMENT}/{item.id}"
+                if workspace.webUrl
+                else None
+            ),
+        )
+        self.reporter.dataflows_fetched += 1
+        self.reporter.dataflow_entities_parsed += len(dataflow.entities())
+        return dataflow
+
+    def get_ingested_dataflow(self, dataflow_id: str) -> Optional[Dataflow]:
+        return self.dataflow_registry.get(dataflow_id.lower())
+
+    def was_dataflow_listed(self, dataflow_id: str) -> bool:
+        return dataflow_id.lower() in self.dataflows_listed
 
     def report_if_no_definitions_fetched(self) -> None:
         """Call once after every batch has been processed: with every
@@ -2106,13 +2240,13 @@ class PowerBiAPI:
         if self.__config.enrich_from_item_definitions:
             self.reporter.warning(
                 title=Constant.NO_ITEM_DEFINITIONS_FETCHED,
-                message=f"Every Fabric getDefinition call failed; the scan metadata is ingested without definition-derived enrichment. {permission_hint}",
+                message=f"Every Fabric getDefinition call for semantic-model, report or dataflow definitions failed; the scan metadata is ingested without definition-derived enrichment. {permission_hint}",
                 context=context,
             )
             return
         self.reporter.failure(
             title=Constant.NO_ITEM_DEFINITIONS_FETCHED,
-            message=f"Every Fabric getDefinition call failed; no semantic-model schema or lineage has been ingested. {permission_hint}",
+            message=f"Every Fabric getDefinition call for semantic-model, report or dataflow definitions failed; no semantic-model schema or lineage has been ingested. {permission_hint}",
             context=context,
         )
 
