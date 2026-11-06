@@ -346,16 +346,23 @@ class _AggregatingKafkaCallback:
         self._remaining = self.total
 
     def kafka_callback(self, err: Any, msg: Any) -> None:
+        # Decide under the lock, call ``inner`` outside it: ``inner`` may flush/emit,
+        # and the resulting poll() can re-enter this callback on the same thread.
         with self._lock:
             self._remaining -= 1
             if err is not None and self._suppressed:
+                fire = False
                 # The caller already saw an exception for this MCE; keep the broker error visible.
                 logger.error(f"Kafka delivery failed after emit raised: {err} {msg}")
             elif err is not None and not self._failed:
                 self._failed = True
-                self.inner(err, msg)
+                fire = True
             elif self._remaining == 0 and not self._failed:
-                self.inner(None, msg)
+                fire = True
+            else:
+                fire = False
+        if fire:
+            self.inner(err, msg)
 
     def suppress(self) -> bool:
         """Never fire ``inner``; for when the failure was already raised to the caller.

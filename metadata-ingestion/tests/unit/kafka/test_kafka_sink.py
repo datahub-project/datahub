@@ -3,7 +3,7 @@
 # mypy: disable-error-code="attr-defined"
 import threading
 import unittest
-from typing import Union
+from typing import Any, List, Union
 from unittest.mock import MagicMock, patch
 
 import pydantic
@@ -340,6 +340,26 @@ def test_aggregating_callback_last_fails():
     agg.kafka_callback(mock_error, MagicMock())
     mock_inner.kafka_callback.assert_called_once()
     assert mock_inner.kafka_callback.call_args[0][0] is mock_error
+
+
+def test_aggregating_callback_inner_can_reenter():
+    """``inner`` flushing the producer can deliver another aspect of the same MCE
+    on the same thread; that must not deadlock."""
+    deliveries: List[Any] = []
+
+    def inner(err: Any, msg: Any) -> None:
+        deliveries.append(err)
+        agg.kafka_callback(None, MagicMock())
+
+    agg = _AggregatingKafkaCallback(total=2, inner=inner)
+    mock_error = MagicMock()
+    worker = threading.Thread(
+        target=agg.kafka_callback, args=(mock_error, MagicMock()), daemon=True
+    )
+    worker.start()
+    worker.join(timeout=5)
+    assert not worker.is_alive()
+    assert deliveries == [mock_error]
 
 
 def _run_concurrent_callbacks(
