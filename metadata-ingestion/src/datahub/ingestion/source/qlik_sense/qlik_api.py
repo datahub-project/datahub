@@ -387,15 +387,21 @@ class QlikAPI:
     def _load_item(self, item: Dict) -> Optional[Item]:
         resource_type = item[Constant.RESOURCETYPE]
         loaded: Optional[Item]
-        if resource_type == Constant.APP:
-            loaded = self._get_app(app_id=item[Constant.RESOURCEID])
-        elif resource_type == Constant.DATASET:
-            loaded = self._get_dataset(
-                dataset_id=item[Constant.RESOURCEID],
-                item_id=item[Constant.ID],
+        try:
+            if resource_type == Constant.APP:
+                loaded = self._get_app(app_id=item[Constant.RESOURCEID])
+            elif resource_type == Constant.DATASET:
+                loaded = self._get_dataset(
+                    dataset_id=item[Constant.RESOURCEID],
+                    item_id=item[Constant.ID],
+                )
+            else:
+                return None
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to load item {item[Constant.RESOURCEID]}. Exception: {e}"
             )
-        else:
-            return None
+            loaded = None
         if loaded is None:
             self.unread_items.append(item[Constant.RESOURCEID])
         return loaded

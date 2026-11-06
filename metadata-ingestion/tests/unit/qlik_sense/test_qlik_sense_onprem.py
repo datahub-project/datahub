@@ -298,6 +298,24 @@ def test_onprem_loads_apps_in_parallel(
         assert isinstance(item, App)
         expected_sheets = [] if app_id == "app-2" else ["Overview"]
         assert [sheet.title for sheet in item.sheets] == expected_sheets
+        # A failed read must not leak into other apps read on the same thread.
+        assert item.read_complete is (app_id != "app-2")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_unexpected_app_error_records_app_id(
+    mock_session_cls: MagicMock,
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = _qrs_get
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+    api.get_spaces()
+
+    with patch.object(api, "_read_app", side_effect=RuntimeError("boom")):
+        assert list(api.get_items("stream-1")) == []
+
+    assert api.unread_items == [APP["id"]]
 
 
 def test_chart_keeps_dimension_in_error_state() -> None:

@@ -302,6 +302,15 @@ class QlikOnPremAPI:
         return sheets
 
     def _load_app(self, app_dict: Dict) -> Optional[App]:
+        try:
+            return self._read_app(app_dict)
+        except Exception as e:
+            app_id = str(app_dict.get(Constant.ID))
+            self._log_http_error(message=f"Unable to load app {app_id}. Exception: {e}")
+            self.unread_items.append(app_id)
+            return None
+
+    def _read_app(self, app_dict: Dict) -> Optional[App]:
         self._thread_state.read_failed = False
         try:
             app = self._app_from_qrs(app_dict)
