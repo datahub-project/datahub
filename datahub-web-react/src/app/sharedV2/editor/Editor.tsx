@@ -1,10 +1,10 @@
 import type { NodeViewComponentProps } from '@remirror/react';
 import React, { Suspense, forwardRef } from 'react';
-import { ErrorBoundary } from 'react-error-boundary';
 
 import { Editor as AlchemyEditor } from '@components/components/Editor';
 import type { EditorMentionsPickerProps, EditorProps } from '@components/components/Editor/types';
 
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { useIsDocumentationFileUploadV1Enabled } from '@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled';
 import { lazyNamed } from '@app/sharedV2/lazyPage';
 
@@ -15,11 +15,15 @@ const MentionsComponent = lazyNamed(
 );
 const MentionsNodeView = lazyNamed(() => import('@app/sharedV2/editor/mentions/MentionsNodeView'), 'MentionsNodeView');
 
+function NoFallback() {
+    return null;
+}
+
 // A mentions chunk that fails to load leaves the editor without mentions UI instead of taking
-// the page down.
+// the page down; the app boundary still reports the error.
 function LazyMentionsPicker(props: EditorMentionsPickerProps) {
     return (
-        <ErrorBoundary fallback={null}>
+        <ErrorBoundary fallback={NoFallback}>
             <Suspense fallback={null}>
                 <MentionsComponent {...props} />
             </Suspense>
@@ -30,7 +34,7 @@ function LazyMentionsPicker(props: EditorMentionsPickerProps) {
 function LazyMentionNodeView(props: NodeViewComponentProps) {
     const placeholder = <span>{props.node.attrs.name}</span>;
     return (
-        <ErrorBoundary fallback={placeholder}>
+        <ErrorBoundary fallback={() => placeholder}>
             <Suspense fallback={placeholder}>
                 <MentionsNodeView {...props} />
             </Suspense>

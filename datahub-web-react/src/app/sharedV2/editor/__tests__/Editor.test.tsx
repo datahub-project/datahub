@@ -64,13 +64,16 @@ describe('Editor', () => {
 
     it('keeps the page up and shows the mention name when the mentions UI fails', async () => {
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
         renderEditor(false, { mentionsUiFails: true });
 
         expect(await screen.findByText('Alice')).toBeInTheDocument();
         expect(screen.queryByTestId('mentions-picker')).not.toBeInTheDocument();
         expect(screen.getByTestId('content')).toBeInTheDocument();
+        expect(consoleError).toHaveBeenCalledWith('Error:', expect.any(Error));
         consoleError.mockRestore();
+        consoleWarn.mockRestore();
     });
 
     it.each([true, false])('passes the documentation file upload flag (%s) as imageUploadEnabled', (flag) => {
