@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import pytest
 
@@ -6,9 +6,12 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     apply_preceding_loads,
     connection_lookup_names,
     drop_condition_variables,
+    expression_names,
+    has_qualified_name,
     infer_data_connection,
     is_connector_sql,
     parse_load_script,
+    redact_connection,
 )
 
 SCRIPT = """
@@ -174,6 +177,67 @@ def test_infer_data_connection_matches_whole_platform_names(
     name: str, platform: str
 ) -> None:
     assert infer_data_connection(name, "").platform == platform
+
+
+def test_infer_data_connection_prefers_the_driver() -> None:
+    connection = "Driver={Snowflake};Server=sqlserver_sync.example.com;Database=sales"
+    assert infer_data_connection(connection, connection).platform == "snowflake"
+
+
+def test_parse_load_script_restores_connection_after_sub() -> None:
+    script = """
+LIB CONNECT TO 'A';
+SUB LoadOther
+  LIB CONNECT TO 'B';
+  Inside: SQL SELECT * FROM db.s.inside;
+END SUB
+T: SQL SELECT * FROM db.s.t;
+"""
+    assert [(t.label, t.connection) for t in parse_load_script(script)] == [
+        ("Inside", "B"),
+        ("T", "A"),
+    ]
+
+
+def test_parse_load_script_skips_rem_comments() -> None:
+    script = """
+LIB CONNECT TO 'A';
+REM Don't load the archive here;
+rem another one;
+T: SQL SELECT * FROM db.s.t;
+"""
+    assert [(t.label, t.connection) for t in parse_load_script(script)] == [("T", "A")]
+
+
+def test_redact_connection_drops_credentials() -> None:
+    connection = (
+        "Driver={ODBC Driver 17 for SQL Server};Server=db.example.com;"
+        "Database=sales;UID=svc_user;PWD={p;w}; User ID=other;XPassword=x;ApiKey=k"
+    )
+
+    redacted = redact_connection(connection)
+
+    assert redacted == (
+        "Driver={ODBC Driver 17 for SQL Server};Server=db.example.com;Database=sales"
+    )
+    assert redact_connection("Sales SQL") == "Sales SQL"
+
+
+@pytest.mark.parametrize(
+    "name, platform, instance, expected",
+    [
+        ("sales.dbo.orders", "mssql", None, True),
+        ("sales.orders", "mssql", None, False),
+        ("prod.sales.orders", "mssql", "prod", False),
+        ("sales.orders", "mysql", None, True),
+        ("orders", "oracle", None, True),
+    ],
+)
+def test_has_qualified_name(
+    name: str, platform: str, instance: Optional[str], expected: bool
+) -> None:
+    urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},PROD)"
+    assert has_qualified_name(urn, platform, instance) == expected
 
 
 def test_connection_lookup_names_strips_cloud_space() -> None:
@@ -346,3 +410,20 @@ def test_is_connector_sql(sql: str, expected: bool) -> None:
 )
 def test_drop_condition_variables(sql: str, expected: str) -> None:
     assert drop_condition_variables(sql) == expected
+
+
+@pytest.mark.parametrize(
+    "expression, names",
+    [
+        pytest.param("=Sum(Year(OrderDate))", ["OrderDate"], id="nested_functions"),
+        pytest.param("=Year (OrderDate)", ["OrderDate"], id="space_before_call"),
+        pytest.param(
+            "=[Year] + Year", ["Year", "Year"], id="field_named_like_function"
+        ),
+        pytest.param("Count({<Year={2024}>} Region)", ["Year", "Region"], id="set"),
+    ],
+)
+def test_expression_names_skip_function_calls(
+    expression: str, names: List[str]
+) -> None:
+    assert expression_names(expression) == names

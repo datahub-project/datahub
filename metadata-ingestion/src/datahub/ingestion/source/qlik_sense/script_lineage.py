@@ -3,12 +3,15 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from datahub.metadata.urns import DatasetUrn
+
 CONNECT_RE = re.compile(
     r"^(?:(?:LIB|ODBC|OLEDB|CUSTOM)\s+)?CONNECT(?:32|64)?\s+TO\s+"
     r"(?:'(?P<single>[^']*)'|\[(?P<bracket>[^\]]*)\]|\"(?P<double>[^\"]*)\"|(?P<bare>\S+))",
     re.IGNORECASE,
 )
 DISCONNECT_RE = re.compile(r"^DISCONNECT\b", re.IGNORECASE)
+REM_RE = re.compile(r"REM\b", re.IGNORECASE)
 # Control statements end at the line break rather than a semicolon, so they
 # lead the statement that follows them.
 # Quoted text may contain THEN, so only an unquoted THEN ends a condition.
@@ -18,7 +21,7 @@ CONTROL_RE = re.compile(
     r"|(?P<else>ELSE\b)|(?P<endif>END\s*IF\b|ENDIF\b)"
     r"|(?P<endswitch>END\s*SWITCH\b)|(?P<default>DEFAULT\b)"
     r"|(?P<switch>SWITCH\b[^\n]*)|(?P<case>CASE\b[^\n]*)"
-    r"|END\s*SUB\b|(?:SUB|FOR|NEXT|DO|LOOP)\b[^\n]*)\s*",
+    r"|(?P<endsub>END\s*SUB\b)|(?P<sub>SUB\b[^\n]*)|(?:FOR|NEXT|DO|LOOP)\b[^\n]*)\s*",
     re.IGNORECASE,
 )
 VARIABLE_RE = re.compile(
@@ -91,6 +94,34 @@ SET_VALUES_START_RE = re.compile(r"[-+*/]?=\s*\{")
 EXPRESSION_NAME_RE = re.compile(
     rf"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>{_BARE_FIELD_NAME})"
 )
+# A driver or provider names the engine, whatever the rest of the string says.
+DRIVER_RE = re.compile(
+    r"(?:^|[;\s\[\"'])(?:driver|provider)\s*=\s*(?P<value>\{[^}]*\}|[^;\]\"']*)",
+    re.IGNORECASE,
+)
+CONNECTION_PROPERTY_RE = re.compile(r"(?P<key>[^;=]*)=(?P<value>\{[^}]*\}|[^;]*)")
+CREDENTIAL_KEYS = {
+    "uid",
+    "user",
+    "userid",
+    "user id",
+    "username",
+    "user name",
+    "xuserid",
+}
+CREDENTIAL_KEY_PARTS = ("pwd", "passw", "secret", "token", "credential", "key")
+# Parts a table name needs on platforms whose URNs are database.schema.table
+# (database.table for MySQL). A shorter name means the script left them to a
+# connection that did not resolve them, so its URN would never match the table.
+QUALIFIED_NAME_PARTS: Dict[str, int] = {
+    "bigquery": 3,
+    "databricks": 3,
+    "mssql": 3,
+    "mysql": 2,
+    "postgres": 3,
+    "redshift": 3,
+    "snowflake": 3,
+}
 QUOTE_PAIRS = {"'": "'", '"': '"', "[": "]"}
 STATEMENT_SEPARATOR = ";"
 SPACE_SEPARATOR = ":"
@@ -159,12 +190,19 @@ class DataConnectionInfo(BaseModel):
 def _strip_comments(script: str) -> str:
     kept: List[str] = []
     closing: Optional[str] = None
+    statement_start = True
     i = 0
     while i < len(script):
         char = script[i]
         if closing:
             if char == closing:
                 closing = None
+        # A REM comment runs to the next semicolon, and an apostrophe in it
+        # does not open a quote.
+        elif statement_start and REM_RE.match(script, i):
+            end = script.find(STATEMENT_SEPARATOR, i)
+            i = len(script) if end == -1 else end + 1
+            continue
         elif char in QUOTE_PAIRS:
             closing = QUOTE_PAIRS[char]
         elif script.startswith("/*", i):
@@ -179,6 +217,10 @@ def _strip_comments(script: str) -> str:
             i = len(script) if end == -1 else end
             continue
         kept.append(char)
+        if not closing and char == STATEMENT_SEPARATOR:
+            statement_start = True
+        elif not char.isspace():
+            statement_start = False
         i += 1
     return "".join(kept)
 
@@ -225,6 +267,9 @@ class _ControlFlowTracker(BaseModel):
 
     state: _BranchState = Field(default_factory=_BranchState)
     blocks: List[_Block] = []
+    # A SUB body only runs when the SUB is called, so what it sets is undone
+    # at END SUB.
+    subs: List[_BranchState] = []
 
     def strip_control_statements(self, statement: str) -> str:
         while True:
@@ -250,6 +295,10 @@ class _ControlFlowTracker(BaseModel):
                 )
             elif self.blocks and (control.group("endif") or control.group("endswitch")):
                 self._end_block(self.blocks.pop())
+            elif control.group("sub"):
+                self.subs.append(self.state.model_copy(deep=True))
+            elif self.subs and control.group("endsub"):
+                self.state = self.subs.pop()
             statement = statement[control.end() :]
 
     def _next_branch(self, block: _Block, is_default: bool) -> None:
@@ -463,26 +512,41 @@ def apply_preceding_loads(
 
 
 def expression_names(expression: str) -> List[str]:
-    """Names an expression may read as fields. Function names and keywords come
-    back too, so callers keep only names that are fields of the app."""
-    return [
-        name
-        for match in EXPRESSION_NAME_RE.finditer(strip_set_values(expression))
-        if (
-            name := match.group("bracket")
-            or match.group("double")
-            or match.group("bare")
-        )
-    ]
+    """Names an expression may read as fields. Keywords come back too, so
+    callers keep only names that are fields of the app."""
+    expression = strip_set_values(expression)
+    names: List[str] = []
+    for match in EXPRESSION_NAME_RE.finditer(expression):
+        bare = match.group("bare")
+        if bare and expression[match.end() :].lstrip().startswith("("):
+            # A function call such as Year(OrderDate), even when an app field
+            # has the same name.
+            continue
+        name = match.group("bracket") or match.group("double") or bare
+        if name:
+            names.append(name)
+    return names
 
 
-def infer_data_connection(name: str, descriptor: str) -> DataConnectionInfo:
-    text = f"{name} {descriptor}".lower()
-    platform = next(
+def _platform_in(text: str) -> Optional[str]:
+    text = text.lower()
+    return next(
         (
             value
             for keyword, value in PLATFORM_KEYWORDS.items()
             if PLATFORM_KEYWORD_RES[keyword].search(text)
+        ),
+        None,
+    )
+
+
+def infer_data_connection(name: str, descriptor: str) -> DataConnectionInfo:
+    drivers = [match.group("value") for match in DRIVER_RE.finditer(descriptor)]
+    platform = next(
+        (
+            platform
+            for platform in map(_platform_in, [*drivers, descriptor, name])
+            if platform
         ),
         None,
     )
@@ -492,6 +556,39 @@ def infer_data_connection(name: str, descriptor: str) -> DataConnectionInfo:
         platform=platform,
         database=database.group("db").strip() if database else None,
     )
+
+
+def is_inline_connection(connection: str) -> bool:
+    # LIB CONNECT names a data connection; ODBC/OLEDB CONNECT can instead
+    # carry the whole connection string.
+    return "=" in connection
+
+
+def _is_credential_key(key: str) -> bool:
+    key = key.strip().strip("{}").lower()
+    return key in CREDENTIAL_KEYS or any(part in key for part in CREDENTIAL_KEY_PARTS)
+
+
+def redact_connection(connection: str) -> str:
+    if not is_inline_connection(connection):
+        return connection
+    return ";".join(
+        match.group(0).strip()
+        for match in CONNECTION_PROPERTY_RE.finditer(connection)
+        if not _is_credential_key(match.group("key"))
+    )
+
+
+def has_qualified_name(
+    urn: str, platform: str, platform_instance: Optional[str]
+) -> bool:
+    required = QUALIFIED_NAME_PARTS.get(platform)
+    if not required:
+        return True
+    name = DatasetUrn.from_string(urn).name
+    if platform_instance and name.startswith(f"{platform_instance}."):
+        name = name[len(platform_instance) + 1 :]
+    return len(name.split(".")) >= required
 
 
 def connection_lookup_names(name: str) -> List[str]:

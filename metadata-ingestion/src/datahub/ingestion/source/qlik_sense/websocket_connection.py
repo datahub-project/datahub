@@ -1,7 +1,8 @@
 import json
 import logging
 import ssl
-from typing import Callable, Dict, List, Literal, Optional, Set, Union
+from contextlib import contextmanager
+from typing import Callable, Dict, Iterator, List, Literal, Optional, Set, Union
 
 from websocket import WebSocket, create_connection
 
@@ -12,16 +13,33 @@ logger = logging.getLogger(__name__)
 
 
 class WebsocketConnection:
-    def __init__(self, tenant_hostname: str, api_key: str, app_id: str) -> None:
-        self.websocket_url = f"wss://{tenant_hostname}/app"
-        self._match_response_id = False
+    def __init__(
+        self,
+        url: str,
+        header: Dict[str, str],
+        match_response_id: bool = False,
+        sslopt: Optional[Dict[str, object]] = None,
+    ) -> None:
+        self._match_response_id = match_response_id
         self.socket_connection: Optional[WebSocket] = create_connection(
-            f"{self.websocket_url}/{app_id}",
-            header={"Authorization": f"Bearer {api_key}"},
+            url,
+            header=header,
+            sslopt=sslopt or {},
+            # The pure-Python frame check costs more CPU than the rest of an app
+            # read, and recv() already rejects invalid UTF-8 when it decodes.
             skip_utf8_validation=True,
         )
         self.request_id = 0
         self.handle = [-1]
+
+    @classmethod
+    def for_cloud(
+        cls, tenant_hostname: str, api_key: str, app_id: str
+    ) -> "WebsocketConnection":
+        return cls(
+            f"wss://{tenant_hostname}/app/{app_id}",
+            header={"Authorization": f"Bearer {api_key}"},
+        )
 
     @classmethod
     def for_on_prem(
@@ -37,9 +55,6 @@ class WebsocketConnection:
     ) -> "WebsocketConnection":
         # Direct Engine access. Certificate auth does not go through the proxy,
         # and the engine interleaves JSON-RPC replies with push notifications.
-        connection = cls.__new__(cls)
-        connection.websocket_url = f"wss://{host}:{port}/app"
-        connection._match_response_id = True
         sslopt: Dict[str, object] = {
             "certfile": client_cert,
             "keyfile": client_key,
@@ -50,17 +65,20 @@ class WebsocketConnection:
             sslopt["check_hostname"] = False
         elif assert_hostname:
             sslopt["server_hostname"] = assert_hostname
-        connection.socket_connection = create_connection(
-            f"{connection.websocket_url}/{app_id}",
+        return cls(
+            f"wss://{host}:{port}/app/{app_id}",
             header={"X-Qlik-User": user_header},
+            match_response_id=True,
             sslopt=sslopt,
-            # The pure-Python frame check costs more CPU than the rest of an app
-            # read, and recv() already rejects invalid UTF-8 when it decodes.
-            skip_utf8_validation=True,
         )
-        connection.request_id = 0
-        connection.handle = [-1]
-        return connection
+
+    @contextmanager
+    def restore_handle(self) -> Iterator[None]:
+        depth = len(self.handle)
+        try:
+            yield
+        finally:
+            del self.handle[depth:]
 
     def _build_websocket_request_dict(
         self, method: str, params: Optional[Union[Dict, List]] = None
@@ -169,47 +187,51 @@ class WebsocketConnection:
                 f"Skipping object {object_id} of sheet {sheet_id}: not a chart"
             )
             return []
-        depth = len(self.handle)
-        try:
-            self.websocket_send_request(method="GetChild", params={"qId": object_id})
-            q_layout = self.websocket_send_request(method="GetLayout")[Constant.QLAYOUT]
-            if Constant.HYPERCUBE in q_layout:
-                chart = Chart.model_validate(q_layout)
-                self._add_measure_definitions(
-                    chart, (properties or {}).get(chart.qId), sheet_id, on_error
+        with self.restore_handle():
+            try:
+                self.websocket_send_request(
+                    method="GetChild", params={"qId": object_id}
                 )
-                return [chart]
-            object_type = q_layout.get(Constant.QINFO, {}).get(Constant.QTYPE)
-            if object_type != Constant.CONTAINER:
-                logger.debug(
-                    f"Skipping {object_type} object {object_id} of sheet {sheet_id}: it has no hypercube"
+                q_layout = self.websocket_send_request(method="GetLayout")[
+                    Constant.QLAYOUT
+                ]
+                if Constant.HYPERCUBE in q_layout:
+                    chart = Chart.model_validate(q_layout)
+                    self._add_measure_definitions(
+                        chart, (properties or {}).get(chart.qId), sheet_id, on_error
+                    )
+                    return [chart]
+                object_type = q_layout.get(Constant.QINFO, {}).get(Constant.QTYPE)
+                if object_type != Constant.CONTAINER:
+                    logger.debug(
+                        f"Skipping {object_type} object {object_id} of sheet {sheet_id}: it has no hypercube"
+                    )
+                    return []
+                tab_labels = {
+                    tab.get(Constant.REFID): tab.get(Constant.LABEL)
+                    for tab in q_layout.get(Constant.CHILDREN, [])
+                }
+                charts: List[Chart] = []
+                for item in q_layout.get(Constant.QCHILDLIST, {}).get(
+                    Constant.QITEMS, []
+                ):
+                    tab_id = item.get(Constant.QDATA, {}).get(Constant.CONTAINERCHILDID)
+                    for chart in self.get_charts(
+                        item[Constant.QINFO][Constant.QID],
+                        sheet_id,
+                        on_error,
+                        properties,
+                        seen,
+                    ):
+                        if not chart.title:
+                            chart.title = tab_labels.get(tab_id) or ""
+                        charts.append(chart)
+                return charts
+            except Exception as e:
+                on_error(
+                    f"Unable to fetch chart {object_id} of sheet {sheet_id}. Exception: {e}"
                 )
                 return []
-            tab_labels = {
-                tab.get(Constant.REFID): tab.get(Constant.LABEL)
-                for tab in q_layout.get(Constant.CHILDREN, [])
-            }
-            charts: List[Chart] = []
-            for item in q_layout.get(Constant.QCHILDLIST, {}).get(Constant.QITEMS, []):
-                tab_id = item.get(Constant.QDATA, {}).get(Constant.CONTAINERCHILDID)
-                for chart in self.get_charts(
-                    item[Constant.QINFO][Constant.QID],
-                    sheet_id,
-                    on_error,
-                    properties,
-                    seen,
-                ):
-                    if not chart.title:
-                        chart.title = tab_labels.get(tab_id) or ""
-                    charts.append(chart)
-            return charts
-        except Exception as e:
-            on_error(
-                f"Unable to fetch chart {object_id} of sheet {sheet_id}. Exception: {e}"
-            )
-            return []
-        finally:
-            del self.handle[depth:]
 
     def _add_measure_definitions(
         self,
@@ -277,24 +299,24 @@ class WebsocketConnection:
                 # there is nothing to read.
                 logger.debug(f"Master measure {library_id} does not exist")
                 continue
-            depth = len(self.handle)
-            try:
-                reply = self.websocket_send_request(
-                    method="GetMeasure", params={"qId": library_id}
-                )
-                if not reply.get(Constant.QRETURN, {}).get(Constant.QHANDLE):
-                    logger.debug(f"Master measure {library_id} does not exist")
-                    continue
-                q_layout = self.websocket_send_request(method="GetLayout")[
-                    Constant.QLAYOUT
-                ]
-                expression = q_layout.get(Constant.QMEASURE, {}).get(Constant.QDEF)
-                if expression:
-                    expressions[library_id] = expression
-            except Exception as e:
-                on_error(f"Unable to read master measure {library_id}. Exception: {e}")
-            finally:
-                del self.handle[depth:]
+            with self.restore_handle():
+                try:
+                    reply = self.websocket_send_request(
+                        method="GetMeasure", params={"qId": library_id}
+                    )
+                    if not reply.get(Constant.QRETURN, {}).get(Constant.QHANDLE):
+                        logger.debug(f"Master measure {library_id} does not exist")
+                        continue
+                    q_layout = self.websocket_send_request(method="GetLayout")[
+                        Constant.QLAYOUT
+                    ]
+                    expression = q_layout.get(Constant.QMEASURE, {}).get(Constant.QDEF)
+                    if expression:
+                        expressions[library_id] = expression
+                except Exception as e:
+                    on_error(
+                        f"Unable to read master measure {library_id}. Exception: {e}"
+                    )
         for chart in charts:
             for library_id in chart.measure_library_ids:
                 if library_id in expressions:
@@ -306,28 +328,26 @@ class WebsocketConnection:
         """Every master measure of the app and its expression, empty if the list has
         none, from one session object. None if it cannot be read.
         Must be called on the app handle."""
-        depth = len(self.handle)
-        try:
-            self.websocket_send_request(
-                method="CreateSessionObject",
-                params=[
-                    {
-                        Constant.QINFO: {Constant.QTYPE: "MeasureList"},
-                        "qMeasureListDef": {
-                            Constant.QTYPE: "measure",
-                            Constant.QDATA: {"measure": "/qMeasure"},
-                        },
-                    }
-                ],
-            )
-            items = self.websocket_send_request(method="GetLayout")[Constant.QLAYOUT][
-                "qMeasureList"
-            ][Constant.QITEMS]
-        except Exception as e:
-            logger.debug(f"Unable to list master measures. Exception: {e}")
-            return None
-        finally:
-            del self.handle[depth:]
+        with self.restore_handle():
+            try:
+                self.websocket_send_request(
+                    method="CreateSessionObject",
+                    params=[
+                        {
+                            Constant.QINFO: {Constant.QTYPE: "MeasureList"},
+                            "qMeasureListDef": {
+                                Constant.QTYPE: "measure",
+                                Constant.QDATA: {"measure": "/qMeasure"},
+                            },
+                        }
+                    ],
+                )
+                items = self.websocket_send_request(method="GetLayout")[
+                    Constant.QLAYOUT
+                ]["qMeasureList"][Constant.QITEMS]
+            except Exception as e:
+                logger.debug(f"Unable to list master measures. Exception: {e}")
+                return None
         return {
             item[Constant.QINFO][Constant.QID]: item.get(Constant.QDATA, {})
             .get("measure", {})

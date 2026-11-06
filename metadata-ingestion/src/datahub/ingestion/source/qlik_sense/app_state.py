@@ -15,7 +15,8 @@ from datahub.ingestion.source.state.use_case_handler import (
 
 
 class AppCheckpoint(BaseModel):
-    fingerprint: str
+    # None, or "" in older state, makes the next run read the app again.
+    fingerprint: Optional[str] = None
     urns: List[str]
 
 
