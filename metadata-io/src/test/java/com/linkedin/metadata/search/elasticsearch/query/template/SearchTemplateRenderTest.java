@@ -2,6 +2,8 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -12,6 +14,10 @@ import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.PathSpec;
+import com.linkedin.data.schema.StringDataSchema;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.TestEntitySpecBuilder;
@@ -22,6 +28,8 @@ import com.linkedin.metadata.config.search.SearchTemplateSource;
 import com.linkedin.metadata.config.search.SearchV3Configuration;
 import com.linkedin.metadata.config.search.StructuredPropertyQueryConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
@@ -48,6 +56,7 @@ import com.linkedin.search.template.StructuredPropertyQuery;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -962,6 +971,39 @@ public class SearchTemplateRenderTest {
       }
     }
     assertTrue(name, rendered);
+  }
+
+  @Test
+  public void testWholeNamePrefixRequiresLowercaseSubfield() {
+    String withLowercase = render("urn:li:searchTemplate:autocomplete", "orders", true);
+    assertTrue(withLowercase.contains("name.lowercase"), withLowercase);
+
+    String withoutLowercase =
+        render("urn:li:searchTemplate:autocomplete", "orders", List.of(nameWithoutLowercaseSpec()));
+    assertFalse(withoutLowercase.contains("name.lowercase"), withoutLowercase);
+  }
+
+  /** A name field that did not opt into {@code v3.lowercase}. */
+  private static EntitySpec nameWithoutLowercaseSpec() {
+    DataMap v3 = new DataMap();
+    v3.put("searchLabel", "name");
+    v3.put("queryByDefault", true);
+    DataMap annotation = new DataMap();
+    annotation.put("fieldType", "TEXT");
+    annotation.put("fieldName", "name");
+    annotation.put("v3", v3);
+    SearchableAnnotation parsed =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotation, "name", DataSchema.Type.STRING, "test");
+    SearchableFieldSpec name =
+        new SearchableFieldSpec(new PathSpec("name"), parsed, new StringDataSchema());
+    EntitySpec spec = mock(EntitySpec.class);
+    when(spec.getName()).thenReturn("customentity");
+    when(spec.getSearchGroup()).thenReturn(null);
+    when(spec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(spec.getSearchableFieldSpecs()).thenReturn(List.of(name));
+    when(spec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    return spec;
   }
 
   private String render(String urn, String query, boolean datasetSpec) {

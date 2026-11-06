@@ -474,9 +474,15 @@ public class SearchV3QueryBuilder {
         exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name"));
     context.put(SearchTemplateContextVariables.NAME_TEXT, analyzedPath(fieldResolver, "name"));
     context.put(SearchTemplateContextVariables.PREFIX_FIELD, analyzedPath(fieldResolver, "name"));
-    context.put(
-        SearchTemplateContextVariables.PREFIX_KEYWORD,
-        SearchTemplateFields.lowercaseKeywordPath("name"));
+    // The whole-name prefix reads name.lowercase, which a field opts into. The field resolver above
+    // is the registry, so it reports the subfield whenever any entity has it. This check is the
+    // entities being queried: one name without the subfield drops the clause, and the analyzed
+    // prefix stays.
+    if (queriedNamesUseLowercase(entitySpecs)) {
+      context.put(
+          SearchTemplateContextVariables.PREFIX_KEYWORD,
+          SearchTemplateFields.lowercaseKeywordPath("name"));
+    }
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_KEYWORD,
         exactPath(
@@ -869,6 +875,29 @@ public class SearchV3QueryBuilder {
   }
 
   @Nonnull
+  /**
+   * Whether every queried entity that has a name field opted into {@code v3.lowercase}. An entity
+   * with no name field does not count. One name without the subfield means the shared clause would
+   * name a field that index does not have.
+   */
+  private static boolean queriedNamesUseLowercase(@Nonnull List<EntitySpec> entitySpecs) {
+    boolean sawName = false;
+    for (EntitySpec spec : entitySpecs) {
+      SearchFieldResolver resolver = new SearchFieldResolver(List.of(spec));
+      boolean hasName =
+          resolver.supports("name", SearchFieldResolver.Intent.EXACT)
+              || resolver.supports("name", SearchFieldResolver.Intent.FULL_TEXT);
+      if (!hasName) {
+        continue;
+      }
+      sawName = true;
+      if (!resolver.hasLowercaseSubfield("name")) {
+        return false;
+      }
+    }
+    return sawName;
+  }
+
   private static List<String> entityTypeNames(@Nonnull List<EntitySpec> entitySpecs) {
     List<String> names = new ArrayList<>();
     for (EntitySpec spec : entitySpecs) {
