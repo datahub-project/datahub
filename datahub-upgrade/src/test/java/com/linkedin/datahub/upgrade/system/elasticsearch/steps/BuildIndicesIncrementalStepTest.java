@@ -66,6 +66,7 @@ public class BuildIndicesIncrementalStepTest {
   private static final String UPGRADE_VERSION = "0.14.0-0";
   private static final String INDEX_NAME = "datasetindex_v2";
   private static final String NEXT_INDEX_NAME = "datasetindex_v2_0_14_0-0_1679000000000";
+  private static final String OLD_BACKING_INDEX_NAME = "datasetindex_v2_old";
   private static final String V3_INDEX_NAME = "primaryindex_v3";
   private static final Urn SAMPLED_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sampled,PROD)");
@@ -600,25 +601,17 @@ public class BuildIndicesIncrementalStepTest {
 
   @Test
   public void testRebuildsFinishedIndexThatNoLongerExists() throws Throwable {
-    // A previous run finished this index, then something outside the upgrade deleted it. Skipping
-    // it would leave the next write to recreate it with dynamic mappings.
-    Map<String, String> previousState =
-        IncrementalReindexState.setPhase1State(
-            null,
+    // A previous run finished this index, then something outside the upgrade deleted it, old
+    // backing index included. Skipping it would leave the next write to recreate it with dynamic
+    // mappings.
+    givenPreviousState(
+        IncrementalReindexState.setDualWriteStartTime(
+            previousRow(INDEX_NAME, IncrementalReindexState.Status.DUAL_WRITE_DISABLED),
             INDEX_NAME,
-            NEXT_INDEX_NAME,
-            "datasetindex_v2_old",
-            1679000000000L,
-            0L,
-            null,
-            false,
-            IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
-    DataHubUpgradeResult upgradeResult = mock(DataHubUpgradeResult.class);
-    when(upgradeResult.getResult()).thenReturn(new StringMap(previousState));
-    when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(upgradeResult));
-    ReindexConfig droppedConfig = mockReindexConfig(INDEX_NAME, false);
-    when(droppedConfig.exists()).thenReturn(false);
-    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(droppedConfig));
+            1679000001000L));
+    ReindexConfig droppedConfig = missingIndexConfig(INDEX_NAME);
+    when(indexBuilder.indexExists(any(OperationContext.class), eq(OLD_BACKING_INDEX_NAME)))
+        .thenReturn(false);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
@@ -628,11 +621,93 @@ public class BuildIndicesIncrementalStepTest {
     assertEquals(
         IncrementalReindexState.getStatus(state, INDEX_NAME),
         Optional.of(IncrementalReindexState.Status.COMPLETED));
-    // The deleted index's old backing index must not stay a rollback write target.
+    // A deleted old backing index must not stay a rollback write target, and the deleted
+    // index's dual-write start must not open a catch-up window for the new one.
     assertEquals(
         IncrementalReindexState.get(
             state, INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
         Optional.empty());
+    assertEquals(
+        IncrementalReindexState.get(
+            state, INDEX_NAME, IncrementalReindexState.DUAL_WRITE_START_TIME),
+        Optional.empty());
+  }
+
+  @Test
+  public void testRebuildKeepsAnOldBackingIndexThatStillExists() throws Throwable {
+    // Only the live index was deleted. The old backing index still holds a copy, so it stays
+    // recorded: protected from orphan cleanup and current for a rollback.
+    givenPreviousState(previousRow(INDEX_NAME, IncrementalReindexState.Status.COMPLETED));
+    ReindexConfig droppedConfig = missingIndexConfig(INDEX_NAME);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(droppedConfig));
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.COMPLETED));
+    assertEquals(
+        IncrementalReindexState.get(
+            state, INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.of(OLD_BACKING_INDEX_NAME));
+  }
+
+  @Test
+  public void testSkipsMissingIndexWhileItsFillIsInFlight() throws Throwable {
+    // The non-blocking phase owns an in-flight fill, missing index or not.
+    givenPreviousState(previousRow(V3_INDEX_NAME, IncrementalReindexState.Status.BACKFILL_PENDING));
+    missingIndexConfig(V3_INDEX_NAME);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder, never())
+        .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
+    verify(indexBuilder, never()).buildIndex(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testDoesNotReplanAFilledIndexThatNoLongerExists() throws Throwable {
+    // A refill under the same upgrade version would skip its catch-up replay, whose verdict lives
+    // on the catch-up result, so a filled index is left for an operator reset.
+    givenPreviousState(previousRow(V3_INDEX_NAME, IncrementalReindexState.Status.COMPLETED));
+    missingIndexConfig(V3_INDEX_NAME);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder, never())
+        .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
+    verify(indexBuilder, never()).buildIndex(any(OperationContext.class), any());
+  }
+
+  private static Map<String, String> previousRow(
+      String indexName, IncrementalReindexState.Status status) {
+    return IncrementalReindexState.setPhase1State(
+        null,
+        indexName,
+        NEXT_INDEX_NAME,
+        OLD_BACKING_INDEX_NAME,
+        1679000000000L,
+        0L,
+        null,
+        false,
+        status);
+  }
+
+  private void givenPreviousState(Map<String, String> previousState) {
+    DataHubUpgradeResult upgradeResult = mock(DataHubUpgradeResult.class);
+    when(upgradeResult.getResult()).thenReturn(new StringMap(previousState));
+    when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(upgradeResult));
+  }
+
+  private ReindexConfig missingIndexConfig(String indexName) throws IOException {
+    ReindexConfig config = mockReindexConfig(indexName, false);
+    when(config.exists()).thenReturn(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
+    return config;
   }
 
   @Test
