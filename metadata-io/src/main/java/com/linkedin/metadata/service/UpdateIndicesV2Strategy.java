@@ -703,9 +703,9 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         // Apply the mapping for the full set of currently-declared entity types on every
         // definition upsert, not just types newly added since oldValue. applyMappings is an
         // idempotent put_mapping, so re-saving a property re-applies (and thereby repairs) any
-        // mapping a previous attempt failed to write — the only convergence path when the
-        // structured-property system-update machinery is disabled (the default). Entity types
-        // removed from the definition are handled by the dedicated removal path, not here.
+        // mapping a previous attempt failed to write, without waiting for the next
+        // system-update to add it. Entity types removed from the definition are handled by the
+        // dedicated removal path, not here.
         if (!newDefinition.getEntityTypes().isEmpty()) {
           elasticSearchService
               .buildReindexConfigsWithNewStructProp(opContext, urn, newDefinition)

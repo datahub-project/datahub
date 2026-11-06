@@ -428,8 +428,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                 .register("https", sslStrategy)
                 .build());
 
-    // Set maxConnectionsPerRoute to match threadCount (minimum 2)
-    int maxConnectionsPerRoute = Math.max(2, config.getThreadCount());
+    int maxConnectionsPerRoute = ShimConfiguration.maxConnectionsPerRoute(config.getThreadCount());
     connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
     this.connectionManager = connectionManager;
 
