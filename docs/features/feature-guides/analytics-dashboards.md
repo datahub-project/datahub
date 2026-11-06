@@ -88,7 +88,7 @@ A snapshot of the catalog, not usage.
 
 ### Domain Landscape Summary
 
-The same chart types as the Data Landscape Summary, filtered by a domain dropdown.;
+The same chart types as the Data Landscape Summary, filtered by a domain dropdown.
 
 ### Usage Analytics
 
