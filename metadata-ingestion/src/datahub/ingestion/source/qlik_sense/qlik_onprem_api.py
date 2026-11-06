@@ -481,6 +481,7 @@ class QlikOnPremAPI:
             self._log_http_error(message=f"Unable to fetch apps. Exception: {e}")
             self.unread_items.append(f"apps of stream {space_id}")
             return
+        logger.info(f"Stream {self.spaces[space_id]} has {len(app_dicts)} apps")
         # QRS and Engine reads are network-bound; the GIL is only held while
         # decoding replies.
         for future in BackpressureAwareExecutor.map(

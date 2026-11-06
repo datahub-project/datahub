@@ -1076,7 +1076,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         skip_unchanged = self._skips_unchanged_apps()
         if skip_unchanged:
             self._init_fingerprint_salt()
-        for allowed_space in allowed_spaces:
+        for space_number, allowed_space in enumerate(allowed_spaces, start=1):
+            logger.info(
+                f"Reading space {space_number} of {len(allowed_spaces)}: {allowed_space.name}"
+            )
             yield from self._gen_space_workunit(allowed_space)
             space_id = (
                 "personal"
@@ -1113,6 +1116,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                             context=item.id,
                         )
                     self.reporter.apps_read += 1
+                    logger.info(
+                        f"Read app {item.qTitle} in space {allowed_space.name} ({self.reporter.apps_read} apps read)"
+                    )
                     yield from self._gen_app_workunit(item)
                 elif isinstance(item, QlikDataset):
                     yield from self._gen_dataset_workunit(item)
