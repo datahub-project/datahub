@@ -4,7 +4,11 @@ from typing import Dict, Literal, Optional, Union
 
 from pydantic import Field, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -17,7 +21,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -142,85 +145,46 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     )
 
 
-class QlikDeployment(StrEnum):
-    CLOUD = "cloud"
-    ON_PREM = "on_prem"
-
-
-_ON_PREM_FIELDS = {
-    "server",
-    "qrs_port",
-    "engine_port",
-    "client_cert",
-    "client_key",
-    "root_cert",
-    "server_cert_hostname",
-    "verify_server_hostname",
-    "user_directory",
-    "qrs_user_id",
-    "engine_user_id",
-    "ingest_unpublished_apps",
-}
-
-
-class QlikSourceConfig(
-    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
-):
-    deployment: QlikDeployment = Field(
-        default=QlikDeployment.CLOUD,
-        description="Qlik Cloud (`cloud`) or Qlik Sense Enterprise on Windows (`on_prem`).",
+class QlikOnPremConfig(ConfigModel):
+    server: str = Field(
+        description="Qlik Sense Enterprise hostname. Must match the certificate name. "
+        "Repository Service and Engine ports are reached on this host.",
     )
-    tenant_hostname: Optional[str] = Field(
-        default=None,
-        description="Qlik Cloud tenant hostname. Required when deployment is cloud.",
+    client_cert: str = Field(
+        description="Path to the PEM client certificate exported from the QMC.",
     )
-    api_key: Optional[TransparentSecretStr] = Field(
-        default=None,
-        description="Qlik Cloud API key. Required when deployment is cloud.",
+    client_key: str = Field(
+        description="Path to the PEM client key exported from the QMC.",
     )
-    server: Optional[str] = Field(
-        default=None,
-        description="Qlik Sense Enterprise hostname. Required when deployment is on_prem. "
-        "Must match the certificate name. Repository Service and Engine ports are reached on this host.",
+    root_cert: str = Field(
+        description="Path to the PEM root certificate exported from the QMC.",
     )
     qrs_port: int = Field(
         default=4242,
         ge=1,
         le=65535,
-        description="Qlik Repository Service port used for on-prem inventory.",
+        description="Qlik Repository Service port used for inventory.",
     )
     engine_port: int = Field(
         default=4747,
         ge=1,
         le=65535,
-        description="Qlik Engine port used for on-prem app, sheet, and chart reads.",
-    )
-    client_cert: Optional[str] = Field(
-        default=None,
-        description="Path to the PEM client certificate exported from the QMC. Required on-prem.",
-    )
-    client_key: Optional[str] = Field(
-        default=None,
-        description="Path to the PEM client key exported from the QMC. Required on-prem.",
-    )
-    root_cert: Optional[str] = Field(
-        default=None,
-        description="Path to the PEM root certificate exported from the QMC. Required on-prem.",
+        description="Qlik Engine port used for app, sheet, and chart reads.",
     )
     server_cert_hostname: Optional[str] = Field(
         default=None,
-        description="On-prem only. Hostname the Qlik server certificate was issued to, when it "
+        description="Hostname the Qlik server certificate was issued to, when it "
         "differs from `server` (for example when connecting by IP address). The certificate is "
         "still verified against `root_cert`, but its name is checked against this value.",
     )
     verify_server_hostname: bool = Field(
         default=True,
-        description="On-prem only. Set to false to skip the certificate name check when no "
+        description="Set to false to skip the certificate name check when no "
         "hostname matches it. The certificate chain is still verified against `root_cert`.",
     )
     user_directory: str = Field(
         default="INTERNAL",
-        description="User directory for the on-prem X-Qlik-User header.",
+        description="User directory for the X-Qlik-User header.",
     )
     qrs_user_id: str = Field(
         default="sa_repository",
@@ -232,7 +196,44 @@ class QlikSourceConfig(
     )
     ingest_unpublished_apps: bool = Field(
         default=False,
-        description="On-prem only. Also ingest apps that are not published to a stream.",
+        description="Also ingest apps that are not published to a stream.",
+    )
+
+    @model_validator(mode="after")
+    def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":
+        if self.server_cert_hostname and not self.verify_server_hostname:
+            logger.warning(
+                "server_cert_hostname is ignored because verify_server_hostname is false"
+            )
+        return self
+
+    def ui_hostname(self) -> str:
+        return self.server_cert_hostname or self.server
+
+    def tls_assert_hostname(self) -> Union[str, Literal[False], None]:
+        if not self.verify_server_hostname:
+            return False
+        return self.server_cert_hostname
+
+    def qlik_user_header(self, user_id: str) -> str:
+        return f"UserDirectory={self.user_directory}; UserId={user_id}"
+
+
+class QlikSourceConfig(
+    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+):
+    tenant_hostname: Optional[str] = Field(
+        default=None,
+        description="Qlik Cloud tenant hostname. Required unless `on_prem` is set.",
+    )
+    api_key: Optional[TransparentSecretStr] = Field(
+        default=None,
+        description="Qlik Cloud API key. Required unless `on_prem` is set.",
+    )
+    on_prem: Optional[QlikOnPremConfig] = Field(
+        default=None,
+        description="Connection to Qlik Sense Enterprise on Windows. Set this instead of "
+        "`tenant_hostname` and `api_key` to read an on-prem site.",
     )
     max_workers: int = Field(
         default=4,
@@ -263,49 +264,22 @@ class QlikSourceConfig(
     )
 
     @model_validator(mode="after")
-    def validate_deployment_credentials(self) -> "QlikSourceConfig":
-        if self.deployment == QlikDeployment.ON_PREM:
-            missing = [
-                name
-                for name, value in (
-                    ("server", self.server),
-                    ("client_cert", self.client_cert),
-                    ("client_key", self.client_key),
-                    ("root_cert", self.root_cert),
+    def validate_connection(self) -> "QlikSourceConfig":
+        if self.on_prem is not None:
+            if self.tenant_hostname or self.api_key is not None:
+                raise ValueError(
+                    "Set either the on_prem block or tenant_hostname and api_key, not both"
                 )
-                if not value
-            ]
-            if missing:
-                raise ValueError("On-prem Qlik Sense requires " + ", ".join(missing))
             return self
         if not self.tenant_hostname or self.api_key is None:
-            hint = (
-                " (set `deployment: on_prem` for Qlik Sense Enterprise on Windows)"
-                if self.model_fields_set & _ON_PREM_FIELDS
-                else ""
-            )
-            raise ValueError(f"Qlik Cloud requires tenant_hostname and api_key{hint}")
-        return self
-
-    @model_validator(mode="after")
-    def warn_unused_server_cert_hostname(self) -> "QlikSourceConfig":
-        if self.server_cert_hostname and not self.verify_server_hostname:
-            logger.warning(
-                "server_cert_hostname is ignored because verify_server_hostname is false"
+            raise ValueError(
+                "Qlik Cloud requires tenant_hostname and api_key "
+                "(set the on_prem block for Qlik Sense Enterprise on Windows)"
             )
         return self
 
     def ui_hostname(self) -> str:
-        if self.deployment == QlikDeployment.ON_PREM:
-            assert self.server is not None
-            return self.server_cert_hostname or self.server
+        if self.on_prem is not None:
+            return self.on_prem.ui_hostname()
         assert self.tenant_hostname is not None
         return self.tenant_hostname
-
-    def tls_assert_hostname(self) -> Union[str, Literal[False], None]:
-        if not self.verify_server_hostname:
-            return False
-        return self.server_cert_hostname
-
-    def qlik_user_header(self, user_id: str) -> str:
-        return f"UserDirectory={self.user_directory}; UserId={user_id}"

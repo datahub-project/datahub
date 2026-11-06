@@ -11,12 +11,12 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401
-from tests.unit.qlik_sense.test_qlik_sense_onprem import (  # type: ignore[import-untyped]
+from tests.unit.qlik_sense.qlik_fakes import (
     LOAD_SCRIPT,
     ONPREM_CONFIG,
-    _engine_calls,
-    _qrs_get,
-    _Response,
+    FakeResponse,
+    fake_engine_calls,
+    fake_qrs_get,
 )
 
 
@@ -59,16 +59,16 @@ def _onprem_run(
 ) -> Tuple[QlikSenseSource, List[MetadataWorkUnit]]:
     def qrs_get(
         url: str, params: Optional[Dict[str, str]] = None, **kwargs: object
-    ) -> _Response:
+    ) -> FakeResponse:
         if failing_endpoint and url.endswith(failing_endpoint):
             raise OSError("QRS unavailable")
-        return _qrs_get(url, params, **kwargs)
+        return fake_qrs_get(url, params, **kwargs)
 
     def open_engine(**_: object) -> MagicMock:
         if engine_fails:
             raise OSError("engine port closed")
         websocket = MagicMock()
-        websocket.websocket_send_request.side_effect = _engine_calls()
+        websocket.websocket_send_request.side_effect = fake_engine_calls()
         websocket.get_script.return_value = LOAD_SCRIPT
         return websocket
 
@@ -112,9 +112,11 @@ def test_engine_outage_does_not_soft_delete_app_contents(
     assert any(":dashboard:" in wu.get_urn() for wu in first_wus)
     assert not any(":dashboard:" in wu.get_urn() for wu in second_wus)
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
-    assert [failure.title for failure in second.reporter.failures] == [
-        "Unable to fully read Qlik app"
-    ]
+    (failure,) = second.reporter.failures
+    assert failure.title == "Unable to fully read Qlik app"
+    (context,) = failure.context
+    assert context.startswith("app-1: ")
+    assert "engine port closed" in context
 
 
 @pytest.mark.parametrize("failing_endpoint", ["/app/full", "/dataconnection/full"])

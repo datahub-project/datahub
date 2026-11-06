@@ -113,7 +113,7 @@ class Space(_QlikBaseModel):
 class Item(_QlikBaseModel):
     id: str
     description: str = ""
-    ownerId: str
+    ownerId: Optional[str] = None
     spaceId: str
     createdAt: datetime
     updatedAt: datetime
@@ -246,12 +246,14 @@ class QlikTable(_QlikBaseModel):
 class App(Item):
     qTitle: str
     qri: str
-    qUsage: str
+    # Enterprise on Windows has no app usage.
+    qUsage: Optional[str] = None
     sheets: List[Sheet] = []
     tables: List[QlikTable] = []
     script: Optional[str] = None
     script_read_failed: bool = False
-    read_complete: bool = True
+    # Engine reads of this app that failed, so its metadata is only partly read.
+    read_errors: List[str] = []
 
     @model_validator(mode="before")
     @classmethod
@@ -269,3 +271,13 @@ class App(Item):
             values[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
         values[Constant.QRI] = f"qri:app:sense://{values['id']}"
         return values
+
+    @property
+    def read_complete(self) -> bool:
+        return not self.read_errors
+
+
+class UnreadItem(BaseModel):
+    # A space, item or listing left out of the run after a request failed.
+    name: str
+    cause: str
