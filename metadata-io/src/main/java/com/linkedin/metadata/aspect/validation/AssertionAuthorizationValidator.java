@@ -2,12 +2,19 @@ package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.ASSERTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.context.OperationFingerprint;
+import com.datahub.util.RecordUtils;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionRunEvent;
+import com.linkedin.assertion.AssertionRunSummary;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -16,6 +23,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.AssertionAuthorizationUtils;
 import com.linkedin.metadata.authorization.AssertionAuthorizationUtils.AssertionWrite;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -24,9 +32,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -47,9 +59,10 @@ import lombok.extern.slf4j.Slf4j;
  * <p>Deleting an assertion (its key aspect) or its {@code assertionInfo} requires the privilege on
  * every entity the assertion targets. This can be stricter than {@code DeleteAssertionResolver},
  * which checks only the target its {@code type} selects, so a GraphQL delete of an assertion with
- * other targets fails here unless the actor holds the privilege on them too. An assertion without
- * {@code assertionInfo} is left to the API-level gate. This lives here rather than in the API gate
- * so OpenAPI, Rest.li and MCP {@code DELETE} all reach it.
+ * other targets fails here unless the actor holds the privilege on them too. Soft deleting or
+ * restoring an assertion (a change to {@code status.removed}, either way) requires the same. An
+ * assertion without {@code assertionInfo} is left to the API-level gate. This lives here rather
+ * than in the API gate so OpenAPI, Rest.li and MCP {@code DELETE} all reach it.
  *
  * <p>Run events need the privilege on the run event's {@code asserteeUrn}, matching {@code
  * ReportAssertionResultResolver} (notifications are addressed to it), and on every entity the
@@ -58,11 +71,12 @@ import lombok.extern.slf4j.Slf4j;
  * assertee differs from the target by URN case, environment or project. A run event without an
  * assertee is rejected once the assertion has targets. For an assertion with no {@code
  * assertionInfo} yet only the assertee is checked here; the API-level gate then requires the
- * privilege on the assertion itself.
+ * privilege on the assertion itself. Writes to {@code assertionRunSummary}, which is derived from
+ * the run events, need the privilege on every target as well.
  *
- * <p>Run events dated more than {@code maxFutureSkew} ahead of the server clock are rejected. The
- * current result of an assertion is the one with the latest timestamp, so a result dated in the
- * future would stay current until that date, whatever runs after it.
+ * <p>Run events and run summaries dated more than {@code maxFutureSkew} ahead of the server clock
+ * are rejected. The current result of an assertion is the one with the latest timestamp, so a
+ * result dated in the future would stay current until that date, whatever runs after it.
  *
  * <p>Targets are read from the stored value when the batch is validated. With async ingestion an
  * earlier request may not have landed yet, so a write is checked against the value before that
@@ -94,17 +108,44 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
         new HashMap<>(
             AssertionAuthorizationUtils.fetchAssertionInfos(
                 operationContext, aspectRetriever, assertionUrns));
+    // Each assertion's status as of the item being checked; read only when the batch writes one.
+    Map<Urn, Status> currentStatus =
+        fetchLatest(
+            operationContext,
+            aspectRetriever,
+            urnsWriting(items, STATUS_ASPECT_NAME),
+            STATUS_ASPECT_NAME,
+            Status.class);
     Set<Urn> unresolved = new HashSet<>();
+    Map<Urn, Boolean> authorizedEntities = new HashMap<>();
     long maxTimestampMillis = System.currentTimeMillis() + maxFutureSkew.toMillis();
 
     List<AspectValidationException> failures = new ArrayList<>();
     List<BatchItem> runEvents = new ArrayList<>();
+    List<BatchItem> runSummaries = new ArrayList<>();
     for (BatchItem item : items) {
       Urn urn = item.getUrn();
-      boolean isInfo = ASSERTION_INFO_ASPECT_NAME.equals(item.getAspectName());
+      String aspectName = item.getAspectName();
+      boolean isInfo = ASSERTION_INFO_ASPECT_NAME.equals(aspectName);
       boolean isDelete = ChangeType.DELETE.equals(item.getChangeType());
-      if (ASSERTION_RUN_EVENT_ASPECT_NAME.equals(item.getAspectName()) && !isDelete) {
+      if (ASSERTION_RUN_SUMMARY_ASPECT_NAME.equals(aspectName)) {
+        runSummaries.add(item);
+        continue;
+      }
+      if (ASSERTION_RUN_EVENT_ASPECT_NAME.equals(aspectName) && !isDelete) {
         runEvents.add(item);
+        continue;
+      }
+      if (STATUS_ASPECT_NAME.equals(aspectName)) {
+        validateStatusChange(
+                item,
+                currentStatus,
+                AssertionAuthorizationUtils.resolveAssertedEntityUrns(
+                    entityRegistry, current.get(urn)),
+                aspectRetriever,
+                session,
+                authorizedEntities)
+            .ifPresent(failures::add);
         continue;
       }
       if (!isInfo && !isDelete) {
@@ -156,10 +197,9 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
       }
     }
 
-    // Run events are checked against the assertion as this batch leaves it. The API gate accepts
-    // the generic privilege on the assertion itself, which covers neither the assertee that
-    // receives the notifications nor the assets the assertion checks.
-    Map<Urn, Boolean> authorizedEntities = new HashMap<>();
+    // Run events and summaries are checked against the assertion as this batch leaves it. The API
+    // gate accepts the generic privilege on the assertion itself, which covers neither the assertee
+    // that receives the notifications nor the assets the assertion checks.
     for (BatchItem item : runEvents) {
       Set<Urn> targets =
           AssertionAuthorizationUtils.resolveAssertedEntityUrns(
@@ -182,16 +222,7 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
       }
       Set<Urn> required = new HashSet<>(targets);
       required.add(assertee);
-      Set<Urn> denied =
-          required.stream()
-              .filter(
-                  urn ->
-                      !authorizedEntities.computeIfAbsent(
-                          urn,
-                          u ->
-                              AssertionAuthorizationUtils.isAuthorizedToEditAssertionsOnEntities(
-                                  session, Set.of(u))))
-              .collect(Collectors.toSet());
+      Set<Urn> denied = denied(session, required, authorizedEntities);
       if (!denied.isEmpty()) {
         failures.add(
             authFailure(
@@ -205,7 +236,166 @@ public class AssertionAuthorizationValidator extends AbstractAspectAuthorization
                     + "."));
       }
     }
+
+    Map<Urn, AssertionRunSummary> currentSummary =
+        new HashMap<>(
+            PatchItemImpl.readStoredForPatches(
+                operationContext,
+                aspectRetriever,
+                runSummaries,
+                ASSERTION_RUN_SUMMARY_ASPECT_NAME,
+                AssertionRunSummary.class));
+    for (BatchItem item : runSummaries) {
+      Urn urn = item.getUrn();
+      if (!ChangeType.DELETE.equals(item.getChangeType())) {
+        AssertionRunSummary summary;
+        try {
+          summary =
+              PatchItemImpl.resolveProposedAspect(
+                  item, currentSummary.get(urn), aspectRetriever, AssertionRunSummary.class);
+        } catch (RuntimeException e) {
+          log.debug("Unable to resolve assertionRunSummary write for {}", urn, e);
+          failures.add(
+              authFailure(item, "Unable to resolve assertionRunSummary for authorization"));
+          continue;
+        }
+        currentSummary.put(urn, summary);
+        if (latestTimestampMillis(summary) > maxTimestampMillis) {
+          failures.add(futureTimestampFailure(item));
+          continue;
+        }
+      }
+      Set<Urn> denied =
+          denied(
+              session,
+              AssertionAuthorizationUtils.resolveAssertedEntityUrns(
+                  entityRegistry, current.get(urn)),
+              authorizedEntities);
+      if (!denied.isEmpty()) {
+        failures.add(
+            authFailure(
+                item,
+                "Unauthorized to write the run summary of assertion "
+                    + urn
+                    + ". Requires the Edit Assertions privilege on "
+                    + denied
+                    + "."));
+      }
+    }
     return failures;
+  }
+
+  /**
+   * Soft deleting or restoring an assertion takes it off, or puts it back on, the assets it
+   * targets, so a change to {@code removed} needs the privilege on every target. Other status
+   * writes are left to the API-level gate.
+   */
+  @Nonnull
+  private Optional<AspectValidationException> validateStatusChange(
+      @Nonnull BatchItem item,
+      @Nonnull Map<Urn, Status> currentStatus,
+      @Nonnull Set<Urn> targets,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull AuthorizationSession session,
+      @Nonnull Map<Urn, Boolean> authorizedEntities) {
+    Urn urn = item.getUrn();
+    Status before = currentStatus.get(urn);
+    Status after;
+    try {
+      after =
+          ChangeType.DELETE.equals(item.getChangeType())
+              ? null
+              : PatchItemImpl.resolveProposedAspect(item, before, aspectRetriever, Status.class);
+    } catch (RuntimeException e) {
+      log.debug("Unable to resolve status write for {}", urn, e);
+      return Optional.of(authFailure(item, "Unable to resolve status for authorization"));
+    }
+    currentStatus.put(urn, after);
+    if (isRemoved(before) == isRemoved(after)) {
+      return Optional.empty();
+    }
+    Set<Urn> denied = denied(session, targets, authorizedEntities);
+    if (denied.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        authFailure(
+            item,
+            "Unauthorized to "
+                + (isRemoved(after) ? "soft delete" : "restore")
+                + " assertion "
+                + urn
+                + ". Requires the Edit Assertions privilege on "
+                + denied
+                + "."));
+  }
+
+  private static boolean isRemoved(@Nullable Status status) {
+    return status != null && status.isRemoved();
+  }
+
+  private static long latestTimestampMillis(@Nullable AssertionRunSummary summary) {
+    if (summary == null) {
+      return Long.MIN_VALUE;
+    }
+    return Stream.of(
+            summary.getLastPassedAtMillis(),
+            summary.getLastFailedAtMillis(),
+            summary.getLastErroredAtMillis(),
+            summary.getLastInitializedAtMillis())
+        .filter(Objects::nonNull)
+        .mapToLong(Long::longValue)
+        .max()
+        .orElse(Long.MIN_VALUE);
+  }
+
+  /** Entities in {@code required} the actor may not edit assertions on, caching each answer. */
+  @Nonnull
+  private static Set<Urn> denied(
+      @Nonnull AuthorizationSession session,
+      @Nonnull Set<Urn> required,
+      @Nonnull Map<Urn, Boolean> authorizedEntities) {
+    return required.stream()
+        .filter(
+            urn ->
+                !authorizedEntities.computeIfAbsent(
+                    urn,
+                    u ->
+                        AssertionAuthorizationUtils.isAuthorizedToEditAssertionsOnEntities(
+                            session, Set.of(u))))
+        .collect(Collectors.toSet());
+  }
+
+  @Nonnull
+  private static Set<Urn> urnsWriting(
+      @Nonnull List<? extends BatchItem> items, @Nonnull String aspectName) {
+    return items.stream()
+        .filter(item -> aspectName.equals(item.getAspectName()))
+        .map(BatchItem::getUrn)
+        .collect(Collectors.toSet());
+  }
+
+  @Nonnull
+  private static <T extends RecordTemplate> Map<Urn, T> fetchLatest(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Set<Urn> urns,
+      @Nonnull String aspectName,
+      @Nonnull Class<T> clazz) {
+    Map<Urn, T> result = new HashMap<>();
+    if (urns.isEmpty()) {
+      return result;
+    }
+    aspectRetriever
+        .getLatestAspectObjects(operationContext, urns, Set.of(aspectName))
+        .forEach(
+            (urn, byName) -> {
+              Aspect aspect = byName == null ? null : byName.get(aspectName);
+              if (aspect != null) {
+                result.put(urn, RecordUtils.toRecordTemplate(clazz, aspect.data()));
+              }
+            });
+    return result;
   }
 
   @Nonnull

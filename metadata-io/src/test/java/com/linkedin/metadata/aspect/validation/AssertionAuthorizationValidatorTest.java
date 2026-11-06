@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.ASSERTION_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ASSERTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ASSERTION_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -20,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionRunSummary;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdOperator;
@@ -32,6 +35,7 @@ import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
+import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -111,6 +115,14 @@ public class AssertionAuthorizationValidatorTest {
                     AspectPluginConfig.EntityAspectName.builder()
                         .entityName(ASSERTION_ENTITY_NAME)
                         .aspectName(ASSERTION_RUN_EVENT_ASPECT_NAME)
+                        .build(),
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(ASSERTION_ENTITY_NAME)
+                        .aspectName(ASSERTION_RUN_SUMMARY_ASPECT_NAME)
+                        .build(),
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(ASSERTION_ENTITY_NAME)
+                        .aspectName(STATUS_ASPECT_NAME)
                         .build()))
             .build());
     session = mock(AuthorizationSession.class);
@@ -424,6 +436,53 @@ public class AssertionAuthorizationValidatorTest {
   }
 
   @Test
+  public void testSoftDeleteNeedsPrivilegeOnTarget() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_B);
+    BatchItem softDelete = statusUpsert(true);
+
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, softDelete).isEmpty());
+
+    grantEditAssertionsOn(DATASET_A);
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, softDelete).isEmpty());
+  }
+
+  @Test
+  public void testRestoreNeedsPrivilegeOnTarget() {
+    mockPersisted(freshnessOn(DATASET_A));
+    mockPersistedStatus(new Status().setRemoved(true));
+
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, statusUpsert(false)).isEmpty());
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, delete(STATUS_ASPECT_NAME)).isEmpty());
+
+    grantEditAssertionsOn(DATASET_A);
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, statusUpsert(false)).isEmpty());
+  }
+
+  @Test
+  public void testStatusWriteThatKeepsRemovedNotChecked() {
+    // Ingestion writes status removed=false for every entity it emits; that changes nothing.
+    mockPersisted(freshnessOn(DATASET_A));
+
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, statusUpsert(false)).isEmpty());
+  }
+
+  @Test
+  public void testRunSummaryNeedsPrivilegeOnTargetAndPastTimestamps() {
+    mockPersisted(freshnessOn(DATASET_A));
+    long now = System.currentTimeMillis();
+    BatchItem summary = runSummaryUpsert(now);
+
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, summary).isEmpty());
+
+    grantEditAssertionsOn(DATASET_A);
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, summary).isEmpty());
+    Assert.assertFalse(
+        validate(OperationFingerprint.EMPTY, runSummaryUpsert(now + Duration.ofDays(1).toMillis()))
+            .isEmpty());
+  }
+
+  @Test
   public void testDeleteDeniedWithoutEditAssertionsOnTarget() {
     mockPersisted(freshnessOn(DATASET_A));
     grantEditAssertionsOn(DATASET_B);
@@ -582,6 +641,30 @@ public class AssertionAuthorizationValidatorTest {
     return TestMCP.ofOneUpsertItem(ASSERTION_URN, runEvent, new TestEntityRegistry()).stream()
         .findFirst()
         .get();
+  }
+
+  private static BatchItem statusUpsert(boolean removed) {
+    return TestMCP.ofOneUpsertItem(
+            ASSERTION_URN, new Status().setRemoved(removed), new TestEntityRegistry())
+        .stream()
+        .findFirst()
+        .get();
+  }
+
+  private static BatchItem runSummaryUpsert(long lastFailedAtMillis) {
+    return TestMCP.ofOneUpsertItem(
+            ASSERTION_URN,
+            new AssertionRunSummary().setLastFailedAtMillis(lastFailedAtMillis),
+            new TestEntityRegistry())
+        .stream()
+        .findFirst()
+        .get();
+  }
+
+  private void mockPersistedStatus(Status status) {
+    when(aspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(ASSERTION_URN)), eq(Set.of(STATUS_ASPECT_NAME))))
+        .thenReturn(Map.of(ASSERTION_URN, Map.of(STATUS_ASPECT_NAME, new Aspect(status.data()))));
   }
 
   private static BatchItem delete(String aspectName) {
