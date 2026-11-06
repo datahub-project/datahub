@@ -256,6 +256,10 @@ SQL SELECT order_id FROM dbo.orders;
     "between",
     [
         pytest.param("Xml: LOAD Value FROM_FIELD (Raw, Payload);", id="from_field"),
+        pytest.param(
+            "Scores: LOAD Id, Score EXTENSION Model.Predict(Orders{Id});",
+            id="extension",
+        ),
         pytest.param("LOAD Value;\nLIB CONNECT TO 'Sales SQL';", id="connect"),
         pytest.param("LOAD Value;\nDISCONNECT;", id="disconnect"),
     ],
@@ -271,6 +275,33 @@ SQL SELECT order_id FROM dbo.orders;
     )
 
     assert table.preceding_loads == []
+    assert apply_preceding_loads(
+        table.preceding_loads, {"order_id": ["order_id_urn"]}
+    ) == {"order_id": ["order_id_urn"]}
+
+
+@pytest.mark.parametrize(
+    "field_list",
+    [
+        pytest.param("order_id, from_field", id="field_named_from_field"),
+        pytest.param("order_id, extension", id="field_named_extension"),
+        pytest.param("order_id, '$(vReloadDate)' AS loaded", id="variable_in_string"),
+    ],
+)
+def test_preceding_load_fields_that_look_like_clauses(field_list: str) -> None:
+    (table,) = parse_load_script(
+        f"""
+LIB CONNECT TO 'Sales SQL';
+Orders:
+LOAD {field_list};
+SQL SELECT order_id, from_field, extension, amount FROM dbo.orders;
+"""
+    )
+
+    assert "amount" not in apply_preceding_loads(
+        table.preceding_loads,
+        {name: [f"{name}_urn"] for name in ("order_id", "from_field", "extension", "amount")},
+    )
 
 
 @pytest.mark.parametrize(

@@ -59,7 +59,9 @@ OPERAND_END_RE = re.compile(r"[\w'\"`\])]\s*$")
 CONDITION_JOIN_RE = re.compile(r"\s+(?:AND|OR)\b", re.IGNORECASE)
 LOAD_RE = re.compile(r"^LOAD\b", re.IGNORECASE)
 LOAD_SOURCE_RE = re.compile(
-    r"\b(?:FROM|FROM_FIELD|RESIDENT|INLINE|AUTOGENERATE)\b", re.IGNORECASE
+    r"\b(?:FROM|RESIDENT|INLINE|AUTOGENERATE)\b"
+    r"|\bFROM_FIELD\s*\(|\bEXTENSION\s+[\w.]+\s*\(",
+    re.IGNORECASE,
 )
 QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]")
 LOAD_FIELDS_RE = re.compile(
@@ -410,7 +412,8 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         if item == "*":
             load.keeps_all = True
             continue
-        if "$(" in item:
+        # A variable inside a string literal only changes a constant.
+        if "$(" in STRING_LITERAL_SQL_RE.sub("''", item):
             load.unreadable = True
         alias = LOAD_ALIAS_RE.match(item)
         if alias:
