@@ -42,6 +42,7 @@ import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.FilterExistingUrnsRequest;
+import com.linkedin.metadata.authorization.AssertionAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
@@ -1207,10 +1208,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     final OperationContext opContext = timeseriesDeleteContext(urn);
 
-    if (!isAPIAuthorizedUrns(
-            opContext,
-            TIMESERIES, DELETE,
-            List.of(urn))) {
+    if (!isTimeseriesDeleteAuthorized(urn)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
     }
@@ -1219,9 +1217,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         opContext, urn, aspectsToDelete, startTimeMillis, endTimeMillis);
   }
 
-  /** Whether the actor may delete the timeseries values of {@code urn}. */
+  /**
+   * Whether the actor may delete the timeseries values of {@code urn}. An assertion's run history
+   * also needs Edit Assertions on the assets it checks, as deleting the assertion does.
+   */
   private boolean isTimeseriesDeleteAuthorized(@Nonnull Urn urn) {
-    return isAPIAuthorizedUrns(timeseriesDeleteContext(urn), TIMESERIES, DELETE, List.of(urn));
+    final OperationContext opContext = timeseriesDeleteContext(urn);
+    return isAPIAuthorizedUrns(opContext, TIMESERIES, DELETE, List.of(urn))
+        && AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(opContext, List.of(urn));
   }
 
   private OperationContext timeseriesDeleteContext(@Nonnull Urn urn) {
