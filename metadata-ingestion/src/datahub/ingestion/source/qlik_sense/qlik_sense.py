@@ -487,6 +487,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "Measure": str(chart.qMeasure),
             }
             chart_fields = self._get_chart_input_fields(chart, app_fields)
+            # The fields behind a $(variable) expansion are unknown, so the chart
+            # may read any of the app's tables.
+            reads_unknown_fields = any(
+                "$(" in expression for expression in chart.field_expressions
+            )
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
@@ -495,10 +500,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     description=chart.visualization,
                     lastModified=ChangeAuditStampsClass(),
                     customProperties=custom_properties,
-                    inputs=list(
-                        dict.fromkeys(field.dataset_urn for field in chart_fields)
-                    )
-                    or input_tables_urns,
+                    inputs=(
+                        input_tables_urns
+                        if reads_unknown_fields
+                        else list(
+                            dict.fromkeys(field.dataset_urn for field in chart_fields)
+                        )
+                        or input_tables_urns
+                    ),
                 ),
             ).as_workunit()
 
