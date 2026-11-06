@@ -252,7 +252,7 @@ const TS_RESTRICTED_IMPORT_PATHS = [
 const APP_WRAPPED_ALCHEMY_COMPONENTS = [
     {
         name: 'Editor',
-        modules: ['Editor', 'Editor/Editor'],
+        modules: ['Editor', 'Editor/Editor', 'Editor/EditorImpl'],
         wrapper: 'src/app/sharedV2/editor/Editor.tsx',
         message: "Import Editor from '@app/sharedV2/editor/Editor': it adds DataHub mentions and the file upload flag.",
     },
