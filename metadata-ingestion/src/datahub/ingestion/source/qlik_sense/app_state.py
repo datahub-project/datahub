@@ -49,7 +49,7 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
 
     def is_checkpointing_enabled(self) -> bool:
         return (
-            self.config.skip_unchanged_apps
+            self.config.skips_unchanged_apps()
             and self.state_provider.is_stateful_ingestion_configured()
         )
 

@@ -4,19 +4,8 @@ import logging
 import secrets
 import socket
 import ssl
-import sys
-import threading
 from datetime import datetime
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Literal,
-    Optional,
-    Union,
-)
+from typing import Any, Dict, Iterable, List, Literal, Optional, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -28,18 +17,18 @@ from datahub.ingestion.source.qlik_sense.config import (
 )
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
-    Item,
-    Sheet,
     Space,
     SpaceType,
     UnchangedApp,
 )
-from datahub.ingestion.source.qlik_sense.script_lineage import (
-    DataConnectionInfo,
-    infer_data_connection,
+from datahub.ingestion.source.qlik_sense.qlik_base_api import (
+    IsUnchanged,
+    QlikBaseAPI,
+    ReadErrors,
+    log_read_error,
 )
+from datahub.ingestion.source.qlik_sense.script_lineage import DataConnectionInfo
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
-from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -105,36 +94,26 @@ def normalize_qlik_timestamp(value: str) -> str:
     return value
 
 
-class QlikOnPremAPI:
+class QlikOnPremAPI(QlikBaseAPI):
     def __init__(self, config: QlikSourceConfig) -> None:
-        self.config = config
-        self.spaces: Dict[str, str] = {}
-        self.users: Dict[str, str] = {}
-        # Streams and apps that failed to load, so the source can report them.
-        self.unread_items: List[str] = []
-        # Each app is read on a single worker thread, so a per-thread flag tells
-        # whether any Engine read for the current app failed.
-        self._thread_state = threading.local()
-        server = config.server
-        client_cert = config.client_cert
-        client_key = config.client_key
-        root_cert = config.root_cert
-        if not server or not client_cert or not client_key or not root_cert:
-            raise ValueError("On-prem Qlik Sense requires server and certificates")
+        super().__init__(config)
+        if config.on_prem is None:
+            raise ValueError("On-prem Qlik Sense requires the on_prem block")
+        self.on_prem = on_prem = config.on_prem
         self.xrfkey = secrets.token_hex(_XRFKEY_LENGTH // 2)
         self.session = requests.Session()
-        self.session.cert = (client_cert, client_key)
-        self.session.verify = root_cert
+        self.session.cert = (on_prem.client_cert, on_prem.client_key)
+        self.session.verify = on_prem.root_cert
         self.session.headers.update(
             {
-                "X-Qlik-User": config.qlik_user_header(config.qrs_user_id),
+                "X-Qlik-User": on_prem.qlik_user_header(on_prem.qrs_user_id),
                 "X-Qlik-Xrfkey": self.xrfkey,
                 "Accept": "application/json",
                 "Content-Type": "application/json",
             }
         )
-        self.qrs_url = f"https://{server}:{config.qrs_port}/qrs"
-        assert_hostname = config.tls_assert_hostname()
+        self.qrs_url = f"https://{on_prem.server}:{on_prem.qrs_port}/qrs"
+        assert_hostname = on_prem.tls_assert_hostname()
         if assert_hostname is not None:
             self.session.mount(self.qrs_url, _AssertHostnameAdapter(assert_hostname))
         logger.info(f"Trying to connect to {self.qrs_url}")
@@ -143,18 +122,10 @@ class QlikOnPremAPI:
         except requests.exceptions.SSLError:
             logger.warning(
                 f"TLS verification against root_cert failed. Certificate presented by "
-                f"{server}:{config.qrs_port}:\n"
-                f"{_presented_certificate(server, config.qrs_port, client_cert, client_key)}"
+                f"{on_prem.server}:{on_prem.qrs_port}:\n"
+                f"{_presented_certificate(on_prem.server, on_prem.qrs_port, on_prem.client_cert, on_prem.client_key)}"
             )
             raise
-
-    def _log_http_error(self, message: str) -> None:
-        self._thread_state.read_failed = True
-        logger.warning(message)
-        _, e, _ = sys.exc_info()
-        if isinstance(e, requests.exceptions.HTTPError):
-            logger.warning(f"HTTP status-code = {e.response.status_code}")
-        logger.debug(msg=message, exc_info=e)
 
     def _get(
         self, path: str, params: Optional[Dict[str, str]] = None
@@ -193,9 +164,7 @@ class QlikOnPremAPI:
                 self.users[user_id] = name
             return name
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch user with id {user_id}. Exception: {e}"
-            )
+            log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
         return None
 
     def _space_from_stream(self, stream: Dict) -> Space:
@@ -220,7 +189,7 @@ class QlikOnPremAPI:
                 space = self._space_from_stream(stream)
                 spaces.append(space)
                 self.spaces[space.id] = space.name
-            if self.config.ingest_unpublished_apps:
+            if self.on_prem.ingest_unpublished_apps:
                 now = datetime.now().strftime(QLIK_DATETIME_FORMAT)
                 unpublished = Space.model_validate(
                     {
@@ -235,8 +204,9 @@ class QlikOnPremAPI:
                 spaces.append(unpublished)
                 self.spaces[unpublished.id] = unpublished.name
         except Exception as e:
-            self._log_http_error(message=f"Unable to fetch streams. Exception: {e}")
-            self.unread_items.append("streams")
+            self._record_unread(
+                "streams", f"Unable to fetch streams. Exception: {e}", e
+            )
         return spaces
 
     def _app_from_qrs(self, app: Dict) -> App:
@@ -245,7 +215,7 @@ class QlikOnPremAPI:
             {
                 Constant.ID: app[Constant.ID],
                 "description": app.get("description") or "",
-                Constant.OWNERID: self._remember_owner(app.get("owner")) or "",
+                Constant.OWNERID: self._remember_owner(app.get("owner")),
                 Constant.SPACEID: stream.get(Constant.ID) or UNPUBLISHED_APPS_ID,
                 Constant.CREATEDDATE: normalize_qlik_timestamp(
                     app[Constant.CREATEDDATE]
@@ -254,125 +224,62 @@ class QlikOnPremAPI:
                     app[Constant.MODIFIEDDATE]
                 ),
                 "qTitle": app.get(Constant.NAME) or "",
-                "qUsage": "",
             }
         )
 
     def _open_engine(self, app_id: str) -> WebsocketConnection:
-        assert self.config.server is not None
-        assert self.config.client_cert is not None
-        assert self.config.client_key is not None
-        assert self.config.root_cert is not None
         return WebsocketConnection.for_on_prem(
-            host=self.config.server,
-            port=self.config.engine_port,
+            host=self.on_prem.server,
+            port=self.on_prem.engine_port,
             app_id=app_id,
-            user_header=self.config.qlik_user_header(self.config.engine_user_id),
-            client_cert=self.config.client_cert,
-            client_key=self.config.client_key,
-            root_cert=self.config.root_cert,
-            assert_hostname=self.config.tls_assert_hostname(),
+            user_header=self.on_prem.qlik_user_header(self.on_prem.engine_user_id),
+            client_cert=self.on_prem.client_cert,
+            client_key=self.on_prem.client_key,
+            root_cert=self.on_prem.root_cert,
+            assert_hostname=self.on_prem.tls_assert_hostname(),
         )
 
-    def _get_sheet(
-        self,
-        websocket_connection: WebsocketConnection,
-        sheet_id: str,
-    ) -> Optional[Sheet]:
+    def _sheet_meta(self, meta: Dict, sheet_id: str) -> Optional[Dict]:
+        # Enterprise reports the sheet owner as an object rather than ownerId.
+        meta = dict(meta)
+        meta.setdefault(Constant.ID, sheet_id)
+        if not meta.get(Constant.OWNERID):
+            meta[Constant.OWNERID] = self._remember_owner(meta.get("owner"))
+        return meta
+
+    def _load_item(
+        self, item: Dict, is_unchanged: Optional[IsUnchanged]
+    ) -> Union[App, UnchangedApp, None]:
+        app_id = str(item.get(Constant.ID))
         try:
-            websocket_connection.websocket_send_request(
-                method="GetObject", params={"qId": sheet_id}
-            )
-            response = websocket_connection.websocket_send_request(method="GetLayout")
-            sheet_dict = response[Constant.QLAYOUT]
-            # Enterprise reports the sheet owner as an object rather than ownerId.
-            meta = dict(sheet_dict[Constant.QMETA])
-            meta.setdefault(Constant.ID, sheet_id)
-            if not meta.get(Constant.OWNERID):
-                meta[Constant.OWNERID] = self._remember_owner(meta.get("owner"))
-            sheet = Sheet.model_validate(meta)
-            if Constant.QCHILDLIST not in sheet_dict:
-                logger.debug(f"Sheet {sheet.title} with id {sheet_id} has no charts")
-                return sheet
-            properties = websocket_connection.get_object_properties()
-            for i, chart_dict in enumerate(
-                sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
-            ):
-                for chart in websocket_connection.get_charts(
-                    chart_dict[Constant.QINFO][Constant.QID],
-                    sheet_id,
-                    on_error=self._log_http_error,
-                    properties=properties,
-                ):
-                    if not chart.title:
-                        chart.title = f"Object {i + 1} of Sheet '{sheet.title}'"
-                    sheet.charts.append(chart)
-            return sheet
+            return self._read_or_skip_app(item, is_unchanged)
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch sheet with id {sheet_id}. Exception: {e}"
+            self._record_unread(
+                app_id, f"Unable to load app {app_id}. Exception: {e}", e
             )
         return None
-
-    def _get_app_sheets(
-        self, websocket_connection: WebsocketConnection, app_id: str
-    ) -> List[Sheet]:
-        sheets: List[Sheet] = []
-        try:
-            response = websocket_connection.websocket_send_request(
-                method="GetObjects",
-                params={"qOptions": {"qTypes": ["sheet"]}},
-            )
-            for sheet_dict in response[Constant.QLIST]:
-                with websocket_connection.restore_handle():
-                    sheet = self._get_sheet(
-                        websocket_connection=websocket_connection,
-                        sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
-                    )
-                if sheet:
-                    sheets.append(sheet)
-            websocket_connection.add_master_measure_definitions(
-                sheets, on_error=self._log_http_error
-            )
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch sheets for app {app_id}. Exception: {e}"
-            )
-        return sheets
-
-    def _load_app(
-        self,
-        app_dict: Dict,
-        is_unchanged: Optional[Callable[[str, str], bool]],
-    ) -> Union[App, UnchangedApp, None]:
-        try:
-            return self._read_or_skip_app(app_dict, is_unchanged)
-        except Exception as e:
-            app_id = str(app_dict.get(Constant.ID))
-            self._log_http_error(message=f"Unable to load app {app_id}. Exception: {e}")
-            self.unread_items.append(app_id)
-            return None
 
     def _read_app(
         self, app_dict: Dict, fingerprint: Optional[str] = None
     ) -> Optional[App]:
-        self._thread_state.read_failed = False
         try:
             app = self._app_from_qrs(app_dict)
             app.fingerprint = fingerprint
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to parse app {app_dict.get(Constant.ID)}. Exception: {e}"
+            self._record_unread(
+                str(app_dict.get(Constant.ID)),
+                f"Unable to parse app {app_dict.get(Constant.ID)}. Exception: {e}",
+                e,
             )
-            self.unread_items.append(str(app_dict.get(Constant.ID)))
             return None
+        errors = ReadErrors()
         try:
             websocket_connection = self._open_engine(app.id)
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to connect to the Engine for app {app.id}. Exception: {e}"
+            errors.record(
+                f"Unable to connect to the Engine for app {app.id}. Exception: {e}"
             )
-            app.read_complete = False
+            app.read_errors = errors.messages
             return app
         try:
             websocket_connection.websocket_send_request(
@@ -381,32 +288,21 @@ class QlikOnPremAPI:
                 # Engine takes minutes per app on large sites.
                 params={"qDocName": app.id, "qNoData": True},
             )
-            app.sheets = self._get_app_sheets(websocket_connection, app.id)
-            try:
-                app.script = websocket_connection.get_script()
-                logger.debug(
-                    f"App {app.id} load script has {len(app.script)} characters"
-                )
-            except Exception as e:
-                self._log_http_error(
-                    message=f"Unable to fetch load script of app {app.id}. Exception: {e}"
-                )
-        except Exception as e:
-            self._log_http_error(
-                message=f"Unable to open app {app.id} in the Engine. Exception: {e}"
+            app.sheets = self._get_app_sheets(websocket_connection, app.id, errors)
+            app.script = self._read_load_script(
+                websocket_connection, app.id, on_error=errors.record
             )
+        except Exception as e:
+            errors.record(f"Unable to open app {app.id} in the Engine. Exception: {e}")
         finally:
-            try:
-                websocket_connection.close_websocket()
-            except Exception as e:
-                logger.debug(f"Unable to close Engine session of app {app.id}: {e}")
-        app.read_complete = not self._thread_state.read_failed
+            self._close_engine(websocket_connection, app.id)
+        app.read_errors = errors.messages
         return app
 
     def _read_or_skip_app(
         self,
         app_dict: Dict,
-        is_unchanged: Optional[Callable[[str, str], bool]],
+        is_unchanged: Optional[IsUnchanged],
     ) -> Union[App, UnchangedApp, None]:
         fingerprint: Optional[str] = None
         if is_unchanged:
@@ -434,8 +330,8 @@ class QlikOnPremAPI:
                 params={"filter": f"app.id eq {app_dict[Constant.ID]}"},
             ).json()
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch objects of app {app_dict.get(Constant.ID)}. Exception: {e}"
+            log_read_error(
+                f"Unable to fetch objects of app {app_dict.get(Constant.ID)}. Exception: {e}"
             )
             return None
         owner = app_dict.get("owner") or {}
@@ -462,28 +358,23 @@ class QlikOnPremAPI:
                 name = connection.get(Constant.NAME)
                 if not name:
                     continue
-                descriptor = ";".join(
-                    str(connection.get(key) or "")
-                    for key in (Constant.CONNECTIONSTRING, Constant.TYPE)
+                connections[name] = self._infer_connection(
+                    name, connection, (Constant.CONNECTIONSTRING, Constant.TYPE)
                 )
-                connections[name] = infer_data_connection(name, descriptor)
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch data connections. Exception: {e}"
+            self._record_unread(
+                "data connections",
+                f"Unable to fetch data connections. Exception: {e}",
+                e,
             )
-            self.unread_items.append("data connections")
         logger.debug(f"QRS data connections: {list(connections.values())}")
         return connections
 
-    def get_items(
-        self,
-        space_id: str,
-        is_unchanged: Optional[Callable[[str, str], bool]] = None,
-    ) -> Iterable[Union[Item, UnchangedApp]]:
+    def _list_items(self, space_id: str) -> Iterable[Dict]:
         if space_id not in self.spaces:
-            return
+            return []
         if not self.config.space_pattern.allowed(self.spaces[space_id]):
-            return
+            return []
         qrs_filter = (
             "published eq false"
             if space_id == UNPUBLISHED_APPS_ID
@@ -492,22 +383,11 @@ class QlikOnPremAPI:
         try:
             app_dicts = self._get("/app/full", params={"filter": qrs_filter}).json()
         except Exception as e:
-            self._log_http_error(message=f"Unable to fetch apps. Exception: {e}")
-            self.unread_items.append(f"apps of stream {space_id}")
-            return
+            self._record_unread(
+                f"apps of stream {space_id}",
+                f"Unable to fetch apps. Exception: {e}",
+                e,
+            )
+            return []
         logger.info(f"Stream {self.spaces[space_id]} has {len(app_dicts)} apps")
-        # QRS and Engine reads are network-bound; the GIL is only held while
-        # decoding replies.
-        for future in BackpressureAwareExecutor.map(
-            self._load_app,
-            ((app_dict, is_unchanged) for app_dict in app_dicts),
-            max_workers=self.config.max_workers,
-        ):
-            try:
-                app = future.result()
-            except Exception as e:
-                self._log_http_error(message=f"Unable to load app. Exception: {e}")
-                self.unread_items.append(f"app of stream {space_id}")
-                continue
-            if app:
-                yield app
+        return app_dicts

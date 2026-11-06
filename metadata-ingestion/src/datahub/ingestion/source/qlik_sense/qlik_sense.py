@@ -39,7 +39,6 @@ from datahub.ingestion.source.qlik_sense.app_state import (
 from datahub.ingestion.source.qlik_sense.config import (
     Constant,
     PlatformDetail,
-    QlikDeployment,
     QlikSourceConfig,
     QlikSourceReport,
 )
@@ -51,6 +50,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     AppKey,
     BoxType,
     Chart,
+    Item,
     QlikDataset,
     QlikTable,
     SchemaField as QlikDatasetSchemaField,
@@ -60,10 +60,13 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     UnchangedApp,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
+from datahub.ingestion.source.qlik_sense.qlik_base_api import QlikBaseAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
     DataConnectionInfo,
+    ResolvedConnection,
+    ScriptTable,
     ScriptTableLineage,
     apply_preceding_loads,
     brackets_to_backticks,
@@ -168,7 +171,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     config: QlikSourceConfig
     reporter: QlikSourceReport
     platform: str = "qlik-sense"
-    qlik_api: Union[QlikAPI, QlikOnPremAPI]
+    qlik_api: QlikBaseAPI
 
     def __init__(self, config: QlikSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -188,7 +191,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 run_id=ctx.run_id,
                 platform=self.platform,
             )
-            if config.skip_unchanged_apps
+            if config.skips_unchanged_apps()
             else None
         )
         self.app_state = QlikAppStateHandler(
@@ -199,17 +202,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         self._fingerprint_salt: Optional[str] = None
         self._change_check_failed = False
-        if config.skip_unchanged_apps and not self._skips_unchanged_apps():
+        if config.skips_unchanged_apps() and not self._skips_unchanged_apps():
             self.reporter.warning(
                 title="skip_unchanged_apps is ignored",
-                message="Skipping unchanged apps needs deployment: on_prem and "
-                "stateful ingestion, so every app is read.",
+                message="Skipping unchanged apps needs stateful ingestion, so every "
+                "app is read.",
             )
         try:
-            if config.deployment == QlikDeployment.ON_PREM:
-                self.qlik_api = QlikOnPremAPI(self.config)
-            else:
-                self.qlik_api = QlikAPI(self.config)
+            self.qlik_api = self._create_api(self.config)
         except Exception as e:
             logger.warning(e)
             exit(
@@ -217,14 +217,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )  # Exit pipeline as we are not able to connect to Qlik Client Service.
 
     @staticmethod
+    def _create_api(config: QlikSourceConfig) -> QlikBaseAPI:
+        return QlikOnPremAPI(config) if config.on_prem else QlikAPI(config)
+
+    @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
             config = QlikSourceConfig.parse_obj_allow_extras(config_dict)
-            if config.deployment == QlikDeployment.ON_PREM:
-                QlikOnPremAPI(config)
-            else:
-                QlikAPI(config)
+            QlikSenseSource._create_api(config)
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -253,31 +254,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         return processors
 
     def _skips_unchanged_apps(self) -> bool:
-        return (
-            self.config.skip_unchanged_apps
-            and self.config.deployment == QlikDeployment.ON_PREM
-            and self.app_state.is_checkpointing_enabled()
-        )
+        return self.app_state.is_checkpointing_enabled()
 
     def _init_fingerprint_salt(self) -> None:
         # The recipe and data connections shape every app's output, and a new
         # connector version may emit differently, so any change re-reads all apps.
-        if self._data_connections is None:
-            self._data_connections = self.qlik_api.get_data_connections()
         self._fingerprint_salt = json.dumps(
             {
                 "version": __version__,
                 "config": self.config.model_dump(
                     mode="json",
                     exclude={
-                        "stateful_ingestion",
-                        "max_workers",
-                        "skip_unchanged_apps",
+                        "stateful_ingestion": True,
+                        "max_workers": True,
+                        "on_prem": {"skip_unchanged_apps"},
                     },
                 ),
                 "connections": {
                     name: info.model_dump(mode="json")
-                    for name, info in sorted(self._data_connections.items())
+                    for name, info in sorted(self._get_data_connections().items())
                 },
             },
             sort_keys=True,
@@ -405,6 +400,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             actor=builder.make_user_urn(username) if username else builder.UNKNOWN_USER,
         )
 
+    def _get_owner_name(self, owner_id: Optional[str]) -> Optional[str]:
+        return self.qlik_api.get_user_name(owner_id) if owner_id else None
+
     def _get_allowed_spaces(self) -> List[Space]:
         all_spaces = self.qlik_api.get_spaces()
         allowed_spaces = [
@@ -421,9 +419,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Qlik space to Datahub container
         """
-        owner_username: Optional[str] = None
-        if space.ownerId:
-            owner_username = self.qlik_api.get_user_name(space.ownerId)
+        owner_username = self._get_owner_name(space.ownerId)
         yield from gen_containers(
             container_key=self._gen_space_key(space.id),
             name=space.name,
@@ -436,7 +432,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             ),
             external_url=f"https://{self.ui_host}/hub/stream/{space.id}"
-            if self.config.deployment == QlikDeployment.ON_PREM
+            if self.config.on_prem
             else f"https://{self.ui_host}/catalog?space_filter={space.id}",
             created=int(space.createdAt.timestamp() * 1000),
             last_modified=int(space.updatedAt.timestamp() * 1000),
@@ -660,9 +656,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if dpi_aspect:
                 yield dpi_aspect
 
-            owner_username = (
-                self.qlik_api.get_user_name(sheet.ownerId) if sheet.ownerId else None
-            )
+            owner_username = self._get_owner_name(sheet.ownerId)
             if self.config.ingest_owner and owner_username:
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
@@ -796,13 +790,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_DATASET]),
         ).as_workunit()
 
-    def _resolve_script_connection(
-        self, connection: Optional[str]
-    ) -> Optional[PlatformDetail]:
-        if not connection:
-            return None
+    def _get_data_connections(self) -> Dict[str, DataConnectionInfo]:
         if self._data_connections is None:
             self._data_connections = self.qlik_api.get_data_connections()
+        return self._data_connections
+
+    def _resolve_script_connection(
+        self, connection: Optional[str]
+    ) -> Optional[ResolvedConnection]:
+        if not connection:
+            return None
         names = connection_lookup_names(connection)
         configured = next(
             (
@@ -812,7 +809,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             ),
             None,
         )
-        inferred = self._data_connections.get(connection)
+        inferred = self._get_data_connections().get(connection)
         # Inline ODBC/OLEDB connection strings carry the driver and database
         # themselves. A bare name says nothing about the platform behind it.
         if inferred is None and is_inline_connection(connection):
@@ -822,7 +819,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         if not platform:
             return None
-        return PlatformDetail(
+        return ResolvedConnection(
             platform=platform,
             database=(configured.database if configured else None)
             or (inferred.database if inferred else None),
@@ -834,17 +831,84 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _parse_script_sql(
-        self, sql: str, platform: str, detail: PlatformDetail
+        self, sql: str, connection: ResolvedConnection
     ) -> SqlParsingResult:
         return create_lineage_sql_parsed_result(
             query=sql,
-            default_db=detail.database,
-            default_schema=detail.default_schema,
-            platform=platform,
-            platform_instance=detail.platform_instance,
-            env=detail.env,
+            default_db=connection.database,
+            default_schema=connection.default_schema,
+            platform=connection.platform,
+            platform_instance=connection.platform_instance,
+            env=connection.env,
             graph=self.ctx.graph,
         )
+
+    def _parse_script_table(
+        self, app_id: str, script_table: ScriptTable, connection: ResolvedConnection
+    ) -> Optional[SqlParsingResult]:
+        sql = drop_condition_variables(script_table.sql)
+        if "$(" in sql:
+            # orders_$(vYear) would parse as a table named orders_$.
+            self.reporter.warning(
+                title="Qlik load script SQL uses a variable that is not set",
+                message="Upstream lineage for this script table is skipped.",
+                context=f"app={app_id}, table={script_table.label}",
+            )
+            return None
+        result = self._parse_script_sql(sql, connection)
+        if (
+            result.debug_info.table_error
+            and connection.platform in BACKTICK_QUOTED_PLATFORMS
+            and "[" in sql
+        ):
+            result = self._parse_script_sql(brackets_to_backticks(sql), connection)
+        if result.in_tables:
+            return result
+        if result.debug_info.table_error:
+            self.reporter.warning(
+                title="Unable to parse Qlik load script SQL",
+                message="Upstream lineage for this script table is skipped.",
+                context=f"app={app_id}, table={script_table.label}",
+                exc=result.debug_info.table_error,
+            )
+        else:
+            logger.debug(
+                f"App {app_id} script table {script_table.label!r} reads no tables"
+            )
+        return None
+
+    @staticmethod
+    def _merge_script_table(
+        tables: Dict[str, ScriptTableLineage],
+        app_id: str,
+        script_table: ScriptTable,
+        connection_name: Optional[str],
+        upstream_urns: List[str],
+        result: SqlParsingResult,
+    ) -> None:
+        # A label loaded by several statements is one Qlik table.
+        lineage = tables.setdefault(
+            script_table.label,
+            ScriptTableLineage(
+                label=script_table.label,
+                identifier=f"{app_id}.{script_table.label}".lower(),
+                connection=connection_name,
+            ),
+        )
+        lineage.upstream_urns.extend(
+            urn for urn in upstream_urns if urn not in lineage.upstream_urns
+        )
+        sql_columns: Dict[str, List[str]] = {}
+        for column in result.column_lineage or []:
+            sql_columns.setdefault(column.downstream.column, []).extend(
+                column_refs_to_schema_field_urns(
+                    ref for ref in column.upstreams if ref.table in upstream_urns
+                )
+            )
+        for field, upstreams in apply_preceding_loads(
+            script_table.preceding_loads, sql_columns
+        ).items():
+            lineage.column_upstreams.setdefault(field, []).extend(upstreams)
 
     def _build_script_tables(self, app: App) -> List[ScriptTableLineage]:
         if not app.script:
@@ -861,7 +925,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for script_table in parse_load_script(app.script):
             if script_table.label.lower() in traced:
                 continue
-            connection = (
+            connection_name = (
                 redact_connection(script_table.connection)
                 if script_table.connection
                 else None
@@ -873,79 +937,33 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     "a Qlik connector, not a database table"
                 )
                 continue
-            detail = self._resolve_script_connection(script_table.connection)
+            connection = self._resolve_script_connection(script_table.connection)
             logger.debug(
                 f"App {app.id} script table {script_table.label!r} via connection "
-                f"{connection!r} resolved to {detail}"
+                f"{connection_name!r} resolved to {connection}"
             )
-            if not detail or not detail.platform:
+            if connection is None:
                 self.reporter.unresolved_data_connections.append(
-                    f"{app.id}: {connection}"
+                    f"{app.id}: {connection_name}"
                 )
                 continue
-            sql = drop_condition_variables(script_table.sql)
-            if "$(" in sql:
-                # orders_$(vYear) would parse as a table named orders_$.
-                self.reporter.warning(
-                    title="Qlik load script SQL uses a variable that is not set",
-                    message="Upstream lineage for this script table is skipped.",
-                    context=f"app={app.id}, table={script_table.label}",
-                )
+            result = self._parse_script_table(app.id, script_table, connection)
+            if result is None:
                 continue
-            result = self._parse_script_sql(sql, detail.platform, detail)
-            if (
-                result.debug_info.table_error
-                and detail.platform in BACKTICK_QUOTED_PLATFORMS
-                and "[" in sql
-            ):
-                result = self._parse_script_sql(
-                    brackets_to_backticks(sql), detail.platform, detail
-                )
             upstream_urns = [
                 urn
                 for urn in result.in_tables
-                if has_qualified_name(urn, detail.platform, detail.platform_instance)
+                if has_qualified_name(
+                    urn, connection.platform, connection.platform_instance
+                )
             ]
             unqualified.extend(
                 urn for urn in result.in_tables if urn not in upstream_urns
             )
-            if result.in_tables and not upstream_urns:
-                continue
-            if not result.in_tables:
-                if not result.debug_info.table_error:
-                    logger.debug(
-                        f"App {app.id} script table {script_table.label!r} reads no tables"
-                    )
-                    continue
-                self.reporter.warning(
-                    title="Unable to parse Qlik load script SQL",
-                    message="Upstream lineage for this script table is skipped.",
-                    context=f"app={app.id}, table={script_table.label}",
-                    exc=result.debug_info.table_error,
+            if upstream_urns:
+                self._merge_script_table(
+                    tables, app.id, script_table, connection_name, upstream_urns, result
                 )
-                continue
-            lineage = tables.setdefault(
-                script_table.label,
-                ScriptTableLineage(
-                    label=script_table.label,
-                    identifier=f"{app.id}.{script_table.label}".lower(),
-                    connection=connection,
-                ),
-            )
-            lineage.upstream_urns.extend(
-                urn for urn in upstream_urns if urn not in lineage.upstream_urns
-            )
-            sql_columns: Dict[str, List[str]] = {}
-            for column in result.column_lineage or []:
-                sql_columns.setdefault(column.downstream.column, []).extend(
-                    column_refs_to_schema_field_urns(
-                        ref for ref in column.upstreams if ref.table in upstream_urns
-                    )
-                )
-            for field, upstreams in apply_preceding_loads(
-                script_table.preceding_loads, sql_columns
-            ).items():
-                lineage.column_upstreams.setdefault(field, []).extend(upstreams)
         if unqualified:
             self.reporter.warning(
                 title="Qlik load script table is missing its database or schema",
@@ -957,18 +975,21 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter.script_tables_with_lineage += len(tables)
         return list(tables.values())
 
+    @staticmethod
+    def _script_table_fields(
+        table: ScriptTableLineage,
+    ) -> List[QlikDatasetSchemaField]:
+        return [
+            QlikDatasetSchemaField(name=column) for column in table.column_upstreams
+        ]
+
     def _gen_script_tables_workunit(
         self, tables: List[ScriptTableLineage], app_id: str
     ) -> Iterable[MetadataWorkUnit]:
         for table in tables:
             dataset_urn = self._gen_qlik_dataset_urn(table.identifier)
             yield from self._gen_app_table_entity(
-                table.identifier,
-                [
-                    QlikDatasetSchemaField(name=column)
-                    for column in table.column_upstreams
-                ],
-                app_id,
+                table.identifier, self._script_table_fields(table), app_id
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
@@ -1025,28 +1046,33 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if upstream_lineage_workunit:
                 yield upstream_lineage_workunit
 
-    def _gen_app_workunit(
-        self, app: App, fingerprint: Optional[str] = None
-    ) -> Iterable[MetadataWorkUnit]:
-        """
-        Map Qlik App to Datahub container
-        """
-        owner_username = self.qlik_api.get_user_name(app.ownerId)
-        if self.config.deployment == QlikDeployment.CLOUD and not app.tables:
-            self.reporter.apps_without_load_model.append(app.id)
-        script_tables = self._build_script_tables(app)
+    def _app_table_fields(
+        self, tables: List[QlikTable], script_tables: List[ScriptTableLineage]
+    ) -> Dict[str, List[QlikDatasetSchemaField]]:
         table_fields: Dict[str, List[QlikDatasetSchemaField]] = {}
-        for table in app.tables:
+        for table in tables:
             identifier = self._get_app_table_identifier(table)
             if identifier:
                 table_fields[self._gen_qlik_dataset_urn(identifier)] = (
                     table.datasetSchema
                 )
         for script_table in script_tables:
-            table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = [
-                QlikDatasetSchemaField(name=column)
-                for column in script_table.column_upstreams
-            ]
+            table_fields[self._gen_qlik_dataset_urn(script_table.identifier)] = (
+                self._script_table_fields(script_table)
+            )
+        return table_fields
+
+    def _gen_app_workunit(
+        self, app: App, fingerprint: Optional[str] = None
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Map Qlik App to Datahub container
+        """
+        owner_username = self._get_owner_name(app.ownerId)
+        if self.config.on_prem is None and not app.tables:
+            self.reporter.apps_without_load_model.append(app.id)
+        script_tables = self._build_script_tables(app)
+        table_fields = self._app_table_fields(app.tables, script_tables)
         input_tables_urns = list(table_fields)
         container_workunits = list(
             gen_containers(
@@ -1057,7 +1083,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 parent_container_key=self._gen_space_key(app.spaceId),
                 extra_properties={
                     Constant.QRI: app.qri,
-                    # Enterprise on Windows has no app usage.
                     **({Constant.USAGE: app.qUsage} if app.qUsage else {}),
                 },
                 owner_urn=(
@@ -1218,7 +1243,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if dpi_aspect:
             yield dpi_aspect
 
-        owner_username = self.qlik_api.get_user_name(dataset.ownerId)
+        owner_username = self._get_owner_name(dataset.ownerId)
         if self.config.ingest_owner and owner_username:
             yield self._gen_entity_owner_aspect(dataset_urn, owner_username)
 
@@ -1226,6 +1251,61 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn,
             aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_DATASET]),
         ).as_workunit()
+
+    def _gen_item_workunits(
+        self,
+        item: Union[Item, UnchangedApp],
+        space: Space,
+        skip_unchanged: bool,
+    ) -> Iterable[MetadataWorkUnit]:
+        if isinstance(item, UnchangedApp):
+            self._keep_unchanged_app(item)
+        elif isinstance(item, App):
+            if (
+                not item.read_complete
+                and skip_unchanged
+                and self._has_previous_checkpoint(item.id)
+            ):
+                self.reporter.warning(
+                    title="Unable to fully read Qlik app",
+                    message="Entities from the last full read of this app "
+                    "are kept, and it is read again on the next run.",
+                    context=self._read_errors_context(item),
+                )
+            elif not item.read_complete:
+                # Reporting a failure also stops stale entity removal from
+                # soft-deleting what this app's last full read produced.
+                self.reporter.failure(
+                    title="Unable to fully read Qlik app",
+                    message="Some sheets, charts or load script lineage of this "
+                    "app could not be read from the Engine.",
+                    context=self._read_errors_context(item),
+                )
+            self.reporter.apps_read += 1
+            logger.info(
+                f"Read app {item.qTitle} in space {space.name} ({self.reporter.apps_read} apps read)"
+            )
+            if item.script_read_failed:
+                self.reporter.warning(
+                    title="Unable to read Qlik app load script",
+                    message="Load script lineage of this app is skipped. Reading "
+                    "load scripts needs the Owner, Can manage or Can operate role "
+                    "in managed spaces.",
+                    context=item.id,
+                )
+            yield from (
+                self._gen_recorded_app_workunit(item)
+                if skip_unchanged
+                else self._gen_app_workunit(item)
+            )
+        elif isinstance(item, QlikDataset):
+            yield from self._gen_dataset_workunit(item)
+
+    @staticmethod
+    def _read_errors_context(app: App) -> str:
+        first, *rest = app.read_errors
+        more = f" (and {len(rest)} more)" if rest else ""
+        return f"{app.id}: {first}{more}"
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -1246,60 +1326,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 if allowed_space.id == Constant.PERSONAL_SPACE_ID
                 else allowed_space.id
             )
-            items = (
-                self.qlik_api.get_items(space_id, is_unchanged=self._is_app_unchanged)
-                if skip_unchanged and isinstance(self.qlik_api, QlikOnPremAPI)
-                else self.qlik_api.get_items(space_id)
+            items = self.qlik_api.get_items(
+                space_id,
+                is_unchanged=self._is_app_unchanged if skip_unchanged else None,
             )
             for item in items:
-                if isinstance(item, UnchangedApp):
-                    self._keep_unchanged_app(item)
-                elif isinstance(item, App):
-                    if (
-                        not item.read_complete
-                        and skip_unchanged
-                        and self._has_previous_checkpoint(item.id)
-                    ):
-                        self.reporter.warning(
-                            title="Unable to fully read Qlik app",
-                            message="Entities from the last full read of this app "
-                            "are kept, and it is read again on the next run.",
-                            context=item.id,
-                        )
-                    elif not item.read_complete:
-                        # Reporting a failure also stops stale entity removal from
-                        # soft-deleting what this app's last full read produced.
-                        self.reporter.failure(
-                            title="Unable to fully read Qlik app",
-                            message="Some sheets, charts or load script lineage of this "
-                            "app could not be read from the Engine.",
-                            context=item.id,
-                        )
-                    self.reporter.apps_read += 1
-                    logger.info(
-                        f"Read app {item.qTitle} in space {allowed_space.name} ({self.reporter.apps_read} apps read)"
-                    )
-                    if item.script_read_failed:
-                        self.reporter.warning(
-                            title="Unable to read Qlik app load script",
-                            message="Load script lineage of this app is skipped. Reading "
-                            "load scripts needs the Owner, Can manage or Can operate role "
-                            "in managed spaces.",
-                            context=item.id,
-                        )
-                    yield from (
-                        self._gen_recorded_app_workunit(item)
-                        if skip_unchanged
-                        else self._gen_app_workunit(item)
-                    )
-                elif isinstance(item, QlikDataset):
-                    yield from self._gen_dataset_workunit(item)
-        for context in self.qlik_api.unread_items:
+                yield from self._gen_item_workunits(item, allowed_space, skip_unchanged)
+        for unread in self.qlik_api.unread_items:
             # Also stops stale entity removal from soft-deleting what was not read.
             self.reporter.failure(
                 title="Unable to read from Qlik",
                 message="Left out of this run after a request failed.",
-                context=context,
+                context=f"{unread.name}: {unread.cause}",
             )
 
     def get_report(self) -> SourceReport:

@@ -589,10 +589,11 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
 
 def mock_websocket_response(*args, **kwargs):
-    request = kwargs["request"]
+    # Matched on method, handle and params so replies do not depend on the
+    # order or number of earlier requests.
+    request = {key: value for key, value in kwargs["request"].items() if key != "id"}
     if request == {
         "jsonrpc": "2.0",
-        "id": 1,
         "handle": -1,
         "method": "OpenDoc",
         "params": {"qDocName": "f0714ca7-7093-49e4-8b58-47bb38563647"},
@@ -606,7 +607,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 2,
         "handle": 1,
         "method": "GetAppLayout",
         "params": {},
@@ -650,7 +650,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 3,
         "handle": 1,
         "method": "GetObjects",
         "params": {"qOptions": {"qTypes": ["sheet"]}},
@@ -689,7 +688,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 4,
         "handle": 1,
         "method": "GetObject",
         "params": {"qId": "f4f57386-263a-4ec9-b40c-abcd2467f423"},
@@ -704,7 +702,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 5,
         "handle": 2,
         "method": "GetLayout",
         "params": {},
@@ -758,7 +755,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 7,
         "handle": 2,
         "method": "GetChild",
         "params": {"qId": "QYUUb"},
@@ -773,7 +769,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 8,
         "handle": 3,
         "method": "GetLayout",
         "params": {},
@@ -860,7 +855,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 6,
         "handle": 2,
         "method": "GetFullPropertyTree",
         "params": {},
@@ -887,7 +881,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 9,
         "handle": 1,
         "method": "CreateSessionObject",
         "params": [
@@ -909,7 +902,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 10,
         "handle": 5,
         "method": "GetLayout",
         "params": {},
@@ -934,7 +926,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 11,
         "handle": 1,
         "method": "GetObject",
         "params": ["LoadModel"],
@@ -949,7 +940,6 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 12,
         "handle": 4,
         "method": "GetLayout",
         "params": {},

@@ -187,6 +187,16 @@ class DataConnectionInfo(BaseModel):
     database: Optional[str] = None
 
 
+class ResolvedConnection(BaseModel):
+    """Where a load script connection's tables live in DataHub."""
+
+    platform: str
+    env: str
+    platform_instance: Optional[str] = None
+    database: Optional[str] = None
+    default_schema: Optional[str] = None
+
+
 def _strip_comments(script: str) -> str:
     kept: List[str] = []
     closing: Optional[str] = None
