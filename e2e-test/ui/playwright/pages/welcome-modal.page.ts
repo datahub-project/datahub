@@ -114,14 +114,23 @@ export class WelcomeModalPage extends BasePage {
   }
 
   async pressArrowRight(): Promise<void> {
-    const slideCommitted = this.waitForSlideCommitted((await this.getActiveSlideIndex()) + 1);
-    await this.page.keyboard.press('ArrowRight');
-    await slideCommitted;
+    await this.pressArrow('ArrowRight', 1);
   }
 
   async pressArrowLeft(): Promise<void> {
-    const slideCommitted = this.waitForSlideCommitted((await this.getActiveSlideIndex()) - 1);
-    await this.page.keyboard.press('ArrowLeft');
+    await this.pressArrow('ArrowLeft', -1);
+  }
+
+  private async pressArrow(key: 'ArrowRight' | 'ArrowLeft', step: 1 | -1): Promise<void> {
+    const target = (await this.getActiveSlideIndex()) + step;
+    // The carousel doesn't wrap: past the first or last slide the key does nothing, so there is
+    // no slide change to wait for.
+    if (target < 0 || target >= (await this.carouselDots.count())) {
+      await this.page.keyboard.press(key);
+      return;
+    }
+    const slideCommitted = this.waitForSlideCommitted(target);
+    await this.page.keyboard.press(key);
     await slideCommitted;
   }
 
