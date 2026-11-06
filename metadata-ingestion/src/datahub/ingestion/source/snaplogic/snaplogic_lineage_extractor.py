@@ -3,6 +3,7 @@ from typing import Iterable, Optional, Tuple
 
 import requests
 
+from datahub.configuration.datetimes import parse_absolute_time
 from datahub.ingestion.api.source import (
     SourceReport,
 )
@@ -27,6 +28,8 @@ class SnaplogicLineageExtractor:
         self.report = report
         self.redundant_run_skip_handler = redundant_run_skip_handler
         self.start_time, self.end_time = self._get_time_window()
+        # High-water mark of the latest eventTime we have actually received
+        self.latest_event_time: Optional[datetime] = None
 
     def get_lineages(self) -> Iterable[dict]:
         """Generator function that yields lineage records one at a time as they are fetched."""
@@ -65,6 +68,7 @@ class SnaplogicLineageExtractor:
                 # Yield records one at a time
                 for record in content:
                     records_processed += 1
+                    self._track_event_time(record)
                     yield record
 
                 # Check if we need to fetch more pages
@@ -86,6 +90,22 @@ class SnaplogicLineageExtractor:
             )
             raise
 
+    def _track_event_time(self, record: dict) -> None:
+        """Advance the high-water mark to the latest eventTime seen so far."""
+        raw_event_time = record.get("eventTime")
+        if not raw_event_time:
+            return
+        try:
+            event_time = parse_absolute_time(raw_event_time)
+        except (ValueError, TypeError, OverflowError):
+            self.report.warning(
+                message="Skipping record with unparseable eventTime for checkpoint watermark",
+                context=str(raw_event_time),
+            )
+            return
+        if self.latest_event_time is None or event_time > self.latest_event_time:
+            self.latest_event_time = event_time
+
     def _get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
             return self.redundant_run_skip_handler.suggest_run_time_window(
@@ -97,9 +117,14 @@ class SnaplogicLineageExtractor:
     def update_stats(self):
         if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
+            checkpoint_end = self.latest_event_time or self.start_time
+            self.report.info(
+                message=f"Updating stats for checkpoint: {checkpoint_end}",
+                title="Stats Updating",
+            )
             self.redundant_run_skip_handler.update_state(
                 self.config.start_time,
-                self.config.end_time,
+                checkpoint_end,
             )
 
     def report_status(self, step: str, status: bool) -> None:
