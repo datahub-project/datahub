@@ -5,6 +5,10 @@ export type TabButtonItem = {
     key: string;
     label: React.ReactNode;
     dataTestId?: string;
+    /** Disabled tabs render greyed out and ignore clicks. */
+    disabled?: boolean;
+    /** Shown on hover, including when the tab is disabled (e.g. to explain why). */
+    tooltip?: React.ReactNode;
 };
 
 /** Full tab used by `ButtonTabs` (chrome + lazily kept panel content). */

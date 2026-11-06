@@ -20,6 +20,23 @@ export const StyledTabButton = styled(Button)<{ $active?: boolean; $fit: TabButt
             : `
         color: ${props.theme.colors.textSecondary} !important;
     `}
+
+    &:disabled {
+        color: ${(props) => props.theme.colors.textDisabled} !important;
+        cursor: not-allowed;
+    }
+`;
+
+// Tooltip anchor around a tab: takes the button's place in the flex row. Disabled buttons don't
+// emit mouse events, so they let the pointer through to this wrapper instead.
+export const TabTooltipAnchor = styled.span<{ $fit: TabButtonsFit }>`
+    display: flex;
+    flex: ${(props) => (props.$fit === 'fill' ? '1 1 0' : '0 0 auto')};
+    min-width: 0;
+
+    button:disabled {
+        pointer-events: none;
+    }
 `;
 
 export const TabsWrapper = styled.div<{ $fit: TabButtonsFit }>`
