@@ -103,8 +103,7 @@ public class StructuredPropertyMappingCache {
    * index. Multi-fields under {@code fields} are not separate document keys.
    */
   @Nonnull
-  @VisibleForTesting
-  static Set<String> fieldNames(@Nullable Map<String, Object> mapping) {
+  public static Set<String> fieldNames(@Nullable Map<String, Object> mapping) {
     if (mapping == null || mapping.isEmpty()) {
       return Set.of();
     }

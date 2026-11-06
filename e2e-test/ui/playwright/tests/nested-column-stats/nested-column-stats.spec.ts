@@ -22,6 +22,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
+import { GraphQLHelper } from '../../helpers/graphql-helper';
 import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'nested-column-stats' });
@@ -30,7 +31,39 @@ const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_tes
 
 const TOP_LEVEL_FIELD = 'order_id';
 
+// The profile is a timeseries document written by the MAE consumer. A shard that also seeds
+// structured properties can keep every consumer thread in put-mapping for several minutes, so the
+// schema renders before datasetProfiles has anything to return. Wait for the document instead of
+// failing the drawer after the default timeout.
+const PROFILE_WAIT_TIMEOUT_MS = 5 * 60_000;
+
+const DATASET_PROFILES_QUERY = `
+  query nestedColumnStatsDatasetProfiles($urn: String!) {
+    dataset(urn: $urn) {
+      datasetProfiles(limit: 1) {
+        timestampMillis
+      }
+    }
+  }
+`;
+
 test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
+  test.describe.configure({ timeout: PROFILE_WAIT_TIMEOUT_MS + 60_000 });
+
+  test.beforeEach(async ({ page }) => {
+    const graphql = new GraphQLHelper(page);
+    await expect
+      .poll(
+        async () => {
+          const response = await graphql.executeQuery(DATASET_PROFILES_QUERY, { urn: DATASET_URN });
+          const data = response.data as { dataset?: { datasetProfiles?: unknown[] | null } | null } | undefined;
+          return data?.dataset?.datasetProfiles?.length ?? 0;
+        },
+        { timeout: PROFILE_WAIT_TIMEOUT_MS, intervals: [1_000, 2_000, 5_000] },
+      )
+      .toBeGreaterThan(0);
+  });
+
   test(
     'nested struct field shows sample values in Statistics tab (not "No column statistics found")',
     { tag: [TestTag.P0, DomainTag.Catalog] },

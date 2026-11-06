@@ -3,6 +3,11 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
+import com.linkedin.metadata.search.elasticsearch.query.v3.ranking.RankingFormulaCheck;
+import com.linkedin.metadata.search.elasticsearch.query.v3.ranking.RankingSignalRules;
+import com.linkedin.search.template.RankingSignal;
 import com.linkedin.search.template.SearchFieldBoost;
 import com.linkedin.search.template.SearchFieldBoostArray;
 import com.linkedin.search.template.SearchFieldOverrides;
@@ -20,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 /** Structural limits on a template before its body is rendered. */
 public final class SearchTemplatePolicyChecks {
@@ -29,6 +35,8 @@ public final class SearchTemplatePolicyChecks {
       @Nonnull SearchTemplateProperties properties,
       int maxRoutes,
       int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
       @Nullable java.util.Collection<EntitySpec> entitySpecs,
@@ -63,7 +71,7 @@ public final class SearchTemplatePolicyChecks {
       checkNormalization(properties.getNormalization());
     }
     if (properties.hasRanking() && properties.getRanking() != null) {
-      checkRanking(properties);
+      checkRanking(properties, maxRankingSignals, maxRankingWindow, entitySpecs);
     }
     SearchTemplateComponents.checkWrite(properties, registry);
     if (properties.hasRetrieval() && properties.getRetrieval() != null) {
@@ -163,17 +171,19 @@ public final class SearchTemplatePolicyChecks {
     }
   }
 
-  public static void checkRanking(@Nonnull SearchTemplateProperties properties) {
+  public static void checkRanking(
+      @Nonnull SearchTemplateProperties properties,
+      int maxRankingSignals,
+      int maxRankingWindow,
+      @Nullable Collection<EntitySpec> entitySpecs) {
     SearchTemplateRanking ranking = properties.getRanking();
     if (ranking == null || SearchTemplateLoader.emptyRanking(ranking)) {
       return;
     }
-    if (ranking.hasPreset() && ranking.getPreset() != null && !ranking.getPreset().isBlank()) {
+    if (StringUtils.isNotBlank(ranking.getPreset())) {
       requireClosed("ranking preset", ranking.getPreset(), SearchTemplateCapabilities.PRESETS);
     }
-    if (ranking.hasWindowSizer()
-        && ranking.getWindowSizer() != null
-        && !ranking.getWindowSizer().isBlank()) {
+    if (StringUtils.isNotBlank(ranking.getWindowSizer())) {
       requireClosed(
           "ranking windowSizer", ranking.getWindowSizer(), SearchTemplateCapabilities.SIZERS);
     }
@@ -189,14 +199,10 @@ public final class SearchTemplatePolicyChecks {
       throw new SearchTemplateException(
           "Search template ranking signals cannot be combined with add or remove");
     }
-    if (signals
-        && ranking.hasPreset()
-        && ranking.getPreset() != null
-        && !ranking.getPreset().isBlank()) {
+    if (signals && StringUtils.isNotBlank(ranking.getPreset())) {
       throw new SearchTemplateException("Search template ranking signals require preset unset");
     }
-    if (ranking.hasPreset()
-        && "none".equals(ranking.getPreset())
+    if (SearchTemplateCapabilities.Preset.NONE.is(ranking.getPreset())
         && (signals || reference || patches)) {
       throw new SearchTemplateException(
           "Search template ranking preset none does not take signals");
@@ -204,9 +210,19 @@ public final class SearchTemplatePolicyChecks {
     if (ranking.hasSignals()
         && ranking.getSignals() != null
         && ranking.getSignals().isEmpty()
-        && ranking.hasWindowSizer()
-        && "tokenCurve".equals(ranking.getWindowSizer())) {
+        && SearchTemplateCapabilities.WindowSizer.TOKEN_CURVE.is(ranking.getWindowSizer())) {
       throw new SearchTemplateException("Search template ranking tokenCurve requires signals");
+    }
+    RankingSignalRules.checkWindow(
+        ranking.hasWindow() ? ranking.getWindow() : null, maxRankingWindow);
+    SearchFieldResolver resolver =
+        entitySpecs == null ? null : V3SearchFieldModel.of(entitySpecs).resolver();
+    if (signals) {
+      RankingSignalRules.checkSignals(
+          ranking.getSignals(), resolver, entitySpecs, maxRankingSignals);
+    }
+    if (ranking.hasAdd() && ranking.getAdd() != null && !ranking.getAdd().isEmpty()) {
+      RankingSignalRules.checkSignals(ranking.getAdd(), resolver, entitySpecs, maxRankingSignals);
     }
     if (ranking.hasRemove() && ranking.getRemove() != null) {
       for (String name : ranking.getRemove()) {
@@ -222,13 +238,18 @@ public final class SearchTemplatePolicyChecks {
     }
     if (formula) {
       requireCapability(properties, "rankingFormula");
+      Set<String> names = new LinkedHashSet<>();
+      if (signals) {
+        for (RankingSignal signal : ranking.getSignals()) {
+          names.add(signal.getName());
+        }
+      }
+      RankingFormulaCheck.check(ranking.getFormula(), names);
     }
   }
 
   private static boolean reference(SearchTemplateRanking ranking) {
-    return ranking.hasTemplate()
-        && ranking.getTemplate() != null
-        && !ranking.getTemplate().isBlank();
+    return StringUtils.isNotBlank(ranking.getTemplate());
   }
 
   private static boolean signals(SearchTemplateRanking ranking) {
@@ -243,17 +264,13 @@ public final class SearchTemplatePolicyChecks {
   }
 
   private static boolean formula(SearchTemplateRanking ranking) {
-    return ranking.hasFormula() && ranking.getFormula() != null && !ranking.getFormula().isBlank();
+    return StringUtils.isNotBlank(ranking.getFormula());
   }
 
   private static boolean inline(SearchTemplateRanking ranking) {
-    boolean preset =
-        ranking.hasPreset() && ranking.getPreset() != null && !ranking.getPreset().isBlank();
+    boolean preset = StringUtils.isNotBlank(ranking.getPreset());
     boolean window = ranking.hasWindow() && ranking.getWindow() != null;
-    boolean sizer =
-        ranking.hasWindowSizer()
-            && ranking.getWindowSizer() != null
-            && !ranking.getWindowSizer().isBlank();
+    boolean sizer = StringUtils.isNotBlank(ranking.getWindowSizer());
     boolean parameters =
         ranking.hasParameters()
             && ranking.getParameters() != null
@@ -270,24 +287,20 @@ public final class SearchTemplatePolicyChecks {
   }
 
   private static void rejectEngineRescore(SearchTemplateProperties properties) {
-    if (properties.hasRescore()
-        && properties.getRescore() != null
-        && !properties.getRescore().isBlank()) {
+    if (StringUtils.isNotBlank(properties.getRescore())) {
       throw new SearchTemplateException(
           "Search template rescore is not combined with ranking signals");
     }
   }
 
   private static void requireKeyword(SearchTemplateProperties properties) {
-    if (properties.hasKnn() && properties.getKnn() != null && !properties.getKnn().isBlank()) {
+    if (StringUtils.isNotBlank(properties.getKnn())) {
       throw new SearchTemplateException("Search template ranking requires keyword retrieval");
     }
-    if (properties.hasRetrieval()
-        && properties.getRetrieval() != null
-        && properties.getRetrieval().hasMode()
-        && properties.getRetrieval().getMode() != null
-        && !properties.getRetrieval().getMode().isBlank()
-        && !"keyword".equals(properties.getRetrieval().getMode())) {
+    SearchTemplateRetrieval retrieval = properties.getRetrieval();
+    if (retrieval != null
+        && StringUtils.isNotBlank(retrieval.getMode())
+        && !"keyword".equals(retrieval.getMode())) {
       throw new SearchTemplateException("Search template ranking requires keyword retrieval");
     }
   }
