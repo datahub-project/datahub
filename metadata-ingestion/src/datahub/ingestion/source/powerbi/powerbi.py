@@ -432,9 +432,14 @@ class ResolvedInputFields:
 
     mcp: Optional[MetadataChangeProposalWrapper] = None
     resolved: int = 0
+    # References naming a table the model does not have.
     unresolved: int = 0
-    # Datasets the resolved fields belong to, in first-seen order; a visual's
-    # table-level inputs are exactly these, never the whole model.
+    # References naming a known table whose field is missing from its schema.
+    field_unresolved: int = 0
+    # Tables a reference named and that exist in the model, first-seen order.
+    # A table counts even when its field was not found, so this can be
+    # non-empty while `mcp` is None. Visuals use it as-is; pages and tiles
+    # fall back to the whole model when it is empty.
     dataset_urns: List[str] = field(default_factory=list)
 
 
@@ -485,6 +490,9 @@ class Mapper:
         # Refresh Operations are decided once per dataset and emitted on each
         # of its tables, so counters and warnings fire per dataset.
         self.__refresh_plans: Dict[str, List[_RefreshOperationPlan]] = {}
+        # Tables a report's pages read (from their resolved field references),
+        # by report id: every tile built from the report asks for them.
+        self.__report_used_dataset_urns: Dict[str, List[str]] = {}
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -2170,15 +2178,34 @@ class Mapper:
             ]
         )
 
+    def _tile_inputs(
+        self, tile: powerbi_data_classes.Tile, ds_input: List[str]
+    ) -> List[str]:
+        """The tile's table inputs: a tile pinned from a report shows one of
+        its visuals, so when the report's pages name the tables they read,
+        those narrow `ds_input` (the emitted model). An empty `ds_input` means
+        the model was not emitted (filtered out), so nothing is narrowed."""
+        if tile.report is not None and ds_input:
+            return self._report_used_dataset_urns(tile.report) or ds_input
+        return ds_input
+
+    @staticmethod
+    def _tile_title(tile: powerbi_data_classes.Tile, position: int) -> str:
+        return tile.title or Constant.TILE_TITLE_FALLBACK.format(position=position)
+
     def to_datahub_chart_mcp(
         self,
         tile: powerbi_data_classes.Tile,
         ds_mcps: List[MetadataChangeProposalWrapper],
         workspace: powerbi_data_classes.Workspace,
         dashboard: powerbi_data_classes.Dashboard,
+        *,
+        position: int,
     ) -> List[MetadataChangeProposalWrapper]:
         """
-        Map PowerBi tile to datahub chart
+        Map PowerBi tile to datahub chart. `position` is the tile's 1-based
+        order in the dashboard's tile list, which names a tile that has no
+        title.
         """
         logger.info(
             f"Converting tile {tile.title or '(untitled)'}(id={tile.id}) to chart"
@@ -2192,9 +2219,11 @@ class Mapper:
 
         logger.info(f"{Constant.CHART_URN}={chart_urn}")
 
-        ds_input: List[str] = self.to_urn_set(
-            [x for x in ds_mcps if x.entityType == Constant.DATASET]
+        ds_input = self._tile_inputs(
+            tile,
+            self.to_urn_set([x for x in ds_mcps if x.entityType == Constant.DATASET]),
         )
+        title = self._tile_title(tile, position)
 
         def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
             custom_properties: dict = {
@@ -2218,8 +2247,8 @@ class Mapper:
         # Create chartInfo mcp
         # Set chartUrl only if tile is created from Report
         chart_info_instance = ChartInfoClass(
-            title=tile.title or "",
-            description=tile.title or "",
+            title=title,
+            description=title,
             lastModified=ChangeAuditStamps(),
             inputs=ds_input,
             externalUrl=tile.report.webUrl if tile.report else None,
@@ -2648,14 +2677,14 @@ class Mapper:
 
         logger.info(f"Converting tiles(count={len(tiles)}) to charts")
 
-        for tile in tiles:
+        for position, tile in enumerate(tiles, start=1):
             if tile is None:
                 continue
             # First convert the dataset to MCP, because dataset mcp is used in input attribute of chart mcp
             dataset_mcps = self.to_datahub_dataset(tile.dataset, workspace)
             # Now convert tile to chart MCP
             chart_mcp = self.to_datahub_chart_mcp(
-                tile, dataset_mcps, workspace, dashboard
+                tile, dataset_mcps, workspace, dashboard, position=position
             )
 
             ds_mcps.extend(dataset_mcps)
@@ -2748,20 +2777,56 @@ class Mapper:
             self.__reporter.report_filters_truncated += len(filters) - len(kept)
         return properties
 
-    def _page_input_fields_mcp(
-        self,
-        page: powerbi_data_classes.Page,
-        report: powerbi_data_classes.Report,
-        chart_urn: str,
-    ) -> Optional[MetadataChangeProposalWrapper]:
-        """Model columns and measures the page's visuals read, as inputFields
-        pointing at the semantic-model tables' schema fields."""
-        resolved = self._resolve_input_fields(
-            page.field_references, report, chart_urn, f"page {page.name}"
+    def _resolve_page_fields(
+        self, page: powerbi_data_classes.Page, report: powerbi_data_classes.Report
+    ) -> ResolvedInputFields:
+        """The page's field references matched against the report's model,
+        counter-free; the inputFields MCP targets the page chart."""
+        return self._resolve_input_fields(
+            page.field_references,
+            report,
+            self.make_chart_urn_for_page(page),
+            Constant.PAGE_CONTEXT.format(page=page.name),
         )
-        self.__reporter.report_field_references_resolved += resolved.resolved
-        self.__reporter.report_field_references_unresolved += resolved.unresolved
-        return resolved.mcp
+
+    def _page_input_fields(
+        self, page: powerbi_data_classes.Page, report: powerbi_data_classes.Report
+    ) -> ResolvedInputFields:
+        """Model columns and measures the page's visuals read, as inputFields
+        pointing at the semantic-model tables' schema fields, plus the tables
+        they belong to. This page pass is the only place feeding the page
+        counters."""
+        resolved = self._resolve_page_fields(page, report)
+        reporter = self.__reporter
+        reporter.report_field_references_resolved += resolved.resolved
+        reporter.report_field_references_unresolved += resolved.unresolved
+        reporter.report_field_references_field_unresolved += resolved.field_unresolved
+        if page.field_references and not resolved.dataset_urns:
+            reporter.report_pages_inputs_fallback += 1
+            reporter.warning(
+                title=Constant.PAGE_INPUTS_FELL_BACK,
+                message="None of the page's field references names a table of the fetched model (the model is unresolved or every referenced table is missing), so the page keeps every table of the model as its inputs.",
+                context=f"report={report.name}, page={page.name}",
+            )
+        return resolved
+
+    def _report_used_dataset_urns(
+        self, report: powerbi_data_classes.Report
+    ) -> List[str]:
+        """Tables the report's pages read, from their resolved field references,
+        in first-seen order; empty when no definition was fetched or nothing
+        resolved. Memoised per report id and counter-free: the page pass
+        already counts these references, and every tile of the report asks."""
+        cached = self.__report_used_dataset_urns.get(report.id)
+        if cached is not None:
+            return list(cached)
+        dataset_urns: List[str] = []
+        for page in report.pages:
+            for dataset_urn in self._resolve_page_fields(page, report).dataset_urns:
+                if dataset_urn not in dataset_urns:
+                    dataset_urns.append(dataset_urn)
+        self.__report_used_dataset_urns[report.id] = dataset_urns
+        return list(dataset_urns)
 
     def _resolve_input_fields(
         self,
@@ -2792,6 +2857,12 @@ class Mapper:
                     report.dataset.id,
                 )
                 continue
+            # The table-level edge is justified by the table match alone: a
+            # reference whose field is missing from the schema (renamed
+            # column, hierarchy level) still proves the chart reads the table.
+            table_urn = self.make_dataset_urn_for_table(table)
+            if table_urn not in result.dataset_urns:
+                result.dataset_urns.append(table_urn)
             model_fields: List[
                 Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]
             ] = [*(table.columns or []), *(table.measures or [])]
@@ -2804,7 +2875,7 @@ class Mapper:
                 None,
             )
             if schema_field is None:
-                result.unresolved += 1
+                result.field_unresolved += 1
                 logger.debug(
                     "Visual field %s[%s] on %s not found in table schema",
                     reference.table,
@@ -2812,9 +2883,6 @@ class Mapper:
                     context,
                 )
                 continue
-            table_urn = self.make_dataset_urn_for_table(table)
-            if table_urn not in result.dataset_urns:
-                result.dataset_urns.append(table_urn)
             field_urn = builder.make_schema_field_urn(table_urn, reference.field)
             fields.append(
                 InputFieldClass(
@@ -2914,12 +2982,16 @@ class Mapper:
         page: powerbi_data_classes.Page,
         report: powerbi_data_classes.Report,
         workspace: powerbi_data_classes.Workspace,
+        ds_input: List[str],
     ) -> List[MetadataChangeProposalWrapper]:
         """One visual of a report page as a Chart entity carrying exactly the
         fields that visual reads and its visual-level filters. Its table-level
-        inputs are the tables those fields belong to; a visual that reads no
-        resolvable field gets no table inputs rather than the page's whole
-        model, so a text box never claims lineage from every table."""
+        inputs are the tables its references name (a table counts even when
+        the field is missing from the schema); a visual whose references
+        match no table gets no table inputs rather than the page's whole
+        model, so a text box never claims lineage from every table. An empty
+        `ds_input` means the page's model was not emitted, and then the
+        visual gets no inputs either."""
         chart_urn = builder.make_chart_urn(
             platform=self.__config.platform_name,
             platform_instance=self.__config.platform_instance,
@@ -2943,13 +3015,16 @@ class Mapper:
                 lastModified=ChangeAuditStamps(),
                 chartUrl=self._page_url(report, page),
                 type=VISUAL_TYPE_TO_CHART_TYPE.get(visual.visual_type or ""),
-                inputs=resolved.dataset_urns,
+                inputs=list(resolved.dataset_urns) if ds_input else [],
                 customProperties=self._visual_properties(visual, page),
             ),
         )
         reporter = self.__reporter
         reporter.report_visual_field_references_resolved += resolved.resolved
         reporter.report_visual_field_references_unresolved += resolved.unresolved
+        reporter.report_visual_field_references_field_unresolved += (
+            resolved.field_unresolved
+        )
         reporter.report_visuals_emitted += 1
         if not visual.field_references:
             reporter.report_visuals_without_fields += 1
@@ -3002,12 +3077,19 @@ class Mapper:
                 custom_properties[Constant.VISUAL_TYPES] = ", ".join(page.visual_types)
             custom_properties.update(self._filter_properties(page.filters))
 
-            # Create chartInfo mcp
-            # Set chartUrl only if tile is created from Report
+            resolved = self._page_input_fields(page, report)
+            # When the report definition told us which tables the page's
+            # visuals read, those narrow the emitted model; when nothing
+            # resolved the whole model stays, and an empty `ds_input` means
+            # the model was not emitted at all, so there is nothing to narrow.
+            if ds_input and resolved.dataset_urns:
+                ds_input = list(resolved.dataset_urns)
+
             chart_info_instance = ChartInfoClass(
                 title=page.displayName or "",
                 description=page.displayName or "",
                 lastModified=ChangeAuditStamps(),
+                chartUrl=self._page_url(report, page),
                 inputs=ds_input,
                 customProperties=custom_properties,
             )
@@ -3017,8 +3099,6 @@ class Mapper:
                 aspect=chart_info_instance,
             )
 
-            input_fields_mcp = self._page_input_fields_mcp(page, report, chart_urn)
-
             list_of_mcps = [
                 info_mcp,
                 *self._chart_common_mcps(
@@ -3026,14 +3106,16 @@ class Mapper:
                     BIAssetSubTypes.POWERBI_PAGE,
                     workspace,
                     report,
-                    input_fields_mcp,
+                    resolved.mcp,
                 ),
             ]
 
             if self.__config.extract_report_visuals:
                 for visual in page.visuals:
                     list_of_mcps.extend(
-                        self.visual_to_chart_mcps(visual, page, report, workspace)
+                        self.visual_to_chart_mcps(
+                            visual, page, report, workspace, ds_input
+                        )
                     )
 
             return list_of_mcps
