@@ -1585,6 +1585,11 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public String getEngineVersion() throws IOException {
+    final String versionOverride =
+        shimConfiguration != null ? shimConfiguration.getEngineVersionOverride() : null;
+    if (versionOverride != null) {
+      return versionOverride;
+    }
     try {
       Map<String, String> clusterInfo = getClusterInfo();
       return clusterInfo.getOrDefault("version", "unknown");
@@ -1783,7 +1788,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       long retryInterval,
       int numRetries,
       int threadCount) {
-    // Item requeue is owned by BulkProcessorCompletionTracker.
+    // Es8BulkListener requeues item and request failures. A write the completion tracker already
+    // counted on a drain is not requeued: that drain fails closed and the caller redelivers.
     Function<BulkProcessorCompletionTracker, BulkIngester<?>> processorFactory =
         completionTracker -> {
           final Refresh refresh;

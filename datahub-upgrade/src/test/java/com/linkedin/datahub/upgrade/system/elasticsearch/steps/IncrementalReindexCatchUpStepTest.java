@@ -454,8 +454,6 @@ public class IncrementalReindexCatchUpStepTest {
             config,
             updateIndicesService);
 
-    SystemAspect mockAspect = createMockSystemAspect("urn:li:dataset:ds1");
-
     when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
         .thenAnswer(
             inv ->
@@ -472,7 +470,9 @@ public class IncrementalReindexCatchUpStepTest {
           .thenAnswer(
               invocation -> {
                 List<EbeanAspectV2> aspects = invocation.getArgument(2);
-                return aspects.stream().map(a -> mockAspect).toList();
+                return aspects.stream()
+                    .map(row -> createMockSystemAspect(row.getUrn(), row.getAspect()))
+                    .toList();
               });
 
       flushStep.executable().apply(upgradeContext);
@@ -945,6 +945,48 @@ public class IncrementalReindexCatchUpStepTest {
     }
     // A _reindex row's index carries no migration mark.
     verify(indexBuilder, never()).markMigrationComplete(any(OperationContext.class), anyString());
+  }
+
+  @Test
+  public void testV3ResumeCursorIsKeyedByEntityType() throws Exception {
+    String alias = v3Alias();
+    List<String> entityNames = v3EntityNames();
+    String entityType = entityNames.get(0);
+    String resumeUrn = "urn:li:" + entityType + ":resume";
+    DataHubUpgradeResult phase1Result = mock(DataHubUpgradeResult.class);
+    when(phase1Result.getResult()).thenReturn(new StringMap(completedV3Row(alias, 1000L, 1000L)));
+    stubIndexBuilderFor(alias);
+    when(phase1Result.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
+    DataHubUpgradeResult catchUpResult = mock(DataHubUpgradeResult.class);
+    when(catchUpResult.getResult())
+        .thenReturn(
+            new StringMap(
+                Map.of(
+                    alias + "." + entityType + "." + IncrementalReindexCatchUpStep.LAST_URN_KEY,
+                    resumeUrn)));
+    when(catchUpResult.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
+    when(upgrade.getUpgradeResult(any(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                invocation.getArgument(1).toString().contains("BuildIndicesIncremental")
+                    ? Optional.of(phase1Result)
+                    : Optional.of(catchUpResult));
+    mockEmptyAspectStream();
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao, times(entityNames.size()))
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
+    Map<String, String> lastUrnByType =
+        argsCaptor.getAllValues().stream()
+            .collect(
+                java.util.HashMap::new,
+                (map, args) -> map.put(args.urnLike, args.lastUrn),
+                Map::putAll);
+    assertEquals(lastUrnByType.get("urn:li:" + entityType + ":%"), resumeUrn);
   }
 
   @Test
@@ -1580,7 +1622,7 @@ public class IncrementalReindexCatchUpStepTest {
         entityService,
         aspectDao,
         List.of(searchService),
-        Set.of(),
+        Set::of,
         UPGRADE_VERSION,
         new BuildIndicesConfiguration(),
         null);
@@ -1707,10 +1749,14 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   private SystemAspect createMockSystemAspect(String urnStr) {
+    return createMockSystemAspect(urnStr, "testAspect");
+  }
+
+  private SystemAspect createMockSystemAspect(String urnStr, String aspectName) {
     SystemAspect aspect = mock(SystemAspect.class);
     when(aspect.getUrn()).thenReturn(UrnUtils.getUrn(urnStr));
     AspectSpec aspectSpec = mock(AspectSpec.class);
-    when(aspectSpec.getName()).thenReturn("testAspect");
+    when(aspectSpec.getName()).thenReturn(aspectName);
     when(aspect.getAspectSpec()).thenReturn(aspectSpec);
     when(aspect.getRecordTemplate()).thenReturn(null);
     SystemMetadata systemMetadata = new SystemMetadata();

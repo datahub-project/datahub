@@ -218,8 +218,10 @@ public class UpdateIndicesStrategyFactory {
       return;
     }
     throw new IllegalStateException(
-        "Search V3 writes currently require entityService.impl=ebean. Disable "
-            + "elasticsearch.entityIndex.v3.enabled before using entityService.impl="
+        "Search V3 writes currently require entityService.impl=ebean. "
+            + "CassandraAspectDao.streamAspectBatches returns an empty stream, so a V3 fill "
+            + "and catch-up would index nothing. Disable elasticsearch.entityIndex.v3.enabled "
+            + "before using entityService.impl="
             + normalized
             + ".");
   }

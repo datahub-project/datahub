@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.update;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -228,6 +229,43 @@ public class BulkProcessorCompletionTrackerTest {
     assertEquals(result.unexpectedItemFailures(), 1, "only the 4xx item stays poison");
   }
 
+  // A 429 counted on the draining thread must not be requeued from the callback thread: that new
+  // submission belongs to the callback, so the drain already fails retryable and the requeue would
+  // be a second write under the redelivery.
+  @Test
+  public void testDrainCountedRetryableRejectIsNotOwnedByTheCallbackThread() throws Exception {
+    BulkProcessorCompletionTracker tracker = new BulkProcessorCompletionTracker();
+    IndexRequest drained = new IndexRequest("datasetindex_v2").id("urn-429");
+    IndexRequest callbackThread = new IndexRequest("datasetindex_v2").id("urn-callback");
+    AtomicBoolean drainedWasCounted = new AtomicBoolean();
+    AtomicBoolean callbackWasCounted = new AtomicBoolean();
+
+    CompletableFuture<BulkProcessorFlushResult> drain =
+        CompletableFuture.supplyAsync(
+            () -> {
+              tracker.track(drained, ignored -> {});
+              return tracker.flushAndAwait(
+                  () -> {
+                    recordOpenSearchStatus(tracker, drained, 429);
+                    tracker.track(callbackThread, ignored -> {});
+                    recordOpenSearchStatus(tracker, callbackThread, 429);
+                    drainedWasCounted.set(tracker.countedByDrain(drained));
+                    callbackWasCounted.set(tracker.countedByDrain(callbackThread));
+                  },
+                  2,
+                  TimeUnit.SECONDS);
+            });
+
+    BulkProcessorFlushResult result = drain.get(3, TimeUnit.SECONDS);
+    assertEquals(result.transportFailedOperations(), 1);
+    assertEquals(result.incompleteOperations(), 0);
+    assertTrue(drainedWasCounted.get(), "the draining thread's 429 is marked so requeue skips it");
+    assertFalse(
+        callbackWasCounted.get(),
+        "a submission created on another thread is not part of the drain");
+    tracker.shutdownFlushExecutor();
+  }
+
   // AI-862 drain-slot contention: only one drain may hold the slot at a time. When a predecessor
   // drain never releases it, a racing drain must not block forever — beginDrain gives up after its
   // own budget and returns a not-acquired boundary, and the flush reports a retryable timeout
@@ -383,6 +421,16 @@ public class BulkProcessorCompletionTrackerTest {
               ? b
               : b.error(ErrorCause.of(e -> e.type(errorType).reason(errorType)));
         });
+  }
+
+  private static void recordOpenSearchStatus(
+      BulkProcessorCompletionTracker tracker, DocWriteRequest<?> request, int status) {
+    BulkItemResponse item = openSearchItem(status, status >= 400);
+    BulkRequest bulkRequest = mock(BulkRequest.class);
+    when(bulkRequest.requests()).thenReturn(List.of(request));
+    BulkResponse response = mock(BulkResponse.class);
+    when(response.getItems()).thenReturn(new BulkItemResponse[] {item});
+    tracker.recordOpenSearchResponse(bulkRequest, response);
   }
 
   private static BulkItemResponse openSearchItem(int status, boolean failed) {

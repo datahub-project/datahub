@@ -174,6 +174,7 @@ public class Es8BulkListener
       for (Object context : objects) {
         DocWriteRequest<?> writeRequest = writeRequestFrom(context);
         if (writeRequest != null
+            && !countedByDrain(writeRequest)
             && requeueSupport != null
             && requeueSupport.tryRequeue(writeRequest)) {
           incrementMetric(METRIC_ITEM_REQUEUE);
@@ -198,6 +199,7 @@ public class Es8BulkListener
       BulkResponseItem item = items.get(i);
       DocWriteRequest<?> writeRequest = contextAt(objects, i);
       ErrorCause error = item.error();
+      boolean drainWillRedeliver = error != null && countedByDrain(writeRequest);
       if (error == null) {
         if (requeueSupport != null && writeRequest != null) {
           requeueSupport.clearAttempts(writeRequest);
@@ -244,7 +246,10 @@ public class Es8BulkListener
           !BulkItemFailureClassifier.isCreateConflict(writeRequest, status, failureMessage)
               && BulkItemFailureClassifier.isRetriableFailure(status, failureMessage);
 
-      if (retriable && requeueSupport != null && requeueSupport.tryRequeue(writeRequest)) {
+      if (retriable
+          && !drainWillRedeliver
+          && requeueSupport != null
+          && requeueSupport.tryRequeue(writeRequest)) {
         incrementMetric(METRIC_ITEM_REQUEUE);
         continue;
       }
@@ -267,6 +272,14 @@ public class Es8BulkListener
         incrementMetric(METRIC_TRANSFER_FAILURE);
       }
     }
+  }
+
+  /**
+   * A drain already counted this write and will fail closed so the caller redelivers it. Requeue
+   * would submit again on the bulk callback thread, which that drain does not wait for.
+   */
+  private boolean countedByDrain(@Nullable DocWriteRequest<?> writeRequest) {
+    return completionTracker != null && completionTracker.countedByDrain(writeRequest);
   }
 
   private void recordSuccesses(List<Object> objects, int count) {

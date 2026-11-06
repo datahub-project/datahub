@@ -203,7 +203,9 @@ public class BulkListener implements BulkProcessor.Listener {
     int unrecovered = 0;
     int requeued = 0;
     for (DocWriteRequest<?> writeRequest : request.requests()) {
-      if (requeueSupport != null && requeueSupport.tryRequeue(writeRequest)) {
+      if (!countedByDrain(writeRequest)
+          && requeueSupport != null
+          && requeueSupport.tryRequeue(writeRequest)) {
         requeued++;
         incrementMetric(METRIC_ITEM_REQUEUE);
       } else {
@@ -239,6 +241,7 @@ public class BulkListener implements BulkProcessor.Listener {
         }
         continue;
       }
+      boolean drainWillRedeliver = countedByDrain(writeRequest);
 
       BulkItemResponse.Failure failure = item.getFailure();
       RestStatus status = failure != null ? failure.getStatus() : null;
@@ -279,7 +282,10 @@ public class BulkListener implements BulkProcessor.Listener {
           !BulkItemFailureClassifier.isCreateConflict(writeRequest, status, failureMessage)
               && BulkItemFailureClassifier.isRetriableFailure(status, failureMessage);
 
-      if (retriable && requeueSupport != null && requeueSupport.tryRequeue(writeRequest)) {
+      if (retriable
+          && !drainWillRedeliver
+          && requeueSupport != null
+          && requeueSupport.tryRequeue(writeRequest)) {
         incrementMetric(METRIC_ITEM_REQUEUE);
         // still pending — do not recordCompleted
         continue;
@@ -303,6 +309,14 @@ public class BulkListener implements BulkProcessor.Listener {
         incrementMetric(METRIC_TRANSFER_FAILURE);
       }
     }
+  }
+
+  /**
+   * A drain already counted this write and will fail closed so the caller redelivers it. Requeue
+   * would submit again on the bulk callback thread, which that drain does not wait for.
+   */
+  private boolean countedByDrain(@Nullable DocWriteRequest<?> writeRequest) {
+    return completionTracker != null && completionTracker.countedByDrain(writeRequest);
   }
 
   private void recordSuccesses(@Nonnull BulkRequest request, int count) {

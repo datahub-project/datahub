@@ -3,10 +3,12 @@ package com.linkedin.metadata.search.elasticsearch.update;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import com.linkedin.metadata.service.SearchIndexFailureClassifier;
 import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.WeakHashMap;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -44,6 +46,12 @@ public final class BulkProcessorCompletionTracker {
   private final NavigableMap<Long, Submission> submissions = new TreeMap<>();
   private final Map<DocWriteRequest<?>, Submission> openSearchSubmissions = new IdentityHashMap<>();
   private final Map<Thread, OutcomeCounts> undrainedOutcomesByThread = new WeakHashMap<>();
+  // Writes whose failure was already counted on the active drain. The bulk callback requeues on
+  // its own thread, which this drain does not wait for, so a requeue and the caller's redelivery
+  // would both hit the cluster. The listener checks this before requeue; the drain may already
+  // have finished by then, so the mark is taken while the lock is still held in complete().
+  private final Set<DocWriteRequest<?>> drainCountedRequests =
+      Collections.newSetFromMap(new IdentityHashMap<>());
   private final ThreadPoolExecutor flushExecutor;
   private final AtomicBoolean flushInProgress = new AtomicBoolean();
   // The flush task submitted for the current in-progress flush. A racing drain awaits this real
@@ -549,12 +557,32 @@ public final class BulkProcessorCompletionTracker {
           && submission.batchThread == activeDrain.thread
           && submission.sequence <= activeDrain.sequence) {
         activeDrain.outcomes.record(outcome);
+        if (outcome == Outcome.TRANSPORT_FAILURE || outcome == Outcome.UNEXPECTED_ITEM_FAILURE) {
+          drainCountedRequests.add(submission.request);
+        }
       } else {
         undrainedOutcomesByThread
             .computeIfAbsent(submission.batchThread, thread -> new OutcomeCounts())
             .record(outcome);
       }
       completionChanged.signalAll();
+    }
+  }
+
+  /**
+   * Whether {@code request}'s failure was already counted on the drain waiting for the thread that
+   * submitted it. Removes the mark. A listener skips requeue when this is true: the drain fails
+   * closed and the caller redelivers, so a callback-thread requeue would be a second write.
+   */
+  public boolean countedByDrain(@Nullable final DocWriteRequest<?> request) {
+    if (request == null) {
+      return false;
+    }
+    lock.lock();
+    try {
+      return drainCountedRequests.remove(request);
+    } finally {
+      lock.unlock();
     }
   }
 
