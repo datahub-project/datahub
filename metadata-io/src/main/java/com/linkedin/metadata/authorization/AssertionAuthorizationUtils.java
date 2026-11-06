@@ -260,6 +260,8 @@ public final class AssertionAuthorizationUtils {
    * timeseries values directly, without an aspect write the validator sees. For an assertion with
    * {@code assertionInfo} that needs {@code EDIT_ENTITY_ASSERTIONS} / {@code EDIT_ENTITY} on every
    * entity it targets, as deleting the assertion does; other URNs are left to the caller's check.
+   * As in {@code AssertionAuthorizationValidator}, a target that no longer exists is skipped: its
+   * policy fields can no longer be resolved after a hard delete.
    */
   public static boolean isAuthorizedToDeleteRunHistory(
       @Nonnull OperationContext opContext, @Nonnull final Collection<Urn> urns) {
@@ -272,15 +274,20 @@ public final class AssertionAuthorizationUtils {
         || !AuthUtil.isRestApiAuthorizationEnabled()) {
       return true;
     }
+    final OperationContext primary = opContext.withReadPreference(ReadPreference.PRIMARY);
     final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     final EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
-    final Map<Urn, AssertionInfo> persisted =
-        fetchAssertionInfos(
-            opContext.withReadPreference(ReadPreference.PRIMARY), aspectRetriever, assertionUrns);
-    return persisted.values().stream()
-        .map(info -> resolveAssertedEntityUrns(entityRegistry, info))
-        .filter(targets -> !targets.isEmpty())
-        .allMatch(targets -> isAuthorizedToEditAssertionsOnEntities(opContext, targets));
+    final Set<Urn> denied =
+        fetchAssertionInfos(primary, aspectRetriever, assertionUrns).values().stream()
+            .flatMap(info -> resolveAssertedEntityUrns(entityRegistry, info).stream())
+            .distinct()
+            .filter(urn -> !isAuthorizedToEditAssertionsOnEntities(opContext, Set.of(urn)))
+            .collect(Collectors.toSet());
+    if (denied.isEmpty()) {
+      return true;
+    }
+    final Map<Urn, Boolean> exists = aspectRetriever.entityExists(primary, denied);
+    return denied.stream().noneMatch(urn -> Boolean.TRUE.equals(exists.get(urn)));
   }
 
   /** Summarizes what a request writes to each assertion for the asserted-entity fallback. */

@@ -1152,6 +1152,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);
 
           if (aspectName == null) {
+            // An assertion's run history needs the same privilege as deleting the assertion, so
+            // refuse before anything is deleted rather than delete the assertion and keep its runs.
+            if (!timeseriesAspectsToDelete.isEmpty()
+                && !AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(
+                    timeseriesDeleteContext(urn), List.of(urn))) {
+              throw new RestLiServiceException(
+                  HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
+            }
             // The timeseries values go with the entity only when the actor may delete them;
             // otherwise the entity is deleted and the request refused, as deleteTimeseriesAspects
             // refuses it.
