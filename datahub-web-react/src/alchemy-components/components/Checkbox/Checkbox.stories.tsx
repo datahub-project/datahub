@@ -45,9 +45,6 @@ const meta = {
     argTypes: {
         label: {
             description: 'Label for the Checkbox.',
-            table: {
-                defaultValue: { summary: checkboxDefaults.label },
-            },
             control: {
                 type: 'text',
             },
@@ -127,7 +124,7 @@ const meta = {
         },
     },
     args: {
-        label: checkboxDefaults.label,
+        label: 'Label',
         error: checkboxDefaults.error,
         isChecked: checkboxDefaults.isChecked,
         isDisabled: checkboxDefaults.isDisabled,
