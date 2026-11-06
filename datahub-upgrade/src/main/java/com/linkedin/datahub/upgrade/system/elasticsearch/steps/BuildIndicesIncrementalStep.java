@@ -174,11 +174,23 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           // Skip indices that already completed or were swapped in a previous run, and indices
           // whose fill the non-blocking phase owns: the fill resumes from its own checkpoint.
           if (ownedByThisDeploy(upgradeState, config.name())) {
-            log.info(
-                "Index {} already {} in previous run, skipping",
+            if (config.exists() || IncrementalReindexState.isBackfillStatus(existingStatus.get())) {
+              log.info(
+                  "Index {} already {} in previous run, skipping",
+                  config.name(),
+                  existingStatus.get());
+              continue;
+            }
+            // A finished row cannot vouch for an index that no longer exists: something outside
+            // this upgrade deleted it after the row was written. Skipped, the index would come
+            // back on the next write with the engine's dynamic mappings. Forget the row so the
+            // index is built below as on a fresh install, and no stale old backing index is left
+            // in the row for rollback writes to target.
+            log.warn(
+                "Index {} was {} in a previous run but no longer exists; rebuilding it",
                 config.name(),
                 existingStatus.get());
-            continue;
+            upgradeState = withoutIndexState(upgradeState, config.name());
           }
 
           ESIndexBuilder indexBuilder = requireIndexBuilder(config.name());
@@ -626,6 +638,15 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                     || status == IncrementalReindexState.Status.DUAL_WRITE_DISABLED
                     || IncrementalReindexState.isBackfillStatus(status))
         .orElse(false);
+  }
+
+  /** {@code upgradeState} without any property recorded for {@code indexName}. */
+  private static Map<String, String> withoutIndexState(
+      Map<String, String> upgradeState, String indexName) {
+    String prefix = IncrementalReindexState.key(indexName, "");
+    Map<String, String> result = new HashMap<>(upgradeState);
+    result.keySet().removeIf(key -> key.startsWith(prefix));
+    return result;
   }
 
   /**

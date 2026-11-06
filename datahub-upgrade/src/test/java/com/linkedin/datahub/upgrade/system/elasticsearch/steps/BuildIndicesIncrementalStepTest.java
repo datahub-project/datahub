@@ -599,6 +599,43 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
+  public void testRebuildsFinishedIndexThatNoLongerExists() throws Throwable {
+    // A previous run finished this index, then something outside the upgrade deleted it. Skipping
+    // it would leave the next write to recreate it with dynamic mappings.
+    Map<String, String> previousState =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            NEXT_INDEX_NAME,
+            "datasetindex_v2_old",
+            1679000000000L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
+    DataHubUpgradeResult upgradeResult = mock(DataHubUpgradeResult.class);
+    when(upgradeResult.getResult()).thenReturn(new StringMap(previousState));
+    when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(upgradeResult));
+    ReindexConfig droppedConfig = mockReindexConfig(INDEX_NAME, false);
+    when(droppedConfig.exists()).thenReturn(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(droppedConfig));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(droppedConfig));
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.COMPLETED));
+    // The deleted index's old backing index must not stay a rollback write target.
+    assertEquals(
+        IncrementalReindexState.get(
+            state, INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.empty());
+  }
+
+  @Test
   public void testFailsWhenNoIndexBuilderFound() throws Throwable {
     // Return a reindex config for an index that no service provides a builder for
     ReindexConfig unknownConfig = mockReindexConfig("unknown_index", true);
