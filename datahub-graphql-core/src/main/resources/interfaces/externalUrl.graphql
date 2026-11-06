@@ -1,0 +1,27 @@
+"""
+An aspect with a link to the entity in its source system
+"""
+interface HasExternalUrl {
+  """
+  URL of the entity in its source system
+  """
+  externalUrl: String
+}
+
+extend type ApiProperties implements HasExternalUrl
+extend type ApplicationProperties implements HasExternalUrl
+extend type AssertionInfo implements HasExternalUrl
+extend type ChartProperties implements HasExternalUrl
+extend type ContainerProperties implements HasExternalUrl
+extend type DashboardProperties implements HasExternalUrl
+extend type DataFlowProperties implements HasExternalUrl
+extend type DataJobProperties implements HasExternalUrl
+extend type DataPlatformInstanceProperties implements HasExternalUrl
+extend type DataProcessInstanceProperties implements HasExternalUrl
+extend type DataProductProperties implements HasExternalUrl
+extend type DatasetProperties implements HasExternalUrl
+extend type MLModelGroupProperties implements HasExternalUrl
+extend type MLModelProperties implements HasExternalUrl
+extend type MetricInfo implements HasExternalUrl
+extend type NotebookInfo implements HasExternalUrl
+extend type SemanticModelInfo implements HasExternalUrl
