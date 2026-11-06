@@ -4,6 +4,7 @@ from enum import Enum
 from typing import (
     Annotated,
     Dict,
+    Iterable,
     List,
     Literal,
     Optional,
@@ -13,7 +14,7 @@ from typing import (
 )
 
 import pydantic
-from pydantic import field_validator, model_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -35,6 +36,7 @@ from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
 )
+from datahub.ingestion.source.powerbi.m_query.odbc import normalize_platform_name
 from datahub.ingestion.source.powerbi.powerbi_selection import (
     ACTIVE_WORKSPACE_STATE,
     probe_workspace_verdict,
@@ -297,6 +299,13 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_external_query_connections_resolved: int = 0
     m_query_external_query_connections_unmapped: int = 0
     m_query_external_query_failures: int = 0
+    # Indexes into athena_table_platform_override of overrides that matched at
+    # least one upstream (whether or not a higher-priority entry won); used to warn
+    # once per run about overrides that never matched.
+    # The leading underscore keeps these meaningless indexes out of the report.
+    _athena_table_platform_overrides_matched: Set[int] = dataclass_field(
+        default_factory=set
+    )
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -309,6 +318,28 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
+
+    def m_query_lineage_incomplete(self) -> bool:
+        return (
+            self.m_query_parse_timeouts
+            + self.m_query_parse_validation_errors
+            + self.m_query_parse_unexpected_character_errors
+            + self.m_query_parse_unknown_errors
+            + self.m_query_resolver_errors
+            > 0
+        )
+
+    def report_athena_overrides_matched(self, indexes: Iterable[int]) -> None:
+        self._athena_table_platform_overrides_matched.update(indexes)
+
+    def unmatched_athena_overrides(
+        self, overrides: Sequence["AthenaPlatformOverride"]
+    ) -> List["AthenaPlatformOverride"]:
+        return [
+            override
+            for index, override in enumerate(overrides)
+            if index not in self._athena_table_platform_overrides_matched
+        ]
 
 
 # Lookup of PowerBI datasourceType -> DataPlatformPair; safe to share globally.
@@ -355,13 +386,18 @@ class OraclePlatformDetail(PlatformDetail):
     default_database: Optional[str] = pydantic.Field(
         default=None,
         description=(
-            "Database segment prepended to the table name when the "
-            "``Oracle.Database`` connection is a bare TNS alias or descriptor "
-            "(which carries no database). Set this to match the database segment "
-            "your Oracle ingestion uses, only when that ingestion emits 3-part "
-            "``database.schema.table`` URNs (``add_database_name_to_urn: true``); "
-            "leave unset for the default 2-part URNs and for EZ-Connect "
-            "``host:port/service`` connections."
+            "Database segment prepended to the table name to opt into 3-part "
+            "``database.schema.table`` Oracle URNs. Used on two paths: (1) native "
+            "``Oracle.Database`` SQL when the connection is a bare TNS alias or "
+            "descriptor (which carries no database), and (2) ODBC hierarchical "
+            "navigation when the navigation does not itself supply a database node. "
+            "On that path a navigation database wins, then the database segment of "
+            "a dsn_to_database_schema value (including a one-part value), and only "
+            "then default_database. Set this to match the "
+            "database segment your Oracle ingestion uses, only when that ingestion "
+            "emits 3-part ``database.schema.table`` URNs "
+            "(``add_database_name_to_urn: true``); leave unset for the default "
+            "2-part URNs and for EZ-Connect ``host:port/service`` connections."
         ),
     )
 
@@ -429,8 +465,10 @@ class AthenaPlatformOverride(ConfigModel):
     """
     Configuration for overriding the platform of Athena federated tables.
 
-    Use this when Athena queries data from federated sources (e.g., MySQL, PostgreSQL)
-    and you want the lineage to point to the actual source platform instead of Athena.
+    Use this when Athena queries data from federated sources (e.g., MySQL) and you
+    want the lineage to point to the actual source platform instead of Athena. The
+    rewritten URN keeps Athena's database.table name, so it only matches targets whose
+    own source plugin emits two-part names.
     """
 
     database: str = pydantic.Field(
@@ -443,13 +481,30 @@ class AthenaPlatformOverride(ConfigModel):
     )
     platform: str = pydantic.Field(
         min_length=1,
-        description="The target DataHub platform name (e.g., 'mysql', 'postgres').",
+        description="The target DataHub platform name (e.g., 'mysql'). The URN keeps "
+        "Athena's database.table name, so only targets whose source plugin emits "
+        "two-part names match; a three-tier target such as 'postgres' (which emits "
+        "database.schema.table) never joins.",
     )
     dsn: Optional[str] = pydantic.Field(
         default=None,
         description="Optional DSN to scope this override to a specific data source. "
         "If specified, this override only applies when the query comes from this DSN.",
     )
+    platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="Optional platform_instance of the target platform. Set this when "
+        "the federated source (e.g. the MySQL server) is ingested under a "
+        "platform_instance, so the overridden lineage URN matches that connector's "
+        "entities. The Athena platform_instance is never carried over — it names an "
+        "Athena deployment, not the source. Leave unset to target instance-less "
+        "entities.",
+    )
+
+    @field_validator("platform_instance")
+    @classmethod
+    def _validate_platform_instance(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
 
 
 class BigQueryExternalQueryPlatformDetail(PlatformDetail):
@@ -614,20 +669,34 @@ class PowerBiDashboardSourceConfig(
         description="A mapping of ODBC DSN to database names with optional schema names "
         "(some database platforms such a MySQL use the table name pattern 'database.table', "
         "while others use the pattern 'database.schema.table'). "
-        "This mapping is used in conjunction with ODBC SQL query parsing. "
-        "If SQL queries used with ODBC do not reference fully qualified tables names, "
-        "then you should configure mappings for your DSNs. "
+        "This mapping is used both for ODBC SQL query parsing and for ODBC "
+        "hierarchical navigation. If ODBC SQL queries do not reference fully "
+        "qualified table names, or if the hierarchical navigation steps do not "
+        "expose every level of the qualified name (e.g. a driver that reports no "
+        "catalog, so navigation starts at the schema), then you should "
+        "configure mappings for your DSNs to supply the missing high-order levels. "
         "For example with an ODBC connection string 'DSN=database' where the database "
         "is 'prod' you would configure the mapping as 'database: prod'. "
-        "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'.",
+        "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'. "
+        "For Oracle hierarchical navigation, use 'database.schema': a one-part value is "
+        "not used as the schema, and the database segment only appears in the URN when "
+        "default_database is set for the server in server_to_platform_instance. When it "
+        "does, this mapping's database (one-part value included) wins over "
+        "default_database, so a one-part schema name here would become the database. "
+        "These per-platform rules apply to hierarchical navigation only: for ODBC SQL "
+        "queries the value is passed to the SQL parser as the default database and "
+        "schema unchanged, so for Oracle, Hive and two-part platforms such as MySQL a "
+        "two-part value can produce a different URN than navigation does.",
     )
     # Athena federated table platform override
     athena_table_platform_override: List[AthenaPlatformOverride] = pydantic.Field(
         default=[],
         description="List of platform overrides for Athena federated queries. "
         "Use this to override the platform when Athena queries data from federated sources "
-        "(e.g., MySQL, PostgreSQL) via ODBC. The lineage will point to the actual source "
-        "platform instead of Athena. "
+        "(e.g., MySQL) via ODBC. The lineage will point to the actual source "
+        "platform instead of Athena. The rewritten URN keeps the database.table name, "
+        "so only targets whose source plugin emits two-part names (not three-tier "
+        "platforms such as Postgres) match. "
         "This override is applied AFTER catalog stripping, so use 2-part names "
         "(database.table), not 3-part names (catalog.database.table). "
         "Overrides with a DSN specified take precedence over those without.",
@@ -959,6 +1028,39 @@ class PowerBiDashboardSourceConfig(
             seen[lower] = key
         return value
 
+    @field_validator("dsn_to_platform_name", "dsn_to_database_schema", mode="after")
+    @classmethod
+    def _reject_case_insensitive_duplicate_dsn_keys(
+        cls, value: Dict[str, str], info: ValidationInfo
+    ) -> Dict[str, str]:
+        # Windows ODBC DSNs are case-insensitive, so DSN lookups fall back to a
+        # case-insensitive key match. Keys differing only in case are allowed when
+        # they map to the same value (recipes written before that fallback had to
+        # list every spelling), but conflicting values would be picked by dict
+        # order. Values are compared the way they are consumed: database/schema
+        # ignoring whitespace around segments (this runs before
+        # dsn_to_database_schema is normalised), platform names by exactly what
+        # normalize_platform_name resolves them to (e.g. "Amazon Redshift" and
+        # "AmazonRedshift" are both redshift). Unrecognised names all resolve to
+        # None and are skipped identically at runtime, so they compare equal.
+        def comparable(mapped: str) -> Optional[str]:
+            if info.field_name == "dsn_to_platform_name":
+                platform, _ = normalize_platform_name(mapped)
+                return platform
+            return ".".join(part.strip() for part in mapped.split("."))
+
+        seen: Dict[str, str] = {}
+        for key, mapped in value.items():
+            folded = key.casefold()
+            if folded in seen and comparable(value[seen[folded]]) != comparable(mapped):
+                raise ValueError(
+                    f"{info.field_name} maps keys that differ only in case to "
+                    f"different values: {seen[folded]!r} and {key!r}. DSN names are "
+                    "case-insensitive, so give each DSN a single value."
+                )
+            seen.setdefault(folded, key)
+        return value
+
     @field_validator("dataset_type_mapping", mode="after")
     @classmethod
     def map_data_platform(cls, value):
@@ -1031,8 +1133,20 @@ class PowerBiDashboardSourceConfig(
                 parts = value.split(".")
                 if len(parts) != 1 and len(parts) != 2:
                     raise ValueError(
-                        f"dsn_to_database_schema invalid mapping value: {value}"
+                        f"dsn_to_database_schema invalid mapping value: {value!r} — "
+                        "expected 'database' or 'database.schema'"
                     )
+                # Reject blank segments (e.g. "project.", ".dataset", "."); an empty
+                # segment would otherwise backfill an empty database/schema level and
+                # produce malformed qualified names like "project..table".
+                if any(not part.strip() for part in parts):
+                    raise ValueError(
+                        f"dsn_to_database_schema invalid mapping value: {value!r} — "
+                        "segments must not be blank or whitespace-only"
+                    )
+                # Normalise so downstream lookups need not re-strip; also collapses
+                # e.g. "prod . data" to "prod.data".
+                dsn_mapping[_key] = ".".join(part.strip() for part in parts)
 
         return self
 

@@ -2070,6 +2070,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             # self.powerbi_client.dataset_registry so cross-workspace references
             # resolve in Phase 2.
             excluded_workspace_ids: Set[str] = set()
+            any_workspace_incomplete = False
             for batch_ids in more_itertools.chunked(
                 workspace_ids, self.source_config.scan_batch_size
             ):
@@ -2090,6 +2091,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     # affected workspace (reporter.warning includes the traceback
                     # via exc=) so the gap is discoverable in the source report,
                     # then fall through to Phase 2 with empty scan_result.
+                    any_workspace_incomplete = True
                     for ws in batch_workspaces:
                         self.reporter.warning(
                             title="Incomplete Scan Metadata",
@@ -2113,11 +2115,16 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 workspace = workspaces[workspace_id]
                 logger.info(f"Processing workspace id: {workspace.id}")
+                if not workspace.scan_result:
+                    # The scan failed or omitted this workspace without raising,
+                    # so its expressions (and their lineage) are missing.
+                    any_workspace_incomplete = True
                 try:
                     self.powerbi_client.fill_regular_metadata_detail(
                         workspace=workspace
                     )
                 except Exception as e:
+                    any_workspace_incomplete = True
                     self.reporter.warning(
                         title="Failed to Fetch Workspace Metadata",
                         message="Phase 2 metadata fetch failed for this workspace; it will be skipped.",
@@ -2155,6 +2162,41 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 # Fully emitted and never revisited; drop it to free its
                 # scan_result and parsed children.
                 del workspaces[workspace_id]
+
+        self._report_unmatched_athena_table_platform_overrides(
+            partial_run=bool(self.source_config.modified_since)
+            or any_workspace_incomplete
+            or self.reporter.m_query_lineage_incomplete()
+        )
+
+    def _report_unmatched_athena_table_platform_overrides(
+        self, partial_run: bool
+    ) -> None:
+        # A typo in an override silently leaves lineage on Athena, so surface every
+        # configured override that never matched an upstream during the run.
+        # Without lineage extraction no override can ever match, so stay silent.
+        # When the run skipped workspaces or failed to parse some expressions, an
+        # override's table may not have been processed, so report info instead.
+        if not self.source_config.extract_lineage:
+            return
+        report = self.reporter.info if partial_run else self.reporter.warning
+        for override in self.reporter.unmatched_athena_overrides(
+            self.source_config.athena_table_platform_override
+        ):
+            report(
+                title="Athena table platform override never matched",
+                message=(
+                    "No upstream processed in this run matched this "
+                    "athena_table_platform_override entry. Overrides apply only to "
+                    "Athena reached over ODBC, not to AmazonAthena.Databases sources. "
+                    "If that table was processed in this run, check the database, "
+                    "table and dsn values for typos."
+                ),
+                context=(
+                    f"database={override.database}, table={override.table}, "
+                    f"dsn={override.dsn}, platform={override.platform}"
+                ),
+            )
 
     def get_report(self) -> SourceReport:
         return self.reporter
