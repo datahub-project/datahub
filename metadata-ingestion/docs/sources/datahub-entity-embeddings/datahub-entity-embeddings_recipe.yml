@@ -1,15 +1,27 @@
 source:
   type: datahub-entity-embeddings
   config:
-    # Embeds every entity type the server has enabled for semantic search,
-    # using the server's embedding configuration.
-    # Optional: only embed entities from some platforms.
+    # Embeds every type in the server's ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES
+    # except document, which datahub-documents handles, using the server's
+    # embedding configuration. Adding a type there needs no recipe change.
+
+    # Optional: skip some types the server enables.
+    # exclude_entity_types:
+    #   - "dataJob"
+
+    # Optional: skip entities from some platforms (platform names, regex).
     # platform_pattern:
-    #   allow:
-    #     - "snowflake"
-    #     - "bigquery"
-    # Optional: bound each run; the next run continues where this one stopped.
-    # time_budget_seconds: 3000
+    #   deny:
+    #     - "^kafka$"
+
+    # On a schedule, stop before the job's deadline so the checkpoint is
+    # committed; the next run continues where this one stopped.
+    time_budget_seconds: 3000
+
+    # Optional: entities embedded per minute (default 300), to stay under the
+    # embedding provider's quota.
+    # embedding:
+    #   documents_per_minute: 300
 
 sink:
   type: datahub-rest

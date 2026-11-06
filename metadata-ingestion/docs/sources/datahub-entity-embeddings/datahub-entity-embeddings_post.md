@@ -20,6 +20,17 @@ On registries that assign entity types to search groups, only types in `search_g
 
 Stateful ingestion, enabled by default, stores a hash of each entity's text and embedding configuration, so only new or changed entities are embedded again. When `max_entities_per_run` or `time_budget_seconds` stops a run, the next run continues where it stopped. Entities that fail, including during a forced re-embed, are retried on the next run.
 
+#### Scheduling with DataHub Documents
+
+A recipe has a single source, so embedding documents and catalog entities takes two recipes. Run them in sequence on the same schedule, documents first:
+
+```bash
+datahub ingest -c document-embeddings.yml
+datahub ingest -c entity-embeddings.yml
+```
+
+The first run embeds the whole catalog, which at the default `embedding.documents_per_minute` of 300 entities per minute takes over an hour for 20,000 entities; later runs only embed what changed. If both steps share a job deadline, such as a Kubernetes `activeDeadlineSeconds`, set `time_budget_seconds` below that deadline minus the time the documents step takes, and leave a margin for the sink to flush. A run killed by the deadline does not commit its state, so the next run repeats the entities it had embedded.
+
 ### Limitations
 
 - An entity that is later excluded, by entity type or by `platform_pattern`, keeps its last embeddings.

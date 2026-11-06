@@ -179,6 +179,34 @@ datahub ingest -c recipe.yml
 
 For external document sources (Notion, Confluence, etc.), see the [Notion Source](../generated/ingestion/sources/notion.md) and [DataHub Documents Source](../generated/ingestion/sources/datahub-documents.md) documentation.
 
+### Catalog Entities
+
+To make datasets, glossary terms, dashboards and other catalog entities findable through semantic search, the server needs two changes, and then a second ingestion source embeds them.
+
+1. **List the types.** Add them to `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES`, keeping `document`, on GMS, the MAE consumer (if it runs standalone) and the `system-update` job:
+
+   ```bash
+   ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document,dataset,glossaryTerm
+   ```
+
+2. **Add the `semanticContent` aspect.** Embeddings are stored in this aspect, which the base entity registry only declares for `document` and a few AI-related types. Add it to the other types with a YAML-only entity registry plugin; the [DataHub Entity Embeddings Source](../generated/ingestion/sources/datahub-entity-embeddings.md) prerequisites show the file and how to mount it.
+
+3. **Run `datahub-entity-embeddings`** after `datahub-documents`, on the same schedule:
+
+   ```yaml
+   source:
+     type: datahub-entity-embeddings
+     config: {}
+
+   sink:
+     type: datahub-rest
+     config: {}
+   ```
+
+   Its token needs the **Manage System Operations** privilege to read the entity registry.
+
+The source reads the types from `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` and their searchable fields from the entity registry, so adding a type later only needs steps 1 and 2. Document entities stay with `datahub-documents`.
+
 ## Search V3
 
 With Search V3 writes on (`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED=true`), document embeddings are also written to the V3 document index. Semantic search keeps reading the semantic indices until you set `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED=true`, after which it reads the V3 document index instead. The flag is independent of `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED`, so keyword and semantic reads can move to V3 at different times. Turn it on only after the V3 document index holds your document embeddings: documents embedded before V3 writes were turned on get V3 vectors only once they are re-indexed into V3 (for example with the `RestoreIndices` upgrade job) or re-embedded. To check, count the documents that carry embeddings in each index, running `GET documentindex_v3/_count` and `GET documentindex_v2_semantic/_count` (named `<prefix>_documentindex_v3` and so on if you set an index prefix) with the body `{"query":{"nested":{"path":"embeddings.<model>.chunks","query":{"match_all":{}}}}}`, where `<model>` is your model key (for example `text_embedding_3_large`). The flag needs OpenSearch 3.5+ or Elasticsearch 8.18+ on the Search V3 cluster, and DataHub refuses to start with it on older OpenSearch: before 3.5, OpenSearch k-NN pre-filters ignore fields under the V3 `_aspects` object, which facet and View filters use.

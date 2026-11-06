@@ -8,14 +8,21 @@ Entity types and their searchable fields come from the server, so enabling a new
 
 #### 1. DataHub Server Configuration
 
-Semantic search must be enabled on the server, with an embedding provider configured and the entity types to embed listed in `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES`. See the [Semantic Search Configuration Guide](../../../how-to/semantic-search-configuration.md).
+Semantic search must be enabled on the server with an embedding provider configured. See the [Semantic Search Configuration Guide](../../../how-to/semantic-search-configuration.md).
+
+`ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` is the list of entity types this source embeds. Add the types you want next to `document`, and set the same value on GMS, the MAE consumer (if it runs standalone) and the `system-update` job, which creates the semantic index of each type:
+
+```bash
+ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document,dataset,glossaryTerm
+```
+
+The source reads this list from the server at the start of each run, so adding a type later only needs this change and the plugin entry below; the recipe stays the same.
 
 #### 2. The `semanticContent` Aspect
 
-Embeddings are stored in the `semanticContent` aspect. The base entity registry declares it for `document`, `service`, `api`, `repository`, `aiAgent` and `agentSkill`. To embed any other type, such as datasets or glossary terms, add the aspect with an [entity registry plugin](https://docs.datahub.com/docs/metadata-models-custom), loaded by GMS and the consumers:
+Embeddings are stored in the `semanticContent` aspect. The base entity registry declares it for `document`, `service`, `api`, `repository`, `aiAgent` and `agentSkill`. Every other type in `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES`, such as `dataset` or `glossaryTerm`, needs it added with an [entity registry plugin](https://docs.datahub.com/docs/metadata-models-custom). Without it, the source skips the type and reports why. The plugin needs no code, only a YAML file:
 
 ```yaml
-# plugins/models/semantic-search/1.0.0/entity-registry.yaml
 id: semantic-search
 entities:
   - name: dataset
@@ -25,6 +32,18 @@ entities:
     aspects:
       - semanticContent
 ```
+
+Mount it as a file whose path is the plugin version, `/etc/datahub/plugins/models/semantic-search/1.0.0`, rather than as `entity-registry.yaml` inside that directory. A directory is loaded as a plugin with its own model classes, so a YAML-only plugin cannot see core aspects and fails with `Aspect semanticContent does not exist`. In Kubernetes, use a ConfigMap with `subPath`:
+
+```yaml
+volumeMounts:
+  - name: semantic-registry-plugin
+    mountPath: /etc/datahub/plugins/models/semantic-search/1.0.0
+    subPath: entity-registry.yaml
+    readOnly: true
+```
+
+Mount it on every process that loads the entity registry: GMS, the MAE and MCE consumers if they run standalone, and the `system-update` job. GMS reports the plugin under `models` in `/config`, with `loadResult: SUCCESS`.
 
 #### 3. Privileges
 
