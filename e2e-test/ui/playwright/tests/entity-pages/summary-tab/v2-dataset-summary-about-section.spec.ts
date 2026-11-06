@@ -7,7 +7,7 @@
  * Domain under assetSummaryPageV1, and mutations-v2/v2-edit-documentation.spec.ts covers the
  * legacy Documentation tab with the flag pinned off.
  *
- * Uses pre-seeded global-data entity: SampleHiveDataset (no other spec mutates it).
+ * Uses pre-seeded global-data entity: SamplePlaywrightHdfsAssertionDataset (no other spec mutates it).
  * Feature flags required: showNavBarRedesign=true, datasetSummaryPageV1=true
  */
 
@@ -22,7 +22,7 @@ import {
 } from '../../../pages/entity/summary-tab/constants';
 import { DomainTag, TestTag } from '../../../utils/test-tags';
 
-const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)';
+const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsAssertionDataset,PROD)';
 
 const FEATURE_FLAGS = {
   showNavBarRedesign: true,
