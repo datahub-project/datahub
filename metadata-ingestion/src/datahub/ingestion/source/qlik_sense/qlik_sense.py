@@ -63,6 +63,7 @@ from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     DataConnectionInfo,
     ScriptTableLineage,
+    apply_preceding_loads,
     connection_lookup_names,
     expression_names,
     infer_data_connection,
@@ -806,10 +807,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             lineage.upstream_urns.extend(
                 urn for urn in result.in_tables if urn not in lineage.upstream_urns
             )
+            sql_columns: Dict[str, List[str]] = {}
             for column in result.column_lineage or []:
-                lineage.column_upstreams.setdefault(
-                    column.downstream.column, []
-                ).extend(column.upstream_schema_field_urns())
+                sql_columns.setdefault(column.downstream.column, []).extend(
+                    column.upstream_schema_field_urns()
+                )
+            for field, upstreams in apply_preceding_loads(
+                script_table.preceding_loads, sql_columns
+            ).items():
+                lineage.column_upstreams.setdefault(field, []).extend(upstreams)
         self.reporter.script_tables_with_lineage += len(tables)
         return list(tables.values())
 

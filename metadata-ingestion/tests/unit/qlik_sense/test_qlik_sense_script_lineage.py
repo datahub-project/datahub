@@ -1,6 +1,7 @@
 import pytest
 
 from datahub.ingestion.source.qlik_sense.script_lineage import (
+    apply_preceding_loads,
     connection_lookup_names,
     infer_data_connection,
     parse_load_script,
@@ -153,3 +154,35 @@ def test_connection_lookup_names_strips_cloud_space() -> None:
         "Sales SQL",
     ]
     assert connection_lookup_names("Sales SQL") == ["Sales SQL"]
+
+
+PRECEDING_LOAD_SCRIPT = """
+LIB CONNECT TO 'Sales SQL';
+Orders:
+LOAD OrderID AS [Order Id], [Net Sales],
+     Year(order_date) & '-' & Month(order_date) AS Period,
+     'ERP' AS Source, Upper(region)
+WHERE amount > 0;
+LOAD *, order_id AS OrderID, amount AS [Net Sales];
+SQL SELECT order_id, amount, order_date, region FROM dbo.orders;
+"""
+
+
+def test_preceding_loads_rename_sql_columns() -> None:
+    (table,) = parse_load_script(PRECEDING_LOAD_SCRIPT)
+
+    assert table.label == "Orders"
+    assert apply_preceding_loads(
+        table.preceding_loads,
+        {
+            "ORDER_ID": ["order_id_urn"],
+            "amount": ["amount_urn"],
+            "order_date": ["order_date_urn"],
+            "region": ["region_urn"],
+        },
+    ) == {
+        "Order Id": ["order_id_urn"],
+        "Net Sales": ["amount_urn"],
+        "Period": ["order_date_urn"],
+        "Source": [],
+    }

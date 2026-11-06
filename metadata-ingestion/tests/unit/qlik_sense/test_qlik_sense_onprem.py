@@ -651,6 +651,24 @@ def test_onprem_script_tables_get_upstream_lineage(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_onprem_script_table_columns_take_preceding_load_names(
+    mock_onprem: MagicMock,
+) -> None:
+    script = """
+LIB CONNECT TO 'Sales SQL';
+Orders:
+LOAD order_id AS OrderID, amount AS [Net Sales];
+SQL SELECT order_id, amount FROM dbo.orders;
+"""
+    _, (table,) = _script_tables(mock_onprem, {}, script=script)
+
+    assert {
+        field: [urn.rsplit(",", 1)[-1] for urn in upstreams]
+        for field, upstreams in table.column_upstreams.items()
+    } == {"OrderID": ["order_id)"], "Net Sales": ["amount)"]}
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
 def test_onprem_script_mapping_default_schema_qualifies_bare_tables(
     mock_onprem: MagicMock,
 ) -> None:

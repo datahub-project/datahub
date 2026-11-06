@@ -42,6 +42,19 @@ SQL_RE = re.compile(
 LOAD_RE = re.compile(r"^LOAD\b", re.IGNORECASE)
 LOAD_SOURCE_RE = re.compile(r"\b(?:FROM|RESIDENT|INLINE|AUTOGENERATE)\b", re.IGNORECASE)
 QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]")
+LOAD_FIELDS_RE = re.compile(
+    r"^LOAD\s+(?:DISTINCT\s+)?(?P<fields>.*)$", re.IGNORECASE | re.DOTALL
+)
+# Clauses a preceding LOAD may have after its field list.
+LOAD_CLAUSE_RE = re.compile(r"\b(?:WHERE|WHILE|GROUP\s+BY|ORDER\s+BY)\b", re.IGNORECASE)
+_FIELD_NAME = (
+    r"(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>[^\W\d][\w.]*))"
+)
+# Greedy, so the last AS names the field.
+LOAD_ALIAS_RE = re.compile(
+    rf"^(?P<expr>.+)\s+AS\s+{_FIELD_NAME}$", re.IGNORECASE | re.DOTALL
+)
+LOAD_FIELD_RE = re.compile(rf"^{_FIELD_NAME}$")
 DATABASE_RE = re.compile(
     r"(?:^|[;\s])(?:database|initial catalog|catalog|conncatalog)\s*=\s*[\"'\[]?"
     r"(?P<db>[^;\]\"']+)",
@@ -82,10 +95,24 @@ PLATFORM_KEYWORD_RES: Dict[str, "re.Pattern[str]"] = {
 }
 
 
+class LoadField(BaseModel):
+    name: str
+    # Names the field's expression reads from the statement below it.
+    sources: List[str]
+
+
+class PrecedingLoad(BaseModel):
+    # LOAD * passes every field of the statement below through.
+    keeps_all: bool = False
+    fields: List[LoadField] = []
+
+
 class ScriptTable(BaseModel):
     label: str
     connection: Optional[str] = None
     sql: str
+    # The LOAD statements stacked on the SQL, top first.
+    preceding_loads: List[PrecedingLoad] = []
 
 
 class ScriptTableLineage(BaseModel):
@@ -252,6 +279,7 @@ def parse_load_script(script: str) -> List[ScriptTable]:
     tables: List[ScriptTable] = []
     flow = _ControlFlowTracker()
     pending_label: Optional[str] = None
+    pending_loads: List[PrecedingLoad] = []
     for statement in _split_statements(script):
         statement = flow.strip_control_statements(statement)
         statement = _expand_variables(statement, flow.state.variables)
@@ -259,6 +287,7 @@ def parse_load_script(script: str) -> List[ScriptTable]:
             continue
         if flow.record_variable(statement):
             pending_label = None
+            pending_loads = []
             continue
         connect = CONNECT_RE.match(statement)
         if connect:
@@ -284,17 +313,104 @@ def parse_load_script(script: str) -> List[ScriptTable]:
                     label=table_label,
                     connection=flow.state.connection,
                     sql=sql.group("sql"),
+                    preceding_loads=pending_loads,
                 )
             )
             pending_label = None
+            pending_loads = []
         elif LOAD_RE.match(statement) and not LOAD_SOURCE_RE.search(
             QUOTED_RE.sub("", statement)
         ):
-            # A preceding LOAD names the SQL SELECT that follows it.
-            pending_label = label
+            # A preceding LOAD names and shapes the SQL SELECT that follows it.
+            # Only the top one of a stack carries the label.
+            if not pending_loads:
+                pending_label = label
+            pending_loads.append(_parse_load_fields(statement))
         else:
             pending_label = None
+            pending_loads = []
     return tables
+
+
+def _split_top_level(text: str) -> List[str]:
+    items: List[str] = []
+    depth = 0
+    start = 0
+    closing: Optional[str] = None
+    for index, char in enumerate(text):
+        if closing:
+            if char == closing:
+                closing = None
+        elif char in QUOTE_PAIRS:
+            closing = QUOTE_PAIRS[char]
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "," and depth == 0:
+            items.append(text[start:index].strip())
+            start = index + 1
+    items.append(text[start:].strip())
+    return items
+
+
+def _parse_load_fields(statement: str) -> PrecedingLoad:
+    match = LOAD_FIELDS_RE.match(statement)
+    fields_text = match.group("fields") if match else ""
+    # Mask quoted text so a keyword inside a string does not end the field list.
+    masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), fields_text)
+    clause = LOAD_CLAUSE_RE.search(masked)
+    if clause:
+        fields_text = fields_text[: clause.start()]
+    load = PrecedingLoad()
+    for item in _split_top_level(fields_text):
+        if item == "*":
+            load.keeps_all = True
+            continue
+        alias = LOAD_ALIAS_RE.match(item)
+        if alias:
+            load.fields.append(
+                LoadField(
+                    name=alias.group("bracket")
+                    or alias.group("double")
+                    or alias.group("bare"),
+                    sources=expression_names(alias.group("expr")),
+                )
+            )
+            continue
+        field = LOAD_FIELD_RE.match(item)
+        # Qlik names an unaliased expression after its text, which no chart
+        # or SQL column would match.
+        if field:
+            name = _first_group(field)
+            load.fields.append(LoadField(name=name, sources=[name]))
+    return load
+
+
+def apply_preceding_loads(
+    preceding_loads: List[PrecedingLoad],
+    column_upstreams: Dict[str, List[str]],
+) -> Dict[str, List[str]]:
+    """Rename SQL columns to the fields the LOAD statements above them produce,
+    carrying each field's upstream columns."""
+    for load in reversed(preceding_loads):
+        by_name = {
+            name.lower(): upstreams for name, upstreams in column_upstreams.items()
+        }
+        column_upstreams = {
+            **(column_upstreams if load.keeps_all else {}),
+            **{
+                field.name: list(
+                    dict.fromkeys(
+                        upstream
+                        for source in field.sources
+                        for upstream in by_name.get(source.lower(), [])
+                    )
+                )
+                for field in load.fields
+            },
+        }
+    return column_upstreams
 
 
 def expression_names(expression: str) -> List[str]:
