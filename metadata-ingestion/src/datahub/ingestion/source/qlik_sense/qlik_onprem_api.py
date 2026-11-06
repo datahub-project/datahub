@@ -78,6 +78,8 @@ class QlikOnPremAPI:
         self.config = config
         self.spaces: Dict[str, str] = {}
         self.users: Dict[str, str] = {}
+        # Streams and apps that failed to load, so the source can report them.
+        self.unread_items: List[str] = []
         self._thread_state = threading.local()
         server = config.server
         client_cert = config.client_cert
@@ -201,6 +203,7 @@ class QlikOnPremAPI:
                 self.spaces[unpublished.id] = unpublished.name
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch streams. Exception: {e}")
+            self.unread_items.append("streams")
         return spaces
 
     def _app_from_qrs(self, app: Dict) -> App:
@@ -310,6 +313,7 @@ class QlikOnPremAPI:
             self._log_http_error(
                 message=f"Unable to parse app {app_dict.get(Constant.ID)}. Exception: {e}"
             )
+            self.unread_items.append(str(app_dict.get(Constant.ID)))
             return None
         try:
             websocket_connection = self._open_engine(app.id)
@@ -381,6 +385,7 @@ class QlikOnPremAPI:
             app_dicts = self._get("/app/full", params={"filter": qrs_filter}).json()
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch apps. Exception: {e}")
+            self.unread_items.append(f"apps of stream {space_id}")
             return
         # Engine reads are network-bound; the GIL is only held while decoding replies.
         for future in BackpressureAwareExecutor.map(
@@ -392,6 +397,7 @@ class QlikOnPremAPI:
                 app = future.result()
             except Exception as e:
                 self._log_http_error(message=f"Unable to load app. Exception: {e}")
+                self.unread_items.append(f"app of stream {space_id}")
                 continue
             if app:
                 yield app

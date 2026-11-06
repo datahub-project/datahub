@@ -818,6 +818,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     yield from self._gen_app_workunit(item)
                 elif isinstance(item, QlikDataset):
                     yield from self._gen_dataset_workunit(item)
+        for context in self.qlik_api.unread_items:
+            # Also stops stale entity removal from soft-deleting what was not read.
+            self.reporter.failure(
+                title="Unable to read from Qlik",
+                message="Left out of this run after a request failed.",
+                context=context,
+            )
 
     def get_report(self) -> SourceReport:
         return self.reporter
