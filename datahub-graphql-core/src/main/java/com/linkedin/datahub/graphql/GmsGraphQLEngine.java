@@ -287,6 +287,7 @@ import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaVersionListResol
 import com.linkedin.datahub.graphql.resolvers.timeline.GetTimelineResolver;
 import com.linkedin.datahub.graphql.resolvers.timeseries.TimeseriesCapabilitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.type.ClassNameTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
@@ -413,10 +414,13 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.execution.DataFetcherResult;
+import graphql.language.InterfaceTypeDefinition;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.StaticDataFetcher;
+import graphql.schema.TypeResolver;
 import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.SchemaParser;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
@@ -426,6 +430,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -445,6 +450,7 @@ import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.CacheKey;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 /**
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the GMS
@@ -983,6 +989,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE))
         .addSchema(fileBasedSchema(API_SCHEMA_FILE))
         .addSchema(fileBasedSchema(REPOSITORY_SCHEMA_FILE));
+    interfaceSchemaFiles().forEach(schemaFile -> builder.addSchema(fileBasedSchema(schemaFile)));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1053,6 +1060,19 @@ public class GmsGraphQLEngine {
         .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
     return builder;
+  }
+
+  public static List<String> interfaceSchemaFiles() {
+    try {
+      return Arrays.stream(
+              new PathMatchingResourcePatternResolver()
+                  .getResources("classpath:" + INTERFACE_SCHEMA_DIRECTORY + "/*.graphql"))
+          .map(resource -> INTERFACE_SCHEMA_DIRECTORY + "/" + resource.getFilename())
+          .sorted()
+          .collect(Collectors.toList());
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to list GraphQL interface schema files", e);
+    }
   }
 
   public static String fileBasedSchema(String fileName) {
@@ -2911,6 +2931,18 @@ public class GmsGraphQLEngine {
                             .filter(graphType -> graphType instanceof EntityType)
                             .map(graphType -> (EntityType<?, ?>) graphType)
                             .collect(Collectors.toList()))));
+
+    final TypeResolver classNameTypeResolver = new ClassNameTypeResolver();
+    for (String schemaFile : interfaceSchemaFiles()) {
+      new SchemaParser()
+          .parse(fileBasedSchema(schemaFile))
+          .getTypes(InterfaceTypeDefinition.class)
+          .forEach(
+              iface ->
+                  builder.type(
+                      iface.getName(),
+                      typeWiring -> typeWiring.typeResolver(classNameTypeResolver)));
+    }
   }
 
   /** Configures custom type extensions leveraged within our GraphQL schema. */

@@ -30,7 +30,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.search.utils.SearchTookMetrics;
-import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.shared.MigratableIndexed;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.timeseries.GenericTimeseriesDocument;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -61,6 +61,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -90,7 +91,7 @@ import org.opensearch.search.sort.SortOrder;
 
 @Slf4j
 public class ElasticSearchTimeseriesAspectService
-    implements TimeseriesAspectService, ElasticSearchIndexed {
+    implements TimeseriesAspectService, MigratableIndexed {
 
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
@@ -237,6 +238,15 @@ public class ElasticSearchTimeseriesAspectService
   public List<ReindexConfig> buildReindexConfigs(
       @Nonnull final OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    return buildReindexConfigsFor(opContext, properties, indexBuilder, UnaryOperator.identity());
+  }
+
+  @Override
+  public List<ReindexConfig> buildReindexConfigsFor(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties,
+      @Nonnull final ESIndexBuilder targetBuilder,
+      @Nonnull final UnaryOperator<String> nameRewriter) {
     return entityRegistry.getEntitySpecs().values().stream()
         .flatMap(
             entitySpec ->
@@ -246,10 +256,11 @@ public class ElasticSearchTimeseriesAspectService
         .map(
             pair -> {
               try {
-                return indexBuilder.buildReindexState(
+                return targetBuilder.buildReindexState(
                     opContext,
-                    indexConvention.getTimeseriesAspectIndexName(
-                        opContext, pair.getFirst().getName(), pair.getSecond().getName()),
+                    nameRewriter.apply(
+                        indexConvention.getTimeseriesAspectIndexName(
+                            opContext, pair.getFirst().getName(), pair.getSecond().getName())),
                     MappingsBuilder.getMappings(pair.getSecond()),
                     Collections.<String, Object>emptyMap());
               } catch (IOException e) {

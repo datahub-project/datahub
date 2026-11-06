@@ -1,5 +1,9 @@
+import functools
 import logging
+import threading
 import time
+import warnings
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional, Union
 
 import pydantic
@@ -8,22 +12,21 @@ from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import SerializationContext, StringSerializer
 from pydantic import field_validator
+from typing_extensions import deprecated
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
-from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
     MetadataChangeProposalClass as MetadataChangeProposal,
 )
-from datahub.metadata.schemas import (
-    getMetadataChangeEventSchema,
-    getMetadataChangeProposalSchema,
-)
+from datahub.metadata.schemas import getMetadataChangeProposalSchema
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +52,12 @@ _MAX_QUEUE_FULL_BLOCK_SECONDS = 300.0
 # stall stays visible to operators instead of going silent after the first log.
 _QUEUE_FULL_WARN_EVERY_N_POLLS = 30
 
+_MCE_DEPRECATION_MESSAGE = (
+    "Emitting MetadataChangeEvents is deprecated and will be removed in a "
+    "future release. They are converted to MCPs; emit "
+    "MetadataChangeProposalWrapper instead."
+)
+
 
 class MessageTooLargeError(Exception):
     """A serialized Kafka message exceeded producer ``message.max.bytes``.
@@ -65,10 +74,7 @@ class KafkaEmitterConfig(ConfigModel):
     connection: KafkaProducerConnectionConfig = pydantic.Field(
         default_factory=KafkaProducerConnectionConfig
     )
-    topic_routes: Dict[str, str] = {
-        MCE_KEY: DEFAULT_MCE_KAFKA_TOPIC,
-        MCP_KEY: DEFAULT_MCP_KAFKA_TOPIC,
-    }
+    topic_routes: Dict[str, str] = {MCP_KEY: DEFAULT_MCP_KAFKA_TOPIC}
 
     max_queue_full_block_seconds: float = pydantic.Field(
         default=_MAX_QUEUE_FULL_BLOCK_SECONDS,
@@ -80,23 +86,15 @@ class KafkaEmitterConfig(ConfigModel):
         ),
     )
 
-    _topic_field_compat = pydantic_renamed_field(
-        "topic",
-        "topic_routes",
-        transform=lambda x: {
-            MCE_KEY: x,
-            MCP_KEY: DEFAULT_MCP_KAFKA_TOPIC,
-        },
-    )
+    _topic_removed = pydantic_removed_field("topic", month="November", year=2026)
 
     @field_validator("topic_routes", mode="after")
     @classmethod
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:
         assert MCP_KEY in v, f"topic_routes must contain a route for {MCP_KEY}"
-        if MCE_KEY not in v:
+        if MCE_KEY in v:
             logger.warning(
-                f"MCE topic not configured in topic_routes. MCE emissions will fail. "
-                f"To enable MCE emission, add '{MCE_KEY}' to topic_routes."
+                f"{MCE_KEY} route is ignored; MCEs are published to the MCP topic {v[MCP_KEY]!r}."
             )
         return v
 
@@ -109,17 +107,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             **self.config.connection.schema_registry_config,
         }
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
-
-        def convert_mce_to_dict(
-            mce: MetadataChangeEvent, ctx: SerializationContext
-        ) -> dict:
-            return mce.to_obj(tuples=True)
-
-        mce_avro_serializer = AvroSerializer(
-            schema_str=getMetadataChangeEventSchema(),
-            schema_registry_client=schema_registry_client,
-            to_dict=convert_mce_to_dict,
-        )
 
         def convert_mcp_to_dict(
             mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
@@ -134,12 +121,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         )
 
         producers_config = {
-            MCE_KEY: {
-                "bootstrap.servers": self.config.connection.bootstrap,
-                "key.serializer": StringSerializer("utf_8"),
-                "value.serializer": mce_avro_serializer,
-                **self.config.connection.producer_config,
-            },
             MCP_KEY: {
                 "bootstrap.servers": self.config.connection.bootstrap,
                 "key.serializer": StringSerializer("utf_8"),
@@ -149,9 +130,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         }
 
         self.producers = {
-            key: SerializingProducer(value)
-            for (key, value) in producers_config.items()
-            if key in self.config.topic_routes
+            key: SerializingProducer(value) for (key, value) in producers_config.items()
         }
 
         self.backpressure_engagements = 0
@@ -183,7 +162,10 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         if isinstance(item, (MetadataChangeProposal, MetadataChangeProposalWrapper)):
             return self.emit_mcp_async(item, callback or _error_reporting_callback)
         else:
-            return self.emit_mce_async(item, callback or _error_reporting_callback)
+            warnings.warn(
+                _MCE_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
+            )
+            return self._emit_mce(item, callback or _error_reporting_callback)
 
     @staticmethod
     def _produce_with_backpressure(
@@ -266,29 +248,37 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             self.backpressure_engagements += 1
             self.backpressure_blocked_seconds += blocked_seconds
 
+    @deprecated(_MCE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning)
     def emit_mce_async(
         self,
         mce: MetadataChangeEvent,
         callback: KafkaOnDelivery,
     ) -> None:
-        if MCE_KEY not in self.config.topic_routes:
-            error = Exception(
-                f"Cannot emit MetadataChangeEvent: {MCE_KEY} topic not configured in topic_routes"
-            )
-            callback(error, "MCE emission failed - topic not configured")
+        """Emit an MCE as one MCP per aspect to the MCP topic; ``callback`` fires at most once per MCE."""
+        self._emit_mce(mce, callback)
+
+    def _emit_mce(self, mce: MetadataChangeEvent, callback: KafkaOnDelivery) -> None:
+        """Not atomic: if producing aspect k raises, aspects before it stay queued.
+
+        ``callback`` never fires after the raise, but may already have fired with an earlier aspect's error.
+        """
+        # Deferred: mcp_builder pulls in ingestion sources, which pgqueue must not import.
+        from datahub.emitter.mcp_builder import mcps_from_mce
+
+        _warn_mce_deprecated()
+        # The MCP topic is consumed by every GMS that consumes the MCE topic.
+        mcps = list(mcps_from_mce(mce))
+        if not mcps:
+            logger.warning(f"MCE for {mce.proposedSnapshot.urn} produced zero MCPs")
+            callback(None, "MCE had zero aspects")
             return
-        # Call poll to trigger any callbacks on success / failure of previous writes
-        producer: SerializingProducer = self.producers[MCE_KEY]
-        producer.poll(0)
-        blocked = self._produce_with_backpressure(
-            producer,
-            max_block_seconds=self.config.max_queue_full_block_seconds,
-            topic=self.config.topic_routes[MCE_KEY],
-            key=mce.proposedSnapshot.urn,
-            value=mce,
-            on_delivery=callback,
-        )
-        self._record_backpressure(blocked)
+        agg_callback = _AggregatingKafkaCallback(total=len(mcps), inner=callback)
+        try:
+            for mcp in mcps:
+                self.emit_mcp_async(mcp, agg_callback.kafka_callback)
+        except BaseException:
+            agg_callback.suppress()
+            raise
 
     def emit_mcp_async(
         self,
@@ -334,6 +324,62 @@ class DatahubKafkaEmitter(Closeable, Emitter):
 
     def close(self) -> None:
         self.flush()
+
+
+@dataclass
+class _AggregatingKafkaCallback:
+    """Fires ``inner`` once for the N MCPs of one MCE: on the first error, or after all N succeed.
+
+    ``suppress()`` silences it when the failure was already raised to the caller.
+    Locked because delivery callbacks run in whichever thread calls ``poll()``/``flush()``,
+    and the sinks poll from more than one thread.
+    """
+
+    total: int
+    inner: KafkaOnDelivery
+    _remaining: int = field(init=False)
+    _failed: bool = field(init=False, default=False)
+    _suppressed: bool = field(init=False, default=False)
+    _lock: threading.Lock = field(init=False, default_factory=threading.Lock)
+
+    def __post_init__(self) -> None:
+        self._remaining = self.total
+
+    def kafka_callback(self, err: Any, msg: Any) -> None:
+        # Decide under the lock, call ``inner`` outside it: ``inner`` may flush/emit,
+        # and the resulting poll() can re-enter this callback on the same thread.
+        with self._lock:
+            self._remaining -= 1
+            if err is not None and self._suppressed:
+                fire = False
+                # The caller already saw an exception for this MCE; keep the broker error visible.
+                logger.error(f"Kafka delivery failed after emit raised: {err} {msg}")
+            elif err is not None and not self._failed:
+                self._failed = True
+                fire = True
+            elif self._remaining == 0 and not self._failed:
+                fire = True
+            else:
+                fire = False
+        if fire:
+            self.inner(err, msg)
+
+    def suppress(self) -> bool:
+        """Never fire ``inner``; for when the failure was already raised to the caller.
+
+        Returns whether ``inner`` had already fired with an earlier error.
+        """
+        with self._lock:
+            already_failed = self._failed
+            self._failed = True
+            self._suppressed = True
+            return already_failed
+
+
+# Cached so the warning prints once per process: the Airflow hook builds a new emitter per call.
+@functools.lru_cache(maxsize=None)
+def _warn_mce_deprecated() -> None:
+    logger.warning(_MCE_DEPRECATION_MESSAGE)
 
 
 def _error_reporting_callback(err: Any, msg: Any) -> None:
