@@ -1197,30 +1197,30 @@ def _install_fake_column_dependencies(
 ) -> None:
     """Wire a fake ``sqlmesh.core.lineage.column_dependencies`` into sys.modules.
 
-    sqlmesh isn't installed in the test venv, so ``_build_column_lineage``'s
-    ``from sqlmesh.core.lineage import column_dependencies`` would otherwise
-    short-circuit to []. Injecting a stand-in lets us regression-test the real
-    (un-mocked) body — in particular the model_name_pattern filter on upstream
-    columns.
+    Without sqlmesh installed, ``_build_column_lineage``'s
+    ``from sqlmesh.core.lineage import column_dependencies`` would short-circuit to
+    []; with it installed, the real function can't resolve mock models. Patching in
+    a stand-in either way lets us regression-test the real (un-mocked) body.
     """
 
     def _column_dependencies(ctx: Any, model_name: str, col: str) -> dict:
         return deps_by_column.get(col, {})
 
-    lineage_mod = types.ModuleType("sqlmesh.core.lineage")
-    lineage_mod.column_dependencies = _column_dependencies  # type: ignore[attr-defined]
-    for name, mod in [
-        ("sqlmesh", types.ModuleType("sqlmesh")),
-        ("sqlmesh.core", types.ModuleType("sqlmesh.core")),
-        ("sqlmesh.core.lineage", lineage_mod),
-    ]:
-        # Don't clobber a real sqlmesh if it's importable in this venv.
-        if name not in sys.modules:
-            monkeypatch.setitem(sys.modules, name, mod)
-    if "sqlmesh.core.lineage" not in sys.modules or not hasattr(
-        sys.modules["sqlmesh.core.lineage"], "column_dependencies"
-    ):
-        monkeypatch.setitem(sys.modules, "sqlmesh.core.lineage", lineage_mod)
+    try:
+        import sqlmesh.core.lineage as lineage_mod
+    except ImportError:
+        lineage_mod = types.ModuleType("sqlmesh.core.lineage")
+        for name, mod in [
+            ("sqlmesh", types.ModuleType("sqlmesh")),
+            ("sqlmesh.core", types.ModuleType("sqlmesh.core")),
+            ("sqlmesh.core.lineage", lineage_mod),
+        ]:
+            if name not in sys.modules:
+                monkeypatch.setitem(sys.modules, name, mod)
+    # Patch the function itself, so the fake is used whether or not sqlmesh is installed
+    monkeypatch.setattr(
+        lineage_mod, "column_dependencies", _column_dependencies, raising=False
+    )
 
 
 class TestColumnLineageFilter:
@@ -1268,6 +1268,72 @@ class TestColumnLineageFilter:
         # column-level edge entirely.
         assert any("base_developer" in u for u in upstream_field_urns)
         assert not any("denied_table" in u for u in upstream_field_urns)
+
+
+def _schema_field_paths(workunits: list) -> List[str]:
+    for wu in workunits:
+        aspect = getattr(wu.metadata, "aspect", None)
+        if isinstance(aspect, SchemaMetadata):
+            return [field.fieldPath for field in aspect.fields]
+    raise AssertionError("no schemaMetadata emitted")
+
+
+def _column_lineage(workunits: list) -> List[Any]:
+    return [
+        fgl
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), UpstreamLineageClass)
+        for fgl in (wu.metadata.aspect.fineGrainedLineages or [])
+    ]
+
+
+class TestColumnNameCasing:
+    """Schema field paths and column lineage must name a column the same way, or
+    column-level lineage has nothing to attach to."""
+
+    @pytest.mark.parametrize(
+        "platform, extra_config, expected_field, expected_upstream",
+        [
+            # Snowflake lowercases URNs by default, columns included
+            ("snowflake", {}, "psn", "id"),
+            # An explicit setting wins over the platform default, either way
+            ("snowflake", {"convert_column_urns_to_lowercase": False}, "PSN", "ID"),
+            ("bigquery", {"convert_column_urns_to_lowercase": True}, "psn", "id"),
+            # Other platforms keep SQLMesh's casing by default
+            ("bigquery", {}, "PSN", "ID"),
+        ],
+    )
+    def test_schema_and_column_lineage_use_the_same_casing(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        platform: str,
+        extra_config: dict,
+        expected_field: str,
+        expected_upstream: str,
+    ) -> None:
+        _install_fake_column_dependencies(
+            monkeypatch, {"PSN": {"star.base_developer": {"ID"}}}
+        )
+        source = _make_source({"target_platform": platform, **extra_config})
+        upstream = _make_mock_model("star.base_developer")
+        model = _make_mock_model(
+            "star.dim_developer",
+            columns={"PSN": MagicMock(__str__=lambda s: "BIGINT")},
+            depends_on={"star.base_developer"},
+        )
+
+        workunits = _run_project(
+            source,
+            {"star.dim_developer": model},
+            {},
+            connection_type=platform,
+            extra_models={"star.base_developer": upstream},
+        )
+
+        assert _schema_field_paths(workunits) == [expected_field]
+        [fgl] = _column_lineage(workunits)
+        assert [d.rsplit(",", 1)[1] for d in fgl.downstreams] == [f"{expected_field})"]
+        assert [u.rsplit(",", 1)[1] for u in fgl.upstreams] == [f"{expected_upstream})"]
 
 
 class TestLineageCategories:
@@ -2459,3 +2525,76 @@ class TestBaseDepImportability:
             [sys.executable, "-c", code], capture_output=True, text=True
         )
         assert result.returncode == 0, result.stderr
+
+
+def _warehouse_lineage_patches(workunits: list) -> list:
+    return [
+        wu
+        for wu in workunits
+        if wu.is_primary_source is False
+        and WAREHOUSE_PLATFORM in str(getattr(wu.metadata, "entityUrn", ""))
+        and getattr(wu.metadata, "aspectName", None) == "upstreamLineage"
+    ]
+
+
+class TestWarehouseLineageEdges:
+    """Siblings are separate nodes in DataHub's lineage graph, so each SQLMesh
+    entity is also joined to its warehouse table by a lineage edge, as dbt does."""
+
+    def test_managed_model_patches_edge_onto_warehouse_table(self):
+        source = _make_source()
+        model = _make_mock_model()
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        patches = _warehouse_lineage_patches(workunits)
+        assert len(patches) == 1
+        warehouse_urn = str(patches[0].metadata.entityUrn)
+        assert "dim_developer" in warehouse_urn
+        ops = _json.loads(patches[0].metadata.aspect.value)
+        upstream_ops = [op for op in ops if op["path"].startswith("/upstreams/")]
+        assert len(upstream_ops) == 1
+        assert SQLMESH_PLATFORM in upstream_ops[0]["value"]["dataset"]
+        assert upstream_ops[0]["value"]["type"] == "COPY"
+        # One column-to-column mapping per model column.
+        column_ops = [
+            op for op in ops if op["path"].startswith("/fineGrainedLineages/")
+        ]
+        assert len(column_ops) == len(model.columns_to_types)
+
+    def test_external_model_takes_warehouse_table_as_upstream(self):
+        source = _make_source()
+        external_model = _make_mock_model("raw.source_table", kind_name="EXTERNAL")
+
+        workunits = _run_project(source, {"raw.source_table": external_model}, {})
+
+        # No edge onto the warehouse table: the external model reads from it.
+        assert _warehouse_lineage_patches(workunits) == []
+        lineage = [
+            (str(wu.metadata.entityUrn), wu.metadata.aspect)
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), UpstreamLineageClass)
+        ]
+        assert len(lineage) == 1
+        entity_urn, aspect = lineage[0]
+        assert SQLMESH_PLATFORM in entity_urn
+        assert [u.dataset for u in aspect.upstreams] == [
+            entity_urn.replace(SQLMESH_PLATFORM, WAREHOUSE_PLATFORM)
+        ]
+        assert aspect.upstreams[0].type == "COPY"
+
+    def test_skipped_when_lineage_disabled(self):
+        source = _make_source({"include_lineage": False})
+        model = _make_mock_model()
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        assert _warehouse_lineage_patches(workunits) == []
+
+    def test_embedded_model_gets_no_edge(self):
+        source = _make_source()
+        model = _make_mock_model(is_embedded=True)
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        assert _warehouse_lineage_patches(workunits) == []
