@@ -127,7 +127,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             new BuildIndicesConfiguration(),
             updateIndicesService);
@@ -210,7 +210,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             config,
             updateIndicesService);
@@ -275,7 +275,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             config,
             updateIndicesService);
@@ -385,7 +385,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             config,
             updateIndicesService);
@@ -458,7 +458,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             config,
             updateIndicesService);
@@ -1311,7 +1311,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             configWithPoll,
             updateIndicesService);
@@ -1354,7 +1354,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             configWithPoll,
             updateIndicesService);
@@ -1572,6 +1572,41 @@ public class IncrementalReindexCatchUpStepTest {
                             .build()));
   }
 
+  @Test
+  public void testFailedDefinitionsReadFailsTheStepBeforeAnyIndex() {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            TIMESERIES_INDEX,
+            TIMESERIES_INDEX + "_next",
+            TIMESERIES_INDEX + "_old",
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State =
+        IncrementalReindexState.setDualWriteStartTime(phase1State, TIMESERIES_INDEX, 2000L);
+    setupPhase1Result(phase1State);
+    IncrementalReindexCatchUpStep failingReadStep =
+        new IncrementalReindexCatchUpStep(
+            opContext,
+            entityService,
+            aspectDao,
+            List.of(indexedService),
+            () -> {
+              throw new IllegalStateException("database unavailable");
+            },
+            UPGRADE_VERSION,
+            new BuildIndicesConfiguration(),
+            updateIndicesService);
+
+    assertEquals(
+        failingReadStep.executable().apply(upgradeContext).result(), DataHubUpgradeState.FAILED);
+    // The step fails as a whole; no index is processed or recorded as failed for it.
+    verify(upgrade, never()).setUpgradeResult(any(), any(), any(), any(), any());
+  }
+
   private void setupPhase1Result(Map<String, String> phase1State) {
     DataHubUpgradeResult phase1Result = mock(DataHubUpgradeResult.class);
     when(phase1Result.getResult()).thenReturn(new StringMap(phase1State));
@@ -1626,7 +1661,7 @@ public class IncrementalReindexCatchUpStepTest {
             entityService,
             aspectDao,
             List.of(indexedService),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             config,
             updateIndicesService);
