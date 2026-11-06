@@ -18,6 +18,7 @@ import { Page, Locator, BrowserContext, expect } from '@playwright/test';
 import { LineageBasePage } from './lineage-base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
+import { GraphQLHelper } from '../helpers/graphql-helper';
 
 export class LineageV3Page extends LineageBasePage {
   readonly advSearchAddFilterButton: Locator;
@@ -109,9 +110,13 @@ export class LineageV3Page extends LineageBasePage {
     await this.clickAddFilter();
     await this.clickFilterByDescription();
     await this.typeFilterText(text);
+    // Callers assert on the filtered results, and the unfiltered ones are still on screen until
+    // the filtered lineage search returns.
+    const filtered = new GraphQLHelper(this.page).waitForGraphQLResponse('searchAcrossLineage', (variables) =>
+      JSON.stringify(variables).includes(text),
+    );
     await this.confirmFilterText();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.SHORT);
+    await filtered;
   }
 
   // ── Time-Range Filtering ────────────────────────────────────────────────────

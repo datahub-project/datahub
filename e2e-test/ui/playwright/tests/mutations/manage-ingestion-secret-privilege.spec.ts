@@ -30,11 +30,6 @@ let _registeredEmail = '';
 test.describe.skip('Manage Ingestion and Secret Privileges', () => {
   test.describe.configure({ mode: 'serial' });
 
-  test.beforeEach(async ({ apiMock }) => {
-    // Disable the ingestion page redesign so the classic ingestion UI is used
-    await apiMock.setFeatureFlags({ showIngestionPageRedesign: false });
-  });
-
   test('create Metadata Ingestion platform policy and assign privileges to all users', async ({
     page,
     logger,
