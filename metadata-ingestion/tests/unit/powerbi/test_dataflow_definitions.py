@@ -512,17 +512,44 @@ in
 
 
 @pytest.mark.parametrize(
-    "extract_dataflows,listed,advice",
+    "mode,extract_dataflows,listed,advice,is_warning",
     [
-        pytest.param(False, False, "Enable extract_dataflows", id="flag_off"),
-        pytest.param(True, False, "workspace_id_pattern", id="other_workspace"),
-        pytest.param(True, True, "could not be fetched", id="fetch_failed"),
+        pytest.param(
+            "workspace_apis",
+            False,
+            False,
+            "Enable extract_dataflows",
+            False,
+            id="flag_off",
+        ),
+        pytest.param(
+            "admin_scan", False, False, "workspace_apis", False, id="admin_scan"
+        ),
+        pytest.param(
+            "workspace_apis",
+            True,
+            False,
+            "workspace_id_pattern",
+            True,
+            id="other_workspace",
+        ),
+        pytest.param(
+            "workspace_apis",
+            True,
+            True,
+            "could not be fetched",
+            True,
+            id="fetch_failed",
+        ),
     ],
 )
-def test_reference_to_dataflow_outside_the_run_warns_without_an_edge(
-    extract_dataflows: bool, listed: bool, advice: str
+def test_reference_to_dataflow_outside_the_run_skips_the_edge(
+    mode: str, extract_dataflows: bool, listed: bool, advice: str, is_warning: bool
 ) -> None:
-    api = _api(_config(extract_dataflows=extract_dataflows))
+    """A skipped edge is only a warning when dataflows are being ingested; with
+    extract_dataflows off (always so in admin_scan) it is expected on every run
+    and reported as info, with advice that fits the mode."""
+    api = _api(_config(metadata_api_mode=mode, extract_dataflows=extract_dataflows))
     workspace = _workspace()
     if listed:
         with requests_mock.Mocker() as m:
@@ -540,11 +567,12 @@ def test_reference_to_dataflow_outside_the_run_warns_without_an_edge(
     assert mcps == []
     assert api.reporter.dataflow_references_not_ingested == 1
     assert api.reporter.dataflow_references_resolved == 0
-    warning = next(
-        w for w in api.reporter.warnings if w.title == "Dataflow Not Ingested"
-    )
-    assert advice in str(warning.message)
-    assert OTHER_DATAFLOW_ID in str(warning.context)
+    reported_as = api.reporter.warnings if is_warning else api.reporter.infos
+    other = api.reporter.infos if is_warning else api.reporter.warnings
+    entry = next(e for e in reported_as if e.title == "Dataflow Not Ingested")
+    assert advice in str(entry.message)
+    assert OTHER_DATAFLOW_ID in str(entry.context)
+    assert "Dataflow Not Ingested" not in {e.title for e in other}
 
 
 def test_reference_to_an_entity_the_dataflow_does_not_load_warns() -> None:

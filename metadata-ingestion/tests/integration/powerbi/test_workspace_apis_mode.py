@@ -756,9 +756,11 @@ def test_workspace_apis_enrichment_flags_off(
         w.title for w in report.warnings
     ]
     # The model table that reads the dataflow gets no edge (no phantom
-    # lineage), only a warning.
+    # lineage). Dataflows are not being ingested, so that is info, not a
+    # warning.
     assert report.dataflow_references_not_ingested == 1  # counted once
-    assert "Dataflow Not Ingested" in {w.title for w in report.warnings}
+    assert "Dataflow Not Ingested" in {i.title for i in report.infos}
+    assert "Dataflow Not Ingested" not in {w.title for w in report.warnings}
     with open(output_path) as f:
         assert not any("dataflows." in mcp["entityUrn"] for mcp in json.load(f))
 
