@@ -52,6 +52,7 @@ from datahub.ingestion.source.powerbi.m_query.odbc import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     Table,
+    is_calculated_column,
 )
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 from datahub.metadata.urns import DatasetUrn
@@ -271,6 +272,18 @@ def urn_to_lowercase(value: str, flag: bool) -> str:
     return value
 
 
+def _source_column_name(column: Column) -> str:
+    """The name the column has in the M query output: TMDL `sourceColumn` when
+    the model renamed it, otherwise the display name."""
+    return column.source_column or column.name
+
+
+def _source_columns(pbi_columns: Optional[List[Column]]) -> List[Column]:
+    """Columns that exist in the partition's source. A calculated column is
+    computed by DAX inside the model, so it has no upstream column."""
+    return [col for col in pbi_columns or [] if not is_calculated_column(col)]
+
+
 def _remap_column_lineage_to_pbi_fields(
     column_lineage: List[ColumnLineageInfo],
     pbi_columns: Optional[List[Column]],
@@ -280,11 +293,16 @@ def _remap_column_lineage_to_pbi_fields(
     PowerBI fields keep their original casing from the API response. Without this
     remap the downstream schemaField URN does not resolve and the column-level
     edge points to a non-existent field. Applied for every SQL-parsing path via
-    parse_custom_sql (native-query, ODBC, and the two/three-step patterns)."""
+    parse_custom_sql (native-query, ODBC, and the two/three-step patterns).
+    A SQL output column is matched against the field's source column name, so a
+    field the model renamed still resolves to its Power BI display name."""
     if not column_lineage or not pbi_columns:
         return column_lineage
 
-    pbi_col_map: Dict[str, str] = {col.name.lower(): col.name for col in pbi_columns}
+    pbi_col_map: Dict[str, str] = {
+        _source_column_name(col).lower(): col.name
+        for col in _source_columns(pbi_columns)
+    }
 
     remapped: List[ColumnLineageInfo] = []
     for cll_info in column_lineage:
@@ -348,7 +366,9 @@ def _rename_sql_output_columns(
     if not column_rename_steps or not column_lineage:
         return column_lineage
 
-    pbi_names = {col.name.lower() for col in pbi_columns} if pbi_columns else set()
+    pbi_names = {
+        _source_column_name(col).lower() for col in _source_columns(pbi_columns)
+    }
     renamed_lineage: List[ColumnLineageInfo] = []
     for info in column_lineage:
         output_name = info.downstream.column if info.downstream else ""
@@ -381,9 +401,10 @@ def apply_table_rename_columns(
 ) -> Lineage:
     """Point table-navigation column lineage at Table.RenameColumns names.
 
-    Navigation lineage copies each Power BI field name onto the upstream side, so
-    the upstream column is mapped back to its pre-rename name. Native SQL lineage
-    already applied the renames in parse_custom_sql and is returned unchanged.
+    Navigation lineage copies each Power BI field's source column name (the name
+    the M query output has) onto the upstream side, so the upstream column is
+    mapped back to its pre-rename name. Native SQL lineage already applied the
+    renames in parse_custom_sql and is returned unchanged.
     """
     if (
         not column_rename_steps
@@ -394,24 +415,23 @@ def apply_table_rename_columns(
 
     updated: List[ColumnLineageInfo] = []
     for info in lineage.column_lineage:
-        downstream_name = info.downstream.column if info.downstream else ""
-        source_name = (
-            _name_before_renames(downstream_name, column_rename_steps)
-            if downstream_name
-            else downstream_name
-        )
-        if source_name == downstream_name:
+        renamed_upstreams = [
+            ColumnRef(
+                table=ref.table,
+                column=_name_before_renames(ref.column, column_rename_steps),
+            )
+            for ref in info.upstreams
+        ]
+        if all(
+            renamed.column == ref.column
+            for renamed, ref in zip(renamed_upstreams, info.upstreams, strict=True)
+        ):
             updated.append(info)
             continue
         updated.append(
             ColumnLineageInfo(
                 downstream=info.downstream,
-                upstreams=[
-                    ColumnRef(table=ref.table, column=source_name)
-                    if ref.column == downstream_name
-                    else ref
-                    for ref in info.upstreams
-                ],
+                upstreams=renamed_upstreams,
                 logic=info.logic,
             )
         )
@@ -936,6 +956,26 @@ class AbstractLineage(ABC):
         # with no upstreams is a meaningless edge, so skip it rather than propagate it.
         column_lineage = [cll for cll in column_lineage if cll.upstreams]
 
+        # An output column that is not a source column of the Power BI table
+        # (a calculated column of the same name, or a column the model
+        # dropped) would become an edge onto a field it does not feed. The
+        # remap above already turned matched outputs into display names.
+        if self.table.columns:
+            source_field_names = {
+                col.name.casefold() for col in _source_columns(self.table.columns)
+            }
+            kept: List[ColumnLineageInfo] = []
+            for cll in column_lineage:
+                downstream_name = cll.downstream.column if cll.downstream else ""
+                if downstream_name.casefold() in source_field_names:
+                    kept.append(cll)
+                else:
+                    self.reporter.cll_dropped_not_a_source_column += 1
+                    self.reporter.cll_dropped_columns.append(
+                        f"{self.table.full_name}.{downstream_name}"
+                    )
+            column_lineage = kept
+
         return Lineage(
             upstreams=dataplatform_tables,
             column_lineage=column_lineage,
@@ -946,7 +986,9 @@ class AbstractLineage(ABC):
         column_lineage = []
 
         if self.table.columns is not None:
-            for column in self.table.columns:
+            # A calculated column is computed by DAX inside the model; an edge
+            # to a same-named column of the upstream table would be invented.
+            for column in _source_columns(self.table.columns):
                 downstream = DownstreamColumnRef(
                     table=self.table.name,
                     column=column.name,
@@ -957,12 +999,14 @@ class AbstractLineage(ABC):
                 upstreams = [
                     ColumnRef(
                         table=urn,
-                        # Preserve the source column casing so the upstream
-                        # schemaField URN matches the warehouse's field, which
-                        # stores columns in their original casing. Lowercasing is
-                        # governed for the dataset portion by
-                        # convert_lineage_urns_to_lowercase downstream in powerbi.py.
-                        column=column.name,
+                        # The upstream column keeps the source column name and
+                        # casing (TMDL `sourceColumn` when the model renamed the
+                        # field) so the upstream schemaField URN matches the
+                        # warehouse's field, which stores columns in their
+                        # original casing. Lowercasing is governed for the
+                        # dataset portion by convert_lineage_urns_to_lowercase
+                        # downstream in powerbi.py.
+                        column=_source_column_name(column),
                     )
                 ]
 

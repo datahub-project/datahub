@@ -4,8 +4,11 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Set
 
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
-    MeasureReference,
+    DaxFieldReference,
     Relationship,
+)
+from datahub.ingestion.source.powerbi.rest_api_wrapper.dax_parser import (
+    extract_dax_references,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     DefinitionPart,
@@ -36,7 +39,9 @@ PROP_EXPRESSION_SOURCE = "expressionSource"
 PROP_FROM_COLUMN = "fromColumn"
 PROP_TO_COLUMN = "toColumn"
 PROP_IS_ACTIVE = "isActive"
+PROP_TYPE = "type"
 FLAG_IS_HIDDEN = "isHidden"
+COLUMN_TYPE_CALCULATED = "calculated"
 
 PartitionKind = Literal["m", "query", "calculated", "entity"]
 PARTITION_KIND_M: PartitionKind = "m"
@@ -80,14 +85,8 @@ OBJECT_LINE_RE = re.compile(
     r"^(?P<keyword>[A-Za-z_]\w*)(?:\s+(?P<name>'(?:[^']|'')*'|[^=\s]\S*))?\s*(?:=(?P<value>.*))?$"
 )
 PROPERTY_LINE_RE = re.compile(r"^(?P<key>[A-Za-z_]\w*)\s*:\s*(?P<value>.*)$")
-# `'Table'[Column]`, `Table[Column]` or a bare `[Measure]` reference in DAX.
-DAX_REFERENCE_RE = re.compile(
-    r"(?:'(?P<quoted>(?:[^']|'')+)'|(?P<bare>[A-Za-z_][\w]*))?\[(?P<field>[^\]]+)\]"
-)
 # `Sql.Database("<server>", "<sql endpoint id>")` inside a shared expression.
 SQL_DATABASE_RE = re.compile(r'Sql\.Database\(\s*"([^"]+)"\s*,\s*"([^"]+)"')
-# A quoted DAX table name, `'Table Name'`; `''` escapes a quote.
-DAX_QUOTED_TABLE_RE = re.compile(r"'((?:[^']|'')+)'")
 
 
 @dataclass
@@ -130,6 +129,13 @@ class ParsedColumn:
     is_hidden: bool
     description: Optional[str]
     expression: Optional[str]
+    # `column X = <DAX>` or `type: calculated`: the column is computed in the
+    # model and has no column in the partition's source.
+    is_calculated: bool = False
+    # Model fields the calculated column's DAX reads, and whether that DAX
+    # iterates a table (a bare `[Column]` then belongs to the iterated table).
+    references: List[DaxFieldReference] = field(default_factory=list)
+    has_row_context_iterators: bool = False
 
 
 @dataclass
@@ -138,7 +144,10 @@ class ParsedMeasure:
     expression: str
     is_hidden: bool
     description: Optional[str]
-    references: List[MeasureReference]
+    references: List[DaxFieldReference]
+    # Whether the DAX iterates a table (a bare `[Column]` then belongs to the
+    # iterated table rather than naming a measure).
+    has_row_context_iterators: bool = False
 
 
 @dataclass
@@ -300,23 +309,8 @@ def parse_tmdl(text: str, unparsed: Optional[List[str]] = None) -> List[TmdlNode
     return roots
 
 
-def _dax_references(expression: str) -> List[MeasureReference]:
-    references: List[MeasureReference] = []
-    seen: Set[str] = set()
-    for match in DAX_REFERENCE_RE.finditer(expression):
-        table = match.group("quoted") or match.group("bare")
-        field_name = match.group("field").strip()
-        # `[@Alias]` is a row-context variable, not a model field.
-        if field_name.startswith("@"):
-            continue
-        if table is not None:
-            table = table.replace("''", "'")
-        key = f"{table}|{field_name}"
-        if key in seen:
-            continue
-        seen.add(key)
-        references.append(MeasureReference(table=table, field=field_name))
-    return references
+def _dax_references(expression: str) -> List[DaxFieldReference]:
+    return extract_dax_references(expression).fields
 
 
 def _parse_partition(node: TmdlNode) -> ParsedPartition:
@@ -372,6 +366,12 @@ def parse_table(
         if column.name is None:
             continue
         raw_type = column.properties.get(PROP_DATA_TYPE)
+        expression = column.expression
+        is_calculated = (
+            expression is not None
+            or column.properties.get(PROP_TYPE, "").strip() == COLUMN_TYPE_CALCULATED
+        )
+        dax = extract_dax_references(expression)
         columns.append(
             ParsedColumn(
                 name=column.name,
@@ -381,7 +381,10 @@ def parse_table(
                 source_column=column.properties.get(PROP_SOURCE_COLUMN),
                 is_hidden=FLAG_IS_HIDDEN in column.flags,
                 description=column.description,
-                expression=column.expression,
+                expression=expression,
+                is_calculated=is_calculated,
+                references=dax.fields,
+                has_row_context_iterators=dax.has_row_context_iterators,
             )
         )
 
@@ -390,13 +393,15 @@ def parse_table(
         if measure.name is None:
             continue
         expression = measure.expression or ""
+        dax = extract_dax_references(expression)
         measures.append(
             ParsedMeasure(
                 name=measure.name,
                 expression=expression,
                 is_hidden=FLAG_IS_HIDDEN in measure.flags,
                 description=measure.description,
-                references=_dax_references(expression),
+                references=dax.fields,
+                has_row_context_iterators=dax.has_row_context_iterators,
             )
         )
 
@@ -504,16 +509,4 @@ def parse_semantic_model(parts: List[DefinitionPart]) -> ParsedModel:
 
 def dax_table_references(expression: str) -> List[str]:
     """Distinct model tables a DAX expression reads from, in order of appearance."""
-    tables: List[str] = []
-    for reference in _dax_references(expression):
-        if reference.table and reference.table not in tables:
-            tables.append(reference.table)
-    # Quoted names are consumed left to right so a closing quote is never
-    # paired with the opening quote of the next reference.
-    for match in DAX_QUOTED_TABLE_RE.finditer(expression):
-        if expression[match.end() : match.end() + 1] == "[":
-            continue
-        table = match.group(1).replace("''", "'")
-        if table not in tables:
-            tables.append(table)
-    return tables
+    return extract_dax_references(expression).tables
