@@ -1,11 +1,10 @@
 import unittest
 from unittest.mock import patch
 
-import pydantic
 import pytest
 
+from datahub.configuration.common import ConfigurationWarning
 from datahub.emitter.kafka_emitter import (
-    DEFAULT_MCE_KAFKA_TOPIC,
     DEFAULT_MCP_KAFKA_TOPIC,
     MCE_KEY,
     MCP_KEY,
@@ -14,6 +13,7 @@ from datahub.emitter.kafka_emitter import (
     _warn_mce_deprecated,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.errors import DataHubDeprecationWarning
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -26,70 +26,41 @@ from datahub.metadata.schema_classes import (
 
 
 class KafkaEmitterTest(unittest.TestCase):
+    def setUp(self):
+        _warn_mce_deprecated.cache_clear()
+        self.addCleanup(_warn_mce_deprecated.cache_clear)
+
     def test_kafka_emitter_config(self):
         with self.assertNoLogs("datahub.emitter.kafka_emitter", "WARNING"):
             emitter_config = KafkaEmitterConfig.model_validate(
                 {"connection": {"bootstrap": "foobar:9092"}}
             )
-        assert emitter_config.topic_routes[MCE_KEY] == DEFAULT_MCE_KAFKA_TOPIC
-        assert emitter_config.topic_routes[MCP_KEY] == DEFAULT_MCP_KAFKA_TOPIC
+        assert emitter_config.topic_routes == {MCP_KEY: DEFAULT_MCP_KAFKA_TOPIC}
 
-    def test_kafka_emitter_config_old_and_new(self):
-        """Respecifying old and new topic config should barf."""
-        with pytest.raises(pydantic.ValidationError):
+    def test_kafka_emitter_config_mce_route_ignored(self):
+        with self.assertLogs("datahub.emitter.kafka_emitter", "WARNING") as logs:
             KafkaEmitterConfig.model_validate(
                 {
                     "connection": {"bootstrap": "foobar:9092"},
-                    "topic": "NewTopic",
-                    "topic_routes": {MCE_KEY: "NewTopic"},
+                    "topic_routes": {MCE_KEY: "MCE_Topic", MCP_KEY: "MCP_Topic"},
                 }
             )
+        assert any("MCP_Topic" in r.getMessage() for r in logs.records)
 
-    def test_kafka_emitter_config_topic_upgrade(self):
-        """Old topic config provided should get auto-upgraded to new topic_routes."""
-        with self.assertLogs("datahub.emitter.kafka_emitter", "WARNING") as logs:
+    def test_kafka_emitter_config_topic_removed(self):
+        with pytest.warns(ConfigurationWarning):
             emitter_config = KafkaEmitterConfig.model_validate(
                 {"connection": {"bootstrap": "foobar:9092"}, "topic": "NewTopic"}
             )
-        assert any("route is ignored" in r.getMessage() for r in logs.records)
-        assert emitter_config.topic_routes[MCE_KEY] == "NewTopic"  # MCE topic upgraded
-        assert (
-            emitter_config.topic_routes[MCP_KEY] == DEFAULT_MCP_KAFKA_TOPIC
-        )  # No change to MCP
-
-    def test_kafka_emitter_config_missing_mce_key(self):
-        """Missing MCE_KEY in topic_routes should not raise an error."""
-        emitter_config = KafkaEmitterConfig.parse_obj(
-            {
-                "connection": {"bootstrap": "foobar:9092"},
-                "topic_routes": {MCP_KEY: "MCP_Topic"},
-            }
-        )
-        assert MCE_KEY not in emitter_config.topic_routes
-        assert emitter_config.topic_routes[MCP_KEY] == "MCP_Topic"
-
-    @patch("datahub.emitter.kafka_emitter.SerializingProducer")
-    def test_no_producer_for_mce_key(self, mock_producer):
-        """No producer should be created for MCE_KEY if it's missing in topic_routes."""
-        emitter_config = KafkaEmitterConfig.parse_obj(
-            {
-                "connection": {"bootstrap": "foobar:9092"},
-                "topic_routes": {MCP_KEY: "MCP_Topic"},
-            }
-        )
-        emitter = DatahubKafkaEmitter(config=emitter_config)
-
-        # Ensure no producer is created for MCE_KEY
-        assert MCE_KEY not in emitter.producers
-        assert MCP_KEY in emitter.producers
+        assert emitter_config.topic_routes == {MCP_KEY: DEFAULT_MCP_KAFKA_TOPIC}
 
     @patch("datahub.emitter.kafka_emitter.SerializingProducer")
     def test_emit_mce_produces_mcp_per_aspect(self, mock_producer):
-        """An MCE is published as one MCP per aspect to the MCP topic, even without an MCE route."""
+        """An MCE is published as one MCP per aspect to the MCP topic, even with an MCE route set."""
         emitter_config = KafkaEmitterConfig.model_validate(
             {
                 "connection": {"bootstrap": "foobar:9092"},
-                "topic_routes": {MCP_KEY: "MCP_Topic"},
+                "topic_routes": {MCE_KEY: "MCE_Topic", MCP_KEY: "MCP_Topic"},
             }
         )
         emitter = DatahubKafkaEmitter(config=emitter_config)
@@ -101,10 +72,10 @@ class KafkaEmitterTest(unittest.TestCase):
             )
         )
 
-        def callback(err, msg):
-            pass
+        results = []
 
-        emitter.emit(mce, callback=callback)
+        with pytest.warns(DataHubDeprecationWarning):
+            emitter.emit(mce, callback=lambda err, msg: results.append(err))
 
         produce_calls = mock_producer.return_value.produce.call_args_list
         assert [c.kwargs["topic"] for c in produce_calls] == ["MCP_Topic"] * 2
@@ -112,7 +83,59 @@ class KafkaEmitterTest(unittest.TestCase):
         assert all(isinstance(v, MetadataChangeProposalWrapper) for v in values)
         assert [v.aspect for v in values] == [status, ownership]
         assert {c.kwargs["key"] for c in produce_calls} == {"urn:li:dataset:123"}
-        assert all(c.kwargs["on_delivery"] is callback for c in produce_calls)
+
+        # One callback per MCE, fired once every aspect is delivered.
+        for c in produce_calls:
+            assert results == []
+            c.kwargs["on_delivery"](None, "msg")
+        assert results == [None]
+
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer")
+    def test_emit_mce_delivery_failure_reports_once(self, mock_producer):
+        emitter = DatahubKafkaEmitter(
+            config=KafkaEmitterConfig.model_validate(
+                {"connection": {"bootstrap": "foobar:9092"}}
+            )
+        )
+        mce = MetadataChangeEvent(
+            proposedSnapshot=DatasetSnapshotClass(
+                urn="urn:li:dataset:123",
+                aspects=[StatusClass(removed=False), OwnershipClass(owners=[])],
+            )
+        )
+        results = []
+
+        with pytest.warns(DataHubDeprecationWarning):
+            emitter.emit(mce, callback=lambda err, msg: results.append(err))
+
+        for c in mock_producer.return_value.produce.call_args_list:
+            c.kwargs["on_delivery"]("delivery failed", "msg")
+        assert results == ["delivery failed"]
+
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer")
+    def test_emit_mce_produce_failure_raises_without_callback(self, mock_producer):
+        emitter = DatahubKafkaEmitter(
+            config=KafkaEmitterConfig.model_validate(
+                {"connection": {"bootstrap": "foobar:9092"}}
+            )
+        )
+        mce = MetadataChangeEvent(
+            proposedSnapshot=DatasetSnapshotClass(
+                urn="urn:li:dataset:123",
+                aspects=[StatusClass(removed=False), OwnershipClass(owners=[])],
+            )
+        )
+        mock_producer.return_value.produce.side_effect = [None, RuntimeError("boom")]
+        results = []
+
+        with pytest.raises(RuntimeError), pytest.warns(DataHubDeprecationWarning):
+            emitter.emit(mce, callback=lambda err, msg: results.append(err))
+
+        # The first aspect's late delivery failure must not report the record a second time.
+        first_call = mock_producer.return_value.produce.call_args_list[0]
+        with self.assertLogs("datahub.emitter.kafka_emitter", "ERROR"):
+            first_call.kwargs["on_delivery"]("delivery failed", "msg")
+        assert results == []
 
     @patch("datahub.emitter.kafka_emitter.SerializingProducer")
     def test_emit_mce_without_aspects_still_calls_back(self, mock_producer):
@@ -126,7 +149,8 @@ class KafkaEmitterTest(unittest.TestCase):
         )
         results = []
 
-        emitter.emit(mce, callback=lambda err, msg: results.append(err))
+        with pytest.warns(DataHubDeprecationWarning):
+            emitter.emit(mce, callback=lambda err, msg: results.append(err))
 
         assert results == [None]
         mock_producer.return_value.produce.assert_not_called()
@@ -144,15 +168,16 @@ class KafkaEmitterTest(unittest.TestCase):
             )
         )
 
-        _warn_mce_deprecated.cache_clear()
         with (
-            pytest.warns(DeprecationWarning),
+            pytest.warns(DataHubDeprecationWarning) as warned,
             self.assertLogs("datahub.emitter.kafka_emitter", "WARNING") as logs,
         ):
             emitter.emit(mce, callback=lambda err, msg: None)
             emitter.emit(mce, callback=lambda err, msg: None)
 
         assert len([r for r in logs.records if "deprecated" in r.getMessage()]) == 1
+        # Attributed to the caller, not to kafka_emitter.py.
+        assert all(w.filename == __file__ for w in warned)
 
     @patch("datahub.emitter.kafka_emitter.SerializingProducer")
     def test_emit_mcp(self, mock_producer):

@@ -13,7 +13,11 @@ from confluent_kafka import KafkaError, KafkaException
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigurationError
-from datahub.emitter.kafka_emitter import MCP_KEY, MessageTooLargeError
+from datahub.emitter.kafka_emitter import (
+    MCP_KEY,
+    MessageTooLargeError,
+    _AggregatingKafkaCallback,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DataHubRestEmitter, EmitMode
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -21,7 +25,6 @@ from datahub.ingestion.api.sink import SinkReport, WriteCallback
 from datahub.ingestion.sink.datahub_kafka import (
     DatahubKafkaSink,
     KafkaSinkConfig,
-    _AggregatingKafkaCallback,
     _enhance_schema_registry_error,
     _KafkaCallback,
 )
@@ -294,7 +297,7 @@ class KafkaSinkTest(unittest.TestCase):
 def test_aggregating_callback_all_success():
     """Cover _AggregatingKafkaCallback: all N deliveries succeed."""
     mock_inner = MagicMock(spec=_KafkaCallback)
-    agg = _AggregatingKafkaCallback(total=3, inner=mock_inner)
+    agg = _AggregatingKafkaCallback(total=3, inner=mock_inner.kafka_callback)
 
     agg.kafka_callback(None, MagicMock())
     mock_inner.kafka_callback.assert_not_called()
@@ -311,7 +314,7 @@ def test_aggregating_callback_all_success():
 def test_aggregating_callback_first_fails():
     """Cover _AggregatingKafkaCallback: first delivery fails, rest succeed."""
     mock_inner = MagicMock(spec=_KafkaCallback)
-    agg = _AggregatingKafkaCallback(total=3, inner=mock_inner)
+    agg = _AggregatingKafkaCallback(total=3, inner=mock_inner.kafka_callback)
 
     mock_error = MagicMock()
     agg.kafka_callback(mock_error, MagicMock())
@@ -328,7 +331,7 @@ def test_aggregating_callback_first_fails():
 def test_aggregating_callback_last_fails():
     """Cover _AggregatingKafkaCallback: last delivery fails after others succeed."""
     mock_inner = MagicMock(spec=_KafkaCallback)
-    agg = _AggregatingKafkaCallback(total=2, inner=mock_inner)
+    agg = _AggregatingKafkaCallback(total=2, inner=mock_inner.kafka_callback)
 
     agg.kafka_callback(None, MagicMock())
     mock_inner.kafka_callback.assert_not_called()
@@ -386,7 +389,9 @@ def test_aggregating_callback_thread_safety():
 
     for _ in range(iterations):
         mock_inner = MagicMock(spec=_KafkaCallback)
-        agg = _AggregatingKafkaCallback(total=num_threads, inner=mock_inner)
+        agg = _AggregatingKafkaCallback(
+            total=num_threads, inner=mock_inner.kafka_callback
+        )
         _run_concurrent_callbacks(agg, num_threads)
 
         assert mock_inner.kafka_callback.call_count == 1, (
@@ -401,7 +406,9 @@ def test_aggregating_callback_thread_safety_with_failure():
 
     for _ in range(iterations):
         mock_inner = MagicMock(spec=_KafkaCallback)
-        agg = _AggregatingKafkaCallback(total=num_threads, inner=mock_inner)
+        agg = _AggregatingKafkaCallback(
+            total=num_threads, inner=mock_inner.kafka_callback
+        )
         _run_concurrent_callbacks(agg, num_threads, error_thread_idx=0)
 
         assert mock_inner.kafka_callback.call_count == 1, (
@@ -1238,6 +1245,87 @@ def test_kafka_sink_oversize_mce_mixed_routes_partial_to_rest_fallback(
     kafka_delivery(None, MagicMock())
     callback.on_success.assert_called_once()
     callback.on_failure.assert_not_called()
+    kafka_sink.close()
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_mce_produce_error_reports_failure_once(mock_producer):
+    """Aspect 2 of an MCE raises at produce time after aspect 1 was queued: the
+    record fails once, and aspect 1's later delivery failure does not report it again."""
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {"connection": {"bootstrap": "foobar:9092"}},
+        PipelineContext(run_id="test"),
+    )
+    mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+    mock_mcp_producer.produce.side_effect = [None, RuntimeError("serializer down")]
+
+    user_snapshot = models.CorpUserSnapshotClass(
+        urn=builder.make_user_urn("testuser"),
+        aspects=[
+            models.CorpUserInfoClass(active=True),
+            models.GroupMembershipClass(groups=[builder.make_group_urn("g1")]),
+        ],
+    )
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(
+        record=MetadataChangeEvent(proposedSnapshot=user_snapshot), metadata={}
+    )
+    kafka_sink.write_record_async(re, callback)
+    callback.on_failure.assert_called_once()
+
+    kafka_delivery = mock_mcp_producer.produce.call_args_list[0].kwargs["on_delivery"]
+    kafka_delivery(MagicMock(), MagicMock())
+    callback.on_failure.assert_called_once()
+    callback.on_success.assert_not_called()
+    kafka_sink.close()
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_mce_produce_error_after_delivery_error_reports_once(
+    mock_producer,
+):
+    """Aspect 1's delivery error fires during aspect 2's produce, which then raises:
+    the record fails once, not again from the raise."""
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {"connection": {"bootstrap": "foobar:9092"}},
+        PipelineContext(run_id="test"),
+    )
+    mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+    def produce(**kwargs: object) -> None:
+        if mock_mcp_producer.produce.call_count == 2:
+            first = mock_mcp_producer.produce.call_args_list[0].kwargs["on_delivery"]
+            first(MagicMock(), MagicMock())
+            raise RuntimeError("serializer down")
+
+    mock_mcp_producer.produce.side_effect = produce
+
+    user_snapshot = models.CorpUserSnapshotClass(
+        urn=builder.make_user_urn("testuser"),
+        aspects=[
+            models.CorpUserInfoClass(active=True),
+            models.GroupMembershipClass(groups=[builder.make_group_urn("g1")]),
+        ],
+    )
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(
+        record=MetadataChangeEvent(proposedSnapshot=user_snapshot), metadata={}
+    )
+    kafka_sink.write_record_async(re, callback)
+    callback.on_failure.assert_called_once()
+    callback.on_success.assert_not_called()
     kafka_sink.close()
 
 
