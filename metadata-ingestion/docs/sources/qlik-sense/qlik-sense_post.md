@@ -25,6 +25,10 @@ A `SELECT` whose connection resolves to no platform is skipped, and the connecti
 
 Charts inside a container object's tabs are ingested as charts of the sheet. An untitled chart takes its tab label as its title. Objects with no data, such as buttons, filter panes and variable inputs, are skipped.
 
+#### Chart input fields
+
+Each chart lists the Qlik table fields it reads as input fields, and its inputs are narrowed to the tables those fields belong to. Fields are taken from the chart's dimensions and measure expressions, including master measures. A name in an expression counts only when it matches a field of one of the app's ingested tables. For tables traced from a load script, those are the columns the SQL parser found. A field shared by several tables, such as a key field, is listed for each of them. When no field matches, the chart keeps all of the app's tables as inputs. Fields renamed by a `LOAD ... AS` statement in the load script are not matched.
+
 #### Large sites
 
 Each app is opened in the Engine without its data. `max_workers` (default 4) sets how many apps are read at the same time. Each worker holds one Engine session. `max_workers` applies to Qlik Cloud too, where rate-limited requests are retried with back-off.

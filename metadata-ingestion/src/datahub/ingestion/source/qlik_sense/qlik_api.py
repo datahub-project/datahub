@@ -245,13 +245,17 @@ class QlikAPI:
                 },
             )
             for sheet_dict in response[Constant.QLIST]:
+                depth = len(websocket_connection.handle)
                 sheet = self._get_sheet(
                     websocket_connection=websocket_connection,
                     sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
                 )
+                del websocket_connection.handle[depth:]
                 if sheet:
                     sheets.append(sheet)
-                websocket_connection.handle.pop()
+            websocket_connection.add_master_measure_definitions(
+                sheets, on_error=self._log_http_error
+            )
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch sheets for app {app_id}. Exception: {e}"

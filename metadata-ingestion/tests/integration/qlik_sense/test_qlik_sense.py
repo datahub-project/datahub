@@ -861,6 +861,55 @@ def mock_websocket_response(*args, **kwargs):
     elif request == {
         "jsonrpc": "2.0",
         "id": 8,
+        "handle": 3,
+        "method": "GetProperties",
+        "params": {},
+    }:
+        return {
+            "qProp": {
+                "qInfo": {"qId": "QYUUb", "qType": "scatterplot"},
+                "qHyperCubeDef": {
+                    "qDimensions": [{"qDef": {"qFieldDefs": ["City"]}}],
+                    "qMeasures": [
+                        {"qLibraryId": "", "qDef": {"qDef": "Sum(Date)"}},
+                        {"qLibraryId": "mWins", "qDef": {"qDef": ""}},
+                    ],
+                },
+            }
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 9,
+        "handle": 1,
+        "method": "GetMeasure",
+        "params": {"qId": "mWins"},
+    }:
+        return {
+            "qReturn": {
+                "qType": "GenericMeasure",
+                "qHandle": 5,
+                "qGenericId": "mWins",
+            }
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 10,
+        "handle": 5,
+        "method": "GetLayout",
+        "params": {},
+    }:
+        return {
+            "qLayout": {
+                "qInfo": {"qId": "mWins", "qType": "measure"},
+                "qMeasure": {
+                    "qLabel": "Wins",
+                    "qDef": "Count({<WonBy={'Runs'}>} [WinningTeam])",
+                },
+            }
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 11,
         "handle": 1,
         "method": "GetObject",
         "params": ["LoadModel"],
@@ -875,7 +924,7 @@ def mock_websocket_response(*args, **kwargs):
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 9,
+        "id": 12,
         "handle": 4,
         "method": "GetLayout",
         "params": {},

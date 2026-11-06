@@ -6,7 +6,7 @@ from typing import Callable, Dict, List, Literal, Optional, Union
 from websocket import WebSocket, create_connection
 
 from datahub.ingestion.source.qlik_sense.config import Constant
-from datahub.ingestion.source.qlik_sense.data_classes import Chart
+from datahub.ingestion.source.qlik_sense.data_classes import Chart, Sheet
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +129,9 @@ class WebsocketConnection:
             self.websocket_send_request(method="GetChild", params={"qId": object_id})
             q_layout = self.websocket_send_request(method="GetLayout")[Constant.QLAYOUT]
             if Constant.HYPERCUBE in q_layout:
-                return [Chart.model_validate(q_layout)]
+                chart = Chart.model_validate(q_layout)
+                self._add_measure_definitions(chart, sheet_id, on_error)
+                return [chart]
             object_type = q_layout.get(Constant.QINFO, {}).get(Constant.QTYPE)
             if object_type != Constant.CONTAINER:
                 logger.debug(
@@ -157,6 +159,59 @@ class WebsocketConnection:
             return []
         finally:
             del self.handle[depth:]
+
+    def _add_measure_definitions(
+        self, chart: Chart, sheet_id: str, on_error: Callable[[str], None]
+    ) -> None:
+        # The layout only carries measure titles; the expressions are in the properties.
+        try:
+            properties = self.websocket_send_request(method="GetProperties")[
+                Constant.QPROPERTY
+            ]
+        except Exception as e:
+            on_error(
+                f"Unable to read the measures of chart {chart.qId} of sheet {sheet_id}. Exception: {e}"
+            )
+            return
+        for measure in properties.get(Constant.QHYPERCUBEDEF, {}).get(
+            Constant.QMEASURES, []
+        ):
+            if measure.get(Constant.QLIBRARYID):
+                chart.measure_library_ids.append(measure[Constant.QLIBRARYID])
+            elif measure.get(Constant.QDEF, {}).get(Constant.QDEF):
+                chart.field_expressions.append(measure[Constant.QDEF][Constant.QDEF])
+
+    def add_master_measure_definitions(
+        self, sheets: List[Sheet], on_error: Callable[[str], None]
+    ) -> None:
+        """Fill in the expressions of master measures used by the charts.
+        Must be called on the app handle."""
+        charts = [chart for sheet in sheets for chart in sheet.charts]
+        expressions: Dict[str, str] = {}
+        for library_id in dict.fromkeys(
+            library_id for chart in charts for library_id in chart.measure_library_ids
+        ):
+            depth = len(self.handle)
+            try:
+                self.websocket_send_request(
+                    method="GetMeasure", params={"qId": library_id}
+                )
+                q_layout = self.websocket_send_request(method="GetLayout")[
+                    Constant.QLAYOUT
+                ]
+                expression = q_layout.get(Constant.QMEASURE, {}).get(Constant.QDEF)
+                if expression:
+                    expressions[library_id] = expression
+            except Exception as e:
+                on_error(f"Unable to read master measure {library_id}. Exception: {e}")
+            finally:
+                del self.handle[depth:]
+        for chart in charts:
+            chart.field_expressions.extend(
+                expressions[library_id]
+                for library_id in chart.measure_library_ids
+                if library_id in expressions
+            )
 
     def close_websocket(self) -> None:
         if self.socket_connection:

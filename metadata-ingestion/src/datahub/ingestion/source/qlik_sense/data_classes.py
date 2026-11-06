@@ -167,8 +167,8 @@ class QlikDataset(Item):
 
 
 class AxisProperty(_QlikBaseModel):
-    # A dimension or measure in an error state, such as one on a removed field,
-    # comes back with only its qError.
+    # The Engine leaves these out for some dimensions and measures, such as
+    # ones in an error state.
     Title: Optional[str] = Field(default=None, alias="qFallbackTitle")
     Min: Optional[str] = Field(default=None, alias="qMin")
     Max: Optional[str] = Field(default=None, alias="qMax")
@@ -181,6 +181,10 @@ class Chart(_QlikBaseModel):
     subtitle: str
     qDimension: List[AxisProperty]
     qMeasure: List[AxisProperty]
+    # Field names or expressions read by the chart's dimensions and measures.
+    field_expressions: List[str] = []
+    # Master measures keep their expression on the app rather than the chart.
+    measure_library_ids: List[str] = []
 
     @model_validator(mode="before")
     @classmethod
@@ -190,6 +194,14 @@ class Chart(_QlikBaseModel):
         values[Constant.QID] = values[Constant.QINFO][Constant.QID]
         values["qDimension"] = values[Constant.HYPERCUBE]["qDimensionInfo"]
         values["qMeasure"] = values[Constant.HYPERCUBE]["qMeasureInfo"]
+        values.setdefault(
+            "field_expressions",
+            [
+                field_def
+                for dimension in values["qDimension"]
+                for field_def in dimension.get(Constant.QGROUPFIELDDEFS) or []
+            ],
+        )
         return values
 
 
@@ -214,6 +226,11 @@ class Sheet(_QlikBaseModel):
             values[Constant.MODIFIEDDATE], QLIK_DATETIME_FORMAT
         )
         return values
+
+
+class AppField(BaseModel):
+    dataset_urn: str
+    field: SchemaField
 
 
 class QlikTable(_QlikBaseModel):

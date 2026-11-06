@@ -43,6 +43,10 @@ DATABASE_RE = re.compile(
     r"(?P<db>[^;\]\"']+)",
     re.IGNORECASE,
 )
+# Single-quoted text is a string literal in a chart expression, not a field.
+EXPRESSION_NAME_RE = re.compile(
+    r"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>[^\W\d][\w.]*)"
+)
 QUOTE_PAIRS = {"'": "'", '"': '"', "[": "]"}
 STATEMENT_SEPARATOR = ";"
 SPACE_SEPARATOR = ":"
@@ -250,6 +254,20 @@ def parse_load_script(script: str) -> List[ScriptTable]:
         else:
             pending_label = None
     return tables
+
+
+def expression_names(expression: str) -> List[str]:
+    """Names an expression may read as fields. Function names and keywords come
+    back too, so callers keep only names that are fields of the app."""
+    return [
+        name
+        for match in EXPRESSION_NAME_RE.finditer(expression)
+        if (
+            name := match.group("bracket")
+            or match.group("double")
+            or match.group("bare")
+        )
+    ]
 
 
 def infer_data_connection(name: str, descriptor: str) -> DataConnectionInfo:

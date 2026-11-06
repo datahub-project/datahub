@@ -330,6 +330,9 @@ class QlikOnPremAPI:
                 del websocket_connection.handle[depth:]
                 if sheet:
                     sheets.append(sheet)
+            websocket_connection.add_master_measure_definitions(
+                sheets, on_error=self._log_http_error
+            )
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch sheets for app {app_id}. Exception: {e}"

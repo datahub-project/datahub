@@ -10,7 +10,12 @@ import requests
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
-from datahub.ingestion.source.qlik_sense.data_classes import App, Chart, QlikTable
+from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
+    Chart,
+    QlikTable,
+    SchemaField,
+)
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -381,13 +386,19 @@ def test_onprem_reads_charts_after_a_failed_chart(
             RuntimeError("Access denied"),
             {"qReturn": {"qHandle": 3, "qType": "GenericObject"}},
             _chart_layout("ok"),
+            {"qProp": {}},
         ]
     )
     app = _read_onprem_app(mock_session_cls, mock_engine, engine)
 
     assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
     assert not app.read_complete
-    assert engine.sent_on[4:] == [("GetChild", 2), ("GetChild", 2), ("GetLayout", 3)]
+    assert engine.sent_on[4:] == [
+        ("GetChild", 2),
+        ("GetChild", 2),
+        ("GetLayout", 3),
+        ("GetProperties", 3),
+    ]
     assert engine.handle == [-1, 1]
 
 
@@ -423,8 +434,10 @@ def test_onprem_reads_charts_inside_containers(
             },
             {"qReturn": {"qHandle": 5}},
             untitled,
+            {"qProp": {}},
             {"qReturn": {"qHandle": 6}},
             _chart_layout("titled"),
+            {"qProp": {}},
         ]
     )
     app = _read_onprem_app(mock_session_cls, mock_engine, engine)
@@ -436,6 +449,75 @@ def test_onprem_reads_charts_inside_containers(
     assert app.read_complete
     assert ("GetChild", 4) in engine.sent_on
     assert engine.handle == [-1, 1]
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_reads_chart_field_expressions(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    layout = _chart_layout("sales")
+    layout["qLayout"]["qHyperCube"] = {  # type: ignore[index]
+        "qDimensionInfo": [{"qFallbackTitle": "Region", "qGroupFieldDefs": ["Region"]}],
+        "qMeasureInfo": [{"qFallbackTitle": "Sales"}, {"qFallbackTitle": "Orders"}],
+    }
+    engine = _ScriptedEngine(
+        _sheet_replies(["sales"])
+        + [
+            {"qReturn": {"qHandle": 3}},
+            layout,
+            {
+                "qProp": {
+                    "qHyperCubeDef": {
+                        "qMeasures": [
+                            {"qDef": {"qDef": "Sum([Net Sales])"}},
+                            {"qLibraryId": "orders", "qDef": {"qDef": ""}},
+                        ]
+                    }
+                }
+            },
+            {"qReturn": {"qHandle": 4, "qType": "GenericMeasure"}},
+            {"qLayout": {"qMeasure": {"qDef": "Count(order_id)"}}},
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert app.sheets[0].charts[0].field_expressions == [
+        "Region",
+        "Sum([Net Sales])",
+        "Count(order_id)",
+    ]
+    assert app.read_complete
+    assert ("GetMeasure", 1) in engine.sent_on
+    assert engine.handle == [-1, 1]
+
+
+def test_chart_input_fields_match_app_fields() -> None:
+    orders = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    customers = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)"
+    app_fields = QlikSenseSource._index_app_fields(
+        {
+            orders: [SchemaField(name="order_id"), SchemaField(name="Net Sales")],
+            customers: [SchemaField(name="order_id"), SchemaField(name="Region")],
+        }
+    )
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.field_expressions = [
+        "=Upper(region)",
+        "Sum({<Region={'Net Sales'}>} [Net Sales]) / Count(ORDER_ID)",
+    ]
+
+    assert [
+        (field.dataset_urn, field.field.name)
+        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+    ] == [
+        (customers, "Region"),
+        (orders, "Net Sales"),
+        (orders, "order_id"),
+        (customers, "order_id"),
+    ]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
