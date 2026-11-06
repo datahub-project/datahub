@@ -84,6 +84,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
@@ -113,6 +114,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.client.indices.PutMappingRequest;
 import org.opensearch.core.rest.RestStatus;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -1392,12 +1394,11 @@ public class UpdateIndicesV3StrategyTest {
     Urn chartType = UrnUtils.getUrn("urn:li:entityType:datahub.chart");
     Urn dashboardType = UrnUtils.getUrn("urn:li:entityType:datahub.dashboard");
     StructuredPropertyDefinition initialDefinition =
-        new StructuredPropertyDefinition().setEntityTypes(new UrnArray(datasetType));
+        propertyDefinition("initial.property", new UrnArray(datasetType));
     StructuredPropertyDefinition firstDefinition =
-        new StructuredPropertyDefinition().setEntityTypes(new UrnArray(datasetType, chartType));
+        propertyDefinition("first.property", new UrnArray(datasetType, chartType));
     StructuredPropertyDefinition finalDefinition =
-        new StructuredPropertyDefinition()
-            .setEntityTypes(new UrnArray(datasetType, chartType, dashboardType));
+        propertyDefinition("final.property", new UrnArray(datasetType, chartType, dashboardType));
     MCLItem firstEvent =
         aspectEvent(mockAspectSpec, firstDefinition, ChangeType.UPSERT, null, null);
     MCLItem finalEvent =
@@ -1412,20 +1413,17 @@ public class UpdateIndicesV3StrategyTest {
             eq(false),
             eq(mockAuditStamp)))
         .thenReturn(Optional.of(searchDocument("final definition")));
-    when(elasticSearchService.buildReindexConfigsWithNewStructProp(
-            eq(operationContext), eq(testUrn), any(StructuredPropertyDefinition.class)))
-        .thenReturn(List.of());
+    SearchClientShim<?> searchClient = stubMappingClient();
 
     strategy.processBatch(operationContext, Map.of(testUrn, List.of(firstEvent, finalEvent)), true);
 
-    ArgumentCaptor<StructuredPropertyDefinition> definitionCaptor =
-        ArgumentCaptor.forClass(StructuredPropertyDefinition.class);
-    verify(elasticSearchService)
+    String mapping = capturedPutMapping(searchClient);
+    assertTrue(mapping.contains("final_property"));
+    assertFalse(mapping.contains("first_property"));
+    assertFalse(mapping.contains("initial_property"));
+    verify(elasticSearchService, never())
         .buildReindexConfigsWithNewStructProp(
-            eq(operationContext), eq(testUrn), definitionCaptor.capture());
-    assertEquals(
-        definitionCaptor.getValue().getEntityTypes(),
-        new UrnArray(datasetType, chartType, dashboardType));
+            any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
   }
 
   @Test
@@ -1433,8 +1431,8 @@ public class UpdateIndicesV3StrategyTest {
     when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
     when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
     StructuredPropertyDefinition definition =
-        new StructuredPropertyDefinition()
-            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+        propertyDefinition(
+            "live.property", new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
     MCLItem event = aspectEvent(mockAspectSpec, definition, ChangeType.UPSERT, null, null);
     when(searchDocumentTransformer.transformAspect(
             eq(operationContext),
@@ -1450,6 +1448,9 @@ public class UpdateIndicesV3StrategyTest {
     verify(elasticSearchService, never())
         .buildReindexConfigsWithNewStructProp(
             any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
+    verify(mockIndexBuilder, never()).getSearchClient();
+    verify(mockIndexBuilder, never())
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), anyBoolean());
   }
 
   @Test
@@ -1457,8 +1458,9 @@ public class UpdateIndicesV3StrategyTest {
     when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
     when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
     StructuredPropertyDefinition definition =
-        new StructuredPropertyDefinition()
-            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+        propertyDefinition(
+            "baseline.property",
+            new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
     MCLItem event =
         aspectEvent(
             mockAspectSpec, definition, ChangeType.UPSERT, null, BackfillHeaders.MODE_BASELINE);
@@ -1470,15 +1472,14 @@ public class UpdateIndicesV3StrategyTest {
             eq(false),
             any()))
         .thenReturn(Optional.of(searchDocument("baseline definition")));
-    when(elasticSearchService.buildReindexConfigsWithNewStructProp(
-            any(OperationContext.class), eq(testUrn), any(StructuredPropertyDefinition.class)))
-        .thenReturn(List.of());
+    SearchClientShim<?> searchClient = stubMappingClient();
 
     strategy.processBatch(operationContext, Map.of(testUrn, List.of(event)), true);
 
-    verify(elasticSearchService)
+    assertTrue(capturedPutMapping(searchClient).contains("structuredProperties"));
+    verify(elasticSearchService, never())
         .buildReindexConfigsWithNewStructProp(
-            any(OperationContext.class), eq(testUrn), any(StructuredPropertyDefinition.class));
+            any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
     ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
         ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
     verify(elasticSearchService).writeV3SearchDocument(any(), writeCaptor.capture());
@@ -3981,6 +3982,9 @@ public class UpdateIndicesV3StrategyTest {
     spiedStrategy.processBatch(operationContext, Map.of(testUrn, List.of(delete)), true);
 
     verify(spiedStrategy, never()).updateIndexMappings(any(), any(), any(), any(), any(), any());
+    verify(mockIndexBuilder, never()).getSearchClient();
+    verify(mockIndexBuilder, never())
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), anyBoolean());
   }
 
   @Test
@@ -5215,28 +5219,148 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
-  public void testProcessBatch_UnchangedBatchStillRunsMappingHook() throws Exception {
-    MCLItem event = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
-    Status status = new Status().setRemoved(false);
-    when(event.getRecordTemplate()).thenReturn(status);
-    when(event.getPreviousRecordTemplate()).thenReturn(new Status().setRemoved(false));
-    stubTransform(status, Map.of("removed", "false"));
-    UpdateIndicesV3Strategy spiedStrategy = spy(strategy);
-
-    spiedStrategy.processBatch(
-        operationContext, Collections.singletonMap(testUrn, List.of(event)), true);
-
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
-    // Re-saving an unchanged property definition is how a failed mapping update is repaired
-    verify(spiedStrategy)
-        .updateIndexMappings(
-            eq(operationContext),
-            eq(testUrn),
-            eq(mockEntitySpec),
+  public void testProcessBatch_UnchangedStructuredPropertyDefinitionStillUpdatesMappings()
+      throws Exception {
+    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    StructuredPropertyDefinition definition =
+        propertyDefinition(
+            "unchanged.property",
+            new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+    MCLItem event = aspectEvent(mockAspectSpec, definition, ChangeType.UPSERT, null, null);
+    when(event.getPreviousRecordTemplate()).thenReturn(definition.copy());
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
             any(AspectSpec.class),
-            eq(status),
-            any());
+            anyBoolean(),
+            any()))
+        .thenReturn(Optional.of(mockSearchDocument));
+    SearchClientShim<?> searchClient = stubMappingClient();
+
+    // Re-saving an unchanged property definition is how a failed mapping update is repaired.
+    strategy.processBatch(operationContext, Map.of(testUrn, List.of(event)), true);
+
+    assertTrue(capturedPutMapping(searchClient).contains("unchanged_property"));
+  }
+
+  @Test
+  public void testBatchStructuredPropertyMappingsUseOnePutMapping() throws Exception {
+    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    UrnArray datasetTypes = new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"));
+    Urn firstUrn = UrnUtils.getUrn("urn:li:structuredProperty:scale_smoke.prop_00");
+    Urn secondUrn = UrnUtils.getUrn("urn:li:structuredProperty:scale_smoke.prop_01");
+    MCLItem firstEvent =
+        aspectEvent(
+            firstUrn,
+            mockAspectSpec,
+            propertyDefinition("scale_smoke.prop_00", datasetTypes),
+            ChangeType.UPSERT,
+            null,
+            null);
+    MCLItem secondEvent =
+        aspectEvent(
+            secondUrn,
+            mockAspectSpec,
+            propertyDefinition("scale_smoke.prop_01", datasetTypes),
+            ChangeType.UPSERT,
+            null,
+            null);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any()))
+        .thenReturn(Optional.of(mockSearchDocument));
+    SearchClientShim<?> searchClient = stubMappingClient();
+
+    strategy.processBatch(
+        operationContext,
+        Map.of(firstUrn, List.of(firstEvent), secondUrn, List.of(secondEvent)),
+        true);
+
+    ArgumentCaptor<PutMappingRequest> requestCaptor =
+        ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient, times(1))
+        .putIndexMapping(eq(operationContext), requestCaptor.capture(), any());
+    assertEquals(Set.copyOf(List.of(requestCaptor.getValue().indices())), v3EntityIndexNames());
+    String mapping = requestCaptor.getValue().source().utf8ToString();
+    assertTrue(mapping.contains("scale_smoke_prop_00"));
+    assertTrue(mapping.contains("scale_smoke_prop_01"));
+    verify(mockIndexBuilder, never())
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), anyBoolean());
+    verify(elasticSearchService, never())
+        .buildReindexConfigsWithNewStructProp(
+            any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
+  }
+
+  @Test
+  public void testBatchStructuredPropertyMappingFallsBackPerIndex() throws Exception {
+    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    UrnArray datasetTypes = new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"));
+    Urn firstUrn = UrnUtils.getUrn("urn:li:structuredProperty:scale_smoke.prop_00");
+    Urn secondUrn = UrnUtils.getUrn("urn:li:structuredProperty:scale_smoke.prop_01");
+    MCLItem firstEvent =
+        aspectEvent(
+            firstUrn,
+            mockAspectSpec,
+            propertyDefinition("scale_smoke.prop_00", datasetTypes),
+            ChangeType.UPSERT,
+            null,
+            null);
+    MCLItem secondEvent =
+        aspectEvent(
+            secondUrn,
+            mockAspectSpec,
+            propertyDefinition("scale_smoke.prop_01", datasetTypes),
+            ChangeType.UPSERT,
+            null,
+            null);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any()))
+        .thenReturn(Optional.of(mockSearchDocument));
+    SearchClientShim<?> searchClient = stubMappingClient();
+    doThrow(new IOException("combined mapping rejected"))
+        .when(searchClient)
+        .putIndexMapping(any(), any(), any());
+    Set<String> indexNames = v3EntityIndexNames();
+    String failingIndex = indexNames.iterator().next();
+    doAnswer(
+            invocation -> {
+              ReindexConfig indexState = invocation.getArgument(1);
+              if (failingIndex.equals(indexState.name())) {
+                throw new IOException("index rejected");
+              }
+              return null;
+            })
+        .when(mockIndexBuilder)
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), eq(false));
+
+    strategy.processBatch(
+        operationContext,
+        Map.of(firstUrn, List.of(firstEvent), secondUrn, List.of(secondEvent)),
+        true);
+
+    verify(searchClient, times(1)).putIndexMapping(eq(operationContext), any(), any());
+    ArgumentCaptor<ReindexConfig> indexCaptor = ArgumentCaptor.forClass(ReindexConfig.class);
+    verify(mockIndexBuilder, times(indexNames.size()))
+        .applyMappings(eq(operationContext), indexCaptor.capture(), eq(false));
+    assertEquals(
+        indexCaptor.getAllValues().stream().map(ReindexConfig::name).collect(Collectors.toSet()),
+        indexNames);
+    assertTrue(
+        indexCaptor.getAllValues().stream()
+            .allMatch(ReindexConfig::isPureStructuredPropertyAddition));
   }
 
   @Test
@@ -5303,6 +5427,41 @@ public class UpdateIndicesV3StrategyTest {
             .documentContributors(List.of())
             .semanticSearchConfiguration(semanticConfig)
             .build();
+  }
+
+  private StructuredPropertyDefinition propertyDefinition(
+      String qualifiedName, UrnArray entityTypes) {
+    return new StructuredPropertyDefinition()
+        .setQualifiedName(qualifiedName)
+        .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+        .setEntityTypes(entityTypes);
+  }
+
+  @SuppressWarnings("unchecked")
+  private SearchClientShim<?> stubMappingClient() throws IOException {
+    SearchClientShim<Object> searchClient = mock(SearchClientShim.class);
+    doReturn(searchClient).when(mockIndexBuilder).getSearchClient();
+    return searchClient;
+  }
+
+  private String capturedPutMapping(SearchClientShim<?> searchClient) throws IOException {
+    ArgumentCaptor<PutMappingRequest> requestCaptor =
+        ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient, times(1))
+        .putIndexMapping(eq(operationContext), requestCaptor.capture(), any());
+    assertEquals(Set.copyOf(List.of(requestCaptor.getValue().indices())), v3EntityIndexNames());
+    return requestCaptor.getValue().source().utf8ToString();
+  }
+
+  private Set<String> v3EntityIndexNames() {
+    return V3IndexKeys.groupEntitySpecs(operationContext.getEntityRegistry()).keySet().stream()
+        .map(
+            indexKey ->
+                operationContext
+                    .getSearchContext()
+                    .getIndexConvention()
+                    .getEntityIndexNameV3(operationContext, indexKey))
+        .collect(Collectors.toSet());
   }
 
   /** The one V3 document written for {@code searchGroup}'s alias, parsed. */

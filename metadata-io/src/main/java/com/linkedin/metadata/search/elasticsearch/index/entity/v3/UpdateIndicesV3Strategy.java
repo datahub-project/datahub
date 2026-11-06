@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -39,6 +40,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
 import java.io.IOException;
@@ -63,6 +65,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.indices.PutMappingRequest;
 
 /**
  * V3 update indices strategy implementation for UpdateIndicesService. This handles the new v3
@@ -262,12 +266,16 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       if (!v2Enabled) {
         writeSharedTimeseriesIndex(opContext, groupedEvents, throttleSummary);
       }
+      // One cluster-state update for every structured-property definition in the batch. Doing this
+      // per definition, and then per index, holds the consumer long enough that later events in
+      // the same partition (a dataset profile, for one) are not indexed before readers give up.
+      applyCoalescedStructuredPropertyMappings(
+          opContext, preparedBatches, structuredPropertiesHookEnabled);
       for (PreparedUrnBatch preparedBatch : preparedBatches) {
         processUrnBatch(
             opContext,
             preparedBatch,
             latestTimeseriesByUrn.getOrDefault(preparedBatch.urn(), Collections.emptyMap()),
-            structuredPropertiesHookEnabled,
             throttleSummary);
       }
       if (throttleSummary != null) {
@@ -431,41 +439,173 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   /**
-   * Applies structured-property definition changes to V3 index mappings. The definition written is
-   * the batch's surviving event. The previous value is the earliest one in the batch, the same
-   * baseline V2 passes into its mapping update.
+   * Puts every structured-property definition in the batch onto every V3 index in one request.
+   *
+   * <p>The definition written for a URN is that URN's surviving event. A catch-up replay carries
+   * definitions that are already on the indices it is rebuilding, and a delete carries no
+   * definition. Re-saving a definition puts its mapping again: that re-apply is the only repair
+   * when the structured-property system-update machinery is disabled (the default).
+   *
+   * <p>The body is only the shared {@code structuredProperties} object. Put mapping merges it, so
+   * each index keeps its other fields. The indices are named explicitly; a {@code *index_v3}
+   * wildcard also matches rebuild backing indices. One rejected index fails the whole request, so
+   * that falls back to one {@code applyMappings} per index.
    */
-  private void updateStructuredPropertyIndexMappings(
+  private void applyCoalescedStructuredPropertyMappings(
       @Nonnull final OperationContext opContext,
-      @Nonnull final Urn urn,
-      @Nonnull final CoalescedEvents coalescedEvents,
+      @Nonnull final List<PreparedUrnBatch> preparedBatches,
       final boolean structuredPropertiesHookEnabled) {
     if (!structuredPropertiesHookEnabled) {
       return;
     }
-    for (MCLItem event : coalescedEvents.finalEvents()) {
-      if (isCatchUpBackfillEvent(event)) {
-        continue;
+    final List<Pair<Urn, StructuredPropertyDefinition>> definitions =
+        structuredPropertyDefinitions(preparedBatches);
+    if (definitions.isEmpty()) {
+      return;
+    }
+    final Map<String, Object> mappingBody;
+    try {
+      mappingBody = structuredPropertyMappingBody(opContext, definitions);
+    } catch (RuntimeException e) {
+      log.error(
+          "Failed to build V3 structured property mappings for {} definitions",
+          definitions.size(),
+          e);
+      return;
+    }
+    if (mappingBody.isEmpty()) {
+      return;
+    }
+    final List<String> indexNames = v3EntityIndexNames(opContext);
+    if (indexNames.isEmpty()) {
+      return;
+    }
+    try {
+      log.info(
+          "Applying {} V3 structured property definition(s) to {} indices in one request",
+          definitions.size(),
+          indexNames.size());
+      final PutMappingRequest request =
+          new PutMappingRequest(indexNames.toArray(String[]::new)).source(mappingBody);
+      elasticSearchService
+          .getIndexBuilder(indexNames.get(0))
+          .getSearchClient()
+          .putIndexMapping(opContext, request, RequestOptions.DEFAULT);
+    } catch (Exception e) {
+      log.error(
+          "Combined V3 structured property mapping update failed for {} definitions; applying per index",
+          definitions.size(),
+          e);
+      applyStructuredPropertyMappingsPerIndex(opContext, indexNames, mappingBody);
+    }
+  }
+
+  /**
+   * The surviving structured-property definition of each URN. Catch-up events and deletes are
+   * skipped, matching the per-event mapping hook this replaces.
+   */
+  @Nonnull
+  private static List<Pair<Urn, StructuredPropertyDefinition>> structuredPropertyDefinitions(
+      @Nonnull final List<PreparedUrnBatch> preparedBatches) {
+    final Map<Urn, StructuredPropertyDefinition> definitionsByUrn = new LinkedHashMap<>();
+    for (PreparedUrnBatch preparedBatch : preparedBatches) {
+      for (MCLItem event : preparedBatch.coalescedEvents().finalEvents()) {
+        if (isCatchUpBackfillEvent(event) || event.getRecordTemplate() == null) {
+          continue;
+        }
+        final EntitySpec entitySpec = event.getEntitySpec();
+        final AspectSpec aspectSpec = event.getAspectSpec();
+        if (entitySpec == null
+            || aspectSpec == null
+            || !Constants.STRUCTURED_PROPERTY_ENTITY_NAME.equals(entitySpec.getName())
+            || !Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectSpec.getName())) {
+          continue;
+        }
+        final StructuredPropertyDefinition definition;
+        try {
+          definition = new StructuredPropertyDefinition(event.getRecordTemplate().data().copy());
+        } catch (CloneNotSupportedException e) {
+          log.error("Failed to copy structured property definition for URN {}", event.getUrn(), e);
+          continue;
+        }
+        if (definition.getEntityTypes() == null || definition.getEntityTypes().isEmpty()) {
+          continue;
+        }
+        definitionsByUrn.put(event.getUrn(), definition);
       }
-      // A delete carries no new definition. Mapping updates apply the surviving definition;
-      // there is nothing to put on the index for a null record.
-      if (event.getRecordTemplate() == null) {
-        continue;
-      }
+    }
+    return definitionsByUrn.entrySet().stream()
+        .map(entry -> Pair.of(entry.getKey(), entry.getValue()))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * The {@code structuredProperties} object for these definitions, wrapped as a put-mapping body.
+   * Empty when none of the definitions name a searchable entity type.
+   */
+  @Nonnull
+  private Map<String, Object> structuredPropertyMappingBody(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Pair<Urn, StructuredPropertyDefinition>> definitions) {
+    final Collection<MappingsBuilder.IndexMapping> mappings =
+        mappingsBuilder.getIndexMappings(opContext, definitions);
+    if (mappings.isEmpty()) {
+      return Map.of();
+    }
+    final Object properties = mappings.iterator().next().getMappings().get("properties");
+    if (!(properties instanceof Map<?, ?> propertyMap)) {
+      return Map.of();
+    }
+    final Object structuredProperties =
+        propertyMap.get(Constants.STRUCTURED_PROPERTY_MAPPING_FIELD);
+    if (!(structuredProperties instanceof Map<?, ?> structuredPropertyMap)) {
+      return Map.of();
+    }
+    final Object fields = structuredPropertyMap.get("properties");
+    if (!(fields instanceof Map<?, ?> fieldMap) || fieldMap.isEmpty()) {
+      return Map.of();
+    }
+    final Map<String, Object> bodyProperties = new HashMap<>();
+    bodyProperties.put(Constants.STRUCTURED_PROPERTY_MAPPING_FIELD, structuredProperties);
+    final Map<String, Object> body = new HashMap<>();
+    body.put("properties", bodyProperties);
+    return body;
+  }
+
+  @Nonnull
+  private static List<String> v3EntityIndexNames(@Nonnull final OperationContext opContext) {
+    return V3IndexKeys.groupEntitySpecs(opContext.getEntityRegistry()).keySet().stream()
+        .map(
+            indexKey ->
+                opContext
+                    .getSearchContext()
+                    .getIndexConvention()
+                    .getEntityIndexNameV3(opContext, indexKey))
+        .distinct()
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * One {@code applyMappings} per index of the same body the combined request would have sent. A
+   * failure on one index does not stop the others.
+   */
+  private void applyStructuredPropertyMappingsPerIndex(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<String> indexNames,
+      @Nonnull final Map<String, Object> mappingBody) {
+    final Map<String, Object> currentMappings = Map.of("properties", Map.of());
+    for (String indexName : indexNames) {
       try {
-        updateIndexMappings(
-            opContext,
-            event.getUrn(),
-            event.getEntitySpec(),
-            event.getAspectSpec(),
-            event.getRecordTemplate(),
-            coalescedEvents.earliestPreviousByAspect().get(event.getAspectName()));
-      } catch (RuntimeException e) {
-        log.error(
-            "Error updating V3 index mappings for aspect {} of URN {}",
-            event.getAspectName(),
-            urn,
-            e);
+        final ReindexConfig indexState =
+            ReindexConfig.builder()
+                .name(indexName)
+                .exists(true)
+                .currentMappings(currentMappings)
+                .targetMappings(mappingBody)
+                .build();
+        elasticSearchService.getIndexBuilder(indexName).applyMappings(opContext, indexState, false);
+      } catch (Exception e) {
+        log.error("Failed to apply V3 structured property mappings to index {}", indexName, e);
       }
     }
   }
@@ -678,15 +818,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull final OperationContext opContext,
       @Nonnull final PreparedUrnBatch preparedBatch,
       @Nonnull final Map<String, EnvelopedAspect> latestTimeseriesAspects,
-      final boolean structuredPropertiesHookEnabled,
       @Nullable final TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
     try {
-      processUrnBatchUnchecked(
-          opContext,
-          preparedBatch,
-          latestTimeseriesAspects,
-          structuredPropertiesHookEnabled,
-          throttleSummary);
+      processUrnBatchUnchecked(opContext, preparedBatch, latestTimeseriesAspects, throttleSummary);
     } catch (RuntimeException e) {
       // Live dual-write: one URN's V3 failure must not stall V2, and the entity's next event
       // rebuilds its document. A replay is different: nothing comes back for a URN it drops. A
@@ -723,7 +857,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull final OperationContext opContext,
       @Nonnull final PreparedUrnBatch preparedBatch,
       @Nonnull final Map<String, EnvelopedAspect> latestTimeseriesAspects,
-      final boolean structuredPropertiesHookEnabled,
       @Nullable final TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
     final Urn urn = preparedBatch.urn();
     final List<MCLItem> events = preparedBatch.originalEvents();
@@ -731,11 +864,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     final List<MCLItem> effectiveEvents = coalescedEvents.finalEvents();
     final EntitySpec entitySpec = preparedBatch.entitySpec();
     if (!preparedBatch.baselineFill() && !preparedBatch.catchUpReplay()) {
-      // V2 updates structured-property mappings from the event, including when the document
-      // write itself is a partial merge. Do this before the live write so a key delete, which
-      // returns inside the live batch, still applies a definition change in the same batch.
-      updateStructuredPropertyIndexMappings(
-          opContext, urn, coalescedEvents, structuredPropertiesHookEnabled);
       processLiveUrnBatch(opContext, preparedBatch, throttleSummary);
       return;
     }
@@ -779,10 +907,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             existingSource,
             !preparedBatch.completeBaselineFill(),
             throttleSummary);
-
-    // As on V2, the structured property mapping hook runs even when no aspect changed.
-    updateStructuredPropertyIndexMappings(
-        opContext, urn, coalescedEvents, structuredPropertiesHookEnabled);
 
     if (buildResult == null) {
       log.debug("V3 combined document is empty for URN: {}, skipping update", urn);
