@@ -62,13 +62,13 @@ from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import QlikOnPremAPI
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
-    CONNECTOR_SQL_RE,
     DataConnectionInfo,
     ScriptTableLineage,
     brackets_to_backticks,
     connection_lookup_names,
     drop_condition_variables,
     infer_data_connection,
+    is_connector_sql,
     parse_load_script,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
@@ -730,7 +730,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if script_table.label.lower() in traced:
                 continue
             self.reporter.script_tables_found += 1
-            if CONNECTOR_SQL_RE.search(script_table.sql):
+            if is_connector_sql(script_table.sql):
                 logger.debug(
                     f"App {app.id} script table {script_table.label!r} reads from "
                     "a Qlik connector, not a database table"

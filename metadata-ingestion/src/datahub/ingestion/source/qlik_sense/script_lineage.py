@@ -43,8 +43,9 @@ BACKTICK_QUOTED_PLATFORMS = {"bigquery", "databricks", "hive", "mariadb", "mysql
 # Qlik's REST, JSON and XML connectors take SQL-like text that names no
 # database table, such as SELECT ... FROM JSON (wrap on) "root" WITH CONNECTION (...).
 CONNECTOR_SQL_RE = re.compile(
-    r"\bFROM\s+(?:JSON|XML|CSV)\b|\bWITH\s+CONNECTION\s*\(", re.IGNORECASE
+    r"\bFROM\s+(?:JSON|XML|CSV)\s*[(\"]|\bWITH\s+CONNECTION\s*\(", re.IGNORECASE
 )
+STRING_LITERAL_SQL_RE = re.compile(r"'[^']*'")
 # A bracket after a name or a closing bracket is an index, as in values[0].
 BRACKET_IDENTIFIER_RE = re.compile(
     r"'[^']*'|\"[^\"]*\"|`[^`]*`|(?<![\w\])])\[(?P<name>[^\]]*)\]"
@@ -52,12 +53,10 @@ BRACKET_IDENTIFIER_RE = re.compile(
 # A variable the script never set, used as a whole condition such as
 # ON a = b $(vWhere) AND c = 1. It cannot name a table, so dropping it only
 # loses a filter.
-CONDITION_VARIABLE_RE = re.compile(
-    r"(?<=\s)\$\([^()]*\)(?=\s+(?:AND|OR)\b)", re.IGNORECASE
-)
-KEYWORD_BEFORE_CONDITION_RE = re.compile(
-    r"(?:\b(?:WHERE|AND|OR)|\()\s*$", re.IGNORECASE
-)
+CONDITION_VARIABLE_RE = re.compile(r"(?<=[\s(])\$\([^()]*\)(?=[\s);]|$)")
+CONDITION_START_RE = re.compile(r"(?:\b(?:WHERE|ON|AND|OR)|\()\s*$", re.IGNORECASE)
+OPERAND_END_RE = re.compile(r"[\w'\"`\])]\s*$")
+CONDITION_JOIN_RE = re.compile(r"\s+(?:AND|OR)\b", re.IGNORECASE)
 LOAD_RE = re.compile(r"^LOAD\b", re.IGNORECASE)
 LOAD_SOURCE_RE = re.compile(r"\b(?:FROM|RESIDENT|INLINE|AUTOGENERATE)\b", re.IGNORECASE)
 QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]")
@@ -346,10 +345,18 @@ def brackets_to_backticks(sql: str) -> str:
     )
 
 
+def is_connector_sql(sql: str) -> bool:
+    return bool(CONNECTOR_SQL_RE.search(STRING_LITERAL_SQL_RE.sub("''", sql)))
+
+
 def drop_condition_variables(sql: str) -> str:
-    return CONDITION_VARIABLE_RE.sub(
-        lambda match: (
-            "1 = 1" if KEYWORD_BEFORE_CONDITION_RE.search(sql, 0, match.start()) else ""
-        ),
-        sql,
-    )
+    def replace(match: "re.Match[str]") -> str:
+        if CONDITION_START_RE.search(sql, 0, match.start()):
+            return "1 = 1"
+        if OPERAND_END_RE.search(sql, 0, match.start()) and CONDITION_JOIN_RE.match(
+            sql, match.end()
+        ):
+            return ""
+        return match.group(0)
+
+    return CONDITION_VARIABLE_RE.sub(replace, sql)
