@@ -8551,11 +8551,11 @@ wheels = [
 
 [[package]]
 name = "oauthlib"
-version = "4.0.0"
+version = "4.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7a/d8/a1bcc8ba112a627f8ffbdc212a78ce18d3ac07e91a5ca65d27918eee25a1/oauthlib-4.0.0.tar.gz", hash = "sha256:efb274799819440f95b4ab3b818869f1ce9ae26c5beacba0201d1a1b76b54f86", size = 187232, upload-time = "2026-09-28T06:01:18.77Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/17/2bb072de0b990303c985f26869fd47bb179024a051f47e7f9d208eb92f8e/oauthlib-4.0.1.tar.gz", hash = "sha256:3d73febdb6faa00f277c81fb04be7b7586fb96fc3b7f0b9c772dada69a25ede7", size = 191219, upload-time = "2026-10-31T09:52:58.008Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/f4/78229a1066068ca14fc60fb26cf7381cabe4382261392b90e5f9552722d4/oauthlib-4.0.0-py3-none-any.whl", hash = "sha256:624c28c13a0a59cabf9747dfa52af63be3e512a7f2714df16e91b5b3a145e6cd", size = 159715, upload-time = "2026-09-28T06:01:17.008Z" },
+    { url = "https://files.pythonhosted.org/packages/df/ef/3b8adde1b32a6f540758bff734d3442c621734c83708e5f02b0ba2f43b84/oauthlib-4.0.1-py3-none-any.whl", hash = "sha256:498a298876e996301950a5b053d12c31628bb7b895db03666430c69ce182eb61", size = 161934, upload-time = "2026-10-31T09:52:56.206Z" },
 ]
 
 [[package]]
@@ -11807,10 +11807,6 @@ dependencies = [
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a6/ff/8cba0819493de02c460e1584a98df088231fc970b141e04205a93ddbaf71/sqlglotc-30.22.0.tar.gz", hash = "sha256:c0df3d87f16436b8aaaa96e1f446d009e636b819411d5320b85fc315d85891c3", size = 531858, upload-time = "2026-10-09T16:08:10.052Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/71/0b/ca572324a4eb0f1808a7763534b28b5249a501d6577c28319b0e669bf5dd/sqlglotc-30.22.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:6aff6f31f228e53ae7ffa91d7a4070e765697ec14d4aaf2c4ec4fbcd6f69c16f", size = 33780271, upload-time = "2026-10-09T16:06:46.862Z" },
-    { url = "https://files.pythonhosted.org/packages/cf/78/47202f92ad9a711de69f2c03f151574ff62c3622d0b8df025e798858cd90/sqlglotc-30.22.0-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e799cba47bae20b6189a38d7e120791c4cefbebb83e6d30631dc4201c74d24c5", size = 26003003, upload-time = "2026-10-09T16:06:51.244Z" },
-    { url = "https://files.pythonhosted.org/packages/a3/1b/516e24bd57beda0a50d9ce12e85be80a05b264a3ea801b9d75d7b12afce6/sqlglotc-30.22.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e90f54718f80a78a33929ed768f6e639b52a8f470b62d1533aea948e21e0a11c", size = 27209462, upload-time = "2026-10-09T16:06:54.753Z" },
-    { url = "https://files.pythonhosted.org/packages/2c/86/f4102fcd2a17f2a6df0bdb3576c912e94030b3ea4dbb4ff41e7d893636ca/sqlglotc-30.22.0-cp310-cp310-win_amd64.whl", hash = "sha256:7e67591f2e69e1ec588f0f58533bbf49fba56dca5ab7bdf7250ea6790b506dac", size = 11276711, upload-time = "2026-10-09T16:06:57.65Z" },
     { url = "https://files.pythonhosted.org/packages/a2/d6/e207eb09c45e28f646cb8e8de55008aff6d0b04bafa6c08fa6e72b8783e7/sqlglotc-30.22.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:b139d02ab65c32982279d29cd1fe75324f266685644e479fc82a8b6053b6501e", size = 33596269, upload-time = "2026-10-09T16:07:01.572Z" },
     { url = "https://files.pythonhosted.org/packages/22/5b/1d7038ef497c4dd3eca2f4d47510458c5859f114e35e81ffc11522906099/sqlglotc-30.22.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:a569fac804b8d67930242ba343a214869137b55148c089f93c1aa01e54569119", size = 26191918, upload-time = "2026-10-09T16:07:05.666Z" },
     { url = "https://files.pythonhosted.org/packages/26/f3/30d453501809c331b071dda1f12cc5c0cf262a368923a717282e197c4b78/sqlglotc-30.22.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:204b3044eafd12d70e06fb7b5b5841b6d8f65b145ddae3342b2a5e78ceb0ca0c", size = 27416566, upload-time = "2026-10-09T16:07:09.746Z" },
