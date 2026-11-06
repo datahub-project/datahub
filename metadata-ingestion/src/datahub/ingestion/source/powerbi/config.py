@@ -209,6 +209,19 @@ class Constant:
     TMDL_ROLE_NOT_PARSED = "TMDL Role Not Parsed"
     RLS_FILTER_TABLE_NOT_FOUND = "RLS Filter Table Not Found"
     DIRECT_QUERY = "DirectQuery"
+    # enrich_from_item_definitions: every definition problem is enrichment
+    # loss (the scan already provided the entities), reported under one title.
+    ITEM_DEFINITION_NOT_FETCHED = "Item Definition Not Fetched"
+    DEFINITION_TABLE_NOT_IN_SCAN = "Definition Table Not In Scan"
+    SCAN_TABLE_NOT_IN_DEFINITION = "Scan Table Not In Definition"
+    DEFINITION_FIELD_NOT_IN_SCAN = "Definition Field Not In Scan"
+    SCAN_FIELD_NOT_IN_DEFINITION = "Scan Field Not In Definition"
+    TMDL_TABLE_NOT_PARSED = "TMDL Table Not Parsed"
+    TMDL_PART_NOT_PARSED = "TMDL Part Not Parsed"
+    RELATIONSHIP_NOT_PARSED = "Relationship Not Parsed"
+    NO_ITEM_DEFINITIONS_FETCHED = "No Item Definitions Fetched"
+    SEMANTIC_MODEL_NOT_ENRICHED = "Semantic Model Not Enriched"
+    FABRIC_TOKEN_NOT_ACQUIRED = "Fabric Token Not Acquired"
 
     # workspace_apis mode: regular-API endpoints and refresh-history keys
     DATASET_REFRESHES = "DATASET_REFRESHES"
@@ -433,6 +446,18 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     tmdl_roles_failed: int = 0
     rls_filters_unresolved: int = 0
     dataset_parameters_emitted: int = 0
+    # enrich_from_item_definitions (admin_scan mode): scanned models whose
+    # definition was overlaid, and the table-set differences between the
+    # scan and the definition (the scan wins either way).
+    scan_datasets_enriched: int = 0
+    scan_datasets_not_enriched: int = 0
+    definition_tables_not_in_scan: int = 0
+    scan_tables_not_in_definition: int = 0
+    # Field-level counterpart within a matched table: scan columns / measures
+    # with no TMDL twin (renamed, or dropped from the model) and definition
+    # fields the scan does not expose.
+    scan_fields_not_in_definition: int = 0
+    definition_fields_not_in_scan: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -1009,19 +1034,37 @@ class PowerBiDashboardSourceConfig(
         "endorsements, apps, `modified_since` and per-report owners are unavailable "
         "(ownership comes from workspace roles), and the `environment` must be COMMERCIAL.",
     )
+    enrich_from_item_definitions: bool = pydantic.Field(
+        default=False,
+        description="With `metadata_api_mode: admin_scan`, also read each semantic model's "
+        "TMDL definition (and, with `extract_report_field_usage`, each report's "
+        "definition) through the Fabric item APIs and overlay what the Admin Scanner "
+        "API lacks onto the scanned tables: column `sourceColumn` names for column "
+        "lineage, calculated-column and measure DAX references, descriptions, "
+        "relationships, model properties and report field usage. The scan stays the "
+        "source of truth for which tables and columns exist; tables present only in "
+        "the definition are not added and are reported. A definition that cannot be "
+        "fetched is an `Item Definition Not Fetched` warning, never a failure. Needs "
+        "the Contributor role on each workspace and the tenant setting 'Service "
+        "principals can use Fabric APIs', like `workspace_apis` mode; cannot be "
+        "combined with `admin_apis_only` or `metadata_api_mode: workspace_apis` "
+        "(which always reads the definitions). Unlocks `extract_model_relationships`, "
+        "`extract_report_field_usage`, `extract_dax_reference_lineage` and "
+        "`extract_model_properties` in `admin_scan` mode.",
+    )
     extract_model_relationships: bool = pydantic.Field(
         default=False,
         description="Emit semantic-model relationships as foreign-key constraints on the "
-        "`from` table's schema. Requires `metadata_api_mode: workspace_apis` and "
-        "`extract_dataset_schema`.",
+        "`from` table's schema. Requires `extract_dataset_schema` and either "
+        "`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`.",
     )
     extract_report_field_usage: bool = pydantic.Field(
         default=False,
         description="Read each report's definition to record which model columns and "
         "measures its visuals use, emitted as `inputFields` on the page charts together "
         "with visual counts and types. Adds one Fabric getDefinition call per report. "
-        "Requires `metadata_api_mode: workspace_apis`, `extract_reports` and "
-        "`extract_dataset_schema`.",
+        "Requires `extract_reports`, `extract_dataset_schema` and either "
+        "`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`.",
     )
     extract_dax_reference_lineage: bool = pydantic.Field(
         default=False,
@@ -1037,8 +1080,8 @@ class PowerBiDashboardSourceConfig(
         "tables are checked. Enabling it makes the connector write `upstreamLineage` "
         "on tables that previously had none (for example a table whose only lineage "
         "is a measure reading another measure), replacing upstreams authored in the "
-        "UI for those tables. Requires `metadata_api_mode: workspace_apis` and "
-        "`extract_column_level_lineage`.",
+        "UI for those tables. Requires `extract_column_level_lineage` and either "
+        "`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`.",
     )
     extract_model_properties: bool = pydantic.Field(
         default=False,
@@ -1061,7 +1104,8 @@ class PowerBiDashboardSourceConfig(
         "is the safe direction) `secret`, `token`, `password`, `pwd`, `pass`, "
         "`credential`, `key`, `auth`, `connection`, `sas`, `signature`, `cert` or "
         "`private`. Role members are never ingested. Requires "
-        "`metadata_api_mode: workspace_apis` and `extract_dataset_schema`.",
+        "`extract_dataset_schema` and either `metadata_api_mode: workspace_apis` or "
+        "`enrich_from_item_definitions`.",
     )
     extract_composite_model_lineage: bool = pydantic.Field(
         default=False,
@@ -1075,8 +1119,8 @@ class PowerBiDashboardSourceConfig(
         "workspace pattern and readable by the principal. A source that was not "
         "ingested, or a name that matches more than one ingested model, is reported "
         "(`Composite Model Source Not Ingested` / `Composite Model Source Ambiguous`) "
-        "and gets no edge. Requires `metadata_api_mode: workspace_apis` and "
-        "`extract_lineage`.",
+        "and gets no edge. Requires `extract_lineage` and either "
+        "`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`.",
     )
     extract_refresh_history: bool = pydantic.Field(
         default=False,
@@ -1172,10 +1216,43 @@ class PowerBiDashboardSourceConfig(
             )
         return self
 
+    @property
+    def item_definitions_available(self) -> bool:
+        """Whether the run reads Fabric item definitions (TMDL / PBIR): always
+        in workspace_apis mode, and in admin_scan mode when opted in."""
+        return (
+            self.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS
+            or self.enrich_from_item_definitions
+        )
+
+    @model_validator(mode="after")
+    def validate_enrich_from_item_definitions(self) -> "PowerBiDashboardSourceConfig":
+        if not self.enrich_from_item_definitions:
+            return self
+        if self.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS:
+            raise ValueError(
+                "enrich_from_item_definitions only applies to metadata_api_mode: "
+                "admin_scan; metadata_api_mode: workspace_apis always reads the "
+                "item definitions."
+            )
+        if self.admin_apis_only:
+            raise ValueError(
+                "enrich_from_item_definitions reads item definitions through the "
+                "Fabric API, which needs workspace membership, and cannot be "
+                "combined with admin_apis_only: true."
+            )
+        if self.environment == PowerBiEnvironment.GOVERNMENT:
+            raise ValueError(
+                "enrich_from_item_definitions is only supported for the COMMERCIAL "
+                "environment; the Fabric API has no verified GCC endpoint."
+            )
+        return self
+
     @model_validator(mode="after")
     def validate_definition_enrichment_flags(self) -> "PowerBiDashboardSourceConfig":
-        # These flags are derived from TMDL / report definitions, which only the
-        # workspace_apis mode fetches, and attach to schema fields.
+        # These flags are derived from TMDL / report definitions, which are only
+        # read in workspace_apis mode or with enrich_from_item_definitions, and
+        # attach to schema fields.
         for flag, extra_requirements in (
             ("extract_model_relationships", ("extract_dataset_schema",)),
             (
@@ -1188,8 +1265,11 @@ class PowerBiDashboardSourceConfig(
         ):
             if not getattr(self, flag):
                 continue
-            if self.metadata_api_mode != PowerBiMetadataApiMode.WORKSPACE_APIS:
-                raise ValueError(f"{flag} requires metadata_api_mode: workspace_apis.")
+            if not self.item_definitions_available:
+                raise ValueError(
+                    f"{flag} requires metadata_api_mode: workspace_apis or "
+                    "enrich_from_item_definitions: true."
+                )
             missing = [name for name in extra_requirements if not getattr(self, name)]
             if missing:
                 raise ValueError(f"{flag} requires these flags enabled: {missing}")
