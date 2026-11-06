@@ -1,7 +1,7 @@
 import json
 import logging
 import ssl
-from typing import Callable, Dict, List, Literal, Optional, Union
+from typing import Callable, Dict, List, Literal, Optional, Set, Union
 
 from websocket import WebSocket, create_connection
 
@@ -120,10 +120,19 @@ class WebsocketConnection:
         return response.get(Constant.QSCRIPT) or ""
 
     def get_charts(
-        self, object_id: str, sheet_id: str, on_error: Callable[[str], None]
+        self,
+        object_id: str,
+        sheet_id: str,
+        on_error: Callable[[str], None],
+        seen: Optional[Set[str]] = None,
     ) -> List[Chart]:
         """Charts of a sheet object, including the charts held in a container's tabs.
         Must be called on the handle of the object's parent."""
+        # A container can hold a link that resolves back to itself.
+        seen = set() if seen is None else seen
+        if object_id in seen:
+            return []
+        seen.add(object_id)
         depth = len(self.handle)
         try:
             self.websocket_send_request(method="GetChild", params={"qId": object_id})
@@ -144,7 +153,7 @@ class WebsocketConnection:
             for item in q_layout.get(Constant.QCHILDLIST, {}).get(Constant.QITEMS, []):
                 tab_id = item.get(Constant.QDATA, {}).get(Constant.CONTAINERCHILDID)
                 for chart in self.get_charts(
-                    item[Constant.QINFO][Constant.QID], sheet_id, on_error
+                    item[Constant.QINFO][Constant.QID], sheet_id, on_error, seen
                 ):
                     if not chart.title:
                         chart.title = tab_labels.get(tab_id) or ""
