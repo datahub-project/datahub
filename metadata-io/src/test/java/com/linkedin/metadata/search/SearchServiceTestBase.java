@@ -63,6 +63,9 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -342,6 +345,41 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             0,
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
+  }
+
+  /** Search lists every member of a dataset sibling group, primary or not. */
+  @Test
+  public void testSearchListsEverySiblingMember() throws Exception {
+    Urn dbt = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD)");
+    Urn table =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD)");
+    for (Urn urn : List.of(dbt, table)) {
+      ObjectNode document = JsonNodeFactory.instance.objectNode();
+      document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+      document.set("keyPart1", JsonNodeFactory.instance.textNode("orders"));
+      document.set("hasSiblings", JsonNodeFactory.instance.booleanNode(true));
+      document.set("siblingsPrimary", JsonNodeFactory.instance.booleanNode(urn.equals(dbt)));
+      elasticSearchService.upsertDocument(
+          operationContext, ENTITY_NAME, document.toString(), urn.toString());
+    }
+    syncAfterWrite(getBulkProcessor());
+
+    for (String query : List.of("*", "orders")) {
+      SearchResult result =
+          searchService.searchAcrossEntities(
+              operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+              ImmutableList.of(ENTITY_NAME),
+              query,
+              null,
+              null,
+              0,
+              10);
+      assertEquals(
+          result.getEntities().stream().map(e -> e.getEntity()).collect(Collectors.toSet()),
+          Set.of(dbt, table),
+          query);
+    }
+    clearCache();
   }
 
   @Test

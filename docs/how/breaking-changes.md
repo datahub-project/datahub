@@ -74,7 +74,7 @@ Requirements:
 
 ### Breaking Changes
 
-- [#21095](https://github.com/datahub-project/datahub/pull/21095) **(GMS / Search)** The opt-in setting `ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS` is removed. It was never in an OSS release, but some builds had it. With it on, a search could leave out a whole sibling group, and API, SDK and CLI listings could skip datasets. Search, autocomplete and browse now always list every member of a sibling group. **Action:** remove the variable if you set it; it is ignored.
+- [#21095](https://github.com/datahub-project/datahub/pull/21095) **(GMS / Search)** The opt-in setting `ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS` is removed. It was never in an OSS release, but some builds had it. With it on, a search could leave out a whole sibling group, and API, SDK and CLI listings could skip datasets. Search, autocomplete and browse no longer hide non-primary siblings. **Action:** remove the variable if you set it; it is ignored.
 
 - [#20983](https://github.com/datahub-project/datahub/pull/20983) **(GMS / Search V3)** Turning on Search V3 (`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED=true`) while primary storage is Cassandra (`entityService.impl=cassandra`) now stops GMS from starting. Search V3 fills a new index and catches up later writes by reading stored aspects, and Cassandra does not stream those rows, so the index would stay empty. Before, that combination started and only live writes were indexed. **Action:** leave Search V3 off when primary storage is Cassandra, or use Ebean (`entityService.impl=ebean`).
 
