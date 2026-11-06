@@ -49,6 +49,7 @@ from datahub.ingestion.source.sql.teradata import (
     get_schema_foreign_keys,
     get_schema_pk_constraints,
     optimized_get_columns,
+    optimized_get_foreign_keys,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
@@ -6634,3 +6635,72 @@ class TestOptimizedGetColumnsRealDialect:
         assert type(cols[0]["type"]).__name__ == "VARCHAR"
         assert cols[0]["type"].length == 60
         assert cols[0]["info"]["is_view"] is True
+
+
+class TestOptimizedGetForeignKeys:
+    """``optimized_get_foreign_keys`` groups the rows of ``dbc.All_RI_ChildrenV``
+    into one SQLAlchemy foreign-key dict per constraint."""
+
+    @staticmethod
+    def _fk_row(
+        index_id: int,
+        index_name: Optional[str],
+        child_column: str,
+        parent_db: str,
+        parent_table: str,
+        parent_column: str,
+    ) -> SimpleNamespace:
+        return SimpleNamespace(
+            IndexID=index_id,
+            IndexName=index_name,
+            ChildKeyColumn=child_column,
+            ParentDB=parent_db,
+            ParentTable=parent_table,
+            ParentKeyColumn=parent_column,
+        )
+
+    def _dialect(self, rows: List[SimpleNamespace]) -> SimpleNamespace:
+        return SimpleNamespace(
+            default_schema_name="my_db",
+            get_schema_foreign_keys=lambda connection, schema: {"orders": rows},
+            normalize_name=lambda name: name.lower(),
+        )
+
+    def test_groups_rows_into_one_constraint_each(self) -> None:
+        """A composite key (two rows, same constraint) and a second constraint
+        to another parent table. Before the fix the grouping key was a dict, so
+        the first row raised ``TypeError: unhashable type: 'dict'`` and the whole
+        table was dropped from ingestion."""
+        rows = [
+            self._fk_row(1, "fk_customer", "CUSTOMER_ID", "my_db", "customers", "ID"),
+            self._fk_row(1, "fk_customer", "REGION_ID", "my_db", "customers", "REGION"),
+            self._fk_row(2, None, "PRODUCT_ID", "ref_db", "products", "ID"),
+        ]
+
+        fks = optimized_get_foreign_keys(self._dialect(rows), MagicMock(), "orders")
+
+        assert fks == [
+            {
+                "name": "fk_customer",
+                "constrained_columns": ["customer_id", "region_id"],
+                "referred_schema": "my_db",
+                "referred_table": "customers",
+                "referred_columns": ["id", "region"],
+            },
+            {
+                "name": "2",  # IndexID stands in when the constraint is unnamed
+                "constrained_columns": ["product_id"],
+                "referred_schema": "ref_db",
+                "referred_table": "products",
+                "referred_columns": ["id"],
+            },
+        ]
+
+    def test_table_without_foreign_keys(self) -> None:
+        dialect = SimpleNamespace(
+            default_schema_name="my_db",
+            get_schema_foreign_keys=lambda connection, schema: {},
+            normalize_name=lambda name: name.lower(),
+        )
+
+        assert optimized_get_foreign_keys(dialect, MagicMock(), "orders") == []
