@@ -677,7 +677,7 @@ _Changes_
 
 _Fixes_
 
-- `DatahubEmitterOperator` now renders Jinja templates inside lists of strings, such as `DatasetProperties.tags` or `BrowsePaths.paths`. Before, those values were emitted as written, so a tag set to `{{ ds }}` reached DataHub as a literal `{{ ds }}` instead of the run date ([#PR_NUMBER](https://github.com/datahub-project/datahub/pull/PR_NUMBER)).
+- `DatahubEmitterOperator` now renders Jinja templates inside lists of strings, such as `DatasetProperties.tags` or `BrowsePaths.paths`. Before, those values were emitted as written, so a tag set to `{{ ds }}` reached DataHub as a literal `{{ ds }}` instead of the run date ([#21078](https://github.com/datahub-project/datahub/pull/21078)).
 
 ### Versions 1.7.0 through 1.7.0.10
 
