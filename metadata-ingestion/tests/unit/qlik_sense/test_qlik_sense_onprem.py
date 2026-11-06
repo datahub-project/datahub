@@ -531,20 +531,34 @@ def test_chart_input_fields_match_app_fields() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "expressions, matched_fields",
+    [
+        pytest.param(["Sum(unknown_field)"], [], id="no_field_matches"),
+        pytest.param(["Region", "Sum($(vSales))"], ["Region"], id="variable_measure"),
+    ],
+)
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
-def test_chart_without_matched_fields_keeps_app_tables(mock_onprem: MagicMock) -> None:
+def test_chart_keeps_app_tables_when_fields_are_unknown(
+    mock_onprem: MagicMock, expressions: List[str], matched_fields: List[str]
+) -> None:
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(ONPREM_CONFIG),
         PipelineContext(run_id="test-onprem"),
     )
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
-    chart.field_expressions = ["Sum(unknown_field)"]
+    chart.field_expressions = expressions
     app_tables = [
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)",
     ]
+    app_fields = QlikSenseSource._index_app_fields(
+        {app_tables[1]: [SchemaField(name="Region")]}
+    )
 
-    workunits = list(source._gen_charts_workunit([chart], app_tables, {}, "app-1"))
+    workunits = list(
+        source._gen_charts_workunit([chart], app_tables, app_fields, "app-1")
+    )
     (chart_info,) = filter(
         None, (wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)
     )
@@ -553,7 +567,11 @@ def test_chart_without_matched_fields_keeps_app_tables(mock_onprem: MagicMock) -
     )
 
     assert chart_info.inputs == app_tables
-    assert input_fields.fields == []
+    assert [
+        field.schemaField.fieldPath
+        for field in input_fields.fields
+        if field.schemaField
+    ] == matched_fields
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")

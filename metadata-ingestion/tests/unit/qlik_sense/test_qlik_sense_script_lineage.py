@@ -183,11 +183,11 @@ def test_connection_lookup_names_strips_cloud_space() -> None:
 PRECEDING_LOAD_SCRIPT = """
 LIB CONNECT TO 'Sales SQL';
 Orders:
-LOAD OrderID AS [Order Id], [Net Sales],
+LOAD OrderID AS [Order Id], [Net Sales], %OrderKey,
      Year(order_date) & '-' & Month(order_date) AS Period,
      'ERP' AS Source, Upper(region)
 WHERE amount > 0;
-LOAD *, order_id AS OrderID, amount AS [Net Sales];
+LOAD *, order_id AS OrderID, amount AS [Net Sales], order_id AS %OrderKey;
 SQL SELECT order_id, amount, order_date, region FROM dbo.orders;
 """
 
@@ -207,6 +207,22 @@ def test_preceding_loads_rename_sql_columns() -> None:
     ) == {
         "Order Id": ["order_id_urn"],
         "Net Sales": ["amount_urn"],
+        "%OrderKey": ["order_id_urn"],
         "Period": ["order_date_urn"],
         "Source": [],
     }
+
+
+def test_unreadable_preceding_load_keeps_sql_columns() -> None:
+    (table,) = parse_load_script(
+        """
+LIB CONNECT TO 'Sales SQL';
+Orders:
+LOAD $(vOrderFields);
+SQL SELECT order_id FROM dbo.orders;
+"""
+    )
+
+    assert apply_preceding_loads(
+        table.preceding_loads, {"order_id": ["order_id_urn"]}
+    ) == {"order_id": ["order_id_urn"]}
