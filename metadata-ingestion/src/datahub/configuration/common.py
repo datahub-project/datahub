@@ -46,6 +46,8 @@ REDACT_KEYS = {
     "connection_string",
     # Kafka schema registry credentials, in "<api key>:<api secret>" form.
     "basic.auth.user.info",
+    # librdkafka's inline PEM private key.
+    "ssl.key.pem",
 }
 REDACT_SUFFIXES = {
     "_password",
@@ -59,6 +61,9 @@ REDACT_SUFFIXES = {
     "_token",
     "-token",
     ".token",
+    # Prefixed schema registry credentials, e.g. Kafka Connect's
+    # "value.converter.basic.auth.user.info".
+    ".basic.auth.user.info",
     "_key",
     "-key",
     "_key_id",
