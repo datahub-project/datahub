@@ -306,6 +306,8 @@ public class EntityAuthorizationUtilsAssertionTest {
   @Test
   public void testRunHistoryDeleteNeedsPrivilegeOnPersistedTarget() {
     mockPersisted(freshnessOn(DATASET_URN));
+    when(aspectRetriever.entityExists(opContext, Set.of(DATASET_URN)))
+        .thenReturn(Map.of(DATASET_URN, true));
 
     assertFalse(
         AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(
@@ -320,6 +322,18 @@ public class EntityAuthorizationUtilsAssertionTest {
             opContext, List.of(ASSERTION_URN)));
     // Targets are read from the primary, so a lagging replica cannot hide one.
     verify(opContext, atLeastOnce()).withReadPreference(ReadPreference.PRIMARY);
+  }
+
+  @Test
+  public void testRunHistoryDeleteSkipsTargetThatNoLongerExists() {
+    // After the asset is hard deleted its policy fields cannot be resolved, as in the validator.
+    mockPersisted(freshnessOn(DATASET_URN));
+    when(aspectRetriever.entityExists(opContext, Set.of(DATASET_URN)))
+        .thenReturn(Map.of(DATASET_URN, false));
+
+    assertTrue(
+        AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(
+            opContext, List.of(ASSERTION_URN)));
   }
 
   private List<Pair<MetadataChangeProposal, Integer>> ingest(MetadataChangeProposal... mcps) {
