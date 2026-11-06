@@ -275,6 +275,12 @@ class Constant:
     FILTER_SCOPE = "scope"
     FILTER_TARGET = "target"
     FILTER_CONDITION = "condition"
+    VISUAL_TYPE = "visualType"
+    VISUAL_NAME = "visualName"
+    PAGE_NAME = "pageName"
+    VISUAL = "Visual"
+    VISUAL_TITLE_FALLBACK = "{visual_type} on {page}"
+    URL_QUERY_SEPARATOR = "?"
     TOP = "$top"
     # Scan-API column types reproduced for TMDL-sourced columns
     COLUMN_TYPE_DATA = "Data"
@@ -446,6 +452,17 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     report_pages_unmatched: int = 0
     report_field_references_resolved: int = 0
     report_field_references_unresolved: int = 0
+    report_visuals_emitted: int = 0
+    # Visual charts emitted without inputFields: the visual reads no fields at
+    # all (a text box, say) vs. it reads fields but none resolved.
+    report_visuals_without_fields: int = 0
+    report_visuals_fields_unresolved: int = 0
+    report_visual_field_references_resolved: int = 0
+    report_visual_field_references_unresolved: int = 0
+    report_visual_groups_skipped: int = 0
+    report_visuals_skipped_unnamed: int = 0
+    report_visuals_duplicate_name: int = 0
+    report_visual_filters_failed: int = 0
     relationships_parsed: int = 0
     relationships_skipped: int = 0
     relationships_unresolved: int = 0
@@ -1182,6 +1199,19 @@ class PowerBiDashboardSourceConfig(
         "and gets no edge. Requires `extract_lineage` and either "
         "`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`.",
     )
+    extract_report_visuals: bool = pydantic.Field(
+        default=False,
+        description="Emit each visual of a report page as its own Chart entity "
+        "(subtype `PowerBI Visual`) under the report, with `inputFields` for exactly "
+        "the model columns and measures that visual reads, the visual's title and "
+        "type, and its visual-level filters as `filters` / `filterCount` properties. "
+        "Page charts are unchanged. Requires `metadata_api_mode: workspace_apis` and "
+        "`extract_report_field_usage`. Note: with `patch_metadata: true` the "
+        "report's chart list is patched add-only, so a visual removed from the "
+        "report (or all visuals when this flag is turned off again) stays listed on "
+        "the report dashboard even though its chart is soft-deleted; run once with "
+        "`patch_metadata: false` to rewrite the list.",
+    )
     extract_refresh_history: bool = pydantic.Field(
         default=False,
         description="Fetch each dataset's recent refreshes and configured refresh "
@@ -1321,6 +1351,7 @@ class PowerBiDashboardSourceConfig(
                 "extract_report_field_usage",
                 ("extract_dataset_schema", "extract_reports"),
             ),
+            ("extract_report_visuals", ("extract_report_field_usage",)),
             ("extract_dax_reference_lineage", ("extract_column_level_lineage",)),
             ("extract_model_properties", ("extract_dataset_schema",)),
             ("extract_composite_model_lineage", ("extract_lineage",)),

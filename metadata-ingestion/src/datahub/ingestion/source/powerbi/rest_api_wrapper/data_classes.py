@@ -522,6 +522,26 @@ class ReportFilter:
 
 
 @dataclass
+class Visual:
+    """One visual on a report page, from the report definition.
+
+    `name` is the visual's stable id in the definition (the folder name in
+    PBIR); `title` is its displayed title when the definition declares one.
+    """
+
+    name: str
+    # The owning page's id (`<reportId>.<pageName>`), which keys the URN.
+    page_id: str
+    title: Optional[str] = None
+    visual_type: Optional[str] = None
+    field_references: List[PageFieldReference] = field(default_factory=list)
+    filters: List[ReportFilter] = field(default_factory=list)
+
+    def get_urn_part(self) -> str:
+        return f"visuals.{self.page_id}.{self.name}"
+
+
+@dataclass
 class Page:
     id: str
     displayName: str
@@ -532,6 +552,8 @@ class Page:
     visual_count: Optional[int] = None
     visual_types: List[str] = field(default_factory=list)
     filters: List[ReportFilter] = field(default_factory=list)
+    # Populated only when extract_report_visuals is enabled.
+    visuals: List[Visual] = field(default_factory=list)
 
     def get_urn_part(self):
         return f"pages.{self.id}"

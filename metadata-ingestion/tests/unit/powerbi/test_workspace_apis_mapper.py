@@ -1,9 +1,10 @@
 """Mapper behaviour added for metadata_api_mode: workspace_apis."""
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
+from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
@@ -39,12 +40,14 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     ReportType,
     RlsTableFilter,
     Table,
+    Visual,
     Workspace,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import parse_table
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
+    ChartTypeClass,
     DashboardInfoClass,
     DatasetPropertiesClass,
     InputFieldsClass,
@@ -1511,3 +1514,227 @@ def test_filters_become_custom_properties_on_page_chart_and_report_dashboard() -
     assert capped["filtersTruncated"] == "true"
     assert len(json.loads(capped["filters"])) == MAX_FILTERS_IN_PROPERTY
     assert mapper._Mapper__reporter.report_filters_truncated == 3  # type: ignore[attr-defined]
+
+
+def _report_with_visuals(dataset: PowerBIDataset, with_visuals: bool = True) -> Report:
+    state = PageFieldReference("Policies", "State", "column")
+    status = PageFieldReference("Claims", "Status", "column")
+    visual_filter = ReportFilter(
+        scope="visual",
+        name="f_open",
+        filter_type="Categorical",
+        target=status,
+        fields=[status],
+        condition='In ["Open"]',
+    )
+    visuals = [
+        Visual(
+            name="v-bar",
+            page_id="r1.p1",
+            title="Policies by State",
+            visual_type="clusteredBarChart",
+            field_references=[state, status],
+            filters=[visual_filter],
+        ),
+        Visual(
+            name="v-card",
+            page_id="r1.p1",
+            visual_type="card",
+            field_references=[PageFieldReference("Other", "Gone", "column")],
+        ),
+        Visual(name="v-text", page_id="r1.p1", visual_type="textbox"),
+        Visual(name="v-custom", page_id="r1.p1"),
+    ]
+    page = Page(
+        id="r1.p1",
+        displayName="Overview",
+        name="p1",
+        order=0,
+        field_references=[state, status],
+        visual_count=4,
+        visual_types=["card", "clusteredBarChart", "textbox"],
+        visuals=visuals if with_visuals else [],
+    )
+    return Report(
+        id="r1",
+        name="Report",
+        type=ReportType.PowerBIReport,
+        webUrl="https://app.powerbi.com/groups/ws-1/reports/r1",
+        embedUrl=None,
+        description="",
+        dataset_id=dataset.id,
+        dataset=dataset,
+        pages=[page],
+        users=[],
+        tags=[],
+    )
+
+
+def _aspects_of(mcps: List[Any], urn: str) -> Dict[str, Any]:
+    return {
+        type(mcp.aspect).__name__: mcp.aspect for mcp in mcps if mcp.entityUrn == urn
+    }
+
+
+PAGE_URN = "urn:li:chart:(powerbi,prod.pages.r1.p1)"
+BAR_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-bar)"
+CARD_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-card)"
+TEXT_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-text)"
+CUSTOM_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-custom)"
+
+
+def _visual_charts(
+    extract_report_visuals: bool = True,
+) -> Tuple[Mapper, Report, Workspace, List[Any]]:
+    config = _config(
+        extract_report_field_usage=True,
+        extract_report_visuals=extract_report_visuals,
+        platform_instance="prod",
+    )
+    mapper = _mapper(config)
+    workspace = _workspace()
+    mapper.workspace_key = mapper.make_container_key_for_workspace(workspace)
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("State")]
+    )
+    claims = Table(name="Claims", full_name="Model.Claims", columns=[_column("Status")])
+    report = _report_with_visuals(_dataset([policies, claims]))
+    chart_mcps = mapper.pages_to_chart(
+        report.pages, workspace=workspace, ds_mcps=[], report=report
+    )
+    return mapper, report, workspace, chart_mcps
+
+
+def test_visual_chart_urns_and_page_chart_are_emitted_together() -> None:
+    mapper, _, _, chart_mcps = _visual_charts()
+    assert {mcp.entityUrn for mcp in chart_mcps} == {
+        PAGE_URN,
+        BAR_URN,
+        CARD_URN,
+        TEXT_URN,
+        CUSTOM_URN,
+    }
+    # The page chart keeps its own shape.
+    page_info = _aspects_of(chart_mcps, PAGE_URN)["ChartInfoClass"]
+    assert page_info.customProperties["visualCount"] == "4"
+    assert "visualName" not in page_info.customProperties
+    assert [
+        e.urn for e in _aspects_of(chart_mcps, PAGE_URN)["BrowsePathsV2Class"].path
+    ][-1] == mapper.make_dashboard_urn_for_report(_report_with_visuals(_dataset([])))
+
+
+def test_visual_chart_info_title_url_type_and_filters() -> None:
+    _, _, _, chart_mcps = _visual_charts()
+    info = _aspects_of(chart_mcps, BAR_URN)["ChartInfoClass"]
+    assert info.title == "Policies by State"
+    assert info.chartUrl == "https://app.powerbi.com/groups/ws-1/reports/r1/p1"
+    # A query string on the report URL stays after the page segment.
+    report = _report_with_visuals(_dataset([]))
+    report.webUrl = "https://app.powerbi.com/groups/ws-1/reports/r1?ctid=t1"
+    assert (
+        _mapper()._page_url(report, report.pages[0])
+        == "https://app.powerbi.com/groups/ws-1/reports/r1/p1?ctid=t1"
+    )
+    assert info.type == ChartTypeClass.BAR
+    assert info.customProperties["visualType"] == "clusteredBarChart"
+    assert info.customProperties["visualName"] == "v-bar"
+    assert info.customProperties["pageName"] == "p1"
+    assert info.customProperties["filterCount"] == "1"
+    assert json.loads(info.customProperties["filters"]) == [
+        {
+            "scope": "visual",
+            "name": "f_open",
+            "type": "Categorical",
+            "target": "Claims[Status]",
+            "condition": 'In ["Open"]',
+        }
+    ]
+    # No title: the fallback names the visual type and page; no mapped chart
+    # type leaves `type` unset but keeps the raw visualType.
+    card = _aspects_of(chart_mcps, CARD_URN)["ChartInfoClass"]
+    assert card.title == "card on Overview"
+    assert card.type is None
+    assert card.customProperties["visualType"] == "card"
+    custom = _aspects_of(chart_mcps, CUSTOM_URN)["ChartInfoClass"]
+    assert custom.title == "Visual on Overview"
+    assert "visualType" not in custom.customProperties
+
+
+def test_visual_chart_subtype_container_and_browse_path_under_page() -> None:
+    mapper, report, workspace, chart_mcps = _visual_charts()
+    bar = _aspects_of(chart_mcps, BAR_URN)
+    assert bar["SubTypesClass"].typeNames == [BIAssetSubTypes.POWERBI_VISUAL]
+    assert mapper.workspace_key is not None
+    assert bar["ContainerClass"].container == mapper.workspace_key.as_urn()
+    assert [(entry.id, entry.urn) for entry in bar["BrowsePathsV2Class"].path] == [
+        (workspace.name, mapper.make_container_urn_for_workspace(workspace)),
+        (report.name, mapper.make_dashboard_urn_for_report(report)),
+        ("Overview", PAGE_URN),
+    ]
+
+
+def test_visual_chart_input_fields_and_counters() -> None:
+    mapper, report, _, chart_mcps = _visual_charts()
+    assert report.dataset is not None
+    policies, claims = report.dataset.tables
+    bar = _aspects_of(chart_mcps, BAR_URN)
+    assert [f.schemaFieldUrn for f in bar["InputFieldsClass"].fields] == [
+        f"urn:li:schemaField:({_urn(mapper, policies)},State)",
+        f"urn:li:schemaField:({_urn(mapper, claims)},Status)",
+    ]
+    # Table-level inputs are exactly the tables the resolved fields belong to,
+    # not the page's whole model.
+    assert bar["ChartInfoClass"].inputs == [
+        _urn(mapper, policies),
+        _urn(mapper, claims),
+    ]
+    # An unresolved field leaves the chart without inputFields but still
+    # emitted; a text box reads nothing at all. Neither claims table inputs.
+    assert "InputFieldsClass" not in _aspects_of(chart_mcps, CARD_URN)
+    assert "InputFieldsClass" not in _aspects_of(chart_mcps, TEXT_URN)
+    assert _aspects_of(chart_mcps, CARD_URN)["ChartInfoClass"].inputs == []
+    assert _aspects_of(chart_mcps, TEXT_URN)["ChartInfoClass"].inputs == []
+
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.report_visuals_emitted == 4
+    assert reporter.report_visuals_without_fields == 2
+    assert reporter.report_visuals_fields_unresolved == 1
+    assert reporter.report_visual_field_references_resolved == 2
+    assert reporter.report_visual_field_references_unresolved == 1
+    # The page pass keeps its own counters, no double counting.
+    assert reporter.report_field_references_resolved == 2
+    assert reporter.report_field_references_unresolved == 0
+
+
+def test_visual_charts_are_listed_on_the_dashboard_and_dropped_when_flag_off() -> None:
+    def dashboard_charts(extract_report_visuals: bool) -> List[str]:
+        mapper, report, workspace, chart_mcps = _visual_charts(extract_report_visuals)
+        dashboard_mcps = mapper.report_to_dashboard(
+            workspace=workspace,
+            report=report,
+            chart_mcps=chart_mcps,
+            user_mcps=[],
+            dataset_edges=[],
+        )
+        info = next(
+            mcp.aspect
+            for mcp in dashboard_mcps
+            if isinstance(mcp.aspect, DashboardInfoClass)
+        )
+        return info.charts
+
+    assert dashboard_charts(True) == [
+        PAGE_URN,
+        BAR_URN,
+        CARD_URN,
+        TEXT_URN,
+        CUSTOM_URN,
+    ]
+    # A later run with the flag off rewrites the (non-patched) chart list.
+    assert dashboard_charts(False) == [PAGE_URN]
+
+
+def test_visuals_are_not_emitted_when_flag_is_off() -> None:
+    mapper, _, _, chart_mcps = _visual_charts(extract_report_visuals=False)
+    assert {mcp.entityUrn for mcp in chart_mcps} == {PAGE_URN}
+    assert mapper._Mapper__reporter.report_visuals_emitted == 0  # type: ignore[attr-defined]

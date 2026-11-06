@@ -136,6 +136,14 @@ def test_workspace_apis_rejects_admin_only_features(
             "extract_lineage",
             id="composite_lineage_needs_lineage",
         ),
+        pytest.param(
+            {
+                "metadata_api_mode": "workspace_apis",
+                "extract_report_visuals": True,
+            },
+            "extract_report_field_usage",
+            id="visuals_need_field_usage",
+        ),
     ],
 )
 def test_definition_enrichment_flag_dependencies(

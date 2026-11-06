@@ -983,6 +983,163 @@ def test_report_definition_parser_crash_is_a_warning_for_that_report_only() -> N
     assert not api.reporter.failures
 
 
+def _fill_visuals(definition: ItemDefinition, extract_report_visuals: bool) -> Any:
+    api = _api(
+        definitions={"r1": definition},
+        config=_config(
+            extract_report_field_usage=True,
+            extract_report_visuals=extract_report_visuals,
+        ),
+    )
+    page = Page(id="r1.p1", displayName="Overview", name="p1", order=0)
+    report = Report(
+        id="r1",
+        name="Loss Report",
+        type=ReportType.PowerBIReport,
+        webUrl=None,
+        embedUrl=None,
+        description="",
+        dataset_id=MODEL_A,
+        dataset=None,
+        pages=[page],
+        users=[],
+        tags=[],
+    )
+    api._fill_report_field_usage(_workspace(), report)
+    return api, page
+
+
+def _visual_part(name: str, **extra: Any) -> str:
+    return json.dumps(
+        {
+            "name": name,
+            "visual": {
+                "visualType": "card",
+                "query": {
+                    "queryState": {
+                        "Values": {
+                            "projections": [
+                                {"field": _column_ref("Policies", "WrittenPremium")}
+                            ]
+                        }
+                    }
+                },
+            },
+            **extra,
+        }
+    )
+
+
+def test_visuals_are_attached_to_pages_only_with_the_flag_and_only_when_parsed() -> (
+    None
+):
+    definition = ItemDefinition(
+        format="PBIR",
+        parts=[
+            DefinitionPart(
+                "definition/pages/p1/page.json",
+                json.dumps({"name": "p1", "displayName": "Overview"}),
+            ),
+            DefinitionPart(
+                "definition/pages/p1/visuals/v1/visual.json",
+                _visual_part(
+                    "v1",
+                    filterConfig={
+                        "filters": [{"field": _column_ref("Policies", "State")}]
+                    },
+                ),
+            ),
+            DefinitionPart("definition/pages/p1/visuals/v2/visual.json", "{bad"),
+        ],
+    )
+
+    api, off = _fill_visuals(definition, extract_report_visuals=False)
+    assert off.visuals == []
+    assert off.visual_count == 2
+    assert [w.title for w in api.reporter.warnings] == [
+        "Report Definition Part Not Parsed"
+    ]
+    assert api.reporter.report_filters_parsed == 0
+
+    api, on = _fill_visuals(definition, extract_report_visuals=True)
+    # The unparsed visual is counted on the page but gets no chart.
+    assert on.visual_count == 2
+    assert [v.name for v in on.visuals] == ["v1"]
+    visual = on.visuals[0]
+    assert visual.page_id == "r1.p1"
+    assert visual.visual_type == "card"
+    assert visual.field_references == [
+        PageFieldReference("Policies", "WrittenPremium", "column"),
+        PageFieldReference("Policies", "State", "column"),
+    ]
+    assert [f.scope for f in visual.filters] == ["visual"]
+    assert api.reporter.report_filters_parsed == 1
+
+
+def test_visual_filter_failures_groups_unnamed_and_duplicates_are_reported() -> None:
+    definition = ItemDefinition(
+        format="PBIR",
+        parts=[
+            DefinitionPart(
+                "definition/pages/p1/visuals/v1/visual.json",
+                _visual_part("v1", filterConfig={"filters": "not a list"}),
+            ),
+            # Same name as v1 (the folder differs): only the first is kept.
+            DefinitionPart(
+                "definition/pages/p1/visuals/v1-copy/visual.json", _visual_part("v1")
+            ),
+            DefinitionPart(
+                "definition/pages/p1/visuals/v3/visual.json",
+                json.dumps({"name": "v3", "visualGroup": {"displayName": "G"}}),
+            ),
+        ],
+    )
+    legacy = ItemDefinition(
+        format="PBIR-Legacy",
+        parts=[
+            DefinitionPart(
+                "report.json",
+                json.dumps(
+                    {
+                        "sections": [
+                            {
+                                "name": "p1",
+                                "displayName": "Overview",
+                                "visualContainers": [
+                                    # Parsed config without a name.
+                                    {"config": json.dumps({"singleVisual": {}})}
+                                ],
+                            }
+                        ]
+                    }
+                ),
+            )
+        ],
+    )
+
+    api, _ = _fill_visuals(definition, extract_report_visuals=False)
+    # Visual-filter failures stay silent while visual charts are off.
+    assert api.reporter.warnings == []
+    assert api.reporter.report_filters_failed == 0
+    assert api.reporter.report_visual_filters_failed == 0
+
+    api, page = _fill_visuals(definition, extract_report_visuals=True)
+    assert [v.name for v in page.visuals] == ["v1"]
+    assert sorted(w.title for w in api.reporter.warnings) == [
+        "Report Visual Filter Not Parsed",
+        "Report Visual Name Duplicated",
+    ]
+    assert api.reporter.report_filters_failed == 0
+    assert api.reporter.report_visual_filters_failed == 1
+    assert api.reporter.report_visual_groups_skipped == 1
+    assert api.reporter.report_visuals_duplicate_name == 1
+
+    api, page = _fill_visuals(legacy, extract_report_visuals=True)
+    assert page.visuals == []
+    assert api.reporter.report_visuals_skipped_unnamed == 1
+    assert [w.title for w in api.reporter.warnings] == ["Report Visual Without Name"]
+
+
 # --- workspace users as ownership -------------------------------------------
 
 
