@@ -408,7 +408,7 @@ class QlikOnPremAPI:
             # Dropping the app here would let stale entity removal delete it, so
             # any error while checking for changes falls back to reading it.
             try:
-                fingerprint = self.app_fingerprint(app_dict)
+                fingerprint = self._app_fingerprint(app_dict)
                 if fingerprint and is_unchanged(app_dict[Constant.ID], fingerprint):
                     return UnchangedApp(
                         id=app_dict[Constant.ID], fingerprint=fingerprint
@@ -420,7 +420,7 @@ class QlikOnPremAPI:
                 )
         return self._read_app(app_dict, fingerprint)
 
-    def app_fingerprint(self, app_dict: Dict) -> Optional[str]:
+    def _app_fingerprint(self, app_dict: Dict) -> Optional[str]:
         """Hash of everything the Repository Service knows about the app that the
         Engine read depends on. None when it cannot be computed."""
         try:
