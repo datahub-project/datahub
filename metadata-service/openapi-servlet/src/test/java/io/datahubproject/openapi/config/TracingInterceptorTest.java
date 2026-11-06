@@ -1,11 +1,19 @@
 package io.datahubproject.openapi.config;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.testng.Assert.*;
+import static org.testng.Assert.assertNotNull;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.telemetry.RequestAttributionConfiguration;
+import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
+import io.datahubproject.metadata.context.RequestStats;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
@@ -296,5 +304,98 @@ public class TracingInterceptorTest {
 
     verify(span, never()).end();
     verify(request, never()).getAttribute(anyString());
+  }
+
+  // --- request attribution (telemetry.requestAttribution.*) ---
+
+  private TracingInterceptor attributed(boolean enabled, boolean marker) {
+    RequestAttributionConfiguration attribution = new RequestAttributionConfiguration();
+    attribution.setEnabled(enabled);
+    attribution.setStartMarker(marker);
+    TelemetryConfiguration telemetry = new TelemetryConfiguration();
+    telemetry.setRequestAttribution(attribution);
+    ConfigurationProvider provider = new ConfigurationProvider();
+    provider.setTelemetry(telemetry);
+    return new TracingInterceptor(systemTelemetryContext, provider);
+  }
+
+  @Test
+  public void testAttribution_disabled_noStats() {
+    TracingInterceptor interceptor = attributed(false, false);
+    interceptor.preHandle(request, response, new Object());
+    verify(request, never()).setAttribute(eq(TracingInterceptor.REQUEST_STATS_ATTR), any());
+  }
+
+  @Test
+  public void testAttribution_enabled_finishesStats() {
+    TracingInterceptor interceptor = attributed(true, false);
+    interceptor.preHandle(request, response, new Object());
+
+    org.mockito.ArgumentCaptor<Object> statsCaptor =
+        org.mockito.ArgumentCaptor.forClass(Object.class);
+    verify(request).setAttribute(eq(TracingInterceptor.REQUEST_STATS_ATTR), statsCaptor.capture());
+    RequestStats stats = (RequestStats) statsCaptor.getValue();
+    assertNotNull(stats);
+
+    when(request.getAttribute("span")).thenReturn(span);
+    when(request.getAttribute(TracingInterceptor.REQUEST_STATS_ATTR)).thenReturn(stats);
+    when(response.getStatus()).thenReturn(200);
+    interceptor.afterCompletion(request, response, new Object(), null);
+    verify(span).setAttribute(eq(RequestStats.ES_CALLS), eq(0L));
+    verify(span).end();
+  }
+
+  @Test
+  public void testAttribution_startMarker_onlyOnApiPaths() {
+    SpanBuilder markerBuilder = mock(SpanBuilder.class);
+    Span markerSpan = mock(Span.class);
+    when(tracer.spanBuilder(TracingInterceptor.START_MARKER_SPAN)).thenReturn(markerBuilder);
+    when(markerBuilder.setAttribute(anyString(), anyString())).thenReturn(markerBuilder);
+    when(markerBuilder.setAttribute(anyString(), anyLong())).thenReturn(markerBuilder);
+    when(markerBuilder.startSpan()).thenReturn(markerSpan);
+
+    TracingInterceptor interceptor = attributed(true, true);
+    when(request.getRequestURI()).thenReturn("/api/graphql");
+    interceptor.preHandle(request, response, new Object());
+    verify(markerSpan, times(1)).end();
+
+    when(request.getRequestURI()).thenReturn("/health");
+    interceptor.preHandle(request, response, new Object());
+    verify(markerSpan, times(1)).end(); // unchanged: not an API path
+
+    // marker requested but no tracer at all
+    SystemTelemetryContext noTracer = mock(SystemTelemetryContext.class);
+    when(noTracer.getTracer()).thenReturn(null);
+    RequestAttributionConfiguration attribution = new RequestAttributionConfiguration();
+    attribution.setEnabled(true);
+    attribution.setStartMarker(true);
+    TelemetryConfiguration telemetry = new TelemetryConfiguration();
+    telemetry.setRequestAttribution(attribution);
+    ConfigurationProvider provider = new ConfigurationProvider();
+    provider.setTelemetry(telemetry);
+    when(request.getRequestURI()).thenReturn("/openapi/v3/entity/dataset");
+    new TracingInterceptor(noTracer, provider).preHandle(request, response, new Object());
+    verify(markerSpan, times(1)).end();
+  }
+
+  @Test
+  public void testAttribution_constructorToleratesMissingConfig() {
+    ConfigurationProvider provider = new ConfigurationProvider(); // telemetry is null
+    TracingInterceptor a = new TracingInterceptor(systemTelemetryContext, provider);
+    assertTrue(a.preHandle(request, response, new Object()));
+    TracingInterceptor b = new TracingInterceptor(systemTelemetryContext, null);
+    assertTrue(b.preHandle(request, response, new Object()));
+    verify(request, never()).setAttribute(eq(TracingInterceptor.REQUEST_STATS_ATTR), any());
+  }
+
+  @Test
+  public void testAttribution_asyncDispatchReusesStats() {
+    TracingInterceptor interceptor = attributed(true, false);
+    RequestStats stats = new RequestStats(false);
+    when(request.getDispatcherType()).thenReturn(DispatcherType.ASYNC);
+    when(request.getAttribute("span")).thenReturn(span);
+    when(request.getAttribute(TracingInterceptor.REQUEST_STATS_ATTR)).thenReturn(stats);
+    assertTrue(interceptor.preHandle(request, response, new Object()));
+    verify(request).setAttribute(eq("otelScope"), any());
   }
 }
