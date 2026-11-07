@@ -43,19 +43,19 @@ A filter, a facet, a clause, a list boost, or a highlight names one indexed fiel
 
 ### The query is a template
 
-A template is the `searchTemplateProperties` aspect, `urn:li:searchTemplate:<id>`. It holds the query body and the sections around it: clauses, scoring, field weights, a ladder, retrieval, sort, and an ordered route list. A surface and an engine resolve to a seed URN. That seed's routes choose the template from the query text. A deployment customizes by writing a child that replaces the sections it sets, or by pointing a slot at a different URN.
+A template is the `searchTemplateProperties` aspect, `urn:li:searchTemplate:<id>`. It holds the query body and the sections around it: clauses, scoring, field weights, a ladder, sort, and an ordered route list. A surface and an engine resolve to a seed URN. That seed's routes choose the template from the query text. A deployment customizes by writing a child that replaces the sections it sets, or by pointing a slot at a different URN.
 
-A child inherits a parent. A section left unset stays. An explicit empty section drops the inherited one, so a boost, an exclusion, a rescore, a ranking preset, or the document rerank weights is a small write against a bootstrapped default. The next search renders the new body. There is no redeploy. The sections are in [Customization](#customization).
+A child inherits a parent. A section left unset stays. An explicit empty section drops the inherited one, so a boost, an exclusion, a rescore, or the document rerank weights is a small write against a bootstrapped default. The next search renders the new body. There is no redeploy. The sections are in [Customization](#customization).
 
 ### Query time
 
-A caller overrides the stored template for one request and does not write it. `SearchFlags.searchTemplate` selects a URN. On a search, the walk follows that template's `next`. Scroll does not. `sortCriteria` replaces the sort. On a from/size search it also replaces engine `rescore`, `ranking`, and `knn`. Aggregation flags adjust that request. Highlighting stays off. The flags are in [Runtime and query-time customization](#runtime-and-query-time-customization).
+A caller overrides the stored template for one request and does not write it. `SearchFlags.searchTemplate` selects a URN. On a search, the walk follows that template's `next`. Scroll does not. `sortCriteria` replaces the sort. On a from/size search it also replaces engine `rescore` and `knn`. Aggregation flags adjust that request. Highlighting stays off. The flags are in [Runtime and query-time customization](#runtime-and-query-time-customization).
 
 ### What the service owns
 
-On a keyword rung, soft delete, hidden lifecycle stages, requested entity types, latest-version filtering, and view authorization wrap the rendered query. A template cannot widen what the caller is allowed to see. On a vector rung, soft delete and hidden lifecycle stages are inside the kNN request, and view authorization is applied after the top-k. See [Vector retrieval](#vector-retrieval). Paging and the result cache stay in the service. System templates are editable only by the system actor.
+On a keyword rung, soft delete, hidden lifecycle stages, requested entity types, latest-version filtering, and view authorization wrap the rendered query. A template cannot widen what the caller is allowed to see. Paging and the result cache stay in the service. System templates are editable only by the system actor.
 
-The service does not classify the query in code. The surface, the engine, and the fulltext flag select a seed template. The seed's ordered routes then match the trimmed query, and the first match wins. A query that matches none stays on the seed unless the seed sets a default target. An empty query or `*`, with no caller URN, selects list and runs on the API the caller used. It does not force scroll. A caller-supplied URN is the entry, and its merged routes still run. Fully qualified name and deep path are shape flags. A quoted query is exact and requires the phrase. A single term with no spaces is not exact. Column search matches the column name. A structured `/q` query uses the shared field names, which the caller reads from the schema. The route tables are in [Selection](#selection).
+The service does not classify the query in code. The surface, the engine, and the fulltext flag select a seed template. The seed's ordered routes then match the trimmed query, and the first match wins. A query that matches none stays on the seed unless the seed sets a default target. An empty query or `*`, with no caller URN, selects `listUrn` on the search seed and `list` on the page seed, and runs on the API the caller used. It does not force scroll. A caller-supplied URN is the entry, and its merged routes still run. Fully qualified name and deep path are shape flags. A quoted query is exact and requires the phrase. A single term with no spaces is not exact. Column search matches the column name. A structured `/q` query uses the shared field names, which the caller reads from the schema. The route tables are in [Selection](#selection).
 
 The template body chooses a placeholder. The service computes the variations. The template does not supply a rewrite. See [Query variations](#query-variations).
 
@@ -65,15 +65,15 @@ A rung renders the template sections. The ladder owns selection, stopping, joins
 
 `@Searchable` maps a PDL field onto a shared field. `v3.searchLabel` and `v3.degree` name the indexed field. `v3.queryByDefault` true puts that field in the default queried set, and an unset flag leaves it out. `v3.boostScore` is its default weight. The top-level `queryByDefault` and `boostScore` stay the Search V2 values. `fields.add`, `fields.remove`, `fields.replace`, and `fields.override` choose which fields are queried and the weight of each. The author writes the `term`, `prefix`, `wildcard`, or `match` clause in the Mustache body, and the boost and `dis_max` around it. The composed keyword query adds the generated whole-value terms and the name-and-value group around that body. See [Field weights](#field-weights).
 
-A template declares the section names this release accepts. An unknown name is rejected when the template is written and when it is loaded. `apiVersion` is 1. A ranking preset other than `none`, a window sizer other than `fixed`, vector retrieval, a bridge, and a merge join fail when that template is selected. See [Capabilities](#capabilities).
+A template declares the section names this release accepts. An unknown name is rejected when the template is written and when it is loaded. `apiVersion` is 1. A section this release cannot run fails the search when that template is selected. See [Capabilities](#capabilities).
 
 ### How a request runs
 
-Bind resolves the seed or the caller URN, follows its routes, merges parents, and checks the contract. On a search, the ladder tries rungs until one stops. The executor renders, scores, and slices a keyword rung. Scroll runs the composed keyword query and does not walk the ladder. Scroll also drops engine `rescore`, `ranking`, and `knn`, and sorts by score, then URN. Which features each API runs is in [Search and scroll](#search-and-scroll). `includeExplain` returns the explanation of the query that was served. `searchType` opts a request into DFS query-then-fetch when consistent IDF across shards matters. The steps are in [Query execution](#query-execution).
+Bind resolves the seed or the caller URN, follows its routes, merges parents, and checks the contract. On a search, the ladder tries rungs until one stops. The executor renders, scores, and slices a keyword rung. Scroll runs the composed keyword query and does not walk the ladder. Scroll also drops engine `rescore` and `knn`, and sorts by score, then URN. Which features each API runs is in [Search and scroll](#search-and-scroll). `includeExplain` returns the explanation of the query that was served. `searchType` opts a request into DFS query-then-fetch when consistent IDF across shards matters. The steps are in [Query execution](#query-execution).
 
-The composed keyword query is the rendered body, then whole-value terms and the name-and-value group, then `clauses`, then `functionScore`. A property in the queried set joins the weighted field list and gets a whole-value term at its field weight. It joins a `dis_max` when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path into a clause. See [Query holes](#query-holes). Inside a clause that scores by field weight, equal weights tie and a higher weight ranks above `name`. A numeric boost written in the body stays that boost. A quoted query requires the phrase. `functionScore`, engine `rescore`, `ranking`, and `knn` can still reorder inside their windows. Scroll runs this composed keyword query and still drops those three. See [Ranking](#ranking) and [Search and scroll](#search-and-scroll).
+The composed keyword query is the rendered body, then whole-value terms and the name-and-value group, then `clauses`, then `functionScore`. A property in the queried set joins the weighted field list and gets a whole-value term at its field weight. It joins a `dis_max` when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path into a clause. See [Query holes](#query-holes). Inside a clause that scores by field weight, equal weights tie and a higher weight ranks above `name`. A numeric boost written in the body stays that boost. A quoted query requires the phrase. `functionScore`, engine `rescore`, and `knn` can still reorder inside their windows. Scroll runs this composed keyword query and still drops those two. See [Search and scroll](#search-and-scroll).
 
-A vector participates in one of three ways, and each is a different template shape. `knn` on a keyword template reorders rows already in the keyword window and adds no hits. Corpus kNN is its own rung. A keyword rung and a vector rung can run together and add hits that only the vector leg found. In OSS the three shapes run for the Document entity only. Hybrid adds vector-only hits once a fusion policy is chosen. See [Document rerank](#document-rerank) and [Vector retrieval](#vector-retrieval).
+`knn` on a keyword template reorders rows already in the keyword window and adds no hits. The rerank runs for the Document entity only. See [Document rerank](#document-rerank).
 
 The search box is a search. Which field matched is read from the returned page, for the fields the request opted into. The default set is empty, so the default query stays one body and fetches no highlight source. The engine highlighter stays off. A non-empty set opts into final-page source matching, and `skipHighlighting` clears that set. See [Highlight fields](#highlight-fields).
 
@@ -90,7 +90,7 @@ A template is the `searchTemplateProperties` aspect, addressed as `urn:li:search
 **Query time** changes one request and does not write the template:
 
 - `SearchFlags.searchTemplate` selects a URN for that call.
-- `sortCriteria` replaces the template sort. On a from/size search it also replaces engine `rescore`, `ranking`, and `knn`.
+- `sortCriteria` replaces the template sort. On a from/size search it also replaces engine `rescore` and `knn`.
 - `skipAggregates` and `includeDefaultFacets` adjust aggregations for the request.
 - A non-empty highlight set opts into final-page source matching. `skipHighlighting` clears that set, including a template set and a caller override. A request may add, remove, or replace the template set, and `customHighlightingFields` replaces it.
 
@@ -109,7 +109,7 @@ These are the sections on `searchTemplateProperties`. The bodies behind the boot
 | `dialect`                 | Body language. The request has to match it.                                                                                                                    | [Dialect](#dialect)                                                              |
 | `apiVersion`              | Template contract. This release implements 1.                                                                                                                  | [Capabilities](#capabilities)                                                    |
 | `capabilities`            | Section names this body declares. An unknown name is rejected when the template is written.                                                                    | [Capabilities](#capabilities)                                                    |
-| `query`                   | Mustache body for this rung. Used when retrieval is keyword. Setting it replaces the whole body.                                                               | [Query composition](#query-composition)                                          |
+| `query`                   | Mustache body for this rung. Setting it replaces the whole body.                                                                                               | [Query composition](#query-composition)                                          |
 | `queryFragments`          | JSON spliced into a named hole the parent body has opened.                                                                                                     | [Query holes](#query-holes)                                                      |
 | `clauses`                 | Extra bool clauses merged into that body.                                                                                                                      | [Query composition](#query-composition)                                          |
 | `functionScore`           | Score functions wrapped around the body. A filter snippet is for a boost that is not list membership.                                                          | [Query composition](#query-composition), [List boosts](#list-boosts)             |
@@ -117,13 +117,11 @@ These are the sections on `searchTemplateProperties`. The bodies behind the boot
 | `fieldValueScores`        | Numeric multipliers for an index field or a structured property. Naming a property turns scoring on. Omitted extents come from the definition's `score`.       | [Numeric property scores](#numeric-property-scores)                              |
 | `entityTypeBoosts`        | Positive weights for named entity types, multiplied onto the rendered query. A weight of 1 is omitted. A request that names one entity type skips the section. |                                                                                  |
 | `rescore`                 | An engine rescore window after that wrapper, on a from/size search. Scroll drops it.                                                                           | [Query composition](#query-composition), [Search and scroll](#search-and-scroll) |
-| `ranking`                 | Preset that reorders the engine window after the query returns, on a from/size search. Scroll drops it.                                                        | [Ranking](#ranking), [Search and scroll](#search-and-scroll)                     |
 | `routes`                  | Ordered query matchers that choose another template before this body runs. An empty list pins this template. A miss stays here unless a default target is set. | [Selection](#selection)                                                          |
 | `ladder`                  | On a search: when to run this rung, when to keep the result, and the next template URN. Scroll ignores it.                                                     | [Query ladder](#query-ladder), [Search and scroll](#search-and-scroll)           |
-| `retrieval`               | How this rung retrieves. Unset is keyword. `vector` retrieves by embedding.                                                                                    | [Vector retrieval](#vector-retrieval)                                            |
 | `knn`                     | Weights that reorder document rows already in the keyword window, on a from/size search. Scroll drops it.                                                      | [Document rerank](#document-rerank), [Search and scroll](#search-and-scroll)     |
 | `aggregations`            | Facets for this rung. Unset keeps the schema default facets.                                                                                                   | [Query sequence](#query-sequence)                                                |
-| `sort`                    | Sort for this rung. Unset keeps score, then URN, unless engine `rescore`, `ranking`, or `knn` is applied.                                                      | [Query composition](#query-composition)                                          |
+| `sort`                    | Sort for this rung. Unset keeps score, then URN, unless engine `rescore` or `knn` is applied.                                                                  | [Query composition](#query-composition)                                          |
 | `fields`                  | Queried fields and one weight each. Each degree of separation is its own field.                                                                                | [Field weights](#field-weights)                                                  |
 | `structuredPropertyQuery` | Analyzed value, exact value, and name-and-value clauses. A child replaces only the clauses it sets.                                                            | [Name and value](#name-and-value)                                                |
 | `highlightFields`         | Fields opted into final-page source matching. The engine highlighter stays off.                                                                                | [Highlight fields](#highlight-fields)                                            |
@@ -135,11 +133,9 @@ These are the sections on `searchTemplateProperties`. The bodies behind the boot
 
 A child sets `parent` and replaces only the sections it includes. Leaving a section unset keeps the parent.
 
-An explicit empty string drops that section, including an inherited `knn`, `ranking`, `retrieval`, or `ladder`. A child can keep the parent's `functionScore` and `boosts` and drop the parent's rerank, the parent's ranking, or the parent's hand-off. An explicit empty `boosts` drops an inherited list. An explicit empty `structuredPropertyQuery` drops the inherited clauses. A child replaces only the clauses it sets. See [Name and value](#name-and-value).
+An explicit empty string drops that section, including an inherited `knn` or `ladder`. A child can keep the parent's `functionScore` and `boosts` and drop the parent's rerank, or the parent's hand-off. An explicit empty `boosts` drops an inherited list. An explicit empty `structuredPropertyQuery` drops the inherited clauses. A child replaces only the clauses it sets. See [Name and value](#name-and-value).
 
 `fields` merges by key. A child's `add`, `remove`, and `override` combine with the parent's, and the child's `override` wins when both name the same field. When the parent set `replace`, those child keys apply to that set. A child's `replace` replaces the queried set and discards the parent's `add`, `remove`, and `override`.
-
-`ranking.signals` replaces the inherited signal list. `ranking.add` and `ranking.remove` patch that list by signal name, including a list loaded through `ranking.template`. A new name is appended. The same name replaces that signal and keeps its place. A non-empty `signals` list discards parent patches and leaves `preset` unset. An empty `signals` list or an empty `formula` drops that field and keeps the rest of the ranking. An empty `template` drops the reference and the `add` and `remove` patches that sat beside it. A `ranking.template` URN replaces inherited inline ranking fields. Inline ranking fields replace an inherited `ranking.template`.
 
 `queryFragments` merges by hole name. Every level that sets a non-empty key adds a fragment, joined root-first with commas. An unset key adds nothing. An empty string drops inherited fragments for that key. See [Query holes](#query-holes).
 
@@ -195,17 +191,17 @@ Each fragment is rewritten for structured-property definition URNs, then rendere
 | `entityTypeBoosts`        | Entity-type weights                              |
 | `queryFragments`          | Query holes                                      |
 
-After parent merge, a ranking preset other than `none`, a window sizer other than `fixed`, vector retrieval, a bridge, and a merge join fail the search. `knn` runs when the request includes the Document entity. The service does not drop that section and return keyword order. On scroll, `next` is unread, so a `next` this release cannot run does not fail the scroll. On a search, it does. Scroll still skips the sections that a cursor cannot continue. See [Search and scroll](#search-and-scroll) and [Document rerank](#document-rerank).
+After parent merge, a section this release cannot run fails the search. `knn` runs when the request includes the Document entity. The service does not drop that section and return keyword order. On scroll, `next` is unread, so a `next` this release cannot run does not fail the scroll. On a search, it does. Scroll still skips the sections that a cursor cannot continue. See [Search and scroll](#search-and-scroll) and [Document rerank](#document-rerank).
 
 ### Field weights
 
 `fields` exists so a template can change which shared fields are searched, and how hard, without a code change. The default set is every indexed field whose `v3.queryByDefault` is true, at that field's `v3.boostScore`, plus every structured property whose `searchConfiguration.queryByDefault` is true, at that configuration's `boostScore`. When `v3.boostScore` is unset, Search V3 uses the top-level `boostScore`. When `v3.queryByDefault` is unset, the field stays out of an unqualified Search V3 query; set it true to opt in. The top-level flags stay the Search V2 values. The indexed field is the shared field at degree 0, and `<sharedField>_<degree>` above that. Column degrees stay out of that set. Those annotation values are schema defaults: `v3.boostScore` does not increase with degree on one entity and shared field. Schema validation requires one degree for an aspect location and one `v3.queryByDefault` and `v3.boostScore` for an indexed name, including across entities. See [Documents](#documents). A structured property has one definition, so its `queryByDefault` and `boostScore` are the same on every entity type that definition allows. The annotation or definition weight applies only where the template sets no weight, and the template's field set and weights are what the request runs.
 
-`override` sets the weight of a field that is already in the queried set. One field, one weight. That weight is what the weighted field list uses, and what a structured property's generated whole-value term uses as its boost. In the list, text is queried at that weight and the stemmed subfield at half, except on the name fields, which have no stemmed subfield. A numeric boost written in the body stays the boost the author wrote. Override does not change `nameAndValue.weight`. The same documents match. `rescore` and `ranking` read the resulting score. They do not carry a field-weight list of their own. An `override` of a field that is not in the queried set is rejected at write time.
+`override` sets the weight of a field that is already in the queried set. One field, one weight. That weight is what the weighted field list uses, and what a structured property's generated whole-value term uses as its boost. In the list, text is queried at that weight and the stemmed subfield at half, except on the name fields, which have no stemmed subfield. A numeric boost written in the body stays the boost the author wrote. Override does not change `nameAndValue.weight`. The same documents match. `rescore` reads the resulting score. They do not carry a field-weight list of their own. An `override` of a field that is not in the queried set is rejected at write time.
 
 `add` puts a field into the queried set at the weight written on the entry, so a document that matches only that field can appear. `remove` drops a field, so a document that matched only that field can disappear. `replace` replaces the whole list and each weight. `replace` cannot be combined with `add`, `remove`, or `override`.
 
-A child that only overrides a weight inherits the parent's query, clauses, ladder, rescore, ranking, and the rest of `fields`. A saved ranking is that child. The section it sets is `fields.override`. It may also set `ranking` when the preset itself should change. It does not set `query` or `fields.remove`. There is no second ranking entity.
+A child that only overrides a weight inherits the parent's query, clauses, ladder, rescore, and the rest of `fields`. The section it sets is `fields.override`. It does not set `query` or `fields.remove`.
 
 ```yaml
 parent: urn:li:searchTemplate:fulltext
@@ -238,11 +234,11 @@ The same shape covers glossary terms and owners. A clause, a list boost, a facet
 
 `fields.add`, `fields.remove`, `fields.replace`, and `fields.override` choose which fields are queried and the weight of each. The rendered `query` section is the body. The author writes the `term`, `prefix`, `wildcard`, or `match` clause, and the boost and `dis_max` around it. The builder substitutes resolved field paths into that body and fills `{{&defaultQueryFieldsJson}}` from the queried set. It does not emit a clause because a mode was set.
 
-The composed keyword query is that rendered body, then one generated whole-value term per included structured property, then the name-and-value group when `nameAndValue.weight` is set, then `clauses` and `functionScore`. Search may still attach `rescore`, `ranking`, and `knn`. Scroll runs the composed keyword query and drops those three.
+The composed keyword query is that rendered body, then one generated whole-value term per included structured property, then the name-and-value group when `nameAndValue.weight` is set, then `clauses` and `functionScore`. Search may still attach `rescore` and `knn`. Scroll runs the composed keyword query and drops those two.
 
 A structured property is named by its definition URN and changed with the same `add`, `remove`, and `override` operations. Those operations, and `replace`, decide which properties are queried and which join name-and-value expansion. `nameAndValue.weight` is not an override. Every included property gets a whole-value term at its field weight, including when the body also names that property. `fields.override` changes that term's boost and the property's `path^weight` in the weighted field list. It does not rewrite a numeric boost written in the body, and it does not change `nameAndValue.weight`. Removing the field drops it from the list, drops its whole-value term, and drops its name-and-value clause. After render, a clause that targets only the removed field is removed. A multi-field clause loses that field and is removed when no field remains. See [Structured properties](#structured-properties).
 
-Inside the weighted field list, equal weights tie and a higher weight ranks above `name`. A numeric boost written in the body stays the boost the author wrote. A property joins a `dis_max` when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path there. See [Query holes](#query-holes) and [Ranking](#ranking).
+Inside the weighted field list, equal weights tie and a higher weight ranks above `name`. A numeric boost written in the body stays the boost the author wrote. A property joins a `dis_max` when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path there. See [Query holes](#query-holes).
 
 ```yaml
 parent: urn:li:searchTemplate:fulltext
@@ -273,7 +269,7 @@ boosts:
 
 ### Highlight fields
 
-Which field matched is read from values already on the returned page, for the fields this request opted into and this query searches. The check runs after ranking and page selection, so a discarded window row is not scanned, and it stops at the first matching value in each field. An empty set fetches nothing. The default query stays one body.
+Which field matched is read from values already on the returned page, for the fields this request opted into and this query searches. The check runs after rescore, rerank, and page selection, so a discarded window row is not scanned, and it stops at the first matching value in each field. An empty set fetches nothing. The default query stays one body.
 
 A named query identifies a field only when that field is its own clause. A `multi_match` does not say which inner field matched. Lucene already scores a sub-query per field inside that one body, so a `_name` on every field costs template size rather than query time. The template does not grow one per queried field, including every degree of separation and every structured property the query searched. An author may still name a distinct clause. That name is what a structured-property match reports. It does not replace the field check.
 
@@ -301,7 +297,7 @@ functionScore: |
   }
 ```
 
-Leaving `knn` or `ranking` unset keeps the parent's section. Setting `knn` to empty drops an inherited rerank and leaves the ranking-step order. Setting `ranking` to empty drops an inherited preset and leaves the query order. Setting only `query` leaves an inherited `ladder` in place, so the child still hands off through `next`.
+Leaving `knn` unset keeps the parent's section. Setting `knn` to empty drops an inherited rerank and leaves the engine order. Setting only `query` leaves an inherited `ladder` in place, so the child still hands off through `next`.
 
 A child that queries a structured property the definition left out names the definition URN and a weight. See [Structured properties](#structured-properties). This `add` puts Business Name in the queried set. It gets a whole-value term at boost 10, and its analyzed path joins the weighted field list at `^10`. A name-only clause the author wrote stays name-only. A second child suppresses a property the definition included and overrides the weight of one already in the set. That override changes the steward whole-value term and its entry in the weighted field list. It does not change `nameAndValue.weight` or a numeric boost written in the body. `name` stays at its `v3.boostScore` because neither child sets `replace`. The parent's `fields` keys merge with these. See [Inheritance](#inheritance).
 
@@ -381,24 +377,22 @@ The same child shape covers the other common changes:
 - a fragment in a hole the parent opened
 - a replaced `query`
 - a `rescore` window
-- a `ranking` preset
 - a single field weight
 
 ### What stays fixed
 
-The rendered query is combined with the caller's filter, soft delete, hidden lifecycle stages, the requested entity types, latest-version filtering, and view authorization. On a vector rung, soft delete and hidden lifecycle stages move inside the kNN request, and view authorization is applied after the top-k.
+The rendered query is combined with the caller's filter, soft delete, hidden lifecycle stages, the requested entity types, latest-version filtering, and view authorization.
 
 Paging and the result cache stay in the service. System templates are not editable except by the system actor.
 
 `fields.override` leaves the hit set unchanged. `fields.add`, `fields.remove`, and `fields.replace` change which documents match. Owners group cross-match, filter order, result-card layout, Column Views, and favorites are product surfaces outside the query contract. The matched-field report names the structured property and the value that matched so a card can show Business Name. The card layout itself stays outside Search V3.
 
-The template cannot express the following. A section that tries is rejected, or, when the process does not implement the named preset, fails the capability check:
+The template cannot express the following. A section that tries is rejected:
 
-- Painless and `script_score` in any section. Numeric boosts are `field_value_factor` or a filter weight. Formulas that read several signals are a `ranking` preset.
+- Painless and `script_score` in any section. Numeric boosts are `field_value_factor` or a filter weight.
 - A regex inside a query body, a ladder predicate, or a Mustache expression. Query routing is the ordered `routes` list in [Selection](#selection). A ladder predicate stays a closed name. A shape flag stays a value the service computed.
 - Word-gram fields, ngram fields, and the per-field analyzer chain. One weight per field, as [Field weights](#field-weights) specifies: text at that weight, stemmed at half except on the name fields, exact on the keyword.
 - `k` and `num_candidates` on document rerank.
-- Offset pagination of a vector rung.
 - A template body that wraps, percolates, or does a terms lookup.
 
 ## Query execution
@@ -407,28 +401,26 @@ With templates enabled on the V3 keyword read path, one template is selected as 
 
 ### Search and scroll
 
-Search is a `from`/`size` request. Scroll is a point-in-time query continued with `search_after`. The cursor is the sort values of one query. A ladder, a fused hit list, a rescore window, a ranking window, and a document rerank each produce an order that cursor cannot continue, so scroll does not run them.
+Search is a `from`/`size` request. Scroll is a point-in-time query continued with `search_after`. The cursor is the sort values of one query. A ladder, a rescore window, and a document rerank each produce an order that cursor cannot continue, so scroll does not run them.
 
 The same template URN serves both. On scroll the ladder section is left unread, and the scrolled request is the composed keyword query: the rendered body, generated whole-value terms, the name-and-value group, `clauses`, `functionScore`, and `boosts`. A search that stopped on a later rung is a different result. A scroll cursor does not continue that page.
 
-| Feature                                                 | Search                                                            | Scroll                                                    |
-| ------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------- |
-| Composed keyword query                                  | Runs                                                              | Runs                                                      |
-| `query`, `clauses`, `fields`, `functionScore`, `boosts` | Part of that query                                                | Part of that query                                        |
-| Whole-value terms and name-and-value                    | Run                                                               | Run                                                       |
-| `aggregations`                                          | Run when the request asks                                         | Run when the request asks                                 |
-| Highlight                                               | Final-page source match when the set is non-empty                 | Same, on the scrolled page                                |
-| `sort` and `sortCriteria`                               | Run. `sortCriteria` also replaces `rescore`, `ranking`, and `knn` | Run. The default is score, then URN                       |
-| `rescore`                                               | Runs on the top `window_size`                                     | Dropped. The engine rejects `rescore` with `search_after` |
-| `ranking`                                               | Reorders the fetched window                                       | Dropped                                                   |
-| `knn` document rerank                                   | Reorders inside the ranking window                                | Dropped                                                   |
-| `routes`                                                | Followed before the body runs                                     | Followed before the body runs                             |
-| `ladder`, including a parallel join and fusion          | Walks `select`, `stop`, and `next`                                | Left unread. `next` is not followed                       |
-| Vector retrieval, `bridge`, and hybrid retrieval        | A window sliced from offset 0                                     | Left unread                                               |
+| Feature                                                 | Search                                                | Scroll                                                    |
+| ------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------- |
+| Composed keyword query                                  | Runs                                                  | Runs                                                      |
+| `query`, `clauses`, `fields`, `functionScore`, `boosts` | Part of that query                                    | Part of that query                                        |
+| Whole-value terms and name-and-value                    | Run                                                   | Run                                                       |
+| `aggregations`                                          | Run when the request asks                             | Run when the request asks                                 |
+| Highlight                                               | Final-page source match when the set is non-empty     | Same, on the scrolled page                                |
+| `sort` and `sortCriteria`                               | Run. `sortCriteria` also replaces `rescore` and `knn` | Run. The default is score, then URN                       |
+| `rescore`                                               | Runs on the top `window_size`                         | Dropped. The engine rejects `rescore` with `search_after` |
+| `knn` document rerank                                   | Reorders inside the keyword window                    | Dropped                                                   |
+| `routes`                                                | Followed before the body runs                         | Followed before the body runs                             |
+| `ladder`, including a parallel join                     | Walks `select`, `stop`, and `next`                    | Left unread. `next` is not followed                       |
 
-`includeExplain` and `searchType` apply to the query that was served on either API. System filters and view authorization wrap the keyword query on either API. Scroll runs the composed keyword query, including whole-value terms and name-and-value clauses, and still drops rescore, ranking, and knn. See [Name and value](#name-and-value).
+`includeExplain` and `searchType` apply to the query that was served on either API. System filters and view authorization wrap the keyword query on either API. Scroll runs the composed keyword query, including whole-value terms and name-and-value clauses, and still drops rescore and knn. See [Name and value](#name-and-value).
 
-An empty query or `*`, with no `SearchFlags.searchTemplate`, selects the list query and runs on the API the caller used. It does not force scroll. That query has no `next`, so a search does not walk, and scroll does not follow `next`. Scroll still drops `rescore`, `ranking`, and `knn`. A caller `sortCriteria` is the list order. An explicit template URN skips that selection. Its merged routes still run, and on a search the ladder runs after routing finishes. See [Selection](#selection).
+An empty query or `*`, with no `SearchFlags.searchTemplate`, selects `listUrn` on the search seed and `list` on the page seed, and runs on the API the caller used. It does not force scroll. That query has no `next`, so a search does not walk, and scroll does not follow `next`. Scroll still drops `rescore` and `knn`. A caller `sortCriteria` is the list order. An explicit template URN skips that selection. Its merged routes still run, and on a search the ladder runs after routing finishes. See [Selection](#selection).
 
 ### Query sequence
 
@@ -436,7 +428,7 @@ An empty query or `*`, with no `SearchFlags.searchTemplate`, selects the list qu
 
    Each merge keeps the parent cycle check and a parent depth of five. Route hops keep a separate visited set and hop budget. The set contains each URN whose routes are evaluated, not the parents loaded to merge it. A repeated route URN or a spent hop budget fails the search. A route target of another dialect fails the same way.
 
-   After the merge, `apiVersion` must be 1 and every declared capability must be a name this release accepts. A ranking preset other than `none`, a window sizer other than `fixed`, vector retrieval, a bridge, and a merge join fail the search. The service does not drop that section and return keyword order. On a search, a `next` this release cannot run fails the same way. On scroll, `next` is unread, so that check waits until a search follows it.
+   After the merge, `apiVersion` must be 1 and every declared capability must be a name this release accepts. A section this release cannot run fails the search. The service does not drop that section and return keyword order. On a search, a `next` this release cannot run fails the same way. On scroll, `next` is unread, so that check waits until a search follows it.
 
    The cache key combines the service discriminators for the request with the final template and the ladder rungs this request will run: every rung consulted, each modification time, and whether a rerank is armed on the rung that was served. A route change that selects a different template changes that identity. The matched route chain is returned with `includeExplain`. It is not a second cache key. When the served query expanded `structuredPropertyQuery`, the key also includes the structured-property catalog stamp used for that expansion. `lastModified` already separates two templates whose composed queries differ. `subIntents` are not a second routing mechanism.
 
@@ -444,15 +436,15 @@ An empty query or `*`, with no `SearchFlags.searchTemplate`, selects the list qu
 
    Scroll does not walk. It runs the resolved template's composed keyword query. See [Search and scroll](#search-and-scroll).
 
-   A kept keyword rung supplies `query`, `clauses`, `functionScore`, `aggregations`, and `sort`. It supplies engine `rescore`, `ranking`, and `knn` on a `from`/`size` search. Scroll drops engine `rescore`, `ranking`, and `knn`, and sorts by score, then URN. A caller `sortCriteria` replaces all three on a search. On scroll it replaces the score, then URN sort.
+   A kept keyword rung supplies `query`, `clauses`, `functionScore`, `aggregations`, and `sort`. It supplies engine `rescore` and `knn` on a `from`/`size` search. Scroll drops engine `rescore` and `knn`, and sorts by score, then URN. A caller `sortCriteria` replaces both on a search. On scroll it replaces the score, then URN sort.
 
-3. **Rank and slice.** On a `from`/`size` search, for the standard keyword rung the walk kept, the service renders `query`, attaches generated whole-value terms and the name-and-value group, merges `clauses`, wraps `functionScore` (the author's functions plus one weight function per structured boost), and attaches engine `rescore`. It then runs `ranking` on that window. The ranking step reads the score from the engine. Scroll runs that same composed keyword query and does not attach `rescore`, `ranking`, or `knn`.
+3. **Rank and slice.** On a `from`/`size` search, for the standard keyword rung the walk kept, the service renders `query`, attaches generated whole-value terms and the name-and-value group, merges `clauses`, wraps `functionScore` (the author's functions plus one weight function per structured boost), and attaches engine `rescore`. Scroll runs that same composed keyword query and does not attach `rescore` or `knn`.
 
-   When `knn` is armed, semantic read is on, the request includes documents, the sort is by score, and the page ends inside the ranking window, document rerank reorders rows in that window. It reads the score from the ranking step. The service then slices the page. Every page that ends inside the ranking window is a slice of that one order. A page that ends past the window skips document rerank. The keyword total and facets stand.
+   When `knn` is armed, semantic read is on, the request includes documents, the sort is by score, and the page ends inside the keyword window, document rerank reorders rows in that window. It reads the score the engine returned. The service then slices the page. Every page that ends inside that window is a slice of that one order. A page that ends past the window skips document rerank. The keyword total and facets stand.
 
-   On a search, a later rung's `ranking` or `knn` is not applied when an earlier rung was kept. Scroll does not rank or rerank. The scroll cursor is the engine's sort values, and an in-memory reorder cannot be continued. A vector rung does not follow the keyword order. See [Vector retrieval](#vector-retrieval).
+   On a search, a later rung's `knn` is not applied when an earlier rung was kept. Scroll does not rank or rerank. The scroll cursor is the engine's sort values, and an in-memory reorder cannot be continued.
 
-System filters, the caller's filter, and view authorization wrap every keyword rung that runs. Each body is validated at write time. A vector rung applies soft delete and hidden lifecycle stages inside the kNN request, and view authorization after the top-k.
+System filters, the caller's filter, and view authorization wrap every keyword rung that runs. Each body is validated at write time.
 
 `includeExplain` returns the explanation of the query this walk served. `searchType` opts a keyword request into DFS query-then-fetch when consistent IDF across shards matters.
 
@@ -464,35 +456,31 @@ Routes match the trimmed query in the escaped form the service already uses. Eac
 
 On the search seed, a miss stays unless that seed sets a default target.
 
-| Order | Pattern                                  | Template                                |
-| ----- | ---------------------------------------- | --------------------------------------- |
-| 1     | `(?i)^(?:urn:.*\|(?:s3\|gs\|hdfs)://.*)` | `urn:li:searchTemplate:identity`        |
-| 2     | `^$`                                     | `urn:li:searchTemplate:list`            |
-| 3     | `^\*$`                                   | `urn:li:searchTemplate:list`            |
-| 4     | `^\\/q ["'].+["']$`                      | `urn:li:searchTemplate:structuredExact` |
-| 5     | `^\\/q .*`                               | `urn:li:searchTemplate:structured`      |
-| 6     | `^["'].+["']$`                           | `urn:li:searchTemplate:exact`           |
+| Order | Pattern                                                              | Template                                |
+| ----- | -------------------------------------------------------------------- | --------------------------------------- |
+| 1     | `(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*\|(?:s3\|gs\|hdfs):\\?/\\?/.*)` | `urn:li:searchTemplate:identity`        |
+| 2     | `^\*?$`                                                              | `urn:li:searchTemplate:listUrn`         |
+| 3     | `^\\/q ["'].+["']$`                                                  | `urn:li:searchTemplate:structuredExact` |
+| 4     | `^\\/q .*`                                                           | `urn:li:searchTemplate:structured`      |
+| 5     | `^["'].+["']$`                                                       | `urn:li:searchTemplate:exact`           |
 
 On the structured seed, a miss stays unless that seed sets a default target. With `fulltext=false`, one unquoted token stays on that seed.
 
-| Order | Pattern                                  | Template                                |
-| ----- | ---------------------------------------- | --------------------------------------- |
-| 1     | `(?i)^(?:urn:.*\|(?:s3\|gs\|hdfs)://.*)` | `urn:li:searchTemplate:identity`        |
-| 2     | `^$`                                     | `urn:li:searchTemplate:list`            |
-| 3     | `^\*$`                                   | `urn:li:searchTemplate:list`            |
-| 4     | `^\\/q ["'].+["']$`                      | `urn:li:searchTemplate:structuredExact` |
-| 5     | `^["'].+["']$`                           | `urn:li:searchTemplate:structuredExact` |
+| Order | Pattern                                                              | Template                                |
+| ----- | -------------------------------------------------------------------- | --------------------------------------- |
+| 1     | `(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*\|(?:s3\|gs\|hdfs):\\?/\\?/.*)` | `urn:li:searchTemplate:identity`        |
+| 2     | `^\*?$`                                                              | `urn:li:searchTemplate:list`            |
+| 3     | `^\\/q ["'].+["']$`                                                  | `urn:li:searchTemplate:structuredExact` |
+| 4     | `^(?:\\/q )?["'].+["']$`                                             | `urn:li:searchTemplate:structuredExact` |
 
 An empty `routes` list pins the template. A hop to a pinned template does not route again.
 
 ```yaml
 routes:
-  - queryRegex: (?i)^(?:urn:.*|(?:s3|gs|hdfs)://.*)
+  - queryRegex: (?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\?/\\?/.*)
     template: urn:li:searchTemplate:identity
-  - queryRegex: ^$
-    template: urn:li:searchTemplate:list
-  - queryRegex: ^\*$
-    template: urn:li:searchTemplate:list
+  - queryRegex: ^\*?$
+    template: urn:li:searchTemplate:listUrn
 ```
 
 A route target may itself have routes, so an operator can insert another router without a client change. Patterns are RE2. Java-only lookarounds and backreferences from a legacy `queryRegex` are rejected. Write time compiles each pattern, checks its length, checks the list length, checks that the target exists and uses the same dialect, and rejects a route whose target is the template being written. Bind time fails the search when a hop repeats a URN or spends the hop budget. Two routers may point at each other when no one query can follow both patterns. Parent cycles stay on the parent chain and use the existing depth of five. They are not route hops.
@@ -527,7 +515,7 @@ ladder:
   next: urn:li:searchTemplate:fulltextBroad
 ```
 
-`select` is a conjunction, checked before the search. Every predicate has to match or this rung is skipped and the walk follows `next` without running the query. An empty `select` means the rung is always attempted. `stop` is a disjunction, checked after a successful search. Any one match keeps the result: the hits, the total, the facets, and the ranking. Later rungs are not searched, and their scores are not merged with this one. `next` is unset on the last rung. Its result is returned whether or not it would have stopped, including a total of zero.
+`select` is a conjunction, checked before the search. Every predicate has to match or this rung is skipped and the walk follows `next` without running the query. An empty `select` means the rung is always attempted. `stop` is a disjunction, checked after a successful search. Any one match keeps the result: the hits, the total, and the facets. Later rungs are not searched, and their scores are not merged with this one. `next` is unset on the last rung. Its result is returned whether or not it would have stopped, including a total of zero.
 
 A quoted query does not split across rungs. Its phrase clause stays on the exact template. A single term with no spaces is not exact.
 
@@ -560,7 +548,7 @@ A rung that requires `scoreSort`, `pageSize`, and `-columnFilter` is attempted o
 
 `emptyWhen: spacelessIdentifier` is the case where an empty strict search is the answer, because the broader query would not add a hit. The same flag is the cascade skip for both the six-digit hash and the four-part delimiter case. A shard failure or an exception is not a stop predicate. The walk follows `next` anyway, so a broken rung cannot hide results. When the failing rung is the last one, the search fails.
 
-**Next** is a template URN. The walk merges that template on its own. A rung renders its fields, clauses, function score, aggregations, sort, rescore, ranking, retrieval, and `knn`. Nothing is copied from the rung that just ran except through ordinary parent inheritance, when the next template declares that parent. A cycle, a missing URN, a different dialect, a section this release will not run, or a walk longer than the parent-chain limit fails the search. `next` set with an empty `stop` is rejected at write time on a sequential rung. An empty `stop` matches nothing, so that rung would never be kept. A parallel `any` or `allEmpty` group may set `next` without a group `stop`, because the join decides. A `merge` group that sets `next` requires a group `stop`. `next` of another dialect is rejected the same way an explicit template of another dialect is.
+**Next** is a template URN. The walk merges that template on its own. A rung renders its fields, clauses, function score, aggregations, sort, rescore, and `knn`. Nothing is copied from the rung that just ran except through ordinary parent inheritance, when the next template declares that parent. A cycle, a missing URN, a different dialect, a section this release will not run, or a walk longer than the parent-chain limit fails the search. `next` set with an empty `stop` is rejected at write time on a sequential rung. An empty `stop` matches nothing, so that rung would never be kept. A parallel `any` or `allEmpty` group may set `next` without a group `stop`, because the join decides. `next` of another dialect is rejected the same way an explicit template of another dialect is.
 
 The cache key includes every rung the walk consults, with that rung's modification time. A change to `select`, `stop`, or `next` on the entry template changes which URN is served without changing the winner's body, so the entry's stamp has to be in the key as well. The kept rung is the served rung. A rerank is armed only when a rung has `knn`. The route chain is not part of this key. The final template's stamp is.
 
@@ -581,60 +569,24 @@ ladder:
   next: urn:li:searchTemplate:fulltextBroad
 ```
 
-Each member is a template, with its own `select` and `stop`. The group adds a join and one `next` for the stage after the group. Three joins cover the cases below.
+Each member is a template, with its own `select` and `stop`. The group adds a join and one `next` for the stage after the group. Two joins are available:
 
-| Join       | What is served                                                                                                                           | When `next` runs                                                                                      |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `any`      | The first member to match its stop. Members still running are cancelled.                                                                 | Every member finished without matching its stop.                                                      |
-| `allEmpty` | After every member finishes, the first listed member whose stop matched.                                                                 | Every member was skipped or finished without matching its stop.                                       |
-| `merge`    | The member hit lists combined by `fusion`, up to `fusionCap`, with facets named by `facets`. The group does not issue another retrieval. | When `next` is set and the group's `stop` misses. A `merge` that sets `next` requires a group `stop`. |
+| Join       | What is served                                                           | When `next` runs                                                |
+| ---------- | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `any`      | The first member to match its stop. Members still running are cancelled. | Every member finished without matching its stop.                |
+| `allEmpty` | After every member finishes, the first listed member whose stop matched. | Every member was skipped or finished without matching its stop. |
 
-`any` does not wait for a slower member once one stop has matched. `allEmpty` does wait, so listing the keyword template first serves it when both would have stopped. `any` and `allEmpty` decide `next` from member stops, so they can omit a group `stop`. `merge` combines the member lists with `fusion` on the group instead of adding them inside one `dis_max`. That combination does not issue another retrieval. `next` runs when the group's `stop` misses, so a `merge` that sets `next` requires a group `stop`. A member that times out, returns partial hits, or fails a shard is dropped, and the others are served. When no member remains, the walk follows `next`. When the group is last, the search fails.
-
-`merge` names whose hits are kept, how many rows a later member may add, and whose facets are returned:
-
-```yaml
-ladder:
-  parallel:
-    - urn:li:searchTemplate:exactName
-    - urn:li:searchTemplate:columnName
-  join: merge
-  fusion: fillFreeSlots
-  fusionCap: 10
-  facets: patchFromMembers
-  stop:
-    - minHits: 1
-  next: urn:li:searchTemplate:fulltextBroad
-```
-
-| Fusion             | What is served                                                                                                                   |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `interleave`       | The member hit lists interleaved in listed order.                                                                                |
-| `weightedBlend`    | One score blend across the member lists. Parameters are set on the group.                                                        |
-| `fillFreeSlots`    | The first member's hits, then later members' hits in free slots of the window, up to `fusionCap`, skipping URNs already present. |
-| `keywordPreferred` | The keyword member when it matched its stop, otherwise the vector member.                                                        |
-
-| Facets             | What is returned                                                                    |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| `firstMember`      | The first member's aggregations.                                                    |
-| `patchFromMembers` | The first member's aggregations, plus the counts for rows `fillFreeSlots` appended. |
-| `candidates`       | The vector-rung follow-up. Illegal on a keyword group.                              |
+`any` does not wait for a slower member once one stop has matched. `allEmpty` does wait, so listing the keyword template first serves it when both would have stopped. `any` and `allEmpty` decide `next` from member stops, so they can omit a group `stop`.
 
 Two shapes that look like parallelism are not a group.
 
-**One body.** Exact name and an identifier term against the same index belong in one `query`, as a `dis_max` or a `bool` `should`. That is one round trip, one total, and one set of facets. Splitting them into two searches repeats filters, authorization, and aggregations, and then needs a rule for which total to return. Column name is a field the exact and fulltext bodies can query directly, which is this form. That form is one body, not a parallel group.
+**One body.** Exact name and an identifier term against the same index belong in one `query`, as a `dis_max` or a `bool` `should`. That is one round trip, one total, and one set of facets. Splitting them into two searches repeats filters, authorization, and aggregations, and then needs a rule for which total to return.
 
 **Speculative `next`.** The service may start the sequential `next` while the current rung is still running, and discard it when that rung stops. The ladder is unchanged. The broad query's latency hides behind the strict one. This is an execution choice, not a join.
 
 The cases that need a real group are the ones that cannot be a single query body.
 
-**Cheap probes, then one broad query.** An exact-name template and an identifier template run together. `join: allEmpty` serves whichever probe stopped, and runs the broad template only when both are empty. Use a group when the probes must not share a request: different indexes, or stop rules that disagree. When they can share a request, they are one first rung whose `next` is the broad template, and the group is unnecessary.
-
-**Column recall as its own request.** Column recall and the non-dataset name supplement add hits to a query that already matched. A deployment points the exact slot at the group above when the column probe has to be its own request, with its own cap and its own timeout. `fusion: fillFreeSlots` keeps the first member's hits and fills free slots from later members, up to `fusionCap`. `facets: patchFromMembers` adds the counts for the rows `fillFreeSlots` appended, which is the column-facet correction the supplementary query does today. The group's `stop` is one hit, so `fulltextBroad` runs only when the fused total is zero. A member that times out or returns partial hits is dropped, and the others are served.
-
-**Keyword retrieval beside corpus vector retrieval.** The keyword template and a vector template run together. The vector leg is not a clause of the keyword DSL, and it is not document rerank, which reorders the keyword window and adds no hits. `join: merge` keeps both hit lists. The group applies `fusion` and does not issue another retrieval. `keywordPreferred` serves the keyword member when it matched its stop, and the vector member otherwise. `weightedBlend` parameters are set on that group. `join: any` serves whichever retrieval matches its stop first and cancels the other, so there is no second list to fuse. Preferring the keyword result when both would have matched, without combining the lists, is `allEmpty`, with the keyword template listed first. Overlapping the two retrievals is the latency win. Unioning their hits is a recall change, and it is a different feature from document rerank. The merge group is hybrid retrieval for the Document entity. Vector-only hits wait on a fusion policy. See [Vector retrieval](#vector-retrieval).
-
-**Entity templates, then a broadening step.** A dataset template and a chart template would run together because each index has its own body. `join: merge` fuses the cross-entity lists on the group. Its `next`, when the fused total misses the group's `stop`, searches more loosely across both. That group is legal once a template can be limited to one entity type. [Selection](#selection) does not have that scope yet.
+**Cheap probes, then one broad query.** An exact-name template and an identifier template run together. `join: allEmpty` serves whichever probe stopped, and runs the broad template only when both are empty. Use a group when the probes must not share a request: different indexes, or stop rules that disagree. When they can share a request, they can be one first rung whose `next` is the broad template.
 
 The cache key includes every member that ran and the join, along with the sequential rung if it ran. Two requests that differ in which member stopped do not share a hit.
 
@@ -642,68 +594,35 @@ The cache key includes every member that ran and the join, along with the sequen
 
 `query`, `clauses`, `functionScore`, and `rescore` are separate because each one is a different kind of change, and a child should be able to replace one without rewriting the others.
 
-The service builds one request from them, in order. It renders `query`, substituting resolved paths and filling the weighted field list from the queried set. It does not emit a clause because a mode was set. It then attaches one whole-value term per included structured property, at that field's weight, and the name-and-value `dis_max` when `nameAndValue.weight` is set. Both sit before `functionScore`. See [Name and value](#name-and-value) and [Structured properties](#structured-properties). `bool`, `dis_max`, and `match_all` are valid roots. A missing `query` renders as `match_all`. It merges `clauses` (`must`, `must_not`, `filter`, `should`) into the bool wrapped around that body. It wraps `functionScore` once, with that template's `functions`, `score_mode`, and `boost_mode`, and appends one weight function for each structured boost. It attaches `rescore` after the wrapper. A top-level `function_score` inside `query` is rejected, because the wrapper belongs in `functionScore`. `rescore` cannot be combined with `sort`, or with `boost_mode: replace`. While `rescore` is applied, `sort` is not attached, so an unset `sort` is not yet score, then URN. Scroll drops `rescore`, `ranking`, and `knn`, and that default sort returns. The composed keyword query still runs. The [query sequence](#query-sequence) attaches `aggregations` and `sort` on the rung that the walk kept. [Ranking](#ranking) runs after the engine returns.
+The service builds one request from them, in order. It renders `query`, substituting resolved paths and filling the weighted field list from the queried set. It does not emit a clause because a mode was set. It then attaches one whole-value term per included structured property, at that field's weight, and the name-and-value `dis_max` when `nameAndValue.weight` is set. Both sit before `functionScore`. See [Name and value](#name-and-value) and [Structured properties](#structured-properties). `bool`, `dis_max`, and `match_all` are valid roots. A missing `query` renders as `match_all`. It merges `clauses` (`must`, `must_not`, `filter`, `should`) into the bool wrapped around that body. It wraps `functionScore` once, with that template's `functions`, `score_mode`, and `boost_mode`, and appends one weight function for each structured boost. It attaches `rescore` after the wrapper. A top-level `function_score` inside `query` is rejected, because the wrapper belongs in `functionScore`. `rescore` cannot be combined with `sort`, or with `boost_mode: replace`. While `rescore` is applied, `sort` is not attached, so an unset `sort` is not yet score, then URN. Scroll drops `rescore` and `knn`, and that default sort returns. The composed keyword query still runs. The [query sequence](#query-sequence) attaches `aggregations` and `sort` on the rung that the walk kept. [Ranking](#ranking) covers the order after the engine returns.
 
-`rescore` reorders only the top `window_size` hits of a `from`/`size` search. Scroll continues with `search_after`, and the engine rejects `rescore` on that request. The service drops `rescore`, `ranking`, and `knn` on every scroll execution and sorts by score, then URN. A standard template is not split to get there: the same URN serves search and scroll, and a scroll surface points at a different URN only when scroll should rank differently for a reason of its own. The scroll order is the query order, not the rescored order, and a scroll cursor is not a continuation of a rescored page. The rescored ranking exists only inside that window. Past it, the engine has not computed the order. A caller `sortCriteria` replaces engine `rescore`, `ranking`, and `knn` on a search. On scroll those three are already dropped, and `sortCriteria` replaces the score, then URN sort. The full split is in [Search and scroll](#search-and-scroll).
+`rescore` reorders only the top `window_size` hits of a `from`/`size` search. Scroll continues with `search_after`, and the engine rejects `rescore` on that request. The service drops `rescore` and `knn` on every scroll execution and sorts by score, then URN. A standard template is not split to get there: the same URN serves search and scroll, and a scroll surface points at a different URN only when scroll should rank differently for a reason of its own. The scroll order is the query order, not the rescored order, and a scroll cursor is not a continuation of a rescored page. The rescored order exists only inside that window. Past it, the engine has not computed the order. A caller `sortCriteria` replaces engine `rescore` and `knn` on a search. On scroll those three are already dropped, and `sortCriteria` replaces the score, then URN sort. The full split is in [Search and scroll](#search-and-scroll).
 
-`sort` may name the numeric document fields `queryCountLast30Days` and `viewCountLast30Days`. Most Queried and Most Visited are those sorts, including when the caller sends them as `sortCriteria`. The `usage` ranking preset reorders the window by usage signals and does not replace either sort.
+`sort` may name the numeric document fields `queryCountLast30Days` and `viewCountLast30Days`. Most Queried and Most Visited are those sorts, including when the caller sends them as `sortCriteria`.
 
 A property joins a `dis_max` when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path into a clause. [Ranking](#ranking) states where that order survives the later window. [Query holes](#query-holes) is the splice.
 
 ### Ranking
 
-V2.5 order is decided after the query returns. An engine `rescore` block cannot carry that formula. Script scoring stays forbidden, so the formula cannot move into `functionScore` either. `ranking` names a preset, plus parameters. A stored `formula` is kept and is not evaluated.
-
-```yaml
-ranking:
-  preset: usageAndMatchTier
-  window: 100
-  windowSizer: tokenCurve
-  parameters:
-    matchTierBand: 10
-```
-
-| Preset              | What the service does          |
-| ------------------- | ------------------------------ |
-| `none`              | Leaves the query order.        |
-| `usage`             | Not executed. Selection fails. |
-| `usageAndMatchTier` | Not executed. Selection fails. |
-
-`windowSizer` is the same kind of closed set. `fixed` uses `window`. This release implements `none` and `fixed`. `usage` and `usageAndMatchTier` fail selection. `tokenCurve` fails selection unless the resolved ranking stores a non-empty signal list. That list does not change the window.
-
-A ranking may store `signals`, an optional `formula`, or `ranking.template`. A reference and inline fields on the same ranking are rejected. `add` and `remove` patch the inherited list by signal name and may sit beside the reference. A non-empty `signals` list replaces the inherited list and cannot be combined with those patches. Signals or `ranking.template` require `rankingSignals`. A formula requires `rankingFormula`. Elasticsearch `rescore` is not combined with either. This release merges the stored section and does not score it.
-
-A `postProcess` component at version 1 is a registered component. OSS registers an empty implementation when no other implementation uses that name and version. The empty implementation accepts the stored config, does not interpret it, and does not reorder hits.
-
-`fields.override` changes the engine score the ranking step reads. It applies only to a field that remains in the queried set. `ranking` and `rescore` do not carry a field-weight list, and they do not copy the query weights into one. A saved ranking is a child whose section is `fields.override`, as [Field weights](#field-weights) specifies. `ranking` still only reorders the fetched window.
-
-The author writes the boost and the `dis_max` in the body. Inside the weighted field list, equal weights tie and a higher weight ranks a property above `name`. A numeric boost written in the body stays that boost. A property joins that clause when the author fills `extraDisMaxQueries`, or when a replaced `query` writes its path there, and the boost on that clause stays the boost written there. Every included property also gets a whole-value term at its field weight. `functionScore` wraps the composed keyword query, and each structured boost is a weight function in that wrapper. A weight there can place another clause ahead in the engine score when the template applies it. `matchTierBand` is the `usageAndMatchTier` preset's own band inside the window. It is the boost the preset applies inside that window.
-
-Those clauses run in the composed keyword query, before `functionScore`, engine `rescore`, `ranking`, and `knn`. Downstream scoring crosses them only when the selected template applies `functionScore`, `rescore`, `ranking`, or `knn`.
-
-`rescore`, `ranking`, and `knn` then reorder inside their windows. Inside a window another clause can move ahead. Past those windows the served order is the query score. Scroll runs the composed keyword query and drops all three. A quoted query requires the phrase. See [Selection](#selection).
-
-The name-and-value group sits in that query, before `functionScore`. It is its own `dis_max`. It is not a ranking preset. See [Name and value](#name-and-value).
+The order comes from the composed keyword query score. Engine `rescore` reorders the top `window_size` hits on a from/size search. Document rerank, when armed, reorders rows already in the keyword window. Past those windows the served order is the query score. Scroll drops `rescore` and `knn`, and sorts by score, then URN.
 
 Order on a from/size search, for the keyword rung the walk kept:
 
 ```mermaid
 flowchart LR
-  render["Composed keyword query, then engine rescore"] --> ranking["ranking reads that score"]
-  ranking --> knn["knn document rerank, if armed"]
+  render["Composed keyword query, then engine rescore"] --> knn["knn document rerank, if armed"]
   knn --> slice["Slice the page"]
 ```
 
 1. Render the composed keyword query: `query`, whole-value terms, the name-and-value group, `clauses`, and `functionScore`, then attach engine `rescore`.
-2. Run `ranking` on that window. It reads the score from step 1.
-3. Run `knn` document rerank, if armed. It reads the score from step 2.
-4. Slice the page.
+2. Run `knn` document rerank, if armed. It reads the score from step 1.
+3. Slice the page.
 
-The ranking window is the set the service fetches from offset 0 and reorders before it slices. Engine `rescore` keeps its own `window_size` on that request. Ranking reads the score the engine returned for each hit in the ranking window. Document rerank, when the page ends inside that window, reorders the same set. A page that ends past the window skips document rerank and is not a slice of that order.
+The keyword window is the set the service fetches from offset 0 before it slices. Engine `rescore` keeps its own `window_size` on that request. Document rerank reorders the rows in that window when the page ends inside it.
 
-Scroll drops engine `rescore`, `ranking`, and `knn`, and sorts by score, then URN. A caller `sortCriteria` on a search replaces all three. On scroll they are already dropped, and `sortCriteria` replaces the score, then URN sort.
+The name-and-value group sits in the query, before `functionScore`. It is its own `dis_max`. See [Name and value](#name-and-value).
 
-The combined ranking multiplier does not become a preset. It is a numeric field read with a missing value of `1.0`, written as a `field_value_factor` on the shared parent `functionScore`. An empty query, a quoted query, and full text select the `list`, `exact`, and `fulltext` templates through [Selection](#selection). A regex stays out of the query body. It is legal only as a `routes` pattern.
+The combined ranking multiplier is a numeric field read with a missing value of `1.0`, written as a `field_value_factor` on the shared parent `functionScore`. A quoted query and full text select `exact` and `fulltext` through [Selection](#selection). An empty query selects a list template. A regex stays out of the query body. It is legal only as a `routes` pattern.
 
 ### Document rerank
 
@@ -722,49 +641,11 @@ knn:
   others: keepKeywordPlaces
 ```
 
-The blend is a sigmoid of the score from the ranking step, then `vectorWeight` against the normalized vector score. `minScore` floors the vector contribution inside that blend. It does not drop the row. `others: keepKeywordPlaces` applies to entities outside the primary search group. They are not sent to kNN. They stay at the positions the keyword order gave them, and the primary rows are reordered in the remaining slots. `knn` cannot be combined with `sort`.
+The blend is a sigmoid of the engine score, then `vectorWeight` against the normalized vector score. `minScore` floors the vector contribution inside that blend. It does not drop the row. `others: keepKeywordPlaces` applies to entities outside the primary search group. They are not sent to kNN. They stay at the positions the keyword order gave them, and the primary rows are reordered in the remaining slots. `knn` cannot be combined with `sort`.
 
-Rerank runs for the kept keyword rung when semantic read is on, the request includes documents, the sort is by score, and the page ends inside the ranking window. The service reranks that window and then slices. Every page that ends inside the window is a slice of that one order. A page that ends past the window skips document rerank and is not that slice. Scroll does not rerank. A later rung's `knn` is not applied when an earlier rung was kept.
+Rerank runs for the kept keyword rung when semantic read is on, the request includes documents, the sort is by score, and the page ends inside the keyword window. The service reranks that window and then slices. Every page that ends inside the window is a slice of that one order. A page that ends past the window skips document rerank and is not that slice. Scroll does not rerank. A later rung's `knn` is not applied when an earlier rung was kept.
 
-Clearing `knn` leaves the order from the ranking step. An embedding or kNN failure on a process that advertises `documentRerank` does the same and increments the existing failure metric. The search does not fail. A template that requires `documentRerank` on a process that does not advertise it fails the capability check instead. While the stale-vector acknowledgement is off, the process does not advertise the capability. [Analyzers and hybrid documents](#analyzers-and-hybrid-documents) covers the vector fields. The [query sequence](#query-sequence) covers when the rerank step runs.
-
-### Vector retrieval
-
-Corpus kNN is a different rung, not a `knn` section. A rung has one retrieval mode. `keyword` is the default and uses `query`. `vector` ignores `query`, `clauses`, `functionScore`, `boosts`, and engine `rescore`, and retrieves by embedding. The from/size order in [Ranking](#ranking) does not apply to this rung. Scroll does not run a vector rung, a bridge, or a hybrid group. See [Search and scroll](#search-and-scroll).
-
-```yaml
-retrieval:
-  mode: vector
-  model: text_embedding_3_large
-  field: embeddings.text_embedding_3_large.chunks.vector
-  candidateCap: 500
-  total: candidates
-  facets: candidateUrns
-  page: windowSlice
-  authorization: postFilter
-  onFailure: fail
-  bridge:
-    pivotField: relatedAssets
-    onFailure: degradeIfNative
-```
-
-The service embeds the query, requests one window from offset 0, and caps it at `candidateCap`. Pages are sliced from that window. Offset pagination of an approximate nearest-neighbor query is not used. The total is the candidate count, not a corpus count. Facets are a keyword aggregation restricted to those URNs, so `facets: candidateUrns` is allowed to issue that follow-up query. This is the one case where a rung's aggregations are not the aggregations of its own retrieval. `facets: candidates` on a keyword parallel group is illegal.
-
-Soft delete and hidden lifecycle stages are filters inside the kNN request. View authorization is applied after the top-k, masking where restricted search is on and dropping otherwise. A page may come back short. Requested entity types and latest-version filtering stay outside the template. Putting view authorization inside the kNN filter would change which neighbors are retrieved, so the vector rung does not do that. A template still cannot widen what the caller is allowed to see.
-
-`bridge` is part of the vector rung. The service runs a second kNN over document embeddings, pivots each hit through `pivotField` to a source URN, and authorizes that source. `degradeIfNative` keeps the native candidates when the bridge leg fails and the native leg returned something. `fail` fails the rung when the bridge was the only leg. A parallel `join` cannot express this, because the join combines hit lists of one entity shape and the bridge changes the entity of the hit.
-
-Three features, three shapes:
-
-| Feature          | Template                                                                               | Hits                                               | Total and facets                        |
-| ---------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------- |
-| Document rerank  | Keyword rung with `knn` set                                                            | The keyword hits, reordered                        | The keyword query's                     |
-| Hybrid retrieval | Parallel keyword rung and vector rung, `join: merge`, combined by the group's `fusion` | The fusion policy's combination. This can add hits | Named by the fusion policy              |
-| Pure semantic    | A vector rung and no keyword sibling                                                   | The kNN candidates, plus the bridge pivot when set | Candidate total, facets over those URNs |
-
-`join: any` serves one member and cancels the other. It does not fuse, and it does not add the other member's hits.
-
-In OSS, document rerank, hybrid retrieval, and pure semantic search run for the Document entity only. No other entity gets semantic search. Bootstrapped keyword templates do not set `knn` or `retrieval.mode: vector` and do not require those capabilities. The Document semantic surface points at a vector template, and the hybrid surface points at a keyword template whose `knn` is set. Hybrid retrieval adds vector-only hits once a fusion policy is chosen. Until then a hybrid result does not add vector-only rows.
+Clearing `knn` leaves the engine order. An embedding or kNN failure on a process that advertises `documentRerank` does the same and increments the existing failure metric. The search does not fail. A template that requires `documentRerank` on a process that does not advertise it fails the capability check instead. While the stale-vector acknowledgement is off, the process does not advertise the capability. [Analyzers and hybrid documents](#analyzers-and-hybrid-documents) covers the vector fields. The [query sequence](#query-sequence) covers when the rerank step runs.
 
 ### Render context
 
@@ -813,11 +694,11 @@ The same map receives values the service injects for the request. `viewerUrn` is
 
 Creating or updating a template resolves structured-property URNs to field names, renders each `queryFragments` value and then `query`, `clauses`, `functionScore`, `rescore`, `aggregations`, and `sort` with a validation context, then parses the result. A child that fills a hole the inherited query does not contain is rejected. A `query` write queries templates whose indexed `parent` is this URN and walks inheriting children, and it is rejected when the new text drops a hole one of them still fills. Where a remaining hole sits is not checked. See [Query holes](#query-holes). See [Structured properties](#structured-properties). For the Elasticsearch dialect, each of those sections has to be valid JSON, and `query`, `clauses`, and `functionScore` have to be valid query syntax. `functionScore` is parsed as a `function_score` wrapper, so a filter snippet on a function is parsed with that function. A render failure or a parse failure rejects the write. The check runs on the section as written and again on the body after parent merge. The Postgres dialect is rendered only. `structuredPropertyQuery` is checked for shape only: `analyzedValue`, `exactValue`, and `nameAndValue`, or an explicit empty section. A running `nameAndValue` clause needs a positive `weight`. That check does not expand the definition catalog. URN-to-field resolution still applies to `query`, `clauses`, `fields`, and the other sections that name a property.
 
-`ranking`, `knn`, `retrieval`, `highlightFields`, `boosts`, `routes`, and the ladder fusion fields are structured sections. Write time checks them against the closed sets: ranking preset and window sizer, `knn.others`, retrieval mode, bridge `onFailure`, fusion, group facets, and the injectable named by a boost. A `functionScore` snippet that references one of the injectables is rejected. `replace` on `highlightFields` cannot be combined with `add` or `remove`. `replace` on `fields` cannot be combined with `add`, `remove`, or `override`. An `override` of a field that is not in the queried set after `add` and `remove` is rejected. A `.keyword` or `.text` suffix is legal on string and rich text. Either suffix is rejected on a date, a number, or a URN. A query `_name` of `exact`, `prefix`, `contains`, or `nameAndValue` is not a closed write-time set. The result reports that mode only when the matching clause carries it and names one structured-property field.
+`knn`, `highlightFields`, `boosts`, and `routes` are structured sections. Write time checks them against the closed sets: `knn.others` and the injectable named by a boost. A `functionScore` snippet that references one of the injectables is rejected. `replace` on `highlightFields` cannot be combined with `add` or `remove`. `replace` on `fields` cannot be combined with `add`, `remove`, or `override`. An `override` of a field that is not in the queried set after `add` and `remove` is rejected. A `.keyword` or `.text` suffix is legal on string and rich text. Either suffix is rejected on a date, a number, or a URN. A query `_name` of `exact`, `prefix`, `contains`, or `nameAndValue` is not a closed write-time set. The result reports that mode only when the matching clause carries it and names one structured-property field.
 
 Each `routes` entry is a RE2 pattern and a template URN. Write time compiles the pattern, rejects a pattern or a list over its length limit, rejects a missing target, rejects a target of another dialect, and rejects a target that is the template being written. A parent cycle is still rejected on the parent chain. A route cycle that depends on which pattern matches is left to bind, which fails the search when the walk repeats a URN.
 
-An unknown `capabilities` name, and an `apiVersion` other than 1, are rejected when the template is written and when it is loaded. A ranking preset other than `none`, a window sizer other than `fixed`, vector retrieval, a bridge, and a merge join fail when that template is selected.
+An unknown `capabilities` name, and an `apiVersion` other than 1, are rejected when the template is written and when it is loaded. A section this release cannot run fails the search when that template is selected.
 
 ### Stamps
 
@@ -843,7 +724,7 @@ Each aspect keeps its own fields under `_aspects.<aspect>`, unanalyzed. A root n
 
 `hasLogicalParent` is indexed on the child. `hasLogicalChildren` is a boolean on the parent, maintained when `logicalParent` is written or removed. Logical role is a term filter on those two flags.
 
-`queryCountLast30Days` and `viewCountLast30Days` are numeric document fields. A template `sort` and a caller `sortCriteria` may name them. Most Queried is `queryCountLast30Days`. Most Visited is `viewCountLast30Days`. The `usage` ranking preset does not replace either sort.
+`queryCountLast30Days` and `viewCountLast30Days` are numeric document fields. A template `sort` and a caller `sortCriteria` may name them. Most Queried is `queryCountLast30Days`. Most Visited is `viewCountLast30Days`.
 
 #### Index and document id
 
@@ -909,9 +790,9 @@ The executor expands the section at search time from the current definitions. Th
 
 Comparison is case-insensitive against `displayName` and `qualifiedName`. A display name matches a whole-word span. A qualified name matches as one span, with its dots preserved. A trailing word such as `status` does not match `certification.status`. The longest matching span is the one used. A shorter overlapping span is not also applied. The unmatched remainder must be non-empty. An empty remainder produces no asset clause. The remainder matches that property's assigned value as one whole term, the same string and rich-text rule as above.
 
-The matches are `should` clauses grouped in one `dis_max`. An asset receives the best matching property's score, not the sum across properties. The group is placed in the rendered query before `functionScore`. The expanded clause carries the query name `nameAndValue`. The group is not a `functionScore` weight, a `rescore`, or a ranking preset. See [Ranking](#ranking).
+The matches are `should` clauses grouped in one `dis_max`. An asset receives the best matching property's score, not the sum across properties. The group is placed in the rendered query before `functionScore`. The expanded clause carries the query name `nameAndValue`. The group is not a `functionScore` weight, or a `rescore`. See [Ranking](#ranking).
 
-Value-only matching still queries the whole query against each included value field. Name-and-value matching is the additional per-definition remainder clause. That is what allows `certification status gold` to match the value `gold`. The clauses run on search and scroll because they are part of the composed keyword query. Dropping `rescore`, `ranking`, or `knn` does not drop them. See [Search and scroll](#search-and-scroll).
+Value-only matching still queries the whole query against each included value field. Name-and-value matching is the additional per-definition remainder clause. That is what allows `certification status gold` to match the value `gold`. The clauses run on search and scroll because they are part of the composed keyword query. Dropping `rescore` or `knn` does not drop them. See [Search and scroll](#search-and-scroll).
 
 Write time checks the section shape: the three clauses, or an explicit empty section. A running `nameAndValue` clause needs a positive `weight`. It does not expand the definition catalog. Search time resolves the definitions again. A definition-name change must not keep serving an expansion built from the previous catalog. The catalog stamp used for that expansion is part of the result-cache key. See [Query sequence](#query-sequence).
 
@@ -961,13 +842,7 @@ A keyword field filtered either with or without case is stored in both forms: th
 
 `v3.queryByDefault` selects each indexed field, at any degree, and `v3.boostScore` is its default weight until a template `fields.add`, `fields.override`, or `fields.replace` sets one. When `v3.boostScore` is unset, Search V3 uses the top-level `boostScore`. When `v3.queryByDefault` is unset, the field stays out of an unqualified Search V3 query; set it true to opt in. The top-level `boostScore` stays the Search V2 weight. Column degrees stay out of an unqualified query. Schema validation requires one `v3.queryByDefault` and one `v3.boostScore` for each indexed name. A structured property uses `queryByDefault` and `boostScore` on its `searchConfiguration` the same way, and that pair is one value for every entity type the definition allows.
 
-The Document entity carries kNN vector fields with classical document embeddings. Document rerank, pure semantic search, and hybrid retrieval query those fields. In OSS they apply to the Document entity only.
-
-Document rerank is a keyword rung with `knn` set. The weights reorder document rows already in the keyword window, and clearing `knn` leaves the ranking-step order.
-
-Pure semantic search is a rung with `retrieval.mode: vector` and no keyword sibling.
-
-Hybrid retrieval is a parallel keyword rung and vector rung whose fusion can add hits. That shape stays unwired until a fusion policy is chosen. See [Document rerank](#document-rerank) and [Vector retrieval](#vector-retrieval).
+Document rerank queries the kNN vector fields that the Document entity carries, with classical document embeddings. It applies to the Document entity only. A keyword rung with `knn` set reorders document rows already in the keyword window, and clearing `knn` leaves the engine order. See [Document rerank](#document-rerank).
 
 ## Related documents
 
