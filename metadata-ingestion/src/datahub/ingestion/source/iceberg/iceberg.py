@@ -3,7 +3,6 @@ import logging
 import threading
 import uuid
 from datetime import date, datetime, time
-from decimal import Decimal
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
@@ -675,22 +674,10 @@ class IcebergSource(StatefulIngestionSourceBase):
         return None
 
 
-def _render_default(value: object) -> object:
-    """Renders an Iceberg V3 column default (a native Python object) into a JSON-safe value.
-
-    Defaults are embedded in the Avro schema dict, which is serialized with json.dumps before being
-    parsed, so objects that json cannot represent (datetime, Decimal, bytes, UUID, ...) must be
-    converted to strings first.
-    """
+def _render_default(value: object) -> str:
     if isinstance(value, (datetime, date, time)):
         return value.isoformat()
-    if isinstance(value, (Decimal, bytes, uuid.UUID)):
-        return str(value)
-    if isinstance(value, dict):
-        return {key: _render_default(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_render_default(item) for item in value]
-    return value
+    return str(value)
 
 
 class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
@@ -717,33 +704,29 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
 
     def field(self, field: NestedField, field_result: Dict[str, Any]) -> Dict[str, Any]:
         field_result["_nullable"] = not field.required
-        doc = field.doc
-        # Iceberg V3 allows a column to carry both an initial default (applied to pre-existing rows
-        # when the column is added via schema evolution) and a write default (applied on new writes).
-        # The write default is surfaced as the field default via the Avro schema; when the two
-        # differ, the initial default is kept visible in the field documentation.
+        descriptions = [field.doc] if field.doc else []
+        # Render Iceberg defaults directly in the description: their values need not match
+        # the Avro representation used only to convert the field's type.
         if (
             field.initial_default is not None
             and field.write_default is not None
             and field.initial_default != field.write_default
         ):
-            initial_default_line = (
+            descriptions.append(
                 f"Initial default value: {_render_default(field.initial_default)}"
             )
-            doc = f"{doc}\n{initial_default_line}" if doc else initial_default_line
-        avro_field: Dict[str, Any] = {
-            "name": field.name,
-            "type": field_result,
-            "doc": doc,
-        }
         default = (
             field.write_default
             if field.write_default is not None
             else field.initial_default
         )
         if default is not None:
-            avro_field["default"] = _render_default(default)
-        return avro_field
+            descriptions.append(f"Field default value: {_render_default(default)}")
+        return {
+            "name": field.name,
+            "type": field_result,
+            "doc": "\n".join(descriptions) or None,
+        }
 
     def list(
         self, list_type: ListType, element_result: Dict[str, Any]
@@ -908,9 +891,7 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
     def visit_timestamp_ns(
         self, timestamp_ns_type: TimestampNanoType
     ) -> Dict[str, Any]:
-        # Iceberg V3 nanosecond-precision timestamp. Avro has no nanosecond logical type, so this
-        # degrades to microsecond precision; native_data_type preserves the original type. The
-        # local-timestamp variant is blocked by https://issues.apache.org/jira/browse/AVRO-3476
+        # Avro has no nanosecond logical type; retain Iceberg precision in native_data_type.
         return {
             "type": "long",
             "logicalType": "timestamp-micros",
@@ -920,10 +901,6 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
     def visit_timestamptz_ns(
         self, timestamptz_ns_type: TimestamptzNanoType
     ) -> Dict[str, Any]:
-        # Iceberg V3 nanosecond-precision timestamp with timezone. Avro has no nanosecond logical
-        # type, so this degrades to microsecond precision; native_data_type preserves the original
-        # type. The local-timestamp variant is blocked by
-        # https://issues.apache.org/jira/browse/AVRO-3476
         return {
             "type": "long",
             "logicalType": "timestamp-micros",
@@ -931,7 +908,6 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
         }
 
     def visit_unknown(self, unknown_type: UnknownType) -> Dict[str, Any]:
-        # Iceberg V3 placeholder for a column whose type is reserved or not yet understood.
         return {
             "type": "string",
             "native_data_type": str(unknown_type),

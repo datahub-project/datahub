@@ -509,6 +509,12 @@ def test_iceberg_struct_to_schema_field(
             1688559488157000,
             "2023-07-05T12:18:08.157000+00:00",
         ),
+        (TimestampNanoType(), 1688559488157000123, "2023-07-05T12:18:08.157000"),
+        (
+            TimestamptzNanoType(),
+            1688559488157000123,
+            "2023-07-05T12:18:08.157000+00:00",
+        ),
         (TimeType(), 40400000000, "11:13:20"),
         (
             UUIDType(),
@@ -704,73 +710,66 @@ def test_iceberg_profiler_data_file_statistics(
     assert profile.fieldProfiles[0].max == "20"
 
 
-def test_iceberg_column_write_default_in_description() -> None:
-    """
-    Test that an Iceberg V3 column write default is surfaced in the field description.
-    """
-    iceberg_source_instance = with_iceberg_source()
-    column = NestedField(
-        1,
-        "field_with_default",
-        LongType(),
-        True,
-        "field documentation",
-        write_default=42,
-    )
-    schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
-        Schema(column)
-    )
+@pytest.mark.parametrize(
+    "column, expected_description",
+    [
+        (
+            NestedField(
+                1, "col", LongType(), True, "field documentation", write_default=42
+            ),
+            "field documentation\nField default value: 42",
+        ),
+        (
+            NestedField(
+                1,
+                "col",
+                LongType(),
+                True,
+                "field documentation",
+                initial_default=1,
+                write_default=2,
+            ),
+            "field documentation\nInitial default value: 1\nField default value: 2",
+        ),
+        (
+            NestedField(1, "col", LongType(), initial_default=0),
+            "Field default value: 0",
+        ),
+        (
+            NestedField(1, "col", LongType(), initial_default=1, write_default=0),
+            "Initial default value: 1\nField default value: 0",
+        ),
+        (
+            NestedField(1, "col", LongType(), initial_default=2, write_default=2),
+            "Field default value: 2",
+        ),
+        (
+            NestedField(1, "col", BooleanType(), write_default=False),
+            "Field default value: False",
+        ),
+        (
+            NestedField(1, "col", StringType(), write_default=""),
+            "Field default value: ",
+        ),
+        (
+            NestedField(
+                1,
+                "col",
+                TimestampType(),
+                True,
+                "field documentation",
+                write_default=datetime(2023, 7, 5, 12, 18, 8, 157000),
+            ),
+            "field documentation\nField default value: 2023-07-05T12:18:08.157000",
+        ),
+    ],
+)
+def test_iceberg_column_defaults_in_description(
+    column: NestedField, expected_description: str
+) -> None:
+    schema_fields = with_iceberg_source()._get_schema_fields_for_schema(Schema(column))
     assert len(schema_fields) == 1
-    assert (
-        schema_fields[0].description == "field documentation\nField default value: 42"
-    )
-
-
-def test_iceberg_column_timestamp_default_in_description() -> None:
-    """
-    Test that a timestamp column default supplied as a datetime
-    is rendered in a JSON-safe way in the field description.
-    """
-    iceberg_source_instance = with_iceberg_source()
-    column = NestedField(
-        1,
-        "ts_with_default",
-        TimestampType(),
-        True,
-        "field documentation",
-        write_default=datetime(2023, 7, 5, 12, 18, 8, 157000),
-    )
-    schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
-        Schema(column)
-    )
-    assert len(schema_fields) == 1
-    assert schema_fields[0].description == (
-        "field documentation\nField default value: 2023-07-05T12:18:08.157000"
-    )
-
-
-def test_iceberg_column_initial_and_write_default_in_description() -> None:
-    """
-    Test that when both an initial default and a write default are present and differ,
-    both are surfaced in the field description.
-    """
-    iceberg_source_instance = with_iceberg_source()
-    column = NestedField(
-        1,
-        "field_with_defaults",
-        LongType(),
-        True,
-        "field documentation",
-        initial_default=1,
-        write_default=2,
-    )
-    schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
-        Schema(column)
-    )
-    assert len(schema_fields) == 1
-    assert schema_fields[0].description == (
-        "field documentation\nInitial default value: 1\nField default value: 2"
-    )
+    assert schema_fields[0].description == expected_description
 
 
 def test_iceberg_v3_table_format_version_property() -> None:

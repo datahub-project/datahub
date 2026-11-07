@@ -129,7 +129,7 @@ class IcebergProfiler:
             row_count = (
                 int(
                     current_snapshot.summary.additional_properties.get(
-                        "total-records", 0
+                        "total-records", "0"
                     )
                 )
                 if current_snapshot.summary
@@ -167,9 +167,7 @@ class IcebergProfiler:
                 for manifest in current_snapshot.manifests(table.io):
                     for manifest_entry in manifest.fetch_manifest_entry(table.io):
                         data_file = manifest_entry.data_file
-                        # Only aggregate stats from data files. Position/equality delete files
-                        # carry no column statistics and must not contribute; deletion vectors
-                        # are not manifest entries at all (they live in referenced puffin files).
+                        # Delete-file statistics describe deleted rows, not table columns.
                         if data_file.content != DataFileContent.DATA:
                             continue
                         if self.config.include_field_null_count:
@@ -243,13 +241,13 @@ class IcebergProfiler:
         try:
             if isinstance(value_type, TimestampType):
                 return to_human_timestamp(value)
-            if isinstance(value_type, TimestamptzType):
+            elif isinstance(value_type, TimestamptzType):
                 return to_human_timestamptz(value)
-            if isinstance(value_type, TimestampNanoType):
+            elif isinstance(value_type, TimestampNanoType):
                 # Python datetimes cap at microsecond precision, so nanosecond bounds are
                 # truncated when rendered.
                 return nanos_to_timestamp(value).isoformat()
-            if isinstance(value_type, TimestamptzNanoType):
+            elif isinstance(value_type, TimestamptzNanoType):
                 return (
                     nanos_to_timestamp(value).replace(tzinfo=timezone.utc).isoformat()
                 )
