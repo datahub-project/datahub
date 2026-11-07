@@ -700,6 +700,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
         root_ids: Set[str] = set()
         names: Set[str] = set(MSTR_PERSONAL_FOLDER_NAMES)
+        profiles_root_ids: Set[str] = set()
         try:
             folders = self.client.get_predefined_folders(
                 project_id, list(MSTR_PERSONAL_FOLDER_TYPES)
@@ -711,24 +712,32 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 if folder.folder_type == MSTR_FOLDER_TYPE_PROFILE_REPORTS:
                     names.add(folder.name.strip().lower())
                 if folder.folder_type == MSTR_FOLDER_TYPE_PROFILE_OBJECTS:
-                    root_ids.update(self._profiles_root_ids(project_id, folder.id))
+                    profiles_root_ids = self._profiles_root_ids(project_id, folder.id)
+                    root_ids.update(profiles_root_ids)
         except MicroStrategyAuthError:
             raise
         except Exception as error:
             root_ids.clear()
-            self.report.info(
+            profiles_root_ids.clear()
+            self.report.warning(
                 title="Personal folder root not resolved",
                 message=(
                     "Could not resolve the project's Profiles folder by id; "
                     "personal folders are recognised by ancestor folder name "
-                    "('Profiles' / 'My Reports', case-insensitive) instead."
+                    "('Profiles' / 'My Reports', case-insensitive) instead, so "
+                    "personal content in localized or renamed folders may be "
+                    "ingested."
                 ),
                 context=f"project_id={project_id}",
                 exc=error,
             )
-        if root_ids:
+        if profiles_root_ids:
             self.report.report_personal_folder_root_resolved()
-        resolution = PersonalFolderResolution(root_ids=root_ids, names=names)
+        resolution = PersonalFolderResolution(
+            root_ids=root_ids,
+            names=names,
+            profiles_root_resolved=bool(profiles_root_ids),
+        )
         self._personal_folder_cache[project_id] = resolution
         return resolution
 

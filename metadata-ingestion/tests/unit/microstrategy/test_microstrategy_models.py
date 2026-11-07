@@ -390,7 +390,9 @@ def _personal_report(*ancestors: Dict[str, str]) -> Dict[str, Any]:
 
 
 def test_personal_folder_object_by_id_ignores_names() -> None:
-    resolution = PersonalFolderResolution(root_ids={"PROFILES-ID"}, names={"profiles"})
+    resolution = PersonalFolderResolution(
+        root_ids={"PROFILES-ID"}, names={"profiles"}, profiles_root_resolved=True
+    )
     assert not resolution.by_name
 
     under_profiles = _personal_report(
@@ -407,6 +409,27 @@ def test_personal_folder_object_by_id_ignores_names() -> None:
         {"id": "f-9", "name": "Profiles"},
     )
     assert not is_personal_folder_object(named_profiles, resolution)
+
+
+def test_personal_folder_names_still_apply_without_the_profiles_root() -> None:
+    # Only the principal's own My Reports resolved: other users' profile
+    # folders can only be recognised by name.
+    resolution = PersonalFolderResolution(root_ids={"MR-SELF"}, names={"profiles"})
+    other_user = _personal_report(
+        {"id": "root", "name": "Analytics"},
+        {"id": "profiles-id", "name": "Profiles"},
+        {"id": "u-2", "name": "asmith"},
+    )
+    assert is_personal_folder_object(other_user, resolution)
+
+
+def test_personal_folder_string_path_matches_by_name() -> None:
+    resolution = PersonalFolderResolution(
+        root_ids={"PROFILES-ID"}, names={"profiles"}, profiles_root_resolved=True
+    )
+    assert is_personal_folder_object(
+        {"id": "R-1", "location": "/Analytics/Profiles/jdoe/My Reports"}, resolution
+    )
 
 
 def test_personal_folder_object_by_name_fallback_is_case_insensitive() -> None:

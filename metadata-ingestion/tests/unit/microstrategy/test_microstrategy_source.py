@@ -2311,8 +2311,8 @@ def test_personal_folder_resolution_failure_falls_back_to_names_once() -> None:
 
     assert client.predefined_calls.count([19, 20]) == 1
     assert source.report.personal_folder_objects_skipped == 1
-    infos = [i for i in source.report.infos if i.title == _PERSONAL_ROOT_TITLE]
-    assert len(infos) == 1
+    warnings = [w for w in source.report.warnings if w.title == _PERSONAL_ROOT_TITLE]
+    assert len(warnings) == 1
 
 
 def test_include_personal_folders_keeps_everything_and_skips_resolution() -> None:
