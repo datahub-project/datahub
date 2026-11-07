@@ -1054,3 +1054,29 @@ def test_dashboard_instance_body_follows_resolve_only(
 
     assert getattr(client, method_name)("project-1", "dash-1") == "inst-1"
     assert bodies == [{"resolveOnly": True} if resolve_only else {}]
+
+
+def test_failed_logout_is_reported(monkeypatch: MonkeyPatch) -> None:
+    # An unclosed session counts towards the user's session limit.
+    client, report = _make_client()
+    client.session.headers["X-MSTR-AuthToken"] = "token"
+
+    def failing_request(*args: Any, **kwargs: Any) -> requests.Response:
+        raise MicroStrategyAPIError("logout failed", status_code=500)
+
+    monkeypatch.setattr(client, "_request", failing_request)
+
+    client.close()
+
+    assert [w.title for w in report.warnings] == ["MicroStrategy logout failed"]
+
+
+def test_close_without_login_does_not_log_out(monkeypatch: MonkeyPatch) -> None:
+    client, report = _make_client()
+    calls: List[str] = []
+    monkeypatch.setattr(client, "_request", lambda *a, **k: calls.append(a[1]))
+
+    client.close()
+
+    assert calls == []
+    assert report.warnings == []

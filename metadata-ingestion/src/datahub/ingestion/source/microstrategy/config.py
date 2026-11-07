@@ -170,13 +170,17 @@ class MicroStrategyConfig(
     use_predefined_folder_names: bool = Field(
         default=True,
         description=(
-            "Resolve the 'Shared Reports' predefined folder (MicroStrategy "
-            "EnumDSSXMLFolderNames type 7) via GET /api/folders/preDefined and use "
-            "that label -- for browse-path matching, container identity, and "
-            "display -- instead of the folder's raw metadata name ('Reports'). "
-            "Adds one cached API call per project. Disabling this keeps prior "
-            "container URNs for environments that already ingested that folder "
-            "under its raw name; see docs/how/breaking-changes.md."
+            "Resolve MicroStrategy's predefined folders via GET "
+            "/api/folders/preDefined and shape the folder hierarchy as Strategy "
+            "Web shows it: the 'Reports' folder (EnumDSSXMLFolderNames type 7) "
+            "takes its label 'Shared Reports', and the project root folder and "
+            "'Public Objects' are omitted, with their children moved up a "
+            "level. This drives browse-path matching, container identity and "
+            "display. Adds one cached API call per project. If the lookup "
+            "fails, the project's dashboards and reports are skipped and the "
+            "run reports a failure. Disable this to keep the raw hierarchy and "
+            "prior container URNs, or on servers without this endpoint; see "
+            "docs/how/breaking-changes.md."
         ),
     )
 

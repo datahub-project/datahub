@@ -143,10 +143,20 @@ class MicroStrategyClient:
         self.session.headers.update({"X-MSTR-AuthToken": token})
 
     def close(self) -> None:
+        if "X-MSTR-AuthToken" not in self.session.headers:
+            # Never logged in, so there is no session to close.
+            self.session.close()
+            return
         try:
             self._request("POST", MSTR_API_AUTH_LOGOUT)
-        except Exception:
-            logger.debug("MicroStrategy logout failed", exc_info=True)
+        except (MicroStrategyAPIError, MicroStrategyAuthError) as error:
+            # A session left open counts towards the user's session limit
+            # until it times out.
+            self.report.warning(
+                title="MicroStrategy logout failed",
+                message="The session could not be closed and stays open until it times out.",
+                exc=error,
+            )
         self.session.close()
 
     def _parse_model(
