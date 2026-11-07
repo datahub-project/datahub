@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StateProviderWrapper,
 )
@@ -33,8 +34,14 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
         config: QlikSourceConfig,
         pipeline_name: Optional[str],
         run_id: str,
+        stale_job_id: Optional[JobId],
     ) -> None:
         self.state_provider = state_provider
+        # A run without skip_unchanged_apps commits the stale entity removal
+        # state but no app checkpoints, so an app checkpoint from before it
+        # misses entities created since. App checkpoints are only trusted when
+        # they come from the same run as the last stale entity removal state.
+        self.stale_job_id = stale_job_id
         self.config = config
         self.pipeline_name = pipeline_name
         self.run_id = run_id
@@ -74,7 +81,18 @@ class QlikAppStateHandler(StatefulIngestionUsecaseHandlerBase[QlikAppCheckpointS
             last = self.state_provider.get_last_checkpoint(
                 self.job_id, QlikAppCheckpointState
             )
-        return last.state.apps.get(app_id) if last else None
+            stale = (
+                self.state_provider.get_last_checkpoint(
+                    self.stale_job_id, GenericCheckpointState
+                )
+                if self.stale_job_id
+                else None
+            )
+        if last is None:
+            return None
+        if self.stale_job_id and (stale is None or stale.run_id != last.run_id):
+            return None
+        return last.state.apps.get(app_id)
 
     def record(self, app_id: str, checkpoint: AppCheckpoint) -> None:
         if not self.is_checkpointing_enabled():

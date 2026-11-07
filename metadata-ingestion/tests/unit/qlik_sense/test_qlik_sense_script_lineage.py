@@ -227,27 +227,94 @@ U: SQL SELECT * FROM db.s.u;
     assert [t.label for t in parse_load_script(script)] == ["T", "U"]
 
 
-def test_redact_connection_scrubs_nested_credentials() -> None:
+def test_redact_connection_keeps_only_location_properties() -> None:
     connection = (
-        "Provider=MSOLEDBSQL;Data Source=https://svc_user:hunter2@db.example.com/x;"
+        "Provider=MSOLEDBSQL;"
+        "Data Source=https://svc_user:hunter2@db.example.com:443/x?sig=s3cr3t&sv=1;"
         'Extended Properties="UID=svc_user;PWD=hunter2;Encrypt=yes";'
+        "Auth=Bearer t0k3n;Passphrase=p4ss;Initial Catalog=sales"
+    )
+
+    assert redact_connection(connection) == (
+        "Provider=MSOLEDBSQL;Data Source=https://db.example.com:443/x;"
         "Initial Catalog=sales"
     )
 
+
+def test_redact_connection_keeps_platform_inference() -> None:
+    connection = "Driver={Snowflake};Server=acct.example.com;Token=t0k3n;Database=sales"
+
     redacted = redact_connection(connection)
 
-    assert "svc_user" not in redacted
-    assert "hunter2" not in redacted
-    assert "Data Source=https://db.example.com/x" in redacted
-    assert 'Extended Properties="Encrypt=yes"' in redacted
-    assert "Initial Catalog=sales" in redacted
+    assert "t0k3n" not in redacted
+    assert infer_data_connection(redacted, redacted).platform == "snowflake"
 
 
-def test_redact_connection_drops_property_holding_only_credentials() -> None:
-    assert (
-        redact_connection('Provider=MSOLEDBSQL;Extended Properties="UID=a;PWD=b"')
-        == "Provider=MSOLEDBSQL"
-    )
+def test_parse_load_script_forgets_connection_after_include() -> None:
+    script = """
+LIB CONNECT TO 'A';
+SET vSchema = 'dbo';
+$(Must_Include=lib://Scripts/connect.qvs);
+T: SQL SELECT * FROM $(vSchema).t;
+"""
+    (table,) = parse_load_script(script)
+
+    assert table.connection is None
+    assert table.sql == "SELECT * FROM $(vSchema).t"
+
+
+@pytest.mark.parametrize(
+    "sub_body, connection",
+    [
+        pytest.param("LIB CONNECT TO 'B';", None, id="sub_sets_connection"),
+        pytest.param("LET vRows = 1;", "A", id="sub_sets_other_variable"),
+    ],
+)
+def test_parse_load_script_call_applies_sub_changes(
+    sub_body: str, connection: Optional[str]
+) -> None:
+    script = f"""
+LIB CONNECT TO 'A';
+SUB Setup
+  {sub_body}
+END SUB
+CALL Setup;
+T: SQL SELECT * FROM db.s.t;
+"""
+    assert [t.connection for t in parse_load_script(script)] == [connection]
+
+
+def test_parse_load_script_call_of_unknown_sub_forgets_connection() -> None:
+    script = "LIB CONNECT TO 'A';\nCALL FromInclude;\nT: SQL SELECT * FROM db.s.t;"
+    assert [t.connection for t in parse_load_script(script)] == [None]
+
+
+def test_parse_load_script_concatenate_and_join_add_to_their_target() -> None:
+    script = """
+LIB CONNECT TO 'A';
+Orders: SQL SELECT * FROM db.s.orders;
+Concatenate (Orders) SQL SELECT * FROM db.s.old_orders;
+Left Join ([Orders]) LOAD id, region;
+SQL SELECT id, region FROM db.s.regions;
+Concatenate SQL SELECT * FROM db.s.more_orders;
+Customers: Left Keep (Orders) SQL SELECT * FROM db.s.customers;
+"""
+    assert [t.label for t in parse_load_script(script)] == [
+        "Orders",
+        "Orders",
+        "Orders",
+        "Orders",
+        "Customers",
+    ]
+
+
+def test_parse_load_script_skips_concatenate_without_known_table() -> None:
+    script = """
+LIB CONNECT TO 'A';
+LOAD * FROM [lib://Files/sales.qvd] (qvd);
+Concatenate SQL SELECT * FROM db.s.orders;
+"""
+    assert parse_load_script(script) == []
 
 
 def test_redact_connection_drops_credentials() -> None:
@@ -272,7 +339,9 @@ def test_redact_connection_drops_credentials() -> None:
         ("prod.sales.orders", "mssql", "prod", False),
         ("prod.sales.orders", "mssql", "Prod", False),
         ("sales.orders", "mysql", None, True),
-        ("orders", "oracle", None, True),
+        ("orders", "oracle", None, False),
+        ("sales.orders", "oracle", None, True),
+        ("orders", "mariadb", None, False),
     ],
 )
 def test_has_qualified_name(
@@ -362,6 +431,16 @@ def test_preceding_load_interpretation_function_is_not_a_column() -> None:
             id="variable_in_alias",
         ),
         pytest.param("Upper(order_id)", {}, id="unaliased_expression"),
+        pytest.param(
+            "order_id * $(vRate) AS Net",
+            {"Net": ["order_id_urn"]},
+            id="variable_inside_expression",
+        ),
+        pytest.param(
+            "order_id * $(order_id) AS Net, '$(vSource)' AS Source",
+            {"Net": ["order_id_urn"], "Source": []},
+            id="variable_name_is_not_a_source",
+        ),
     ],
 )
 def test_preceding_load_with_unknown_fields(
@@ -484,6 +563,16 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
         pytest.param("=Sum(Year(OrderDate))", ["OrderDate"], id="nested_functions"),
         pytest.param("=Year (OrderDate)", ["OrderDate"], id="space_before_call"),
         pytest.param(
+            "Sum(Amount) // excludes Returns\n+ Sum([Tax]) /* Returns */",
+            ["Amount", "Tax"],
+            id="comments",
+        ),
+        pytest.param(
+            "Count({<Url={'http://example.com'}>} [a/*b])",
+            ["Url", "a/*b"],
+            id="comment_markers_in_quotes",
+        ),
+        pytest.param(
             "=Date#(OrderDate, 'YYYYMMDD') + Num# (Amount)",
             ["OrderDate", "Amount"],
             id="interpretation_functions",
@@ -508,3 +597,15 @@ def test_expression_names_skip_function_calls(
     expression: str, names: List[str]
 ) -> None:
     assert expression_names(expression) == names
+
+
+def test_preceding_load_keeps_columns_named_like_chart_qualifiers() -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD total AS Total, distinct_id AS Id;\n"
+        "SQL SELECT total, distinct_id FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(
+        table.preceding_loads,
+        {"total": ["total_urn"], "distinct_id": ["id_urn"]},
+    ) == {"Total": ["total_urn"], "Id": ["id_urn"]}

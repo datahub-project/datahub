@@ -16,6 +16,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Chart,
     QlikTable,
     SchemaField,
+    Sheet,
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
@@ -31,6 +32,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
+    DashboardInfoClass,
     InputFieldsClass,
     SubTypesClass,
     UpstreamLineageClass,
@@ -347,6 +349,58 @@ def _read_onprem_app(
     "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_unreadable_property_tree_falls_back_without_failing_the_app(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    replies = _sheet_replies(["ok"])
+    replies[-1] = RuntimeError("Method not found")
+    engine = _ScriptedEngine(
+        replies
+        + [
+            {"qReturn": {"qHandle": 3, "qType": "GenericObject"}},
+            _chart_layout("ok"),
+            {"qProp": {"qHyperCubeDef": {"qMeasures": []}}},
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
+    assert app.read_complete
+    assert len(app.read_fallbacks) == 1
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_engine_read_fallbacks_are_reported_as_info(mock_onprem: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+    app = App.model_validate(
+        {
+            "id": "app-1",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "stream-1",
+        }
+    )
+    app.read_fallbacks = ["Sheet sheet-1: unable to read the property tree"]
+    space = MagicMock()
+    space.name = "Everyone"
+
+    with patch.object(source, "_gen_app_workunit", return_value=[]):
+        list(source._gen_item_workunits(app, space, False))
+
+    assert [info.title for info in source.reporter.infos] == [
+        "Qlik Engine batch read unavailable"
+    ]
+    assert not source.reporter.failures
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_reads_charts_after_a_failed_chart(
     mock_session_cls: MagicMock, mock_engine: MagicMock
 ) -> None:
@@ -362,6 +416,7 @@ def test_onprem_reads_charts_after_a_failed_chart(
     app = _read_onprem_app(mock_session_cls, mock_engine, engine)
 
     assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
+    assert not app.sheets[0].charts_complete
     assert not app.read_complete
     assert engine.sent_on[4:] == [
         ("GetFullPropertyTree", 2),
@@ -800,12 +855,17 @@ def test_measure_definitions_follow_linked_master_visualization() -> None:
 def test_deleted_master_measure_is_not_a_read_error(replies: List[object]) -> None:
     chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
     chart.measure_library_ids = ["deleted"]
+    list_unreadable = isinstance(replies[0], Exception)
     engine = _ScriptedEngine(replies)
     errors: List[str] = []
+    fallbacks: List[str] = []
 
-    engine.add_master_measure_definitions([MagicMock(charts=[chart])], errors.append)
+    engine.add_master_measure_definitions(
+        [MagicMock(charts=[chart])], errors.append, fallbacks.append
+    )
 
     assert errors == []
+    assert len(fallbacks) == list_unreadable
     assert not chart.fields_complete
     assert engine.replies == []
     assert engine.handles == [-1]
@@ -824,7 +884,7 @@ def test_unread_master_measure_marks_chart_fields_incomplete() -> None:
     )
 
     engine.add_master_measure_definitions(
-        [MagicMock(charts=[chart])], on_error=lambda _: None
+        [MagicMock(charts=[chart])], on_error=lambda _: None, on_fallback=lambda _: None
     )
 
     assert "Sum(Sales)" in chart.field_expressions
@@ -1455,3 +1515,53 @@ def test_onprem_unpublished_apps(
         if ingest_unpublished
         else ["stream.id eq stream-1"]
     )
+
+
+@pytest.mark.parametrize(
+    "charts_complete, tables_read_failed",
+    [
+        pytest.param(True, False, id="complete"),
+        pytest.param(False, False, id="chart_unread"),
+        pytest.param(True, True, id="tables_unread"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_partly_read_app_does_not_overwrite_relationships(
+    mock_onprem: MagicMock, charts_complete: bool, tables_read_failed: bool
+) -> None:
+    mock_onprem.return_value.get_data_connections.return_value = {}
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+    sheet = Sheet.model_validate(
+        {
+            "id": "sheet-1",
+            "title": "Overview",
+            "description": "",
+            "createdDate": "2024-01-15T11:01:49.704Z",
+            "modifiedDate": "2024-01-29T12:23:46.868Z",
+        }
+    )
+    sheet.charts = [Chart.model_validate(_chart_layout("sales")["qLayout"])]
+    sheet.charts_complete = charts_complete
+    app = App.model_validate(
+        {
+            "id": "app-1",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "stream-1",
+        }
+    )
+    app.sheets = [sheet]
+    app.tables_read_failed = tables_read_failed
+
+    workunits = list(source._gen_app_workunit(app))
+
+    def emitted(aspect: type) -> bool:
+        return any(wu.get_aspect_of_type(aspect) for wu in workunits)
+
+    assert emitted(DashboardInfoClass) is charts_complete
+    assert emitted(ChartInfoClass) is not tables_read_failed
+    assert emitted(InputFieldsClass) is not tables_read_failed

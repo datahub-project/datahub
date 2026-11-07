@@ -49,9 +49,14 @@ class QlikAPI(QlikBaseAPI):
             }
         )
         # Qlik Cloud rate-limits the tenant, and parallel app reads make 429s
-        # likely. The lineage overview call is a POST but only reads.
+        # likely. The lineage overview call is a POST but only reads. Only 429s
+        # are retried, so an unreachable tenant still fails fast.
         retry = Retry(
             total=5,
+            connect=0,
+            read=0,
+            other=0,
+            status=5,
             backoff_factor=1,
             status_forcelist=[429],
             allowed_methods=None,
@@ -100,6 +105,8 @@ class QlikAPI(QlikBaseAPI):
             if user_id in self.users:
                 # To avoid fetching same user details again
                 return self.users[user_id]
+            elif user_id in self.failed_user_lookups:
+                return None
             else:
                 response = self.session.get(f"{self.rest_api_url}/users/{user_id}")
                 response.raise_for_status()
@@ -107,7 +114,7 @@ class QlikAPI(QlikBaseAPI):
                 self.users[user_id] = user_name
                 return user_name
         except Exception as e:
-            log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
+            self._record_failed_user_lookup(user_id, e)
         return None
 
     def _open_engine(self, app_id: str) -> WebsocketConnection:
@@ -247,7 +254,9 @@ class QlikAPI(QlikBaseAPI):
             )
             app = App.model_validate(response[Constant.QLAYOUT])
             app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
+            read_errors = len(errors.messages)
             app.tables = self._get_app_used_tables(websocket_connection, app_id, errors)
+            app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):
                 try:
                     app.script = websocket_connection.get_script()
@@ -265,6 +274,7 @@ class QlikAPI(QlikBaseAPI):
                             f"Unable to fetch load script of app {app_id}. Exception: {e}"
                         )
             app.read_errors = errors.messages
+            app.read_fallbacks = errors.fallbacks
             return app
         finally:
             self._close_engine(websocket_connection, app_id)

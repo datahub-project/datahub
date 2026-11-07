@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import Dict, List, Optional, Set, Tuple, Type
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -109,7 +109,7 @@ class _DataHub:
         self.aspects: Dict[Tuple[str, str], _Aspect] = {}
         self.soft_deleted: Set[str] = set()
         graph.get_aspect.side_effect = self.get_aspect
-        graph.get_urns_by_filter.side_effect = self.soft_deleted_urns
+        graph.get_entities.side_effect = self.get_entities
         graph._make_schema_resolver.side_effect = (
             lambda platform, platform_instance, env, **_: SchemaResolver(
                 platform=platform, platform_instance=platform_instance, env=env
@@ -119,8 +119,19 @@ class _DataHub:
     def get_aspect(self, urn: str, aspect_type: Type[_Aspect]) -> Optional[_Aspect]:
         return self.aspects.get((urn, aspect_type.ASPECT_NAME))
 
-    def soft_deleted_urns(self, **_: object) -> Iterable[str]:
-        return iter(sorted(self.soft_deleted))
+    def get_entities(
+        self, entity_name: str, urns: List[str], aspects: List[str]
+    ) -> Dict[str, Dict[str, Tuple[_Aspect, None]]]:
+        assert aspects == [StatusClass.ASPECT_NAME]
+        found: Dict[str, Dict[str, Tuple[_Aspect, None]]] = {}
+        for urn in urns:
+            status = self.aspects.get((urn, StatusClass.ASPECT_NAME))
+            if isinstance(status, StatusClass):
+                removed = status.removed or urn in self.soft_deleted
+                found[urn] = {
+                    StatusClass.ASPECT_NAME: (StatusClass(removed=removed), None)
+                }
+        return found
 
     def write(self, workunits: List[MetadataWorkUnit]) -> None:
         for wu in workunits:
@@ -270,6 +281,7 @@ def _container_urn(source: QlikSenseSource) -> str:
         "recipe_changed",
         "container_soft_deleted",
         "sheet_soft_deleted",
+        "sheet_hard_deleted",
         "datahub_fingerprint_differs",
         "ignore_old_state",
         "data_connection_changed",
@@ -319,6 +331,13 @@ def test_app_is_read_again(mock_datahub_graph: MagicMock, change: str) -> None: 
         datahub.soft_deleted.add(
             next(urn for urn in _stale_urns(first) if ":dashboard:" in urn)
         )
+    if change == "sheet_hard_deleted":
+        sheet_urn = next(urn for urn in _stale_urns(first) if ":dashboard:" in urn)
+        datahub.aspects = {
+            key: aspect
+            for key, aspect in datahub.aspects.items()
+            if key[0] != sheet_urn
+        }
     if change == "datahub_fingerprint_differs":
         properties = datahub.aspects[
             (container_urn, ContainerPropertiesClass.ASPECT_NAME)
@@ -356,8 +375,11 @@ def test_failed_read_keeps_entities_from_last_read(
     third, _ = _run(mock_datahub_graph, qlik, "run-3")
 
     assert not [wu for wu in second_wus if wu.id.startswith("soft-delete-")]
-    assert not [wu for wu in second_wus if wu.id.endswith("-fingerprint")]
+    assert not [wu for wu in second_wus if wu.get_urn() == _container_urn(first)]
     assert set(_stale_urns(first)) <= set(_stale_urns(second))
+    assert "Unable to fully read Qlik app" in [
+        warning.title for warning in second.reporter.warnings
+    ]
     assert third.reporter.apps_read == 1
     assert qlik.engine_opens == 3
 
@@ -443,9 +465,54 @@ def test_app_is_read_when_fingerprint_cannot_be_computed(
     assert qlik.engine_opens == 2
     assert second.reporter.apps_skipped_unchanged == 0
     assert not _soft_deleted_urns(second_wus)
+    assert [
+        failure.split(":")[0] for failure in second.reporter.apps_change_check_failed
+    ] == ["app-1"]
     container = first._gen_app_key("app-1").as_urn()
     assert not [
         wu
         for wu in second_wus
         if wu.get_urn() == container and wu.id.endswith("-fingerprint")
     ]
+
+
+def test_app_checkpoint_is_trusted_again_after_a_full_read(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    # Commits the stale entity removal state but no app checkpoints.
+    _, second_wus = _run(mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=False)
+    datahub.write(second_wus)
+    third, third_wus = _run(mock_datahub_graph, qlik, "run-3")
+    qlik.engine_fails = True
+    fourth, fourth_wus = _run(mock_datahub_graph, qlik, "run-4")
+
+    assert third.reporter.apps_skipped_unchanged == 0
+    assert third.reporter.apps_read == 1
+    assert "Unable to fully read Qlik app" not in [
+        failure.title for failure in fourth.reporter.failures
+    ]
+    assert not _soft_deleted_urns(fourth_wus)
+
+
+def test_partly_read_app_after_skip_was_off_is_a_failure(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    _, second_wus = _run(mock_datahub_graph, qlik, "run-2", skip_unchanged_apps=False)
+    datahub.write(second_wus)
+    qlik.engine_fails = True
+    third, third_wus = _run(mock_datahub_graph, qlik, "run-3")
+
+    assert "Unable to fully read Qlik app" in [
+        failure.title for failure in third.reporter.failures
+    ]
+    assert not _soft_deleted_urns(third_wus)

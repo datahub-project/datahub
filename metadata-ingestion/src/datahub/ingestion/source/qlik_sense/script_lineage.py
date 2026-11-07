@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List, Optional
+from typing import AbstractSet, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -24,6 +24,9 @@ CONTROL_RE = re.compile(
     r"|(?P<endsub>END\s*SUB\b)|(?P<sub>SUB\b[^\n]*)|(?:FOR|NEXT|DO|LOOP)\b[^\n]*)\s*",
     re.IGNORECASE,
 )
+SUB_NAME_RE = re.compile(r"SUB\s+(?P<name>[^\s(]+)", re.IGNORECASE)
+CALL_RE = re.compile(r"^CALL\s+(?P<name>[^\s(]+)", re.IGNORECASE)
+INCLUDE_RE = re.compile(r"\$\(\s*(?:Must_)?Include\s*=[^)]*\)", re.IGNORECASE)
 VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
     re.IGNORECASE | re.DOTALL,
@@ -38,6 +41,11 @@ PREFIX_RE = re.compile(
     r"|Buffer|Hierarchy|HierarchyBelongsTo|IntervalMatch|CrossTable|Replace|Add|Merge|Only"
     r"|First\s+\d+|Sample\s+[\d.]+)\b\s*(?:\([^)]*\))?\s*)*",
     re.IGNORECASE,
+)
+# Concatenate and Join add to an existing table, named in parentheses or else
+# the table loaded last. Keep (X) is not here: it creates a table of its own.
+MERGE_PREFIX_RE = re.compile(
+    r"\b(?:Concatenate|Join)\b\s*(?:\(\s*(?P<target>[^)]*?)\s*\))?", re.IGNORECASE
 )
 SQL_RE = re.compile(
     r"^(?:SQL\s+)?(?P<sql>(?:SELECT|WITH)\b.*)$", re.IGNORECASE | re.DOTALL
@@ -95,23 +103,25 @@ SET_VALUES_NEXT_RE = re.compile(r"\s*[-+*/]\s*\{")
 # Interpretation functions such as Date#(OrderDate) end their name with #.
 FUNCTION_CALL_RE = re.compile(r"\s*#?\s*\(")
 # Operators and aggregation qualifiers, as in Sum(DISTINCT TOTAL Amount).
-EXPRESSION_KEYWORDS = {
-    "all",
+EXPRESSION_OPERATORS = {
     "and",
     "bitand",
     "bitnot",
     "bitor",
     "bitxor",
-    "distinct",
     "follows",
     "like",
-    "nodistinct",
     "not",
     "or",
     "precedes",
-    "total",
     "xor",
 }
+# Aggregation qualifiers only exist in chart expressions, so in a LOAD they
+# are column names.
+EXPRESSION_KEYWORDS = EXPRESSION_OPERATORS | {"all", "distinct", "nodistinct", "total"}
+# A field list item that is only a variable, as in LOAD $(vFields).
+WHOLE_VARIABLE_RE = re.compile(r"^\s*\$\([^()]*\)\s*$")
+VARIABLE_REFERENCE_ANY_RE = re.compile(r"\$\([^()]*\)")
 # Single-quoted text is a string literal in a chart expression, not a field.
 EXPRESSION_NAME_RE = re.compile(
     rf"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>{_BARE_FIELD_NAME})"
@@ -129,27 +139,38 @@ CONNECTION_PROPERTY_RE = re.compile(
 NESTED_VALUE_RE = re.compile(
     r"\{(?P<braced>.*=.*)\}|\"(?P<double>.*=.*)\"|'(?P<single>.*=.*)'", re.DOTALL
 )
-# Parameters of a URL query string, such as ?token=abc&db=sales.
-URL_PARAMETER_RE = re.compile(r"(?P<key>[\w ]+)=[^;&\"'}\]]*&?")
 URL_USERINFO_RE = re.compile(r"(?<=://)[^/@\s;\"']+@")
-CREDENTIAL_KEYS = {
-    "uid",
-    "user",
-    "userid",
-    "user id",
-    "username",
-    "user name",
-    "xuserid",
+# A query string or fragment can carry a token or signature, as in an Azure SAS URL.
+URL_QUERY_RE = re.compile(r"(?<=://)(?P<location>[^?#\s;\"']*)[?#][^\s;\"']*")
+# Properties that name where the data lives. Any other property may hold a
+# secret, such as Auth=Bearer ... or Passphrase=..., so it is not emitted.
+PUBLIC_CONNECTION_KEYS = {
+    "account",
+    "catalog",
+    "conncatalog",
+    "data source",
+    "database",
+    "dsn",
+    "driver",
+    "host",
+    "hostname",
+    "initial catalog",
+    "port",
+    "provider",
+    "schema",
+    "server",
+    "warehouse",
 }
-CREDENTIAL_KEY_PARTS = ("pwd", "passw", "secret", "token", "credential", "key")
 # Parts a table name needs on platforms whose URNs are database.schema.table
-# (database.table for MySQL). A shorter name means the script left them to a
+# (schema.table for Oracle, database.table for MySQL and MariaDB). A shorter name means the script left them to a
 # connection that did not resolve them, so its URN would never match the table.
 QUALIFIED_NAME_PARTS: Dict[str, int] = {
     "bigquery": 3,
     "databricks": 3,
+    "mariadb": 2,
     "mssql": 3,
     "mysql": 2,
+    "oracle": 2,
     "postgres": 3,
     "redshift": 3,
     "snowflake": 3,
@@ -316,6 +337,13 @@ class _BranchState(BaseModel):
     variables: Dict[str, str] = {}
 
 
+class _SubEffect(BaseModel):
+    """What a SUB body changed, undone at END SUB but redone by each CALL."""
+
+    connection: bool = False
+    variables: List[str] = []
+
+
 class _Block(BaseModel):
     before: _BranchState
     branches: List[_BranchState] = []
@@ -332,8 +360,10 @@ class _ControlFlowTracker(BaseModel):
     state: _BranchState = Field(default_factory=_BranchState)
     blocks: List[_Block] = []
     # A SUB body only runs when the SUB is called, so what it sets is undone
-    # at END SUB.
+    # at END SUB and applied again, as unknown, by CALL.
     subs: List[_BranchState] = []
+    sub_names: List[str] = []
+    sub_effects: Dict[str, _SubEffect] = {}
 
     def strip_control_statements(self, statement: str) -> str:
         while True:
@@ -361,9 +391,37 @@ class _ControlFlowTracker(BaseModel):
                 self._end_block(self.blocks.pop())
             elif control.group("sub"):
                 self.subs.append(self.state.model_copy(deep=True))
+                name = SUB_NAME_RE.match(control.group("sub"))
+                self.sub_names.append(name.group("name").lower() if name else "")
             elif self.subs and control.group("endsub"):
-                self.state = self.subs.pop()
+                self._end_sub(self.subs.pop(), self.sub_names.pop())
             statement = statement[control.end() :]
+
+    def _end_sub(self, before: _BranchState, name: str) -> None:
+        changed = {
+            variable
+            for variable in {*before.variables, *self.state.variables}
+            if before.variables.get(variable) != self.state.variables.get(variable)
+        }
+        self.sub_effects[name] = _SubEffect(
+            connection=self.state.connection != before.connection,
+            variables=sorted(changed),
+        )
+        self.state = before
+
+    def call(self, name: str) -> None:
+        effect = self.sub_effects.get(name.lower())
+        if effect is None:
+            # The SUB may come from an include, so it could have set anything.
+            self.forget_state()
+            return
+        if effect.connection:
+            self.state.connection = None
+        for variable in effect.variables:
+            self.state.variables.pop(variable, None)
+
+    def forget_state(self) -> None:
+        self.state = _BranchState()
 
     def _next_branch(self, block: _Block, is_default: bool) -> None:
         if block.in_case:
@@ -413,18 +471,39 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
     )
 
 
+def _unquote(name: str) -> str:
+    if len(name) > 1 and QUOTE_PAIRS.get(name[0]) == name[-1]:
+        return name[1:-1]
+    return name
+
+
 def parse_load_script(script: str) -> List[ScriptTable]:
     script = _strip_comments(script)
     tables: List[ScriptTable] = []
     flow = _ControlFlowTracker()
     pending_label: Optional[str] = None
     pending_loads: List[PrecedingLoad] = []
+    # A SELECT under a preceding LOAD that adds to an unknown table.
+    pending_skip = False
+    # The table a Concatenate or Join without a target adds to.
+    last_label: Optional[str] = None
     for statement in _split_statements(script):
         statement = flow.strip_control_statements(statement)
+        statement, includes = INCLUDE_RE.subn("", statement)
+        if includes:
+            # The included script is not read, so it could have set anything.
+            flow.forget_state()
+            statement = statement.strip()
         statement = _expand_variables(statement, flow.state.variables)
         if not statement:
             continue
         if flow.record_variable(statement):
+            pending_label = None
+            pending_loads = []
+            continue
+        call = CALL_RE.match(statement)
+        if call:
+            flow.call(call.group("name"))
             pending_label = None
             pending_loads = []
             continue
@@ -445,22 +524,33 @@ def parse_load_script(script: str) -> List[ScriptTable]:
         if label_match:
             label = _first_group(label_match).strip()
             statement = statement[label_match.end() :].lstrip()
-        statement = PREFIX_RE.sub("", statement, count=1)
+        prefix = PREFIX_RE.match(statement)
+        merge = MERGE_PREFIX_RE.search(prefix.group(0)) if prefix else None
+        if prefix:
+            statement = statement[prefix.end() :]
+        skip = False
+        if merge:
+            target = merge.group("target")
+            label = _unquote(target) if target else last_label
+            skip = label is None
 
         sql = SQL_RE.match(statement)
         if sql:
-            # Qlik names an unlabelled table after the statement position.
-            table_label = label or pending_label or f"table_{len(tables) + 1}"
-            tables.append(
-                ScriptTable(
-                    label=table_label,
-                    connection=flow.state.connection,
-                    sql=sql.group("sql"),
-                    preceding_loads=pending_loads,
+            if not (skip or pending_skip):
+                # Qlik names an unlabelled table after the statement position.
+                table_label = label or pending_label or f"table_{len(tables) + 1}"
+                tables.append(
+                    ScriptTable(
+                        label=table_label,
+                        connection=flow.state.connection,
+                        sql=sql.group("sql"),
+                        preceding_loads=pending_loads,
+                    )
                 )
-            )
+                last_label = table_label
             pending_label = None
             pending_loads = []
+            pending_skip = False
         elif LOAD_RE.match(statement) and not LOAD_SOURCE_RE.search(
             QUOTED_RE.sub("", statement)
         ):
@@ -468,10 +558,14 @@ def parse_load_script(script: str) -> List[ScriptTable]:
             # Only the top one of a stack carries the label.
             if not pending_loads:
                 pending_label = label
+                pending_skip = skip
             pending_loads.append(_parse_load_fields(statement))
         else:
+            if LOAD_RE.match(statement):
+                last_label = label
             pending_label = None
             pending_loads = []
+            pending_skip = False
     return tables
 
 
@@ -527,17 +621,21 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         if item == "*":
             load.keeps_all = True
             continue
-        # A variable inside a string literal only changes a constant.
-        if "$(" in STRING_LITERAL_SQL_RE.sub("''", item):
-            load.unreadable = True
         alias = LOAD_ALIAS_RE.match(item)
+        # Only a variable standing for whole fields may hold any of the columns
+        # below. One inside an expression only changes that field's value.
+        if WHOLE_VARIABLE_RE.match(alias.group("expr") if alias else item):
+            load.unreadable = True
         if alias:
             load.fields.append(
                 LoadField(
                     name=alias.group("bracket")
                     or alias.group("double")
                     or alias.group("bare"),
-                    sources=expression_names(alias.group("expr")),
+                    sources=expression_names(
+                        VARIABLE_REFERENCE_ANY_RE.sub(" ", alias.group("expr")),
+                        keywords=EXPRESSION_OPERATORS,
+                    ),
                 )
             )
             continue
@@ -577,15 +675,42 @@ def apply_preceding_loads(
     return column_upstreams
 
 
-def expression_names(expression: str) -> List[str]:
+def _strip_expression_comments(expression: str) -> str:
+    kept: List[str] = []
+    closing: Optional[str] = None
+    i = 0
+    while i < len(expression):
+        char = expression[i]
+        if closing:
+            if char == closing:
+                closing = None
+        elif char in QUOTE_PAIRS:
+            closing = QUOTE_PAIRS[char]
+        elif expression.startswith("/*", i):
+            end = expression.find("*/", i + 2)
+            i = len(expression) if end == -1 else end + 2
+            kept.append(" ")
+            continue
+        elif expression.startswith("//", i):
+            end = expression.find("\n", i)
+            i = len(expression) if end == -1 else end
+            continue
+        kept.append(char)
+        i += 1
+    return "".join(kept)
+
+
+def expression_names(
+    expression: str, keywords: AbstractSet[str] = EXPRESSION_KEYWORDS
+) -> List[str]:
     """Names an expression may read as fields. Not every name is a field, so
     callers keep only names that are fields of the app."""
-    expression = strip_set_values(expression)
+    expression = strip_set_values(_strip_expression_comments(expression))
     names: List[str] = []
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")
         if bare and (
-            bare.lower() in EXPRESSION_KEYWORDS
+            bare.lower() in keywords
             # A function call such as Year(OrderDate), even when an app field
             # has the same name.
             or FUNCTION_CALL_RE.match(expression, match.end())
@@ -633,31 +758,29 @@ def is_inline_connection(connection: str) -> bool:
     return "=" in connection
 
 
-def _is_credential_key(key: str) -> bool:
-    key = key.strip().strip("{}").lower()
-    return key in CREDENTIAL_KEYS or any(part in key for part in CREDENTIAL_KEY_PARTS)
+def _is_public_key(key: str) -> bool:
+    return key.strip().strip("{}").lower() in PUBLIC_CONNECTION_KEYS
 
 
 def _redact_value(value: str) -> Optional[str]:
-    """The value without credentials, None when nothing but credentials is left."""
+    """The value without secrets, None when nothing public is left."""
     stripped = value.strip()
     nested = NESTED_VALUE_RE.fullmatch(stripped)
     if nested:
         inner = redact_connection(_first_group(nested))
         return f"{stripped[0]}{inner}{stripped[-1]}" if inner else None
     value = URL_USERINFO_RE.sub("", value)
-    return URL_PARAMETER_RE.sub(
-        lambda match: "" if _is_credential_key(match.group("key")) else match.group(0),
-        value,
-    )
+    return URL_QUERY_RE.sub(lambda match: match.group("location"), value)
 
 
 def redact_connection(connection: str) -> str:
+    """Keeps only the properties of an inline connection string that name
+    where the data lives."""
     if not is_inline_connection(connection):
         return connection
     properties: List[str] = []
     for match in CONNECTION_PROPERTY_RE.finditer(connection):
-        if _is_credential_key(match.group("key")):
+        if not _is_public_key(match.group("key")):
             continue
         value = _redact_value(match.group("value"))
         if value is not None:
