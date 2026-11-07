@@ -23,7 +23,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758567,
+        "lastObserved": 1794059261669,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -39,7 +39,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758567,
+        "lastObserved": 1794059261670,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -56,7 +56,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758567,
+        "lastObserved": 1794059261670,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -74,7 +74,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758567,
+        "lastObserved": 1794059261670,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -95,7 +95,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758568,
+        "lastObserved": 1794059261670,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -111,7 +111,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758568,
+        "lastObserved": 1794059261671,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -135,7 +135,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758568,
+        "lastObserved": 1794059261671,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -151,7 +151,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758568,
+        "lastObserved": 1794059261671,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -168,7 +168,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758568,
+        "lastObserved": 1794059261671,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -186,7 +186,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758568,
+        "lastObserved": 1794059261671,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -211,7 +211,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758568,
+        "lastObserved": 1794059261671,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -227,7 +227,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758672,
+        "lastObserved": 1794059261993,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -251,7 +251,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758673,
+        "lastObserved": 1794059261993,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -267,7 +267,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758673,
+        "lastObserved": 1794059261993,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -284,7 +284,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758673,
+        "lastObserved": 1794059261993,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -302,7 +302,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758673,
+        "lastObserved": 1794059261993,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -331,189 +331,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758673,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1a52096e52b734c50ca2a50cae35806d",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758673,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1a52096e52b734c50ca2a50cae35806d",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "microstrategy",
-                "instance": "prod",
-                "env": "PROD",
-                "project_id": "project-1",
-                "folder_path": "Shared Reports"
-            },
-            "name": "Shared Reports",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758673,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1a52096e52b734c50ca2a50cae35806d",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758674,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1a52096e52b734c50ca2a50cae35806d",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:microstrategy",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758674,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1a52096e52b734c50ca2a50cae35806d",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758674,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e48db0f64bf33e7156d6d69dc859003b",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:1a52096e52b734c50ca2a50cae35806d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758674,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e48db0f64bf33e7156d6d69dc859003b",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "microstrategy",
-                "instance": "prod",
-                "env": "PROD",
-                "project_id": "project-1",
-                "folder_path": "Shared Reports/Finance"
-            },
-            "name": "Finance",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758674,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e48db0f64bf33e7156d6d69dc859003b",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758674,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e48db0f64bf33e7156d6d69dc859003b",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:microstrategy",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758674,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e48db0f64bf33e7156d6d69dc859003b",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758674,
+        "lastObserved": 1794059261993,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -529,7 +347,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758674,
+        "lastObserved": 1794059261994,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -553,7 +371,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758675,
+        "lastObserved": 1794059261994,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -569,7 +387,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758675,
+        "lastObserved": 1794059261994,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -586,7 +404,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758675,
+        "lastObserved": 1794059261994,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -604,7 +422,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758675,
+        "lastObserved": 1794059261994,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -637,7 +455,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758675,
+        "lastObserved": 1794059261994,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -654,7 +472,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758675,
+        "lastObserved": 1794059261995,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -700,7 +518,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758676,
+        "lastObserved": 1794059261995,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -718,7 +536,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758676,
+        "lastObserved": 1794059261995,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -862,7 +680,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758676,
+        "lastObserved": 1794059261996,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -911,7 +729,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758677,
+        "lastObserved": 1794059261996,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -927,7 +745,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758677,
+        "lastObserved": 1794059261996,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -964,189 +782,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758677,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1a52096e52b734c50ca2a50cae35806d",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:73dc5bc852dc33782d74d91f6e5b08a3"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758677,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1a52096e52b734c50ca2a50cae35806d",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "microstrategy",
-                "instance": "prod",
-                "env": "PROD",
-                "project_id": "project-1",
-                "folder_path": "Shared Reports"
-            },
-            "name": "Shared Reports",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758677,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1a52096e52b734c50ca2a50cae35806d",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758677,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1a52096e52b734c50ca2a50cae35806d",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:microstrategy",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758677,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1a52096e52b734c50ca2a50cae35806d",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758677,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e48db0f64bf33e7156d6d69dc859003b",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:1a52096e52b734c50ca2a50cae35806d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758678,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e48db0f64bf33e7156d6d69dc859003b",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "microstrategy",
-                "instance": "prod",
-                "env": "PROD",
-                "project_id": "project-1",
-                "folder_path": "Shared Reports/Finance"
-            },
-            "name": "Finance",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758678,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e48db0f64bf33e7156d6d69dc859003b",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758678,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e48db0f64bf33e7156d6d69dc859003b",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:microstrategy",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:microstrategy,prod)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758678,
-        "runId": "microstrategy-source-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:e48db0f64bf33e7156d6d69dc859003b",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1792710758678,
+        "lastObserved": 1794059261996,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1162,7 +798,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758678,
+        "lastObserved": 1794059261997,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1186,7 +822,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758678,
+        "lastObserved": 1794059261997,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1202,7 +838,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758678,
+        "lastObserved": 1794059261997,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1219,7 +855,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758678,
+        "lastObserved": 1794059261997,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1237,7 +873,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758679,
+        "lastObserved": 1794059261997,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1270,7 +906,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758679,
+        "lastObserved": 1794059261997,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1287,7 +923,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758679,
+        "lastObserved": 1794059261998,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1320,7 +956,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758679,
+        "lastObserved": 1794059261998,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1338,7 +974,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758679,
+        "lastObserved": 1794059261998,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1441,7 +1077,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758679,
+        "lastObserved": 1794059261998,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1457,7 +1093,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758680,
+        "lastObserved": 1794059261999,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1494,7 +1130,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758680,
+        "lastObserved": 1794059261999,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1511,7 +1147,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758680,
+        "lastObserved": 1794059261999,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1561,7 +1197,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758680,
+        "lastObserved": 1794059262000,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1628,7 +1264,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758681,
+        "lastObserved": 1794059262000,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1646,7 +1282,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758681,
+        "lastObserved": 1794059262000,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1662,7 +1298,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758681,
+        "lastObserved": 1794059262000,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1695,7 +1331,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758681,
+        "lastObserved": 1794059262000,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1712,7 +1348,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758681,
+        "lastObserved": 1794059262001,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1768,7 +1404,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758682,
+        "lastObserved": 1794059262001,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1887,7 +1523,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758682,
+        "lastObserved": 1794059262001,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1905,7 +1541,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758682,
+        "lastObserved": 1794059262002,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1921,7 +1557,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758682,
+        "lastObserved": 1794059262002,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1954,7 +1590,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758682,
+        "lastObserved": 1794059262002,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1971,7 +1607,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758683,
+        "lastObserved": 1794059262002,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2022,7 +1658,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758683,
+        "lastObserved": 1794059262002,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2040,7 +1676,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758683,
+        "lastObserved": 1794059262003,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2066,7 +1702,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758683,
+        "lastObserved": 1794059262003,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2082,7 +1718,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758683,
+        "lastObserved": 1794059262003,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2115,7 +1751,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758683,
+        "lastObserved": 1794059262003,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2131,7 +1767,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758683,
+        "lastObserved": 1794059262003,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2147,7 +1783,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758683,
+        "lastObserved": 1794059262003,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2163,7 +1799,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758683,
+        "lastObserved": 1794059262004,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2179,7 +1815,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758684,
+        "lastObserved": 1794059262004,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2195,7 +1831,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758684,
+        "lastObserved": 1794059262004,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2211,7 +1847,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758684,
+        "lastObserved": 1794059262004,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2227,7 +1863,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758684,
+        "lastObserved": 1794059262004,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2243,7 +1879,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758684,
+        "lastObserved": 1794059262004,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2259,7 +1895,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1792710758684,
+        "lastObserved": 1794059262004,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }

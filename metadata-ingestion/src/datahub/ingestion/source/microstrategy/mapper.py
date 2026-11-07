@@ -141,6 +141,9 @@ class MicroStrategyMapper:
         self.config = config
         self.report = report
         self.lineage = MicroStrategyLineageExtractor(config, report)
+        # Folder containers already emitted this run: every dashboard, report
+        # and dataset filed under a folder walks the same ancestry.
+        self._emitted_folder_keys: Set[str] = set()
 
     def project_key(self, project_id: str) -> ProjectKey:
         return ProjectKey(
@@ -403,13 +406,15 @@ class MicroStrategyMapper:
                 continue
             current_path = f"{current_path}/{name}" if current_path else name
             folder_key = self.folder_key(project_id, current_path)
-            self.report.report_folder_scanned()
-            yield from gen_containers(
-                container_key=folder_key,
-                parent_container_key=parent_key,
-                name=name,
-                sub_types=[BIContainerSubTypes.MICROSTRATEGY_FOLDER],
-            )
+            if folder_key.guid() not in self._emitted_folder_keys:
+                self._emitted_folder_keys.add(folder_key.guid())
+                self.report.report_folder_scanned()
+                yield from gen_containers(
+                    container_key=folder_key,
+                    parent_container_key=parent_key,
+                    name=name,
+                    sub_types=[BIContainerSubTypes.MICROSTRATEGY_FOLDER],
+                )
             parent_key = folder_key
 
     def folder_container_for_dashboard(

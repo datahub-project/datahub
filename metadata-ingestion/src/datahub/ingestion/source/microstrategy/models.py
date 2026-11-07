@@ -980,19 +980,16 @@ def _extract_column_sets(data: MicroStrategyDict) -> List[MicroStrategyDict]:
     """Column groups of a compound-grid visualization. The runtime grid payload
     carries each group's member metric elements (including `derived` flags);
     the static dossier definition carries only key and name. Prefer runtime."""
-    runtime = data.get("runtimeDefinition")
-    if isinstance(runtime, dict):
-        definition = runtime.get("definition")
-        grid = definition.get("grid") if isinstance(definition, dict) else None
-        column_sets = grid.get("columnSets") if isinstance(grid, dict) else None
-        if isinstance(column_sets, list):
-            extracted = [
-                _column_set_from_grid(column_set)
-                for column_set in column_sets
-                if isinstance(column_set, dict)
-            ]
-            if extracted:
-                return extracted
+    grid = _runtime_grid_definition(data)
+    column_sets = grid.get("columnSets") if grid is not None else None
+    if isinstance(column_sets, list):
+        extracted = [
+            _column_set_from_grid(column_set)
+            for column_set in column_sets
+            if isinstance(column_set, dict)
+        ]
+        if extracted:
+            return extracted
     static_sets = data.get("columnSets")
     if isinstance(static_sets, list):
         return [

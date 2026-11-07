@@ -1209,6 +1209,21 @@ def test_gen_folder_containers_chain_and_deepest_folder_parent() -> None:
     )
 
 
+def test_gen_folder_containers_emits_each_folder_once() -> None:
+    mapper = _mapper()
+    first = MicroStrategyObject.model_validate(
+        {"id": "dash-1", "name": "Sales", "location": "/A/B"}
+    )
+    sibling = MicroStrategyObject.model_validate(
+        {"id": "dash-2", "name": "Margin", "location": "/A/C"}
+    )
+
+    list(mapper.gen_folder_containers("project-1", first))
+    urns = {wu.get_urn() for wu in mapper.gen_folder_containers("project-1", sibling)}
+
+    assert urns == {mapper.folder_key("project-1", "A/C").as_urn()}
+
+
 def test_gen_folder_containers_without_folder_labels_uses_raw_name() -> None:
     # No folder_labels passed (the pre-feature/opt-out case): raw metadata names
     # are used untouched, even though the ancestor id is present and would match.
