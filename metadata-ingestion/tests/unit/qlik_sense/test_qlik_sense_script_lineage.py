@@ -322,9 +322,13 @@ LIB CONNECT TO 'A';
 SET vSchema = 'dbo';
 Orders: SQL SELECT * FROM db.s.orders;
 CALL FromInclude;
+Concatenate SQL SELECT * FROM db.s.more_orders;
+Left Join SQL SELECT * FROM db.s.regions;
 T: SQL SELECT * FROM $(vSchema).t;
 """
-    _, table = parse_load_script(script)
+    orders, table = parse_load_script(script)
+
+    assert (orders.label, table.label) == ("Orders", "T")
 
     assert table.connection is None
     assert table.sql == "SELECT * FROM $(vSchema).t"

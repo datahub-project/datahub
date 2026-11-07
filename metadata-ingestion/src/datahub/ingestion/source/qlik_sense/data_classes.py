@@ -255,7 +255,8 @@ class App(Item):
     script: Optional[str] = None
     fingerprint: Optional[str] = None
     script_read_failed: bool = False
-    # Cloud data model tables could not be read, so chart inputs are unknown.
+    # The data model or the load script could not be read, so the app's tables,
+    # and with them the chart inputs, are unknown.
     tables_read_failed: bool = False
     # Engine reads of this app that failed, so its metadata is only partly read.
     read_errors: List[str] = []
