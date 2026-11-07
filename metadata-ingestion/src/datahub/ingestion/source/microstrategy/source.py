@@ -1034,40 +1034,43 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         model_error: Optional[Exception] = None
         v2_error: Optional[Exception] = None
         instance_id = self._report_model_instance(project_id, report_id)
+        # An auth error can propagate after the instance exists; it is still
+        # deleted so the server does not keep it.
         try:
-            model_payload = self.client.get_model_report(
-                project_id, report_id, instance_id=instance_id
-            )
-        except MicroStrategyAuthError:
-            raise
-        except Exception as error:
-            model_error = error
-        else:
-            definitions = extract_embedded_metric_definitions(
-                model_payload, endpoint=MSTR_DEFINITION_ENDPOINT_MODEL
-            )
-            if definitions and not any(d.has_expression for d in definitions):
-                self.report.report_report_definition_without_expressions()
-            elif not definitions:
-                self.report.report_report_model_definition_empty()
-        if not definitions:
             try:
-                v2_payload = self.client.get_report_definition(project_id, report_id)
+                model_payload = self.client.get_model_report(
+                    project_id, report_id, instance_id=instance_id
+                )
             except MicroStrategyAuthError:
                 raise
             except Exception as error:
-                v2_error = error
+                model_error = error
             else:
                 definitions = extract_embedded_metric_definitions(
-                    v2_payload, endpoint=MSTR_DEFINITION_ENDPOINT_V2
+                    model_payload, endpoint=MSTR_DEFINITION_ENDPOINT_MODEL
                 )
-                if model_error is not None:
-                    self._record_model_definition_failure(
-                        project_id, report_id, model_error
+                if definitions and not any(d.has_expression for d in definitions):
+                    self.report.report_report_definition_without_expressions()
+                elif not definitions:
+                    self.report.report_report_model_definition_empty()
+            if not definitions:
+                try:
+                    v2_payload = self.client.get_report_definition(project_id, report_id)
+                except MicroStrategyAuthError:
+                    raise
+                except Exception as error:
+                    v2_error = error
+                else:
+                    definitions = extract_embedded_metric_definitions(
+                        v2_payload, endpoint=MSTR_DEFINITION_ENDPOINT_V2
                     )
-
-        if instance_id:
-            self._delete_model_report_instance(project_id, report_id, instance_id)
+                    if model_error is not None:
+                        self._record_model_definition_failure(
+                            project_id, report_id, model_error
+                        )
+        finally:
+            if instance_id:
+                self._delete_model_report_instance(project_id, report_id, instance_id)
 
         if definitions and self.config.extract_metric_expressions:
             self._resolve_embedded_metric_formulas(project_id, definitions)

@@ -2769,6 +2769,29 @@ def test_report_metrics_read_statically_unless_instance_option_is_on() -> None:
     assert source.report.report_model_instances_created == 0
 
 
+def test_report_instance_is_released_when_auth_is_lost() -> None:
+    source = _embedded_metric_source()
+    source.config.resolve_report_metrics_via_instance = True
+
+    class AuthLostClient(_InstanceModelClient):
+        def get_model_report(
+            self,
+            project_id: str,
+            report_id: str,
+            instance_id: Optional[str] = None,
+        ) -> Dict[str, Any]:
+            raise MicroStrategyAuthError("session invalidated")
+
+    client = AuthLostClient()
+    source.client = client  # type: ignore[assignment]
+
+    with pytest.raises(MicroStrategyAuthError):
+        source._report_derived_metric_definitions("project-1", "ds-shared")
+
+    assert client.created == ["ds-shared"]
+    assert client.deleted == ["inst-ds-shared"]
+
+
 def test_instance_option_executes_report_and_releases_the_instance() -> None:
     source = _embedded_metric_source()
     source.config.resolve_report_metrics_via_instance = True
