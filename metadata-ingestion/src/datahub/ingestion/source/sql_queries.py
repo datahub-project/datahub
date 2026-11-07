@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
@@ -161,6 +162,142 @@ class SqlQueriesSourceReport(SourceReport):
     schema_resolver_report: Optional[SchemaResolverReport] = None
 
 
+class QueryLogReader(ABC):
+    """Yields QueryEntry records from a query-log backend.
+
+    Separates the source of query records from the aggregator so a backend can be
+    swapped without touching lineage, usage, or reporting.
+    """
+
+    @abstractmethod
+    def get_query_entries(self) -> Iterable["QueryEntry"]:
+        raise NotImplementedError
+
+
+class FileQueryLogReader(QueryLogReader):
+    """Reads query records from a newline-delimited JSON file (local or S3)."""
+
+    def __init__(
+        self, config: SqlQueriesSourceConfig, report: SqlQueriesSourceReport
+    ) -> None:
+        self.config = config
+        self.report = report
+
+    def get_query_entries(self) -> Iterable["QueryEntry"]:
+        logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
+        if not is_s3_uri(self.config.query_file):
+            yield from self._parse_local_query_file()
+            return
+
+        aws_config = self.config.aws_config
+        if aws_config is None:
+            # validate_s3_config rejects this at config time, so this only
+            # trips if the config was mutated after construction.
+            raise ValueError(f"aws_config is required to read {self.config.query_file}")
+        yield from self._parse_s3_query_file(aws_config)
+
+    def _parse_s3_query_file(
+        self, aws_config: AwsConnectionConfig
+    ) -> Iterable["QueryEntry"]:
+        logger.info(f"Reading query file from S3: {self.config.query_file}")
+
+        try:
+            s3_client = aws_config.get_s3_client()
+            file_stream_ctx = smart_open.open(
+                self.config.query_file, mode="r", transport_params={"client": s3_client}
+            )
+        except Exception as e:
+            self.report.failure(
+                title="S3 read error",
+                message="Failed to read query file from S3",
+                context=self.config.query_file,
+                exc=e,
+            )
+            raise
+
+        with file_stream_ctx as file_stream:
+            yield from self._parse_lines(self._guarded_stream(file_stream))
+
+    def _guarded_stream(self, stream: Iterable[str]) -> Iterable[str]:
+        """Yield lines, reporting read errors that occur mid-transfer.
+
+        Only stream advancement sits inside the try. Wrapping the yield instead
+        would capture exceptions raised by whatever consumes these lines, which
+        belong to the consumer, not to reading the file.
+        """
+        iterator = iter(stream)
+        while True:
+            try:
+                line = next(iterator)
+            except StopIteration:
+                return
+            except Exception as e:
+                self.report.failure(
+                    title="Query file read error",
+                    message="Error reading query file mid-transfer",
+                    context=self.config.query_file,
+                    exc=e,
+                )
+                raise
+            yield line
+
+    def _parse_local_query_file(self) -> Iterable["QueryEntry"]:
+        try:
+            f = open(self.config.query_file)
+        except OSError as e:
+            self.report.failure(
+                title="Local file read error",
+                message="Failed to open local query file",
+                context=self.config.query_file,
+                exc=e,
+            )
+            raise
+
+        with f:
+            # Guarded too: a truncated read or undecodable bytes surface partway
+            # through iteration, well after open() has succeeded.
+            yield from self._parse_lines(self._guarded_stream(f))
+
+    def _parse_lines(self, stream: Iterable[str]) -> Iterable["QueryEntry"]:
+        for line in stream:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                query_dict = json.loads(stripped, strict=False)
+                entry = QueryEntry.create(
+                    query_dict, config=self.config, report=self.report
+                )
+            except (MemoryError, SystemExit, KeyboardInterrupt):
+                raise
+            except Exception as e:
+                # Deliberately broad: this is a per-row parser, and one bad row
+                # must never abort the run. Narrowing it to ValueError misses
+                # InvalidUrnError (a plain Exception), which a blank "user"
+                # field raises — common in exported query logs.
+                self.report.num_entries_failed += 1
+                self.report.warning(
+                    title="Error processing query entry",
+                    message="Query skipped due to parsing error",
+                    context=stripped,
+                    exc=e,
+                    log=False,
+                )
+                if self.report.num_entries_failed % 1000 == 0:
+                    # Warnings are sampled, so without this the true volume of a
+                    # systematically-malformed file never reaches the log.
+                    logger.warning(
+                        f"{self.report.num_entries_failed} query entries have failed to parse"
+                    )
+                continue
+            self.report.num_entries_processed += 1
+            if self.report.num_entries_processed % 1000 == 0:
+                logger.info(
+                    f"Processed {self.report.num_entries_processed} query entries"
+                )
+            yield entry
+
+
 @platform_name("SQL Queries", id="sql-queries")
 @config_class(SqlQueriesSourceConfig)
 @support_status(SupportStatus.GA)
@@ -225,6 +362,8 @@ class SqlQueriesSource(Source):
         )
         self.report.sql_aggregator = self.aggregator.report
 
+        self.reader: QueryLogReader = FileQueryLogReader(self.config, self.report)
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlQueriesSource":
         config = SqlQueriesSourceConfig.model_validate(config_dict)
@@ -242,10 +381,8 @@ class SqlQueriesSource(Source):
     def get_workunits_internal(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
-        logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
-
         with self.report.new_stage(QUERIES_EXTRACTION):
-            for entry in self._parse_query_file():
+            for entry in self.reader.get_query_entries():
                 try:
                     self._add_query_to_aggregator(entry)
                     self.report.num_queries_processed += 1
@@ -297,123 +434,6 @@ class SqlQueriesSource(Source):
                 "likely a systemic issue (auth, connectivity, config)",
                 context=f"{self.report.num_queries_aggregator_failures} failures",
             )
-
-    def _parse_s3_query_file(
-        self, aws_config: AwsConnectionConfig
-    ) -> Iterable["QueryEntry"]:
-        """Parse query file from S3 using smart_open."""
-        logger.info(f"Reading query file from S3: {self.config.query_file}")
-
-        try:
-            s3_client = aws_config.get_s3_client()
-            file_stream_ctx = smart_open.open(
-                self.config.query_file, mode="r", transport_params={"client": s3_client}
-            )
-        except Exception as e:
-            self.report.failure(
-                title="S3 read error",
-                message="Failed to read query file from S3",
-                context=self.config.query_file,
-                exc=e,
-            )
-            raise
-
-        with file_stream_ctx as file_stream:
-            yield from self._parse_lines(self._guarded_stream(file_stream))
-
-    def _guarded_stream(self, stream: Iterable[str]) -> Iterable[str]:
-        """Yield lines, reporting read errors that occur mid-transfer.
-
-        Only stream advancement sits inside the try. Wrapping the yield instead
-        would capture exceptions raised by whatever consumes these lines, which
-        belong to the consumer, not to reading the file.
-        """
-        iterator = iter(stream)
-        while True:
-            try:
-                line = next(iterator)
-            except StopIteration:
-                return
-            except Exception as e:
-                self.report.failure(
-                    title="Query file read error",
-                    message="Error reading query file mid-transfer",
-                    context=self.config.query_file,
-                    exc=e,
-                )
-                raise
-            yield line
-
-    def _parse_local_query_file(self) -> Iterable["QueryEntry"]:
-        """Parse local query file."""
-        try:
-            f = open(self.config.query_file)
-        except OSError as e:
-            self.report.failure(
-                title="Local file read error",
-                message="Failed to open local query file",
-                context=self.config.query_file,
-                exc=e,
-            )
-            raise
-
-        with f:
-            # Guarded too: a truncated read or undecodable bytes surface partway
-            # through iteration, well after open() has succeeded.
-            yield from self._parse_lines(self._guarded_stream(f))
-
-    def _parse_lines(self, stream: Iterable[str]) -> Iterable["QueryEntry"]:
-        """Parse lines from a file stream, yielding QueryEntry objects."""
-        for line in stream:
-            stripped = line.strip()
-            if not stripped:
-                continue
-            try:
-                query_dict = json.loads(stripped, strict=False)
-                entry = QueryEntry.create(
-                    query_dict, config=self.config, report=self.report
-                )
-            except (MemoryError, SystemExit, KeyboardInterrupt):
-                raise
-            except Exception as e:
-                # Deliberately broad: this is a per-row parser, and one bad row
-                # must never abort the run. Narrowing it to ValueError misses
-                # InvalidUrnError (a plain Exception), which a blank "user"
-                # field raises — common in exported query logs.
-                self.report.num_entries_failed += 1
-                self.report.warning(
-                    title="Error processing query entry",
-                    message="Query skipped due to parsing error",
-                    context=stripped,
-                    exc=e,
-                    log=False,
-                )
-                if self.report.num_entries_failed % 1000 == 0:
-                    # Warnings are sampled, so without this the true volume of a
-                    # systematically-malformed file never reaches the log.
-                    logger.warning(
-                        f"{self.report.num_entries_failed} query entries have failed to parse"
-                    )
-                continue
-            self.report.num_entries_processed += 1
-            if self.report.num_entries_processed % 1000 == 0:
-                logger.info(
-                    f"Processed {self.report.num_entries_processed} query entries"
-                )
-            yield entry
-
-    def _parse_query_file(self) -> Iterable["QueryEntry"]:
-        """Parse the query file and yield QueryEntry objects."""
-        if not is_s3_uri(self.config.query_file):
-            yield from self._parse_local_query_file()
-            return
-
-        aws_config = self.config.aws_config
-        if aws_config is None:
-            # validate_s3_config rejects this at config time, so this only
-            # trips if the config was mutated after construction.
-            raise ValueError(f"aws_config is required to read {self.config.query_file}")
-        yield from self._parse_s3_query_file(aws_config)
 
     def _add_query_to_aggregator(self, query_entry: "QueryEntry") -> None:
         """Add a query to the SQL parsing aggregator.
