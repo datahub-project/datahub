@@ -1,6 +1,5 @@
-import { Text } from '@components';
+import { Button, ButtonProps, Text } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Button } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -16,7 +15,7 @@ type Props = {
     canRemove?: boolean;
     canAddAttribute?: boolean;
     showEmptyMessage?: boolean;
-    buttonProps?: Record<string, unknown>;
+    buttonProps?: Partial<ButtonProps>;
     onOpenModal?: () => void;
     maxShow?: number;
     entityUrn?: string;
@@ -77,15 +76,16 @@ export default function BusinessAttributeGroup({
             )}
             {canAddAttribute && !readOnly && businessAttributeEmpty && (
                 <NoElementButton
-                    type={showEmptyMessage && businessAttributeEmpty ? 'default' : 'text'}
+                    variant={showEmptyMessage && businessAttributeEmpty ? 'outline' : 'text'}
+                    color="gray"
+                    icon={{ icon: Plus }}
                     onClick={() => {
                         setAddModalType(EntityType.BusinessAttribute);
                         setShowAddModal(true);
                     }}
                     {...buttonProps}
                 >
-                    <Plus />
-                    <span>{t('addAttribute')}</span>
+                    {t('addAttribute')}
                 </NoElementButton>
             )}
             {showAddModal && !!entityUrn && !!entityType && (

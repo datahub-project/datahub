@@ -1,4 +1,3 @@
-import { Image } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
@@ -10,11 +9,9 @@ const StyledLink = styled(Link)`
     display: flex;
 `;
 
-const LogoImage = styled(Image)`
-    display: inline-block;
+const LogoImage = styled.img`
     height: 32px;
     width: auto;
-    display: flex;
 `;
 
 export default function AppLogoLink() {
@@ -29,7 +26,7 @@ export default function AppLogoLink() {
                         ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
                         : undefined
                 }
-                preview={false}
+                alt=""
             />
         </StyledLink>
     );

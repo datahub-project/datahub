@@ -1,6 +1,5 @@
 import { Text } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { Typography } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -108,7 +107,7 @@ const EmptyText = styled(Text)`
     }
 `;
 
-const Count = styled(Typography.Text)`
+const Count = styled.span`
     color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-weight: 400;

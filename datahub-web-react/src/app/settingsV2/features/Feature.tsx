@@ -1,21 +1,16 @@
-import { Button, Pill, StructuredPopover, Switch } from '@components';
+import { Button, Divider, Pill, StructuredPopover, Switch } from '@components';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
-import { Card, Divider } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-const StyledCard = styled(Card)`
-    && {
-        border-radius: 12px;
-        border: 1px solid ${(props) => props.theme.colors.border};
-        box-shadow: ${(props) => props.theme.colors.shadowXs};
-        margin-bottom: 24px;
-
-        .ant-card-body {
-            padding: 16px;
-        }
-    }
+const StyledCard = styled.div`
+    background: ${(props) => props.theme.colors.bg};
+    border-radius: 12px;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
+    margin-bottom: 24px;
+    padding: 16px;
 `;
 
 const Title = styled.div`
@@ -53,10 +48,6 @@ const FeatureOptionRow = styled.div`
     &:not(:last-child) {
         margin-bottom: 8px;
     }
-`;
-
-const StyledDivider = styled(Divider)`
-    color: ${(props) => props.theme.colors.border};
 `;
 
 const SettingsOptionRow = styled.div`
@@ -175,7 +166,7 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                                 />
                             )}
                         </FeatureOptionRow>
-                        {index !== options.length - 1 && <StyledDivider />}
+                        {index !== options.length - 1 && <Divider />}
                     </>
                 ))}
             </StyledCard>

@@ -1,5 +1,4 @@
-import { Heading, Modal, Pill, Text } from '@components';
-import { Divider } from 'antd';
+import { Divider, Heading, Modal, Pill, Text } from '@components';
 import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';

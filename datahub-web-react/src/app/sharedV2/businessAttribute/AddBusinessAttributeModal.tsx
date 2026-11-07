@@ -1,5 +1,6 @@
+import { Modal, toast } from '@components';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
-import { Button, Tag as CustomTag, Modal, Select, message } from 'antd';
+import { Tag as CustomTag, Select } from 'antd';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -211,15 +212,12 @@ export default function EditBusinessAttributeModal({
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: t('addSuccess'),
-                        duration: 2,
-                    });
+                    toast.success(t('addSuccess'), { duration: 2 });
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('addError', { error: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('addError', { error: e.message || '' }), { duration: 3 });
             })
             .finally(() => {
                 setDisableAction(false);
@@ -245,17 +243,16 @@ export default function EditBusinessAttributeModal({
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: t('removeSuccess'),
-                        duration: 2,
-                    });
+                    toast.success(t('removeSuccess'), { duration: 2 });
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urn, e, { content: t('removeError', { error: e.message || '' }), duration: 3 }),
-                );
+                toast.destroy();
+                const { content, duration } = handleBatchError(urn, e, {
+                    content: t('removeError', { error: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(content, { duration });
             })
             .finally(() => {
                 setDisableAction(false);
@@ -326,21 +323,21 @@ export default function EditBusinessAttributeModal({
             }
             open={open}
             onCancel={onCloseModal}
-            footer={
-                <>
-                    <Button onClick={onCloseModal} type="text">
-                        {tc('cancel')}
-                    </Button>
-                    <Button
-                        id="addAttributeButton"
-                        data-testid="add-attribute-from-modal-btn"
-                        onClick={onOk}
-                        disabled={urn.length === 0 || disableAction}
-                    >
-                        {tc('done')}
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: tc('cancel'),
+                    variant: 'text',
+                    onClick: onCloseModal,
+                },
+                {
+                    text: tc('done'),
+                    variant: 'filled',
+                    id: 'addAttributeButton',
+                    buttonDataTestId: 'add-attribute-from-modal-btn',
+                    onClick: onOk,
+                    disabled: urn.length === 0 || disableAction,
+                },
+            ]}
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <AttributeSelect

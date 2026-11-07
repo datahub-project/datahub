@@ -1,8 +1,7 @@
 /**
  * Truncates text and shows the full value in a tooltip on hover or focus.
  */
-import { Tooltip, TooltipProps } from '@components';
-import { Typography } from 'antd';
+import { Text, Tooltip, TooltipProps } from '@components';
 import React from 'react';
 
 type Props = {
@@ -21,9 +20,9 @@ export const TruncatedTextWithTooltip = ({ text, maxLength, tooltipOptions, rend
             {renderText ? (
                 renderText(truncatedText)
             ) : (
-                <Typography.Text style={props.style} {...props}>
+                <Text type="span" style={props.style} {...props}>
                     {truncatedText}
-                </Typography.Text>
+                </Text>
             )}
         </Tooltip>
     );

@@ -1,5 +1,4 @@
 import { PageTitle } from '@components';
-import { Col, Row } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -14,7 +13,18 @@ const Container = styled.div`
     margin-bottom: 24px;
 `;
 
-const ChartCol = styled(Col)`
+// Matches the previous antd grid: one chart per row below the lg breakpoint (992px), three per row above it.
+const ChartGrid = styled.div`
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+
+    @media (min-width: 992px) {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+`;
+
+const ChartCol = styled.div`
     display: flex;
     flex-direction: column;
 
@@ -34,16 +44,16 @@ export const ChartGroup = ({ chartGroup, testId }: Props) => {
     return (
         <Container data-testid={testId}>
             {chartGroup.title?.length > 0 && <PageTitle title={chartGroup.title} variant="sectionHeader" />}
-            <Row gutter={[16, 16]}>
+            <ChartGrid>
                 {chartGroup.charts.map((chart) => (
-                    <ChartCol key={chart.title} sm={24} md={24} lg={8} xl={8}>
+                    <ChartCol key={chart.title}>
                         <AnalyticsChart
                             chartData={chart}
                             testId={`analytics-${chart.title?.toLowerCase().replace(/\s+/g, '-')}`}
                         />
                     </ChartCol>
                 ))}
-            </Row>
+            </ChartGrid>
         </Container>
     );
 };

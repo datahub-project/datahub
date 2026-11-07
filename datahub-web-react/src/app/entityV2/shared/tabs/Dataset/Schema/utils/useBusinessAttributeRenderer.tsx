@@ -20,7 +20,7 @@ export default function useBusinessAttributeRenderer(filterText: string, canEdit
             <BusinessAttributeGroup
                 businessAttribute={record?.schemaFieldEntity?.businessAttributes?.businessAttribute || undefined}
                 canRemove={canEdit}
-                buttonProps={{ size: 'small' }}
+                buttonProps={{ size: 'sm' }}
                 canAddAttribute={canEdit}
                 entityUrn={record?.schemaFieldEntity?.urn}
                 entityType={EntityType.Dataset}

@@ -1,4 +1,4 @@
-import { Button } from 'antd';
+import { Button } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
@@ -41,6 +41,11 @@ const Number = styled.span`
     text-shadow: -8px 0px 0px ${(props) => props.theme.colors.bg};
 `;
 
+const HomeButtonContainer = styled.div`
+    display: flex;
+    justify-content: center;
+`;
+
 const SubTitle = styled.h2`
     font-size: 20px;
     font-weight: 400;
@@ -69,7 +74,11 @@ export const NoPageFound = () => {
                     </NumberContainer>
                 </PageNotFoundTextContainer>
                 <SubTitle>{t('noPageFound.subtitle')}</SubTitle>
-                <Button onClick={goToHomepage}>{t('noPageFound.backToHome')}</Button>
+                <HomeButtonContainer>
+                    <Button variant="outline" onClick={goToHomepage}>
+                        {t('noPageFound.backToHome')}
+                    </Button>
+                </HomeButtonContainer>
             </PageNotFoundContainer>
         </MainContainer>
     );

@@ -1,24 +1,18 @@
-import { Tabs } from 'antd';
-import { TabsProps } from 'antd/lib/tabs';
+import { Tabs } from '@components';
 import * as React from 'react';
 import { Redirect, useHistory } from 'react-router';
-import { Route, Switch, useLocation, useRouteMatch } from 'react-router-dom';
+import { useLocation, useRouteMatch } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
-
-const { TabPane } = Tabs;
-
-interface Props extends TabsProps {
+interface Props {
     defaultPath: string;
     tabs: Array<{
-        name: string | React.ReactNode;
+        name: string;
         path: string;
         content: React.ReactNode;
         display?: {
             enabled: () => boolean;
         };
-        customTitle?: React.ReactElement;
     }>;
     onTabChange?: (selectedTab: string) => void;
 }
@@ -31,7 +25,8 @@ const RoutedTabsStyle = styled.div`
 `;
 
 const RouteContainer = styled.div`
-    flex: 1;
+    height: 100%;
+    width: 100%;
     overflow: auto;
 `;
 
@@ -39,8 +34,8 @@ const RouteContainer = styled.div`
  * A tab view where each tab is associated with a route mounted on top of the current path.
  * This permits direct navigation to a particular tab via URL.
  */
-export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) => {
-    const { path, url } = useRouteMatch();
+export const RoutedTabs = ({ defaultPath, tabs, onTabChange }: Props) => {
+    const { isExact, url } = useRouteMatch();
     const { pathname } = useLocation();
     const history = useHistory();
     const subRoutes = tabs.map((tab) => tab.path.replace('/', ''));
@@ -48,44 +43,30 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
     const splitPathName = trimmedPathName.split('/');
     const providedPath = splitPathName[splitPathName.length - 1];
     const activePath = subRoutes.includes(providedPath) ? providedPath : defaultPath.replace('/', '');
+
+    if (isExact) {
+        return <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${defaultPath}`} />;
+    }
+
     return (
         <RoutedTabsStyle>
             <Tabs
-                defaultActiveKey={activePath}
-                activeKey={activePath}
-                size="large"
-                onTabClick={(tab: string) => onTabChange && onTabChange(tab)}
-                onChange={(newPath) => history.replace(`${url}/${newPath}`)}
-                {...props}
-            >
-                {tabs.map((tab) => {
-                    return (
-                        <TabPane
-                            tab={tab.customTitle ? tab.customTitle : tab.name}
-                            key={tab.path.replace('/', '')}
-                            disabled={!tab.display?.enabled()}
-                            data-testid={`tab-${tab.path.replace('/', '').toLowerCase()}`}
-                        />
-                    );
+                tabs={tabs.map((tab) => {
+                    const key = tab.path.replace('/', '');
+                    return {
+                        name: tab.name,
+                        key,
+                        disabled: !tab.display?.enabled(),
+                        dataTestId: `tab-${key.toLowerCase()}`,
+                        component: <RouteContainer>{tab.content}</RouteContainer>,
+                    };
                 })}
-            </Tabs>
-            <Switch>
-                <Route exact path={path}>
-                    <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${defaultPath}`} />
-                </Route>
-                <ErrorBoundary resetKeys={[activePath]} variant="tab">
-                    <RouteContainer>
-                        {tabs.map((tab) => (
-                            <Route
-                                exact
-                                path={`${path}/${tab.path.replace('/', '')}`}
-                                render={() => tab.content}
-                                key={tab.path}
-                            />
-                        ))}
-                    </RouteContainer>
-                </ErrorBoundary>
-            </Switch>
+                selectedTab={activePath}
+                onTabClick={(tab: string) => onTabChange?.(tab)}
+                onChange={(newPath) => history.replace(`${url}/${newPath}`)}
+                styleOptions={{ containerHeight: 'full' }}
+                destroyInactiveTabPane
+            />
         </RoutedTabsStyle>
     );
 };
