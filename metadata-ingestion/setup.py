@@ -288,6 +288,13 @@ dataplex_common = {
     "tenacity>=8.0.1,<9.0.0",
 }
 
+# >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
+# <51 aligns with pyOpenSSL/msal.
+# Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf / CVE-2026-26007.
+cryptography_lib = {
+    "cryptography>=50.0.0,<51.0.0",
+}
+
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=1.0.0,<2.0.0",
@@ -335,9 +342,7 @@ snowflake_common = {
     # Floor is 4.7.3: 4.7.1/4.7.2 reject valid certificates for account locators with underscores.
     "snowflake-connector-python>=4.7.3,<5.0.0",
     "pandas<3.0.0",
-    # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
-    # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
-    "cryptography>=50.0.0,<51.0.0",
+    *cryptography_lib,
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -891,6 +896,9 @@ plugins: Dict[str, Set[str]] = {
     "powerbi": (
         microsoft_common
         | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
+        # Used directly for certificate-based service principal auth. msal already
+        # pulls it in transitively via PyJWT[crypto]; this makes the dep explicit.
+        | cryptography_lib
         | sqlglot_lib
     ),
     "powerbi-report-server": powerbi_report_server,
