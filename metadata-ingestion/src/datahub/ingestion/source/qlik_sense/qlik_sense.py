@@ -296,7 +296,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _gen_charts_workunit(
-        self, charts: List[Chart], input_tables_urns: List[str], app_id: str
+        self,
+        charts: List[Chart],
+        input_tables_urns: Optional[List[str]],
+        app_id: str,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Chart to Datahub Chart
@@ -315,16 +318,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 "Measure": str(chart.qMeasure),
             }
 
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=ChartInfoClass(
-                    title=chart.title,
-                    description=chart.visualization,
-                    lastModified=ChangeAuditStampsClass(),
-                    customProperties=custom_properties,
-                    inputs=input_tables_urns,
-                ),
-            ).as_workunit()
+            # Unknown inputs would overwrite the ones the last full read emitted.
+            if input_tables_urns is not None:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=ChartInfoClass(
+                        title=chart.title,
+                        description=chart.visualization,
+                        lastModified=ChangeAuditStampsClass(),
+                        customProperties=custom_properties,
+                        inputs=input_tables_urns,
+                    ),
+                ).as_workunit()
 
             yield from add_entity_to_container(
                 container_key=self._gen_app_key(app_id),
@@ -333,7 +338,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _gen_sheets_workunit(
-        self, app: App, input_tables_urns: List[str]
+        self, app: App, input_tables_urns: Optional[List[str]]
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Sheet to Datahub dashboard
@@ -343,7 +348,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
             yield self._gen_entity_status_aspect(dashboard_urn)
 
-            yield self._gen_dashboard_info_workunit(sheet, app.id)
+            # A partial chart list would overwrite the one the last full read
+            # emitted.
+            if sheet.charts_complete:
+                yield self._gen_dashboard_info_workunit(sheet, app.id)
 
             yield from add_entity_to_container(
                 container_key=self._gen_app_key(app.id),
@@ -379,16 +387,20 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             if not table.selectStatement:
                 return None
+            platform = upstream_dataset_platform_detail.platform or (
+                KNOWN_DATA_PLATFORM_MAPPING.get(
+                    table.dataconnectorPlatform, table.dataconnectorPlatform
+                )
+            )
+            # The database and schema Qlik reports for the table win over the
+            # connection's configured defaults.
             result = create_lineage_sql_parsed_result(
                 query=table.selectStatement.strip(),
-                default_db=upstream_dataset_platform_detail.database
-                or table.databaseName,
-                default_schema=upstream_dataset_platform_detail.default_schema
-                or table.schemaName,
-                platform=upstream_dataset_platform_detail.platform
-                or KNOWN_DATA_PLATFORM_MAPPING.get(
-                    table.dataconnectorPlatform, table.dataconnectorPlatform
-                ),
+                default_db=table.databaseName
+                or upstream_dataset_platform_detail.database,
+                default_schema=table.schemaName
+                or upstream_dataset_platform_detail.default_schema,
+                platform=platform,
                 env=upstream_dataset_platform_detail.env,
                 platform_instance=upstream_dataset_platform_detail.platform_instance,
             )
@@ -400,7 +412,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     exc=result.debug_info.table_error,
                 )
                 return None
-            upstream_dataset_urn = result.in_tables[0]
+            qualified = [
+                urn
+                for urn in result.in_tables
+                if has_qualified_name(
+                    urn, platform, upstream_dataset_platform_detail.platform_instance
+                )
+            ]
+            if not qualified:
+                self.reporter.warning(
+                    title="Qlik table is missing its database or schema",
+                    message="Upstream lineage for this Qlik table is skipped. Set "
+                    "`database` and `default_schema` for its connection in "
+                    "`data_connection_to_platform_instance`.",
+                    context=f"table={table.tableName}, upstreams={result.in_tables}",
+                )
+                return None
+            upstream_dataset_urn = qualified[0]
         elif table.type == BoxType.LOADFILE:
             upstream_dataset_urn = self._gen_qlik_dataset_urn(
                 f"{table.spaceId}.{table.databaseName}".lower()
@@ -494,13 +522,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self, connection: str, space_id: str
     ) -> Optional[DataConnectionInfo]:
         connections = self._get_data_connections()
-        # Qlik Cloud looks a bare connection name up in the app's own space
-        # first, so it wins over a same-named connection in another space.
         space_name = self.qlik_api.spaces.get(space_id)
-        if space_name and SPACE_SEPARATOR not in connection:
-            own = connections.get(f"{space_name}{SPACE_SEPARATOR}{connection}")
-            if own is not None:
-                return own
+        if (
+            self.config.on_prem is None
+            and space_name
+            and SPACE_SEPARATOR not in connection
+        ):
+            # Qlik Cloud looks a bare name up in the app's own space only. A
+            # same-named connection elsewhere may point at another database
+            # when the app's own one is not visible to the API key.
+            return connections.get(f"{space_name}{SPACE_SEPARATOR}{connection}")
         return connections.get(connection)
 
     def _resolve_script_connection(
@@ -783,7 +814,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             created=int(app.createdAt.timestamp() * 1000),
             last_modified=int(app.updatedAt.timestamp() * 1000),
         )
-        yield from self._gen_sheets_workunit(app, input_tables_urns)
+        yield from self._gen_sheets_workunit(
+            app, None if app.tables_read_failed else input_tables_urns
+        )
         yield from self._gen_app_tables_workunit(app.tables, app.id)
         yield from self._gen_script_tables_workunit(script_tables, app.id)
 
@@ -960,6 +993,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 else allowed_space.id
             ):
                 yield from self._gen_item_workunits(item, allowed_space)
+        failed_users = self.qlik_api.failed_user_lookups
+        if failed_users:
+            self.reporter.warning(
+                title="Unable to look up Qlik owners",
+                message="Ownership is left out for entities owned by these users.",
+                context=", ".join(
+                    f"{user_id}: {cause}"
+                    for user_id, cause in sorted(failed_users.items())
+                ),
+            )
         for unread in self.qlik_api.unread_items:
             # Also stops stale entity removal from soft-deleting what was not read.
             self.reporter.failure(

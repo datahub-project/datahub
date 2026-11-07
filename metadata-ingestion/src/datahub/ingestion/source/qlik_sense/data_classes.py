@@ -201,6 +201,8 @@ class Sheet(_QlikBaseModel):
     createdAt: datetime
     updatedAt: datetime
     charts: List[Chart] = []
+    # False when a chart of the sheet could not be read.
+    charts_complete: bool = True
 
     @model_validator(mode="before")
     @classmethod
@@ -252,6 +254,8 @@ class App(Item):
     tables: List[QlikTable] = []
     script: Optional[str] = None
     script_read_failed: bool = False
+    # Cloud data model tables could not be read, so chart inputs are unknown.
+    tables_read_failed: bool = False
     # Engine reads of this app that failed, so its metadata is only partly read.
     read_errors: List[str] = []
 
