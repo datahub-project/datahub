@@ -657,6 +657,11 @@ def test_auth_loss_aborts_remaining_projects() -> None:
                 Project.model_validate({"id": "project-2", "name": "Second"}),
             ]
 
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            return []
+
         def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
             self.projects_started.append(project_id)
             raise MicroStrategyAuthError("session invalidated and re-login failed")
@@ -924,42 +929,48 @@ def test_predefined_folder_labels_disabled_by_config_skips_client_call() -> None
     assert source._predefined_folders("project-1") == PredefinedFolderResolution.empty()
 
 
-def test_predefined_folder_labels_memoizes_api_failure() -> None:
-    source = _source()
+def test_predefined_folder_failure_skips_project_content() -> None:
+    # Raw folder names would mint different container URNs, so the project's
+    # dashboards and reports are skipped and the run fails, which also keeps
+    # stale-entity removal from deleting the containers earlier runs emitted.
+    source = _source({"extract_source_warehouses": False})
 
     class FakeClient:
-        calls = 0
+        def list_projects(self) -> List[Project]:
+            return [Project.model_validate({"id": "project-1", "name": "First"})]
 
         def get_predefined_folders(
             self, project_id: str, folder_types: List[int]
         ) -> List[PredefinedFolder]:
-            self.calls += 1
             raise MicroStrategyAPIError("not supported on this version")
 
-    fake_client = FakeClient()
-    source.client = fake_client  # type: ignore[assignment]
+        def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+            raise AssertionError("dashboards must not be searched")
 
-    assert source._predefined_folders("project-1").labels == {}
-    assert source._predefined_folders("project-1").labels == {}
-
-    # The project-scoped failure is remembered; no re-attempts per lookup.
-    assert fake_client.calls == 1
-    assert len(source.report.warnings) == 1
-
-
-def test_predefined_folder_labels_degrades_on_unexpected_client_error() -> None:
-    # A client that doesn't implement the method (e.g. an older FakeClient in
-    # another test, or any non-MicroStrategyAPIError failure) must never take
-    # down dashboard/report processing -- this lookup is purely additive.
-    source = _source()
-
-    class FakeClient:
-        pass
+        def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
+            raise AssertionError("reports must not be searched")
 
     source.client = FakeClient()  # type: ignore[assignment]
 
-    assert source._predefined_folders("project-1") == PredefinedFolderResolution.empty()
-    assert len(source.report.warnings) == 1
+    workunits = list(source._process_project(source.client.list_projects()[0]))
+
+    assert all("container" in wu.get_urn() for wu in workunits)
+    assert len(source.report.failures) == 1
+
+
+def test_predefined_folder_auth_error_propagates() -> None:
+    source = _source()
+
+    class FakeClient:
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            raise MicroStrategyAuthError("session invalidated")
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    with pytest.raises(MicroStrategyAuthError):
+        source._predefined_folders("project-1")
 
 
 def test_lazy_project_lineage_resolves_once_and_caches_failures() -> None:

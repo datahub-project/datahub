@@ -125,6 +125,10 @@ logger = logging.getLogger(__name__)
 _ERROR_SUMMARY_MAX_CHARS = 300
 
 
+class _PredefinedFoldersUnavailable(Exception):
+    pass
+
+
 @platform_name("MicroStrategy")
 @config_class(MicroStrategyConfig)
 @support_status(SupportStatus.ALPHA)
@@ -434,6 +438,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             project,
             source_warehouses=source_warehouses,
         )
+        if (
+            self.config.extract_dashboards or self.config.extract_reports
+        ) and not self._resolve_project_folders(project):
+            if self.config.emit_semantic_model_entities:
+                yield from self._process_project_semantic_model(
+                    project, lineage_context
+                )
+            return
         if self.config.extract_dashboards:
             yield from self._process_project_dashboards(
                 project,
@@ -618,6 +630,27 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     exc=error,
                 )
 
+    def _resolve_project_folders(self, project: Project) -> bool:
+        try:
+            self._predefined_folders(project.id)
+        except _PredefinedFoldersUnavailable as error:
+            # A failure (rather than a warning) also stops stale-entity removal
+            # from soft-deleting the containers earlier runs emitted.
+            self.report.failure(
+                title="Predefined folder lookup failed",
+                message=(
+                    "Could not resolve MicroStrategy's predefined folders, so "
+                    "this project's dashboards and reports were skipped rather "
+                    "than filed under different folder containers. Set "
+                    "use_predefined_folder_names: false if the server does not "
+                    "support GET /api/folders/preDefined."
+                ),
+                context=f"project_id={project.id}, project_name={project.name}",
+                exc=error.__cause__,
+            )
+            return False
+        return True
+
     def _predefined_folders(self, project_id: str) -> PredefinedFolderResolution:
         """Predefined-folder resolution for a project: MicroStrategy-assigned
         labels (e.g. 'Shared Reports') plus the system containers Strategy Web
@@ -638,27 +671,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     | MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES
                 ),
             )
+        except MicroStrategyAuthError:
+            raise
         except Exception as error:
-            # Folder browsing is an optional enhancement layered on top of the
-            # raw ancestor walk -- any failure here (unsupported on an older
-            # MicroStrategy version, insufficient privilege, transport error)
-            # must never take down dashboard/report processing. Remember the
-            # failure instead of re-attempting it for every dashboard/report
-            # in the project.
-            self.report.warning(
-                title="Predefined folder lookup unavailable",
-                message=(
-                    "Could not resolve MicroStrategy's predefined folder labels "
-                    "for this project; folder containers will use MicroStrategy's "
-                    "raw metadata folder names instead. With "
-                    "use_predefined_folder_names enabled this changes folder "
-                    "container URNs relative to a run where resolution "
-                    "succeeded."
-                ),
-                context=f"project_id={project_id}",
-                exc=error,
-            )
-            folders = []
+            # Falling back to raw folder names would mint a different set of
+            # folder container URNs and re-parent every object under them, and
+            # folder_path_pattern would match against the wrong paths. The
+            # caller skips the project's dashboards and reports instead.
+            raise _PredefinedFoldersUnavailable(project_id) from error
 
         for folder in folders:
             if folder.folder_type is None:
