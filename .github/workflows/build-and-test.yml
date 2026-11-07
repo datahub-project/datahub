@@ -174,7 +174,7 @@ jobs:
           artifact-name: build-and-test-except_metadata_ingestion-UTC
           test-results-paths: |
             **/build/reports/tests/test/**
-            **/build/test-results/test/**
+            **/build/test-results/**/*.xml
             **/junit.*.xml
             !**/binary/**
           junit-file-globs: |
@@ -302,6 +302,15 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
+      - name: Report test results (datahub-frontend Java)
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: build-and-test-frontend-java
+          test-results-paths: |
+            datahub-frontend/build/test-results/**/*.xml
+          junit-file-globs: |
+            datahub-frontend/build/test-results/**/*.xml
       - name: Upload frontend build artifacts
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -546,6 +555,15 @@ jobs:
             -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Report test results (custom test tasks run by `build`)
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: build-and-test-backend-seed
+          test-results-paths: |
+            **/build/test-results/**/*.xml
+          junit-file-globs: |
+            **/build/test-results/**/*.xml
       - name: Ensure codegen is updated
         # Same hard gate as build-except-metadata-ingestion — the sharded path must still fail
         # if generated sources are stale (shards only run tests and would skip this check).
@@ -625,7 +643,7 @@ jobs:
           artifact-name: build-and-test-backend-shard${{ matrix.batch }}
           test-results-paths: |
             **/build/reports/tests/test/**
-            **/build/test-results/test/**
+            **/build/test-results/**/*.xml
             **/junit.*.xml
             !**/binary/**
           junit-file-globs: |
@@ -748,6 +766,62 @@ jobs:
           # override_branch only on release (empty otherwise) — same as build-except's test-results
           # upload, which sets it only in its release variant.
           override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
+
+  # Fails when a Java test class added or modified by the PR has no executed test case in this
+  # run's JUnit XML: a class a TestNG suite or Gradle filter does not select, a JUnit 5 class in
+  # a TestNG module, a skipped job. metadata-io and acryl-spark-lineage tests run in their own
+  # workflows, which run the same check. productUpdateCiGate tests run in lint-jobs
+  # (product_update_release_sync), which ci-optimization keeps out of the backend filter.
+  # Java SDK v2 integration tests skip here without a server; docker-unified runs and checks them.
+  # Opt-outs: .github/new-tests-ran-optout.json.
+  new-tests-ran:
+    needs:
+      [
+        setup,
+        build-except-metadata-ingestion,
+        backend-seed,
+        backend-test-shard,
+        frontend-build,
+      ]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Download this run's JUnit results
+        # No matching artifact (e.g. the test jobs were skipped) leaves the dir empty, and the
+        # check below then reports every changed test class as not run: fail-safe.
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "build-and-test-*"
+          path: ${{ runner.temp }}/junit
+      - name: List files changed by the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" \
+            --jq '.[] | select(.status != "removed") | .filename' > "$RUNNER_TEMP/changed-files.txt"
+          echo "$(wc -l < "$RUNNER_TEMP/changed-files.txt") changed files"
+      - name: Check that added/modified test classes ran
+        run: |
+          mkdir -p "$RUNNER_TEMP/junit"
+          python3 .github/scripts/check_new_tests_ran.py \
+            --changed-files-from "$RUNNER_TEMP/changed-files.txt" \
+            --results-dir "$RUNNER_TEMP/junit" \
+            --language java \
+            --exclude 'metadata-io/src/*' \
+            --exclude 'metadata-integration/java/acryl-spark-lineage/*' \
+            --exclude 'metadata-service/configuration/src/productUpdateCiGate/*' \
+            --exclude 'metadata-integration/java/datahub-client/src/test/java/datahub/client/v2/integration/*' \
+            --github-annotations
 
   event-file:
     runs-on: ubuntu-24.04
