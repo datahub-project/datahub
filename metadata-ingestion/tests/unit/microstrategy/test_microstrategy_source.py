@@ -58,6 +58,17 @@ def _source(extra_config: dict | None = None) -> MicroStrategySource:
 _PROJECT = Project.model_validate({"id": "project-1", "name": "Sales Analytics"})
 
 
+def _standard_predefined_folders(folder_types: List[int]) -> List[PredefinedFolder]:
+    """The Reports folder every project has, when the request asks for it."""
+    if 7 not in folder_types:
+        return []
+    return [
+        PredefinedFolder.model_validate(
+            {"id": "reports-folder-id", "name": "Reports", "folderType": 7}
+        )
+    ]
+
+
 def _dashboard(source_warehouse: dict | None = None) -> DashboardDefinition:
     dataset = {
         "id": "ds-1",
@@ -480,7 +491,7 @@ def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
         def get_predefined_folders(
             self, project_id: str, folder_types: List[int]
         ) -> List[PredefinedFolder]:
-            return []
+            return _standard_predefined_folders(folder_types)
 
         def get_dossier_definition(
             self, project_id: str, dossier_id: str
@@ -522,7 +533,7 @@ class _ReportSearchClient:
     def get_predefined_folders(
         self, project_id: str, folder_types: List[int]
     ) -> List[PredefinedFolder]:
-        return []
+        return _standard_predefined_folders(folder_types)
 
     def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
         self.search_calls += 1
@@ -673,7 +684,7 @@ def test_auth_loss_aborts_remaining_projects() -> None:
         def get_predefined_folders(
             self, project_id: str, folder_types: List[int]
         ) -> List[PredefinedFolder]:
-            return []
+            return _standard_predefined_folders(folder_types)
 
         def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
             self.projects_started.append(project_id)
@@ -792,7 +803,7 @@ def test_resolve_visualization_bindings_survives_modeling_api_failure() -> None:
             document_id: str,
             instance_id: Optional[str] = None,
         ) -> Dict[str, Any]:
-            raise MicroStrategyAPIError("403 modeling access denied")
+            raise MicroStrategyAPIError("modeling access denied", status_code=403)
 
     source.client = FakeClient()  # type: ignore[assignment]
 
@@ -880,7 +891,7 @@ def test_resolve_visualization_bindings_memoizes_modeling_failure() -> None:
             instance_id: Optional[str] = None,
         ) -> Dict[str, Any]:
             self.calls += 1
-            raise MicroStrategyAPIError("403 modeling access denied")
+            raise MicroStrategyAPIError("modeling access denied", status_code=403)
 
     fake_client = FakeClient()
     source.client = fake_client  # type: ignore[assignment]
@@ -895,6 +906,24 @@ def test_resolve_visualization_bindings_memoizes_modeling_failure() -> None:
     # The project-scoped failure is remembered; no per-dashboard re-attempts.
     assert fake_client.calls == 1
     assert len(source.report.warnings) == 1
+
+
+def test_model_document_server_error_only_skips_that_dashboard() -> None:
+    # The endpoint answers 500 for some documents while others still work.
+    source = _source()
+
+    class FakeClient:
+        def get_model_document(
+            self, project_id: str, document_id: str
+        ) -> Dict[str, object]:
+            if document_id == "dash-1":
+                raise MicroStrategyAPIError("server error", status_code=500)
+            return {"id": document_id}
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._model_document("project-1", "dash-1") is None
+    assert source._model_document("project-1", "dash-2") == {"id": "dash-2"}
 
 
 def test_model_document_is_read_once_per_dashboard() -> None:
@@ -965,7 +994,8 @@ def test_predefined_folder_labels_disabled_by_config_skips_client_call() -> None
     assert source._predefined_folders("project-1") == PredefinedFolderResolution.empty()
 
 
-def test_predefined_folder_failure_skips_project_content() -> None:
+@pytest.mark.parametrize("answer", ["error", "empty"])
+def test_predefined_folder_failure_skips_project_content(answer: str) -> None:
     # Raw folder names would mint different container URNs, so the project's
     # dashboards and reports are skipped and the run fails, which also keeps
     # stale-entity removal from deleting the containers earlier runs emitted.
@@ -978,7 +1008,11 @@ def test_predefined_folder_failure_skips_project_content() -> None:
         def get_predefined_folders(
             self, project_id: str, folder_types: List[int]
         ) -> List[PredefinedFolder]:
-            raise MicroStrategyAPIError("not supported on this version")
+            if answer == "error":
+                raise MicroStrategyAPIError("not supported on this version")
+            # Every project has predefined folders, so none at all is an
+            # unrecognized answer.
+            return []
 
         def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
             raise AssertionError("dashboards must not be searched")
@@ -1205,7 +1239,7 @@ def test_extract_derived_metrics_flag_gates_attachment(flag: bool) -> None:
         def get_predefined_folders(
             self, project_id: str, folder_types: List[int]
         ) -> List[PredefinedFolder]:
-            return []
+            return _standard_predefined_folders(folder_types)
 
         def get_dossier_definition(
             self, project_id: str, dossier_id: str
@@ -1248,7 +1282,7 @@ class _DatasetLookupClient:
     def get_predefined_folders(
         self, project_id: str, folder_types: List[int]
     ) -> List[PredefinedFolder]:
-        return []
+        return _standard_predefined_folders(folder_types)
 
     def get_dossier_definition(
         self, project_id: str, dossier_id: str
@@ -3118,7 +3152,7 @@ class _DocumentClient:
     def get_predefined_folders(
         self, project_id: str, folder_types: List[int]
     ) -> List[PredefinedFolder]:
-        return []
+        return _standard_predefined_folders(folder_types)
 
     def get_dossier_definition(
         self, project_id: str, dossier_id: str
@@ -3500,7 +3534,7 @@ class _PagedDossierClient:
     def get_predefined_folders(
         self, project_id: str, folder_types: List[int]
     ) -> List[PredefinedFolder]:
-        return []
+        return _standard_predefined_folders(folder_types)
 
     def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
         return iter(

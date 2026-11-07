@@ -115,6 +115,10 @@ logger = logging.getLogger(__name__)
 _ERROR_SUMMARY_MAX_CHARS = 300
 
 
+# Modeling document answers that mean the whole project lacks access.
+_MODEL_DOCUMENT_PROJECT_WIDE_STATUSES = frozenset({403, 404, 501})
+
+
 class _PredefinedFoldersUnavailable(Exception):
     pass
 
@@ -636,7 +640,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     "support GET /api/folders/preDefined."
                 ),
                 context=f"project_id={project.id}, project_name={project.name}",
-                exc=error.__cause__,
+                exc=error.__cause__ or error,
             )
             return False
         return True
@@ -670,6 +674,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             # caller skips the project's dashboards and reports instead.
             raise _PredefinedFoldersUnavailable(project_id) from error
 
+        if not any(
+            folder.folder_type in MSTR_PREDEFINED_FOLDER_LABELS
+            or folder.folder_type in MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES
+            for folder in folders
+        ):
+            # Every project has these folders, so an answer without any of them
+            # is unrecognized, not empty; using raw names would change URNs.
+            raise _PredefinedFoldersUnavailable(project_id)
         for folder in folders:
             if folder.folder_type is None:
                 continue
@@ -1445,15 +1457,23 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         except MicroStrategyAuthError:
             raise
         except Exception as error:
-            self._model_document_unavailable_projects.add(project_id)
             self.report.report_document_model_definition_failure()
+            # Missing privilege or an unsupported endpoint applies to the whole
+            # project; other failures (the endpoint answers 500 for some
+            # documents) only affect this dashboard.
+            project_wide = (
+                isinstance(error, MicroStrategyAPIError)
+                and error.status_code in _MODEL_DOCUMENT_PROJECT_WIDE_STATUSES
+            )
+            if project_wide:
+                self._model_document_unavailable_projects.add(project_id)
             self.report.warning(
                 title="Modeling document API unavailable",
                 message=(
-                    "GET /api/model/documents/{id} failed, so for the rest of "
-                    "this project visualizations are bound to datasets by "
-                    "object and name inference only, and document-level "
-                    "derived metrics are not read."
+                    "GET /api/model/documents/{id} failed, so visualizations are "
+                    "bound to datasets by object and name inference only, and "
+                    "document-level derived metrics are not read"
+                    + (" for the rest of this project." if project_wide else ".")
                 ),
                 context=f"project_id={project_id}, dashboard_id={dashboard_id}",
                 exc=error,

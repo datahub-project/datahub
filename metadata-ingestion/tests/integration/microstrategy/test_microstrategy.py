@@ -559,12 +559,19 @@ def _dataset_sql_view(
     ]
 
 
-def _no_predefined_folders(
+def _standard_predefined_folders(
     _client: MicroStrategyClient,
     _project_id: str,
-    _folder_types: List[int],
+    folder_types: List[int],
 ) -> List[PredefinedFolder]:
-    return []
+    """Only the Reports folder every project has, under its own name."""
+    if 7 not in folder_types:
+        return []
+    return [
+        PredefinedFolder.model_validate(
+            {"id": "reports-folder-id", "name": "Reports", "folderType": 7}
+        )
+    ]
 
 
 def _dashboards_under_reports_folder(
@@ -663,7 +670,7 @@ def test_microstrategy_ingestion(pytestconfig: Any, tmp_path: Path) -> None:
         patch.object(MicroStrategyClient, "get_metric_model", _metric_model),
         patch.object(MicroStrategyClient, "list_model_tables", _model_tables),
         patch.object(
-            MicroStrategyClient, "get_predefined_folders", _no_predefined_folders
+            MicroStrategyClient, "get_predefined_folders", _standard_predefined_folders
         ),
         patch.object(MicroStrategyClient, "get_model_document", return_value={}),
         patch.object(
@@ -766,7 +773,7 @@ def test_microstrategy_sql_view_temp_table_column_lineage(
         # No model tables, so column lineage can only come from the SQL view.
         patch.object(MicroStrategyClient, "list_model_tables", _empty_model_tables),
         patch.object(
-            MicroStrategyClient, "get_predefined_folders", _no_predefined_folders
+            MicroStrategyClient, "get_predefined_folders", _standard_predefined_folders
         ),
         patch.object(MicroStrategyClient, "get_model_document", return_value={}),
         patch.object(
