@@ -478,6 +478,11 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
         ),
         pytest.param("Count({<Year={2024}>} Region)", ["Year", "Region"], id="set"),
         pytest.param(
+            "={$<Year={2024}, [Sales Region]-={'East'}>} Sum(Sales)",
+            ["Year", "Sales Region", "Sales"],
+            id="set_after_leading_equals",
+        ),
+        pytest.param(
             "Count({<Region={'A'}+{\"B*\"}-{$(vSkip)}>} Amount)",
             ["Region", "Amount"],
             id="combined_set_values",

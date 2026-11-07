@@ -77,8 +77,9 @@ DATABASE_RE = re.compile(
     re.IGNORECASE,
 )
 # The values in a set modifier, such as {"Net*"} in {<Region={"Net*"}>}, are
-# search strings even when double-quoted.
-SET_VALUES_START_RE = re.compile(r"[-+*/]?=\s*\{")
+# search strings even when double-quoted. They follow a field name, so the = that
+# starts an expression such as ={$<Year={2024}>} Sum(Sales) is not one.
+SET_VALUES_START_RE = re.compile(r"(?<=[\w\]\"])\s*[-+*/]?=\s*\{")
 # Further element lists combined with the first, as in Region={"A"}+{"B"}.
 SET_VALUES_NEXT_RE = re.compile(r"\s*[-+*/]\s*\{")
 # Interpretation functions such as Date#(OrderDate) end their name with #.
@@ -224,7 +225,8 @@ def _is_control_only(text: str) -> bool:
     return True
 
 
-def _strip_comments(script: str) -> str:
+def _strip_comments(script: str, rem_comments: bool = True) -> str:
+    """Drops comments outside quotes. Chart expressions have no REM comments."""
     kept: List[str] = []
     closing: Optional[str] = None
     statement_start = True
@@ -240,7 +242,7 @@ def _strip_comments(script: str) -> str:
                 closing = None
         # A REM comment runs to the next semicolon, and an apostrophe in it
         # does not open a quote.
-        elif statement_start and REM_RE.match(script, i):
+        elif rem_comments and statement_start and REM_RE.match(script, i):
             end = script.find(STATEMENT_SEPARATOR, i)
             i = len(script) if end == -1 else end + 1
             continue
@@ -249,6 +251,8 @@ def _strip_comments(script: str) -> str:
         elif script.startswith("/*", i):
             end = script.find("*/", i + 2)
             i = len(script) if end == -1 else end + 2
+            # So the text on both sides does not run together.
+            kept.append(" ")
             continue
         # `//` after a colon is part of a URL or `lib://` path, not a comment.
         elif script.startswith("//", i) and not (
@@ -565,35 +569,10 @@ def strip_set_values(expression: str) -> str:
     return "".join(kept)
 
 
-def _strip_expression_comments(expression: str) -> str:
-    kept: List[str] = []
-    closing: Optional[str] = None
-    i = 0
-    while i < len(expression):
-        char = expression[i]
-        if closing:
-            if char == closing:
-                closing = None
-        elif char in QUOTE_PAIRS:
-            closing = QUOTE_PAIRS[char]
-        elif expression.startswith("/*", i):
-            end = expression.find("*/", i + 2)
-            i = len(expression) if end == -1 else end + 2
-            kept.append(" ")
-            continue
-        elif expression.startswith("//", i):
-            end = expression.find("\n", i)
-            i = len(expression) if end == -1 else end
-            continue
-        kept.append(char)
-        i += 1
-    return "".join(kept)
-
-
 def expression_names(expression: str) -> List[str]:
     """Names an expression may read as fields. Not every name is a field, so
     callers keep only names that are fields of the app."""
-    expression = strip_set_values(_strip_expression_comments(expression))
+    expression = strip_set_values(_strip_comments(expression, rem_comments=False))
     names: List[str] = []
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")
