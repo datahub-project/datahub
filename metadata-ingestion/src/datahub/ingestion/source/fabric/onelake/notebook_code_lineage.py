@@ -6,8 +6,10 @@ only some of them, so the plan reports sources that do not feed that output.
 
 The source text names those tables even when the path is built at run time
 (``f"{source}orders"``), and it shows which dataframe each write actually uses.
-Commented-out cells are not real reads or writes. This module recovers that
-per-target source set, and the column renames that dataframe applies:
+A loop over a list of table configs is applied once per config, and a helper
+that writes without returning is still followed. Commented-out cells are not
+real reads or writes. This module recovers that per-target source set, and the
+column renames that dataframe applies:
 ``col(src).alias(dst)``, a ``{source: target}`` mapping dict, ``alias.*``,
 and ``df["column"]``. The caller keeps an edge only when the executed plans
 also saw the same source and target, so the resolved OneLake path still comes
@@ -239,23 +241,30 @@ def _code_table(text: str) -> Optional[CodeTable]:
     return CodeTable(table=parts[-1])
 
 
-def _eval_tail(expr: ast.AST, env: Dict[str, str]) -> Optional[str]:
+def _eval_tail(
+    expr: ast.AST,
+    env: Dict[str, str],
+    records: Optional[Dict[str, Dict[str, str]]] = None,
+) -> Optional[str]:
     """Known suffix of a string expression.
 
     An unknown interpolation resets the suffix. ``f"{runtime}/Tables/silver/orders"``
-    therefore still ends in the table name.
+    therefore still ends in the table name. ``config["table_name"]`` resolves
+    when ``records`` holds that config.
     """
     if isinstance(expr, ast.Constant):
         return expr.value if isinstance(expr.value, str) else None
     if isinstance(expr, ast.Name):
         return env.get(expr.id)
+    if isinstance(expr, ast.Subscript):
+        return _record_field(expr, env, records)
     if isinstance(expr, ast.JoinedStr):
         acc = ""
         for part in expr.values:
             if isinstance(part, ast.Constant) and isinstance(part.value, str):
                 acc += part.value
             elif isinstance(part, ast.FormattedValue):
-                inner = _eval_tail(part.value, env)
+                inner = _eval_tail(part.value, env, records)
                 if inner is None:
                     acc = ""
                 else:
@@ -264,16 +273,37 @@ def _eval_tail(expr: ast.AST, env: Dict[str, str]) -> Optional[str]:
                 acc = ""
         return acc
     if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
-        right = _eval_tail(expr.right, env)
+        right = _eval_tail(expr.right, env, records)
         if right is None:
             return None
-        left = _eval_tail(expr.left, env)
+        left = _eval_tail(expr.left, env, records)
         return right if left is None else left + right
     return None
 
 
-def _code_table_from_expr(expr: ast.expr, env: Dict[str, str]) -> Optional[CodeTable]:
-    tail = _eval_tail(expr, env)
+def _record_field(
+    expr: ast.Subscript,
+    env: Dict[str, str],
+    records: Optional[Dict[str, Dict[str, str]]],
+) -> Optional[str]:
+    if records is None or not isinstance(expr.value, ast.Name):
+        return None
+    record = records.get(expr.value.id)
+    if record is None:
+        return None
+    key = _eval_tail(expr.slice, env, records)
+    if key is None:
+        return None
+    value = record.get(key)
+    return value if isinstance(value, str) else None
+
+
+def _code_table_from_expr(
+    expr: ast.expr,
+    env: Dict[str, str],
+    records: Optional[Dict[str, Dict[str, str]]] = None,
+) -> Optional[CodeTable]:
+    tail = _eval_tail(expr, env, records)
     if tail is None or not tail.strip():
         return None
     return _code_table(tail)
@@ -322,7 +352,11 @@ def _write_receiver(expr: ast.AST) -> Optional[ast.expr]:
     return None
 
 
-def _read_table(call: ast.Call, env: Dict[str, str]) -> Optional[CodeTable]:
+def _read_table(
+    call: ast.Call,
+    env: Dict[str, str],
+    records: Optional[Dict[str, Dict[str, str]]] = None,
+) -> Optional[CodeTable]:
     func = call.func
     if not isinstance(func, ast.Attribute) or func.attr not in {
         "load",
@@ -337,7 +371,7 @@ def _read_table(call: ast.Call, env: Dict[str, str]) -> Optional[CodeTable]:
         return None
     if not call.args:
         return None
-    return _code_table_from_expr(call.args[0], env)
+    return _code_table_from_expr(call.args[0], env, records)
 
 
 def _same_table(left: CodeTable, right: CodeTable) -> bool:
@@ -359,8 +393,12 @@ def _references_frame(expr: ast.AST, frames: Dict[str, Set[CodeTable]]) -> bool:
     return any(_references_frame(child, frames) for child in ast.iter_child_nodes(expr))
 
 
-def _tail_has_tables(expr: ast.expr, env: Dict[str, str]) -> bool:
-    tail = _eval_tail(expr, env)
+def _tail_has_tables(
+    expr: ast.expr,
+    env: Dict[str, str],
+    records: Optional[Dict[str, Dict[str, str]]] = None,
+) -> bool:
+    tail = _eval_tail(expr, env, records)
     return tail is not None and "Tables" in tail
 
 
@@ -477,6 +515,9 @@ class _Extractor:
         self._fns: Dict[str, Union[ast.FunctionDef, ast.AsyncFunctionDef]] = {}
         self._executing: Set[str] = set()
         self._return_projection: Optional[_Projection] = None
+        # Loop variable -> the config dict for the iteration being applied.
+        self._records: Dict[str, Dict[str, str]] = {}
+        self._record_lists: Dict[str, List[Dict[str, str]]] = {}
         # function name -> (dataframe param, path param, dataframe index, path index)
         self._writers: Dict[str, Tuple[str, str, int, int]] = {}
 
@@ -521,6 +562,8 @@ class _Extractor:
             self._writes_in(stmt.value)
             self._return_projection = self._projection_of(stmt.value)
             return
+        if isinstance(stmt, ast.For) and self._unroll_for(stmt):
+            return
         if isinstance(stmt, (ast.For, ast.AsyncFor, ast.While)):
             self.walk(stmt.body)
             self.walk(stmt.orelse)
@@ -540,11 +583,18 @@ class _Extractor:
         proj = self._projection_of(value)
         if proj is not None:
             reads |= proj.reads
-        tail = _eval_tail(value, self._strings)
+        tail = _eval_tail(value, self._strings, self._records)
         if tail is not None:
             self._strings[name] = tail
         else:
             self._strings.pop(name, None)
+        records = _eval_record_list(value)
+        if records is None and isinstance(value, ast.Name):
+            records = self._record_lists.get(value.id)
+        if records is not None:
+            self._record_lists[name] = records
+        else:
+            self._record_lists.pop(name, None)
         mapping = _eval_dict(value)
         if mapping is None and isinstance(value, ast.Name):
             mapping = self._dicts.get(value.id)
@@ -586,10 +636,36 @@ class _Extractor:
             self._projections.pop(name, None)
             self._exprs[name] = value
 
+    def _unroll_for(self, stmt: ast.For) -> bool:
+        """Apply a loop once per config when it walks a list of table dicts.
+
+        ``for config in configs`` otherwise runs with ``config["table_name"]``
+        unknown, so every write collapses to the same unresolved path and the
+        Spark plan's carried-forward tables survive.
+        """
+        if not isinstance(stmt.target, ast.Name):
+            return False
+        if isinstance(stmt.iter, ast.Name):
+            records = self._record_lists.get(stmt.iter.id)
+        else:
+            records = _eval_record_list(stmt.iter)
+        if not records:
+            return False
+        for record in records:
+            saved = self._snapshot()
+            try:
+                self._records[stmt.target.id] = record
+                self.walk(stmt.body)
+            finally:
+                self._restore(saved)
+        self.walk(stmt.orelse)
+        return True
+
     def _writes_in(self, expr: ast.AST) -> None:
         if isinstance(expr, ast.Call):
             self._record_save(expr)
             self._record_writer_call(expr)
+            self._execute_for_side_effects(expr)
         for child in ast.iter_child_nodes(expr):
             self._writes_in(child)
 
@@ -605,7 +681,7 @@ class _Extractor:
             return
         if not call.args:
             return
-        target = _code_table_from_expr(call.args[0], self._strings)
+        target = _code_table_from_expr(call.args[0], self._strings, self._records)
         if target is None:
             return
         df_expr = _write_receiver(func.value)
@@ -619,7 +695,7 @@ class _Extractor:
         df_expr, path_expr = self._writer_args(call)
         if df_expr is None or path_expr is None:
             return
-        target = _code_table_from_expr(path_expr, self._strings)
+        target = _code_table_from_expr(path_expr, self._strings, self._records)
         if target is None:
             return
         self._add_edge(target, df_expr)
@@ -639,7 +715,9 @@ class _Extractor:
         path_expr: Optional[ast.expr] = None
         candidates = list(call.args) + [kw.value for kw in call.keywords]
         for arg in candidates:
-            if path_expr is None and _tail_has_tables(arg, self._strings):
+            if path_expr is None and _tail_has_tables(
+                arg, self._strings, self._records
+            ):
                 path_expr = arg
             elif df_expr is None and _references_frame(arg, self._frames):
                 df_expr = arg
@@ -679,7 +757,7 @@ class _Extractor:
         called = self._call_function(expr)
         if called is not None:
             return called
-        read = _read_table(expr, self._strings)
+        read = _read_table(expr, self._strings, self._records)
         if read is not None:
             return _Projection(reads={read}, passthrough=read)
         func = expr.func
@@ -823,9 +901,28 @@ class _Extractor:
         fn = self._fns.get(call.func.id)
         if fn is None or call.func.id in self._executing or not _returns_value(fn):
             return None
+        return self._run_function(fn, call)
+
+    def _execute_for_side_effects(self, call: ast.Call) -> None:
+        """Follow a helper that writes and does not return its dataframe.
+
+        ``process(table_name=...)`` saves inside the function. The call itself
+        is not a ``.save``, so without this walk the write is invisible and the
+        Spark plan keeps every earlier table.
+        """
+        if not isinstance(call.func, ast.Name):
+            return
+        fn = self._fns.get(call.func.id)
+        if fn is None or call.func.id in self._executing or _returns_value(fn):
+            return
+        self._run_function(fn, call)
+
+    def _run_function(
+        self, fn: Union[ast.FunctionDef, ast.AsyncFunctionDef], call: ast.Call
+    ) -> Optional[_Projection]:
         bindings = self._capture_bindings(fn, call)
         saved = self._snapshot()
-        self._executing.add(call.func.id)
+        self._executing.add(fn.name)
         try:
             # A parameter hides the outer name even when its argument cannot
             # be evaluated. Otherwise ``load(get_name())`` still sees a global
@@ -838,7 +935,7 @@ class _Extractor:
             self.walk(fn.body)
             return self._return_projection
         finally:
-            self._executing.discard(call.func.id)
+            self._executing.discard(fn.name)
             self._restore(saved)
 
     def _snapshot(self) -> Tuple:
@@ -853,6 +950,8 @@ class _Extractor:
             dict(self._projections),
             dict(self._exprs),
             self._return_projection,
+            dict(self._records),
+            dict(self._record_lists),
         )
 
     def _restore(self, snap: Tuple) -> None:
@@ -867,6 +966,8 @@ class _Extractor:
             self._projections,
             self._exprs,
             self._return_projection,
+            self._records,
+            self._record_lists,
         ) = snap
 
     def _capture_bindings(
@@ -904,7 +1005,7 @@ class _Extractor:
         flag = self._eval_bool(expr)
         if flag is not None:
             return ("bool", flag)
-        text = _eval_tail(expr, self._strings)
+        text = _eval_tail(expr, self._strings, self._records)
         if text is not None:
             return ("str", text)
         return ("expr", expr)
@@ -933,6 +1034,7 @@ class _Extractor:
         self._bools.pop(name, None)
         self._projections.pop(name, None)
         self._exprs.pop(name, None)
+        self._records.pop(name, None)
 
     def _eval_bool(self, expr: ast.AST) -> Optional[bool]:
         if isinstance(expr, ast.Constant) and isinstance(expr.value, bool):
@@ -1185,7 +1287,7 @@ class _Extractor:
             produced.update(self._produced.get(expr.id, ()))
             return reads, produced
         if isinstance(expr, ast.Call):
-            read = _read_table(expr, self._strings)
+            read = _read_table(expr, self._strings, self._records)
             if read is not None:
                 reads.add(read)
         for child in ast.iter_child_nodes(expr):
@@ -1240,6 +1342,30 @@ def _named_column(expr: ast.expr, env: Dict[str, str]) -> Optional[str]:
     if not expr.args:
         return None
     return _eval_tail(expr.args[0], env)
+
+
+def _eval_record_list(expr: ast.expr) -> Optional[List[Dict[str, str]]]:
+    """List of ``{"table_name": "orders", ...}`` configs.
+
+    Non-string fields, such as a ``select_expr`` list, are ignored. A dict
+    with no string fields rejects the whole list so the loop is not unrolled.
+    """
+    if not isinstance(expr, (ast.List, ast.Tuple)):
+        return None
+    records: List[Dict[str, str]] = []
+    for elt in expr.elts:
+        if not isinstance(elt, ast.Dict):
+            return None
+        record: Dict[str, str] = {}
+        for key, value in zip(elt.keys, elt.values, strict=False):
+            if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
+                return None
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                record[key.value] = value.value
+        if not record:
+            return None
+        records.append(record)
+    return records
 
 
 def _eval_dict(expr: ast.expr) -> Optional[Dict[str, str]]:

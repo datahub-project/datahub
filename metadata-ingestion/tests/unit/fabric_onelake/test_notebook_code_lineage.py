@@ -126,6 +126,56 @@ final.write.format("delta").save(f"{destination}gold_final")
     assert CodeTable(table="gold_mid", schema="gold") in final
 
 
+def test_config_loop_keeps_each_write_on_its_own_source() -> None:
+    # One helper copies each config entry. The Spark plan still credits the
+    # previous silver table to the next write; the source text does not.
+    source = """
+source = f"{bronze}/Tables/dbo/"
+destination = f"{silver}/Tables/silver/"
+
+def process_full_load_table(table_name, source, destination, select_expr):
+    source_path = f"{source}{table_name}"
+    target_table = f"{destination}silver_{table_name}"
+    df = spark.read.format("delta").load(source_path)
+    df = df.withColumn("SourceSystem", lit("SRC"))
+    df = df.selectExpr(*select_expr)
+    df.write.format("delta").mode("overwrite").save(target_table)
+
+configs = [
+    {"table_name": "orders", "select_expr": ["id as Id"]},
+    {"table_name": "customers", "select_expr": ["id as Id"]},
+]
+
+for config in configs:
+    process_full_load_table(
+        table_name=config["table_name"],
+        source=source,
+        destination=destination,
+        select_expr=config["select_expr"],
+    )
+"""
+    lineage = extract_notebook_code_lineage(source)
+    assert lineage is not None
+    assert lineage[CodeTable("silver_orders", "silver")] == {CodeTable("orders", "dbo")}
+    assert lineage[CodeTable("silver_customers", "silver")] == {
+        CodeTable("customers", "dbo")
+    }
+
+    orders = SparkTableRef(WS, LH, "orders", "dbo")
+    customers = SparkTableRef(WS, LH, "customers", "dbo")
+    silver_orders = SparkTableRef(WS, LH, "silver_orders", "silver")
+    silver_customers = SparkTableRef(WS, LH, "silver_customers", "silver")
+    reconciled = reconcile_spark_lineage(
+        lineage,
+        {
+            silver_orders: {orders},
+            silver_customers: {customers, silver_orders},
+        },
+        lambda name: name,
+    )
+    assert reconciled[silver_customers] == {customers}
+
+
 def test_unparseable_source_leaves_plan_lineage_unchanged() -> None:
     assert extract_notebook_code_lineage("def broken(:") is None
 
