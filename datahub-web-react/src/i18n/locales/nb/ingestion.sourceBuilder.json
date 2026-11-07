@@ -104,7 +104,7 @@
     "microstrategy.includePersonalFolders.tooltip": "Om hver brukers personlige mapper (My Reports, My Objects og lignende, under prosjektets Profiles-mappe) skal hentes inn. Utelatt som standard: dashbord, dokumenter og rapporter som ligger der, hoppes over.",
     "microstrategy.usePredefinedFolderNames.helper": "Gi mappen Shared Reports samme navn som i Strategy Web",
     "microstrategy.usePredefinedFolderNames.label": "Bruk forhåndsdefinerte mappenavn",
-    "microstrategy.usePredefinedFolderNames.tooltip": "Slår opp den forhåndsdefinerte mappeetiketten 'Shared Reports' via MicroStrategys mappe-API og bruker den til samsvar mot navigeringsstier, containeridentitet og visning i stedet for mappens rå metadatanavn ('Reports'). Slå av dette for å beholde tidligere container-URN-er hvis mappen allerede er hentet inn under sitt rå navn.",
+    "microstrategy.usePredefinedFolderNames.tooltip": "Slår opp MicroStrategys forhåndsdefinerte mapper og viser mappehierarkiet slik Strategy Web gjør: mappen 'Reports' får etiketten 'Shared Reports', og prosjektets rotmappe og 'Public Objects' skjules, og innholdet deres flyttes ett nivå opp. Dette endrer container-URN-ene til mapper der innholdet allerede er hentet inn under de rå navnene. Hvis oppslaget mislykkes, hoppes prosjektets dashbord og rapporter over. Slå av dette for å beholde det rå hierarkiet, eller på servere uten API-et for forhåndsdefinerte mapper.",
     "multiStep.builder.actorsPlaceholder": "Søk etter brukere eller grupper",
     "multiStep.builder.breadcrumbCreateSource": "Opprett kilde",
     "multiStep.builder.breadcrumbManageDataSources": "Administrer datakilder",

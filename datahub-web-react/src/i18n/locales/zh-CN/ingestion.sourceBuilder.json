@@ -104,7 +104,7 @@
     "microstrategy.includePersonalFolders.tooltip": "是否采集每个用户的个人文件夹（项目 Profiles 文件夹下的 My Reports、My Objects 等）。默认排除：其中的仪表板、文档和报表会被跳过。",
     "microstrategy.usePredefinedFolderNames.helper": "按 Strategy Web 的方式命名 Shared Reports 文件夹",
     "microstrategy.usePredefinedFolderNames.label": "使用预定义文件夹名称",
-    "microstrategy.usePredefinedFolderNames.tooltip": "通过 MicroStrategy 文件夹 API 解析预定义文件夹标签 'Shared Reports'，并用它进行浏览路径匹配、容器标识和显示，而不是使用文件夹在元数据中的原始名称（'Reports'）。如果已经以原始名称采集过该文件夹，禁用此项可保留原有的容器 URN。",
+    "microstrategy.usePredefinedFolderNames.tooltip": "解析 MicroStrategy 的预定义文件夹，并按 Strategy Web 的显示方式组织文件夹层级：'Reports' 文件夹使用其标签 'Shared Reports'，项目根文件夹和 'Public Objects' 被隐藏，其内容上移一级。对于已经以原始名称采集过内容的文件夹，这会改变其容器 URN。如果查询失败，将跳过该项目的仪表板和报表。如需保留原始层级，或服务器没有预定义文件夹 API，请禁用此项。",
     "multiStep.builder.actorsPlaceholder": "搜索用户或用户组",
     "multiStep.builder.breadcrumbCreateSource": "创建数据源",
     "multiStep.builder.breadcrumbManageDataSources": "管理数据源",

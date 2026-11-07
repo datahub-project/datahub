@@ -104,7 +104,7 @@
     "microstrategy.includePersonalFolders.tooltip": "Tuodaanko jokaisen käyttäjän henkilökohtaiset kansiot (My Reports, My Objects ja vastaavat projektin Profiles-kansion alla). Oletuksena pois: niihin tallennetut koontinäytöt, dokumentit ja raportit ohitetaan.",
     "microstrategy.usePredefinedFolderNames.helper": "Nimeä Shared Reports -kansio kuten Strategy Webissä",
     "microstrategy.usePredefinedFolderNames.label": "Käytä ennalta määritettyjä kansionimiä",
-    "microstrategy.usePredefinedFolderNames.tooltip": "Hakee ennalta määritetyn kansion nimen 'Shared Reports' MicroStrategyn kansio-API:n kautta ja käyttää sitä selauspolkujen täsmäytykseen, säilön tunnisteeseen ja näyttämiseen kansion raa'an metatietonimen ('Reports') sijaan. Poista tämä käytöstä, jos haluat säilyttää aiemmat säilöjen URN:t ympäristössä, johon kansio on jo tuotu raa'alla nimellään.",
+    "microstrategy.usePredefinedFolderNames.tooltip": "Hakee MicroStrategyn ennalta määritetyt kansiot ja muotoilee kansiohierarkian samoin kuin Strategy Web: 'Reports'-kansio saa nimen 'Shared Reports', ja projektin juurikansio sekä 'Public Objects' piilotetaan, jolloin niiden sisältö siirtyy tason ylöspäin. Tämä muuttaa niiden kansiosäilöjen URN:t, joiden sisältö on jo tuotu raaoilla nimillä. Jos haku epäonnistuu, projektin koontinäytöt ja raportit ohitetaan. Poista tämä käytöstä, jos haluat säilyttää raa'an hierarkian, tai palvelimilla, joilla ei ole ennalta määritettyjen kansioiden API:a.",
     "multiStep.builder.actorsPlaceholder": "Hae käyttäjiä tai ryhmiä",
     "multiStep.builder.breadcrumbCreateSource": "Luo lähde",
     "multiStep.builder.breadcrumbManageDataSources": "Hallitse tietolähteitä",

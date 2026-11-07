@@ -104,7 +104,7 @@
     "microstrategy.includePersonalFolders.tooltip": "Whether to ingest each user's personal folders (My Reports, My Objects and similar, under the project's Profiles folder). Excluded by default: dashboards, documents and reports filed there are skipped.",
     "microstrategy.usePredefinedFolderNames.helper": "Label the Shared Reports folder as Strategy Web does",
     "microstrategy.usePredefinedFolderNames.label": "Use Predefined Folder Names",
-    "microstrategy.usePredefinedFolderNames.tooltip": "Resolve the 'Shared Reports' predefined folder label via the MicroStrategy folders API and use it for browse-path matching, container identity, and display instead of the folder's raw metadata name ('Reports'). Disabling this keeps prior container URNs for environments that already ingested that folder under its raw name.",
+    "microstrategy.usePredefinedFolderNames.tooltip": "Resolve MicroStrategy's predefined folders and shape the folder hierarchy as Strategy Web shows it: the 'Reports' folder takes its label 'Shared Reports', and the project root folder and 'Public Objects' are hidden, with their contents moved up a level. This changes folder container URNs for content already ingested under the raw names. If the lookup fails, the project's dashboards and reports are skipped. Disable this to keep the raw hierarchy, or on servers without the predefined folders API.",
     "multiStep.builder.actorsPlaceholder": "Search for users or groups",
     "multiStep.builder.breadcrumbCreateSource": "Create Source",
     "multiStep.builder.breadcrumbManageDataSources": "Manage Data Sources",
