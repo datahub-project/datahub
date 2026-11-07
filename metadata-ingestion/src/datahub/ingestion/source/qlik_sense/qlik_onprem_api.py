@@ -157,6 +157,8 @@ class QlikOnPremAPI(QlikBaseAPI):
             return None
         if user_id in self.users:
             return self.users[user_id]
+        if user_id in self.failed_user_lookups:
+            return None
         try:
             user = self._get(f"/user/{user_id}").json()
             name = user.get(Constant.NAME) or user.get("userId")
@@ -164,7 +166,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                 self.users[user_id] = name
             return name
         except Exception as e:
-            log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
+            self._record_failed_user_lookup(user_id, e)
         return None
 
     def _space_from_stream(self, stream: Dict) -> Space:
