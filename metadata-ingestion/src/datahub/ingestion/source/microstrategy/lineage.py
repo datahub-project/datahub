@@ -161,10 +161,15 @@ class MicroStrategyLineageExtractor:
         visualization: Visualization,
     ) -> List[str]:
         dataset_by_id = {dataset.id: dataset for dataset in dashboard.datasets}
+        # Visualization payloads and the dashboard can differ in GUID case.
+        dataset_id_by_normalized = {
+            normalize_object_id(dataset.id): dataset.id
+            for dataset in dashboard.datasets
+        }
         bound_ids = {
-            dataset_id
+            dataset_id_by_normalized[normalize_object_id(dataset_id)]
             for dataset_id in visualization.datasets
-            if dataset_id in dataset_by_id
+            if normalize_object_id(dataset_id) in dataset_id_by_normalized
         }
 
         # A compound grid reads one dataset per column group, while the earlier

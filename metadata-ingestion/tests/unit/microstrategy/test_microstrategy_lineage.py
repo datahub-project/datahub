@@ -1225,8 +1225,9 @@ def test_bind_visualization_column_sets_by_page_name_and_ids() -> None:
 
     binding = bind_visualization_column_sets(dashboard, visualization)
 
-    # The total group matches no dataset by name or ids, so it stays unbound
-    # even though one page dataset is left over.
+    # "SALES" name-matches the store and web datasets and M100 id-matches all
+    # three, so the total group's candidates are ambiguous and it stays
+    # unbound, even though one page dataset is left over.
     assert binding.dataset_id_by_column_set == {
         "cs-store-wtd": "ds-store-wtd",
         "cs-web-wtd": "ds-web-wtd",
@@ -1311,6 +1312,21 @@ def test_visualization_inputs_skip_unresolved_explicit_datasets() -> None:
     )
 
     assert extractor.visualization_inputs("project-1", dashboard, visualization) == []
+
+
+def test_visualization_inputs_match_dataset_ids_ignoring_case() -> None:
+    extractor = _extractor()
+    dashboard = _inference_dashboard(["Sales", "Margin"])
+    dataset_id = dashboard.datasets[0].id
+    visualization = Visualization.model_validate(
+        {"key": "viz-1", "name": "Sales", "datasets": [{"id": dataset_id.upper()}]}
+    )
+
+    inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
+
+    assert inputs == [
+        extractor.dataset_urn("project-1", dashboard.id, dashboard.datasets[0])
+    ]
 
 
 def test_column_sets_without_dashboard_datasets_are_unbound() -> None:
