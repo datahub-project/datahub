@@ -1,11 +1,16 @@
 import json
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, Iterator
+from typing import Any, Callable, Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.auth.credentials import AnonymousCredentials
+from google.cloud import bigquery
 
+from datahub.ingestion.source.bigquery_v2 import bigquery_connection
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryAuthType,
     BigQueryConnectionConfig,
@@ -430,3 +435,148 @@ class TestFivetranBigQueryDestinationConfig:
             )
             assert config._credentials is not None
             mock_build.assert_not_called()  # SA path does not use build_credentials_from_wif_dict
+
+
+_JOB_REF = {"projectId": "my-project", "jobId": "job_1", "location": "US"}
+_QUERY_CONFIG = {"query": {"query": "select 1"}}
+_REPLIES: Dict[str, Dict[str, Any]] = {
+    "insert": {
+        "jobReference": _JOB_REF,
+        "status": {"state": "RUNNING"},
+        "configuration": _QUERY_CONFIG,
+    },
+    "jobs": {
+        "jobReference": _JOB_REF,
+        "status": {"state": "DONE"},
+        "configuration": _QUERY_CONFIG,
+    },
+    "queries": {
+        "jobReference": _JOB_REF,
+        "jobComplete": True,
+        "totalRows": "1",
+        "schema": {"fields": [{"name": "x", "type": "INTEGER"}]},
+        "rows": [{"f": [{"v": "1"}]}],
+    },
+    "tables": {"tables": []},
+    "projects": {"projects": []},
+}
+
+
+class _FakeBigQueryApi:
+    """Answers like the BigQuery REST API, except that the first request of kind
+    `lose` never gets a reply, as when the network drops it."""
+
+    def __init__(self, lose: str) -> None:
+        self.calls: List[str] = []
+        release = self._release = threading.Event()
+        calls = self.calls
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def _reply(self) -> None:
+                self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                path = self.path.split("?")[0]
+                if self.command == "POST":
+                    kind = "insert"
+                elif path.endswith("/tables"):
+                    kind = "tables"
+                elif "/queries/" in path:
+                    kind = "queries"
+                elif "/jobs/" in path:
+                    kind = "jobs"
+                else:
+                    kind = "projects"
+                calls.append(kind)
+                if kind == lose and calls.count(kind) == 1:
+                    release.wait(30)
+                    self.close_connection = True
+                    return
+                body = json.dumps(_REPLIES[kind]).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            do_GET = do_POST = _reply
+
+            def log_message(self, format: str, *args: Any) -> None:
+                pass
+
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self._server.daemon_threads = True
+        self.url = f"http://127.0.0.1:{self._server.server_port}"
+
+    def __enter__(self) -> "_FakeBigQueryApi":
+        threading.Thread(target=self._server.serve_forever, daemon=True).start()
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self._release.set()
+        self._server.shutdown()
+        self._server.server_close()
+
+
+def _client(url: str) -> bigquery.Client:
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection.build_credentials_from_wif_dict",
+        return_value=(AnonymousCredentials(), None),
+    ):
+        config = BigQueryConnectionConfig(
+            auth_type="workload_identity_federation",
+            gcp_wif_configuration_json=_wif_dict(),
+            project_on_behalf="my-project",
+            extra_client_options={"client_options": {"api_endpoint": url}},
+        )
+    return config.get_bigquery_client()
+
+
+def _run_with_deadline(fn: Callable[[], Any], seconds: float = 15) -> Dict[str, Any]:
+    outcome: Dict[str, Any] = {}
+
+    def target() -> None:
+        try:
+            outcome["value"] = fn()
+        except Exception as e:
+            outcome["error"] = e
+
+    worker = threading.Thread(target=target, daemon=True)
+    worker.start()
+    worker.join(seconds)
+    assert not worker.is_alive(), "still waiting for a reply that will never come"
+    return outcome
+
+
+class TestBigQueryRequestTimeout:
+    @pytest.fixture(autouse=True)
+    def _short_default_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(bigquery_connection, "_DEFAULT_REQUEST_TIMEOUT_SEC", 1)
+
+    def test_lost_list_tables_reply_is_retried(self) -> None:
+        with _FakeBigQueryApi(lose="tables") as api:
+            client = _client(api.url)
+            outcome = _run_with_deadline(
+                lambda: list(client.list_tables("my-project.my_dataset"))
+            )
+        assert outcome == {"value": []}
+        assert api.calls == ["tables", "tables"]
+
+    def test_lost_query_results_reply_is_retried(self) -> None:
+        with _FakeBigQueryApi(lose="queries") as api:
+            client = _client(api.url)
+            outcome = _run_with_deadline(
+                lambda: [tuple(row.values()) for row in client.query("select 1")]
+            )
+        assert outcome == {"value": [(1,)]}
+        assert api.calls.count("queries") == 2
+
+    def test_explicit_timeout_is_kept(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(bigquery_connection, "_DEFAULT_REQUEST_TIMEOUT_SEC", 30)
+        with _FakeBigQueryApi(lose="projects") as api:
+            client = _client(api.url)
+            outcome = _run_with_deadline(
+                lambda: list(client.list_projects(timeout=0.5)), seconds=10
+            )
+        assert outcome == {"value": []}
+        assert api.calls == ["projects", "projects"]
