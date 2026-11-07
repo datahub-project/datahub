@@ -592,7 +592,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_chart_info_patch(
         chart_urn: str, chart: Chart, custom_properties: Dict[str, str]
     ) -> Iterable[MetadataWorkUnit]:
-        patch = ChartPatchBuilder(chart_urn).set_last_modified(ChangeAuditStampsClass())
+        # GMS creates missing chart info from its patch template, which also
+        # stamps lastModified. An empty stamp here would erase the last one.
+        patch = ChartPatchBuilder(chart_urn)
         if chart.title:
             patch.set_title(chart.title)
         if chart.visualization:

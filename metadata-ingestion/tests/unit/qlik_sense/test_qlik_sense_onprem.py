@@ -1107,6 +1107,55 @@ def test_partly_read_app_does_not_overwrite_relationships(
     # Without known inputs the chart is patched, keeping its last inputs.
     assert len(chart_info_patches) == int(tables_read_failed)
     assert all(
-        patch.aspect is not None and b"inputs" not in patch.aspect.value
+        patch.aspect is not None
+        and b"inputs" not in patch.aspect.value
+        and b"lastModified" not in patch.aspect.value
         for patch in chart_info_patches
     )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_user_lookup_is_cached_and_failures_recorded_once(
+    mock_session_cls: MagicMock,
+) -> None:
+    def qrs_get(url: str, **kwargs: object) -> FakeResponse:
+        if url.endswith("/user/user-2"):
+            return FakeResponse({"name": "Grace"})
+        if url.endswith("/user/user-3"):
+            return FakeResponse({}, status_code=503)
+        return fake_qrs_get(url, **kwargs)  # type: ignore[arg-type]
+
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = qrs_get
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+
+    assert [api.get_user_name("user-2") for _ in range(2)] == ["Grace", "Grace"]
+    assert [api.get_user_name("user-3") for _ in range(2)] == [None, None]
+
+    user_calls = [
+        call.args[0] for call in session.get.call_args_list if "/user/" in call.args[0]
+    ]
+    assert len(user_calls) == 2
+    assert list(api.failed_user_lookups) == ["user-3"]
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_unreadable_sheet_marks_app_partly_read(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    engine = _ScriptedEngine(
+        [
+            {"qReturn": {"qHandle": 1}},
+            {"qList": [{"qInfo": {"qId": "sheet-1", "qType": "sheet"}}]},
+            RuntimeError("Object not found"),
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert app.sheets == []
+    assert not app.read_complete
+    assert engine.handles == [-1, 1]
