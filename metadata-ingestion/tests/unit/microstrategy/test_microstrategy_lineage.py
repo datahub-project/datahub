@@ -1331,6 +1331,42 @@ def test_visualization_inputs_match_dataset_ids_ignoring_case() -> None:
     assert extractor.unresolved_visualization_datasets(dashboard) == {}
 
 
+def test_column_set_name_match_contradicted_by_member_ids_stays_unbound() -> None:
+    dashboard = _compound_grid_dashboard(["WTD"])
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-1",
+            "pageName": "WTD",
+            "runtimeDefinition": {
+                "definition": {
+                    "grid": {
+                        "columnSets": [
+                            {
+                                # Names the store dataset, but its only member
+                                # metric lives in none of the page's datasets.
+                                "key": "cs-store",
+                                "name": "STORE",
+                                "columns": [
+                                    {
+                                        "type": "templateMetrics",
+                                        "elements": [
+                                            {"type": "metric", "id": "M-OTHER"}
+                                        ],
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.unbound_column_sets == ["cs-store"]
+
+
 def test_column_sets_without_dashboard_datasets_are_unbound() -> None:
     dashboard = DashboardDefinition.from_api_response(
         object_id="dash-1",

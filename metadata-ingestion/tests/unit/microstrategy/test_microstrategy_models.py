@@ -266,7 +266,7 @@ def _model_report_payload() -> dict:
                             },
                             {
                                 "id": "D-AMT-VAR",
-                                "name": "Amt Var LYS %",
+                                "name": "Amt Var PY %",
                                 "subType": "metric",
                                 "derived": True,
                                 "definition": {

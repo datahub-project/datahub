@@ -191,6 +191,7 @@ def test_dashboard_report_chart_edges_are_filtered_by_report_pattern() -> None:
         {
             "extract_reports": True,
             "report_pattern": {"allow": ["^Sales Report$"]},
+            "include_personal_folders": True,
         }
     )
     dashboard = _dashboard()
@@ -206,7 +207,40 @@ def test_dashboard_report_chart_edges_are_filtered_by_report_pattern() -> None:
         ),
     ]
 
-    assert source._dashboard_report_chart_urns("project-1", dashboard) == [
+    assert source._dashboard_report_chart_urns(_PROJECT, dashboard) == [
+        source.mapper.report_urn("project-1", "report-1")
+    ]
+
+
+def test_dashboard_drops_chart_edges_for_reports_the_report_pass_skips() -> None:
+    # A shared dossier can embed a report saved in a personal folder; the
+    # report is never emitted, so the dashboard must not list it.
+    source = _source({"extract_reports": True})
+
+    class FakeClient:
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            return []
+
+        def get_report_object(
+            self, project_id: str, report_id: str
+        ) -> MicroStrategyObject:
+            folder = "Profiles/jdoe/My Reports" if report_id == "report-2" else "Shared"
+            return MicroStrategyObject.model_validate(
+                {"id": report_id, "name": report_id, "location": f"/{folder}"}
+            )
+
+    source.client = FakeClient()  # type: ignore[assignment]
+    dashboard = _dashboard()
+    dashboard.dependencies = [
+        MicroStrategyObject.model_validate(
+            {"id": report_id, "name": report_id, "type": "3"}
+        )
+        for report_id in ("report-1", "report-2")
+    ]
+
+    assert source._dashboard_report_chart_urns(_PROJECT, dashboard) == [
         source.mapper.report_urn("project-1", "report-1")
     ]
 
@@ -908,8 +942,12 @@ def test_resolve_visualization_bindings_memoizes_modeling_failure() -> None:
     assert len(source.report.warnings) == 1
 
 
-def test_model_document_server_error_only_skips_that_dashboard() -> None:
-    # The endpoint answers 500 for some documents while others still work.
+@pytest.mark.parametrize(
+    "status, project_wide", [(403, True), (501, True), (404, False), (500, False)]
+)
+def test_model_document_failure_scope(status: int, project_wide: bool) -> None:
+    # Missing access applies to the project; the endpoint answers 404 or 500
+    # for some documents while others still work.
     source = _source()
 
     class FakeClient:
@@ -917,13 +955,14 @@ def test_model_document_server_error_only_skips_that_dashboard() -> None:
             self, project_id: str, document_id: str
         ) -> Dict[str, object]:
             if document_id == "dash-1":
-                raise MicroStrategyAPIError("server error", status_code=500)
+                raise MicroStrategyAPIError("failed", status_code=status)
             return {"id": document_id}
 
     source.client = FakeClient()  # type: ignore[assignment]
 
     assert source._model_document("project-1", "dash-1") is None
-    assert source._model_document("project-1", "dash-2") == {"id": "dash-2"}
+    second = source._model_document("project-1", "dash-2")
+    assert second == (None if project_wide else {"id": "dash-2"})
 
 
 def test_model_document_is_read_once_per_dashboard() -> None:
@@ -994,7 +1033,7 @@ def test_predefined_folder_labels_disabled_by_config_skips_client_call() -> None
     assert source._predefined_folders("project-1") == PredefinedFolderResolution.empty()
 
 
-@pytest.mark.parametrize("answer", ["error", "empty"])
+@pytest.mark.parametrize("answer", ["error", "empty", "unrecognized"])
 def test_predefined_folder_failure_skips_project_content(answer: str) -> None:
     # Raw folder names would mint different container URNs, so the project's
     # dashboards and reports are skipped and the run fails, which also keeps
@@ -1010,6 +1049,12 @@ def test_predefined_folder_failure_skips_project_content(answer: str) -> None:
         ) -> List[PredefinedFolder]:
             if answer == "error":
                 raise MicroStrategyAPIError("not supported on this version")
+            if answer == "unrecognized":
+                return [
+                    PredefinedFolder.model_validate(
+                        {"id": "f-1", "name": "Other", "folderType": 99}
+                    )
+                ]
             # Every project has predefined folders, so none at all is an
             # unrecognized answer.
             return []
@@ -1061,13 +1106,14 @@ def test_lazy_project_lineage_resolves_once_and_caches_failures() -> None:
     )
     lineage_context = _LazyProjectLineage(source, "project-1", [datasource])
 
-    with pytest.raises(ValueError):
-        lineage_context.model_lineage_index  # noqa: B018
-
-    # The failed resolution is cached: subsequent accesses return None
-    # without re-calling the API.
+    # Reported once against the project, then cached: later accesses return
+    # None without re-calling the API.
+    assert lineage_context.model_lineage_index is None
     assert lineage_context.model_lineage_index is None
     assert fake_client.model_table_calls == 1
+    assert [w.title for w in source.report.warnings] == [
+        "Project lineage context unavailable"
+    ]
 
 
 def test_fetch_project_model_tables_requests_logical_table_information() -> None:

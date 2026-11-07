@@ -1711,9 +1711,9 @@ def _metrics_column(elements: "list[dict]") -> "list[dict]":
 
 
 def test_derived_metric_falls_back_to_the_visualizations_only_bound_dataset() -> None:
-    # "ALPHA" binds by name; "ZZZ" matches nothing and elimination cannot fire
-    # (3 page datasets vs 2 groups) — its derived metric attaches through the
-    # visualization's single bound dataset instead of being dropped.
+    # "ALPHA" binds by name; "ZZZ" matches nothing and stays unbound, so its
+    # derived metric attaches through the visualization's single bound
+    # dataset instead of being dropped.
     mapper = _mapper()
     dashboard = _three_family_dashboard(
         [
@@ -1753,6 +1753,36 @@ def test_derived_metric_falls_back_to_the_visualizations_only_bound_dataset() ->
     alpha = next(ds for ds in dashboard.datasets if ds.id == "ds-alpha")
     assert list(alpha.derived_metrics) == ["D900"]
     assert mapper.report.derived_metrics_unattached == 0
+
+
+def test_derived_metric_falls_back_to_the_named_dataset_ignoring_case() -> None:
+    mapper = _mapper()
+    visualization = _grid_viz(
+        "viz-1",
+        "Family Overview",
+        [
+            {
+                "key": "cs-zzz",
+                "name": "ZZZ",
+                "columns": _metrics_column(
+                    [
+                        {
+                            "type": "metric",
+                            "id": "D900",
+                            "name": "Mystery Pct",
+                            "derived": True,
+                        },
+                    ]
+                ),
+            },
+        ],
+    )
+    visualization["datasets"] = [{"id": "DS-ALPHA"}]
+    dashboard = _three_family_dashboard([visualization])
+    mapper.attach_derived_metrics(dashboard)
+
+    alpha = next(ds for ds in dashboard.datasets if ds.id == "ds-alpha")
+    assert list(alpha.derived_metrics) == ["D900"]
 
 
 def test_derived_metric_without_any_binding_is_counted_not_dropped() -> None:
@@ -2135,15 +2165,15 @@ def test_dataset_folder_parent_key_uses_own_ancestors_with_folder_labels() -> No
     # its browse path, with the same predefined-folder relabelling and
     # system-folder hiding the dossier path gets.
     mapper = _mapper()
-    dossier_key = mapper.folder_key("project-1", "Shared Reports/SALON SALES VAR PLAN")
+    dossier_key = mapper.folder_key("project-1", "Shared Reports/SALES PLAN VARIANCE")
     dataset_object = _dataset_object(
         "768",
         [
             {"id": "project-root-id", "name": "Sales_Project"},
             {"id": "public-objects-id", "name": "Public Objects"},
             {"id": "reports-folder-id", "name": "Reports"},
-            {"id": "f-plan", "name": "SALON SALES VAR PLAN"},
-            {"id": "f-retail", "name": "SALON RETAIL SALES"},
+            {"id": "f-plan", "name": "SALES PLAN VARIANCE"},
+            {"id": "f-retail", "name": "STORE SALES"},
         ],
     )
     resolution = PredefinedFolderResolution(
@@ -2156,7 +2186,7 @@ def test_dataset_folder_parent_key_uses_own_ancestors_with_folder_labels() -> No
     )
 
     assert parent_key == mapper.folder_key(
-        "project-1", "Shared Reports/SALON SALES VAR PLAN/SALON RETAIL SALES"
+        "project-1", "Shared Reports/SALES PLAN VARIANCE/STORE SALES"
     )
     names = set(
         _container_names(
@@ -2165,7 +2195,7 @@ def test_dataset_folder_parent_key_uses_own_ancestors_with_folder_labels() -> No
             )
         ).values()
     )
-    assert names == {"Shared Reports", "SALON SALES VAR PLAN", "SALON RETAIL SALES"}
+    assert names == {"Shared Reports", "SALES PLAN VARIANCE", "STORE SALES"}
 
 
 def test_dataset_folder_parent_key_falls_back_without_ancestors() -> None:
@@ -2183,7 +2213,7 @@ def test_dataset_folder_parent_key_falls_back_without_ancestors() -> None:
     )
 
 
-def _salon_grid_definition() -> DashboardDefinition:
+def _compound_grid_report_definition() -> DashboardDefinition:
     """Mirror of a live compound grid: two ungrouped row attributes (one with
     a second form the grid does not show), three column groups bound to three
     per-family datasets, one metric renamed in the dossier, one derived."""
@@ -2244,7 +2274,7 @@ def _salon_grid_definition() -> DashboardDefinition:
         }
 
     return DashboardDefinition.from_api_response(
-        object_id="dash-salon",
+        object_id="dash-compound",
         object_name="Store Sales To Plan",
         response={
             "definition": {
@@ -2263,7 +2293,7 @@ def _salon_grid_definition() -> DashboardDefinition:
                     ),
                     dataset(
                         "ds-total",
-                        "TOTAL SALON SALES-YESTERDAY",
+                        "TOTAL SALES-YESTERDAY",
                         "M-TOT-PLAN",
                         "TOTAL PLAN",
                     ),
@@ -2334,8 +2364,8 @@ def _salon_grid_definition() -> DashboardDefinition:
     )
 
 
-def _salon_input_fields(mapper: MicroStrategyMapper) -> InputFieldsClass:
-    dashboard = _salon_grid_definition()
+def _compound_grid_input_fields(mapper: MicroStrategyMapper) -> InputFieldsClass:
+    dashboard = _compound_grid_report_definition()
     mapper.attach_derived_metrics(dashboard)
     workunits = list(
         mapper.gen_chart_workunits(
@@ -2353,7 +2383,7 @@ def _salon_input_fields(mapper: MicroStrategyMapper) -> InputFieldsClass:
 def test_ungrouped_grid_attributes_carry_no_group_prefix_or_form_suffix() -> None:
     # (a) row attributes sit outside every column group, so no "RETAIL."
     # prefix; (b) the grid shows one form, so no ".NUMBER" suffix either.
-    input_fields = _salon_input_fields(_mapper())
+    input_fields = _compound_grid_input_fields(_mapper())
     by_display = {
         field.schemaField.fieldPath: field
         for field in input_fields.fields
@@ -2371,7 +2401,7 @@ def test_ungrouped_grid_attributes_carry_no_group_prefix_or_form_suffix() -> Non
     # group's), and the urn keeps the dataset's real field path - which for a
     # single-form attribute is now the bare name, matching the header.
     assert by_display["Region Number"].schemaFieldUrn.endswith(
-        "dash-salon.ds-retail,PROD),Region Number)"
+        "dash-compound.ds-retail,PROD),Region Number)"
     )
     # Only the displayed form of the two-form attribute is a chart input.
     district_urns = [
@@ -2389,7 +2419,7 @@ def test_grouped_metrics_keep_group_prefix_and_use_grid_header_alias() -> None:
     # (c) the grid header wins over the catalog metric name, with the catalog
     # name retained in the description and jsonProps; genuinely grouped
     # metrics keep the "GROUP.name" style.
-    input_fields = _salon_input_fields(_mapper())
+    input_fields = _compound_grid_input_fields(_mapper())
     by_display = {
         field.schemaField.fieldPath: field
         for field in input_fields.fields
@@ -2402,7 +2432,7 @@ def test_grouped_metrics_keep_group_prefix_and_use_grid_header_alias() -> None:
     aliased = by_display["RETAIL.Store Sales Plan $"]
     assert "RETAIL.Store Sales % Plan" not in by_display
     assert aliased.schemaFieldUrn.endswith(
-        "dash-salon.ds-retail,PROD),Store Sales % Plan)"
+        "dash-compound.ds-retail,PROD),Store Sales % Plan)"
     )
     assert aliased.schemaField is not None
     assert aliased.schemaField.description is not None
@@ -2422,7 +2452,7 @@ def test_grouped_metrics_keep_group_prefix_and_use_grid_header_alias() -> None:
 def test_chart_input_fields_follow_grid_order() -> None:
     # Attributes first as laid out in the rows, then each column group in
     # grid order with its metrics in element order -- not alphabetical.
-    input_fields = _salon_input_fields(_mapper())
+    input_fields = _compound_grid_input_fields(_mapper())
     display_names = [
         field.schemaField.fieldPath
         for field in input_fields.fields
@@ -2449,7 +2479,7 @@ def test_dataset_schema_field_paths_are_unchanged_by_grid_display_names() -> Non
     # therefore every schemaField urn) keeps its own paths - form-qualified
     # only where an attribute contributes more than one form.
     mapper = _mapper()
-    dashboard = _salon_grid_definition()
+    dashboard = _compound_grid_report_definition()
     mapper.attach_derived_metrics(dashboard)
     retail = dashboard.datasets[0]
     schema = _aspect(
@@ -2479,7 +2509,7 @@ def _report_definitions() -> "list[ReportDerivedMetric]":
         ),
         ReportDerivedMetric(
             id="D-QTY-VAR",
-            name="Qty Var LYS %",
+            name="Qty Var PY %",
             expression_text="{Net Sales Qty} - 1",
             source="report",
         ),
@@ -2488,7 +2518,7 @@ def _report_definitions() -> "list[ReportDerivedMetric]":
 
 def test_report_derived_metrics_upgrade_grid_specs_and_add_missing_ones() -> None:
     mapper = _mapper()
-    dashboard = _salon_grid_definition()
+    dashboard = _compound_grid_report_definition()
     mapper.attach_derived_metrics(dashboard)
     retail = dashboard.datasets[0]
     # The grid showed D-SALES under its dossier alias; nothing showed D-QTY-VAR.
@@ -2512,7 +2542,7 @@ def test_report_derived_metrics_upgrade_grid_specs_and_add_missing_ones() -> Non
 
 def test_report_derived_metrics_match_by_name_when_ids_differ() -> None:
     mapper = _mapper()
-    dashboard = _salon_grid_definition()
+    dashboard = _compound_grid_report_definition()
     mapper.attach_derived_metrics(dashboard)
     retail = dashboard.datasets[0]
 
@@ -2527,7 +2557,7 @@ def test_report_derived_metrics_match_by_name_when_ids_differ() -> None:
 
 def test_report_derived_metrics_never_shadow_catalog_objects() -> None:
     mapper = _mapper()
-    dashboard = _salon_grid_definition()
+    dashboard = _compound_grid_report_definition()
     retail = dashboard.datasets[0]
 
     mapper.attach_report_derived_metrics(
@@ -2540,7 +2570,7 @@ def test_report_derived_metrics_never_shadow_catalog_objects() -> None:
 
 def test_report_derived_metric_fields_carry_formula_and_provenance() -> None:
     mapper = _mapper()
-    dashboard = _salon_grid_definition()
+    dashboard = _compound_grid_report_definition()
     mapper.attach_derived_metrics(dashboard)
     retail = dashboard.datasets[0]
     mapper.attach_report_derived_metrics(retail, _report_definitions())
@@ -2594,7 +2624,7 @@ def test_report_derived_metric_fields_carry_formula_and_provenance() -> None:
 
 def test_report_derived_metric_formulas_join_metric_formula_lineage() -> None:
     mapper = _mapper(extract_metric_formula_lineage=True)
-    dashboard = _salon_grid_definition()
+    dashboard = _compound_grid_report_definition()
     mapper.attach_derived_metrics(dashboard)
     retail = dashboard.datasets[0]
     mapper.attach_report_derived_metrics(retail, _report_definitions())
@@ -2616,7 +2646,7 @@ def test_report_derived_metric_formulas_join_metric_formula_lineage() -> None:
     # [Name] references resolve against the dataset's own fields.
     assert edges["SALES PLAN)"] == {"Net Sales Amt)", "Store Sales % Plan)"}
     # {Net Sales Qty} is not a field of this dataset: counted, not guessed.
-    assert "Qty Var LYS %)" not in edges
+    assert "Qty Var PY %)" not in edges
     assert mapper.report.metric_formula_refs_unresolved == 1
 
 
@@ -2624,7 +2654,7 @@ def test_chart_input_fields_show_grid_alias_for_report_derived_metric() -> None:
     # The dataset field is "SALES PLAN" (report name); the grid header is the
     # dossier alias, which is what the chart shows, with the object name kept.
     mapper = _mapper()
-    dashboard = _salon_grid_definition()
+    dashboard = _compound_grid_report_definition()
     mapper.attach_derived_metrics(dashboard)
     mapper.attach_report_derived_metrics(dashboard.datasets[0], _report_definitions())
 
@@ -2996,7 +3026,7 @@ def _derived_field_paths(
 
 def test_derived_metrics_sort_in_among_catalog_metrics() -> None:
     mapper = _mapper()
-    dashboard = _salon_grid_definition()
+    dashboard = _compound_grid_report_definition()
     mapper.attach_derived_metrics(dashboard)
     retail = dashboard.datasets[0]
     mapper.attach_report_derived_metrics(retail, _report_definitions())
@@ -3005,10 +3035,10 @@ def test_derived_metrics_sort_in_among_catalog_metrics() -> None:
 
     # Strategy's Datasets panel does not segregate derived metrics - they sit
     # among the catalog ones under the name the report displays. So a derived
-    # "Qty Var LYS %" precedes a catalog "Store Sales % Plan" and follows a
+    # "Qty Var PY %" precedes a catalog "Store Sales % Plan" and follows a
     # catalog "Net Sales Amt", rather than trailing both.
-    assert paths.index("Net Sales Amt") < paths.index("Qty Var LYS %")
-    assert paths.index("Qty Var LYS %") < paths.index("Store Sales % Plan")
+    assert paths.index("Net Sales Amt") < paths.index("Qty Var PY %")
+    assert paths.index("Qty Var PY %") < paths.index("Store Sales % Plan")
     # Attributes lead, and the single-form one carries no suffix.
     assert paths[:3] == [
         "District Number.DESC",
@@ -3019,7 +3049,7 @@ def test_derived_metrics_sort_in_among_catalog_metrics() -> None:
 
 def test_report_definition_order_outranks_grid_order_for_derived_metrics() -> None:
     mapper = _mapper()
-    dashboard = _salon_grid_definition()
+    dashboard = _compound_grid_report_definition()
     mapper.attach_derived_metrics(dashboard)
     retail = dashboard.datasets[0]
     # The grid saw D-SALES first; the report lists D-QTY-VAR first.
@@ -3032,6 +3062,6 @@ def test_report_definition_order_outranks_grid_order_for_derived_metrics() -> No
     # sorted by display name, so this pair would come out the same whatever
     # the definition said. The dict order above is what proves the re-ranking.
     assert _derived_field_paths(mapper, dashboard, retail) == [
-        "Qty Var LYS %",
+        "Qty Var PY %",
         "SALES PLAN",
     ]
