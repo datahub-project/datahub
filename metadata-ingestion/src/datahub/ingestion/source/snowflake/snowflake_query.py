@@ -1027,6 +1027,16 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         return "show external tables in account"
 
     @staticmethod
+    def describe_external_volume(volume_name: str) -> str:
+        # Needs USAGE on the volume. Returns one row per property; STORAGE_LOCATION_N rows
+        # carry a JSON blob with STORAGE_BASE_URL. The name comes from SHOW output, so it
+        # may be a quoted identifier containing quotes - escape like the other identifiers.
+        volume = SnowflakeIdentifierBuilder.get_quoted_identifier_for_external_volume(
+            volume_name
+        )
+        return f"DESC EXTERNAL VOLUME {volume}"
+
+    @staticmethod
     def copy_lineage_history(
         start_time_millis: int,
         end_time_millis: int,
