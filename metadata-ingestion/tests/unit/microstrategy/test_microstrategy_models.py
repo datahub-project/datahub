@@ -250,8 +250,7 @@ def _model_report_payload() -> dict:
                                 "subType": "derived_metric",
                                 "expression": {
                                     "text": (
-                                        "([Net Sales Amt]/"
-                                        "[Store Net Sales Amt])-1"
+                                        "([Net Sales Amt]/[Store Net Sales Amt])-1"
                                     ),
                                     "tokens": [
                                         {
@@ -330,9 +329,7 @@ def test_extract_embedded_metric_definitions_finds_derived_metrics_only() -> Non
     assert set(definitions) == {"D-SALES-PLAN", "D-AMT-VAR"}
     rtl = definitions["D-SALES-PLAN"]
     assert rtl.name == "SALES PLAN"
-    assert rtl.expression_text == (
-        "([Net Sales Amt]/[Store Net Sales Amt])-1"
-    )
+    assert rtl.expression_text == ("([Net Sales Amt]/[Store Net Sales Amt])-1")
     assert rtl.expression_tokens is not None
     assert "Net Sales Amt" in rtl.expression_tokens
     assert rtl.source == "report"
@@ -374,9 +371,10 @@ def test_metric_formula_references_accept_braces_and_brackets() -> None:
         metric_formula_references,
     )
 
-    assert metric_formula_references(
-        "([Net Sales Amt]/[Store Net Sales Amt])-1"
-    ) == ["Net Sales Amt", "Store Net Sales Amt"]
+    assert metric_formula_references("([Net Sales Amt]/[Store Net Sales Amt])-1") == [
+        "Net Sales Amt",
+        "Store Net Sales Amt",
+    ]
     assert metric_formula_references(
         "({Revenue} - {Revenue LY}) / Abs({Revenue LY})"
     ) == [

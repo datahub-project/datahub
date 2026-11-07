@@ -1921,9 +1921,7 @@ def test_embedded_report_metric_formula_comes_from_metric_model() -> None:
     assert source.report.metric_expression_api_failures == 0
     rtl = _derived_field(workunits, "SALES PLAN")
     assert rtl is not None
-    assert "([Net Sales Amt]/[Store Net Sales Amt])-1" in (
-        rtl.description or ""
-    )
+    assert "([Net Sales Amt]/[Store Net Sales Amt])-1" in (rtl.description or "")
     props = json.loads(rtl.jsonProps or "{}")
     assert props["microstrategyDerivedMetricSource"] == "report"
     assert "microstrategyMetricExpressionText" in props

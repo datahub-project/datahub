@@ -1067,7 +1067,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     self.report.report_report_model_definition_empty()
             if not definitions:
                 try:
-                    v2_payload = self.client.get_report_definition(project_id, report_id)
+                    v2_payload = self.client.get_report_definition(
+                        project_id, report_id
+                    )
                 except MicroStrategyAuthError:
                     raise
                 except Exception as error:

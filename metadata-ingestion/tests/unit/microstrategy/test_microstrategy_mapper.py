@@ -2532,11 +2532,7 @@ def test_report_derived_metrics_never_shadow_catalog_objects() -> None:
 
     mapper.attach_report_derived_metrics(
         retail,
-        [
-            ReportDerivedMetric(
-                id="M-NET", name="Net Sales Amt", expression_text="x"
-            )
-        ],
+        [ReportDerivedMetric(id="M-NET", name="Net Sales Amt", expression_text="x")],
     )
 
     assert retail.derived_metrics == {}
