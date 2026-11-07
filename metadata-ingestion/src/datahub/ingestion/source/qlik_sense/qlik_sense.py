@@ -1299,7 +1299,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             {
                 Constant.QRI: dataset.secureQri,
                 Constant.SPACEID: dataset.spaceId,
-                Constant.TYPE: "Qlik Dataset",
+                Constant.TYPE: DatasetSubTypes.QLIK_DATASET,
                 Constant.DATASETTYPE: dataset.type,
                 Constant.SIZE: str(dataset.size),
                 Constant.ROWCOUNT: str(dataset.rowCount),
