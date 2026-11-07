@@ -138,6 +138,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
+    # Apps read again because checking whether they changed failed.
+    apps_change_check_failed: LossyList[str] = field(default_factory=LossyList)
 
     def report_number_of_spaces(self, number_of_spaces: int) -> None:
         self.number_of_spaces = number_of_spaces
@@ -268,8 +270,9 @@ class QlikSourceConfig(
     max_workers: int = Field(
         default=4,
         ge=1,
-        description="Number of apps and datasets read at the same time. "
-        "Each app read holds one Engine session open.",
+        description="Number of apps and datasets of one space or stream read at "
+        "the same time. Spaces and streams are read one after another. Each app "
+        "read holds one Engine session open.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,

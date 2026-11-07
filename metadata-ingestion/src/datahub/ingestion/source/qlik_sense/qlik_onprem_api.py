@@ -157,6 +157,8 @@ class QlikOnPremAPI(QlikBaseAPI):
             return None
         if user_id in self.users:
             return self.users[user_id]
+        if user_id in self.failed_user_lookups:
+            return None
         try:
             user = self._get(f"/user/{user_id}").json()
             name = user.get(Constant.NAME) or user.get("userId")
@@ -164,7 +166,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                 self.users[user_id] = name
             return name
         except Exception as e:
-            log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
+            self._record_failed_user_lookup(user_id, e)
         return None
 
     def _space_from_stream(self, stream: Dict) -> Space:
@@ -319,6 +321,7 @@ class QlikOnPremAPI(QlikBaseAPI):
                     f"Unable to check whether app {app_dict.get(Constant.ID)} "
                     f"changed, reading it instead. Exception: {e}"
                 )
+                self.change_check_failures.append(f"{app_dict.get(Constant.ID)}: {e}")
         return self._read_app(app_dict, fingerprint)
 
     def _app_fingerprint(self, app_dict: Dict) -> Optional[str]:
@@ -332,6 +335,9 @@ class QlikOnPremAPI(QlikBaseAPI):
         except Exception as e:
             log_read_error(
                 f"Unable to fetch objects of app {app_dict.get(Constant.ID)}. Exception: {e}"
+            )
+            self.change_check_failures.append(
+                f"{app_dict.get(Constant.ID)}: unable to fetch app objects: {e}"
             )
             return None
         owner = app_dict.get("owner") or {}

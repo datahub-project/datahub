@@ -27,7 +27,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.filters import RemovedStatusFilter
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
@@ -139,6 +139,9 @@ from datahub.utilities.urns.urn import guess_entity_type
 # Logger instance
 logger = logging.getLogger(__name__)
 
+# Entities per DataHub request when checking that a skipped app's entities exist.
+ENTITY_CHECK_BATCH_SIZE = 100
+
 
 @platform_name("Qlik Sense")
 @config_class(QlikSourceConfig)
@@ -199,9 +202,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             config=self.config,
             pipeline_name=ctx.pipeline_name,
             run_id=ctx.run_id,
+            stale_job_id=self.stale_entity_removal_handler.job_id
+            if self.stale_entity_removal_handler
+            and self.stale_entity_removal_handler.is_checkpointing_enabled()
+            else None,
         )
         self._fingerprint_salt: Optional[str] = None
         self._change_check_failed = False
+        # Filled from worker threads, so only copied to the report at the end.
+        self._change_check_failures: List[str] = []
         if config.skips_unchanged_apps() and not self._skips_unchanged_apps():
             self.reporter.warning(
                 title="skip_unchanged_apps is ignored",
@@ -298,20 +307,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         container_urn = self._gen_app_key(app_id).as_urn()
         try:
             properties = graph.get_aspect(container_urn, ContainerPropertiesClass)
-            status = graph.get_aspect(container_urn, Status)
-            # Children stale entity removal deleted after they left Qlik are not
-            # in the checkpoint, so only a deleted child the app still produces
-            # needs a re-read.
-            previous_urns = set(previous.urns)
-            soft_deleted_child = any(
-                urn in previous_urns
-                for urn in graph.get_urns_by_filter(
-                    container=container_urn,
-                    status=RemovedStatusFilter.ONLY_SOFT_DELETED,
-                )
-            )
+            if (
+                properties is None
+                or (properties.customProperties or {}).get(Constant.FINGERPRINT)
+                != previous.fingerprint
+            ):
+                return False
+            return self._entities_present(graph, previous.urns)
         except Exception as e:
             logger.debug(f"Unable to read app container {container_urn}: {e}")
+            self._change_check_failures.append(
+                f"{app_id}: unable to read the app back from DataHub: {e}"
+            )
             if not self._change_check_failed:
                 self._change_check_failed = True
                 self.reporter.warning(
@@ -322,13 +329,27 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
             return False
-        return (
-            properties is not None
-            and (properties.customProperties or {}).get(Constant.FINGERPRINT)
-            == previous.fingerprint
-            and not (status is not None and status.removed)
-            and not soft_deleted_child
-        )
+
+    @staticmethod
+    def _entities_present(graph: DataHubGraph, urns: List[str]) -> bool:
+        """Whether every entity the app's last read produced is in DataHub and
+        not soft-deleted, which also catches entities the sink failed to write
+        and hard-deleted ones. Entities stale removal deleted after they left
+        Qlik are not in the checkpoint."""
+        by_type: Dict[str, List[str]] = {}
+        for urn in urns:
+            by_type.setdefault(guess_entity_type(urn), []).append(urn)
+        for entity_type, typed_urns in by_type.items():
+            for start in range(0, len(typed_urns), ENTITY_CHECK_BATCH_SIZE):
+                batch = typed_urns[start : start + ENTITY_CHECK_BATCH_SIZE]
+                entities = graph.get_entities(
+                    entity_type, batch, aspects=[Status.ASPECT_NAME]
+                )
+                for urn in batch:
+                    status = entities.get(urn, {}).get(Status.ASPECT_NAME)
+                    if status is None or getattr(status[0], "removed", True):
+                        return False
+        return True
 
     def _keep_previous_urns(self, app_id: str) -> List[str]:
         try:
@@ -363,12 +384,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         self.reporter.apps_skipped_unchanged += 1
 
-    def _has_previous_checkpoint(self, app_id: str) -> bool:
+    def _keep_partly_read_app(self, app: App) -> bool:
+        """Keeps what the app's last read produced instead of emitting a partial
+        read, which would overwrite its relationships. False when there is no
+        usable checkpoint to keep."""
         try:
-            return self.app_state.previous(app_id) is not None
+            previous = self.app_state.previous(app.id)
         except Exception as e:
-            logger.debug(f"Unable to load the last checkpoint of app {app_id}: {e}")
+            logger.debug(f"Unable to load the last checkpoint of app {app.id}: {e}")
+            self._change_check_failures.append(
+                f"{app.id}: unable to load the last checkpoint: {e}"
+            )
             return False
+        if previous is None:
+            return False
+        urns = self._keep_previous_urns(app.id)
+        # No fingerprint, so the next run reads the app again.
+        self.app_state.record(app.id, AppCheckpoint(fingerprint=None, urns=urns))
+        return True
 
     def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
         fingerprint = (
@@ -508,7 +541,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_charts_workunit(
         self,
         charts: List[Chart],
-        input_tables_urns: List[str],
+        input_tables_urns: Optional[List[str]],
         app_fields: Dict[str, List[AppField]],
         has_unknown_schema: bool,
         app_id: str,
@@ -531,38 +564,40 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             }
             chart_fields = self._get_chart_input_fields(chart, app_fields)
 
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=ChartInfoClass(
-                    title=chart.title,
-                    description=chart.visualization,
-                    lastModified=ChangeAuditStampsClass(),
-                    customProperties=custom_properties,
-                    inputs=self._get_chart_inputs(
-                        chart,
-                        chart_fields,
-                        app_fields,
-                        input_tables_urns,
-                        has_unknown_schema,
+            # Unknown inputs would overwrite the ones the last full read emitted.
+            if input_tables_urns is not None:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=ChartInfoClass(
+                        title=chart.title,
+                        description=chart.visualization,
+                        lastModified=ChangeAuditStampsClass(),
+                        customProperties=custom_properties,
+                        inputs=self._get_chart_inputs(
+                            chart,
+                            chart_fields,
+                            app_fields,
+                            input_tables_urns,
+                            has_unknown_schema,
+                        ),
                     ),
-                ),
-            ).as_workunit()
+                ).as_workunit()
 
-            # Emitted even when empty so fields a chart stopped using are cleared.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=InputFieldsClass(
-                    fields=[
-                        InputFieldClass(
-                            schemaFieldUrn=builder.make_schema_field_urn(
-                                field.dataset_urn, field.field.name
-                            ),
-                            schemaField=self._gen_schema_field(field.field),
-                        )
-                        for field in chart_fields
-                    ]
-                ),
-            ).as_workunit()
+                # Emitted even when empty so fields a chart stopped using are cleared.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=InputFieldsClass(
+                        fields=[
+                            InputFieldClass(
+                                schemaFieldUrn=builder.make_schema_field_urn(
+                                    field.dataset_urn, field.field.name
+                                ),
+                                schemaField=self._gen_schema_field(field.field),
+                            )
+                            for field in chart_fields
+                        ]
+                    ),
+                ).as_workunit()
 
             yield from add_entity_to_container(
                 container_key=self._gen_app_key(app_id),
@@ -644,7 +679,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_sheets_workunit(
         self,
         app: App,
-        input_tables_urns: List[str],
+        input_tables_urns: Optional[List[str]],
         app_fields: Dict[str, List[AppField]],
         has_unknown_schema: bool,
     ) -> Iterable[MetadataWorkUnit]:
@@ -656,7 +691,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
             yield self._gen_entity_status_aspect(dashboard_urn)
 
-            yield self._gen_dashboard_info_workunit(sheet, app.id)
+            # A partial chart list would overwrite the one the last full read
+            # emitted.
+            if sheet.charts_complete:
+                yield self._gen_dashboard_info_workunit(sheet, app.id)
 
             yield from add_entity_to_container(
                 container_key=self._gen_app_key(app.id),
@@ -696,16 +734,20 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             if not table.selectStatement:
                 return None
+            platform = upstream_dataset_platform_detail.platform or (
+                KNOWN_DATA_PLATFORM_MAPPING.get(
+                    table.dataconnectorPlatform, table.dataconnectorPlatform
+                )
+            )
+            # The database and schema Qlik reports for the table win over the
+            # connection's configured defaults.
             result = create_lineage_sql_parsed_result(
                 query=table.selectStatement.strip(),
-                default_db=upstream_dataset_platform_detail.database
-                or table.databaseName,
-                default_schema=upstream_dataset_platform_detail.default_schema
-                or table.schemaName,
-                platform=upstream_dataset_platform_detail.platform
-                or KNOWN_DATA_PLATFORM_MAPPING.get(
-                    table.dataconnectorPlatform, table.dataconnectorPlatform
-                ),
+                default_db=table.databaseName
+                or upstream_dataset_platform_detail.database,
+                default_schema=table.schemaName
+                or upstream_dataset_platform_detail.default_schema,
+                platform=platform,
                 env=upstream_dataset_platform_detail.env,
                 platform_instance=upstream_dataset_platform_detail.platform_instance,
             )
@@ -717,7 +759,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     exc=result.debug_info.table_error,
                 )
                 return None
-            upstream_dataset_urn = result.in_tables[0]
+            qualified = [
+                urn
+                for urn in result.in_tables
+                if has_qualified_name(
+                    urn, platform, upstream_dataset_platform_detail.platform_instance
+                )
+            ]
+            if not qualified:
+                self.reporter.warning(
+                    title="Qlik table is missing its database or schema",
+                    message="Upstream lineage for this Qlik table is skipped. Set "
+                    "`database` and `default_schema` for its connection in "
+                    "`data_connection_to_platform_instance`.",
+                    context=f"table={table.tableName}, upstreams={result.in_tables}",
+                )
+                return None
+            upstream_dataset_urn = qualified[0]
         elif table.type == BoxType.LOADFILE:
             upstream_dataset_urn = self._gen_qlik_dataset_urn(
                 f"{table.spaceId}.{table.databaseName}".lower()
@@ -811,13 +869,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self, connection: str, space_id: str
     ) -> Optional[DataConnectionInfo]:
         connections = self._get_data_connections()
-        # Qlik Cloud looks a bare connection name up in the app's own space
-        # first, so it wins over a same-named connection in another space.
         space_name = self.qlik_api.spaces.get(space_id)
-        if space_name and SPACE_SEPARATOR not in connection:
-            own = connections.get(f"{space_name}{SPACE_SEPARATOR}{connection}")
-            if own is not None:
-                return own
+        if (
+            self.config.on_prem is None
+            and space_name
+            and SPACE_SEPARATOR not in connection
+        ):
+            # Qlik Cloud looks a bare name up in the app's own space only. A
+            # same-named connection elsewhere may point at another database
+            # when the app's own one is not visible to the API key.
+            return connections.get(f"{space_name}{SPACE_SEPARATOR}{connection}")
         return connections.get(connection)
 
     def _resolve_script_connection(
@@ -1120,7 +1181,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         yield from container_workunits
         yield from self._gen_sheets_workunit(
             app,
-            input_tables_urns,
+            None if app.tables_read_failed else input_tables_urns,
             self._index_app_fields(table_fields),
             any(not fields for fields in table_fields.values()),
         )
@@ -1283,18 +1344,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if isinstance(item, UnchangedApp):
             self._keep_unchanged_app(item)
         elif isinstance(item, App):
+            self.reporter.apps_read += 1
+            logger.info(
+                f"Processed app {item.qTitle} in space {space.name} "
+                f"({self.reporter.apps_read} apps read from the Engine)"
+            )
             if (
                 not item.read_complete
                 and skip_unchanged
-                and self._has_previous_checkpoint(item.id)
+                and self._keep_partly_read_app(item)
             ):
                 self.reporter.warning(
                     title="Unable to fully read Qlik app",
-                    message="Entities from the last full read of this app "
-                    "are kept, and it is read again on the next run.",
+                    message="Nothing from this read of the app is emitted. "
+                    "Entities from its last read are kept, and it is read again "
+                    "on the next run.",
                     context=self._read_errors_context(item),
                 )
-            elif not item.read_complete:
+                return
+            if not item.read_complete:
                 # Reporting a failure also stops stale entity removal from
                 # soft-deleting what this app's last full read produced.
                 self.reporter.failure(
@@ -1303,10 +1371,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     "app could not be read from the Engine.",
                     context=self._read_errors_context(item),
                 )
-            self.reporter.apps_read += 1
-            logger.info(
-                f"Read app {item.qTitle} in space {space.name} ({self.reporter.apps_read} apps read)"
-            )
             if item.script_read_failed:
                 self.reporter.warning(
                     title="Unable to read Qlik app load script",
@@ -1354,6 +1418,21 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             for item in items:
                 yield from self._gen_item_workunits(item, allowed_space, skip_unchanged)
+        for failure in [
+            *self.qlik_api.change_check_failures,
+            *self._change_check_failures,
+        ]:
+            self.reporter.apps_change_check_failed.append(failure)
+        failed_users = self.qlik_api.failed_user_lookups
+        if failed_users:
+            self.reporter.warning(
+                title="Unable to look up Qlik owners",
+                message="Ownership is left out for entities owned by these users.",
+                context=", ".join(
+                    f"{user_id}: {cause}"
+                    for user_id, cause in sorted(failed_users.items())
+                ),
+            )
         for unread in self.qlik_api.unread_items:
             # Also stops stale entity removal from soft-deleting what was not read.
             self.reporter.failure(
