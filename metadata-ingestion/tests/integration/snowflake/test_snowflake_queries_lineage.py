@@ -298,3 +298,131 @@ def test_snowflake_queries_multi_target_insert_all_table_upstream_lineage(
     assert report.queries_extractor is not None
     assert report.queries_extractor.num_stream_queries_clean_fast_path == 0
     assert report.queries_extractor.num_stream_queries_observed == 0
+
+
+def _build_query_history_row(
+    *,
+    query_id: str,
+    query_text: str,
+    query_type: str,
+    user_name: str,
+) -> dict:
+    """Build one row in the shape returned by QueryLogQueryBuilder.build_query_history_only_query():
+    the access_history columns are present but NULL."""
+    return {
+        "QUERY_ID": query_id,
+        "QUERY_TEXT": query_text,
+        "QUERY_START_TIME": datetime(2026, 4, 30, 11, 50, 0, tzinfo=timezone.utc),
+        "QUERY_TYPE": query_type,
+        "ROWS_INSERTED": 100,
+        "ROWS_UPDATED": 0,
+        "ROWS_DELETED": 0,
+        "USER_NAME": user_name,
+        "ROLE_NAME": "ETL_ROLE",
+        "SESSION_ID": "session-001",
+        "DEFAULT_DB": "PROD",
+        "DEFAULT_SCHEMA": "STAGE_DWH",
+        "ROOT_QUERY_ID": None,
+        "QUERY_COUNT": 1,
+        "QUERY_SECONDARY_FINGERPRINT": None,
+        "QUERY_DURATION": 5000,
+        "OBJECTS_MODIFIED": None,
+        "DIRECT_OBJECTS_ACCESSED": None,
+        "OBJECT_MODIFIED_BY_DDL": None,
+    }
+
+
+def test_snowflake_queries_query_history_fallback_lineage(pytestconfig, tmp_path):
+    """Without access_history (Standard edition), query_history rows are parsed by
+    sqlglot: INSERT ... SELECT still produces UpstreamLineage with column lineage,
+    and a SELECT produces usage statistics and a Query entity."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
+    output_file = tmp_path / "snowflake_queries_query_history_fallback.json"
+    golden_file = (
+        test_resources_dir / "snowflake_queries_query_history_fallback_golden.json"
+    )
+
+    query_history_rows = [
+        _build_query_history_row(
+            query_id="qh-insert-001",
+            query_text=(
+                "INSERT INTO prod.stage_dwh.large_orders (id, amount)"
+                " SELECT id, amount FROM prod.raw_betler.orders_source"
+            ),
+            query_type="INSERT",
+            user_name="ETL_USER",
+        ),
+        _build_query_history_row(
+            query_id="qh-select-001",
+            query_text="SELECT id, amount FROM prod.raw_betler.orders_source",
+            query_type="SELECT",
+            user_name="ANALYST_USER",
+        ),
+        # Session statements have no table subjects and must be filtered out.
+        _build_query_history_row(
+            query_id="qh-use-001",
+            query_text="USE WAREHOUSE ETL_WH",
+            query_type="USE",
+            user_name="ETL_USER",
+        ),
+    ]
+
+    def _handler(query: str) -> RowCountList:
+        if "snowflake.account_usage.query_history" in query:
+            return RowCountList(query_history_rows)
+        return RowCountList([])
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+        sf_cursor.execute.side_effect = _handler
+
+        pipeline = Pipeline(
+            config=PipelineConfig(
+                source=SourceConfig(
+                    type="snowflake-queries",
+                    config={
+                        "connection": {
+                            "account_id": "ABC12345.ap-south-1.aws",
+                            "username": "TST_USR",
+                            "password": "TST_PWD",
+                        },
+                        "window": {
+                            "start_time": START_TIME.isoformat(),
+                            "end_time": END_TIME.isoformat(),
+                        },
+                        # Forces the fallback path deterministically instead of
+                        # relying on the SHOW TAGS edition probe against the mock.
+                        "use_access_history": False,
+                        "include_operations": False,
+                    },
+                ),
+                sink=DynamicTypedConfig(
+                    type="file", config={"filename": str(output_file)}
+                ),
+            )
+        )
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_file,
+        golden_path=golden_file,
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+            r"root\[\d+\]\['systemMetadata'\]",
+        ],
+    )
+
+    report = cast(SnowflakeQueriesSourceReport, pipeline.source.get_report())
+    assert report.queries_extractor is not None
+    assert report.queries_extractor.query_log_fetch_mode == "query_history"
+    assert report.queries_extractor.num_query_history_rows_skipped_no_table_access == 1
+    assert report.queries_extractor.sql_aggregator is not None
+    assert report.queries_extractor.sql_aggregator.num_observed_queries == 2
