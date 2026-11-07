@@ -258,8 +258,10 @@ class QuickstartVersionMappingConfig(BaseModel):
             return QuickstartVersionMappingConfig(
                 quickstart_version_map={
                     "default": QuickstartExecutionPlan(
-                        composefile_git_ref="master",
-                        docker_tag="quickstart",
+                        # Same as the committed default: v1.8.0 compose on OpenSearch 2.19.3.
+                        # master here would download the OpenSearch 3 compose with no 2.x pin.
+                        composefile_git_ref="v1.8.0",
+                        docker_tag="v1.8.0",
                         mysql_tag="8.2",
                     ),
                 }

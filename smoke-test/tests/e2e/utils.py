@@ -31,6 +31,33 @@ from utilities.consistency_utils import wait_for_writes_to_sync
 TIME: int = 1581407189000
 logger = logging.getLogger(__name__)
 
+# Matches EntitySearchIndexResolver.shouldReadV3.
+_V2_ENABLED_PROPERTY = "elasticsearch.entityIndex.v2.enabled"
+_V3_ENABLED_PROPERTY = "elasticsearch.entityIndex.v3.enabled"
+_V3_KEYWORD_READ_PROPERTY = "elasticsearch.entityIndex.v3.keywordReadEnabled"
+
+
+def _flag(properties: Dict[str, Any], name: str, default: bool) -> bool:
+    raw = properties.get(name)
+    if raw is None:
+        return default
+    if isinstance(raw, str):
+        return raw.lower() == "true"
+    return bool(raw)
+
+
+def reads_search_v3(auth_session) -> bool:
+    """True when keyword reads are served from Search V3 indices."""
+    response = auth_session.get(
+        f"{auth_session.gms_url()}/openapi/v1/system-info/properties/simple"
+    )
+    response.raise_for_status()
+    properties = response.json()
+    v3_enabled = _flag(properties, _V3_ENABLED_PROPERTY, False)
+    v2_enabled = _flag(properties, _V2_ENABLED_PROPERTY, True)
+    keyword_read = _flag(properties, _V3_KEYWORD_READ_PROPERTY, False)
+    return v3_enabled and (keyword_read or not v2_enabled)
+
 
 def sync_elastic() -> None:
     wait_for_writes_to_sync()

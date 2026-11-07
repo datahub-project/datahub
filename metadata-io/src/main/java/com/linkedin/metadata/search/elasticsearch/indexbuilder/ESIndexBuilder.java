@@ -1121,11 +1121,7 @@ public class ESIndexBuilder {
   }
 
   private static boolean servesV3Reads(@Nullable EntityIndexConfiguration entityIndex) {
-    return EntitySearchIndexResolver.shouldReadV3(entityIndex)
-        || (entityIndex != null
-            && entityIndex.getV3() != null
-            && entityIndex.getV3().isEnabled()
-            && entityIndex.getV3().isSemanticReadEnabled());
+    return EntitySearchIndexResolver.shouldReadV3(entityIndex);
   }
 
   /** Whether a root field that the current mapping declares as an alias is a real field now. */

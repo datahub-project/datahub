@@ -39,6 +39,45 @@ Each release lists the CLI and Helm chart versions it expects, and a **Potential
 section describing reindexing or migrations that run on startup. Plan the window around the
 largest one you are passing through, not the last.
 
+Cassandra is not a supported upgrade path, and ZDU is not supported on it. An install that already
+has Search V2 indices keeps serving and writing V2 after the upgrade. To copy existing metadata into
+Search V3, re-ingest after the upgrade. Do not enable ZDU on Cassandra. See
+[#21030](https://github.com/datahub-project/datahub/pull/21030) and
+[Moving search to V3](#moving-search-to-v3).
+
+## Moving search to V3
+
+Search V3 is the default entity index. A fresh install reads and writes only V3, and this section
+does not apply to it. An install that already has Search V2 entity indices keeps serving V2 after
+the upgrade, and keeps writing V2, until each of its V3 indices is complete.
+
+At startup, GMS and the MAE and MCE consumers check every V2 entity index. For each one that exists,
+they check its paired V3 index for the `complete` mark that catch-up writes after the fill. While any
+paired V3 index is missing or not marked complete, that process reads V2, writes V2, and keeps V3
+keyword reads and hybrid reads off. V3 writes continue, so the V3 indices keep filling. Setting the
+V3 read flags by hand does not change this while a paired index is incomplete.
+
+To move reads to V3:
+
+1. On Ebean, run the upgrade with incremental reindex on (`ZDU_STAGE_20=true`, or
+   `ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED=true`). System update creates the V3
+   indices, and the non-blocking job fills them from primary storage. Catch-up marks each one
+   complete when it finishes. Cassandra cannot run this fill, so leave ZDU off there.
+2. Restart GMS, the MAE consumer, and the MCE consumer together, after every V3 index is marked
+   complete. That restart moves reads to V3 and stops V2 writes. Replace all three in the same
+   window: a process still on V2 reads misses documents that are written only to V3 after the
+   restart.
+
+Without incremental reindex the mark never arrives, so search stays on V2. Search is not down during
+the wait, and the restart in step 2 is the only search cutover.
+
+Cassandra cannot run the fill. An install that has V2 indices stays on V2 there. A fresh Cassandra
+install has no V2 index, so this hold does not apply. See the Cassandra note in
+[Potential Downtime](#3-check-the-version-requirements-and-expected-downtime) above.
+
+If DataHub cannot list the V2 entity indices at startup, the process stops rather than treating the
+install as new.
+
 ## Run the upgrade
 
 ### Kubernetes

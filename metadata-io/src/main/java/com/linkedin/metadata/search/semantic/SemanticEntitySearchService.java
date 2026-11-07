@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -75,8 +76,8 @@ import org.apache.commons.lang3.StringUtils;
  * <ul>
  *   <li>Elasticsearch 8.x, or OpenSearch 2.17.0+ (for pre-filtering support with nested kNN
  *       vectors)
- *   <li>Search V3 semantic reads ({@code semanticReadEnabled}): OpenSearch 3.5+ or Elasticsearch
- *       8.18+ on the Search V3 cluster
+ *   <li>Search V3 semantic reads (semantic search on, and keyword reads on V3): OpenSearch 3.5+ or
+ *       Elasticsearch 8.18+ on the Search V3 cluster
  *   <li>Semantic indices with nested vector fields at {@code
  *       embeddings.{modelEmbeddingKey}.chunks.vector}
  * </ul>
@@ -106,10 +107,10 @@ import org.apache.commons.lang3.StringUtils;
  * entity (URN), score (backend score), features (SEARCH_BACKEND_SCORE and QUERY_COUNT when
  * available), and extraFields (stringified copy of {@code _source}).
  *
- * <p>Index selection: by default kNN runs against the V2 semantic indices ({@code
- * <entity>index_v2_semantic}). When Search V3 is on and {@code semanticReadEnabled} is set, it runs
- * against the V3 entity indices whose mappings carry the same {@code embeddings} field (document
- * entities by default) on the Search V3 cluster.
+ * <p>Index selection: kNN reads the same index family as keyword search. With keyword reads on V2
+ * it uses the V2 semantic indices ({@code <entity>index_v2_semantic}). With keyword reads on V3 and
+ * semantic search on, it uses the V3 entity indices whose mappings carry the same {@code
+ * embeddings} field (document entities by default) on the Search V3 cluster.
  *
  * <p>Matched fields/highlighting are not set in semantic mode v1. The keyword path derives {@code
  * matchedFields} from highlight fragments, but we do not request highlighting for semantic queries
@@ -283,8 +284,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       @Nullable SortCriterion sortCriterion,
       int from,
       @Nullable Integer pageSize) {
-    // 1) Map entity names to the indices holding their vectors: V3 entity indices once semantic
-    // reads are cut over, otherwise the V2 semantic indices
+    // 1) Map entity names to the indices holding their vectors: the V3 entity indices when keyword
+    // reads use V3, otherwise the V2 semantic indices
     final boolean readV3 = shouldReadSemanticV3(entityIndexConfiguration);
     List<String> indices =
         readV3
@@ -449,20 +450,41 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   }
 
   /**
-   * True when kNN reads V3 entity indices instead of the V2 semantic indices: V3 is on and {@code
-   * semanticReadEnabled} is set. Semantic search itself requires V2 to stay enabled, so there is no
-   * V2-off case to handle here.
+   * True when kNN reads V3 entity indices instead of the V2 semantic indices: semantic search is on
+   * and keyword search reads V3. With both V2 and V3 on, that is {@code keywordReadEnabled}. With
+   * V2 off and V3 on, keyword reads are already on V3.
    */
-  static boolean shouldReadSemanticV3(@Nullable EntityIndexConfiguration entityIndex) {
+  public static boolean shouldReadSemanticV3(@Nullable EntityIndexConfiguration entityIndex) {
     return entityIndex != null
-        && entityIndex.getV3() != null
-        && entityIndex.getV3().isEnabled()
-        && entityIndex.getV3().isSemanticReadEnabled();
+        && entityIndex.getSemanticSearch() != null
+        && entityIndex.getSemanticSearch().isEnabled()
+        && EntitySearchIndexResolver.shouldReadV3(entityIndex);
+  }
+
+  /**
+   * Fails startup when semantic search is enabled but neither index family can serve it. V2
+   * semantic indices need V2 on. V3 serves semantic reads when keyword search reads V3.
+   */
+  public static void requireSemanticIndexTarget(@Nullable EntityIndexConfiguration entityIndex) {
+    if (entityIndex == null
+        || entityIndex.getSemanticSearch() == null
+        || !entityIndex.getSemanticSearch().isEnabled()) {
+      return;
+    }
+    boolean v2Enabled = entityIndex.getV2() != null && entityIndex.getV2().isEnabled();
+    if (v2Enabled || shouldReadSemanticV3(entityIndex)) {
+      return;
+    }
+    throw new IllegalStateException(
+        "elasticsearch.entityIndex.semanticSearch.enabled needs a semantic index to read: set"
+            + " elasticsearch.entityIndex.v2.enabled=true, or turn on Search V3"
+            + " (elasticsearch.entityIndex.v3.enabled=true, with V2 off or"
+            + " elasticsearch.entityIndex.v3.keywordReadEnabled=true)");
   }
 
   /**
    * Refuses semantic reads on a Search V3 cluster that would silently drop facet and View filters.
-   * See {@link #supportsV3SemanticFilters}. Only queries the cluster when the flag is on.
+   * See {@link #supportsV3SemanticFilters}. Only queries the cluster when semantic search reads V3.
    */
   public static void requireSupportedV3Engine(
       @Nullable EntityIndexConfiguration entityIndex, @Nonnull SearchClientShim<?> v3Client) {
@@ -476,15 +498,15 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     int[] majorMinor = majorMinor(version);
     if (majorMinor == null) {
       throw new IllegalStateException(
-          "elasticsearch.entityIndex.v3.semanticReadEnabled needs OpenSearch 3.5+ on the Search V3"
-              + " cluster, but its version could not be read (got '"
+          "Semantic search on the Search V3 index needs OpenSearch 3.5+ on the Search V3 cluster, but"
+              + " its version could not be read (got '"
               + version
-              + "'); grant the cluster:monitor/main permission or turn the flag off");
+              + "'); grant the cluster:monitor/main permission or keep semantic search on V2");
     }
     if (!atLeastOpenSearch35(majorMinor)) {
       throw new IllegalStateException(
-          "elasticsearch.entityIndex.v3.semanticReadEnabled needs OpenSearch 3.5+ or Elasticsearch"
-              + " 8.18+ on the Search V3 cluster, which runs OpenSearch "
+          "Semantic search on the Search V3 index needs OpenSearch 3.5+ or Elasticsearch 8.18+ on"
+              + " the Search V3 cluster, which runs OpenSearch "
               + version
               + ", where V3 semantic reads have not been validated");
     }

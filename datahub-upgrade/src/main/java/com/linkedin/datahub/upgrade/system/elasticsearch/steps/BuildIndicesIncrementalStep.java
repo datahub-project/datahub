@@ -13,6 +13,7 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.CassandraSearchLimitations;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
@@ -117,6 +118,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
+      if (!entityIndexFillAvailable) {
+        // Warn even when this run plans no fill, so the limit shows before a fill is needed.
+        log.warn(
+            "Incremental reindex is on without an aspect loader. {}",
+            CassandraSearchLimitations.ALL);
+      }
       try {
         List<ReindexConfig> allConfigs =
             getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties);

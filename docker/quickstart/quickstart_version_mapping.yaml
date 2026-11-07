@@ -5,9 +5,12 @@
 # Setup containers (elasticsearch-setup, mysql-setup, postgres-setup) were removed in v1.5.0 / head.
 # Pre-v1.5.0: when users pass e.g. --version v1.4.0, the CLI downloads the compose file from that
 # version's git tag, which still includes those setup containers. No code changes needed.
-# v1.5.0+ quickstart: compose uses system-update only; no separate setup containers. Default uses
-# compose from master (includes ZDU stage flags) with the v1.8.0 docker tag. `head` / `quickstart`
-# use master compose and the floating `quickstart` tag. Default must be v1.4.0.3+ for SqlSetup.
+# v1.5.0+ quickstart: compose uses system-update only; no separate setup containers. Default
+# (no --version) uses the v1.8.0 compose and docker tag, so it runs OpenSearch 2.19.3 on `osdata`.
+# OpenSearch 3 becomes the no-version default in a later release, once its compose and images are
+# published. `head` / `quickstart` use master compose and the floating `quickstart` tag, which
+# carries the Search V3 defaults and runs OpenSearch 3.7.
+# Default must be v1.4.0.3+ for SqlSetup.
 #
 # If --version is specified during CLI run:
 # - If the version exists in this file, the details will be used.
@@ -29,7 +32,7 @@
 quickstart_version_map:
   # The "default" key is mandatory and is used if no version is specified.
   default:
-    composefile_git_ref: master
+    composefile_git_ref: v1.8.0
     docker_tag: v1.8.0
     mysql_tag: "8.2"
   # default:  # Use this to pin default to a specific version.
@@ -46,15 +49,28 @@ quickstart_version_map:
     docker_tag: quickstart
     mysql_tag: "8.2"
 
-  # Remap minor release label to the latest patch (security + bugfixes).
+  # Release branch compose. The v1.9.0 image tag is not published yet.
+  v1.9.0:
+    composefile_git_ref: releases/v1.9.0
+    docker_tag: v1.9.0
+    mysql_tag: "8.2"
+
+  # Latest 1.8 release tag. releases/v1.8.0 has later backports and is not used here.
+  v1.8.0:
+    composefile_git_ref: v1.8.0
+    docker_tag: v1.8.0
+    mysql_tag: "8.2"
+
+  # Latest 1.7 patch. No newer non-rc tag.
   v1.7.0:
     composefile_git_ref: v1.7.0.1
     docker_tag: v1.7.0.1
     mysql_tag: "8.2"
 
+  # Latest 1.6 patch (security + bugfixes).
   v1.6.0:
-    composefile_git_ref: v1.6.0.2
-    docker_tag: v1.6.0.2
+    composefile_git_ref: v1.6.0.4
+    docker_tag: v1.6.0.4
     mysql_tag: "8.2"
 
   # Must be v1.4.0.3+ so datahub-upgrade runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true.

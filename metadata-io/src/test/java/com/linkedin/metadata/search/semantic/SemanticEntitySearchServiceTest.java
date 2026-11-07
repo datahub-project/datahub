@@ -498,11 +498,30 @@ public class SemanticEntitySearchServiceTest {
   @Test
   public void testShouldReadSemanticV3() {
     assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(null));
-    // V3 off: the flag alone never moves reads
     assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(false, true)));
-    // Dual-write without the flag stays on the V2 semantic indices
     assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(true, false)));
     assertTrue(SemanticEntitySearchService.shouldReadSemanticV3(entityIndex(true, true)));
+    EntityIndexConfiguration semanticOff = entityIndex(true, true);
+    semanticOff.getSemanticSearch().setEnabled(false);
+    assertFalse(SemanticEntitySearchService.shouldReadSemanticV3(semanticOff));
+  }
+
+  @Test
+  public void testRequireSemanticIndexTargetNeedsV2OrV3SemanticRead() {
+    SemanticEntitySearchService.requireSemanticIndexTarget(entityIndexWithV2(true, false, false));
+    SemanticEntitySearchService.requireSemanticIndexTarget(entityIndexWithV2(false, true, false));
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            SemanticEntitySearchService.requireSemanticIndexTarget(
+                entityIndexWithV2(false, false, false)));
+  }
+
+  private static EntityIndexConfiguration entityIndexWithV2(
+      boolean v2Enabled, boolean v3Enabled, boolean keywordReadEnabled) {
+    EntityIndexConfiguration config = entityIndex(v3Enabled, keywordReadEnabled);
+    config.getV2().setEnabled(v2Enabled);
+    return config;
   }
 
   @Test
@@ -529,7 +548,7 @@ public class SemanticEntitySearchServiceTest {
         entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.5.0"));
     SemanticEntitySearchService.requireSupportedV3Engine(
         entityIndex(true, true), shimFor(SearchEngineType.ELASTICSEARCH_9, "9.1.5"));
-    // Without the V3 semantic read flag OpenSearch 2 keeps serving semantic search from V2
+    // Keyword reads off, with V2 on, keeps semantic search on the V2 indices
     SemanticEntitySearchService.requireSupportedV3Engine(
         entityIndex(true, false), shimFor(SearchEngineType.OPENSEARCH_2, "2.19.3"));
   }
@@ -543,9 +562,8 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
-  public void testKeywordReadAloneKeepsSemanticSearchOnV2() throws IOException {
+  public void testKeywordReadOffKeepsSemanticSearchOnV2() throws IOException {
     EntityIndexConfiguration config = entityIndex(true, false);
-    config.getV3().setKeywordReadEnabled(true);
     SemanticEntitySearchService keywordCutOver = serviceWith(config);
     setupMockKnnResponse(
         List.of("urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)"), List.of(0.9));
@@ -803,9 +821,9 @@ public class SemanticEntitySearchServiceTest {
     return filter;
   }
 
-  /** V3 flags on top of V2 plus semantic search enabled for documents, like the OSS defaults. */
+  /** V3 on top of V2 plus semantic search enabled for documents. */
   private static EntityIndexConfiguration entityIndex(
-      boolean v3Enabled, boolean semanticReadEnabled) {
+      boolean v3Enabled, boolean keywordReadEnabled) {
     SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
     semanticSearch.setEnabled(true);
     semanticSearch.setEnabledEntities(Set.of("document"));
@@ -815,7 +833,7 @@ public class SemanticEntitySearchServiceTest {
         .v3(
             EntityIndexVersionConfiguration.builder()
                 .enabled(v3Enabled)
-                .semanticReadEnabled(semanticReadEnabled)
+                .keywordReadEnabled(keywordReadEnabled)
                 .build())
         .semanticSearch(semanticSearch)
         .build();

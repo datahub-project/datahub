@@ -1025,7 +1025,7 @@ elasticsearch:
 
   entityIndex:
     v2:
-      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:true}
+      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:true}
       coalesceBatchUpdates: ${ELASTICSEARCH_ENTITY_INDEX_V2_COALESCE_BATCH_UPDATES:false}
       # Document id hashing is V2-only: Search V3 always hashes and has no equivalent knob.
@@ -1036,14 +1036,11 @@ elasticsearch:
           hashIdEnabled: ${ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED:false}
       mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:}
     v3:
-      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
+      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:true}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
-      keywordReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED:false}
-      # Semantic (kNN) search reads document vectors from V3 indices instead of the V2 semantic
-      # indices. Independent of keywordReadEnabled; turn on once V3 holds the document embeddings.
-      semanticReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED:false}
+      keywordReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED:true}
       # Full-text keyword search reranks document rows with kNN scores from the V3 document index,
-      # keeping every other row where keyword search put it. Needs V3 keyword and semantic reads.
+      # keeping every other row where keyword search put it. Needs semantic search reading V3.
       hybridReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED:false}
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
@@ -1420,14 +1417,15 @@ elasticsearch:
       # Off keeps the attribute URN and does not read the attribute while indexing.
       businessAttributeExpansionEnabled: ${SEARCH_V3_BUSINESS_ATTRIBUTE_EXPANSION_ENABLED:false}
       templates:
-        enabled: ${SEARCH_V3_TEMPLATES_ENABLED:false}
+        enabled: ${SEARCH_V3_TEMPLATES_ENABLED:true}
         # Per-surface rollout. The flag above is the rollback to the Java V2.5 builder: false
         # serves no template, on every surface, whatever the settings below say. mode applies
         # when the flag is true and a surface is blank. off keeps that surface on the Java
         # builder. shadow (render-only) renders the template and does not execute it. active
         # (canary) serves it. percent is the active share, bucketed by actor and surface.
-        # The shipped flag stays false. Parity still records DSL differences, and the
-        # compatibility window has not elapsed, so templates are not the configured default.
+        # The shipped flag is true, with keyword read on, so templates rank keyword search.
+        # SEARCH_V3_TEMPLATES_ENABLED=false returns to the Java builder. Parity still records
+        # DSL differences, and that builder stays until the rollback is unused.
         rollout:
           mode: ${SEARCH_V3_TEMPLATES_ROLLOUT:active}
           percent: ${SEARCH_V3_TEMPLATES_ROLLOUT_PERCENT:100}

@@ -600,7 +600,7 @@ There are a few other quickstart\* variants, like quickstartDebugMin, quickstart
 quickstartPgDebug, quickstartOS2 / quickstartOS2Debug (OpenSearch 2.x pin),
 quickstartOS3 (OpenSearch 3.x, image-based / CI), and
 quickstartOS3Debug (OpenSearch 3.x, local bind-mounts). Unversioned `quickstart` /
-`quickstartDebug` follow the current default engine (OpenSearch 2.x today).
+`quickstartDebug` follow the current default engine (OpenSearch 3.x today).
 
 For each of those variants, there is a corresponding reloadTask.
 
