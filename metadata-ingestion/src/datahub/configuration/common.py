@@ -44,14 +44,26 @@ REDACT_KEYS = {
     # A connection string embeds credentials (e.g. an Azure ``AccountKey=...`` /
     # storage account master key) but matches none of the suffixes below.
     "connection_string",
+    # Kafka schema registry credentials, in "<api key>:<api secret>" form.
+    "basic.auth.user.info",
+    # librdkafka's inline PEM private key.
+    "ssl.key.pem",
 }
 REDACT_SUFFIXES = {
     "_password",
     "-password",
+    # Dotted client properties, e.g. Kafka's "sasl.password" or
+    # "sasl.oauthbearer.client.secret" in consumer_config / producer_config.
+    ".password",
     "_secret",
     "-secret",
+    ".secret",
     "_token",
     "-token",
+    ".token",
+    # Prefixed schema registry credentials, e.g. Kafka Connect's
+    # "value.converter.basic.auth.user.info".
+    ".basic.auth.user.info",
     "_key",
     "-key",
     "_key_id",
