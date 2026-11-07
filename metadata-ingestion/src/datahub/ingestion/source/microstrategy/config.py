@@ -176,7 +176,7 @@ class MicroStrategyConfig(
             "display -- instead of the folder's raw metadata name ('Reports'). "
             "Adds one cached API call per project. Disabling this keeps prior "
             "container URNs for environments that already ingested that folder "
-            "under its raw name; see docs/how/updating-datahub.md."
+            "under its raw name; see docs/how/breaking-changes.md."
         ),
     )
 
