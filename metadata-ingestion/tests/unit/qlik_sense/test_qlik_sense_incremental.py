@@ -592,3 +592,45 @@ def test_partial_read_without_last_read_is_not_recorded(
             failure.title for failure in run.reporter.failures
         ]
     assert not _soft_deleted_urns(second_wus)
+
+
+def test_skip_unchanged_apps_without_stateful_ingestion_is_ignored(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    _DataHub(mock_datahub_graph)
+
+    first, _ = _run(
+        mock_datahub_graph, qlik, "run-1", stateful_ingestion={"enabled": False}
+    )
+    second, _ = _run(
+        mock_datahub_graph, qlik, "run-2", stateful_ingestion={"enabled": False}
+    )
+
+    assert "skip_unchanged_apps is ignored" in [
+        warning.title for warning in first.reporter.warnings
+    ]
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert qlik.engine_opens == 2
+
+
+def test_run_with_ignore_new_state_records_no_checkpoint(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    _, first_wus = _run(
+        mock_datahub_graph,
+        qlik,
+        "run-1",
+        stateful_ingestion={
+            **CONFIG["stateful_ingestion"],  # type: ignore[dict-item]
+            "ignore_new_state": True,
+        },
+    )
+    datahub.write(first_wus)
+    second, _ = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert second.reporter.apps_skipped_unchanged == 0
+    assert qlik.engine_opens == 2
