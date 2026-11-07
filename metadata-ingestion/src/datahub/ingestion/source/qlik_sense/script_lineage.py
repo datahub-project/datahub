@@ -122,7 +122,9 @@ EXPRESSION_OPERATORS = {
 EXPRESSION_KEYWORDS = EXPRESSION_OPERATORS | {"all", "distinct", "nodistinct", "total"}
 # A field list item that is only a variable, as in LOAD $(vFields).
 WHOLE_VARIABLE_RE = re.compile(r"^\s*\$\([^()]*\)\s*$")
-VARIABLE_REFERENCE_ANY_RE = re.compile(r"\$\([^()]*\)")
+# A field named by a variable, as in amount AS $(vName), which LOAD_ALIAS_RE
+# does not read as a name.
+VARIABLE_ALIAS_RE = re.compile(r"\s+AS\s+\$\(", re.IGNORECASE)
 # Single-quoted text is a string literal in a chart expression, not a field.
 EXPRESSION_NAME_RE = re.compile(
     rf"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>{_BARE_FIELD_NAME})"
@@ -656,28 +658,36 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
             load.keeps_all = True
             continue
         alias = LOAD_ALIAS_RE.match(item)
-        # Only a variable standing for whole fields may hold any of the columns
-        # below. One inside an expression only changes that field's value.
-        if WHOLE_VARIABLE_RE.match(alias.group("expr") if alias else item):
+        field = None if alias else LOAD_FIELD_RE.match(item)
+        named = alias or field
+        name = (
+            named.group("bracket") or named.group("double") or named.group("bare")
+            if named
+            else None
+        )
+        # Only a variable standing for whole fields or naming a field may hold
+        # any of the columns below. One inside an expression only changes that
+        # field's value.
+        if (
+            WHOLE_VARIABLE_RE.match(alias.group("expr") if alias else item)
+            or (name is not None and "$(" in name)
+            or (name is None and VARIABLE_ALIAS_RE.search(item))
+        ):
             load.unreadable = True
-        if alias:
+            if name is not None and "$(" in name:
+                continue
+        if alias and name is not None:
             load.fields.append(
                 LoadField(
-                    name=alias.group("bracket")
-                    or alias.group("double")
-                    or alias.group("bare"),
+                    name=name,
                     sources=expression_names(
-                        VARIABLE_REFERENCE_ANY_RE.sub(" ", alias.group("expr")),
-                        keywords=EXPRESSION_OPERATORS,
+                        alias.group("expr"), keywords=EXPRESSION_OPERATORS
                     ),
                 )
             )
-            continue
-        field = LOAD_FIELD_RE.match(item)
         # Qlik names an unaliased expression after its text, which no chart
         # or SQL column would match.
-        if field:
-            name = _first_group(field)
+        elif field and name is not None:
             load.fields.append(LoadField(name=name, sources=[name]))
     return load
 
@@ -709,12 +719,37 @@ def apply_preceding_loads(
     return column_upstreams
 
 
+def _strip_expansions(expression: str) -> str:
+    """Drop $(...) expansions, which can nest parentheses as in $(=Max(Year))."""
+    kept: List[str] = []
+    position = 0
+    while (start := expression.find("$(", position)) != -1:
+        kept.append(expression[position:start])
+        depth = 1
+        position = start + 2
+        while position < len(expression) and depth:
+            depth += {"(": 1, ")": -1}.get(expression[position], 0)
+            position += 1
+        kept.append(" ")
+    kept.append(expression[position:])
+    return "".join(kept)
+
+
+def reads_unknown_fields(expression: str) -> bool:
+    """Whether a $(variable) expansion outside comments and set modifier values
+    may stand for fields the expression reads."""
+    return "$(" in strip_set_values(_strip_comments(expression, rem_comments=False))
+
+
 def expression_names(
     expression: str, keywords: AbstractSet[str] = EXPRESSION_KEYWORDS
 ) -> List[str]:
     """Names an expression may read as fields. Not every name is a field, so
     callers keep only names that are fields of the app."""
-    expression = strip_set_values(_strip_comments(expression, rem_comments=False))
+    # The fields behind an expansion are unknown, and its name is not a field.
+    expression = _strip_expansions(
+        strip_set_values(_strip_comments(expression, rem_comments=False))
+    )
     names: List[str] = []
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")

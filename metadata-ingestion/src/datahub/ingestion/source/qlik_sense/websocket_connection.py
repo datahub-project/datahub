@@ -277,12 +277,14 @@ class WebsocketConnection:
                 f"Unable to read the measures of chart {chart.qId} of sheet {sheet_id}. Exception: {e}"
             )
             chart.fields_complete = False
+            chart.fields_unread = True
             return
         measures = properties.get(Constant.QHYPERCUBEDEF, {}).get(
             Constant.QMEASURES, []
         )
         if len(measures) < len(chart.qMeasure):
             chart.fields_complete = False
+            chart.fields_unread = True
         for measure in measures:
             if measure.get(Constant.QLIBRARYID):
                 chart.measure_library_ids.append(measure[Constant.QLIBRARYID])
@@ -310,6 +312,7 @@ class WebsocketConnection:
         if not library_ids:
             return
         listed = self._get_master_measure_list(on_fallback)
+        unread: Set[str] = set()
         expressions = {
             library_id: expression
             for library_id, expression in (listed or {}).items()
@@ -341,12 +344,14 @@ class WebsocketConnection:
                     on_error(
                         f"Unable to read master measure {library_id}. Exception: {e}"
                     )
+                    unread.add(library_id)
         for chart in charts:
             for library_id in chart.measure_library_ids:
                 if library_id in expressions:
                     chart.field_expressions.append(expressions[library_id])
                 else:
                     chart.fields_complete = False
+                    chart.fields_unread = chart.fields_unread or library_id in unread
 
     def _get_master_measure_list(
         self, on_fallback: Callable[[str], None]

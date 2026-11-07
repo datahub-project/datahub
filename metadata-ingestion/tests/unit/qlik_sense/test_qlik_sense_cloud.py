@@ -240,6 +240,8 @@ def test_only_denied_load_script_keeps_app_complete(
 
     assert app.script is None
     assert app.script_read_failed is denied
+    # The tables the script would have added are unknown either way.
+    assert app.tables_read_failed
     assert app.read_complete is denied
 
 

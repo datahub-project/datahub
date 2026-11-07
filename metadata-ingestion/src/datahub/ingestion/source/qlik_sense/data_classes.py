@@ -186,6 +186,9 @@ class Chart(_QlikBaseModel):
     # Master measures keep their expression on the app rather than the chart.
     measure_library_ids: List[str] = []
     fields_complete: bool = True
+    # A measure could not be read this time, as opposed to one that no longer
+    # exists, so the input fields from the last read are kept.
+    fields_unread: bool = False
 
     @model_validator(mode="before")
     @classmethod
@@ -278,7 +281,8 @@ class App(Item):
     script: Optional[str] = None
     fingerprint: Optional[str] = None
     script_read_failed: bool = False
-    # Cloud data model tables could not be read, so chart inputs are unknown.
+    # The data model or the load script could not be read, so the app's tables,
+    # and with them the chart inputs, are unknown.
     tables_read_failed: bool = False
     # Engine reads of this app that failed, so its metadata is only partly read.
     read_errors: List[str] = []
