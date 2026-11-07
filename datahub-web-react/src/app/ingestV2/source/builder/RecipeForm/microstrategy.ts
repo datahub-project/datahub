@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import get from 'lodash/get';
 
 import {
@@ -379,10 +380,15 @@ export const MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS: RecipeField = {
 const extractDerivedMetricsFieldPath = 'source.config.extract_derived_metrics';
 export const MICROSTRATEGY_EXTRACT_DERIVED_METRICS: RecipeField = {
     name: 'extract_derived_metrics',
-    label: 'Extract Derived Metrics',
-    helper: 'Surface visualization-local derived metrics as schema fields',
-    tooltip:
-        'Whether to surface derived metrics (grid columns marked derived: true) as schema fields on the dataset backing their column group, tagged Derived. For a report-backed dataset the report definition is read, so report-level derived metrics carry their name and formula; this adds one or two API calls per distinct report-backed dataset. Requires Extract Lineage and Extract Visualization Details.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractDerivedMetrics.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractDerivedMetrics.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractDerivedMetrics.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: extractDerivedMetricsFieldPath,
     rules: null,
@@ -391,10 +397,15 @@ export const MICROSTRATEGY_EXTRACT_DERIVED_METRICS: RecipeField = {
 
 export const MICROSTRATEGY_EXTRACT_METRIC_FORMULA_LINEAGE: RecipeField = {
     name: 'extract_metric_formula_lineage',
-    label: 'Extract Metric Formula Lineage',
-    helper: 'Emit field-to-field lineage from metric formulas',
-    tooltip:
-        'Whether to parse metric-name references out of catalog metric expressions and emit field-to-field lineage from a metric to the sibling fields it references on the same dataset. Requires Extract Metric Expressions. Disabled by default.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractMetricFormulaLineage.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractMetricFormulaLineage.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.extractMetricFormulaLineage.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.extract_metric_formula_lineage',
     rules: null,
@@ -403,10 +414,15 @@ export const MICROSTRATEGY_EXTRACT_METRIC_FORMULA_LINEAGE: RecipeField = {
 const usePredefinedFolderNamesFieldPath = 'source.config.use_predefined_folder_names';
 export const MICROSTRATEGY_USE_PREDEFINED_FOLDER_NAMES: RecipeField = {
     name: 'use_predefined_folder_names',
-    label: 'Use Predefined Folder Names',
-    helper: 'Label the Shared Reports folder as Strategy Web does',
-    tooltip:
-        "Resolve the 'Shared Reports' predefined folder label via the MicroStrategy folders API and use it for browse-path matching, container identity, and display instead of the folder's raw metadata name ('Reports'). Disabling this keeps prior container URNs for environments that already ingested that folder under its raw name.",
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.usePredefinedFolderNames.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.usePredefinedFolderNames.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.usePredefinedFolderNames.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: usePredefinedFolderNamesFieldPath,
     rules: null,
@@ -415,10 +431,15 @@ export const MICROSTRATEGY_USE_PREDEFINED_FOLDER_NAMES: RecipeField = {
 
 export const MICROSTRATEGY_INCLUDE_PERSONAL_FOLDERS: RecipeField = {
     name: 'include_personal_folders',
-    label: 'Include Personal Folders',
-    helper: "Ingest content in users' personal folders",
-    tooltip:
-        "Whether to ingest each user's personal folders (My Reports, My Objects and similar, under the project's Profiles folder). Excluded by default: dashboards, documents and reports filed there are skipped.",
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.includePersonalFolders.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.includePersonalFolders.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.includePersonalFolders.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_personal_folders',
     rules: null,
@@ -429,27 +450,45 @@ const datasetFieldOrderAlphabetical = 'alphabetical';
 const datasetFieldOrderFieldPath = 'source.config.dataset_field_order';
 export const MICROSTRATEGY_DATASET_FIELD_ORDER: RecipeField = {
     name: 'dataset_field_order',
-    label: 'Dataset Field Order',
-    helper: 'Order of the schema fields on each dataset',
-    tooltip:
-        "Report order mirrors Strategy's Datasets panel: attributes first, then metrics, each sorted by display name. Alphabetical sorts every field by name, as earlier releases did.",
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.datasetFieldOrder.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.datasetFieldOrder.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.datasetFieldOrder.tooltip');
+    },
     type: FieldType.SELECT,
     fieldPath: datasetFieldOrderFieldPath,
     rules: null,
-    options: [
-        { label: 'Report order', value: datasetFieldOrderReport },
-        { label: 'Alphabetical', value: datasetFieldOrderAlphabetical },
-    ],
+    get options() {
+        return [
+            {
+                label: i18next.t('ingestion.sourceBuilder:microstrategy.datasetFieldOrder.report'),
+                value: datasetFieldOrderReport,
+            },
+            {
+                label: i18next.t('ingestion.sourceBuilder:microstrategy.datasetFieldOrder.alphabetical'),
+                value: datasetFieldOrderAlphabetical,
+            },
+        ];
+    },
     getValueFromRecipeOverride: (recipe: any) => get(recipe, datasetFieldOrderFieldPath) ?? datasetFieldOrderReport,
 };
 
 const emitDocumentDatasetEdgesFieldPath = 'source.config.emit_document_dataset_edges';
 export const MICROSTRATEGY_EMIT_DOCUMENT_DATASET_EDGES: RecipeField = {
     name: 'emit_document_dataset_edges',
-    label: 'Emit Document Dataset Edges',
-    helper: 'Link Report Services documents to their datasets',
-    tooltip:
-        "Whether to record a Report Services document's datasets as dashboard dataset edges. Documents expose no visualizations through the REST API, so without these edges a document has no lineage. Dossiers are governed by Emit Dashboard Dataset Edges.",
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.emitDocumentDatasetEdges.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.emitDocumentDatasetEdges.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.emitDocumentDatasetEdges.tooltip');
+    },
     type: FieldType.BOOLEAN,
     fieldPath: emitDocumentDatasetEdgesFieldPath,
     rules: null,
@@ -459,10 +498,15 @@ export const MICROSTRATEGY_EMIT_DOCUMENT_DATASET_EDGES: RecipeField = {
 const folderPathAllowFieldPath = 'source.config.folder_path_pattern.allow';
 export const MICROSTRATEGY_FOLDER_PATH_ALLOW: FilterRecipeField = {
     name: 'folder_path_pattern.allow',
-    label: 'Allow Folder Paths',
-    helper: 'Include content filed under specific folder paths',
-    tooltip:
-        'Only include dashboards, documents and reports filed under matching folder paths: the project name, then each folder down to the object, joined with /. Patterns match from the start of the path; end with (/|$) to stop similarly named sibling folders matching.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathAllow.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathAllow.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathAllow.tooltip');
+    },
     type: FieldType.LIST,
     rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
@@ -478,10 +522,15 @@ export const MICROSTRATEGY_FOLDER_PATH_ALLOW: FilterRecipeField = {
 const folderPathDenyFieldPath = 'source.config.folder_path_pattern.deny';
 export const MICROSTRATEGY_FOLDER_PATH_DENY: FilterRecipeField = {
     name: 'folder_path_pattern.deny',
-    label: 'Deny Folder Paths',
-    helper: 'Exclude content filed under specific folder paths',
-    tooltip:
-        'Exclude dashboards, documents and reports filed under matching folder paths. Unlike folder patterns, a denied path skips the objects themselves, not only their folder containers. Deny patterns always take precedence over Allow patterns.',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathDeny.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathDeny.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPathDeny.tooltip');
+    },
     type: FieldType.LIST,
     rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
