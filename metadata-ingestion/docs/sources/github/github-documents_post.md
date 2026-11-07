@@ -42,17 +42,47 @@ sink:
 
 #### Plain-body serialization
 
-GitHub files are imported as **plain markdown or text**. Document metadata (title, tags, ownership, etc.) lives in DataHub aspects and `customProperties` — not in YAML frontmatter or other file headers.
+Files are imported as **plain markdown or text**, except OKF concepts (below). Other document metadata lives in DataHub aspects and `customProperties`.
+
+#### OKF frontmatter
+
+A markdown file whose YAML frontmatter has a `type` key is an OKF concept, for example:
+
+```markdown
+---
+id: guide:mau
+type: Guide
+title: Monthly active users
+owners: [alice@example.com]
+tags: [metrics]
+glossary_terms: [Active User]
+audience: analysts
+---
+
+# Monthly active users
+```
+
+For these files the source:
+
+- imports the markdown after the frontmatter block as the document body;
+- stores the block in the `okfProperties` aspect: the original YAML verbatim, every key as JSON, the concept `id` and `type`, and the source file (repository, path, commit, blob SHA);
+- maps `title` to the document title, `type` to its subtype, and `owners`, `tags` and `glossary_terms` to ownership, tags and glossary terms. Other keys stay only in `okfProperties`.
+
+Mapped owners, tags and terms carry an attribution naming the file. A re-import adds the values the file lists and removes only values that the same file added earlier, so owners, tags and terms added in DataHub are kept. Removals need a graph connection; without one, values are only added.
+
+An owner is mapped when it is an email address, a URN, or a user that exists in DataHub. A glossary term is mapped when it is a URN or the name of exactly one term. A value that cannot be mapped stays in `okfProperties` and is counted as `okf_unresolved_values` in the report. Frontmatter that cannot be parsed is imported as plain text, with a warning.
+
+Set `enable_okf: false` to import every file as plain text.
 
 Each imported file document stores these `customProperties` keys:
 
-| Key                       | Purpose                                     |
-| ------------------------- | ------------------------------------------- |
-| `import_source_id`        | Stable external key for upserts             |
-| `content_hash`            | SHA-256 of raw file body (change detection) |
-| `extraction_algo_version` | Bump when hash algorithm changes            |
-| `github_blob_sha`         | Git blob SHA at last import                 |
-| `github_commit_sha`       | Branch HEAD at last import                  |
+| Key                       | Purpose                                      |
+| ------------------------- | -------------------------------------------- |
+| `import_source_id`        | Stable external key for upserts              |
+| `content_hash`            | SHA-256 of the whole file (change detection) |
+| `extraction_algo_version` | Bump when hash algorithm changes             |
+| `github_blob_sha`         | Git blob SHA at last import                  |
+| `github_commit_sha`       | Branch HEAD at last import                   |
 
 Cloud sync-back may additionally write `last_exported_content_hash` to prevent re-import loops after export.
 
