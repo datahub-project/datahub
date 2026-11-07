@@ -11,7 +11,6 @@ For V3-specific schema features:
 - Column defaults (`initial-default` and `write-default`) appear in the field description as `Field default value: <value>`. When both defaults are present and differ, the initial default is additionally noted as `Initial default value: <value>`.
 - Nanosecond-precision timestamps (`timestamp_ns`, `timestamptz_ns`) are mapped to timestamp fields, with the original Iceberg type preserved in the field's native data type. Profiled minimum and maximum values are rendered with microsecond precision.
 - `unknown` columns are mapped to strings, with the original type preserved in the field's native data type.
-- `variant` columns, including nested variants, are ingested as opaque bytes with `variant` preserved as the native data type. A metadata-only adapter works around [PyIceberg's missing variant type support](https://github.com/apache/iceberg-python/issues/1819); variant values are not decoded or profiled for minimum and maximum values.
 - Collection defaults (lists, maps, and structs) cannot be deserialized by PyIceberg 0.11.x.
 - Geospatial columns (`geometry` and `geography`) require a newer PyIceberg release and are not supported by the current 0.11.x dependency.
 
