@@ -1669,6 +1669,7 @@ module.exports = {
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
         "docs/developers/search-v3-design",
+        "gradle/wiring/README",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",
