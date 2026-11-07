@@ -24,10 +24,12 @@ export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: s
     }),
 );
 
-export const BaseTable = styled.table({
+// `$width` (e.g. 'max-content') lets the table grow wider than its container and scroll horizontally.
+export const BaseTable = styled.table<{ $width?: string }>(({ $width }) => ({
     borderCollapse: 'collapse',
-    width: '100%',
-});
+    width: $width || '100%',
+    ...($width ? { minWidth: '100%' } : {}),
+}));
 
 export const TableHeader = styled.thead(({ theme }) => ({
     backgroundColor: theme.colors.bgSurface,
@@ -141,3 +143,77 @@ export const CheckboxWrapper = styled.div({
     display: 'flex',
     alignItems: 'center',
 });
+
+export const HorizontalScrollContainer = styled(TableContainer)`
+    overflow-x: auto;
+`;
+
+export const FixedTableHeaderCell = styled(TableHeaderCell)<{ $left: string }>`
+    position: sticky;
+    left: ${({ $left }) => $left};
+    z-index: 2;
+    background-color: ${({ theme }) => theme.colors.bgSurface};
+`;
+
+// Sticky cells need an opaque background, so they mirror the row's hover/focus/group backgrounds.
+export const FixedTableCell = styled(TableCell)<{ $left: string; $isFocused?: boolean; $isGroupRow?: boolean }>`
+    position: sticky;
+    left: ${({ $left }) => $left};
+    z-index: 1;
+    background-color: ${({ theme, $isFocused, $isGroupRow }) => {
+        if ($isFocused) return theme.colors.bgSelectedSubtle;
+        if ($isGroupRow) return theme.colors.bgHover;
+        return theme.colors.bg;
+    }};
+
+    tr:hover > &,
+    .selected-row > & {
+        background-color: ${({ theme }) => theme.colors.bgHover};
+    }
+`;
+
+export const TreeCellContent = styled.div<{ $indent: number }>`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding-left: ${({ $indent }) => $indent}px;
+`;
+
+export const TreeExpandButton = styled.button`
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: ${({ theme }) => theme.colors.icon};
+    cursor: pointer;
+
+    &:hover {
+        background-color: ${({ theme }) => theme.colors.bgHover};
+    }
+`;
+
+export const TreeExpandSpacer = styled.span`
+    display: inline-block;
+    flex-shrink: 0;
+    width: 20px;
+`;
+
+export const EllipsisContent = styled.div`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+`;
+
+export const EmptyStateCell = styled.td`
+    padding: 24px 16px;
+    text-align: center;
+    color: ${({ theme }) => theme.colors.textSecondary};
+`;

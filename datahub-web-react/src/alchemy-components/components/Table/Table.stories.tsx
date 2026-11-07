@@ -402,3 +402,72 @@ export const WithRowSelection = () => {
         />
     );
 };
+
+// Tree data: rows with `children` render as nested, indented rows. Sorting applies at every level.
+export const WithTreeData = () => (
+    <Table
+        columns={[
+            {
+                title: 'Field',
+                key: 'name',
+                dataIndex: 'name',
+                width: '240px',
+                sorter: (a: any, b: any) => a.name.localeCompare(b.name),
+            },
+            { title: 'Type', key: 'type', dataIndex: 'type' },
+        ]}
+        data={[
+            {
+                path: 'customer',
+                name: 'customer',
+                type: 'struct',
+                children: [
+                    { path: 'customer.name', name: 'name', type: 'string' },
+                    {
+                        path: 'customer.address',
+                        name: 'address',
+                        type: 'struct',
+                        children: [{ path: 'customer.address.zip', name: 'zip', type: 'string' }],
+                    },
+                ],
+            },
+            { path: 'amount', name: 'amount', type: 'number' },
+        ]}
+        rowKey="path"
+        expandable={{ childrenColumnName: 'children', defaultExpandedRowKeys: ['customer'] }}
+    />
+);
+
+// First column stays pinned while the table scrolls horizontally; long text is truncated with a tooltip.
+export const WithFixedColumnAndEllipsis = () => (
+    <div style={{ width: '480px' }}>
+        <Table
+            scrollX="max-content"
+            columns={[
+                { title: 'Name', key: 'name', dataIndex: 'name', fixed: 'left', width: '140px' },
+                {
+                    title: 'Description',
+                    key: 'description',
+                    dataIndex: 'description',
+                    width: '220px',
+                    ellipsis: true,
+                },
+                { title: 'Owner', key: 'owner', dataIndex: 'owner', width: '200px' },
+                { title: 'Updated', key: 'updated', dataIndex: 'updated', width: '200px' },
+            ]}
+            data={[
+                {
+                    name: 'orders',
+                    description: 'Every order placed through the storefront, including cancelled orders',
+                    owner: 'Data Platform',
+                    updated: '2024-11-20',
+                },
+                { name: 'customers', description: 'Customer profiles', owner: 'Growth', updated: '2024-11-18' },
+            ]}
+        />
+    </div>
+);
+
+export const WithEmptyState = () => (
+    <Table columns={[{ title: 'Column 1', key: 'column1', dataIndex: 'column1' }]} data={[]} emptyState="No rows" />
+);
