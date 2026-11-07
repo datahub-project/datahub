@@ -92,6 +92,8 @@ DATABASE_RE = re.compile(
 SET_VALUES_START_RE = re.compile(r"[-+*/]?=\s*\{")
 # Further element lists combined with the first, as in Region={"A"}+{"B"}.
 SET_VALUES_NEXT_RE = re.compile(r"\s*[-+*/]\s*\{")
+# Interpretation functions such as Date#(OrderDate) end their name with #.
+FUNCTION_CALL_RE = re.compile(r"\s*#?\s*\(")
 # Operators and aggregation qualifiers, as in Sum(DISTINCT TOTAL Amount).
 EXPRESSION_KEYWORDS = {
     "all",
@@ -119,10 +121,16 @@ DRIVER_RE = re.compile(
     r"(?:^|[;\s\[\"'])(?:driver|provider)\s*=\s*(?P<value>\{[^}]*\}|[^;\]\"']*)",
     re.IGNORECASE,
 )
-CONNECTION_PROPERTY_RE = re.compile(r"(?P<key>[^;=]*)=(?P<value>\{[^}]*\}|[^;]*)")
-# Property lists nested in a value, such as Extended Properties="UID=a;PWD=b"
-# or a URL query string.
-NESTED_PROPERTY_RE = re.compile(r"(?P<key>[\w ]+)=[^;&\"'}\]]*")
+CONNECTION_PROPERTY_RE = re.compile(
+    r"(?P<key>[^;=]*)=(?P<value>\s*\{[^}]*\}|\s*\"[^\"]*\"|\s*'[^']*'|[^;]*)"
+)
+# A quoted or braced value can hold its own property list, such as
+# Extended Properties="UID=a;PWD=b".
+NESTED_VALUE_RE = re.compile(
+    r"\{(?P<braced>.*=.*)\}|\"(?P<double>.*=.*)\"|'(?P<single>.*=.*)'", re.DOTALL
+)
+# Parameters of a URL query string, such as ?token=abc&db=sales.
+URL_PARAMETER_RE = re.compile(r"(?P<key>[\w ]+)=[^;&\"'}\]]*&?")
 URL_USERINFO_RE = re.compile(r"(?<=://)[^/@\s;\"']+@")
 CREDENTIAL_KEYS = {
     "uid",
@@ -576,14 +584,11 @@ def expression_names(expression: str) -> List[str]:
     names: List[str] = []
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")
-        if (
-            bare
-            and (
-                bare.lower() in EXPRESSION_KEYWORDS
-                # A function call such as Year(OrderDate), even when an app field
-                # has the same name.
-                or expression[match.end() :].lstrip().startswith("(")
-            )
+        if bare and (
+            bare.lower() in EXPRESSION_KEYWORDS
+            # A function call such as Year(OrderDate), even when an app field
+            # has the same name.
+            or FUNCTION_CALL_RE.match(expression, match.end())
         ):
             continue
         name = match.group("bracket") or match.group("double") or bare
@@ -633,9 +638,15 @@ def _is_credential_key(key: str) -> bool:
     return key in CREDENTIAL_KEYS or any(part in key for part in CREDENTIAL_KEY_PARTS)
 
 
-def _redact_value(value: str) -> str:
+def _redact_value(value: str) -> Optional[str]:
+    """The value without credentials, None when nothing but credentials is left."""
+    stripped = value.strip()
+    nested = NESTED_VALUE_RE.fullmatch(stripped)
+    if nested:
+        inner = redact_connection(_first_group(nested))
+        return f"{stripped[0]}{inner}{stripped[-1]}" if inner else None
     value = URL_USERINFO_RE.sub("", value)
-    return NESTED_PROPERTY_RE.sub(
+    return URL_PARAMETER_RE.sub(
         lambda match: "" if _is_credential_key(match.group("key")) else match.group(0),
         value,
     )
@@ -644,11 +655,14 @@ def _redact_value(value: str) -> str:
 def redact_connection(connection: str) -> str:
     if not is_inline_connection(connection):
         return connection
-    return ";".join(
-        f"{match.group('key')}={_redact_value(match.group('value'))}".strip()
-        for match in CONNECTION_PROPERTY_RE.finditer(connection)
-        if not _is_credential_key(match.group("key"))
-    )
+    properties: List[str] = []
+    for match in CONNECTION_PROPERTY_RE.finditer(connection):
+        if _is_credential_key(match.group("key")):
+            continue
+        value = _redact_value(match.group("value"))
+        if value is not None:
+            properties.append(f"{match.group('key')}={value}".strip())
+    return ";".join(properties)
 
 
 def has_qualified_name(
