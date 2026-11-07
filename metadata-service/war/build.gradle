@@ -81,6 +81,9 @@ dependencies {
 
   testImplementation externalDependency.testng
   testImplementation externalDependency.archunit
+  // Bytecode data-flow analysis for ConstructorRatchetArchTest
+  testImplementation 'org.ow2.asm:asm-tree:9.10.1'
+  testImplementation 'org.ow2.asm:asm-analysis:9.10.1'
   testImplementation externalDependency.springBootTest
   testRuntimeOnly externalDependency.logbackClassic
 }
