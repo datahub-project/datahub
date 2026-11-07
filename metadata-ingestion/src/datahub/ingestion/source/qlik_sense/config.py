@@ -126,6 +126,8 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
+    # Apps read again because checking whether they changed failed.
+    apps_change_check_failed: LossyList[str] = field(default_factory=LossyList)
 
     def report_number_of_spaces(self, number_of_spaces: int) -> None:
         self.number_of_spaces = number_of_spaces

@@ -60,6 +60,8 @@ class QlikBaseAPI(ABC):
         self.failed_user_lookups: Dict[str, str] = {}
         # Spaces and items that failed to load, so the source can report them.
         self.unread_items: List[UnreadItem] = []
+        # Apps read again because checking whether they changed failed.
+        self.change_check_failures: List[str] = []
 
     def _record_failed_user_lookup(self, user_id: str, e: Exception) -> None:
         log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")

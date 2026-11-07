@@ -27,7 +27,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.filters import RemovedStatusFilter
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
@@ -134,6 +134,9 @@ from datahub.utilities.urns.urn import guess_entity_type
 # Logger instance
 logger = logging.getLogger(__name__)
 
+# Entities per DataHub request when checking that a skipped app's entities exist.
+ENTITY_CHECK_BATCH_SIZE = 100
+
 
 @platform_name("Qlik Sense")
 @config_class(QlikSourceConfig)
@@ -194,9 +197,15 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             config=self.config,
             pipeline_name=ctx.pipeline_name,
             run_id=ctx.run_id,
+            stale_job_id=self.stale_entity_removal_handler.job_id
+            if self.stale_entity_removal_handler
+            and self.stale_entity_removal_handler.is_checkpointing_enabled()
+            else None,
         )
         self._fingerprint_salt: Optional[str] = None
         self._change_check_failed = False
+        # Filled from worker threads, so only copied to the report at the end.
+        self._change_check_failures: List[str] = []
         if config.skips_unchanged_apps() and not self._skips_unchanged_apps():
             self.reporter.warning(
                 title="skip_unchanged_apps is ignored",
@@ -293,20 +302,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         container_urn = self._gen_app_key(app_id).as_urn()
         try:
             properties = graph.get_aspect(container_urn, ContainerPropertiesClass)
-            status = graph.get_aspect(container_urn, Status)
-            # Children stale entity removal deleted after they left Qlik are not
-            # in the checkpoint, so only a deleted child the app still produces
-            # needs a re-read.
-            previous_urns = set(previous.urns)
-            soft_deleted_child = any(
-                urn in previous_urns
-                for urn in graph.get_urns_by_filter(
-                    container=container_urn,
-                    status=RemovedStatusFilter.ONLY_SOFT_DELETED,
-                )
-            )
+            if (
+                properties is None
+                or (properties.customProperties or {}).get(Constant.FINGERPRINT)
+                != previous.fingerprint
+            ):
+                return False
+            return self._entities_present(graph, previous.urns)
         except Exception as e:
             logger.debug(f"Unable to read app container {container_urn}: {e}")
+            self._change_check_failures.append(
+                f"{app_id}: unable to read the app back from DataHub: {e}"
+            )
             if not self._change_check_failed:
                 self._change_check_failed = True
                 self.reporter.warning(
@@ -317,13 +324,27 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
             return False
-        return (
-            properties is not None
-            and (properties.customProperties or {}).get(Constant.FINGERPRINT)
-            == previous.fingerprint
-            and not (status is not None and status.removed)
-            and not soft_deleted_child
-        )
+
+    @staticmethod
+    def _entities_present(graph: DataHubGraph, urns: List[str]) -> bool:
+        """Whether every entity the app's last read produced is in DataHub and
+        not soft-deleted, which also catches entities the sink failed to write
+        and hard-deleted ones. Entities stale removal deleted after they left
+        Qlik are not in the checkpoint."""
+        by_type: Dict[str, List[str]] = {}
+        for urn in urns:
+            by_type.setdefault(guess_entity_type(urn), []).append(urn)
+        for entity_type, typed_urns in by_type.items():
+            for start in range(0, len(typed_urns), ENTITY_CHECK_BATCH_SIZE):
+                batch = typed_urns[start : start + ENTITY_CHECK_BATCH_SIZE]
+                entities = graph.get_entities(
+                    entity_type, batch, aspects=[Status.ASPECT_NAME]
+                )
+                for urn in batch:
+                    status = entities.get(urn, {}).get(Status.ASPECT_NAME)
+                    if status is None or getattr(status[0], "removed", True):
+                        return False
+        return True
 
     def _keep_previous_urns(self, app_id: str) -> List[str]:
         try:
@@ -358,12 +379,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         self.reporter.apps_skipped_unchanged += 1
 
-    def _has_previous_checkpoint(self, app_id: str) -> bool:
+    def _keep_partly_read_app(self, app: App) -> bool:
+        """Keeps what the app's last read produced instead of emitting a partial
+        read, which would overwrite its relationships. False when there is no
+        usable checkpoint to keep."""
         try:
-            return self.app_state.previous(app_id) is not None
+            previous = self.app_state.previous(app.id)
         except Exception as e:
-            logger.debug(f"Unable to load the last checkpoint of app {app_id}: {e}")
+            logger.debug(f"Unable to load the last checkpoint of app {app.id}: {e}")
+            self._change_check_failures.append(
+                f"{app.id}: unable to load the last checkpoint: {e}"
+            )
             return False
+        if previous is None:
+            return False
+        urns = self._keep_previous_urns(app.id)
+        # No fingerprint, so the next run reads the app again.
+        self.app_state.record(app.id, AppCheckpoint(fingerprint=None, urns=urns))
+        return True
 
     def _gen_recorded_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
         fingerprint = (
@@ -1186,18 +1219,25 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if isinstance(item, UnchangedApp):
             self._keep_unchanged_app(item)
         elif isinstance(item, App):
+            self.reporter.apps_read += 1
+            logger.info(
+                f"Processed app {item.qTitle} in space {space.name} "
+                f"({self.reporter.apps_read} apps read from the Engine)"
+            )
             if (
                 not item.read_complete
                 and skip_unchanged
-                and self._has_previous_checkpoint(item.id)
+                and self._keep_partly_read_app(item)
             ):
                 self.reporter.warning(
                     title="Unable to fully read Qlik app",
-                    message="Entities from the last full read of this app "
-                    "are kept, and it is read again on the next run.",
+                    message="Nothing from this read of the app is emitted. "
+                    "Entities from its last read are kept, and it is read again "
+                    "on the next run.",
                     context=self._read_errors_context(item),
                 )
-            elif not item.read_complete:
+                return
+            if not item.read_complete:
                 # Reporting a failure also stops stale entity removal from
                 # soft-deleting what this app's last full read produced.
                 self.reporter.failure(
@@ -1206,11 +1246,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     "app could not be read from the Engine.",
                     context=self._read_errors_context(item),
                 )
-            self.reporter.apps_read += 1
-            logger.info(
-                f"Processed app {item.qTitle} in space {space.name} "
-                f"({self.reporter.apps_read} apps read from the Engine)"
-            )
             if item.script_read_failed:
                 self.reporter.warning(
                     title="Unable to read Qlik app load script",
@@ -1258,6 +1293,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             for item in items:
                 yield from self._gen_item_workunits(item, allowed_space, skip_unchanged)
+        for failure in [
+            *self.qlik_api.change_check_failures,
+            *self._change_check_failures,
+        ]:
+            self.reporter.apps_change_check_failed.append(failure)
         failed_users = self.qlik_api.failed_user_lookups
         if failed_users:
             self.reporter.warning(
