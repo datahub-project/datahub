@@ -190,6 +190,10 @@ class MicroStrategyLineageExtractor:
                 self.dataset_urn(project_id, dashboard.id, dataset_by_id[dataset_id])
                 for dataset_id in bound_ids
             )
+        if visualization.datasets:
+            # The definition names its datasets but none is on the dashboard;
+            # guessing another one would be wrong lineage.
+            return []
 
         if len(dashboard.datasets) == 1:
             return [self.dataset_urn(project_id, dashboard.id, dashboard.datasets[0])]
@@ -991,23 +995,29 @@ def bind_visualization_column_sets(
     """Bind each column group of a compound-grid visualization to the dossier
     dataset backing it.
 
-    Live-verified shape for multi-cube compound grids: pages are named by time
-    window ("WTD"), datasets "<FAMILY> SALES <WINDOW>", and column groups by
-    family ("RETAIL"). Object ids discriminate the family but not the window
-    (the same plan metric lives in every window's cube), and group names don't
-    reliably substring-match dataset names ("TOTAL SALES" vs "COMBINED TOTALS WTD"),
-    so binding layers four signals: a page-name filter, name-token overlap,
-    non-derived member-id containment to narrow ambiguous name matches or
-    rescue nameless groups, and a final unique-leftover elimination that only
-    fires when the page's datasets correspond one-to-one with the groups.
+    In multi-cube compound grids, pages are often named by time window and
+    datasets by subject and window, while column groups are named by subject.
+    Object ids discriminate the subject but not the window (the same metric
+    lives in every window's cube), and group names don't reliably
+    substring-match dataset names, so binding combines a page-name filter,
+    name-token overlap and non-derived member-id containment. A group with no
+    unique match stays unbound.
 
     Column sets whose identifier is empty (no key, no name) or collides with a
     sibling's cannot be stored or looked up unambiguously, so they are reported
     as unbound rather than bound to a guess.
     """
     column_sets = list(visualization.column_sets)
-    if not column_sets or not dashboard.datasets:
+    if not column_sets:
         return ColumnSetBinding({}, [])
+    if not dashboard.datasets:
+        return ColumnSetBinding(
+            {},
+            [
+                column_set.identifier or f"<unnamed column set {index}>"
+                for index, column_set in enumerate(column_sets)
+            ],
+        )
 
     identifier_counts: Dict[str, int] = {}
     for column_set in column_sets:
@@ -1039,33 +1049,21 @@ def bind_visualization_column_sets(
             for dataset in page_candidates
             if member_ids and member_ids <= catalog_ids_by_dataset[dataset.id]
         ]
-        # Member ids are extracted best-effort, so a unique name match stands on
-        # its own; ids narrow ambiguous name matches and rescue nameless groups.
-        both_signals = [dataset for dataset in name_matches if dataset in id_matches]
-        candidates = both_signals or name_matches or id_matches
+        # When member ids are known they must agree with a name match, so a
+        # shared generic token ("SALES") cannot bind on its own; they also
+        # rescue groups whose name matches nothing.
+        if member_ids:
+            candidates = (
+                [dataset for dataset in name_matches if dataset in id_matches]
+                if name_matches
+                else id_matches
+            )
+        else:
+            candidates = name_matches
         if len(candidates) == 1:
             bindings[column_set.identifier] = candidates[0].id
         else:
             unbound.append(column_set)
-
-    # Elimination: when the page's datasets and the visualization's column
-    # groups correspond one-to-one and every other group bound uniquely, the
-    # leftover pair belong together even though neither name nor ids say so
-    # ("TOTAL SALES" group -> "COMBINED TOTALS WTD" dataset). Cardinality is
-    # checked against ALL column sets — an unbindable (identifier-less) group
-    # still occupies a dataset, so eliminating around it would bind wrongly.
-    if (
-        len(unbound) == 1
-        and not unbindable
-        and len(page_candidates) == len(column_sets)
-    ):
-        claimed = set(bindings.values())
-        remaining = [
-            dataset for dataset in page_candidates if dataset.id not in claimed
-        ]
-        if len(remaining) == 1:
-            bindings[unbound[0].identifier] = remaining[0].id
-            unbound = []
 
     return ColumnSetBinding(
         dataset_id_by_column_set=bindings,

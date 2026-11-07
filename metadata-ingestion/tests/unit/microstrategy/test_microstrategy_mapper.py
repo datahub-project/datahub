@@ -1298,8 +1298,7 @@ def test_metric_glossary_term_mapping_attaches_term_to_schema_field() -> None:
 
 def _compound_grid_definition() -> DashboardDefinition:
     """Single-page compound grid: two family datasets plus a combined one,
-    column groups named by family, one derived metric per group. The combined
-    group's name never matches its dataset, so it binds by elimination."""
+    column groups named by family, one derived metric per group."""
     return DashboardDefinition.from_api_response(
         object_id="dash-grid",
         object_name="Sales Overview",
@@ -1434,7 +1433,7 @@ def _compound_grid_definition() -> DashboardDefinition:
                                                         },
                                                         {
                                                             "key": "cs-total",
-                                                            "name": "TOTAL SALES",
+                                                            "name": "COMBINED",
                                                             "columns": [
                                                                 {
                                                                     "type": "templateMetrics",
@@ -1544,7 +1543,7 @@ def test_chart_input_fields_include_derived_metrics() -> None:
     assert {
         "STORE.Net Amount",
         "WEB.Net Amount",
-        "TOTAL SALES.Net Amount",
+        "COMBINED.Net Amount",
     } <= field_paths
 
     # The urn keeps the dataset's real (unqualified) field path so column
@@ -1565,7 +1564,7 @@ def test_chart_input_fields_include_derived_metrics() -> None:
     }
     groups = json.loads(column_groups["microstrategyColumnGroups"])
     assert groups["STORE"]["dataset"] == "STORE SALES WTD"
-    assert groups["TOTAL SALES"]["dataset"] == "COMBINED TOTALS WTD"
+    assert groups["COMBINED"]["dataset"] == "COMBINED TOTALS WTD"
     assert "Pct To Plan" in groups["WEB"]["metrics"]
 
 

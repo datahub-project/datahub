@@ -1160,7 +1160,7 @@ def _compound_grid_dashboard(pages: List[str]) -> DashboardDefinition:
                                 },
                                 # "TOTAL SALES" never token- or id-matches the
                                 # "COMBINED TOTALS" dataset (TOTAL is a stop
-                                # word); only leftover elimination binds it.
+                                # word), so it stays unbound.
                                 {
                                     "key": f"cs-total-{page.lower()}",
                                     "name": "TOTAL SALES",
@@ -1217,7 +1217,7 @@ def _compound_grid_dashboard(pages: List[str]) -> DashboardDefinition:
     )
 
 
-def test_bind_visualization_column_sets_by_page_name_ids_and_elimination() -> None:
+def test_bind_visualization_column_sets_by_page_name_and_ids() -> None:
     dashboard = _compound_grid_dashboard(["WTD", "MTD"])
     visualization = next(
         viz for viz in dashboard.visualizations if viz.key == "viz-wtd"
@@ -1225,17 +1225,14 @@ def test_bind_visualization_column_sets_by_page_name_ids_and_elimination() -> No
 
     binding = bind_visualization_column_sets(dashboard, visualization)
 
+    # The total group matches no dataset by name or ids, so it stays unbound
+    # even though one page dataset is left over.
     assert binding.dataset_id_by_column_set == {
         "cs-store-wtd": "ds-store-wtd",
         "cs-web-wtd": "ds-web-wtd",
-        "cs-total-wtd": "ds-combined-wtd",
     }
-    assert binding.unbound_column_sets == []
-    assert binding.dataset_ids == [
-        "ds-combined-wtd",
-        "ds-store-wtd",
-        "ds-web-wtd",
-    ]
+    assert binding.unbound_column_sets == ["cs-total-wtd"]
+    assert binding.dataset_ids == ["ds-store-wtd", "ds-web-wtd"]
 
 
 def test_bind_visualization_column_sets_ambiguous_group_stays_unbound() -> None:
@@ -1245,7 +1242,7 @@ def test_bind_visualization_column_sets_ambiguous_group_stays_unbound() -> None:
             "key": "viz-lone",
             "name": "Sales Summary",
             # No page context and a group name matching several datasets:
-            # ambiguous, and elimination cannot fire (6 datasets vs 1 group).
+            # ambiguous.
             "runtimeDefinition": {
                 "definition": {
                     "grid": {
@@ -1289,12 +1286,11 @@ def test_visualization_inputs_bound_by_column_sets() -> None:
     inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
 
     assert [urn.split(",")[1] for urn in inputs] == [
-        "project-1.dash-grid.ds-combined-wtd",
         "project-1.dash-grid.ds-store-wtd",
         "project-1.dash-grid.ds-web-wtd",
     ]
     assert extractor.report.visualizations_bound_by_column_sets == 1
-    assert extractor.report.column_sets_unbound == 0
+    assert extractor.report.column_sets_unbound == 1
 
 
 def test_metric_formula_references_parses_and_dedupes() -> None:
@@ -1303,6 +1299,38 @@ def test_metric_formula_references_parses_and_dedupes() -> None:
     ) == ["Net Amount", "Net Amount LY"]
     assert metric_formula_references("Sum(NET_AMT)") == []
     assert metric_formula_references("") == []
+
+
+def test_visualization_inputs_skip_unresolved_explicit_datasets() -> None:
+    # Named datasets that are not on the dashboard must not fall through to
+    # single-dataset or inferred binding.
+    extractor = _extractor()
+    dashboard = _inference_dashboard(["Sales"])
+    visualization = Visualization.model_validate(
+        {"key": "viz-1", "name": "Sales", "datasets": [{"id": "ds-missing"}]}
+    )
+
+    assert extractor.visualization_inputs("project-1", dashboard, visualization) == []
+
+
+def test_column_sets_without_dashboard_datasets_are_unbound() -> None:
+    dashboard = DashboardDefinition.from_api_response(
+        object_id="dash-1",
+        object_name="Empty",
+        response={"definition": {"datasets": []}},
+    )
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-1",
+            "runtimeDefinition": {
+                "definition": {"grid": {"columnSets": [{"key": "cs-1", "name": "A"}]}}
+            },
+        }
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.unbound_column_sets == ["cs-1"]
 
 
 def test_visualization_inputs_counts_unbound_column_sets() -> None:
@@ -1333,8 +1361,7 @@ def test_visualization_inputs_counts_unbound_column_sets() -> None:
                                     }
                                 ],
                             },
-                            # Matches nothing; elimination cannot fire because
-                            # the page has 3 datasets but only 2 groups exist.
+                            # Matches nothing.
                             {"key": "cs-zzz", "name": "ZZZ"},
                         ]
                     }
