@@ -299,7 +299,7 @@ class ClassificationHandler:
                         {
                             "Name": schema_field.fieldPath,
                             "Description": schema_field.description,
-                            "DataType": schema_field.nativeDataType,
+                            "Datatype": schema_field.nativeDataType,
                             "Dataset_Name": dataset_name,
                         }
                     ),
