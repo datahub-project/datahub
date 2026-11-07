@@ -20,6 +20,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.fabric.onelake.filter_names import (
     qualified_filter_name,
 )
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -27,6 +28,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 
 
 class ExtractSchemaConfig(ConfigModel):
@@ -212,6 +214,19 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    # No Filters marker: this pattern picks which ingested tables get profiled,
+    # not which tables are ingested, so the probe must not treat it as a table
+    # filter alongside table_pattern.
+    profile_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for tables and columns to profile. Matched against "
+            "`schema.table`, and against `schema.table.column` for column-level "
+            "metrics. Only tables allowed by `table_pattern` are considered. "
+            "Same behavior as the `mssql-odbc` `profile_pattern`."
+        ),
+    )
+
     # Feature flags. source.py _process_workspace_items and _process_lakehouse /
     # _process_warehouse never list a kind whose switch is off.
     extract_lakehouses: Annotated[
@@ -272,6 +287,19 @@ class FabricOneLakeSourceConfig(
             "Configuration for stateful ingestion and stale entity removal. "
             "When enabled, tracks ingested entities and removes those that "
             "no longer exist in Fabric."
+        ),
+    )
+
+    # Table and column profiling. Same options as the mssql-odbc SQL profiler.
+    profiling: ProfilingConfig = Field(
+        default_factory=ProfilingConfig,
+        description=(
+            "Table and column profiling, run through the SQL Analytics Endpoint "
+            "with the Microsoft ODBC Driver for SQL Server. Uses the same "
+            "profiler and options as the `mssql-odbc` source. Disabled by default. "
+            "Requires `sql_endpoint.enabled=True`. `profile_table_row_limit`, "
+            "`profile_table_size_limit` and `profile_if_updated_since_days` are "
+            "not enforced; use `profile_pattern` to exclude large tables."
         ),
     )
 
@@ -353,6 +381,8 @@ class FabricOneLakeSourceConfig(
             )
         if self.usage.include_usage_statistics:
             requiring_features.append("usage.include_usage_statistics=True")
+        if self.is_profiling_enabled():
+            requiring_features.append("profiling.enabled=True")
 
         if requiring_features:
             raise ValueError(
@@ -360,4 +390,20 @@ class FabricOneLakeSourceConfig(
                 f"the following are set: {', '.join(requiring_features)}. "
                 f"These features all query the SQL Analytics Endpoint."
             )
+        return self
+
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
+
+    @model_validator(mode="after")
+    def pass_profile_pattern_to_profiling(self):
+        """Column filters inside the SQL profiler read `profiling._allow_deny_patterns`.
+
+        Copied whether or not profiling is enabled: the copy is cheap, and the
+        profiler then never runs with the allow-all default in place of the
+        recipe's pattern.
+        """
+        self.profiling._allow_deny_patterns = self.profile_pattern
         return self

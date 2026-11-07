@@ -111,3 +111,4 @@ class FabricQueryInsightsRow:
     command: str
     login_name: Optional[str]
     row_count: Optional[int]
+    program_name: Optional[str] = None

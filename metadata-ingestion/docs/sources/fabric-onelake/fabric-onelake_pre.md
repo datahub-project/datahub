@@ -116,7 +116,7 @@ For detailed information on permissions, see:
 
 #### SQL Analytics Endpoint Setup
 
-Schema extraction via the SQL Analytics Endpoint requires ODBC drivers to be installed on the system.
+Schema extraction, view discovery, usage statistics, and profiling use the SQL Analytics Endpoint and require the Microsoft ODBC Driver for SQL Server. Profiling uses the same profiler as the `mssql-odbc` source.
 
 ##### 1. ODBC Driver Manager
 
