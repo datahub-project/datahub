@@ -1,5 +1,5 @@
-import { Modal } from '@components';
-import { Form, Typography } from 'antd';
+import { Modal, Text } from '@components';
+import { Form } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -8,9 +8,11 @@ import { Editor } from '@components/components/Editor';
 import { EditorProps } from '@components/components/Editor/types';
 import { ModalButton } from '@components/components/Modal/Modal';
 
-const FormLabel = styled(Typography.Text)`
-    font-size: 10px;
-    font-weight: bold;
+const FormLabel = styled(Text).attrs({ type: 'span' })`
+    && {
+        font-size: 10px;
+        font-weight: bold;
+    }
 `;
 
 const StyledViewer = styled(Editor)`

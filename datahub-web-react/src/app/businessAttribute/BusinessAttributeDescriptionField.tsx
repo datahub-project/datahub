@@ -1,6 +1,5 @@
 import { FetchResult } from '@apollo/client';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
-import { Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -9,7 +8,7 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
-import { Button } from '@src/alchemy-components';
+import { Button, Text, toast } from '@src/alchemy-components';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
@@ -70,7 +69,7 @@ const DescriptionContainer = styled.div`
         }
     }
 `;
-const EditedLabel = styled(Typography.Text)`
+const EditedLabel = styled(Text)`
     position: absolute;
     right: -10px;
     top: -15px;
@@ -117,19 +116,16 @@ export default function BusinessAttributeDescriptionField({
     };
 
     const onUpdateModal = async (desc: string | null) => {
-        message.loading({ content: tf('updating') });
+        toast.loading(tf('updating'));
         try {
             await onUpdate(desc || '');
-            message.destroy();
-            message.success({ content: tf('updated'), duration: 2 });
+            toast.destroy();
+            toast.success(tf('updated'), { duration: 2 });
             sendAnalytics();
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error)
-                message.error({
-                    content: t('fieldDescription.updateFailed', { message: e.message || '' }),
-                    duration: 2,
-                });
+                toast.error(t('fieldDescription.updateFailed', { message: e.message || '' }), { duration: 2 });
         }
         onCloseModal();
     };
@@ -157,7 +153,7 @@ export default function BusinessAttributeDescriptionField({
                     )}
                 </DescriptionWrapper>
             </>
-            {isEdited && <EditedLabel>{t('fieldDescription.edited')}</EditedLabel>}
+            {isEdited && <EditedLabel type="span">{t('fieldDescription.edited')}</EditedLabel>}
             {showAddModal && (
                 <div>
                     <UpdateDescriptionModal

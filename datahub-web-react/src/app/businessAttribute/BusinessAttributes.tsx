@@ -1,90 +1,51 @@
-import { Button, EmptyState, Heading, Pagination, Text, toast } from '@components';
+import { Button, EmptyState, PageTitle, Pagination, SearchBar, Table, toast } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { AlignType } from 'rc-table/lib/interface';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
 
 import BusinessAttributeItemMenu from '@app/businessAttribute/BusinessAttributeItemMenu';
 import CreateBusinessAttributeModal from '@app/businessAttribute/CreateBusinessAttributeModal';
 import useDescriptionRenderer from '@app/businessAttribute/utils/useDescriptionRenderer';
-import useTagsAndTermsRenderer from '@app/businessAttribute/utils/useTagsAndTermsRenderer';
 import { useUserContext } from '@app/context/useUserContext';
-import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
-import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/sharedV2/Message';
-import { scrollToTop } from '@app/sharedV2/searchUtils';
+import {
+    ButtonContainer,
+    HeaderContainer,
+    HeaderContent,
+    PageContainer,
+} from '@app/govern/structuredProperties/styledComponents';
+import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 
 import { useListBusinessAttributesQuery } from '@graphql/businessAttribute.generated';
-import { BusinessAttribute } from '@types';
-
-function BusinessAttributeListMenuColumn(handleDelete: () => void) {
-    return (record: BusinessAttribute) => (
-        <BusinessAttributeItemMenu title={record.properties?.name} urn={record.urn} onDelete={() => handleDelete()} />
-    );
-}
-
-const SourceContainer = styled.div`
-    width: 100%;
-    padding-top: 20px;
-    padding-right: 40px;
-    padding-left: 40px;
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
-`;
-
-const BusinessAttributesContainer = styled.div`
-    padding-top: 0px;
-`;
-
-// Alchemy's Heading does not forward className, so styled(Heading) cannot set the
-// title's spacing — the gap lives on the container instead.
-const BusinessAttributeHeaderContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-
-    && {
-        padding-left: 0px;
-    }
-`;
-
-const PaginationContainer = styled.div`
-    display: flex;
-    justify-content: center;
-`;
-
-const searchBarStyle = {
-    maxWidth: 220,
-    padding: 0,
-};
-
-const searchBarInputStyle = {
-    height: 32,
-    fontSize: 12,
-};
+import { BusinessAttribute, EntityType } from '@types';
 
 const DEFAULT_PAGE_SIZE = 10;
 
 export const BusinessAttributes = () => {
     const { t } = useTranslation('misc');
     const { t: tl } = useTranslation('common.labels');
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const [isCreatingBusinessAttribute, setIsCreatingBusinessAttribute] = useState(false);
     const entityRegistry = useEntityRegistry();
 
-    // Current User Urn
     const authenticatedUser = useUserContext();
-
     const canCreateBusinessAttributes = authenticatedUser?.platformPrivileges?.createBusinessAttributes;
+
     const [page, setPage] = useState(1);
-    const pageSize = DEFAULT_PAGE_SIZE;
-    const start = (page - 1) * pageSize;
-    const [query, setQuery] = useState<undefined | string>(undefined);
-    const [tagHoveredUrn, setTagHoveredUrn] = useState<string | undefined>(undefined);
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedQuery, setDebouncedQuery] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedQuery(searchQuery);
+            setPage(1);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     const {
         loading: businessAttributeLoading,
@@ -93,33 +54,12 @@ export const BusinessAttributes = () => {
         refetch: businessAttributeRefetch,
     } = useListBusinessAttributesQuery({
         variables: {
-            start,
+            start: (page - 1) * pageSize,
             count: pageSize,
-            query,
+            query: debouncedQuery || undefined,
         },
     });
     const descriptionRender = useDescriptionRenderer(businessAttributeRefetch);
-    const tagRenderer = useTagsAndTermsRenderer(
-        tagHoveredUrn,
-        setTagHoveredUrn,
-        {
-            showTags: true,
-            showTerms: false,
-        },
-        query || '',
-        businessAttributeRefetch,
-    );
-
-    const termRenderer = useTagsAndTermsRenderer(
-        tagHoveredUrn,
-        setTagHoveredUrn,
-        {
-            showTags: false,
-            showTerms: true,
-        },
-        query || '',
-        businessAttributeRefetch,
-    );
 
     useEffect(() => {
         if (businessAttributeError) {
@@ -133,128 +73,146 @@ export const BusinessAttributes = () => {
         [businessAttributeData],
     );
 
-    const onTagTermCell = (record: BusinessAttribute) => ({
-        onMouseEnter: () => {
-            setTagHoveredUrn(record.urn);
-        },
-        onMouseLeave: () => {
-            setTagHoveredUrn(undefined);
-        },
-    });
-
     const handleDelete = () => {
         setTimeout(() => {
             businessAttributeRefetch?.();
         }, 2000);
     };
-    const tableData = businessAttributes || [];
+
+    const refreshTagsAndTerms = () => businessAttributeRefetch();
+
     const tableColumns = [
         {
             width: '20%',
             title: tl('name'),
-            dataIndex: ['properties', 'name'],
             key: 'name',
-            render: (name: string, record: any) => (
-                <Link to={`${entityRegistry.getEntityUrl(record.type, record.urn)}`}>{name}</Link>
+            render: (record: BusinessAttribute) => (
+                <Link to={entityRegistry.getEntityUrl(EntityType.BusinessAttribute, record.urn)}>
+                    {record.properties?.name}
+                </Link>
             ),
         },
         {
-            title: tl('description'),
-            dataIndex: ['properties', 'description'],
-            key: 'description',
             width: '20%',
-            // render: (description: string) => description || '',
-            render: descriptionRender,
+            title: tl('description'),
+            key: 'description',
+            render: (record: BusinessAttribute) => descriptionRender(record.properties?.description || '', record),
         },
         {
             width: '20%',
             title: tl('tags'),
-            dataIndex: ['properties', 'tags'],
             key: 'tags',
-            render: tagRenderer,
-            onCell: onTagTermCell,
+            render: (record: BusinessAttribute) => (
+                <div data-testid={`schema-field-${record.properties?.name}-tags`}>
+                    <TagTermGroup
+                        editableTags={record.properties?.tags}
+                        canRemove
+                        canAddTag
+                        entityUrn={record.urn}
+                        entityType={EntityType.BusinessAttribute}
+                        highlightText={debouncedQuery}
+                        refetch={refreshTagsAndTerms}
+                        fontSize={12}
+                    />
+                </div>
+            ),
         },
         {
             width: '20%',
             title: t('businessAttribute.columnGlossaryTerms'),
-            dataIndex: ['properties', 'glossaryTags'],
-            key: 'glossaryTags',
-            render: termRenderer,
-            onCell: onTagTermCell,
+            key: 'glossaryTerms',
+            render: (record: BusinessAttribute) => (
+                <div data-testid={`schema-field-${record.properties?.name}-terms`}>
+                    <TagTermGroup
+                        editableGlossaryTerms={record.properties?.glossaryTerms}
+                        canRemove
+                        canAddTerm
+                        entityUrn={record.urn}
+                        entityType={EntityType.BusinessAttribute}
+                        highlightText={debouncedQuery}
+                        refetch={refreshTagsAndTerms}
+                        fontSize={12}
+                    />
+                </div>
+            ),
         },
         {
             width: '13%',
             title: t('businessAttribute.dataType'),
-            dataIndex: ['properties', 'businessAttributeDataType'],
             key: 'businessAttributeDataType',
-            render: (dataType: string) => dataType || '',
+            // listBusinessAttributes aliases `type` to `businessAttributeDataType`, which BusinessAttributeInfo lacks.
+            render: (record: BusinessAttribute) =>
+                (record.properties as { businessAttributeDataType?: string } | undefined)?.businessAttributeDataType ||
+                '',
         },
         {
-            title: '',
-            dataIndex: '',
             width: '5%',
-            align: 'right' as AlignType,
+            title: '',
             key: 'menu',
-            render: BusinessAttributeListMenuColumn(handleDelete),
+            alignment: 'right' as AlignmentOptions,
+            render: (record: BusinessAttribute) => (
+                <BusinessAttributeItemMenu title={record.properties?.name} urn={record.urn} onDelete={handleDelete} />
+            ),
         },
     ];
 
-    const onChangePage = (newPage: number) => {
-        scrollToTop();
-        setPage(newPage);
-    };
+    const showEmptyState = !businessAttributeLoading && businessAttributes.length === 0;
 
     return (
-        <SourceContainer>
-            {businessAttributeLoading && !businessAttributeData && (
-                <Message type="loading" content={t('businessAttribute.loading')} style={{ marginTop: '10%' }} />
-            )}
-            <BusinessAttributesContainer>
-                <BusinessAttributeHeaderContainer>
-                    <Heading type="h2">{t('businessAttribute.pageTitle')}</Heading>
-                    <Text color="textSecondary">{t('businessAttribute.pageSubtitle')}</Text>
-                </BusinessAttributeHeaderContainer>
-            </BusinessAttributesContainer>
-            <TabToolbar>
-                <Button
-                    variant="text"
-                    icon={{ icon: Plus }}
-                    onClick={() => setIsCreatingBusinessAttribute(true)}
-                    data-testid="add-business-attribute-button"
-                    disabled={!canCreateBusinessAttributes}
-                >
-                    {t('businessAttribute.createButton')}
-                </Button>
-                <SearchBar
-                    initialQuery=""
-                    placeholderText={t('businessAttribute.searchPlaceholder')}
-                    suggestions={[]}
-                    style={searchBarStyle}
-                    inputStyle={searchBarInputStyle}
-                    onSearch={() => null}
-                    onQueryChange={(q) => setQuery(q.length > 0 ? q : undefined)}
-                    entityRegistry={entityRegistry}
-                />
-            </TabToolbar>
-            <StyledTable
-                columns={tableColumns}
-                dataSource={tableData}
-                rowKey="urn"
-                locale={{
-                    emptyText: <EmptyState title={t('businessAttribute.empty')} size="sm" />,
-                }}
-                pagination={false}
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
+            <HeaderContainer>
+                <HeaderContent>
+                    <PageTitle
+                        title={t('businessAttribute.pageTitle')}
+                        subTitle={t('businessAttribute.pageSubtitle')}
+                    />
+                </HeaderContent>
+                <ButtonContainer>
+                    <Button
+                        size="md"
+                        color="primary"
+                        icon={{ icon: Plus }}
+                        onClick={() => setIsCreatingBusinessAttribute(true)}
+                        data-testid="add-business-attribute-button"
+                        disabled={!canCreateBusinessAttributes}
+                    >
+                        {t('businessAttribute.createButton')}
+                    </Button>
+                </ButtonContainer>
+            </HeaderContainer>
+            <SearchBar
+                placeholder={t('businessAttribute.searchPlaceholder')}
+                value={searchQuery}
+                onChange={setSearchQuery}
+                width="280px"
             />
-            <PaginationContainer>
-                <Pagination
-                    currentPage={page}
-                    itemsPerPage={pageSize}
-                    total={totalBusinessAttributes}
-                    showLessItems
-                    onPageChange={onChangePage}
-                    showSizeChanger={false}
-                />
-            </PaginationContainer>
+            {showEmptyState ? (
+                <EmptyState title={t('businessAttribute.empty')} />
+            ) : (
+                <>
+                    <Table
+                        columns={tableColumns}
+                        data={businessAttributes}
+                        rowKey="urn"
+                        isLoading={businessAttributeLoading && !businessAttributeData}
+                        isScrollable
+                    />
+                    <Pagination
+                        currentPage={page}
+                        itemsPerPage={pageSize}
+                        total={totalBusinessAttributes}
+                        loading={businessAttributeLoading}
+                        onPageChange={(newPage, newPageSize) => {
+                            if (newPageSize !== pageSize) {
+                                setPage(1);
+                                setPageSize(newPageSize);
+                            } else {
+                                setPage(newPage);
+                            }
+                        }}
+                    />
+                </>
+            )}
             <CreateBusinessAttributeModal
                 open={isCreatingBusinessAttribute}
                 onClose={() => setIsCreatingBusinessAttribute(false)}
@@ -262,6 +220,6 @@ export const BusinessAttributes = () => {
                     businessAttributeRefetch?.();
                 }}
             />
-        </SourceContainer>
+        </PageContainer>
     );
 };

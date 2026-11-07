@@ -1,6 +1,6 @@
-import { Text } from '@components';
+import { Button, CollapsiblePanel, Modal, Text, toast } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
-import { Button, Collapse, Form, Input, Modal, Select, Typography, message } from 'antd';
+import { Form, Input, Select } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -49,7 +49,15 @@ const OptionalWrapper = styled.span`
 `;
 
 const StyledButton = styled(Button)`
-    padding: 0;
+    && {
+        padding: 0;
+    }
+`;
+
+const HelpText = styled(Text)`
+    && {
+        margin-bottom: 1em;
+    }
 `;
 
 // Ensures that any newly added datatype is automatically included in the user dropdown.
@@ -91,29 +99,26 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
         };
         createBusinessAttribute({ variables: { input } })
             .then(() => {
-                message.loading({ content: tf('updating'), duration: 2 });
+                toast.loading(tf('updating'), { duration: 2 });
                 setTimeout(() => {
                     analytics.event({
                         type: EventType.CreateBusinessAttributeEvent,
                         name,
                     });
-                    message.success({
-                        content: t('businessAttribute.createSuccess', {
+                    toast.success(
+                        t('businessAttribute.createSuccess', {
                             entityName: entityRegistry.getEntityName(EntityType.BusinessAttribute),
                         }),
-                        duration: 2,
-                    });
+                        { duration: 2 },
+                    );
                     if (onCreateBusinessAttribute) {
                         onCreateBusinessAttribute();
                     }
                 }, 2000);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('businessAttribute.createError', { error: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('businessAttribute.createError', { error: e.message || '' }), { duration: 3 });
             });
         onModalClose();
         setDocumentation('');
@@ -135,25 +140,22 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                 title={t('businessAttribute.createModalTitle')}
                 open={open}
                 onCancel={onModalClose}
-                footer={
-                    <>
-                        <Button
-                            onClick={onModalClose}
-                            type="text"
-                            data-testid="cancel-create-business-attribute-button"
-                        >
-                            {tc('cancel')}
-                        </Button>
-                        <Button
-                            id="createBusinessAttributeButton"
-                            onClick={onCreateNewBusinessAttribute}
-                            disabled={createButtonEnabled}
-                            data-testid="create-business-attribute-button"
-                        >
-                            {tc('create')}
-                        </Button>
-                    </>
-                }
+                buttons={[
+                    {
+                        text: tc('cancel'),
+                        variant: 'text',
+                        onClick: onModalClose,
+                        buttonDataTestId: 'cancel-create-business-attribute-button',
+                    },
+                    {
+                        text: tc('create'),
+                        variant: 'filled',
+                        id: 'createBusinessAttributeButton',
+                        onClick: onCreateNewBusinessAttribute,
+                        disabled: createButtonEnabled,
+                        buttonDataTestId: 'create-business-attribute-button',
+                    },
+                ]}
             >
                 <Form
                     form={form}
@@ -163,7 +165,13 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                         setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
                     }
                 >
-                    <Form.Item label={<Typography.Text strong>{tl('name')}</Typography.Text>}>
+                    <Form.Item
+                        label={
+                            <Text type="span" weight="semiBold">
+                                {tl('name')}
+                            </Text>
+                        }
+                    >
                         <Form.Item
                             name="name"
                             rules={[
@@ -183,7 +191,13 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                         </Form.Item>
                     </Form.Item>
                     <DataTypeSelectContainer>
-                        <Form.Item label={<Typography.Text strong>{t('businessAttribute.dataType')}</Typography.Text>}>
+                        <Form.Item
+                            label={
+                                <Text type="span" weight="semiBold">
+                                    {t('businessAttribute.dataType')}
+                                </Text>
+                            }
+                        >
                             <Form.Item
                                 rules={[
                                     {
@@ -207,16 +221,16 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                     </DataTypeSelectContainer>
                     <StyledItem
                         label={
-                            <Typography.Text strong>
+                            <Text type="span" weight="semiBold">
                                 <Trans
                                     t={t}
                                     i18nKey="businessAttribute.documentationOptionalLabel"
                                     components={{ optional: <OptionalWrapper /> }}
                                 />
-                            </Typography.Text>
+                            </Text>
                         }
                     >
-                        <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
+                        <StyledButton variant="link" onClick={() => setIsDocumentationModalVisible(true)}>
                             <PencilSimple />
                             {documentation
                                 ? t('businessAttribute.editDocumentation')
@@ -231,46 +245,43 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                             />
                         )}
                     </StyledItem>
-                    <Collapse ghost>
-                        <Collapse.Panel
-                            header={
-                                <Text type="span" color="textSecondary">
-                                    {t('businessAttribute.advancedSection')}
+                    <CollapsiblePanel
+                        header={
+                            <Text type="span" color="textSecondary">
+                                {t('businessAttribute.advancedSection')}
+                            </Text>
+                        }
+                    >
+                        <Form.Item
+                            label={
+                                <Text type="span" weight="semiBold">
+                                    {t('businessAttribute.entityIdLabel', {
+                                        entityName: entityRegistry.getEntityName(EntityType.BusinessAttribute),
+                                    })}
                                 </Text>
                             }
-                            key="1"
                         >
+                            <HelpText>{t('businessAttribute.customIdHelp')}</HelpText>
                             <Form.Item
-                                label={
-                                    <Typography.Text strong>
-                                        {t('businessAttribute.entityIdLabel', {
-                                            entityName: entityRegistry.getEntityName(EntityType.BusinessAttribute),
-                                        })}
-                                    </Typography.Text>
-                                }
+                                name="id"
+                                rules={[
+                                    () => ({
+                                        validator(_, value) {
+                                            if (value && validateCustomUrnId(value)) {
+                                                return Promise.resolve();
+                                            }
+                                            return Promise.reject(new Error(t('businessAttribute.invalidIdError')));
+                                        },
+                                    }),
+                                ]}
                             >
-                                <Typography.Paragraph>{t('businessAttribute.customIdHelp')}</Typography.Paragraph>
-                                <Form.Item
-                                    name="id"
-                                    rules={[
-                                        () => ({
-                                            validator(_, value) {
-                                                if (value && validateCustomUrnId(value)) {
-                                                    return Promise.resolve();
-                                                }
-                                                return Promise.reject(new Error(t('businessAttribute.invalidIdError')));
-                                            },
-                                        }),
-                                    ]}
-                                >
-                                    <Input
-                                        placeholder={t('businessAttribute.customIdPlaceholder')}
-                                        onChange={(event) => setStagedId(event.target.value)}
-                                    />
-                                </Form.Item>
+                                <Input
+                                    placeholder={t('businessAttribute.customIdPlaceholder')}
+                                    onChange={(event) => setStagedId(event.target.value)}
+                                />
                             </Form.Item>
-                        </Collapse.Panel>
-                    </Collapse>
+                        </Form.Item>
+                    </CollapsiblePanel>
                 </Form>
             </Modal>
         </>

@@ -1,7 +1,6 @@
-import { Empty, Form, Select, message } from 'antd';
+import { Form, Select } from 'antd';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from 'styled-components';
 
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
@@ -14,7 +13,7 @@ import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { BrowserWrapper } from '@app/sharedV2/tags/BrowserWrapper';
 import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal } from '@src/alchemy-components';
+import { EmptyState, Modal, toast } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { getModalDomContainer } from '@src/utils/focus';
 
@@ -40,7 +39,6 @@ type SelectedDomain = {
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
     const { t: tc } = useTranslation('common.actions');
-    const themeConfig = useTheme();
     const { reloadByKeyType } = useReloadableContext();
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityContext();
@@ -152,7 +150,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: t('sidebar.domain.updatedSuccess'), duration: 2 });
+                    toast.success(t('sidebar.domain.updatedSuccess'), { duration: 2 });
                     refetch?.();
                     sendAnalytics();
                     onModalClose();
@@ -178,13 +176,12 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, {
-                        content: t('sidebar.domain.addFailed', { message: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy();
+                const batchError = handleBatchError(urns, e, {
+                    content: t('sidebar.domain.addFailed', { message: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(batchError.content, { duration: batchError.duration });
             });
     };
 
@@ -248,13 +245,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             onBlur={handleBlur}
                             onFocus={() => setIsFocusedOnInput(true)}
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
-                            notFoundContent={
-                                <Empty
-                                    description={t('sidebar.domain.emptyText')}
-                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                    style={{ color: themeConfig.colors.textTertiary }}
-                                />
-                            }
+                            notFoundContent={<EmptyState title={t('sidebar.domain.emptyText')} size="sm" />}
                             options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
                             data-testid="set-domain-select"
                         />
