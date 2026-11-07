@@ -21,7 +21,7 @@ def test_github_documents_ingest(pytestconfig: pytest.Config, tmp_path: Path) ->
     resources = Path(__file__).parent
     fixtures = resources / "fixtures"
     files: List[GitHubFileInfo] = []
-    for path in sorted((fixtures / "guides").glob("*.md")):
+    for path in sorted(fixtures.rglob("*.md")):
         contents = path.read_bytes()
         blob = f"blob {len(contents)}\0".encode() + contents
         files.append(
@@ -44,6 +44,9 @@ def test_github_documents_ingest(pytestconfig: pytest.Config, tmp_path: Path) ->
     ) as client_class:
         client = client_class.return_value
         client.list_matching_files.return_value = (files, False)
+        client.index_file_paths = {
+            file.path for file in files if file.path.endswith("index.md")
+        }
         client.get_latest_commit_sha.return_value = "a" * 40
         client.fetch_file_content.side_effect = fetch_file
         pipeline = Pipeline.create(
@@ -68,7 +71,7 @@ def test_github_documents_ingest(pytestconfig: pytest.Config, tmp_path: Path) ->
 
     assert isinstance(pipeline.source, GitHubDocumentsSource)
     report = pipeline.source.get_report()
-    assert report.files_processed == 4
+    assert report.files_processed == 6
     assert report.okf_files_processed == 1
     assert report.okf_parse_errors == 1
     assert report.okf_unresolved_values == 0

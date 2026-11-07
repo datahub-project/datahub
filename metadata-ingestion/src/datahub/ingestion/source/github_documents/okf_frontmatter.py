@@ -53,7 +53,7 @@ def _validate_json_keys(value: object) -> None:
             _validate_json_keys(child)
 
 
-def parse_okf_frontmatter(
+def parse_frontmatter(
     content: str, *, path: str, report: GitHubDocumentsSourceReport
 ) -> Optional[OkfFrontmatter]:
     lines = content.splitlines(keepends=True)
@@ -67,7 +67,7 @@ def parse_okf_frontmatter(
             if lines[index].rstrip("\r\n") == FRONTMATTER_DELIMITER
         )
         values: object = yaml.load("".join(lines[1:end]), Loader=_FrontmatterLoader)
-        if not isinstance(values, dict) or "type" not in values:
+        if not isinstance(values, dict):
             return None
         _validate_json_keys(values)
         serialized = json.dumps(values, ensure_ascii=False, allow_nan=False)
@@ -95,3 +95,10 @@ def parse_okf_frontmatter(
             exc=exc,
         )
         return None
+
+
+def parse_okf_frontmatter(
+    content: str, *, path: str, report: GitHubDocumentsSourceReport
+) -> Optional[OkfFrontmatter]:
+    frontmatter = parse_frontmatter(content, path=path, report=report)
+    return frontmatter if frontmatter and "type" in frontmatter.values else None

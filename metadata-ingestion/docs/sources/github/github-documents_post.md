@@ -7,7 +7,7 @@ source:
   type: github-documents
   config:
     github_token: "${GITHUB_TOKEN}"
-    repository: acme/handbook
+    repository: example-org/analytics
     branch: main
     path_prefix: docs
     parent_document_urn: "urn:li:document:context-handbook"
@@ -29,7 +29,7 @@ source:
   type: github-documents
   config:
     github_token: "${GITHUB_TOKEN}"
-    repository: https://github.com/acme/handbook
+    repository: https://github.com/example-org/analytics
     document_import_mode: EXTERNAL
     stateful_ingestion:
       enabled: true
@@ -44,9 +44,38 @@ sink:
 
 Files are imported as **plain markdown or text**, except OKF concepts (below). Other document metadata lives in DataHub aspects and `customProperties`.
 
-#### OKF frontmatter
+#### Open Knowledge Format bundles
 
-A markdown file whose YAML frontmatter has a `type` key is an OKF concept, for example:
+You can import [Open Knowledge Format (OKF) 0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md) concepts alongside ordinary documentation. A concept must be a Markdown file inside an OKF bundle and have a `type` key in its YAML frontmatter. A `type` key alone does not enable OKF handling for a Hugo page or another document outside a bundle.
+
+The source discovers bundle roots from `index.md` files whose frontmatter contains `okf_version`:
+
+```markdown
+---
+okf_version: "0.2"
+---
+
+# Analytics knowledge bundle
+
+- [Monthly active users](guides/mau.md)
+```
+
+An index may define a bundle at the repository root or in a subdirectory, such as `context/index.md`. If bundles nest, the deepest enclosing root determines each concept's identity and version. The source checks ancestor indexes from the existing GitHub tree, even when they sit above `path_prefix`. It fetches each needed index once per run.
+
+For bundles without a versioned index, declare roots in your ingestion recipe:
+
+```yaml
+source:
+  type: github-documents
+  config:
+    github_token: "${GITHUB_TOKEN}"
+    repository: example-org/analytics
+    okf_bundle_roots: [context]
+```
+
+Use `okf_bundle_roots: [""]` for a repository-root bundle. Roots must be repository-relative POSIX paths. Explicit roots supplement discovered roots. A bundle without a declared version has no typed `okfVersion`. Unknown version strings are preserved and consumed on a best-effort basis.
+
+A concept at `context/guides/mau.md` can contain:
 
 ```markdown
 ---
@@ -56,23 +85,35 @@ title: Monthly active users
 owners: [alice@example.com]
 tags: [metrics]
 glossary_terms: [Active User]
+status: stable
+stale_after: 2026-09-23T00:00:00Z
+generated: { by: reference_agent/model, at: 2026-06-20T22:53:05Z }
+verified: { by: human:alice, at: 2026-06-25T09:00:00Z }
 audience: analysts
 ---
 
 # Monthly active users
 ```
 
-For these files the source:
+With `context/` as its bundle root, this file has `conceptId: guides/mau`. The identity is scoped to `bundle.repo` and `bundle.rootPath`. The optional producer extension `id: guide:mau` becomes `declaredId`. Resolve a declared ID within its bundle, rather than treating it as a global identifier. Only the bundle-root index's `okf_version` supplies `bundle.okfVersion`. Concept-level version keys remain extensions in frontmatter JSON.
 
-- imports the markdown after the frontmatter block as the document body;
-- stores the block in the `okfProperties` aspect: the original YAML verbatim, every key as JSON, the concept `id` and `type`, and the source file (repository, path, commit, blob SHA);
-- maps `title` to the document title, `type` to its subtype, and `owners`, `tags` and `glossary_terms` to ownership, tags and glossary terms. Other keys stay only in `okfProperties`.
+For each concept the source:
 
-Mapped owners, tags and terms carry an attribution naming the file. A re-import adds the values the file lists and removes only values that the same file added earlier, so owners, tags and terms added in DataHub are kept. Removals need a graph connection; without one, values are only added.
+- imports the text after the frontmatter block as the document body;
+- stores the original YAML block in `okfProperties.raw`, the canonical representation for write-back, and derives `frontmatter` JSON containing every key from it;
+- records bundle identity, path-based `conceptId`, optional `declaredId`, type, description, and file provenance (repository, path, branch/ref, commit, and blob SHA);
+- maps `title` to the document title, `type` to its subtype, and `owners`, `tags`, and `glossary_terms` to native associations;
+- stores `status`, `staleAfter`, `generated`, and `verified` as OKF metadata only. These fields do not change the document's native status, owners, or permissions.
 
-An owner is mapped when it is an email address, a URN, or a user that exists in DataHub. A glossary term is mapped when it is a URN or the name of exactly one term. A value that cannot be mapped stays in `okfProperties` and is counted as `okf_unresolved_values` in the report. Frontmatter that cannot be parsed is imported as plain text, with a warning.
+Status strings are kept as written, including unknown values. An omitted status remains unset in the aspect. OKF consumers can apply the spec's implicit `stable` default. Timestamps require ISO 8601 datetimes with an explicit offset and are stored as epoch milliseconds. An invalid timestamp produces a warning and leaves the typed timestamp null. Its original value stays in JSON and YAML. `generated.by` and `verified[].by` retain the producer's actor strings. A single `verified` object is normalized to a one-element list.
 
-Set `enable_okf: false` to import every file as plain text.
+`index.md` and `log.md` are reserved at every level inside a bundle. They remain imported documents and receive no concept aspect or native OKF mapping, even if they contain `type`. A bundle-root `index.md` has its valid frontmatter block removed from the body. Other index files and log files retain their full text. Files outside bundles, non-Markdown files, and files without `type` retain their original text. Malformed concept frontmatter is also imported verbatim with a warning.
+
+Mapped owners, tags, and terms carry attribution naming the repository and file. Re-import adds listed values and removes only values with matching `origin: okf`, repository, and path. DataHub-added associations and values attributed to another repository are preserved. Removals require a graph connection. Without one, or when a key has unresolved values, reconciliation for that key is add-only.
+
+An owner maps when it is an email address, a URN, or a user that exists in DataHub. Tag names map directly to tag URNs without an existence check. A glossary term maps when it is a URN or the name of exactly one catalog term. Values that cannot be mapped remain in frontmatter and increment `okf_unresolved_values`. Invalid typed OKF values increment `okf_invalid_values` and produce warnings.
+
+Set `enable_okf: false` to disable bundle discovery, frontmatter stripping, and all OKF mapping. Content hashes cover the complete raw file and the mapping/bundle metadata, so frontmatter edits, bundle version changes, and mapping changes trigger re-ingestion.
 
 Each imported file document stores these `customProperties` keys:
 

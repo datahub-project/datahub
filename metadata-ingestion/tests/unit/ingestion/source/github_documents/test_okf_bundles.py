@@ -1,0 +1,222 @@
+from typing import Dict, List, Optional
+from unittest.mock import MagicMock
+
+from pydantic import SecretStr
+
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.github_documents.github_api import (
+    GitHubApiClient,
+    GitHubFileInfo,
+)
+from datahub.ingestion.source.github_documents.github_documents_config import (
+    GitHubDocumentsSourceConfig,
+)
+from datahub.ingestion.source.github_documents.github_documents_source import (
+    GitHubDocumentsSource,
+    compute_file_content_hash,
+)
+from datahub.metadata.schema_classes import (
+    DocumentInfoClass,
+    OkfBundleClass,
+    OkfPropertiesClass,
+)
+
+
+def _source(
+    files: Dict[str, str],
+    *,
+    roots: Optional[List[str]] = None,
+    listed: Optional[List[str]] = None,
+    enable_okf: bool = True,
+    path_prefix: str = "",
+    max_files: int = 500,
+) -> GitHubDocumentsSource:
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            repository="example-org/analytics",
+            github_token=SecretStr("test-token"),
+            okf_bundle_roots=roots or [],
+            enable_okf=enable_okf,
+            path_prefix=path_prefix,
+            max_files=max_files,
+            create_repo_root_document=False,
+        ),
+        PipelineContext(run_id="bundle-test"),
+    )
+    client = MagicMock(spec=GitHubApiClient)
+    client.index_file_paths = {path for path in files if path.endswith("index.md")}
+    client.list_matching_files.return_value = (
+        [
+            GitHubFileInfo(path=path, size=len(files[path]))
+            for path in (listed or list(files))
+        ],
+        False,
+    )
+    client.get_latest_commit_sha.return_value = "a" * 40
+    client.fetch_file_content.side_effect = lambda repo, path, branch: files.get(path)
+    source.client = client
+    return source
+
+
+def _concepts(source: GitHubDocumentsSource) -> Dict[str, OkfPropertiesClass]:
+    concepts: Dict[str, OkfPropertiesClass] = {}
+    for wu in source.get_workunits():
+        aspect = wu.get_aspect_of_type(OkfPropertiesClass)
+        if aspect is not None:
+            assert aspect.sourceFile is not None
+            concepts[aspect.sourceFile.path] = aspect
+    return concepts
+
+
+def test_bundle_relative_identity_and_deepest_root() -> None:
+    source = _source(
+        {
+            "index.md": '---\nokf_version: "0.2"\n---\nRoot listing',
+            "root.md": "---\ntype: Guide\nid: producer-id\n---\nRoot concept",
+            "context/index.md": '---\nokf_version: "0.3"\n---\nContext listing',
+            "context/guides/mau.md": "---\ntype: Guide\nid: producer-id\n---\nMAU",
+            "context/deep/index.md": '---\nokf_version: "0.4"\n---\nNested listing',
+            "context/deep/mau.md": "---\ntype: Guide\n---\nNested MAU",
+        }
+    )
+    concepts = _concepts(source)
+    assert set(concepts) == {"root.md", "context/guides/mau.md", "context/deep/mau.md"}
+    assert concepts["root.md"].conceptId == "root"
+    assert concepts["root.md"].bundle.rootPath == ""
+    assert concepts["root.md"].bundle.okfVersion == "0.2"
+    mau = concepts["context/guides/mau.md"]
+    assert mau.conceptId == "guides/mau"
+    assert mau.bundle.repo == "example-org/analytics"
+    assert mau.bundle.rootPath == "context"
+    assert mau.bundle.okfVersion == "0.3"
+    nested = concepts["context/deep/mau.md"]
+    assert nested.conceptId == "mau"
+    assert nested.bundle.rootPath == "context/deep"
+    assert nested.bundle.okfVersion == "0.4"
+    assert mau.declaredId == concepts["root.md"].declaredId == "producer-id"
+    fetch = source.client.fetch_file_content
+    assert isinstance(fetch, MagicMock)
+    fetched = [call.args[1] for call in fetch.call_args_list]
+    for path in ["index.md", "context/index.md", "context/deep/index.md"]:
+        assert fetched.count(path) == 1
+
+
+def test_only_bundle_concepts_are_parsed_and_reserved_files_remain_documents() -> None:
+    index = '---\nokf_version: "0.2"\ntype: Listing\n---\nBundle listing'
+    reserved = "---\ntype: Guide\ntitle: Listing title\n---\nListing body"
+    outside = "---\ntype: Post\ntitle: Hugo page\n---\nArticle body"
+    files = {
+        "context/index.md": index,
+        "context/log.md": reserved,
+        "context/nested/index.md": reserved,
+        "context/nested/log.md": reserved,
+        "context/mau.md": "---\ntype: Guide\n---\nMAU",
+        "context/plain.txt": reserved,
+        "outside.md": outside,
+        "outside-broken.md": "---\ntype: Post\ninvalid: [\n---\nArticle",
+    }
+    source = _source(files)
+    infos: Dict[str, DocumentInfoClass] = {}
+    concepts: List[OkfPropertiesClass] = []
+    for wu in source.get_workunits():
+        info = wu.get_aspect_of_type(DocumentInfoClass)
+        if (
+            info
+            and info.customProperties
+            and "github_file_path" in info.customProperties
+        ):
+            infos[info.customProperties["github_file_path"]] = info
+        concept = wu.get_aspect_of_type(OkfPropertiesClass)
+        if concept is not None:
+            concepts.append(concept)
+    assert len(concepts) == 1
+    assert concepts[0].conceptId == "mau"
+    assert infos["context/index.md"].contents.text == "Bundle listing"
+    assert infos["outside.md"].title == "outside.md"
+    for path in [
+        "context/log.md",
+        "context/nested/index.md",
+        "context/nested/log.md",
+        "context/plain.txt",
+        "outside.md",
+        "outside-broken.md",
+    ]:
+        assert infos[path].contents.text == files[path]
+    assert source.report.okf_parse_errors == 0
+
+
+def test_explicit_bundle_without_versioned_index() -> None:
+    source = _source(
+        {
+            "context/mau.md": "---\ntype: Guide\n---\nMAU",
+            "context/index.md": "---\ntitle: Listing\n---\nListing body",
+            "contextual/outside.md": "---\ntype: Post\n---\nNot in context",
+        },
+        roots=["context/"],
+    )
+    concepts = _concepts(source)
+    assert set(concepts) == {"context/mau.md"}
+    assert concepts["context/mau.md"].conceptId == "mau"
+    assert concepts["context/mau.md"].bundle.rootPath == "context"
+    assert concepts["context/mau.md"].bundle.okfVersion is None
+
+
+def test_discovery_uses_ancestor_indexes_outside_prefix_and_fetches_only_once() -> None:
+    source = _source(
+        {
+            "index.md": '---\nokf_version: "0.1"\n---\nRoot',
+            "context/index.md": '---\nokf_version: "0.2"\n---\nContext',
+            "unrelated/index.md": '---\nokf_version: "0.3"\n---\nUnrelated',
+            "context/guides/mau.md": "---\ntype: Guide\n---\nMAU",
+        },
+        listed=["context/guides/mau.md"],
+        path_prefix="context/guides",
+    )
+    concepts = _concepts(source)
+    assert concepts["context/guides/mau.md"].bundle.rootPath == "context"
+    fetch = source.client.fetch_file_content
+    assert isinstance(fetch, MagicMock)
+    paths = [call.args[1] for call in fetch.call_args_list]
+    assert sorted(paths) == ["context/guides/mau.md", "context/index.md", "index.md"]
+
+
+def test_index_is_discovered_even_when_outside_import_limit() -> None:
+    source = _source(
+        {
+            "mau.md": "---\ntype: Guide\n---\nMAU",
+            "index.md": '---\nokf_version: "0.2"\n---\nRoot',
+        },
+        max_files=1,
+    )
+    concepts = _concepts(source)
+    assert concepts["mau.md"].bundle.okfVersion == "0.2"
+    assert source.report.files_processed == 1
+
+
+def test_master_switch_disables_discovery_and_preserves_index_frontmatter() -> None:
+    raw = '---\nokf_version: "0.2"\n---\nRoot listing'
+    source = _source({"index.md": raw}, roots=[""], enable_okf=False)
+    workunits = list(source.get_workunits())
+    assert not any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
+    info = next(
+        wu.get_aspect_of_type(DocumentInfoClass)
+        for wu in workunits
+        if wu.get_aspect_of_type(DocumentInfoClass)
+    )
+    assert info is not None
+    assert info.contents.text == raw
+    fetch = source.client.fetch_file_content
+    assert isinstance(fetch, MagicMock)
+    assert fetch.call_count == 1
+
+
+def test_bundle_metadata_participates_in_content_hash() -> None:
+    content = "---\ntype: Guide\n---\nBody"
+    bundle = OkfBundleClass(repo="example-org/analytics", rootPath="", okfVersion="0.2")
+    original = compute_file_content_hash(content, bundle=bundle)
+    assert original != compute_file_content_hash(content)
+    bundle.okfVersion = "0.3"
+    assert original != compute_file_content_hash(content, bundle=bundle)
+    bundle.okfVersion = "0.2"
+    bundle.rootPath = "context"
+    assert original != compute_file_content_hash(content, bundle=bundle)

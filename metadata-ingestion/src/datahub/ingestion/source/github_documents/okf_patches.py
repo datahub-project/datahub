@@ -19,10 +19,13 @@ from datahub.specific.document import DocumentPatchBuilder
 Association = Union[OwnerClass, TagAssociationClass, GlossaryTermAssociationClass]
 
 
-def _from_file(attribution: Optional[MetadataAttributionClass], path: str) -> bool:
+def _from_file(
+    attribution: Optional[MetadataAttributionClass], repo: str, path: str
+) -> bool:
     return bool(
         attribution
         and attribution.sourceDetail.get("origin") == "okf"
+        and attribution.sourceDetail.get("repo") == repo
         and attribution.sourceDetail.get("path") == path
     )
 
@@ -92,6 +95,7 @@ def reconcile_okf_associations(
 ) -> None:
     current: Sequence[Association] = []
     path = attribution.sourceDetail["path"]
+    repo = attribution.sourceDetail["repo"]
     if ctx.graph:
         try:
             current = _current_associations(patcher.urn, aspect_name, ctx)
@@ -109,7 +113,7 @@ def reconcile_okf_associations(
     if allow_removals:
         for association in current:
             if (
-                _from_file(association.attribution, path)
+                _from_file(association.attribution, repo, path)
                 and _association_urn(association) not in urns
             ):
                 _remove_association(patcher, association)
@@ -132,7 +136,7 @@ def reconcile_okf_associations(
         # the file's and a manually added value would then use an empty source.
         if any(
             _association_key(existing) == _association_key(added)
-            and not _from_file(existing.attribution, path)
+            and not _from_file(existing.attribution, repo, path)
             for existing in current
         ):
             continue

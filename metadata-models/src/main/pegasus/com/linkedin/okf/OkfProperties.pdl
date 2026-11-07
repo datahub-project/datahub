@@ -1,0 +1,73 @@
+namespace com.linkedin.okf
+
+/** OKF concept metadata imported from a document's frontmatter. */
+@Aspect = {
+  "name": "okfProperties"
+}
+record OkfProperties {
+  /** Bundle identity and format version. Concept identifiers are scoped to this bundle. */
+  bundle: OkfBundle
+
+  /** Bundle-relative file path without the .md suffix, as defined by OKF. */
+  @Searchable = {
+    "fieldName": "okfConceptId",
+    "fieldType": "KEYWORD",
+    "queryByDefault": true
+  }
+  conceptId: string
+
+  /** The producer's own `id` key, unique only within its bundle; resolve it scoped to the bundle. */
+  @Searchable = {
+    "fieldName": "okfDeclaredId",
+    "fieldType": "KEYWORD",
+    "queryByDefault": true
+  }
+  declaredId: optional string
+
+  /** Concept type, such as Guide, Table, Policy, or Runbook. */
+  @Searchable = {
+    "fieldName": "okfType",
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "queryByDefault": false
+  }
+  type: string
+
+  /** Description declared in frontmatter. */
+  description: optional string
+
+  /** Lifecycle status as written, conventionally draft, stable, or deprecated. */
+  @Searchable = {
+    "fieldName": "okfStatus",
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "queryByDefault": false
+  }
+  status: optional string
+
+  /** Absolute instant when the content becomes stale, in milliseconds since epoch. */
+  @Searchable = {
+    "fieldName": "okfStaleAfter",
+    "fieldType": "DATETIME",
+    "queryByDefault": false
+  }
+  staleAfter: optional long
+
+  /** Who or what produced the current content and, optionally, when. */
+  generated: optional OkfStamp
+
+  /** Independent verification events, normalized to a list. */
+  verified: optional array[OkfStamp]
+
+  /** All frontmatter keys and values as JSON derived from raw, including unmapped keys. */
+  frontmatter: string
+
+  /** Original YAML block, including delimiters and line endings, verbatim. Canonical for write-back. */
+  raw: optional string
+
+  /** Git provenance of the imported concept. */
+  sourceFile: optional OkfSourceFile
+
+  /** Version of the rules used to map frontmatter to native metadata. */
+  mappingVersion: string
+}

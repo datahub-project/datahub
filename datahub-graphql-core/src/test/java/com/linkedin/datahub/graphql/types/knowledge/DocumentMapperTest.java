@@ -38,8 +38,6 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.knowledge.DocumentContents;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.knowledge.DocumentSource;
-import com.linkedin.knowledge.OkfProperties;
-import com.linkedin.knowledge.OkfSourceFile;
 import com.linkedin.knowledge.ParentDocument;
 import com.linkedin.knowledge.RelatedAsset;
 import com.linkedin.knowledge.RelatedAssetArray;
@@ -49,6 +47,11 @@ import com.linkedin.metadata.key.DocumentKey;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.okf.OkfBundle;
+import com.linkedin.okf.OkfProperties;
+import com.linkedin.okf.OkfSourceFile;
+import com.linkedin.okf.OkfStamp;
+import com.linkedin.okf.OkfStampArray;
 import com.linkedin.structured.StructuredProperties;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -1354,40 +1357,83 @@ public class DocumentMapperTest {
   @Test
   public void testMapDocumentWithOkfProperties() {
     EntityResponse entityResponse = createBasicEntityResponse();
-    String frontmatter = "{\"id\":\"guide:mau\",\"type\":\"Guide\",\"audience\":\"analysts\"}";
-    String raw = "---\nid: guide:mau\ntype: Guide\naudience: analysts\n---\n";
+    String frontmatter =
+        "{\"id\":\"guide:mau\",\"type\":\"Guide\","
+            + "\"description\":\"How MAU is defined.\",\"status\":\"stable\","
+            + "\"stale_after\":\"2022-01-03T00:00:00Z\","
+            + "\"generated\":{\"by\":\"reference_agent/model\",\"at\":\"2022-01-01T00:00:00Z\"},"
+            + "\"verified\":[{\"by\":\"human:alice\",\"at\":\"2022-01-02T00:00:00Z\"}],"
+            + "\"audience\":\"analysts\"}";
+    String raw =
+        String.join(
+            "\n",
+            "---",
+            "id: guide:mau",
+            "type: Guide",
+            "description: How MAU is defined.",
+            "status: stable",
+            "stale_after: 2022-01-03T00:00:00Z",
+            "generated: {by: reference_agent/model, at: 2022-01-01T00:00:00Z}",
+            "verified: [{by: human:alice, at: 2022-01-02T00:00:00Z}]",
+            "audience: analysts",
+            "---",
+            "");
     OkfSourceFile sourceFile =
         new OkfSourceFile()
             .setRepo("example-org/analytics")
-            .setPath("guides/mau.md")
+            .setPath("context/guides/mau.md")
+            .setRef("main")
             .setCommit("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             .setBlobSha("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    OkfBundle bundle =
+        new OkfBundle()
+            .setRepo("example-org/analytics")
+            .setRootPath("context")
+            .setOkfVersion("0.2");
+    OkfStamp generated = new OkfStamp().setBy("reference_agent/model").setAt(TEST_TIMESTAMP);
+    OkfStamp verified = new OkfStamp().setBy("human:alice").setAt(INGESTION_TIME);
     OkfProperties properties =
         new OkfProperties()
-            .setOkfVersion("1")
-            .setId("guide:mau")
+            .setBundle(bundle)
+            .setConceptId("guides/mau")
+            .setDeclaredId("guide:mau")
             .setType("Guide")
             .setDescription("How MAU is defined.")
+            .setStatus("stable")
+            .setStaleAfter(LAST_OBSERVED_TIME)
+            .setGenerated(generated)
+            .setVerified(new OkfStampArray(java.util.List.of(verified)))
             .setFrontmatter(frontmatter)
             .setRaw(raw)
             .setSourceFile(sourceFile)
-            .setMappingVersion("2");
+            .setMappingVersion("3");
     addAspectToResponse(entityResponse, OKF_PROPERTIES_ASPECT_NAME, properties);
 
     Document result = DocumentMapper.map(null, entityResponse);
 
     assertNotNull(result.getOkfProperties());
     com.linkedin.datahub.graphql.generated.OkfProperties mapped = result.getOkfProperties();
-    assertEquals(mapped.getOkfVersion(), "1");
-    assertEquals(mapped.getId(), "guide:mau");
+    assertEquals(mapped.getBundle().getRepo(), "example-org/analytics");
+    assertEquals(mapped.getBundle().getRootPath(), "context");
+    assertEquals(mapped.getBundle().getOkfVersion(), "0.2");
+    assertEquals(mapped.getConceptId(), "guides/mau");
+    assertEquals(mapped.getDeclaredId(), "guide:mau");
     assertEquals(mapped.getType(), "Guide");
     assertEquals(mapped.getDescription(), "How MAU is defined.");
+    assertEquals(mapped.getStatus(), "stable");
+    assertEquals(mapped.getStaleAfter(), LAST_OBSERVED_TIME);
+    assertEquals(mapped.getGenerated().getBy(), "reference_agent/model");
+    assertEquals(mapped.getGenerated().getAt(), TEST_TIMESTAMP);
+    assertEquals(mapped.getVerified().size(), 1);
+    assertEquals(mapped.getVerified().get(0).getBy(), "human:alice");
+    assertEquals(mapped.getVerified().get(0).getAt(), INGESTION_TIME);
     assertEquals(mapped.getFrontmatter(), frontmatter);
     assertEquals(mapped.getRaw(), raw);
-    assertEquals(mapped.getMappingVersion(), "2");
+    assertEquals(mapped.getMappingVersion(), "3");
     assertNotNull(mapped.getSourceFile());
     assertEquals(mapped.getSourceFile().getRepo(), "example-org/analytics");
-    assertEquals(mapped.getSourceFile().getPath(), "guides/mau.md");
+    assertEquals(mapped.getSourceFile().getPath(), "context/guides/mau.md");
+    assertEquals(mapped.getSourceFile().getRef(), "main");
     assertEquals(mapped.getSourceFile().getCommit(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     assertEquals(mapped.getSourceFile().getBlobSha(), "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
   }
@@ -1397,6 +1443,38 @@ public class DocumentMapperTest {
     Document result = DocumentMapper.map(null, createBasicEntityResponse());
 
     assertNull(result.getOkfProperties());
+  }
+
+  @Test
+  public void testMapDocumentWithOptionalOkfFieldsUnset() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    OkfProperties properties =
+        new OkfProperties()
+            .setBundle(new OkfBundle().setRepo("example-org/analytics").setRootPath(""))
+            .setConceptId("guides/mau")
+            .setType("Guide")
+            .setGenerated(new OkfStamp().setBy("human:alice"))
+            .setVerified(
+                new OkfStampArray(java.util.List.of(new OkfStamp().setBy("process:nightly"))))
+            .setSourceFile(
+                new OkfSourceFile().setRepo("example-org/analytics").setPath("guides/mau.md"))
+            .setFrontmatter("{\"type\":\"Guide\"}")
+            .setMappingVersion("3");
+    addAspectToResponse(entityResponse, OKF_PROPERTIES_ASPECT_NAME, properties);
+
+    com.linkedin.datahub.graphql.generated.OkfProperties mapped =
+        DocumentMapper.map(null, entityResponse).getOkfProperties();
+
+    assertNotNull(mapped);
+    assertNull(mapped.getBundle().getOkfVersion());
+    assertNull(mapped.getDeclaredId());
+    assertNull(mapped.getStatus());
+    assertNull(mapped.getStaleAfter());
+    assertNull(mapped.getGenerated().getAt());
+    assertNull(mapped.getVerified().get(0).getAt());
+    assertNull(mapped.getSourceFile().getRef());
+    assertNull(mapped.getSourceFile().getCommit());
+    assertNull(mapped.getSourceFile().getBlobSha());
   }
 
   // Helper methods

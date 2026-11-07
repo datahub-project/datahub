@@ -1,0 +1,13 @@
+namespace com.linkedin.okf
+
+/** Identity and declared format version of an OKF knowledge bundle. */
+record OkfBundle {
+  /** Repository in owner/name form. */
+  repo: string
+
+  /** Bundle root relative to the repository root. Empty for a repository-root bundle. */
+  rootPath: string
+
+  /** Format version declared by okf_version in the bundle-root index.md frontmatter. */
+  okfVersion: optional string
+}

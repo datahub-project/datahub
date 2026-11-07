@@ -17,6 +17,7 @@ from datahub.ingestion.source.github_documents.okf_mapping import map_okf
 from datahub.metadata.schema_classes import (
     DocumentStateClass,
     GlobalTagsClass,
+    OkfBundleClass,
     OkfPropertiesClass,
     OkfSourceFileClass,
     OwnerClass,
@@ -62,8 +63,9 @@ def _import_okf(ctx: PipelineContext, document_urn: str, raw: str) -> None:
     mapping = map_okf(
         parsed,
         document_urn=document_urn,
+        bundle=OkfBundleClass(repo="example-org/analytics", rootPath="", okfVersion="0.2"),
         source_file=OkfSourceFileClass(
-            repo="example-org/analytics", path="guides/mau.md", commit="a" * 40
+            repo="example-org/analytics", path="guides/mau.md", ref="main", commit="a" * 40
         ),
         attribution_source=f"urn:li:dataHubIngestionSource:{ctx.run_id}",
         ctx=ctx,
@@ -121,7 +123,13 @@ def _assert_associations(
 def _assert_okf_properties(graph: DataHubGraph, document_urn: str, raw: str) -> None:
     aspect = graph.get_aspect(document_urn, OkfPropertiesClass)
     assert aspect is not None
-    assert aspect.id == "guide:mau"
+    assert aspect.declaredId == "guide:mau"
+    assert aspect.conceptId == "guides/mau"
+    assert aspect.bundle.repo == "example-org/analytics"
+    assert aspect.bundle.rootPath == ""
+    assert aspect.bundle.okfVersion == "0.2"
+    assert aspect.sourceFile is not None
+    assert aspect.sourceFile.ref == "main"
     assert aspect.type == "Guide"
     assert aspect.raw == raw
 

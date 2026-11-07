@@ -12,8 +12,15 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.github_documents.github_documents_report import (
     GitHubDocumentsSourceReport,
 )
+from datahub.ingestion.source.github_documents.okf_bundles import concept_id
 from datahub.ingestion.source.github_documents.okf_frontmatter import (
     OkfFrontmatter,
+)
+from datahub.ingestion.source.github_documents.okf_metadata import (
+    parse_stamp,
+    parse_status,
+    parse_timestamp,
+    parse_verified,
 )
 from datahub.ingestion.source.github_documents.okf_patches import (
     reconcile_okf_associations,
@@ -22,6 +29,7 @@ from datahub.metadata.schema_classes import (
     GlossaryTermInfoClass,
     MetadataAttributionClass,
     MetadataChangeProposalClass,
+    OkfBundleClass,
     OkfPropertiesClass,
     OkfSourceFileClass,
     SubTypesClass,
@@ -30,7 +38,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import Urn
 from datahub.specific.document import DocumentPatchBuilder
 
-MAPPING_VERSION = "2"
+MAPPING_VERSION = "3"
 NATIVE_MAPPINGS: Dict[str, str] = {
     "title": "documentInfo.title",
     "type": "subTypes",
@@ -96,6 +104,7 @@ def map_okf(
     frontmatter: OkfFrontmatter,
     *,
     document_urn: str,
+    bundle: OkfBundleClass,
     source_file: OkfSourceFileClass,
     attribution_source: Optional[str],
     ctx: PipelineContext,
@@ -121,10 +130,33 @@ def map_okf(
 
     aspects: List[_Aspect] = [
         OkfPropertiesClass(
-            okfVersion=_optional_string(values, "okfVersion"),
-            id=_optional_string(values, "id"),
+            bundle=bundle,
+            conceptId=concept_id(source_file.path, bundle),
+            declaredId=_optional_string(values, "id"),
             type=concept_type,
             description=_optional_string(values, "description"),
+            status=parse_status(values, path=source_file.path, report=report),
+            staleAfter=(
+                parse_timestamp(
+                    values["stale_after"],
+                    key="stale_after",
+                    path=source_file.path,
+                    report=report,
+                )
+                if "stale_after" in values
+                else None
+            ),
+            generated=(
+                parse_stamp(
+                    values["generated"],
+                    key="generated",
+                    path=source_file.path,
+                    report=report,
+                )
+                if "generated" in values
+                else None
+            ),
+            verified=parse_verified(values, path=source_file.path, report=report),
             frontmatter=frontmatter.json,
             raw=frontmatter.raw,
             sourceFile=source_file,
@@ -172,6 +204,7 @@ def map_okf(
             source=attribution_source,
             sourceDetail={
                 "origin": "okf",
+                "repo": source_file.repo,
                 "path": source_file.path,
                 "commit": source_file.commit or "unknown",
                 "key": key,

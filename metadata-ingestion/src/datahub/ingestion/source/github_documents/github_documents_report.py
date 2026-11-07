@@ -18,6 +18,7 @@ class GitHubDocumentsSourceReport(StaleEntityRemovalSourceReport):
     okf_files_processed: int = 0
     okf_parse_errors: int = 0
     okf_unresolved_values: int = 0
+    okf_invalid_values: int = 0
     tree_truncated: bool = False
     files_truncated_by_limit: bool = False
     hidden_lifecycle_search_unsupported: bool = False

@@ -1,4 +1,4 @@
-namespace com.linkedin.knowledge
+namespace com.linkedin.okf
 
 /** Git provenance of an OKF concept. */
 record OkfSourceFile {
@@ -7,6 +7,9 @@ record OkfSourceFile {
 
   /** File path relative to the repository root. */
   path: string
+
+  /** Branch or ref used to read the file. */
+  ref: optional string
 
   /** Commit SHA for the imported revision, when available. */
   commit: optional string

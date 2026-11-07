@@ -107,7 +107,7 @@ public class DocumentMapper {
     if (envelopedOkfProperties != null) {
       result.setOkfProperties(
           mapOkfProperties(
-              new com.linkedin.knowledge.OkfProperties(envelopedOkfProperties.getValue().data())));
+              new com.linkedin.okf.OkfProperties(envelopedOkfProperties.getValue().data())));
     }
 
     // Map SubTypes aspect to subType field (get first type if available)
@@ -376,18 +376,32 @@ public class DocumentMapper {
   }
 
   private static com.linkedin.datahub.graphql.generated.OkfProperties mapOkfProperties(
-      final com.linkedin.knowledge.OkfProperties properties) {
+      final com.linkedin.okf.OkfProperties properties) {
     final com.linkedin.datahub.graphql.generated.OkfProperties result =
         new com.linkedin.datahub.graphql.generated.OkfProperties();
-    if (properties.hasOkfVersion()) {
-      result.setOkfVersion(properties.getOkfVersion());
-    }
-    if (properties.hasId()) {
-      result.setId(properties.getId());
+    result.setBundle(mapOkfBundle(properties.getBundle()));
+    result.setConceptId(properties.getConceptId());
+    if (properties.hasDeclaredId()) {
+      result.setDeclaredId(properties.getDeclaredId());
     }
     result.setType(properties.getType());
     if (properties.hasDescription()) {
       result.setDescription(properties.getDescription());
+    }
+    if (properties.hasStatus()) {
+      result.setStatus(properties.getStatus());
+    }
+    if (properties.hasStaleAfter()) {
+      result.setStaleAfter(properties.getStaleAfter());
+    }
+    if (properties.hasGenerated()) {
+      result.setGenerated(mapOkfStamp(properties.getGenerated()));
+    }
+    if (properties.hasVerified()) {
+      result.setVerified(
+          properties.getVerified().stream()
+              .map(DocumentMapper::mapOkfStamp)
+              .collect(java.util.stream.Collectors.toList()));
     }
     result.setFrontmatter(properties.getFrontmatter());
     if (properties.hasRaw()) {
@@ -401,16 +415,42 @@ public class DocumentMapper {
   }
 
   private static com.linkedin.datahub.graphql.generated.OkfSourceFile mapOkfSourceFile(
-      final com.linkedin.knowledge.OkfSourceFile sourceFile) {
+      final com.linkedin.okf.OkfSourceFile sourceFile) {
     final com.linkedin.datahub.graphql.generated.OkfSourceFile result =
         new com.linkedin.datahub.graphql.generated.OkfSourceFile();
     result.setRepo(sourceFile.getRepo());
     result.setPath(sourceFile.getPath());
+    if (sourceFile.hasRef()) {
+      result.setRef(sourceFile.getRef());
+    }
     if (sourceFile.hasCommit()) {
       result.setCommit(sourceFile.getCommit());
     }
     if (sourceFile.hasBlobSha()) {
       result.setBlobSha(sourceFile.getBlobSha());
+    }
+    return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.OkfBundle mapOkfBundle(
+      final com.linkedin.okf.OkfBundle bundle) {
+    final com.linkedin.datahub.graphql.generated.OkfBundle result =
+        new com.linkedin.datahub.graphql.generated.OkfBundle();
+    result.setRepo(bundle.getRepo());
+    result.setRootPath(bundle.getRootPath());
+    if (bundle.hasOkfVersion()) {
+      result.setOkfVersion(bundle.getOkfVersion());
+    }
+    return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.OkfStamp mapOkfStamp(
+      final com.linkedin.okf.OkfStamp stamp) {
+    final com.linkedin.datahub.graphql.generated.OkfStamp result =
+        new com.linkedin.datahub.graphql.generated.OkfStamp();
+    result.setBy(stamp.getBy());
+    if (stamp.hasAt()) {
+      result.setAt(stamp.getAt());
     }
     return result;
   }

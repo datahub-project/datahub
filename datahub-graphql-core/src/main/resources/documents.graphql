@@ -420,14 +420,19 @@ OKF concept metadata imported from a document's frontmatter
 """
 type OkfProperties {
   """
-  Version of the OKF format declared by the concept
+  Bundle identity and format version. Concept identifiers are scoped to this bundle.
   """
-  okfVersion: String
+  bundle: OkfBundle!
 
   """
-  Stable concept identifier within the source repository
+  Bundle-relative file path without the .md suffix, as defined by OKF
   """
-  id: String
+  conceptId: String!
+
+  """
+  The producer's own `id` key, unique only within its bundle. Resolve it scoped to the bundle.
+  """
+  declaredId: String
 
   """
   Concept type, such as Guide, Table, Policy, or Runbook
@@ -440,12 +445,32 @@ type OkfProperties {
   description: String
 
   """
-  All frontmatter keys and values serialized as JSON text, including unmapped keys
+  Lifecycle status as written, conventionally draft, stable, or deprecated
+  """
+  status: String
+
+  """
+  Absolute instant when the content becomes stale, in milliseconds since epoch
+  """
+  staleAfter: Long
+
+  """
+  Who or what produced the current content and, optionally, when
+  """
+  generated: OkfStamp
+
+  """
+  Independent verification events, normalized to a list
+  """
+  verified: [OkfStamp!]
+
+  """
+  All frontmatter keys and values as JSON text derived from raw, including unmapped keys
   """
   frontmatter: String!
 
   """
-  Original YAML block, including delimiters and line endings, verbatim
+  Original YAML block, including delimiters and line endings, verbatim. Canonical for write-back.
   """
   raw: String
 
@@ -461,6 +486,41 @@ type OkfProperties {
 }
 
 """
+Identity and declared format version of an OKF knowledge bundle
+"""
+type OkfBundle {
+  """
+  Repository in owner/name form
+  """
+  repo: String!
+
+  """
+  Bundle root relative to the repository root. Empty for a repository-root bundle.
+  """
+  rootPath: String!
+
+  """
+  Format version declared by okf_version in the bundle-root index.md frontmatter
+  """
+  okfVersion: String
+}
+
+"""
+A generation or verification event declared by an OKF producer
+"""
+type OkfStamp {
+  """
+  Actor string as written, such as human:alice or process:nightly
+  """
+  by: String!
+
+  """
+  Event time in milliseconds since epoch, when a valid timestamp with an offset is available
+  """
+  at: Long
+}
+
+"""
 Git provenance of an OKF concept
 """
 type OkfSourceFile {
@@ -473,6 +533,11 @@ type OkfSourceFile {
   File path relative to the repository root
   """
   path: String!
+
+  """
+  Branch or ref used to read the file
+  """
+  ref: String
 
   """
   Commit SHA for the imported revision, when available

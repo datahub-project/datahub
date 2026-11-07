@@ -7,6 +7,7 @@ import json
 import logging
 import os
 from functools import cached_property, partial
+from pathlib import PurePosixPath
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import (
@@ -55,7 +56,13 @@ from datahub.ingestion.source.github_documents.github_documents_report import (
 from datahub.ingestion.source.github_documents.github_hierarchy import (
     GitHubHierarchyExtractor,
 )
+from datahub.ingestion.source.github_documents.okf_bundles import (
+    RESERVED_FILENAMES,
+    discover_bundles,
+    enclosing_bundle,
+)
 from datahub.ingestion.source.github_documents.okf_frontmatter import (
+    parse_frontmatter,
     parse_okf_frontmatter,
 )
 from datahub.ingestion.source.github_documents.okf_mapping import (
@@ -79,6 +86,7 @@ from datahub.metadata.schema_classes import (
     DocumentInfoClass,
     DocumentStateClass,
     ExecutionRequestInputClass,
+    OkfBundleClass,
     OkfSourceFileClass,
     StatusClass,
 )
@@ -95,13 +103,16 @@ PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
 _DOCUMENT_URN_PREFIX = "urn:li:document:"
 
 
-def compute_file_content_hash(content: str, *, enable_okf: bool = True) -> str:
-    """Hash the complete raw file so frontmatter-only edits trigger re-ingestion."""
+def compute_file_content_hash(
+    content: str, *, enable_okf: bool = True, bundle: Optional[OkfBundleClass] = None
+) -> str:
+    """Hash raw content and bundle metadata so interpretation changes trigger ingestion."""
     hash_input = json.dumps(
         {
             "body": content,
             "algo_version": EXTRACTION_ALGO_VERSION,
             "okf_mapping_version": MAPPING_VERSION if enable_okf else None,
+            "okf_bundle": bundle.to_obj() if enable_okf and bundle else None,
         },
         sort_keys=True,
     )
@@ -120,8 +131,8 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     documents are ingested as native (editable) documents; set ``document_import_mode`` to
     ``EXTERNAL`` for read-only references back to GitHub.
 
-    YAML frontmatter with a type key is mapped to OKF and native metadata aspects
-    when enable_okf is set. Other files are imported as plain text/markdown.
+    Markdown concepts inside OKF bundles are mapped to OKF and native aspects
+    when enable_okf is set. Other files retain their original text.
     """
 
     platform = "github"
@@ -156,6 +167,8 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         # Cache of import_source_id -> existing document URN (sync-back round-trip).
         self._resolved_source_id_urns: Dict[str, Optional[str]] = {}
         self._soft_deleted_cache: Optional[Set[str]] = None
+        self._okf_bundles: Dict[str, OkfBundleClass] = {}
+        self._okf_index_contents: Dict[str, Optional[str]] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GitHubDocumentsSource":
@@ -211,6 +224,23 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         commit_sha = self.client.get_latest_commit_sha(owner_repo, branch)
+        self._okf_index_contents.clear()
+        self._okf_bundles = {}
+        if self.config.enable_okf:
+
+            def fetch_index(path: str) -> Optional[str]:
+                content = self.client.fetch_file_content(owner_repo, path, branch)
+                self._okf_index_contents[path] = content
+                return content
+
+            self._okf_bundles = discover_bundles(
+                repo=owner_repo,
+                file_paths=[file.path for file in files],
+                index_paths=self.client.index_file_paths,
+                explicit_roots=self.config.okf_bundle_roots,
+                fetch=fetch_index,
+                report=self.report,
+            )
 
         if self._repo_root_source_id:
             yield from self._emit_repo_root_document(
@@ -341,7 +371,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         commit_sha: str,
         blob_sha: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
-        content = self.client.fetch_file_content(owner_repo, file_path, branch)
+        content = (
+            self._okf_index_contents[file_path]
+            if file_path in self._okf_index_contents
+            else self.client.fetch_file_content(owner_repo, file_path, branch)
+        )
         if content is None:
             self.report.files_skipped += 1
             return
@@ -350,8 +384,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         doc_id, document_urn = self._resolve_document_identity(
             source_id, owner_repo, file_path
         )
+        bundle = enclosing_bundle(file_path, self._okf_bundles)
         content_hash = compute_file_content_hash(
-            content, enable_okf=self.config.enable_okf
+            content, enable_okf=self.config.enable_okf, bundle=bundle
         )
 
         if self._should_skip_unchanged_file(document_urn, content_hash):
@@ -372,7 +407,21 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         title = os.path.basename(file_path)
         okf_mapping = None
         text = content
-        if self.config.enable_okf:
+        filename = PurePosixPath(file_path).name
+        if (
+            bundle
+            and filename == "index.md"
+            and file_path
+            == (f"{bundle.rootPath}/index.md" if bundle.rootPath else "index.md")
+        ):
+            root_index = parse_frontmatter(content, path=file_path, report=self.report)
+            if root_index is not None:
+                text = root_index.body
+        elif (
+            bundle
+            and filename not in RESERVED_FILENAMES
+            and PurePosixPath(file_path).suffix.lower() == ".md"
+        ):
             frontmatter = parse_okf_frontmatter(
                 content, path=file_path, report=self.report
             )
@@ -380,9 +429,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 okf_mapping = map_okf(
                     frontmatter,
                     document_urn=document_urn,
+                    bundle=bundle,
                     source_file=OkfSourceFileClass(
                         repo=owner_repo,
                         path=file_path,
+                        ref=branch,
                         commit=commit_sha if commit_sha != "unknown" else None,
                         blobSha=blob_sha,
                     ),
