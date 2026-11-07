@@ -1,14 +1,19 @@
-import { Form, Input, Typography } from 'antd';
+import { Form, Input } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import { SecretBuilderState } from '@app/ingestV2/secret/types';
 import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
-import { Modal } from '@src/alchemy-components';
+import { Modal, Text } from '@src/alchemy-components';
 
 const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';
 const VALUE_FIELD_NAME = 'value';
+
+const HelpText = styled(Text)`
+    margin-bottom: 1em;
+`;
 
 type Props = {
     initialState?: SecretBuilderState;
@@ -106,8 +111,14 @@ export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, o
                     setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0))
                 }
             >
-                <Form.Item label={<Typography.Text strong>{tl('name')}</Typography.Text>}>
-                    <Typography.Paragraph>{t('secret.nameHelp')}</Typography.Paragraph>
+                <Form.Item
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {tl('name')}
+                        </Text>
+                    }
+                >
+                    <HelpText>{t('secret.nameHelp')}</HelpText>
                     <Form.Item
                         data-testid="secret-modal-name-input"
                         name={NAME_FIELD_NAME}
@@ -128,8 +139,14 @@ export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, o
                         <Input placeholder={t('secret.namePlaceholder')} disabled={editSecret !== undefined} />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>{tl('value')}</Typography.Text>}>
-                    <Typography.Paragraph>{t('secret.valueHelp')}</Typography.Paragraph>
+                <Form.Item
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {tl('value')}
+                        </Text>
+                    }
+                >
+                    <HelpText>{t('secret.valueHelp')}</HelpText>
                     <Form.Item
                         data-testid="secret-modal-value-input"
                         name={VALUE_FIELD_NAME}
@@ -146,8 +163,14 @@ export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, o
                         <Input.TextArea placeholder={t('secret.valuePlaceholder')} autoComplete="false" />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>{tl('description')}</Typography.Text>}>
-                    <Typography.Paragraph>{t('secret.descriptionHelp')}</Typography.Paragraph>
+                <Form.Item
+                    label={
+                        <Text type="span" weight="semiBold">
+                            {tl('description')}
+                        </Text>
+                    }
+                >
+                    <HelpText>{t('secret.descriptionHelp')}</HelpText>
                     <Form.Item
                         data-testid="secret-modal-description-input"
                         name={DESCRIPTION_FIELD_NAME}
