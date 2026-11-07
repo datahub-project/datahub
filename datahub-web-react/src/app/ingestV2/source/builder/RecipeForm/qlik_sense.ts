@@ -49,7 +49,30 @@ export function setIntegerValueOnRecipe(recipe: any, value: string | number | un
     return setFieldValueOnRecipe(recipe, Number.isInteger(parsed) ? parsed : trimmed, fieldPath);
 }
 
-const integerRule = { pattern: /^\d+$/, message: 'Enter a whole number' };
+// Matches the connector's bounds: ports are 1-65535 and max_workers is at least 1.
+export function integerRangeRule(min: number, max?: number) {
+    const message =
+        max === undefined ? `Enter a whole number of at least ${min}` : `Enter a whole number from ${min} to ${max}`;
+    return {
+        validator(_: unknown, value: string | number | undefined | null) {
+            const text = value === undefined || value === null ? '' : String(value).trim();
+            if (text === '') return Promise.resolve();
+            const parsed = Number(text);
+            if (!/^\d+$/.test(text) || parsed < min || (max !== undefined && parsed > max)) {
+                return Promise.reject(new Error(message));
+            }
+            return Promise.resolve();
+        },
+    };
+}
+
+const portRule = integerRangeRule(1, 65535);
+
+// The connector builds https://<tenant_hostname>/api/v1, so a scheme or path breaks every call.
+export const tenantHostnameRule = {
+    pattern: /^[^\s/]+$/,
+    message: 'Enter the hostname only, without https:// or a path',
+};
 
 export const QLIK_DEPLOYMENT: RecipeField = {
     name: deploymentFieldName,
@@ -78,7 +101,8 @@ export const QLIK_TENANT_HOSTNAME: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: tenantHostnameFieldPath,
     placeholder: 'example.us.qlikcloud.com',
-    rules: null,
+    // Only rendered, and so only validated, when Qlik Cloud is selected.
+    rules: [{ required: true, message: 'Tenant Hostname is required' }, tenantHostnameRule],
     dynamicHidden: isOnPrem,
     dynamicRequired: isCloud,
 };
@@ -195,7 +219,7 @@ export const QLIK_ON_PREM_QRS_PORT: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: qrsPortFieldPath,
     placeholder: '4242',
-    rules: [integerRule],
+    rules: [portRule],
     dynamicHidden: isCloud,
     setValueOnRecipeOverride: (recipe: any, value: string) => setIntegerValueOnRecipe(recipe, value, qrsPortFieldPath),
 };
@@ -209,7 +233,7 @@ export const QLIK_ON_PREM_ENGINE_PORT: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: enginePortFieldPath,
     placeholder: '4747',
-    rules: [integerRule],
+    rules: [portRule],
     dynamicHidden: isCloud,
     setValueOnRecipeOverride: (recipe: any, value: string) =>
         setIntegerValueOnRecipe(recipe, value, enginePortFieldPath),
@@ -277,7 +301,7 @@ export const QLIK_MAX_WORKERS: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: maxWorkersFieldPath,
     placeholder: '4',
-    rules: [integerRule],
+    rules: [integerRangeRule(1)],
     setValueOnRecipeOverride: (recipe: any, value: string) =>
         setIntegerValueOnRecipe(recipe, value, maxWorkersFieldPath),
 };
@@ -384,6 +408,18 @@ const dataConnectionDetailFields = [
 
 type DataConnectionMappingRow = Record<string, string | undefined>;
 
+// Rows become keys of one mapping, so a repeated name would silently replace the earlier row.
+export const uniqueDataConnectionNamesRule = {
+    validator(_: unknown, rows: DataConnectionMappingRow[] | undefined) {
+        const names = (rows ?? []).map((row) => row?.[DATA_CONNECTION_NAME.name]).filter((name) => !!name);
+        const duplicate = names.find((name, index) => names.indexOf(name) !== index);
+        if (duplicate) {
+            return Promise.reject(new Error(`Data Connection Name "${duplicate}" is used more than once`));
+        }
+        return Promise.resolve();
+    },
+};
+
 const dataConnectionMapFieldPath = 'source.config.data_connection_to_platform_instance';
 export const QLIK_DATA_CONNECTION_MAP: RecipeField = {
     name: 'data_connection_to_platform_instance',
@@ -396,7 +432,7 @@ export const QLIK_DATA_CONNECTION_MAP: RecipeField = {
     fieldPath: dataConnectionMapFieldPath,
     keyField: DATA_CONNECTION_NAME,
     fields: dataConnectionDetailFields,
-    rules: null,
+    rules: [uniqueDataConnectionNamesRule],
     getValueFromRecipeOverride: (recipe: any) => {
         const value = get(recipe, dataConnectionMapFieldPath);
         if (!value) return undefined;

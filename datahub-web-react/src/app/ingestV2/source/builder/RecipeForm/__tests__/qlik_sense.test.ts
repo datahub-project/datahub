@@ -16,7 +16,10 @@ import {
     QLIK_SPACE_ALLOW,
     QLIK_SPACE_DENY,
     QLIK_TENANT_HOSTNAME,
+    integerRangeRule,
     setIntegerValueOnRecipe,
+    tenantHostnameRule,
+    uniqueDataConnectionNamesRule,
 } from '@app/ingestV2/source/builder/RecipeForm/qlik_sense';
 import { QLIK_SENSE } from '@app/ingestV2/source/builder/constants';
 
@@ -182,5 +185,41 @@ describe('Qlik Sense recipe form', () => {
                 default_schema: 'dbo',
             },
         ]);
+    });
+
+    it('accepts a bare tenant hostname and rejects a scheme or path', () => {
+        expect(tenantHostnameRule.pattern.test('example.us.qlikcloud.com')).toBe(true);
+        expect(tenantHostnameRule.pattern.test('https://example.us.qlikcloud.com')).toBe(false);
+        expect(tenantHostnameRule.pattern.test('example.us.qlikcloud.com/hub')).toBe(false);
+    });
+
+    it('limits ports to 1-65535 and max workers to at least 1, as the connector does', async () => {
+        const port = integerRangeRule(1, 65535);
+        await expect(port.validator(null, '4242')).resolves.toBeUndefined();
+        await expect(port.validator(null, 4747)).resolves.toBeUndefined();
+        await expect(port.validator(null, '')).resolves.toBeUndefined();
+        await expect(port.validator(null, '0')).rejects.toThrow();
+        await expect(port.validator(null, '65536')).rejects.toThrow();
+        await expect(port.validator(null, '42.5')).rejects.toThrow();
+
+        const workers = integerRangeRule(1);
+        await expect(workers.validator(null, '64')).resolves.toBeUndefined();
+        await expect(workers.validator(null, '0')).rejects.toThrow();
+    });
+
+    it('rejects mapping rows that repeat a data connection name', async () => {
+        await expect(
+            uniqueDataConnectionNamesRule.validator(null, [
+                { data_connection_name: 'Sales DB', platform: 'mssql' },
+                { data_connection_name: 'HR DB', platform: 'mssql' },
+                { data_connection_name: '' },
+            ]),
+        ).resolves.toBeUndefined();
+        await expect(
+            uniqueDataConnectionNamesRule.validator(null, [
+                { data_connection_name: 'Sales DB', platform: 'mssql' },
+                { data_connection_name: 'Sales DB', platform: 'snowflake' },
+            ]),
+        ).rejects.toThrow('Sales DB');
     });
 });
