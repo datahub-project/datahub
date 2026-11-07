@@ -660,11 +660,11 @@ def test_expression_names_skip_function_calls(
 
 def test_preceding_load_keeps_columns_named_like_chart_qualifiers() -> None:
     (table,) = parse_load_script(
-        "Orders:\nLOAD total AS Total, distinct_id AS Id;\n"
-        "SQL SELECT total, distinct_id FROM dbo.orders;"
+        "Orders:\nLOAD total AS Total, distinct AS Kind;\n"
+        "SQL SELECT total, [distinct] FROM dbo.orders;"
     )
 
     assert apply_preceding_loads(
         table.preceding_loads,
-        {"total": ["total_urn"], "distinct_id": ["id_urn"]},
-    ) == {"Total": ["total_urn"], "Id": ["id_urn"]}
+        {"total": ["total_urn"], "distinct": ["distinct_urn"]},
+    ) == {"Total": ["total_urn"], "Kind": ["distinct_urn"]}
