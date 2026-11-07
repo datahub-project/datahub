@@ -15,6 +15,7 @@ from datahub.cli.config_utils import (
     require_config_from_env,
     write_gms_config,
 )
+from datahub.ingestion.graph.config import DatahubClientConfig
 
 
 class TestConfigUtils:
@@ -362,3 +363,62 @@ class TestConfigUtils:
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config
+
+
+class TestServerUrlNormalization:
+    """The GMS URL is normalised on the config itself, not only in the REST
+    emitter, so that CLI commands building Rest.li URLs from
+    `client.config.server` reach GMS on DataHub Cloud."""
+
+    def test_cloud_bare_host_gets_gms_suffix(self):
+        config = DatahubClientConfig(server="https://abc.acryl.io")
+        assert config.server == "https://abc.acryl.io/gms"
+
+    def test_cloud_legacy_api_gms_path_is_rewritten(self):
+        config = DatahubClientConfig(server="http://abc.acryl.io/api/gms")
+        assert config.server == "https://abc.acryl.io/gms"
+
+    def test_self_hosted_url_is_untouched(self):
+        config = DatahubClientConfig(server="http://localhost:8080")
+        assert config.server == "http://localhost:8080"
+
+    def test_trailing_slash_is_stripped(self):
+        config = DatahubClientConfig(server="http://localhost:8080/")
+        assert config.server == "http://localhost:8080"
+
+    def test_load_client_config_from_env_normalizes_cloud_url(self):
+        with patch.dict(
+            os.environ,
+            {
+                "DATAHUB_GMS_URL": "https://abc.acryl.io",
+                "DATAHUB_GMS_TOKEN": "test-token",
+            },
+            clear=True,
+        ):
+            config = load_client_config()
+            assert config.server == "https://abc.acryl.io/gms"
+
+    def test_custom_hostname_is_untouched(self):
+        # The rewrite keys on acryl.io; a Cloud tenant on a vanity domain, or a
+        # self-hosted instance on a real hostname, is passed through as typed.
+        config = DatahubClientConfig(server="https://datahub.example.com")
+        assert config.server == "https://datahub.example.com"
+
+    def test_load_client_config_from_file_normalizes_cloud_url(self):
+        test_config = {"gms": {"server": "https://abc.acryl.io", "token": "t"}}
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(config_utils, "_should_skip_config", return_value=False),
+            patch.object(config_utils, "_ensure_datahub_config"),
+            patch.object(
+                config_utils, "get_raw_client_config", return_value=test_config
+            ),
+        ):
+            config = load_client_config()
+            assert config.server == "https://abc.acryl.io/gms"
+
+    def test_rest_sink_config_inherits_normalization(self):
+        from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
+
+        config = DatahubRestSinkConfig(server="https://abc.acryl.io")
+        assert config.server == "https://abc.acryl.io/gms"
