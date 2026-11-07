@@ -59,6 +59,8 @@ class DatasetSubTypes(StrEnum):
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
+    # Analysis Services table populated by a DAX expression, not an upstream load.
+    CALCULATED_TABLE = "Calculated Table"
     # Langfuse
     LANGFUSE_PROMPT = "Langfuse Prompt"
 
@@ -115,6 +117,8 @@ class DatasetContainerSubTypes(StrEnum):
     PINECONE_NAMESPACE = "Pinecone Namespace"
     # Cube
     CUBE_DEPLOYMENT = "Cube Deployment"
+    # Azure Analysis Services
+    ANALYSIS_SERVICES_SERVER = "Analysis Services Server"
 
 
 class BIContainerSubTypes(StrEnum):

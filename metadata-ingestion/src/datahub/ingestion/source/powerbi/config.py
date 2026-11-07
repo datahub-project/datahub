@@ -31,6 +31,7 @@ from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
 from datahub.ingestion.source.common.m_query.config import (
+    AthenaPlatformOverride as AthenaPlatformOverride,
     BigQueryExternalQueryPlatformDetail as BigQueryExternalQueryPlatformDetail,
     DataBricksPlatformDetail,
     DataPlatformPair,
@@ -39,6 +40,8 @@ from datahub.ingestion.source.common.m_query.config import (
     # live in the shared engine but historically were imported from here.
     PowerBIPlatformDetail as PowerBIPlatformDetail,
     SupportedDataPlatform,
+    reject_case_insensitive_duplicate_server_keys,
+    validate_athena_platform_overrides,
 )
 from datahub.ingestion.source.common.m_query.report import MQueryLineageReport
 from datahub.ingestion.source.common.subtypes import (
@@ -266,33 +269,6 @@ class PowerBiProfilingConfig(ConfigModel):
     enabled: bool = pydantic.Field(
         default=False,
         description="Whether profiling of PowerBI datasets should be done",
-    )
-
-
-class AthenaPlatformOverride(ConfigModel):
-    """
-    Configuration for overriding the platform of Athena federated tables.
-
-    Use this when Athena queries data from federated sources (e.g., MySQL, PostgreSQL)
-    and you want the lineage to point to the actual source platform instead of Athena.
-    """
-
-    database: str = pydantic.Field(
-        min_length=1,
-        description="The database name in the Athena query (after catalog stripping).",
-    )
-    table: str = pydantic.Field(
-        min_length=1,
-        description="The table name in the Athena query.",
-    )
-    platform: str = pydantic.Field(
-        min_length=1,
-        description="The target DataHub platform name (e.g., 'mysql', 'postgres').",
-    )
-    dsn: Optional[str] = pydantic.Field(
-        default=None,
-        description="Optional DSN to scope this override to a specific data source. "
-        "If specified, this override only applies when the query comes from this DSN.",
     )
 
 
@@ -737,23 +713,7 @@ class PowerBiDashboardSourceConfig(
     @field_validator("server_to_platform_instance", mode="after")
     @classmethod
     def _reject_case_insensitive_duplicate_server_keys(cls, value: Dict) -> Dict:
-        # Oracle TNS lookup is case-insensitive in the source system, and the
-        # resolver falls back to a case-insensitive key match. If a recipe
-        # contained both ``EDWPSFN`` and ``edwpsfn``, that fallback would pick
-        # one silently by dict insertion order — a wrong-platform-instance
-        # outcome. Reject the ambiguity at config-load time.
-        seen: Dict[str, str] = {}
-        for key in value:
-            lower = key.lower()
-            if lower in seen:
-                raise ValueError(
-                    "server_to_platform_instance has case-insensitive duplicate keys: "
-                    f"{seen[lower]!r} and {key!r}. Recipe keys must differ in more "
-                    "than just case (the resolver falls back to a case-insensitive "
-                    "match for Oracle TNS aliases)."
-                )
-            seen[lower] = key
-        return value
+        return reject_case_insensitive_duplicate_server_keys(value)
 
     @field_validator("dataset_type_mapping", mode="after")
     @classmethod
@@ -875,20 +835,5 @@ class PowerBiDashboardSourceConfig(
     def validate_athena_table_platform_override(
         self,
     ) -> "PowerBiDashboardSourceConfig":
-        if not self.athena_table_platform_override:
-            return self
-
-        # Build set of known DataHub platform names for validation
-        known_platforms = {
-            item.value.datahub_data_platform_name for item in SupportedDataPlatform
-        }
-
-        for override in self.athena_table_platform_override:
-            if override.platform not in known_platforms:
-                raise ValueError(
-                    f"athena_table_platform_override: platform '{override.platform}' "
-                    f"for {override.database}.{override.table} is not a recognized DataHub platform. "
-                    f"Known platforms: {sorted(known_platforms)}."
-                )
-
+        validate_athena_platform_overrides(self.athena_table_platform_override)
         return self
