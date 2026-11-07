@@ -1,5 +1,5 @@
-import { Pill } from '@components';
-import { Space, Table, Tabs, Typography } from 'antd';
+import { Link as AlchemyLink, Heading, Pill, Tabs } from '@components';
+import { Table } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -18,6 +18,13 @@ import { EntityType, MlHyperParam, MlMetric } from '@types';
 
 const TabContent = styled.div`
     padding: 16px;
+`;
+
+const VerticalStack = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
 `;
 
 const InfoItemContainer = styled.div<{ justifyContent }>`
@@ -144,7 +151,7 @@ export default function MLModelSummary() {
                     <FormattedJson>{itemsJson}</FormattedJson>
                 </ItemsContent>
                 <ReadMoreLink>
-                    <Typography.Link
+                    <AlchemyLink
                         onClick={(e) => {
                             e.stopPropagation();
                             const newExpanded = new Set(expandedItemsRows);
@@ -157,7 +164,7 @@ export default function MLModelSummary() {
                         }}
                     >
                         {isExpanded ? tc('showLess') : tc('readMore')}
-                    </Typography.Link>
+                    </AlchemyLink>
                 </ReadMoreLink>
             </TruncatedItems>
         );
@@ -289,13 +296,13 @@ export default function MLModelSummary() {
         { title: t('mlModel.shapeColumn'), dataIndex: 'shape', width: 150, render: renderShape },
     ];
 
-    const signatureTabs: Array<{ key: string; label: string; children: React.ReactNode }> = [];
+    const signatureTabs: Array<{ key: string; name: string; component: JSX.Element }> = [];
 
     if (signatureData.inputs && signatureData.inputs.length > 0) {
         signatureTabs.push({
             key: 'inputs',
-            label: t('shared.inputs'),
-            children: (
+            name: t('shared.inputs'),
+            component: (
                 <Table
                     pagination={false}
                     columns={signatureTableColumns}
@@ -309,8 +316,8 @@ export default function MLModelSummary() {
     if (signatureData.outputs && signatureData.outputs.length > 0) {
         signatureTabs.push({
             key: 'outputs',
-            label: t('shared.outputs'),
-            children: (
+            name: t('shared.outputs'),
+            component: (
                 <Table
                     pagination={false}
                     columns={signatureTableColumns}
@@ -324,8 +331,8 @@ export default function MLModelSummary() {
     if (signatureData.parameters && signatureData.parameters.length > 0) {
         signatureTabs.push({
             key: 'parameters',
-            label: t('mlModel.parametersTab'),
-            children: (
+            name: t('mlModel.parametersTab'),
+            component: (
                 <Table
                     pagination={false}
                     columns={parametersTableColumns}
@@ -362,8 +369,10 @@ export default function MLModelSummary() {
 
     return (
         <TabContent>
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
-                <Typography.Title level={3}>{t('mlModel.modelDetails')}</Typography.Title>
+            <VerticalStack>
+                <Heading type="h3" size="4xl" weight="semiBold">
+                    {t('mlModel.modelDetails')}
+                </Heading>
                 <InfoItemContainer justifyContent="left">
                     <InfoItem title={t('shared.versionLabel')}>
                         <InfoItemContent>{model?.versionProperties?.version?.versionTag}</InfoItemContent>
@@ -401,7 +410,9 @@ export default function MLModelSummary() {
                         <InfoItemContent>{renderTrainingJobs()}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
-                <Typography.Title level={3}>{t('mlModel.trainingMetrics')}</Typography.Title>
+                <Heading type="h3" size="4xl" weight="semiBold">
+                    {t('mlModel.trainingMetrics')}
+                </Heading>
                 <Table
                     data-testid="mlmodel-training-metrics-table"
                     pagination={false}
@@ -413,7 +424,9 @@ export default function MLModelSummary() {
                         }) as React.HTMLAttributes<HTMLElement>
                     }
                 />
-                <Typography.Title level={3}>{t('mlModel.hyperParameters')}</Typography.Title>
+                <Heading type="h3" size="4xl" weight="semiBold">
+                    {t('mlModel.hyperParameters')}
+                </Heading>
                 <Table
                     data-testid="mlmodel-hyperparams-table"
                     pagination={false}
@@ -427,11 +440,13 @@ export default function MLModelSummary() {
                 />
                 {hasSignatureData && (
                     <>
-                        <Typography.Title level={3}>{t('mlModel.modelSignature')}</Typography.Title>
-                        {signatureTabs.length > 0 ? <Tabs items={signatureTabs} /> : null}
+                        <Heading type="h3" size="4xl" weight="semiBold">
+                            {t('mlModel.modelSignature')}
+                        </Heading>
+                        {signatureTabs.length > 0 ? <Tabs tabs={signatureTabs} /> : null}
                     </>
                 )}
-            </Space>
+            </VerticalStack>
         </TabContent>
     );
 }

@@ -1,5 +1,6 @@
 import { useApolloClient } from '@apollo/client';
-import { Form, message } from 'antd';
+import { toast } from '@components';
+import { Form } from 'antd';
 import omit from 'lodash/omit';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -133,10 +134,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
     };
 
     const showMessage = (content: string) => {
-        message.success({
-            content,
-            duration: 2,
-        });
+        toast.success(content, { duration: 2 });
     };
 
     const finalizeSubmission = () => {

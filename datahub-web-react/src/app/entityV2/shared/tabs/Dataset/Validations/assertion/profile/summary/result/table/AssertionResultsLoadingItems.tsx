@@ -1,4 +1,4 @@
-import { Skeleton, Timeline } from 'antd';
+import { Skeleton, Timeline } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -14,17 +14,14 @@ const ItemSkeleton = styled(Skeleton.Input)`
     }
 `;
 
+const LOADING_ITEMS = [{ key: '0' }, { key: '1' }, { key: '2' }];
+
 export const AssertionResultsLoadingItems = () => {
     return (
-        <>
-            {[0, 1, 2].map((index) => (
-                <Timeline.Item
-                    key={index}
-                    dot={<div style={{ opacity: 0.3 }}>{getResultDotIcon(AssertionResultType.Success)}</div>}
-                >
-                    <ItemSkeleton active />
-                </Timeline.Item>
-            ))}
-        </>
+        <Timeline
+            items={LOADING_ITEMS}
+            renderDot={() => <div style={{ opacity: 0.3 }}>{getResultDotIcon(AssertionResultType.Success)}</div>}
+            renderContent={() => <ItemSkeleton active />}
+        />
     );
 };
