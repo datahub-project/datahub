@@ -18,6 +18,7 @@ public class TelemetryUtilsTest {
 
   @BeforeMethod
   public void init() {
+    TelemetryUtils.resetClientIdCache();
     _entityService = mock(EntityService.class);
     Mockito.when(_entityService.getLatestAspect(any(OperationContext.class), any(), anyString()))
         .thenReturn(new TelemetryClientId().setClientId("1234"));
