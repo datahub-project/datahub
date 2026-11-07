@@ -238,7 +238,15 @@ def test_redact_connection_scrubs_nested_credentials() -> None:
     assert "svc_user" not in redacted
     assert "hunter2" not in redacted
     assert "Data Source=https://db.example.com/x" in redacted
+    assert 'Extended Properties="Encrypt=yes"' in redacted
     assert "Initial Catalog=sales" in redacted
+
+
+def test_redact_connection_drops_property_holding_only_credentials() -> None:
+    assert (
+        redact_connection('Provider=MSOLEDBSQL;Extended Properties="UID=a;PWD=b"')
+        == "Provider=MSOLEDBSQL"
+    )
 
 
 def test_redact_connection_drops_credentials() -> None:
