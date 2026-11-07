@@ -60,6 +60,7 @@ class Constant:
     DATAFIELDS = "dataFields"
     RESOURCETYPE = "resourceType"
     USAGE = "usage"
+    FINGERPRINT = "ingestionFingerprint"
     CREATEDDATE = "createdDate"
     MODIFIEDDATE = "modifiedDate"
     RESOURCEID = "resourceId"
@@ -123,6 +124,10 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
+    apps_read: int = 0
+    apps_skipped_unchanged: int = 0
+    # Apps read again because checking whether they changed failed.
+    apps_change_check_failed: LossyList[str] = field(default_factory=LossyList)
 
     def report_number_of_spaces(self, number_of_spaces: int) -> None:
         self.number_of_spaces = number_of_spaces
@@ -201,6 +206,16 @@ class QlikOnPremConfig(ConfigModel):
     ingest_unpublished_apps: bool = Field(
         default=False,
         description="Also ingest apps that are not published to a stream.",
+    )
+    skip_unchanged_apps: bool = Field(
+        default=False,
+        description="Do not re-read an app from the Engine when the app, its "
+        "objects (sheets, stories, master items), its reload time, the data connections, this "
+        "recipe and the connector version are all unchanged since the last run, and DataHub "
+        "still holds that run's metadata for it. Its entities are kept, not soft-deleted. "
+        "Requires stateful ingestion. Set `stateful_ingestion.ignore_old_state` for one run "
+        "to force a full read, for example after ingesting upstream schemas that column-level "
+        "lineage should resolve against.",
     )
 
     @model_validator(mode="after")
@@ -283,6 +298,9 @@ class QlikSourceConfig(
                 "(set the on_prem block for Qlik Sense Enterprise on Windows)"
             )
         return self
+
+    def skips_unchanged_apps(self) -> bool:
+        return self.on_prem is not None and self.on_prem.skip_unchanged_apps
 
     def ui_hostname(self) -> str:
         if self.on_prem is not None:

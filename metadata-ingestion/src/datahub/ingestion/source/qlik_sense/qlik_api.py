@@ -16,6 +16,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Space,
 )
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
+    IsUnchanged,
     QlikBaseAPI,
     ReadErrors,
     log_read_error,
@@ -295,7 +296,9 @@ class QlikAPI(QlikBaseAPI):
                 e,
             )
 
-    def _load_item(self, item: Dict) -> Optional[Item]:
+    def _load_item(
+        self, item: Dict, is_unchanged: Optional[IsUnchanged]
+    ) -> Optional[Item]:
         resource_type = item[Constant.RESOURCETYPE]
         resource_id = item[Constant.RESOURCEID]
         try:

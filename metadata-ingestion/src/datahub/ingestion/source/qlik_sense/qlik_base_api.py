@@ -2,7 +2,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional, Sequence
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Union
 
 import requests
 
@@ -11,6 +11,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Item,
     Sheet,
     Space,
+    UnchangedApp,
     UnreadItem,
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
@@ -21,6 +22,9 @@ from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketCo
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
+
+# Called with an app id and fingerprint; True skips reading that app.
+IsUnchanged = Callable[[str, str], bool]
 
 
 def log_read_error(message: str) -> None:
@@ -56,6 +60,8 @@ class QlikBaseAPI(ABC):
         self.failed_user_lookups: Dict[str, str] = {}
         # Spaces and items that failed to load, so the source can report them.
         self.unread_items: List[UnreadItem] = []
+        # Apps read again because checking whether they changed failed.
+        self.change_check_failures: List[str] = []
 
     def _record_failed_user_lookup(self, user_id: str, e: Exception) -> None:
         log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
@@ -79,7 +85,9 @@ class QlikBaseAPI(ABC):
         """Raw items of a space, recording the space as unread when listing fails."""
 
     @abstractmethod
-    def _load_item(self, item: Dict) -> Optional[Item]:
+    def _load_item(
+        self, item: Dict, is_unchanged: Optional[IsUnchanged]
+    ) -> Union[Item, UnchangedApp, None]:
         """Reads one listed item, recording it as unread when that fails."""
 
     @abstractmethod
@@ -89,12 +97,14 @@ class QlikBaseAPI(ABC):
     def _sheet_meta(self, meta: Dict, sheet_id: str) -> Optional[Dict]:
         """Sheet fields from the sheet layout's qMeta, None to leave the sheet out."""
 
-    def get_items(self, space_id: str) -> Iterable[Item]:
+    def get_items(
+        self, space_id: str, is_unchanged: Optional[IsUnchanged] = None
+    ) -> Iterable[Union[Item, UnchangedApp]]:
         # REST and Engine reads are network-bound; the GIL is only held while
         # decoding replies.
         for future in BackpressureAwareExecutor.map(
             self._load_item,
-            ((item,) for item in self._list_items(space_id)),
+            ((item, is_unchanged) for item in self._list_items(space_id)),
             max_workers=self.config.max_workers,
         ):
             try:

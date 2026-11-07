@@ -253,6 +253,7 @@ class App(Item):
     sheets: List[Sheet] = []
     tables: List[QlikTable] = []
     script: Optional[str] = None
+    fingerprint: Optional[str] = None
     script_read_failed: bool = False
     # The data model or the load script could not be read, so the app's tables,
     # and with them the chart inputs, are unknown.
@@ -286,3 +287,8 @@ class UnreadItem(BaseModel):
     # A space, item or listing left out of the run after a request failed.
     name: str
     cause: str
+
+
+class UnchangedApp(BaseModel):
+    id: str
+    fingerprint: str
