@@ -48,7 +48,11 @@ public class EntityIncidentsWiringTest {
               .getCodeRegistry()
               .getDataFetcher(FieldCoordinates.coordinates(objectType, field), field)
           instanceof EntityIncidentsResolver)) {
-        problems.add(objectType.getName() + " is not wired; make it implement HasIncidents");
+        problems.add(
+            objectType.getName()
+                + " is not wired; add `extend type "
+                + objectType.getName()
+                + " implements HasIncidents` to interfaces/incidents.graphql");
       } else if (objectType.getInterfaces().stream()
           .noneMatch(iface -> iface.getName().equals("Entity"))) {
         problems.add(objectType.getName() + " does not implement Entity");
