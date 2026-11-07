@@ -536,10 +536,35 @@ def strip_set_values(expression: str) -> str:
     return "".join(kept)
 
 
+def _strip_expression_comments(expression: str) -> str:
+    kept: List[str] = []
+    closing: Optional[str] = None
+    i = 0
+    while i < len(expression):
+        char = expression[i]
+        if closing:
+            if char == closing:
+                closing = None
+        elif char in QUOTE_PAIRS:
+            closing = QUOTE_PAIRS[char]
+        elif expression.startswith("/*", i):
+            end = expression.find("*/", i + 2)
+            i = len(expression) if end == -1 else end + 2
+            kept.append(" ")
+            continue
+        elif expression.startswith("//", i):
+            end = expression.find("\n", i)
+            i = len(expression) if end == -1 else end
+            continue
+        kept.append(char)
+        i += 1
+    return "".join(kept)
+
+
 def expression_names(expression: str) -> List[str]:
     """Names an expression may read as fields. Not every name is a field, so
     callers keep only names that are fields of the app."""
-    expression = strip_set_values(expression)
+    expression = strip_set_values(_strip_expression_comments(expression))
     names: List[str] = []
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")

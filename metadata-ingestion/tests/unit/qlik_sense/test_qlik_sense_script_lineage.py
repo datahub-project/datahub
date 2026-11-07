@@ -405,6 +405,16 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
         pytest.param("=Sum(Year(OrderDate))", ["OrderDate"], id="nested_functions"),
         pytest.param("=Year (OrderDate)", ["OrderDate"], id="space_before_call"),
         pytest.param(
+            "Sum(Amount) // excludes Returns\n+ Sum([Tax]) /* Returns */",
+            ["Amount", "Tax"],
+            id="comments",
+        ),
+        pytest.param(
+            "Count({<Url={'http://example.com'}>} [a/*b])",
+            ["Url", "a/*b"],
+            id="comment_markers_in_quotes",
+        ),
+        pytest.param(
             "=Date#(OrderDate, 'YYYYMMDD') + Num# (Amount)",
             ["OrderDate", "Amount"],
             id="interpretation_functions",

@@ -1344,6 +1344,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if isinstance(item, UnchangedApp):
             self._keep_unchanged_app(item)
         elif isinstance(item, App):
+            for fallback in item.read_fallbacks:
+                self.reporter.info(
+                    title="Qlik Engine batch read unavailable",
+                    message="Fell back to one Engine request per chart or master "
+                    "measure, which is slower on large apps.",
+                    context=f"{item.id}: {fallback}",
+                )
             self.reporter.apps_read += 1
             logger.info(
                 f"Processed app {item.qTitle} in space {space.name} "

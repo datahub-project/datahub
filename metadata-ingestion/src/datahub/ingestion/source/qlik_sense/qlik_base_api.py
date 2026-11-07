@@ -41,10 +41,16 @@ class ReadErrors:
     failure is tied to the app it belongs to."""
 
     messages: List[str] = field(default_factory=list)
+    # Batch reads that fell back to one request per object: slower, not partial.
+    fallbacks: List[str] = field(default_factory=list)
 
     def record(self, message: str) -> None:
         log_read_error(message)
         self.messages.append(message)
+
+    def record_fallback(self, message: str) -> None:
+        logger.info(message)
+        self.fallbacks.append(message)
 
 
 class QlikBaseAPI(ABC):
@@ -166,7 +172,11 @@ class QlikBaseAPI(ABC):
             if Constant.QCHILDLIST not in sheet_dict:
                 logger.debug(f"Sheet {sheet.title} with id {sheet_id} has no charts")
                 return sheet
-            properties = websocket_connection.get_object_properties()
+            properties = websocket_connection.get_object_properties(
+                on_fallback=lambda message: errors.record_fallback(
+                    f"Sheet {sheet_id}: {message}"
+                )
+            )
             read_errors = len(errors.messages)
             for i, chart_dict in enumerate(
                 sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
@@ -208,7 +218,7 @@ class QlikBaseAPI(ABC):
                 if sheet:
                     sheets.append(sheet)
             websocket_connection.add_master_measure_definitions(
-                sheets, on_error=errors.record
+                sheets, on_error=errors.record, on_fallback=errors.record_fallback
             )
         except Exception as e:
             errors.record(f"Unable to fetch sheets for app {app_id}. Exception: {e}")

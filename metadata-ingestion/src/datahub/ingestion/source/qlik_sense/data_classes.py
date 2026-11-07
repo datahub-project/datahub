@@ -282,6 +282,8 @@ class App(Item):
     tables_read_failed: bool = False
     # Engine reads of this app that failed, so its metadata is only partly read.
     read_errors: List[str] = []
+    # Batch Engine reads that fell back to slower per-object reads.
+    read_fallbacks: List[str] = []
 
     @model_validator(mode="before")
     @classmethod

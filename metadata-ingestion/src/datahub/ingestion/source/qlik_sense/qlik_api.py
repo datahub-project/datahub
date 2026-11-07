@@ -274,6 +274,7 @@ class QlikAPI(QlikBaseAPI):
                             f"Unable to fetch load script of app {app_id}. Exception: {e}"
                         )
             app.read_errors = errors.messages
+            app.read_fallbacks = errors.fallbacks
             return app
         finally:
             self._close_engine(websocket_connection, app_id)
