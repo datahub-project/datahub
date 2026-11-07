@@ -490,6 +490,21 @@ def test_preceding_load_interpretation_function_is_not_a_column() -> None:
         ),
         pytest.param("Upper(order_id)", {}, id="unaliased_expression"),
         pytest.param(
+            "order_id AS [$(vName)]",
+            {"order_id": ["order_id_urn"]},
+            id="variable_in_bracketed_alias",
+        ),
+        pytest.param(
+            "order_id AS $(vName)",
+            {"order_id": ["order_id_urn"]},
+            id="variable_as_alias",
+        ),
+        pytest.param(
+            "[$(vFields)], order_id AS OrderKey",
+            {"order_id": ["order_id_urn"], "OrderKey": ["order_id_urn"]},
+            id="bracketed_variable_field",
+        ),
+        pytest.param(
             "order_id * $(vRate) AS Net",
             {"Net": ["order_id_urn"]},
             id="variable_inside_expression",
