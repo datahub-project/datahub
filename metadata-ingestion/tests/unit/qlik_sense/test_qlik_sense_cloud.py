@@ -301,8 +301,34 @@ def test_data_connections_page_without_data_is_empty(
     assert api.unread_items == []
 
 
+def test_personal_data_connections_are_keyed_by_personal_space(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    base_url = "https://tenant.example.com/api/v1"
+    requests_mock.get(f"{base_url}/api-keys", json={})
+    requests_mock.get(
+        f"{base_url}/data-connections",
+        json={
+            "data": [
+                {"qName": "Warehouse", "space": None, "datasourceID": "snowflake"},
+                _data_connection("Warehouse", "space-1", "postgres"),
+            ]
+        },
+    )
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    api.spaces = {"space-1": "Finance", "personal-space-id": "personal_space"}
+
+    connections = api.get_data_connections()
+
+    assert {name: info.platform for name, info in connections.items()} == {
+        "personal_space:Warehouse": "snowflake",
+        "Finance:Warehouse": "postgres",
+    }
+
+
 @pytest.mark.parametrize(
-    "app_space, platform", [("space-1", "snowflake"), ("space-3", None)]
+    "app_space, platform",
+    [("space-1", "snowflake"), ("space-3", None), ("personal-space-id", "redshift")],
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_bare_connection_name_resolves_in_app_space(
@@ -312,12 +338,14 @@ def test_bare_connection_name_resolves_in_app_space(
         "space-1": "Finance",
         "space-2": "Sales",
         "space-3": "Marketing",
+        "personal-space-id": "personal_space",
     }
     # Two spaces hold a "Warehouse" connection, so the bare name is not
     # listed on its own.
     mock_api_cls.return_value.get_data_connections.return_value = {
         "Finance:Warehouse": infer_data_connection("Warehouse", "snowflake"),
         "Sales:Warehouse": infer_data_connection("Warehouse", "postgres"),
+        "personal_space:Warehouse": infer_data_connection("Warehouse", "redshift"),
     }
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
