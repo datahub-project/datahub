@@ -39,9 +39,6 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     partition_spec_json,
     table_custom_properties,
 )
-from datahub.ingestion.source.iceberg.iceberg_types import (
-    load_table_with_variant_support,
-)
 
 # The failures a pyiceberg catalog call can raise that are the source's: REST
 # and AWS errors, transport errors, storage (OSError), and ValueErrors such as
@@ -181,7 +178,7 @@ class IcebergMetadataProbe(ProbeProviderBase):
         qualified = echoed(_dotted(identifier))
         with self._calling(f"loading table {qualified}", _TABLE_EFFECT):
             try:
-                return load_table_with_variant_support(self._catalog, identifier)
+                return self._catalog.load_table(identifier)
             # Both are checked before NoSuchTableError, their base class. The
             # table exists, so each is an empty answer with a warning, as
             # ingestion skips it with one.
