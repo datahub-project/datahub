@@ -509,11 +509,17 @@ export const MICROSTRATEGY_FOLDER_PATH_ALLOW: FilterRecipeField = {
     },
     type: FieldType.LIST,
     rule: FilterRule.INCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: folderPathAllowFieldPath,
     rules: null,
-    section: 'Folder Paths',
-    filteringResource: 'Folder Path',
+    get section() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPaths.section');
+    },
+    get filteringResource() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPaths.resource');
+    },
     placeholder: '^Sales_Project/Shared Reports/Finance(/|$)',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, folderPathAllowFieldPath),
@@ -533,11 +539,17 @@ export const MICROSTRATEGY_FOLDER_PATH_DENY: FilterRecipeField = {
     },
     type: FieldType.LIST,
     rule: FilterRule.EXCLUDE,
-    buttonLabel: 'Add pattern',
+    get buttonLabel() {
+        return i18next.t('ingestion.sourceBuilder:buttons.addPattern');
+    },
     fieldPath: folderPathDenyFieldPath,
     rules: null,
-    section: 'Folder Paths',
-    filteringResource: 'Folder Path',
+    get section() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPaths.section');
+    },
+    get filteringResource() {
+        return i18next.t('ingestion.sourceBuilder:microstrategy.folderPaths.resource');
+    },
     placeholder: '^Sales_Project/Shared Reports/Archive(/|$)',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, folderPathDenyFieldPath),

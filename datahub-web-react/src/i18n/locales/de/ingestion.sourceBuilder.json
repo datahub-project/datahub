@@ -97,6 +97,8 @@
     "microstrategy.folderPathDeny.helper": "Inhalte aus bestimmten Ordnerpfaden ausschließen",
     "microstrategy.folderPathDeny.label": "Ordnerpfade ausschließen",
     "microstrategy.folderPathDeny.tooltip": "Dashboards, Dokumente und Berichte ausschließen, die unter passenden Ordnerpfaden abgelegt sind. Anders als bei Ordnermustern überspringt ein ausgeschlossener Pfad die Objekte selbst, nicht nur ihre Ordner-Container. Ausschlussmuster haben immer Vorrang vor Zulassungsmustern.",
+    "microstrategy.folderPaths.resource": "Ordnerpfad",
+    "microstrategy.folderPaths.section": "Ordnerpfade",
     "microstrategy.includePersonalFolders.helper": "Inhalte aus persönlichen Ordnern der Benutzer aufnehmen",
     "microstrategy.includePersonalFolders.label": "Persönliche Ordner einbeziehen",
     "microstrategy.includePersonalFolders.tooltip": "Ob die persönlichen Ordner jedes Benutzers (My Reports, My Objects und ähnliche unter dem Ordner Profiles des Projekts) aufgenommen werden. Standardmäßig ausgeschlossen: Dashboards, Dokumente und Berichte, die dort abgelegt sind, werden übersprungen.",

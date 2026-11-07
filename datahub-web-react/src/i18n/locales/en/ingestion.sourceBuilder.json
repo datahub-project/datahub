@@ -97,6 +97,8 @@
     "microstrategy.folderPathDeny.helper": "Exclude content filed under specific folder paths",
     "microstrategy.folderPathDeny.label": "Deny Folder Paths",
     "microstrategy.folderPathDeny.tooltip": "Exclude dashboards, documents and reports filed under matching folder paths. Unlike folder patterns, a denied path skips the objects themselves, not only their folder containers. Deny patterns always take precedence over Allow patterns.",
+    "microstrategy.folderPaths.resource": "Folder Path",
+    "microstrategy.folderPaths.section": "Folder Paths",
     "microstrategy.includePersonalFolders.helper": "Ingest content in users' personal folders",
     "microstrategy.includePersonalFolders.label": "Include Personal Folders",
     "microstrategy.includePersonalFolders.tooltip": "Whether to ingest each user's personal folders (My Reports, My Objects and similar, under the project's Profiles folder). Excluded by default: dashboards, documents and reports filed there are skipped.",
