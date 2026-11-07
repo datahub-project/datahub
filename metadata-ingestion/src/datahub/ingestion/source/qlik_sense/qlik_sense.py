@@ -313,7 +313,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 != previous.fingerprint
             ):
                 return False
-            return self._entities_present(graph, previous.urns)
+            # A checkpoint without entities has nothing to keep for the app.
+            return bool(previous.urns) and self._entities_present(graph, previous.urns)
         except Exception as e:
             logger.debug(f"Unable to read app container {container_urn}: {e}")
             self._change_check_failures.append(
@@ -379,7 +380,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.app_state.record(
             app.id,
             AppCheckpoint(
-                fingerprint=self._salted_fingerprint(app.fingerprint), urns=urns
+                # Without the kept entities the next run must read the app again.
+                fingerprint=self._salted_fingerprint(app.fingerprint) if urns else None,
+                urns=urns,
             ),
         )
         self.reporter.apps_skipped_unchanged += 1

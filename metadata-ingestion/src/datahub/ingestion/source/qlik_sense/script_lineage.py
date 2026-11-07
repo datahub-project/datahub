@@ -161,6 +161,7 @@ SPACE_SEPARATOR = ":"
 # Checked in order, so more specific keywords come first.
 PLATFORM_KEYWORDS: Dict[str, str] = {
     "databricks": "databricks",
+    "mariadb": "mariadb",
     "sqlserver": "mssql",
     "sql server": "mssql",
     "mssql": "mssql",
@@ -300,13 +301,6 @@ class _BranchState(BaseModel):
     variables: Dict[str, str] = {}
 
 
-class _SubEffect(BaseModel):
-    """What a SUB body changed, undone at END SUB but redone by each CALL."""
-
-    connection: bool = False
-    variables: List[str] = []
-
-
 class _Block(BaseModel):
     before: _BranchState
     branches: List[_BranchState] = []
@@ -322,66 +316,27 @@ class _ControlFlowTracker(BaseModel):
 
     state: _BranchState = Field(default_factory=_BranchState)
     blocks: List[_Block] = []
-    # A SUB body only runs when the SUB is called, so what it sets is undone
-    # at END SUB and applied again, as unknown, by CALL.
-    subs: List[_BranchState] = []
-    sub_names: List[str] = []
-    sub_effects: Dict[str, _SubEffect] = {}
 
-    def strip_control_statements(self, statement: str) -> str:
-        while True:
-            control = CONTROL_RE.match(statement)
-            if not control or not control.end():
-                return statement
-            if control.group("if") or control.group("switch"):
-                self.blocks.append(
-                    _Block(
-                        before=self.state.model_copy(deep=True),
-                        in_case=bool(control.group("if")),
-                    )
+    def apply_control(self, control: "re.Match[str]") -> None:
+        if control.group("if") or control.group("switch"):
+            self.blocks.append(
+                _Block(
+                    before=self.state.model_copy(deep=True),
+                    in_case=bool(control.group("if")),
                 )
-            elif self.blocks and (
-                control.group("elseif")
-                or control.group("else")
-                or control.group("case")
-                or control.group("default")
-            ):
-                self._next_branch(
-                    self.blocks[-1],
-                    is_default=bool(control.group("else") or control.group("default")),
-                )
-            elif self.blocks and (control.group("endif") or control.group("endswitch")):
-                self._end_block(self.blocks.pop())
-            elif control.group("sub"):
-                self.subs.append(self.state.model_copy(deep=True))
-                name = SUB_NAME_RE.match(control.group("sub"))
-                self.sub_names.append(name.group("name").lower() if name else "")
-            elif self.subs and control.group("endsub"):
-                self._end_sub(self.subs.pop(), self.sub_names.pop())
-            statement = statement[control.end() :]
-
-    def _end_sub(self, before: _BranchState, name: str) -> None:
-        changed = {
-            variable
-            for variable in {*before.variables, *self.state.variables}
-            if before.variables.get(variable) != self.state.variables.get(variable)
-        }
-        self.sub_effects[name] = _SubEffect(
-            connection=self.state.connection != before.connection,
-            variables=sorted(changed),
-        )
-        self.state = before
-
-    def call(self, name: str) -> None:
-        effect = self.sub_effects.get(name.lower())
-        if effect is None:
-            # The SUB may come from an include, so it could have set anything.
-            self.forget_state()
-            return
-        if effect.connection:
-            self.state.connection = None
-        for variable in effect.variables:
-            self.state.variables.pop(variable, None)
+            )
+        elif self.blocks and (
+            control.group("elseif")
+            or control.group("else")
+            or control.group("case")
+            or control.group("default")
+        ):
+            self._next_branch(
+                self.blocks[-1],
+                is_default=bool(control.group("else") or control.group("default")),
+            )
+        elif self.blocks and (control.group("endif") or control.group("endswitch")):
+            self._end_block(self.blocks.pop())
 
     def forget_state(self) -> None:
         self.state = _BranchState()
@@ -440,40 +395,106 @@ def _unquote(name: str) -> str:
     return name
 
 
-def parse_load_script(script: str) -> List[ScriptTable]:
-    script = _strip_comments(script)
+class _Piece(BaseModel):
+    """A control statement such as IF ... THEN, or a statement it leads."""
+
+    text: str
+    control: bool = False
+
+
+class _Script(BaseModel):
+    pieces: List[_Piece] = []
+    # SUB bodies by lowercased name. They only run when called.
+    subs: Dict[str, List[_Piece]] = {}
+
+
+def _script_pieces(script: str) -> _Script:
+    parsed = _Script()
+    # Bodies of the SUBs being defined, innermost last.
+    defining: List[List[_Piece]] = []
+    for statement in _split_statements(_strip_comments(script)):
+        pieces: List[_Piece] = []
+        while (control := CONTROL_RE.match(statement)) and control.end():
+            pieces.append(_Piece(text=control.group(0), control=True))
+            statement = statement[control.end() :]
+        if statement:
+            pieces.append(_Piece(text=statement))
+        for piece in pieces:
+            control = CONTROL_RE.match(piece.text) if piece.control else None
+            if control and control.group("sub"):
+                name = SUB_NAME_RE.match(control.group("sub"))
+                body: List[_Piece] = []
+                parsed.subs[name.group("name").lower() if name else ""] = body
+                defining.append(body)
+            elif control and control.group("endsub") and defining:
+                defining.pop()
+            else:
+                (defining[-1] if defining else parsed.pieces).append(piece)
+    return parsed
+
+
+class _ScriptParser(BaseModel):
+    subs: Dict[str, List[_Piece]]
     tables: List[ScriptTable] = []
-    flow = _ControlFlowTracker()
+    flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
     pending_label: Optional[str] = None
     # A SELECT under a preceding LOAD that adds to an unknown table.
-    pending_skip = False
+    pending_skip: bool = False
     # The table a Concatenate or Join without a target adds to.
     last_label: Optional[str] = None
-    for statement in _split_statements(script):
-        statement = flow.strip_control_statements(statement)
+    # SUBs being run, so a SUB that calls itself is not replayed forever.
+    calling: List[str] = []
+
+    def run(self, pieces: List[_Piece]) -> None:
+        for piece in pieces:
+            if piece.control:
+                control = CONTROL_RE.match(piece.text)
+                if control:
+                    self.flow.apply_control(control)
+            else:
+                self._statement(piece.text)
+
+    def _forget(self) -> None:
+        self.flow.forget_state()
+        self.last_label = None
+        self.pending_label = None
+        self.pending_skip = False
+
+    def _call(self, name: str) -> None:
+        body = self.subs.get(name.lower())
+        if body is None or name.lower() in self.calling:
+            # The SUB may come from an include, so it could have set anything.
+            self._forget()
+            return
+        # The body runs with the connection and variables in effect here.
+        self.calling.append(name.lower())
+        self.run(body)
+        self.calling.pop()
+
+    def _statement(self, statement: str) -> None:
         statement, includes = INCLUDE_RE.subn("", statement)
         if includes:
             # The included script is not read, so it could have set anything.
-            flow.forget_state()
+            self._forget()
             statement = statement.strip()
-        statement = _expand_variables(statement, flow.state.variables)
+        statement = _expand_variables(statement, self.flow.state.variables)
         if not statement:
-            continue
-        if flow.record_variable(statement):
-            pending_label = None
-            continue
+            return
+        if self.flow.record_variable(statement):
+            self.pending_label = None
+            return
         call = CALL_RE.match(statement)
         if call:
-            flow.call(call.group("name"))
-            pending_label = None
-            continue
+            self.pending_label = None
+            self._call(call.group("name"))
+            return
         connect = CONNECT_RE.match(statement)
         if connect:
-            flow.state.connection = _first_group(connect).strip()
-            continue
+            self.flow.state.connection = _first_group(connect).strip()
+            return
         if DISCONNECT_RE.match(statement):
-            flow.state.connection = None
-            continue
+            self.flow.state.connection = None
+            return
 
         label: Optional[str] = None
         label_match = LABEL_RE.match(statement)
@@ -487,36 +508,44 @@ def parse_load_script(script: str) -> List[ScriptTable]:
         skip = False
         if merge:
             target = merge.group("target")
-            label = _unquote(target) if target else last_label
+            label = _unquote(target) if target else self.last_label
             skip = label is None
 
         sql = SQL_RE.match(statement)
         if sql:
-            if not (skip or pending_skip):
+            if not (skip or self.pending_skip):
                 # Qlik names an unlabelled table after the statement position.
-                table_label = label or pending_label or f"table_{len(tables) + 1}"
-                tables.append(
+                table_label = (
+                    label or self.pending_label or f"table_{len(self.tables) + 1}"
+                )
+                self.tables.append(
                     ScriptTable(
                         label=table_label,
-                        connection=flow.state.connection,
+                        connection=self.flow.state.connection,
                         sql=sql.group("sql"),
                     )
                 )
-                last_label = table_label
-            pending_label = None
-            pending_skip = False
+                self.last_label = table_label
+            self.pending_label = None
+            self.pending_skip = False
         elif LOAD_RE.match(statement) and not LOAD_SOURCE_RE.search(
             QUOTED_RE.sub("", statement)
         ):
             # A preceding LOAD names the SQL SELECT that follows it.
-            pending_label = label
-            pending_skip = skip
+            self.pending_label = label
+            self.pending_skip = skip
         else:
             if LOAD_RE.match(statement):
-                last_label = label
-            pending_label = None
-            pending_skip = False
-    return tables
+                self.last_label = label
+            self.pending_label = None
+            self.pending_skip = False
+
+
+def parse_load_script(script: str) -> List[ScriptTable]:
+    parsed = _script_pieces(script)
+    parser = _ScriptParser(subs=parsed.subs)
+    parser.run(parsed.pieces)
+    return parser.tables
 
 
 def strip_set_values(expression: str) -> str:
