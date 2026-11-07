@@ -416,6 +416,8 @@ import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.execution.DataFetcherResult;
 import graphql.language.InterfaceTypeDefinition;
+import graphql.language.ObjectTypeExtensionDefinition;
+import graphql.language.TypeName;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.StaticDataFetcher;
@@ -1076,6 +1078,30 @@ public class GmsGraphQLEngine {
     } catch (IOException e) {
       throw new RuntimeException("Failed to list GraphQL interface schema files", e);
     }
+  }
+
+  /**
+   * Object types that the interface schema files extend with {@code implements <interfaceName>}.
+   * graphql-java does not inherit data fetchers from an interface, so each implementer is wired.
+   */
+  public static List<String> typesImplementing(@Nonnull final String interfaceName) {
+    final SchemaParser parser = new SchemaParser();
+    return interfaceSchemaFiles().stream()
+        .flatMap(
+            schemaFile ->
+                parser.parse(fileBasedSchema(schemaFile)).objectTypeExtensions().values().stream())
+        .flatMap(List::stream)
+        .filter(
+            extension ->
+                extension.getImplements().stream()
+                    .anyMatch(
+                        type ->
+                            type instanceof TypeName typeName
+                                && typeName.getName().equals(interfaceName)))
+        .map(ObjectTypeExtensionDefinition::getName)
+        .distinct()
+        .sorted()
+        .collect(Collectors.toList());
   }
 
   public static String fileBasedSchema(String fileName) {
@@ -4295,13 +4321,7 @@ public class GmsGraphQLEngine {
                           : null;
                     })));
 
-    // Generated from incident.graphql at compile time (generateIncidentEntityTypes).
-    final List<String> entitiesWithIncidents = IncidentEntityTypes.ENTITY_TYPES;
-    if (entitiesWithIncidents.isEmpty()) {
-      throw new IllegalStateException(
-          "IncidentEntityTypes.ENTITY_TYPES is empty; refusing to start with zero resolvers");
-    }
-    for (String entity : entitiesWithIncidents) {
+    for (String entity : typesImplementing(HAS_INCIDENTS_INTERFACE)) {
       builder.type(
           entity,
           typeWiring ->
