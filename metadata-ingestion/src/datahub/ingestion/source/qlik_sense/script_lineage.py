@@ -73,6 +73,8 @@ DATABASE_RE = re.compile(
 SET_VALUES_START_RE = re.compile(r"[-+*/]?=\s*\{")
 # Further element lists combined with the first, as in Region={"A"}+{"B"}.
 SET_VALUES_NEXT_RE = re.compile(r"\s*[-+*/]\s*\{")
+# Interpretation functions such as Date#(OrderDate) end their name with #.
+FUNCTION_CALL_RE = re.compile(r"\s*#?\s*\(")
 # Operators and aggregation qualifiers, as in Sum(DISTINCT TOTAL Amount).
 EXPRESSION_KEYWORDS = {
     "all",
@@ -450,14 +452,11 @@ def expression_names(expression: str) -> List[str]:
     names: List[str] = []
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")
-        if (
-            bare
-            and (
-                bare.lower() in EXPRESSION_KEYWORDS
-                # A function call such as Year(OrderDate), even when an app field
-                # has the same name.
-                or expression[match.end() :].lstrip().startswith("(")
-            )
+        if bare and (
+            bare.lower() in EXPRESSION_KEYWORDS
+            # A function call such as Year(OrderDate), even when an app field
+            # has the same name.
+            or FUNCTION_CALL_RE.match(expression, match.end())
         ):
             continue
         name = match.group("bracket") or match.group("double") or bare

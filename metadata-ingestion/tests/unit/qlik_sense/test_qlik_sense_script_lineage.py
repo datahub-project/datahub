@@ -336,6 +336,11 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
         pytest.param("=Sum(Year(OrderDate))", ["OrderDate"], id="nested_functions"),
         pytest.param("=Year (OrderDate)", ["OrderDate"], id="space_before_call"),
         pytest.param(
+            "=Date#(OrderDate, 'YYYYMMDD') + Num# (Amount)",
+            ["OrderDate", "Amount"],
+            id="interpretation_functions",
+        ),
+        pytest.param(
             "=[Year] + Year", ["Year", "Year"], id="field_named_like_function"
         ),
         pytest.param("Count({<Year={2024}>} Region)", ["Year", "Region"], id="set"),
