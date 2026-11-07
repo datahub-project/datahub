@@ -724,6 +724,30 @@ def test_chart_input_fields_match_app_fields() -> None:
         ),
         pytest.param(["Region"], False, False, ["Region"], True, id="unread_measure"),
         pytest.param(
+            ["Region.autoCalendar.Year"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="derived_field_of_known_field",
+        ),
+        pytest.param(
+            ["OrderDate.autoCalendar.Year", "Region"],
+            True,
+            False,
+            ["Region"],
+            True,
+            id="derived_field_of_unknown_field",
+        ),
+        pytest.param(
+            ["Region//$(vRegion)"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="variable_in_adjacent_comment",
+        ),
+        pytest.param(
             ["Region // $(vRegion)", "Count(Region) /* $(vOld) */"],
             True,
             False,
@@ -808,6 +832,21 @@ def test_chart_inputs_when_fields_are_unknown(
         for field in input_fields.fields
         if field.schemaField
     ] == matched_fields
+
+
+def test_qualified_field_name_matches_before_derived_field() -> None:
+    table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    app_fields = QlikSenseSource._index_app_fields(
+        {table: [SchemaField(name="Orders.Region"), SchemaField(name="Orders")]}
+    )
+
+    assert QlikSenseSource._app_field_key("Orders.Region", app_fields) == (
+        "orders.region"
+    )
+    assert QlikSenseSource._app_field_key("Orders.autoCalendar.Year", app_fields) == (
+        "orders"
+    )
+    assert QlikSenseSource._app_field_key("Customers.Region", app_fields) is None
 
 
 @pytest.mark.parametrize(

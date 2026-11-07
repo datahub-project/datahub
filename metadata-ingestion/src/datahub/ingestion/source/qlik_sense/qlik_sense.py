@@ -650,13 +650,27 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     @staticmethod
+    def _app_field_key(
+        name: str, app_fields: Dict[str, List[AppField]]
+    ) -> Optional[str]:
+        """The app field a chart name reads. A derived field such as
+        Date.autoCalendar.Year reads the field before its first dot, unless a
+        qualified field of that exact name exists."""
+        key = name.lower()
+        if key in app_fields:
+            return key
+        base = key.split(".", 1)[0]
+        return base if "." in key and base in app_fields else None
+
+    @staticmethod
     def _get_chart_input_fields(
         chart: Chart, app_fields: Dict[str, List[AppField]]
     ) -> List[AppField]:
         matched: Dict[str, AppField] = {}
         for expression in chart.field_expressions:
             for name in QlikSenseSource._chart_field_names(expression, app_fields):
-                for app_field in app_fields.get(name.lower(), []):
+                key = QlikSenseSource._app_field_key(name, app_fields)
+                for app_field in app_fields.get(key, []) if key else []:
                     matched.setdefault(
                         f"{app_field.dataset_urn}.{app_field.field.name}", app_field
                     )
@@ -672,19 +686,20 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> List[str]:
         # The fields behind a $(variable) expansion are unknown, so the chart
         # may read any of the app's tables, as may a measure that could not be
-        # read, or a name that is not a known field while some table's columns
-        # are unknown (e.g. SELECT *). Set modifier values only filter.
+        # read, a derived field such as Date.autoCalendar.Year whose base field
+        # is not known, or a name that is not a known field while some table's
+        # columns are unknown (e.g. SELECT *). Set modifier values only filter.
+        unmatched = [
+            name
+            for expression in chart.field_expressions
+            for name in self._chart_field_names(expression, app_fields)
+            if self._app_field_key(name, app_fields) is None
+        ]
         if (
             not chart.fields_complete
             or any(map(reads_unknown_fields, chart.field_expressions))
-            or (
-                has_unknown_schema
-                and any(
-                    name.lower() not in app_fields
-                    for expression in chart.field_expressions
-                    for name in self._chart_field_names(expression, app_fields)
-                )
-            )
+            or any("." in name for name in unmatched)
+            or (has_unknown_schema and unmatched)
         ):
             return input_tables_urns
         return (
