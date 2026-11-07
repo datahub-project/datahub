@@ -202,7 +202,10 @@ class QlikAPI(QlikBaseAPI):
                         Constant.QTYPE,
                     ),
                 )
-                space_name = self.spaces.get(connection.get(Constant.SPACE) or "")
+                # A personal connection has no space, like a personal app.
+                space_name = self.spaces.get(
+                    connection.get(Constant.SPACE) or Constant.PERSONAL_SPACE_ID
+                )
                 if space_name:
                     connections[f"{space_name}{SPACE_SEPARATOR}{name}"] = info
                 by_name.setdefault(name, []).append(info)
