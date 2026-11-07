@@ -1,5 +1,4 @@
-import { Tooltip } from '@components';
-import { Divider, Image, Tag } from 'antd';
+import { Divider, Tooltip } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -8,11 +7,15 @@ import styled from 'styled-components';
 import { useEmbeddedProfileLinkProps } from '@src/app/sharedV2/useEmbeddedProfileLinkProps';
 
 // Styled to match the rest of the app's pills (see TagPill / GlossaryTermPill): 26px tall, fully
-// rounded, single 8px horizontal padding, 12px / 500 text, theme-text color. antd's Tag defaults
-// are overridden with !important since antd uses inline styles + high-specificity selectors.
+// rounded, single 8px horizontal padding, 12px / 500 text, theme-text color. A local element rather
+// than alchemy Pill, which only takes a string label and can't hold the logos and tooltips below.
 // font-size and font-weight are pinned explicitly so the pill text doesn't shift if an ancestor
 // (e.g. sidebar headers) sets a different size or weight.
-const EntityTag = styled(Tag)<{ $showMargin?: boolean }>`
+const EntityTag = styled.span<{ $showMargin?: boolean }>`
+    box-sizing: border-box;
+    white-space: nowrap;
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     ${(props) => (props.$showMargin ? `margin: 4px;` : `margin: 0px;`)}
     display: inline-flex;
     align-items: center;
@@ -22,8 +25,7 @@ const EntityTag = styled(Tag)<{ $showMargin?: boolean }>`
     line-height: 1.4;
     font-size: 12px;
     font-weight: 500;
-    color: ${(props) => props.theme.colors.text} !important;
-    border-color: ${(props) => props.theme.colors.border} !important;
+    color: ${(props) => props.theme.colors.text};
     max-width: inherit;
 `;
 
@@ -39,7 +41,8 @@ const IconContainer = styled.span`
     align-items: center;
 `;
 
-const PlatformLogo = styled(Image)`
+const PlatformLogo = styled.img`
+    vertical-align: middle;
     max-height: 16px;
     width: auto;
     object-fit: contain;
@@ -113,13 +116,11 @@ export const EntityPreviewTag = ({
             <EntityTag $showMargin={showMargin}>
                 <TitleContainer>
                     <IconContainer>
-                        {(!!platformLogoUrl && !platformLogoUrls && (
-                            <PlatformLogo preview={false} src={platformLogoUrl} alt="" />
-                        )) ||
+                        {(!!platformLogoUrl && !platformLogoUrls && <PlatformLogo src={platformLogoUrl} alt="" />) ||
                             (!!platformLogoUrls &&
                                 platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
                                     <>
-                                        <PlatformLogo preview={false} src={platformLogoUrlsEntry || ''} alt="" />
+                                        <PlatformLogo src={platformLogoUrlsEntry || ''} alt="" />
                                     </>
                                 ))) ||
                             logoComponent}

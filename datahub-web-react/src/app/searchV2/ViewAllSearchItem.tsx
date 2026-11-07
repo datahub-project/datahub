@@ -1,6 +1,5 @@
-import { Icon } from '@components';
+import { Icon, Text } from '@components';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import { Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -22,11 +21,19 @@ const ViewAllContainer = styled.div`
     width: 100%;
 `;
 
-const ReturnKey = styled(Typography.Text)`
-    & kbd {
-        border: none;
-    }
+const ReturnKey = styled.span`
     font-size: 12px;
+    color: ${(props) => props.theme.colors.textDisabled};
+    cursor: not-allowed;
+    user-select: none;
+`;
+
+const Kbd = styled.kbd`
+    margin: 0 0.2em;
+    padding: 0.15em 0.4em 0.1em;
+    font-size: 90%;
+    background: ${(props) => props.theme.colors.bgSurface};
+    border-radius: 3px;
 `;
 
 function ViewAllSearchItem({ searchTarget: searchText }: { searchTarget?: string }) {
@@ -40,13 +47,13 @@ function ViewAllSearchItem({ searchTarget: searchText }: { searchTarget?: string
                         t={t}
                         i18nKey="viewAllResultsFor"
                         values={{ searchText }}
-                        components={{ strong: <Typography.Text strong /> }}
+                        components={{ strong: <Text type="span" size="inherit" weight="semiBold" /> }}
                     />
                 </ExploreForEntityText>
             </ExploreForEntity>
-            {/* eslint-disable-next-line i18next/no-literal-string */}
-            <ReturnKey keyboard disabled>
-                ⮐ return
+            <ReturnKey>
+                {/* eslint-disable-next-line i18next/no-literal-string */}
+                <Kbd>⮐ return</Kbd>
             </ReturnKey>
         </ViewAllContainer>
     );

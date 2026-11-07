@@ -1,11 +1,11 @@
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Placeholder } from '@phosphor-icons/react/dist/csr/Placeholder';
-import { Skeleton } from 'antd';
 import React, { HTMLAttributes, forwardRef } from 'react';
 import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
+import { Skeleton } from '@components/components/Skeleton';
 
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import MultiLineSkeleton from '@app/lineageV3/components/MultiLineSkeleton';

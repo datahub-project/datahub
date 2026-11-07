@@ -1,4 +1,4 @@
-import { Skeleton } from 'antd';
+import { Skeleton } from '@components';
 import * as React from 'react';
 import styled from 'styled-components';
 
@@ -8,8 +8,7 @@ const Container = styled.div`
 
 const CardSkeleton = styled(Skeleton.Input)`
     && {
-        padding: 2px 12px 2px 0px;
-        height: 32px;
+        margin-right: 12px;
         border-radius: 8px;
     }
 `;
@@ -22,7 +21,7 @@ export default function SearchFiltersLoadingSection({ noOfLoadingSkeletons = 4 }
     return (
         <Container>
             {Array.from({ length: noOfLoadingSkeletons }).map(() => (
-                <CardSkeleton active size="default" />
+                <CardSkeleton active size="md" />
             ))}
         </Container>
     );

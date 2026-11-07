@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -112,7 +113,9 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
                         </ItemHeader>
                     )}
                     <Typography.Text ellipsis={hasParentTooltip ? {} : { tooltip: { title: displayName } }}>
-                        <Typography.Text strong>{matchedText}</Typography.Text>
+                        <Text type="span" size="inherit" weight="semiBold">
+                            {matchedText}
+                        </Text>
                         {unmatchedText}
                     </Typography.Text>
                 </SuggestionText>

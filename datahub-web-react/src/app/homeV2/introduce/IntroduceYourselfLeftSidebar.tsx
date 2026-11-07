@@ -1,4 +1,3 @@
-import { Image } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -42,7 +41,7 @@ export const IntroduceYourselfLeftSidebar = () => {
     return (
         <Container>
             <AcrylTitle>
-                <Image src={dataHubIcon} preview={false} style={{ width: 36 }} />
+                <img src={dataHubIcon} alt="" style={{ width: 36, verticalAlign: 'middle' }} />
             </AcrylTitle>
             <div>
                 <Title>{t('introduceYourself.leftSidebar.title')}</Title>

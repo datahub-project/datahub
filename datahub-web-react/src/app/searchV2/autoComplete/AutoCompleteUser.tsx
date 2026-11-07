@@ -1,5 +1,4 @@
-import { Avatar } from '@components';
-import { Typography } from 'antd';
+import { Avatar, Text } from '@components';
 import React from 'react';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
@@ -29,7 +28,9 @@ export default function AutoCompleteUser({ query, user }: Props) {
                 size="sm"
             />
             <SuggestionText>
-                <Typography.Text strong>{matchedText}</Typography.Text>
+                <Text type="span" size="inherit" weight="semiBold">
+                    {matchedText}
+                </Text>
                 {unmatchedText}
             </SuggestionText>
         </>

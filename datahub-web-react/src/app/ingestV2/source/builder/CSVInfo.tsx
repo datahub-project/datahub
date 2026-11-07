@@ -1,4 +1,4 @@
-import { Alert } from 'antd';
+import { Alert } from '@components';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -10,9 +10,8 @@ export const CSVInfo = () => {
     return (
         <Alert
             style={{ marginBottom: '10px' }}
-            type="warning"
-            banner
-            message={
+            variant="warning"
+            title={
                 <Trans
                     t={t}
                     i18nKey="csv.message"

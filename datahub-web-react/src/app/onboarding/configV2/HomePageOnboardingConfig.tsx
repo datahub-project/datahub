@@ -1,5 +1,4 @@
 import { Heading, Text } from '@components';
-import { Image } from 'antd';
 import React from 'react';
 import { Trans } from 'react-i18next';
 import styled from 'styled-components';
@@ -42,7 +41,7 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                         margin: '0 auto 20px auto',
                     }}
                 >
-                    <Image preview={false} height={184} width={500} src={dataHubFlowDiagram} />
+                    <img height={184} width={500} src={dataHubFlowDiagram} alt="" />
                 </div>
                 <Heading type="h3" size="2xl" weight="bold">
                     <Trans i18nKey="onboarding:home.welcomeTitleV2" />

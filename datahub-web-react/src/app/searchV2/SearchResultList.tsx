@@ -1,4 +1,4 @@
-import { Checkbox, Divider, List, ListProps } from 'antd';
+import { Checkbox, Divider } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -22,7 +22,7 @@ export const MATCHES_CONTAINER_HEIGHT = 52;
 /** Room around the result cards for their 1px hover / selected outline. */
 export const CARD_OUTLINE_ROOM_PX = 2;
 
-const ResultList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
+const ResultList = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     &&& {
         margin-top: ${(props) => (props.$isShowNavBarRedesign ? '0' : '8px')};
         width: 100%;
@@ -38,8 +38,13 @@ const ResultList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
     }
 `;
 
-const StyledCheckbox = styled(Checkbox)`
+const CheckboxWrapper = styled.div`
     margin-right: 12px;
+`;
+
+const EmptyText = styled.div`
+    padding: 16px;
+    text-align: center;
 `;
 
 const ThinDivider = styled(Divider)`
@@ -243,16 +248,16 @@ export const SearchResultList = ({
     const { isFullViewCard } = useSearchContext();
 
     return (
-        <ResultList<React.FC<ListProps<CombinedSearchResult>>>
-            id="search-result-list"
-            $isShowNavBarRedesign={isShowNavBarRedesign}
-            dataSource={searchResults}
-            split={false}
-            locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
-            renderItem={(item, index) => {
+        <ResultList id="search-result-list" $isShowNavBarRedesign={isShowNavBarRedesign}>
+            {!searchResults.length && (
+                <EmptyText>{!loading && <EmptySearchResults suggestions={suggestions} />}</EmptyText>
+            )}
+            {searchResults.map((item, index) => {
                 const expandedSection = isFullViewCard ? urnToExpandedSection[item.entity.urn] : undefined;
                 return (
-                    <div style={{ position: 'relative' }}>
+                    // Index keys match the antd List this replaced, so results remount the same way on page change.
+                    // eslint-disable-next-line react/no-array-index-key
+                    <div key={`list-item-${index}`} style={{ position: 'relative' }}>
                         <MatchContextContainer
                             item={item}
                             selected={highlightedIndex === index}
@@ -277,19 +282,20 @@ export const SearchResultList = ({
                                     data-testid="search-result-item"
                                 >
                                     {isSelectMode && (
-                                        <StyledCheckbox
-                                            checked={selectedEntityUrns.indexOf(item.entity.urn) >= 0}
-                                            onChange={(e) =>
-                                                onSelectEntity(
-                                                    {
-                                                        urn: item.entity.urn,
-                                                        type: item.entity.type,
-                                                    },
-                                                    e.target.checked,
-                                                )
-                                            }
-                                            onClick={(e) => e.stopPropagation()}
-                                        />
+                                        <CheckboxWrapper>
+                                            <Checkbox
+                                                isChecked={selectedEntityUrns.indexOf(item.entity.urn) >= 0}
+                                                onCheckboxChange={(checked) =>
+                                                    onSelectEntity(
+                                                        {
+                                                            urn: item.entity.urn,
+                                                            type: item.entity.type,
+                                                        },
+                                                        checked,
+                                                    )
+                                                }
+                                            />
+                                        </CheckboxWrapper>
                                     )}
                                     {entityRegistry.renderSearchResult(item.entity.type, item)}
                                 </ListItem>
@@ -300,7 +306,7 @@ export const SearchResultList = ({
                         </MatchContextContainer>
                     </div>
                 );
-            }}
-        />
+            })}
+        </ResultList>
     );
 };

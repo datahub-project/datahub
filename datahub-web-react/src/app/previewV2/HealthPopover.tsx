@@ -1,7 +1,7 @@
+import { Text } from '@components';
 import { SealCheck } from '@phosphor-icons/react/dist/csr/SealCheck';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
-import { Typography } from 'antd';
 import i18next from 'i18next';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -22,7 +22,8 @@ const Content = styled.div`
     font-size: 16px;
 `;
 
-const Message = styled(Typography.Text)`
+const Message = styled(Text)`
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     margin: 5px;
     line-height: 12px;
@@ -72,7 +73,7 @@ export default function HealthPopover({ health, baseUrl }: Props) {
             {health.map((item) => (
                 <StyledLink key={item.type} to={`${baseUrl}${healthUrlSuffix(item)}`} {...linkProps}>
                     <Icon>{healthIcon(item)}</Icon>
-                    <Message>{healthMessage(item)}</Message>
+                    <Message type="span">{healthMessage(item)}</Message>
                 </StyledLink>
             ))}
         </Content>

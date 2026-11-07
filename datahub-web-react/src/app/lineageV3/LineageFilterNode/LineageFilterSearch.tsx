@@ -1,7 +1,6 @@
 import { Input, Text } from '@components';
 import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import { Spin } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePrevious } from 'react-js-cron/dist/cjs/utils';
@@ -22,7 +21,12 @@ const spin = keyframes`
     to { transform: rotate(360deg); }
 `;
 
+// Sized and colored like the antd Spin indicator it replaces.
 const SpinningCircleNotch = styled(CircleNotch)`
+    display: block;
+    width: 20px;
+    height: 20px;
+    color: ${(props) => props.theme.colors.text};
     animation: ${spin} 1s linear infinite;
 `;
 const SearchWrapper = styled.div`
@@ -129,7 +133,7 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches, z
                     setValue={setInputValue}
                     inputTestId="search-input"
                 />
-                <LoadingWrapper>{loading && <Spin indicator={<SpinningCircleNotch />} />}</LoadingWrapper>
+                <LoadingWrapper>{loading && <SpinningCircleNotch />}</LoadingWrapper>
             </SearchLine>
             <SearchMatchesText type="div" size="xs" color="textTertiary" data-testid="matches">
                 {searchQuery.length >= 3 &&

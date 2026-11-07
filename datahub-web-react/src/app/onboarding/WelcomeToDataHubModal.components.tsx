@@ -1,5 +1,4 @@
-import { Heading, Text } from '@components';
-import { Spin } from 'antd';
+import { Heading, Loader, Text } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -83,7 +82,7 @@ const LoadingContainerBase = styled.div<{ width: string }>`
 
 export const LoadingContainer: React.FC<{ width: string; children?: React.ReactNode }> = ({ width, children }) => (
     <LoadingContainerBase width={width}>
-        <Spin size="large" />
+        <Loader size="md" />
         <Text size="lg" weight="medium" color="textSecondary">
             {children}
         </Text>

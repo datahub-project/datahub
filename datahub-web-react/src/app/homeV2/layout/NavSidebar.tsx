@@ -1,5 +1,4 @@
-import { Avatar } from '@components';
-import { Skeleton } from 'antd';
+import { Avatar, Skeleton } from '@components';
 import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';

@@ -1,4 +1,4 @@
-import { Button } from 'antd';
+import { Button } from '@components';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
@@ -131,7 +131,11 @@ export const OnboardingTour = ({ stepIds }: Props) => {
             scrollDuration={500}
             accentColor={accentColor}
             badgeContent={(current) => <span style={{ color: theme.colors.text }}>{current}</span>}
-            lastStepNextButton={<Button>{t('tour.letsGo')}</Button>}
+            lastStepNextButton={
+                <Button variant="outline" color="gray">
+                    {t('tour.letsGo')}
+                </Button>
+            }
             getCurrentStep={handleStepChange}
             update={updateKey}
         />
