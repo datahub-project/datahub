@@ -1,10 +1,14 @@
 import logging
-from dataclasses import dataclass
-from typing import Dict, Optional
+from dataclasses import dataclass, field
+from typing import Dict, Literal, Optional, Union
 
-import pydantic
+from pydantic import Field, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -16,6 +20,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +83,12 @@ class Constant:
     QITEMS = "qItems"
     QINFO = "qInfo"
     QLIST = "qList"
+    QSCRIPT = "qScript"
+    # Data connection keys (Qlik Cloud REST and on-prem QRS)
+    QNAME = "qName"
+    DATASOURCEID = "datasourceID"
+    QCONNECTSTATEMENT = "qConnectStatement"
+    CONNECTIONSTRING = "connectionstring"
     CONNECTORPROPERTIES = "connectorProperties"
     TABLEQUALIFIERS = "tableQualifiers"
     CONNECTIONINFO = "connectionInfo"
@@ -96,42 +107,178 @@ class Constant:
     PERSONAL_SPACE_NAME = "personal_space"
     # Hypercube
     HYPERCUBE = "qHyperCube"
+    # Container objects hold charts as tabs
+    CONTAINER = "container"
+    QDATA = "qData"
+    CONTAINERCHILDID = "containerChildId"
+    CHILDREN = "children"
+    REFID = "refId"
+    LABEL = "label"
 
 
 @dataclass
 class QlikSourceReport(StaleEntityRemovalSourceReport):
     number_of_spaces: int = 0
+    script_tables_found: int = 0
+    script_tables_with_lineage: int = 0
+    apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
+    unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
 
     def report_number_of_spaces(self, number_of_spaces: int) -> None:
         self.number_of_spaces = number_of_spaces
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
-    pass
+    platform: Optional[str] = Field(
+        default=None,
+        description="DataHub platform of the tables read through this connection, "
+        "e.g. `mssql` or `databricks`. Inferred from the data connection when not set.",
+    )
+    database: Optional[str] = Field(
+        default=None,
+        description="Database (catalog for Databricks) used for tables the load script "
+        "does not qualify. Inferred from the connection string when not set.",
+    )
+    default_schema: Optional[str] = Field(
+        default=None,
+        description="Schema used for tables the load script does not qualify.",
+    )
+
+
+class QlikOnPremConfig(ConfigModel):
+    server: str = Field(
+        min_length=1,
+        description="Qlik Sense Enterprise hostname. Must match the certificate name. "
+        "Repository Service and Engine ports are reached on this host.",
+    )
+    client_cert: str = Field(
+        min_length=1,
+        description="Path to the PEM client certificate exported from the QMC.",
+    )
+    client_key: str = Field(
+        min_length=1,
+        description="Path to the PEM client key exported from the QMC.",
+    )
+    root_cert: str = Field(
+        min_length=1,
+        description="Path to the PEM root certificate exported from the QMC.",
+    )
+    qrs_port: int = Field(
+        default=4242,
+        ge=1,
+        le=65535,
+        description="Qlik Repository Service port used for inventory.",
+    )
+    engine_port: int = Field(
+        default=4747,
+        ge=1,
+        le=65535,
+        description="Qlik Engine port used for app, sheet, and chart reads.",
+    )
+    server_cert_hostname: Optional[str] = Field(
+        default=None,
+        description="Hostname the Qlik server certificate was issued to, when it "
+        "differs from `server` (for example when connecting by IP address). The certificate is "
+        "still verified against `root_cert`, but its name is checked against this value.",
+    )
+    verify_server_hostname: bool = Field(
+        default=True,
+        description="Set to false to skip the certificate name check when no "
+        "hostname matches it. The certificate chain is still verified against `root_cert`.",
+    )
+    user_directory: str = Field(
+        default="INTERNAL",
+        description="User directory for the X-Qlik-User header.",
+    )
+    qrs_user_id: str = Field(
+        default="sa_repository",
+        description="User id for Repository Service calls. Certificate auth defaults to the repository service account.",
+    )
+    engine_user_id: str = Field(
+        default="sa_engine",
+        description="User id for Engine websocket calls. Certificate auth defaults to the engine service account.",
+    )
+    ingest_unpublished_apps: bool = Field(
+        default=False,
+        description="Also ingest apps that are not published to a stream.",
+    )
+
+    @model_validator(mode="after")
+    def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":
+        if self.server_cert_hostname and not self.verify_server_hostname:
+            logger.warning(
+                "server_cert_hostname is ignored for TLS hostname verification because "
+                "verify_server_hostname is false. It is still used for Qlik UI URLs."
+            )
+        return self
+
+    def ui_hostname(self) -> str:
+        return self.server_cert_hostname or self.server
+
+    def tls_assert_hostname(self) -> Union[str, Literal[False], None]:
+        if not self.verify_server_hostname:
+            return False
+        return self.server_cert_hostname
+
+    def qlik_user_header(self, user_id: str) -> str:
+        return f"UserDirectory={self.user_directory}; UserId={user_id}"
 
 
 class QlikSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
-    tenant_hostname: str = pydantic.Field(description="Qlik Tenant hostname")
-    api_key: TransparentSecretStr = pydantic.Field(description="Qlik API Key")
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
+    tenant_hostname: Optional[str] = Field(
+        default=None,
+        description="Qlik Cloud tenant hostname. Required unless `on_prem` is set.",
+    )
+    api_key: Optional[TransparentSecretStr] = Field(
+        default=None,
+        description="Qlik Cloud API key. Required unless `on_prem` is set.",
+    )
+    on_prem: Optional[QlikOnPremConfig] = Field(
+        default=None,
+        description="Connection to Qlik Sense Enterprise on Windows. Set this instead of "
+        "`tenant_hostname` and `api_key` to read an on-prem site.",
+    )
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
         description="Configuration for stateful ingestion and stale metadata removal.",
     )
     # Qlik space identifier
-    space_pattern: AllowDenyPattern = pydantic.Field(
+    space_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Qlik spaces in ingestion."
         "Mention 'personal_space' if entities of personal space need to ingest",
     )
-    ingest_owner: Optional[bool] = pydantic.Field(
+    ingest_owner: Optional[bool] = Field(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
     )
     # Qlik app dataset upstream tables from data connection to platform instance mapping
-    data_connection_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+    data_connection_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
         description="A mapping of the Qlik app dataset upstream tables from data connection to platform instance."
-        "Use 'data_connection_name' as key.",
+        "Use 'data_connection_name' as key. Set `platform`, `database` and `default_schema` when they "
+        "cannot be inferred from the data connection.",
     )
+
+    @model_validator(mode="after")
+    def validate_connection(self) -> "QlikSourceConfig":
+        if self.on_prem is not None:
+            if self.tenant_hostname or self.api_key is not None:
+                raise ValueError(
+                    "Set either the on_prem block or tenant_hostname and api_key, not both"
+                )
+            return self
+        if not self.tenant_hostname or self.api_key is None:
+            raise ValueError(
+                "Qlik Cloud requires tenant_hostname and api_key "
+                "(set the on_prem block for Qlik Sense Enterprise on Windows)"
+            )
+        return self
+
+    def ui_hostname(self) -> str:
+        if self.on_prem is not None:
+            return self.on_prem.ui_hostname()
+        assert self.tenant_hostname is not None
+        return self.tenant_hostname

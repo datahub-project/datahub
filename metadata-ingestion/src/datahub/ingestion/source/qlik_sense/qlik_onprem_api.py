@@ -1,0 +1,312 @@
+import logging
+import secrets
+import socket
+import ssl
+from datetime import datetime
+from typing import Any, Dict, Iterable, List, Literal, Optional, Union
+
+import requests
+from requests.adapters import HTTPAdapter
+
+from datahub.ingestion.source.qlik_sense.config import (
+    QLIK_DATETIME_FORMAT,
+    Constant,
+    QlikSourceConfig,
+)
+from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
+    Space,
+    SpaceType,
+)
+from datahub.ingestion.source.qlik_sense.qlik_base_api import (
+    QlikBaseAPI,
+    ReadErrors,
+)
+from datahub.ingestion.source.qlik_sense.script_lineage import DataConnectionInfo
+from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+
+logger = logging.getLogger(__name__)
+
+UNPUBLISHED_APPS_ID = "unpublished-apps"
+UNPUBLISHED_APPS_NAME = "Unpublished"
+_XRFKEY_LENGTH = 16
+
+
+class _AssertHostnameAdapter(HTTPAdapter):
+    # Qlik server certificates are issued to the node name, so connecting by IP
+    # or alias fails the name check even though the chain verifies.
+    def __init__(self, assert_hostname: Union[str, Literal[False]]) -> None:
+        self._assert_hostname = assert_hostname
+        super().__init__()
+
+    def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
+        kwargs["assert_hostname"] = self._assert_hostname
+        super().init_poolmanager(*args, **kwargs)
+
+
+def _presented_certificate(
+    host: str, port: int, client_cert: str, client_key: str
+) -> str:
+    # Diagnostic only: the handshake skips verification so the certificate the
+    # server actually sends can be compared with root_cert.
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    try:
+        context.load_cert_chain(client_cert, client_key)
+        with socket.create_connection((host, port), timeout=10) as sock:
+            with context.wrap_socket(sock, server_hostname=host) as tls:
+                der = tls.getpeercert(binary_form=True)
+    except (OSError, ssl.SSLError) as e:
+        return f"<unable to read: {e}>"
+    return ssl.DER_cert_to_PEM_cert(der) if der else "<no certificate presented>"
+
+
+def normalize_qlik_timestamp(value: str) -> str:
+    # QRS sometimes omits the fractional seconds that Cloud always sends.
+    if value.endswith("Z") and "." not in value:
+        return f"{value[:-1]}.000Z"
+    return value
+
+
+class QlikOnPremAPI(QlikBaseAPI):
+    def __init__(self, config: QlikSourceConfig) -> None:
+        super().__init__(config)
+        if config.on_prem is None:
+            raise ValueError("On-prem Qlik Sense requires the on_prem block")
+        self.on_prem = on_prem = config.on_prem
+        self.xrfkey = secrets.token_hex(_XRFKEY_LENGTH // 2)
+        self.session = requests.Session()
+        self.session.cert = (on_prem.client_cert, on_prem.client_key)
+        self.session.verify = on_prem.root_cert
+        self.session.headers.update(
+            {
+                "X-Qlik-User": on_prem.qlik_user_header(on_prem.qrs_user_id),
+                "X-Qlik-Xrfkey": self.xrfkey,
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            }
+        )
+        self.qrs_url = f"https://{on_prem.server}:{on_prem.qrs_port}/qrs"
+        assert_hostname = on_prem.tls_assert_hostname()
+        if assert_hostname is not None:
+            self.session.mount(self.qrs_url, _AssertHostnameAdapter(assert_hostname))
+        logger.info(f"Trying to connect to {self.qrs_url}")
+        try:
+            self._get("/about")
+        except requests.exceptions.SSLError:
+            logger.warning(
+                f"TLS verification against root_cert failed. Certificate presented by "
+                f"{on_prem.server}:{on_prem.qrs_port}:\n"
+                f"{_presented_certificate(on_prem.server, on_prem.qrs_port, on_prem.client_cert, on_prem.client_key)}"
+            )
+            raise
+
+    def _get(
+        self, path: str, params: Optional[Dict[str, str]] = None
+    ) -> requests.Response:
+        # QRS rejects the call unless this 16-character key is in both places.
+        query = dict(params or {})
+        query["xrfkey"] = self.xrfkey
+        # Passed per request because REQUESTS_CA_BUNDLE / CURL_CA_BUNDLE, common
+        # on executors, otherwise override session.verify and drop the Qlik CA.
+        response = self.session.get(
+            f"{self.qrs_url}{path}", params=query, verify=self.session.verify
+        )
+        response.raise_for_status()
+        return response
+
+    def _remember_owner(self, owner: Optional[Dict]) -> Optional[str]:
+        if not owner:
+            return None
+        owner_id = owner.get(Constant.ID)
+        if not owner_id:
+            return None
+        name = owner.get(Constant.NAME) or owner.get("userId")
+        if name:
+            self.users[owner_id] = name
+        return owner_id
+
+    def get_user_name(self, user_id: str) -> Optional[str]:
+        if not user_id:
+            return None
+        if user_id in self.users:
+            return self.users[user_id]
+        if user_id in self.failed_user_lookups:
+            return None
+        try:
+            user = self._get(f"/user/{user_id}").json()
+            name = user.get(Constant.NAME) or user.get("userId")
+            if name:
+                self.users[user_id] = name
+            return name
+        except Exception as e:
+            self._record_failed_user_lookup(user_id, e)
+        return None
+
+    def _space_from_stream(self, stream: Dict) -> Space:
+        created = normalize_qlik_timestamp(stream[Constant.CREATEDDATE])
+        modified = normalize_qlik_timestamp(stream[Constant.MODIFIEDDATE])
+        return Space.model_validate(
+            {
+                Constant.ID: stream[Constant.ID],
+                Constant.NAME: stream[Constant.NAME],
+                "description": stream.get("description") or "",
+                Constant.TYPE: SpaceType.STREAM.value,
+                Constant.CREATEDAT: created,
+                Constant.UPDATEDAT: modified,
+                Constant.OWNERID: self._remember_owner(stream.get("owner")),
+            }
+        )
+
+    def get_spaces(self) -> List[Space]:
+        spaces: List[Space] = []
+        try:
+            for stream in self._get("/stream/full").json():
+                space = self._space_from_stream(stream)
+                spaces.append(space)
+                self.spaces[space.id] = space.name
+            if self.on_prem.ingest_unpublished_apps:
+                now = datetime.now().strftime(QLIK_DATETIME_FORMAT)
+                unpublished = Space.model_validate(
+                    {
+                        Constant.ID: UNPUBLISHED_APPS_ID,
+                        Constant.NAME: UNPUBLISHED_APPS_NAME,
+                        "description": "Apps that are not published to a stream",
+                        Constant.TYPE: SpaceType.STREAM.value,
+                        Constant.CREATEDAT: now,
+                        Constant.UPDATEDAT: now,
+                    }
+                )
+                spaces.append(unpublished)
+                self.spaces[unpublished.id] = unpublished.name
+        except Exception as e:
+            self._record_unread(
+                "streams", f"Unable to fetch streams. Exception: {e}", e
+            )
+        return spaces
+
+    def _app_from_qrs(self, app: Dict) -> App:
+        stream = app.get("stream") or {}
+        return App.model_validate(
+            {
+                Constant.ID: app[Constant.ID],
+                "description": app.get("description") or "",
+                Constant.OWNERID: self._remember_owner(app.get("owner")),
+                Constant.SPACEID: stream.get(Constant.ID) or UNPUBLISHED_APPS_ID,
+                Constant.CREATEDDATE: normalize_qlik_timestamp(
+                    app[Constant.CREATEDDATE]
+                ),
+                Constant.MODIFIEDDATE: normalize_qlik_timestamp(
+                    app[Constant.MODIFIEDDATE]
+                ),
+                "qTitle": app.get(Constant.NAME) or "",
+            }
+        )
+
+    def _open_engine(self, app_id: str) -> WebsocketConnection:
+        return WebsocketConnection.for_on_prem(
+            host=self.on_prem.server,
+            port=self.on_prem.engine_port,
+            app_id=app_id,
+            user_header=self.on_prem.qlik_user_header(self.on_prem.engine_user_id),
+            client_cert=self.on_prem.client_cert,
+            client_key=self.on_prem.client_key,
+            root_cert=self.on_prem.root_cert,
+            assert_hostname=self.on_prem.tls_assert_hostname(),
+        )
+
+    def _sheet_meta(self, meta: Dict, sheet_id: str) -> Optional[Dict]:
+        # Enterprise reports the sheet owner as an object rather than ownerId.
+        meta = dict(meta)
+        meta.setdefault(Constant.ID, sheet_id)
+        if not meta.get(Constant.OWNERID):
+            meta[Constant.OWNERID] = self._remember_owner(meta.get("owner"))
+        return meta
+
+    def _load_item(self, item: Dict) -> Optional[App]:
+        app_id = str(item.get(Constant.ID))
+        try:
+            return self._read_app(item)
+        except Exception as e:
+            self._record_unread(
+                app_id, f"Unable to load app {app_id}. Exception: {e}", e
+            )
+        return None
+
+    def _read_app(self, app_dict: Dict) -> Optional[App]:
+        try:
+            app = self._app_from_qrs(app_dict)
+        except Exception as e:
+            self._record_unread(
+                str(app_dict.get(Constant.ID)),
+                f"Unable to parse app {app_dict.get(Constant.ID)}. Exception: {e}",
+                e,
+            )
+            return None
+        errors = ReadErrors()
+        try:
+            websocket_connection = self._open_engine(app.id)
+        except Exception as e:
+            errors.record(
+                f"Unable to connect to the Engine for app {app.id}. Exception: {e}"
+            )
+            app.read_errors = errors.messages
+            return app
+        try:
+            websocket_connection.websocket_send_request(
+                method="OpenDoc",
+                # Only metadata is read, and loading each app's data into the
+                # Engine takes minutes per app on large sites.
+                params={"qDocName": app.id, "qNoData": True},
+            )
+            app.sheets = self._get_app_sheets(websocket_connection, app.id, errors)
+            app.script = self._read_load_script(
+                websocket_connection, app.id, on_error=errors.record
+            )
+            app.tables_read_failed = app.script is None
+        except Exception as e:
+            errors.record(f"Unable to open app {app.id} in the Engine. Exception: {e}")
+        finally:
+            self._close_engine(websocket_connection, app.id)
+        app.read_errors = errors.messages
+        return app
+
+    def get_data_connections(self) -> Dict[str, DataConnectionInfo]:
+        connections: Dict[str, DataConnectionInfo] = {}
+        try:
+            for connection in self._get("/dataconnection/full").json():
+                name = connection.get(Constant.NAME)
+                if not name:
+                    continue
+                connections[name] = self._infer_connection(
+                    name, connection, (Constant.CONNECTIONSTRING, Constant.TYPE)
+                )
+        except Exception as e:
+            self._record_unread(
+                "data connections",
+                f"Unable to fetch data connections. Exception: {e}",
+                e,
+            )
+        logger.debug(f"QRS data connections: {list(connections.values())}")
+        return connections
+
+    def _list_items(self, space_id: str) -> Iterable[Dict]:
+        if space_id not in self.spaces:
+            return []
+        if not self.config.space_pattern.allowed(self.spaces[space_id]):
+            return []
+        qrs_filter = (
+            "published eq false"
+            if space_id == UNPUBLISHED_APPS_ID
+            else f"stream.id eq {space_id}"
+        )
+        try:
+            return self._get("/app/full", params={"filter": qrs_filter}).json()
+        except Exception as e:
+            self._record_unread(
+                f"apps of stream {space_id}",
+                f"Unable to fetch apps. Exception: {e}",
+                e,
+            )
+        return []
