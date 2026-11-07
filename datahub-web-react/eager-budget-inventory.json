@@ -1,0 +1,439 @@
+{
+    "eager_whole_file_gzip_bytes": 306512,
+    "packages": [
+        {
+            "package": "app-source",
+            "gzip_bytes": 43569
+        },
+        {
+            "package": "react-dom",
+            "gzip_bytes": 39035
+        },
+        {
+            "package": "@apollo/client",
+            "gzip_bytes": 37173
+        },
+        {
+            "package": "antd",
+            "gzip_bytes": 18189
+        },
+        {
+            "package": "i18next",
+            "gzip_bytes": 15013
+        },
+        {
+            "package": "rc-field-form",
+            "gzip_bytes": 10088
+        },
+        {
+            "package": "dayjs",
+            "gzip_bytes": 9737
+        },
+        {
+            "package": "@analytics/core",
+            "gzip_bytes": 9116
+        },
+        {
+            "package": "styled-components",
+            "gzip_bytes": 6801
+        },
+        {
+            "package": "rc-util",
+            "gzip_bytes": 6434
+        },
+        {
+            "package": "async-validator",
+            "gzip_bytes": 5467
+        },
+        {
+            "package": "rc-trigger",
+            "gzip_bytes": 5224
+        },
+        {
+            "package": "dom-align",
+            "gzip_bytes": 5170
+        },
+        {
+            "package": "react-helmet-async",
+            "gzip_bytes": 5127
+        },
+        {
+            "package": "@ctrl/tinycolor",
+            "gzip_bytes": 4742
+        },
+        {
+            "package": "rc-image",
+            "gzip_bytes": 4444
+        },
+        {
+            "package": "@babel/runtime",
+            "gzip_bytes": 4377
+        },
+        {
+            "package": "graphql",
+            "gzip_bytes": 4082
+        },
+        {
+            "package": "react-i18next",
+            "gzip_bytes": 3961
+        },
+        {
+            "package": "@phosphor-icons/react",
+            "gzip_bytes": 3956
+        },
+        {
+            "package": "rc-motion",
+            "gzip_bytes": 3467
+        },
+        {
+            "package": "history",
+            "gzip_bytes": 3331
+        },
+        {
+            "package": "@emotion/stylis",
+            "gzip_bytes": 3311
+        },
+        {
+            "package": "@floating-ui/dom",
+            "gzip_bytes": 3152
+        },
+        {
+            "package": "react",
+            "gzip_bytes": 3033
+        },
+        {
+            "package": "@opentelemetry/api",
+            "gzip_bytes": 2928
+        },
+        {
+            "package": "@ant-design/icons-svg",
+            "gzip_bytes": 2860
+        },
+        {
+            "package": "resize-observer-polyfill",
+            "gzip_bytes": 2584
+        },
+        {
+            "package": "@floating-ui/core",
+            "gzip_bytes": 2524
+        },
+        {
+            "package": "react-router",
+            "gzip_bytes": 2431
+        },
+        {
+            "package": "zen-observable-ts",
+            "gzip_bytes": 2343
+        },
+        {
+            "package": "rc-dialog",
+            "gzip_bytes": 2223
+        },
+        {
+            "package": "rc-textarea",
+            "gzip_bytes": 2112
+        },
+        {
+            "package": "@ant-design/icons",
+            "gzip_bytes": 2111
+        },
+        {
+            "package": "@emotion/is-prop-valid",
+            "gzip_bytes": 2020
+        },
+        {
+            "package": "rc-notification",
+            "gzip_bytes": 1992
+        },
+        {
+            "package": "scheduler",
+            "gzip_bytes": 1982
+        },
+        {
+            "package": "rc-input",
+            "gzip_bytes": 1832
+        },
+        {
+            "package": "path-to-regexp",
+            "gzip_bytes": 1779
+        },
+        {
+            "package": "optimism",
+            "gzip_bytes": 1736
+        },
+        {
+            "package": "@floating-ui/utils",
+            "gzip_bytes": 1695
+        },
+        {
+            "package": "@analytics/google-analytics",
+            "gzip_bytes": 1682
+        },
+        {
+            "package": "@ant-design/colors",
+            "gzip_bytes": 1508
+        },
+        {
+            "package": "@analytics/mixpanel",
+            "gzip_bytes": 1356
+        },
+        {
+            "package": "@analytics/amplitude",
+            "gzip_bytes": 1341
+        },
+        {
+            "package": "@floating-ui/react-dom",
+            "gzip_bytes": 1308
+        },
+        {
+            "package": "tslib",
+            "gzip_bytes": 1183
+        },
+        {
+            "package": "react-router-dom",
+            "gzip_bytes": 1144
+        },
+        {
+            "package": "rc-tooltip",
+            "gzip_bytes": 1131
+        },
+        {
+            "package": "rc-align",
+            "gzip_bytes": 1109
+        },
+        {
+            "package": "rc-resize-observer",
+            "gzip_bytes": 1086
+        },
+        {
+            "package": "html-parse-stringify",
+            "gzip_bytes": 1079
+        },
+        {
+            "package": "@rc-component/portal",
+            "gzip_bytes": 1021
+        },
+        {
+            "package": "copy-to-clipboard",
+            "gzip_bytes": 866
+        },
+        {
+            "package": "@analytics/type-utils",
+            "gzip_bytes": 860
+        },
+        {
+            "package": "js-cookie",
+            "gzip_bytes": 857
+        },
+        {
+            "package": "@wry/caches",
+            "gzip_bytes": 842
+        },
+        {
+            "package": "@wry/equality",
+            "gzip_bytes": 776
+        },
+        {
+            "package": "react-is",
+            "gzip_bytes": 731
+        },
+        {
+            "package": "object-assign",
+            "gzip_bytes": 702
+        },
+        {
+            "package": "react-fast-compare",
+            "gzip_bytes": 702
+        },
+        {
+            "package": "@analytics/storage-utils",
+            "gzip_bytes": 653
+        },
+        {
+            "package": "react-error-boundary",
+            "gzip_bytes": 652
+        },
+        {
+            "package": "analytics-utils",
+            "gzip_bytes": 637
+        },
+        {
+            "package": "uuid",
+            "gzip_bytes": 578
+        },
+        {
+            "package": "@wry/trie",
+            "gzip_bytes": 567
+        },
+        {
+            "package": "@wry/context",
+            "gzip_bytes": 567
+        },
+        {
+            "package": "prop-types",
+            "gzip_bytes": 541
+        },
+        {
+            "package": "hoist-non-react-statics",
+            "gzip_bytes": 509
+        },
+        {
+            "package": "ts-invariant",
+            "gzip_bytes": 440
+        },
+        {
+            "package": "analytics",
+            "gzip_bytes": 389
+        },
+        {
+            "package": "resolve-pathname",
+            "gzip_bytes": 379
+        },
+        {
+            "package": "@analytics/cookie-utils",
+            "gzip_bytes": 368
+        },
+        {
+            "package": "classnames",
+            "gzip_bytes": 363
+        },
+        {
+            "package": "rc-picker",
+            "gzip_bytes": 325
+        },
+        {
+            "package": "toggle-selection",
+            "gzip_bytes": 310
+        },
+        {
+            "package": "invariant",
+            "gzip_bytes": 308
+        },
+        {
+            "package": "@emotion/unitless",
+            "gzip_bytes": 302
+        },
+        {
+            "package": "@analytics/global-storage-utils",
+            "gzip_bytes": 285
+        },
+        {
+            "package": "shallowequal",
+            "gzip_bytes": 279
+        },
+        {
+            "package": "value-equal",
+            "gzip_bytes": 252
+        },
+        {
+            "package": "symbol-observable",
+            "gzip_bytes": 242
+        },
+        {
+            "package": "rehackt",
+            "gzip_bytes": 220
+        },
+        {
+            "package": "rc-pagination",
+            "gzip_bytes": 152
+        },
+        {
+            "package": "isarray",
+            "gzip_bytes": 142
+        },
+        {
+            "package": "void-elements",
+            "gzip_bytes": 126
+        },
+        {
+            "package": "dlv",
+            "gzip_bytes": 113
+        },
+        {
+            "package": "@analytics/session-storage-utils",
+            "gzip_bytes": 101
+        },
+        {
+            "package": "@analytics/localstorage-utils",
+            "gzip_bytes": 99
+        },
+        {
+            "package": "@emotion/memoize",
+            "gzip_bytes": 87
+        },
+        {
+            "package": "tiny-invariant",
+            "gzip_bytes": 83
+        }
+    ],
+    "app_areas": [
+        {
+            "package": "src/alchemy-components",
+            "gzip_bytes": 10340
+        },
+        {
+            "package": "src",
+            "gzip_bytes": 9698
+        },
+        {
+            "package": "src/app/theme",
+            "gzip_bytes": 7785
+        },
+        {
+            "package": "src/conf",
+            "gzip_bytes": 5212
+        },
+        {
+            "package": "src/app/analytics",
+            "gzip_bytes": 3935
+        },
+        {
+            "package": "src/app/sharedV2",
+            "gzip_bytes": 3221
+        },
+        {
+            "package": "src/i18n",
+            "gzip_bytes": 1235
+        },
+        {
+            "package": "src/app",
+            "gzip_bytes": 1177
+        },
+        {
+            "package": "src/app/homeV2",
+            "gzip_bytes": 705
+        },
+        {
+            "package": "src/utils",
+            "gzip_bytes": 666
+        },
+        {
+            "package": "src/app/appConfig",
+            "gzip_bytes": 311
+        },
+        {
+            "package": "src/app/context",
+            "gzip_bytes": 236
+        },
+        {
+            "package": "src/app/identity",
+            "gzip_bytes": 211
+        },
+        {
+            "package": "src/app/i18n",
+            "gzip_bytes": 174
+        },
+        {
+            "package": "src/app/ingestV2",
+            "gzip_bytes": 152
+        },
+        {
+            "package": "src/app/auth",
+            "gzip_bytes": 90
+        },
+        {
+            "package": "src/images",
+            "gzip_bytes": 89
+        }
+    ]
+}
