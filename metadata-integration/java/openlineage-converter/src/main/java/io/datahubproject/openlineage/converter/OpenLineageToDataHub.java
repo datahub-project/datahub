@@ -139,28 +139,48 @@ public class OpenLineageToDataHub {
     if (dataset.getFacets() != null
         && dataset.getFacets().getSymlinks() != null
         && !mappingConfig.isDisableSymlinkResolution()) {
+      String connectionKey = null;
       Optional<DatasetUrn> originalUrn =
           getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
-      Optional<OpenLineage.SymlinksDatasetFacetIdentifiers> tableSymlink =
-          getUsableTableSymlink(dataset.getFacets().getSymlinks());
-      if (tableSymlink.isPresent()) {
-        OpenLineage.SymlinksDatasetFacetIdentifiers symlink = tableSymlink.get();
-        namespace =
-            resolveTableSymlinkPlatform(
-                symlink.getNamespace(), dataset.getFacets().getCatalog(), mappingConfig);
-        datasetName = normalizeTableSymlinkName(symlink.getName());
-        String connectionKey = toConnectionKey(symlink.getNamespace());
-        Optional<DatasetUrn> symlinkedUrn =
-            getDatasetUrnFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
-        if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
-          mappingConfig
-              .getUrnAliases()
-              .put(originalUrn.get().toString(), symlinkedUrn.get().toString());
+      for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
+          Optional.ofNullable(dataset.getFacets().getSymlinks().getIdentifiers())
+              .orElse(Collections.emptyList())) {
+        if (symlink == null || !"TABLE".equals(symlink.getType()) || symlink.getName() == null) {
+          continue;
         }
-        datahubUrn = symlinkedUrn;
-      } else {
-        datahubUrn = originalUrn;
+        String logicalName = symlink.getName();
+        if (logicalName.startsWith(TABLE_PREFIX)) {
+          logicalName = logicalName.substring(TABLE_PREFIX.length()).replace("/", ".");
+        }
+        if (logicalName.isBlank()) {
+          continue;
+        }
+        String symlinkNamespace = symlink.getNamespace();
+        OpenLineage.CatalogDatasetFacet catalog = dataset.getFacets().getCatalog();
+        // Before OpenLineage 0.17.1 the Glue namespace omitted the "arn:" prefix.
+        if (symlinkNamespace != null
+            && (symlinkNamespace.startsWith("aws:glue:")
+                || symlinkNamespace.startsWith("arn:aws:glue:"))) {
+          namespace = "glue";
+        } else if (catalog != null && "iceberg".equalsIgnoreCase(catalog.getFramework())) {
+          namespace = "iceberg";
+        } else {
+          namespace = mappingConfig.getHivePlatformAlias();
+        }
+        datasetName = logicalName;
+        // Keep the catalog namespace for per-connection instance and environment mapping.
+        connectionKey = toConnectionKey(symlinkNamespace);
       }
+      Optional<DatasetUrn> symlinkedUrn =
+          getDatasetUrnFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
+      if (symlinkedUrn.isPresent()
+          && originalUrn.isPresent()
+          && !symlinkedUrn.equals(originalUrn)) {
+        mappingConfig
+            .getUrnAliases()
+            .put(originalUrn.get().toString(), symlinkedUrn.get().toString());
+      }
+      datahubUrn = symlinkedUrn;
     } else {
       datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
     }
@@ -182,44 +202,6 @@ public class OpenLineageToDataHub {
     }
 
     return datahubUrn;
-  }
-
-  private static Optional<OpenLineage.SymlinksDatasetFacetIdentifiers> getUsableTableSymlink(
-      OpenLineage.SymlinksDatasetFacet symlinks) {
-    if (symlinks.getIdentifiers() == null) {
-      return Optional.empty();
-    }
-    return symlinks.getIdentifiers().stream()
-        .filter(
-            symlink ->
-                symlink != null
-                    && "TABLE".equals(symlink.getType())
-                    && symlink.getName() != null
-                    && !normalizeTableSymlinkName(symlink.getName()).isBlank())
-        .reduce((first, second) -> second);
-  }
-
-  private static String normalizeTableSymlinkName(String symlinkName) {
-    if (symlinkName.startsWith(TABLE_PREFIX)) {
-      return symlinkName.substring(TABLE_PREFIX.length()).replace("/", ".");
-    }
-    return symlinkName;
-  }
-
-  private static String resolveTableSymlinkPlatform(
-      String symlinkNamespace,
-      OpenLineage.CatalogDatasetFacet catalog,
-      DatahubOpenlineageConfig mappingConfig) {
-    // Before OpenLineage 0.17.1 the Glue namespace omitted the "arn:" prefix.
-    if (symlinkNamespace != null
-        && (symlinkNamespace.startsWith("aws:glue:")
-            || symlinkNamespace.startsWith("arn:aws:glue:"))) {
-      return "glue";
-    }
-    if (catalog != null && "iceberg".equalsIgnoreCase(catalog.getFramework())) {
-      return "iceberg";
-    }
-    return mappingConfig.getHivePlatformAlias();
   }
 
   private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(

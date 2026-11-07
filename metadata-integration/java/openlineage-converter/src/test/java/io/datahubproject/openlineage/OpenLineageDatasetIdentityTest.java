@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class OpenLineageDatasetIdentityTest {
@@ -83,20 +84,53 @@ public class OpenLineageDatasetIdentityTest {
         "urn:li:dataset:(urn:li:dataPlatform:glue,my_db.events,PROD)");
   }
 
-  @Test
-  public void testMissingLogicalNameKeepsPhysicalIdentity() {
-    OpenLineage.InputDataset blankName = tableDataset("iceberg", "rest", CATALOG_NAMESPACE, "  ");
-    OpenLineage.InputDataset prefixOnlyName =
-        tableDataset("iceberg", "rest", CATALOG_NAMESPACE, "table/");
+  @DataProvider
+  public Object[][] missingLogicalNames() {
+    return new Object[][] {{null}, {"  "}, {"table/"}};
+  }
+
+  @Test(dataProvider = "missingLogicalNames")
+  public void testMissingLogicalNameKeepsPhysicalIdentity(String logicalName) {
+    OpenLineage.InputDataset dataset =
+        tableDataset("iceberg", "rest", CATALOG_NAMESPACE, logicalName);
     DatahubOpenlineageConfig config =
         DatahubOpenlineageConfig.builder().fabricType(FabricType.PROD).build();
 
     assertEquals(
-        convert(blankName, config),
+        convert(dataset, config),
         "urn:li:dataset:(urn:li:dataPlatform:s3,warehouse-bucket/catalog/db/table,PROD)");
+    assertTrue(config.getUrnAliases().isEmpty());
+  }
+
+  @Test
+  public void testLastUsableTableSymlinkWins() {
+    OpenLineage.InputDataset dataset =
+        openLineage
+            .newInputDatasetBuilder()
+            .namespace("s3://warehouse-bucket")
+            .name("catalog/db/table")
+            .facets(
+                openLineage
+                    .newDatasetFacetsBuilder()
+                    .catalog(
+                        openLineage.newCatalogDatasetFacetBuilder().framework("iceberg").build())
+                    .symlinks(
+                        openLineage.newSymlinksDatasetFacet(
+                            List.of(
+                                openLineage.newSymlinksDatasetFacetIdentifiers(
+                                    CATALOG_NAMESPACE, "my_db.old_events", "TABLE"),
+                                openLineage.newSymlinksDatasetFacetIdentifiers(
+                                    CATALOG_NAMESPACE, "my_db.events", "TABLE"),
+                                openLineage.newSymlinksDatasetFacetIdentifiers(
+                                    CATALOG_NAMESPACE, "table/", "TABLE"),
+                                openLineage.newSymlinksDatasetFacetIdentifiers(
+                                    "s3://warehouse-bucket", "physical/path", "LOCATION"))))
+                    .build())
+            .build();
+
     assertEquals(
-        convert(prefixOnlyName, config),
-        "urn:li:dataset:(urn:li:dataPlatform:s3,warehouse-bucket/catalog/db/table,PROD)");
+        convert(dataset, DatahubOpenlineageConfig.builder().fabricType(FabricType.PROD).build()),
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,my_db.events,PROD)");
   }
 
   @Test
@@ -166,6 +200,8 @@ public class OpenLineageDatasetIdentityTest {
             .build();
 
     assertEquals(convert(physical, config), logicalUrn);
+    assertEquals(
+        convert(tableDataset("iceberg", "rest", CATALOG_NAMESPACE, "table/"), config), logicalUrn);
   }
 
   private OpenLineage.InputDataset tableDataset(
