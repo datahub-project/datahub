@@ -1,0 +1,15 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "61206e22c2fea5883e549c14d9fd9aecf34e6fc6669a960c31b2f0dfc23f6ce3",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.t,PROD)"
+    ],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "COPY t FROM ?"
+    }
+}

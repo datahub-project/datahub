@@ -937,3 +937,38 @@ class TestTsqlProcedureCallsAreNotDatasets:
             [],
             ["my_db.dbo.target"],
         )
+
+
+class TestSnowflakeCopyGrantMultiStatementLineage:
+    _SNOWFLAKE = dict(
+        default_db="db",
+        platform="snowflake",
+        platform_instance=None,
+        env="PROD",
+        default_schema="schema",
+    )
+
+    def test_session_delete_copy_commit_reports_target_only(self) -> None:
+        result = _parse(
+            [
+                "ALTER SESSION SET TIMEZONE = 'UTC'",
+                "BEGIN",
+                "DELETE FROM t WHERE id = 1",
+                "COPY INTO t FROM 'gcs://b/p/'",
+                "COMMIT",
+            ],
+            **self._SNOWFLAKE,
+        )
+        assert _table_short_names(result.in_tables) == set()
+        assert _table_short_names(result.out_tables) == {"t"}
+
+    def test_create_view_then_grant_keeps_src_as_upstream(self) -> None:
+        result = _parse(
+            [
+                "CREATE OR REPLACE VIEW v AS SELECT * FROM src",
+                "GRANT SELECT ON v TO ROLE r",
+            ],
+            **self._SNOWFLAKE,
+        )
+        assert _table_short_names(result.in_tables) == {"src"}
+        assert _table_short_names(result.out_tables) == {"v"}

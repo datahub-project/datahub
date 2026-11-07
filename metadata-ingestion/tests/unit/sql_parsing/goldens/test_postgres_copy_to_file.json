@@ -1,0 +1,15 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": "ef76ed5c21ee6df91d34e9bd2f240d5c79222f8cc3bfecc64ac9b66aafdf7c43",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.t,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "COPY t TO ?"
+    }
+}
