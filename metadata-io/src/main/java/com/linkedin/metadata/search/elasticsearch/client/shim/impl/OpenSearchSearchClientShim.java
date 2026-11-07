@@ -25,6 +25,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -1010,6 +1011,28 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       default:
         log.warn("Unknown feature requested: {}", feature);
         return false;
+    }
+  }
+
+  @Nonnull
+  @Override
+  public Optional<String> getRawTask(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull String taskId,
+      @Nonnull RequestOptions options)
+      throws IOException {
+    Request request = new Request("GET", "/_tasks/" + taskId);
+    request.setOptions(options);
+    try {
+      Response response = restClient.performRequest(request);
+      return response.getEntity() == null
+          ? Optional.empty()
+          : Optional.of(EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8));
+    } catch (org.opensearch.client.ResponseException e) {
+      if (e.getResponse().getStatusLine().getStatusCode() == 404) {
+        return Optional.empty();
+      }
+      throw e;
     }
   }
 

@@ -110,6 +110,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -152,6 +153,7 @@ import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 import org.apache.http.ssl.SSLContexts;
+import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
@@ -1638,6 +1640,29 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       default:
         log.warn("Unknown feature requested: {}", feature);
         return false;
+    }
+  }
+
+  @Nonnull
+  @Override
+  public Optional<String> getRawTask(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull String taskId,
+      @Nonnull RequestOptions options)
+      throws IOException {
+    Request request = new Request("GET", "/_tasks/" + taskId);
+    request.setOptions(options);
+    try {
+      RawResponse response = performLowLevelRequest(opContext, request);
+      return response.getEntity() == null
+          ? Optional.empty()
+          : Optional.of(EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8));
+    } catch (org.elasticsearch.client.ResponseException e) {
+      // The Elasticsearch client's exception, not OpenSearch's: callers can't catch it by type.
+      if (e.getResponse().getStatusLine().getStatusCode() == 404) {
+        return Optional.empty();
+      }
+      throw e;
     }
   }
 
