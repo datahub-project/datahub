@@ -66,6 +66,7 @@ _METRIC_MODEL_RETRYABLE_STATUS_CODES = _RETRYABLE_STATUS_CODES - {500}
 # stall ingestion for minutes per request.
 _MAX_RETRY_DELAY_SECONDS = 60
 
+
 class MicroStrategyAPIError(RuntimeError):
     """An API call failed. `status_code` and `url` are set when the failure
     was an HTTP error response, so callers that swallow the error can still

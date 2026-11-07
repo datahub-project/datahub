@@ -1420,7 +1420,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         once it has failed in the project: Modeling access is project-scoped,
         so the failure is reported once rather than for every dashboard."""
         key = (project_id, dashboard_id)
-        if self._model_document_memo is not None and self._model_document_memo[0] == key:
+        if (
+            self._model_document_memo is not None
+            and self._model_document_memo[0] == key
+        ):
             return self._model_document_memo[1]
         if project_id in self._model_document_unavailable_projects:
             return None

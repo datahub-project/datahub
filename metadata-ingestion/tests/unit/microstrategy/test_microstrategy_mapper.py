@@ -2106,10 +2106,13 @@ def test_folder_path_is_the_project_then_the_visible_folders() -> None:
     )
     # Filed in the hidden project root: the bare project name. No ancestry
     # at all: no path, so a caller can tell the two apart.
-    in_root = _dataset_object("768", [{"id": "project-root-id", "name": "Sales_Project"}])
+    in_root = _dataset_object(
+        "768", [{"id": "project-root-id", "name": "Sales_Project"}]
+    )
     assert mapper.folder_path("Sales_Project", in_root, resolution) == "Sales_Project"
     assert (
-        mapper.folder_path("Sales_Project", _dataset_object("768", []), resolution) is None
+        mapper.folder_path("Sales_Project", _dataset_object("768", []), resolution)
+        is None
     )
 
 

@@ -1580,6 +1580,8 @@ def test_report_derived_metrics_fall_back_to_v2_definition_names() -> None:
 _MODEL_UNAVAILABLE_TITLE = (
     "Modeling report definition unavailable; derived metric formulas omitted"
 )
+
+
 class _TwoReportClient(_ReportDerivedClient):
     """Two dossiers over two different report-backed datasets in one project;
     the Modeling endpoint fails with an HTTP status for both."""
