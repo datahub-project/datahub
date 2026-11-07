@@ -18,8 +18,8 @@
         }
     },
     "routes": [{ "name": "boot", "path": "/login" }],
-    "runsPerBuild": 3,
-    "warmupRunsPerBuild": 1,
+    "runsPerBuild": 5,
+    "warmupRunsPerBuild": 2,
     "formFactor": "desktop",
     "viewport": { "width": 1350, "height": 940 },
     "throttling": {
