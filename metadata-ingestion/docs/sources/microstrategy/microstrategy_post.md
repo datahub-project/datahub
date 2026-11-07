@@ -88,15 +88,15 @@ Note that `folder_pattern` cannot exclude content: a denied folder re-parents it
 
 #### Scoping by Folder Path
 
-Business users navigate Strategy Web by folder, and `folder_path_pattern` scopes ingestion the same way: each dashboard, document and report is matched against its folder path, which is the project name, then each folder from the project root down to the object's own folder, joined with `/`. The folder names are exactly the ones the browse path shows, built from the same ancestry and the same predefined-folder resolution: with `use_predefined_folder_names: true` the project root folder and "Public Objects" are omitted and "Shared Reports" carries its MicroStrategy-assigned label; with it `false`, the raw hierarchy is the path. `folder_pattern` plays no part in the path. For a dossier in project `Adhoc_RMA` filed under `Shared Reports/Corporate P&A/_Company Reporting`, the path is `Adhoc_RMA/Shared Reports/Corporate P&A/_Company Reporting`, so
+Business users navigate Strategy Web by folder, and `folder_path_pattern` scopes ingestion the same way: each dashboard, document and report is matched against its folder path, which is the project name, then each folder from the project root down to the object's own folder, joined with `/`. The folder names are exactly the ones the browse path shows, built from the same ancestry and the same predefined-folder resolution: with `use_predefined_folder_names: true` the project root folder and "Public Objects" are omitted and "Shared Reports" carries its MicroStrategy-assigned label; with it `false`, the raw hierarchy is the path. `folder_pattern` plays no part in the path. For a dossier in project `Sales_Project` filed under `Shared Reports/Finance/Monthly Close`, the path is `Sales_Project/Shared Reports/Finance/Monthly Close`, so
 
 ```yaml
 folder_path_pattern:
   allow:
-    - "^Adhoc_RMA/Shared Reports/Corporate P&A/_Company Reporting(/|$)"
+    - "^Sales_Project/Shared Reports/Finance/Monthly Close(/|$)"
 ```
 
-ingests that folder and everything beneath it, and nothing else. Patterns match from the start of the path, so the trailing `(/|$)` is what stops a sibling such as `_Company Reporting Archive` from matching too; `deny` wins over `allow`.
+ingests that folder and everything beneath it, and nothing else. Patterns match from the start of the path, so the trailing `(/|$)` is what stops a sibling such as `Monthly Close Archive` from matching too; `deny` wins over `allow`.
 
 Unlike `folder_pattern`, a denied path excludes the object. It is skipped right after the name patterns (`dashboard_pattern`, `report_pattern`), before any definition is fetched or instance executed, so it costs no further API calls, and its visualizations and datasets are not emitted. Reports are filtered on their own path, whether enumerated via `extract_independent_reports` or fetched because an ingested dashboard links to them; the dashboard's chart edge to a linked report is not affected by the report's folder, so a dashboard in an allowed folder can still reference a report chart that was not ingested. Skips are counted in `dashboards_filtered_by_folder_path` and `reports_filtered_by_folder_path`, with the object name and path sampled in `folder_path_filtered_samples`.
 

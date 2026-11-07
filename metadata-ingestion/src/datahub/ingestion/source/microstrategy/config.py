@@ -133,7 +133,7 @@ class MicroStrategyConfig(
             "folder path they are filed under. The path is the project name, "
             "then each folder from the project root down to the object's own "
             "folder, joined with `/`, for example "
-            "`Adhoc_RMA/Shared Reports/Corporate P&A/_Company Reporting`. "
+            "`Sales_Project/Shared Reports/Finance/Monthly Close`. "
             "Folder names are the ones the browse path shows: with "
             "`use_predefined_folder_names` the project root folder and 'Public "
             "Objects' are omitted and 'Shared Reports' carries its "

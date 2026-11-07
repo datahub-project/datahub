@@ -138,7 +138,7 @@ def _definition() -> DashboardDefinition:
 
 
 def _document_definition() -> DashboardDefinition:
-    # The shape a production tenant returns for a Report Services document:
+    # The shape returned for a Report Services document:
     # layouts as chapters without pages, no visualizations anywhere.
     return DashboardDefinition.from_api_response(
         object_id="doc-1",
@@ -2082,11 +2082,11 @@ def test_folder_path_is_the_project_then_the_visible_folders() -> None:
     filed = _dataset_object(
         "768",
         [
-            {"id": "project-root-id", "name": "Adhoc_RMA"},
+            {"id": "project-root-id", "name": "Sales_Project"},
             {"id": "public-objects-id", "name": "Public Objects"},
             {"id": "reports-folder-id", "name": "Reports"},
-            {"id": "f-pa", "name": "Corporate P&A"},
-            {"id": "f-company", "name": "_Company Reporting"},
+            {"id": "f-finance", "name": "Finance"},
+            {"id": "f-close", "name": "Monthly Close"},
         ],
     )
     resolution = PredefinedFolderResolution(
@@ -2095,21 +2095,21 @@ def test_folder_path_is_the_project_then_the_visible_folders() -> None:
     )
 
     assert (
-        mapper.folder_path("Adhoc_RMA", filed, resolution)
-        == "Adhoc_RMA/Shared Reports/Corporate P&A/_Company Reporting"
+        mapper.folder_path("Sales_Project", filed, resolution)
+        == "Sales_Project/Shared Reports/Finance/Monthly Close"
     )
     # Without predefined-folder resolution the raw hierarchy is the path,
     # exactly as the browse path then shows it.
     assert (
-        mapper.folder_path("Adhoc_RMA", filed, None)
-        == "Adhoc_RMA/Adhoc_RMA/Public Objects/Reports/Corporate P&A/_Company Reporting"
+        mapper.folder_path("Sales_Project", filed, None)
+        == "Sales_Project/Sales_Project/Public Objects/Reports/Finance/Monthly Close"
     )
     # Filed in the hidden project root: the bare project name. No ancestry
     # at all: no path, so a caller can tell the two apart.
-    in_root = _dataset_object("768", [{"id": "project-root-id", "name": "Adhoc_RMA"}])
-    assert mapper.folder_path("Adhoc_RMA", in_root, resolution) == "Adhoc_RMA"
+    in_root = _dataset_object("768", [{"id": "project-root-id", "name": "Sales_Project"}])
+    assert mapper.folder_path("Sales_Project", in_root, resolution) == "Sales_Project"
     assert (
-        mapper.folder_path("Adhoc_RMA", _dataset_object("768", []), resolution) is None
+        mapper.folder_path("Sales_Project", _dataset_object("768", []), resolution) is None
     )
 
 
@@ -2122,7 +2122,7 @@ def test_dataset_folder_parent_key_uses_own_ancestors_with_folder_labels() -> No
     dataset_object = _dataset_object(
         "768",
         [
-            {"id": "project-root-id", "name": "Adhoc_RMA"},
+            {"id": "project-root-id", "name": "Sales_Project"},
             {"id": "public-objects-id", "name": "Public Objects"},
             {"id": "reports-folder-id", "name": "Reports"},
             {"id": "f-plan", "name": "SALON SALES VAR PLAN"},
@@ -2456,7 +2456,7 @@ def _report_definitions() -> "list[ReportDerivedMetric]":
     return [
         ReportDerivedMetric(
             id="D-RTL",
-            name="RTL PLN",
+            name="SALES PLAN",
             expression_text="([Net Sales Retail Amt]/[Salon RTL % Plan])-1",
             source="report",
         ),
@@ -2483,7 +2483,7 @@ def test_report_derived_metrics_upgrade_grid_specs_and_add_missing_ones() -> Non
     # Same id: upgraded in place (report object name + formula), not duplicated.
     assert sorted(retail.derived_metrics) == ["D-QTY-VAR", "D-RTL"]
     upgraded = retail.derived_metrics["D-RTL"]
-    assert upgraded.name == "RTL PLN"
+    assert upgraded.name == "SALES PLAN"
     assert upgraded.definition_source == "report"
     assert upgraded.expression_text == "([Net Sales Retail Amt]/[Salon RTL % Plan])-1"
     # Grid provenance survives the upgrade.
@@ -2541,9 +2541,9 @@ def test_report_derived_metric_fields_carry_formula_and_provenance() -> None:
     fields = {field.fieldPath: field for field in schema.fields}
 
     # Named as the report names it, not as the dossier grid aliases it.
-    assert "RTL PLN" in fields
+    assert "SALES PLAN" in fields
     assert "RET % PLN" not in fields
-    rtl = fields["RTL PLN"]
+    rtl = fields["SALES PLAN"]
     assert _tag_urns(rtl) == {MEASURE_TAG_URN, DERIVED_TAG_URN}
     assert rtl.description is not None
     assert rtl.description.startswith(
@@ -2601,14 +2601,14 @@ def test_report_derived_metric_formulas_join_metric_formula_lineage() -> None:
     }
 
     # [Name] references resolve against the dataset's own fields.
-    assert edges["RTL PLN)"] == {"Net Sales Retail Amt)", "Salon RTL % Plan)"}
+    assert edges["SALES PLAN)"] == {"Net Sales Retail Amt)", "Salon RTL % Plan)"}
     # {Net Sales Qty} is not a field of this dataset: counted, not guessed.
     assert "Qty Var LYS %)" not in edges
     assert mapper.report.metric_formula_refs_unresolved == 1
 
 
 def test_chart_input_fields_show_grid_alias_for_report_derived_metric() -> None:
-    # The dataset field is "RTL PLN" (report name); the grid header is the
+    # The dataset field is "SALES PLAN" (report name); the grid header is the
     # dossier alias, which is what the chart shows, with the object name kept.
     mapper = _mapper()
     dashboard = _salon_grid_definition()
@@ -2629,11 +2629,11 @@ def test_chart_input_fields_show_grid_alias_for_report_derived_metric() -> None:
         for f in input_fields.fields
         if f.schemaField and f.schemaField.fieldPath == "RETAIL.RET % PLN"
     )
-    assert entry.schemaFieldUrn.endswith(",RTL PLN)")
+    assert entry.schemaFieldUrn.endswith(",SALES PLAN)")
     assert entry.schemaField is not None
     assert (
         json.loads(entry.schemaField.jsonProps or "{}")["microstrategyObjectName"]
-        == "RTL PLN"
+        == "SALES PLAN"
     )
 
 
@@ -3020,5 +3020,5 @@ def test_report_definition_order_outranks_grid_order_for_derived_metrics() -> No
     # the definition said. The dict order above is what proves the re-ranking.
     assert _derived_field_paths(mapper, dashboard, retail) == [
         "Qty Var LYS %",
-        "RTL PLN",
+        "SALES PLAN",
     ]

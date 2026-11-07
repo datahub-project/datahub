@@ -1443,7 +1443,7 @@ class _ReportDerivedClient(_DatasetLookupClient):
                             "elements": [
                                 {
                                     "id": "D-RTL",
-                                    "name": "RTL PLN",
+                                    "name": "SALES PLAN",
                                     "subType": "derived_metric",
                                     "expression": {
                                         "text": "([Net Sales Retail Amt]/[Plan])-1"
@@ -1471,7 +1471,7 @@ class _ReportDerivedClient(_DatasetLookupClient):
                         },
                         {
                             "id": "D-RTL",
-                            "name": "RTL PLN",
+                            "name": "SALES PLAN",
                             "type": "metric",
                             "derived": True,
                         },
@@ -1506,7 +1506,7 @@ def test_report_derived_metrics_come_from_model_report_definition() -> None:
     assert client.v2_calls == []
     assert source.report.report_derived_metrics_extracted == 1
     assert source.report.report_definition_failures == 0
-    rtl = _derived_field(workunits, "RTL PLN")
+    rtl = _derived_field(workunits, "SALES PLAN")
     assert rtl is not None
     assert "([Net Sales Retail Amt]/[Plan])-1" in (rtl.description or "")
     assert _derived_field(workunits, "RTL % PLN") is None
@@ -1526,7 +1526,7 @@ def test_report_derived_metrics_fall_back_to_v2_definition_names() -> None:
     assert client.model_calls == ["ds-shared"]
     assert client.v2_calls == ["ds-shared"]
     assert source.report.report_definition_failures == 0
-    rtl = _derived_field(workunits, "RTL PLN")
+    rtl = _derived_field(workunits, "SALES PLAN")
     assert rtl is not None
     # The v2 definition named it but exposed no formula, and the field says
     # which endpoint answered so the gap is diagnosable from the field.
@@ -1622,7 +1622,7 @@ class _ModelWithoutExpressionClient(_ReportDerivedClient):
                             "elements": [
                                 {
                                     "id": "D-RTL",
-                                    "name": "RTL PLN",
+                                    "name": "SALES PLAN",
                                     "subType": "derived_metric",
                                     "derived": True,
                                     "definition": {"formulaText": "[A]/[B]-1"},
@@ -1650,7 +1650,7 @@ def test_model_definition_without_expressions_is_counted() -> None:
     assert client.v2_calls == []
     assert source.report.report_definitions_without_expressions == 1
     assert source.report.report_model_definition_failures == 0
-    rtl = _derived_field(workunits, "RTL PLN")
+    rtl = _derived_field(workunits, "SALES PLAN")
     assert rtl is not None
     assert "Formula not present in the Modeling API report definition" in (
         rtl.description or ""
@@ -1659,7 +1659,7 @@ def test_model_definition_without_expressions_is_counted() -> None:
 
 class _ModelEmptyClient(_ReportDerivedClient):
     """The Modeling endpoint answers with a report definition in which the
-    walker recognises no derived metric at all (the live-run shape), so the
+    walker recognises no derived metric at all, so the
     v2 definition ends up supplying the names."""
 
     def get_model_report(
@@ -1705,7 +1705,7 @@ def test_model_definition_empty_is_counted() -> None:
     assert source.report.report_model_definitions_empty == 1
     assert source.report.report_definitions_without_expressions == 0
     assert source.report.warnings == []
-    rtl = _derived_field(workunits, "RTL PLN")
+    rtl = _derived_field(workunits, "SALES PLAN")
     assert rtl is not None
     assert "v2 definition supplies names only" in (rtl.description or "")
 
@@ -1778,7 +1778,7 @@ class _ModelEmbeddedClient(_ReportDerivedClient):
                                         "name": "New Metric",
                                         "subType": "metric",
                                         "isEmbedded": True,
-                                        "alias": "RTL PLN",
+                                        "alias": "SALES PLAN",
                                     },
                                 ],
                             }
@@ -1845,7 +1845,7 @@ def test_embedded_report_metric_formula_comes_from_metric_model() -> None:
     assert source.report.report_model_definitions_empty == 0
     assert source.report.report_derived_metric_models_resolved == 1
     assert source.report.metric_expression_api_failures == 0
-    rtl = _derived_field(workunits, "RTL PLN")
+    rtl = _derived_field(workunits, "SALES PLAN")
     assert rtl is not None
     assert "([Net Sales Retail Amt]/[Salon Merch OPR Net Sales Retail Amt])-1" in (
         rtl.description or ""
@@ -1875,7 +1875,7 @@ def test_embedded_report_metric_without_model_keeps_name_and_counts_failure() ->
         sample.startswith("D-RTL (HTTP 404)")
         for sample in source.report.failed_metric_model_ids
     )
-    rtl = _derived_field(workunits, "RTL PLN")
+    rtl = _derived_field(workunits, "SALES PLAN")
     assert rtl is not None
     assert "Formula not present in the Modeling API report definition" in (
         rtl.description or ""
@@ -2345,21 +2345,21 @@ def test_personal_folder_reports_skipped_before_definition_fetch() -> None:
     assert source.mapper.report_urn("project-1", "REPORT-PERSONAL") not in urns
 
 
-_ADHOC_PROJECT = Project.model_validate({"id": "project-1", "name": "Adhoc_RMA"})
+_SALES_PROJECT = Project.model_validate({"id": "project-1", "name": "Sales_Project"})
 _COMPANY_ANCESTORS = [
-    {"id": "project-root-id", "name": "Adhoc_RMA"},
+    {"id": "project-root-id", "name": "Sales_Project"},
     {"id": "public-objects-id", "name": "Public Objects"},
     {"id": "reports-folder-id", "name": "Reports"},
-    {"id": "f-pa", "name": "Corporate P&A"},
-    {"id": "f-company", "name": "_Company Reporting"},
+    {"id": "f-finance", "name": "Finance"},
+    {"id": "f-close", "name": "Monthly Close"},
 ]
 _OTHER_ANCESTORS = [
-    {"id": "project-root-id", "name": "Adhoc_RMA"},
+    {"id": "project-root-id", "name": "Sales_Project"},
     {"id": "public-objects-id", "name": "Public Objects"},
     {"id": "reports-folder-id", "name": "Reports"},
     {"id": "f-other", "name": "Other Team"},
 ]
-_COMPANY_PATTERN = "^Adhoc_RMA/Shared Reports/Corporate P&A/_Company Reporting$"
+_CLOSE_PATTERN = "^Sales_Project/Shared Reports/Finance/Monthly Close$"
 _UNRESOLVED_TITLE = "Folder path unresolved"
 
 
@@ -2368,7 +2368,7 @@ def _adhoc_predefined_folders(folder_types: List[int]) -> List[PredefinedFolder]
         return []
     return [
         PredefinedFolder.model_validate(
-            {"id": "project-root-id", "name": "Adhoc_RMA", "folderType": 39}
+            {"id": "project-root-id", "name": "Sales_Project", "folderType": 39}
         ),
         PredefinedFolder.model_validate(
             {"id": "public-objects-id", "name": "Public Objects", "folderType": 1}
@@ -2380,7 +2380,7 @@ def _adhoc_predefined_folders(folder_types: List[int]) -> List[PredefinedFolder]
 
 
 class _FolderPathClient:
-    """Three dossiers: one under the customer's reporting folder, one under a
+    """Three dossiers: one under the reporting folder, one under a
     sibling folder, and one whose search result carries no ancestry."""
 
     def __init__(self) -> None:
@@ -2458,14 +2458,14 @@ class _FolderPathClient:
 def _run_adhoc_dashboards(source: MicroStrategySource) -> List[Any]:
     return list(
         source._process_project_dashboards(
-            _ADHOC_PROJECT, _LazyProjectLineage(source, "project-1", [])
+            _SALES_PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
 
 def test_folder_path_pattern_allows_only_the_matching_nested_path() -> None:
     source = _personal_folder_source(
-        {"folder_path_pattern": {"allow": [_COMPANY_PATTERN]}}
+        {"folder_path_pattern": {"allow": [_CLOSE_PATTERN]}}
     )
     client = _FolderPathClient()
     source.client = client  # type: ignore[assignment]
@@ -2477,7 +2477,7 @@ def test_folder_path_pattern_allows_only_the_matching_nested_path() -> None:
     assert client.definition_calls == ["dash-company"]
     assert source.report.dashboards_filtered_by_folder_path == 2
     assert list(source.report.folder_path_filtered_samples) == [
-        "Other Team KPIs (Adhoc_RMA/Shared Reports/Other Team)",
+        "Other Team KPIs (Sales_Project/Shared Reports/Other Team)",
         "Unfiled (unresolved)",
     ]
     assert source.report.folder_paths_unresolved == 1
@@ -2500,8 +2500,8 @@ def test_folder_path_pattern_deny_wins_over_allow() -> None:
     source = _personal_folder_source(
         {
             "folder_path_pattern": {
-                "allow": ["^Adhoc_RMA/Shared Reports/"],
-                "deny": ["^Adhoc_RMA/Shared Reports/Corporate P&A/"],
+                "allow": ["^Sales_Project/Shared Reports/"],
+                "deny": ["^Sales_Project/Shared Reports/Finance/"],
             }
         }
     )
@@ -2531,7 +2531,7 @@ def test_folder_path_pattern_default_ingests_everything() -> None:
 
 def test_folder_path_unresolved_is_skipped_once_a_pattern_is_set() -> None:
     source = _personal_folder_source(
-        {"folder_path_pattern": {"allow": ["^Adhoc_RMA/"]}}
+        {"folder_path_pattern": {"allow": ["^Sales_Project/"]}}
     )
     client = _FolderPathClient()
     source.client = client  # type: ignore[assignment]
@@ -2590,7 +2590,7 @@ def test_folder_path_pattern_scopes_reports_before_definition_fetch() -> None:
         {
             "extract_independent_reports": True,
             "extract_report_definitions": True,
-            "folder_path_pattern": {"allow": [_COMPANY_PATTERN]},
+            "folder_path_pattern": {"allow": [_CLOSE_PATTERN]},
         }
     )
     client = _FolderPathReportClient()
@@ -2598,14 +2598,14 @@ def test_folder_path_pattern_scopes_reports_before_definition_fetch() -> None:
 
     workunits = list(
         source._process_project_reports(
-            _ADHOC_PROJECT, _LazyProjectLineage(source, "project-1", [])
+            _SALES_PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
     assert client.definition_calls == ["REPORT-COMPANY"]
     assert source.report.reports_filtered_by_folder_path == 1
     assert list(source.report.folder_path_filtered_samples) == [
-        "Other Detail (Adhoc_RMA/Shared Reports/Other Team)"
+        "Other Detail (Sales_Project/Shared Reports/Other Team)"
     ]
     urns = {workunit.get_urn() for workunit in workunits}
     assert source.mapper.report_urn("project-1", "REPORT-COMPANY") in urns
@@ -3352,7 +3352,7 @@ def test_document_definition_without_visualizations_is_counted() -> None:
         }
     )
     document = MicroStrategyObject.model_validate(
-        {"id": "doc-1", "name": "Daily Comp Sales", "subtype": "14081"}
+        {"id": "doc-1", "name": "Daily Sales Summary", "subtype": "14081"}
     )
     dossier = MicroStrategyObject.model_validate(
         {"id": "dash-1", "name": "Sales Dashboard", "subtype": "14080"}
@@ -3369,8 +3369,8 @@ def test_document_definition_without_visualizations_is_counted() -> None:
         ) -> Dict[str, Any]:
             return {
                 "id": document_id,
-                "name": "Daily Comp Sales",
-                "datasets": [{"id": "ds-1", "name": "DCS - Dataset"}],
+                "name": "Daily Sales Summary",
+                "datasets": [{"id": "ds-1", "name": "Daily Sales - Dataset"}],
                 "prompts": [],
             }
 

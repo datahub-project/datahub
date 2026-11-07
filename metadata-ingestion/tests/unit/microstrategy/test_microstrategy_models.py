@@ -246,7 +246,7 @@ def _model_report_payload() -> dict:
                             },
                             {
                                 "id": "D-RTL-PLN",
-                                "name": "RTL PLN",
+                                "name": "SALES PLAN",
                                 "subType": "derived_metric",
                                 "expression": {
                                     "text": (
@@ -329,7 +329,7 @@ def test_extract_embedded_metric_definitions_finds_derived_metrics_only() -> Non
     # expression is nested.
     assert set(definitions) == {"D-RTL-PLN", "D-AMT-VAR"}
     rtl = definitions["D-RTL-PLN"]
-    assert rtl.name == "RTL PLN"
+    assert rtl.name == "SALES PLAN"
     assert rtl.expression_text == (
         "([Net Sales Retail Amt]/[Salon Merch OPR Net Sales Retail Amt])-1"
     )
@@ -355,7 +355,7 @@ def test_extract_embedded_metric_definitions_names_flagged_derived_without_formu
                     {"id": "M-NET", "name": "Net Sales Retail Amt", "type": "metric"},
                     {
                         "id": "D-RTL-PLN",
-                        "name": "RTL PLN",
+                        "name": "SALES PLAN",
                         "type": "metric",
                         "derived": True,
                     },
@@ -365,7 +365,7 @@ def test_extract_embedded_metric_definitions_names_flagged_derived_without_formu
     }
     definitions = extract_embedded_metric_definitions(payload)
     assert [(d.id, d.name, d.expression_text) for d in definitions] == [
-        ("D-RTL-PLN", "RTL PLN", None)
+        ("D-RTL-PLN", "SALES PLAN", None)
     ]
 
 

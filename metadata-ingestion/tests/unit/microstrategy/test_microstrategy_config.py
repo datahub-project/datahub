@@ -139,13 +139,13 @@ def test_folder_path_pattern_defaults_to_allow_all() -> None:
         {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
     )
 
-    assert config.folder_path_pattern.allowed("Adhoc_RMA/Shared Reports/Anything")
+    assert config.folder_path_pattern.allowed("Sales_Project/Shared Reports/Anything")
     assert not MicroStrategyConfig.model_validate(
         {
             "base_url": "https://mstr.example.com/MicroStrategyLibrary",
-            "folder_path_pattern": {"deny": ["^Adhoc_RMA/Shared Reports/Archive"]},
+            "folder_path_pattern": {"deny": ["^Sales_Project/Shared Reports/Archive"]},
         }
-    ).folder_path_pattern.allowed("Adhoc_RMA/Shared Reports/Archive/Old")
+    ).folder_path_pattern.allowed("Sales_Project/Shared Reports/Archive/Old")
 
 
 def test_chapter_page_structured_properties_default_to_false() -> None:

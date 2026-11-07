@@ -400,11 +400,9 @@ class MicroStrategyClient:
 
         The spec documents this endpoint's X-MSTR-MS-Instance header as the
         report instance id, created by create_model_report_instance. Without
-        it the definition is read statically, and on at least one Strategy
-        Cloud tenant that returns metric elements carrying no expression.
-        Reading through an instance is the vendor's suggested route to
-        resolved expressions; it is opt-in because it adds two calls per
-        report."""
+        it the definition is read statically, which can return metric
+        elements carrying no expression. Reading through an instance resolves
+        expressions; it is opt-in because it adds two calls per report."""
         return self._get_json(
             f"/api/model/reports/{report_id}",
             project_id=project_id,

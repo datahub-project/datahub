@@ -1122,9 +1122,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_id: str,
     ) -> Optional[str]:
         """Open a Modeling-service report instance so the Modeling definition
-        can be read against it, per Strategy support's guidance that metric
-        expressions resolve only that way. Returns None when the option is off
-        or the instance could not be created - the caller then reads the
+        can be read against it; metric expressions only resolve that way.
+        Returns None when the option is off or the instance could not be created - the caller then reads the
         definition statically, which is the long-standing behaviour."""
         if not self.config.resolve_report_metrics_via_instance:
             return None
