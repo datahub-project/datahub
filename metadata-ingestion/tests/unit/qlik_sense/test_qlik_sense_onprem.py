@@ -724,6 +724,30 @@ def test_chart_input_fields_match_app_fields() -> None:
         ),
         pytest.param(["Region"], False, False, ["Region"], True, id="unread_measure"),
         pytest.param(
+            ["Region.autoCalendar.Year"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="derived_field_of_known_field",
+        ),
+        pytest.param(
+            ["OrderDate.autoCalendar.Year", "Region"],
+            True,
+            False,
+            ["Region"],
+            True,
+            id="derived_field_of_unknown_field",
+        ),
+        pytest.param(
+            ["Region//$(vRegion)"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="variable_in_adjacent_comment",
+        ),
+        pytest.param(
             ["Region // $(vRegion)", "Count(Region) /* $(vOld) */"],
             True,
             False,
@@ -808,6 +832,21 @@ def test_chart_inputs_when_fields_are_unknown(
         for field in input_fields.fields
         if field.schemaField
     ] == matched_fields
+
+
+def test_qualified_field_name_matches_before_derived_field() -> None:
+    table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    app_fields = QlikSenseSource._index_app_fields(
+        {table: [SchemaField(name="Orders.Region"), SchemaField(name="Orders")]}
+    )
+
+    assert QlikSenseSource._app_field_key("Orders.Region", app_fields) == (
+        "orders.region"
+    )
+    assert QlikSenseSource._app_field_key("Orders.autoCalendar.Year", app_fields) == (
+        "orders"
+    )
+    assert QlikSenseSource._app_field_key("Customers.Region", app_fields) is None
 
 
 @pytest.mark.parametrize(
@@ -1651,6 +1690,55 @@ def test_partly_read_app_does_not_overwrite_relationships(
     # Without known inputs the chart is patched, keeping its last inputs.
     assert len(chart_info_patches) == int(tables_read_failed)
     assert all(
-        patch.aspect is not None and b"inputs" not in patch.aspect.value
+        patch.aspect is not None
+        and b"inputs" not in patch.aspect.value
+        and b"lastModified" not in patch.aspect.value
         for patch in chart_info_patches
     )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_user_lookup_is_cached_and_failures_recorded_once(
+    mock_session_cls: MagicMock,
+) -> None:
+    def qrs_get(url: str, **kwargs: object) -> FakeResponse:
+        if url.endswith("/user/user-2"):
+            return FakeResponse({"name": "Grace"})
+        if url.endswith("/user/user-3"):
+            return FakeResponse({}, status_code=503)
+        return fake_qrs_get(url, **kwargs)  # type: ignore[arg-type]
+
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = qrs_get
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+
+    assert [api.get_user_name("user-2") for _ in range(2)] == ["Grace", "Grace"]
+    assert [api.get_user_name("user-3") for _ in range(2)] == [None, None]
+
+    user_calls = [
+        call.args[0] for call in session.get.call_args_list if "/user/" in call.args[0]
+    ]
+    assert len(user_calls) == 2
+    assert list(api.failed_user_lookups) == ["user-3"]
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_unreadable_sheet_marks_app_partly_read(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    engine = _ScriptedEngine(
+        [
+            {"qReturn": {"qHandle": 1}},
+            {"qList": [{"qInfo": {"qId": "sheet-1", "qType": "sheet"}}]},
+            RuntimeError("Object not found"),
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert app.sheets == []
+    assert not app.read_complete
+    assert engine.handles == [-1, 1]
