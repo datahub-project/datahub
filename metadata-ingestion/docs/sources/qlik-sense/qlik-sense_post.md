@@ -31,7 +31,7 @@ Charts inside a container object's tabs are ingested as charts of the sheet. An 
 
 #### Large sites
 
-Each app is opened in the Engine without its data. `max_workers` (default 4) sets how many apps and datasets of one space or stream are read at the same time. Spaces and streams are read one after another. Each worker holds its own Engine session under the configured user. `max_workers` applies to Qlik Cloud too, where a rate-limited (HTTP 429) REST request is retried up to 5 times. Each retry waits for the `Retry-After` time when Qlik sends one, and otherwise backs off for 0, 2, 4, 8 and 16 seconds. A request that is still rate-limited after that fails, and the space, item or app it belonged to is reported as unread or partly read, which keeps stale metadata removal from deleting its metadata. Lower `max_workers` if this happens.
+On-prem, each app is opened in the Engine without its data. On Qlik Cloud, the Engine loads each app's data when the app is opened, so every worker holds an app in memory and `max_workers` should be raised with care. `max_workers` (default 4) sets how many apps and datasets of one space or stream are read at the same time. Spaces and streams are read one after another. Each worker holds its own Engine session under the configured user. `max_workers` applies to Qlik Cloud too, where a rate-limited (HTTP 429) REST request is retried up to 5 times. Each retry waits for the `Retry-After` time when Qlik sends one, and otherwise backs off for 0, 2, 4, 8 and 16 seconds. A request that is still rate-limited after that fails, and the space, item or app it belonged to is reported as unread or partly read, which keeps stale metadata removal from deleting its metadata. Lower `max_workers` if this happens.
 
 ### Limitations
 

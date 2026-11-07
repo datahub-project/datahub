@@ -620,3 +620,27 @@ def test_unreachable_tenant_is_not_retried() -> None:
         QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
 
     assert len(attempts) == 1
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_unexpected_item_error_is_recorded_and_other_items_kept(
+    mock_session_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+
+    def load(item: Dict[str, str]) -> App:
+        if item["id"] == "broken":
+            raise KeyError("resourceType")
+        return app
+
+    with (
+        patch.object(
+            api, "_list_items", return_value=[{"id": "broken"}, {"id": "app-1"}]
+        ),
+        patch.object(api, "_load_item", side_effect=load),
+    ):
+        items = list(api.get_items("space-1"))
+
+    assert items == [app]
+    assert [unread.name for unread in api.unread_items] == ["item of space space-1"]
