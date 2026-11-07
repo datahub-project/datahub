@@ -1,6 +1,5 @@
 import builtins
 import json
-import logging
 import sys
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 from unittest import mock
@@ -14,7 +13,6 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyAuthError,
-    ModelDocumentProbeResult,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageContext
@@ -1544,9 +1542,6 @@ def test_report_derived_metrics_fall_back_to_v2_definition_names() -> None:
 _MODEL_UNAVAILABLE_TITLE = (
     "Modeling report definition unavailable; derived metric formulas omitted"
 )
-_DERIVED_DEBUG_PREFIX = "[mstr-derived-debug]"
-
-
 class _TwoReportClient(_ReportDerivedClient):
     """Two dossiers over two different report-backed datasets in one project;
     the Modeling endpoint fails with an HTTP status for both."""
@@ -1640,19 +1635,16 @@ class _ModelWithoutExpressionClient(_ReportDerivedClient):
         }
 
 
-def test_model_definition_without_expressions_counts_and_logs_payload_shape(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_model_definition_without_expressions_is_counted() -> None:
     source = _dataset_lookup_source()
     client = _ModelWithoutExpressionClient()
     source.client = client  # type: ignore[assignment]
 
-    with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
-        workunits = list(
-            source._process_project_dashboards(
-                _PROJECT, _LazyProjectLineage(source, "project-1", [])
-            )
+    workunits = list(
+        source._process_project_dashboards(
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
+    )
 
     assert client.model_calls == ["ds-shared"]
     assert client.v2_calls == []
@@ -1663,21 +1655,6 @@ def test_model_definition_without_expressions_counts_and_logs_payload_shape(
     assert "Formula not present in the Modeling API report definition" in (
         rtl.description or ""
     )
-    debug_lines = [
-        record.getMessage()
-        for record in caplog.records
-        if record.getMessage().startswith(_DERIVED_DEBUG_PREFIX)
-    ]
-    assert len(debug_lines) == 2
-    assert "payload skeleton" in debug_lines[0]
-    assert '"formulaText":"str"' in debug_lines[0]
-    assert "first derived-flagged node" in debug_lines[1]
-    assert '"parent_keys":["elements","type"]' in debug_lines[1]
-    # Structure only: no object names, ids or formula text reach the log.
-    for line in debug_lines:
-        assert "RTL PLN" not in line
-        assert "D-RTL" not in line
-        assert "[A]/[B]-1" not in line
 
 
 class _ModelEmptyClient(_ReportDerivedClient):
@@ -1710,19 +1687,16 @@ class _ModelEmptyClient(_ReportDerivedClient):
         }
 
 
-def test_model_definition_empty_counts_and_logs_payload_shape(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_model_definition_empty_is_counted() -> None:
     source = _dataset_lookup_source()
     client = _ModelEmptyClient()
     source.client = client  # type: ignore[assignment]
 
-    with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
-        workunits = list(
-            source._process_project_dashboards(
-                _PROJECT, _LazyProjectLineage(source, "project-1", [])
-            )
+    workunits = list(
+        source._process_project_dashboards(
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
+    )
 
     # Modeling answered (no failure), found nothing (counted), v2 supplied names.
     assert client.model_calls == ["ds-shared"]
@@ -1734,18 +1708,6 @@ def test_model_definition_empty_counts_and_logs_payload_shape(
     rtl = _derived_field(workunits, "RTL PLN")
     assert rtl is not None
     assert "v2 definition supplies names only" in (rtl.description or "")
-    debug_lines = [
-        record.getMessage()
-        for record in caplog.records
-        if record.getMessage().startswith(_DERIVED_DEBUG_PREFIX)
-    ]
-    assert len(debug_lines) == 2
-    assert "returned no derived metric definitions" in debug_lines[0]
-    assert '"units":{"$item":{"forms":' in debug_lines[0]
-    assert "v2 report definition" in debug_lines[1]
-    for line in debug_lines:
-        assert "Region Number" not in line
-        assert "A-REGION" not in line
 
 
 class _ModelEmbeddedClient(_ReportDerivedClient):
@@ -3118,11 +3080,6 @@ class _DocumentClient:
             }
         }
 
-    def probe_model_document(
-        self, project_id: str, document_id: str
-    ) -> ModelDocumentProbeResult:
-        return ModelDocumentProbeResult(status_code=200, payload={})
-
     def get_object_info(
         self, project_id: str, object_id: str, object_type: int
     ) -> MicroStrategyObject:
@@ -3386,12 +3343,7 @@ def test_report_sql_lineage_reuses_sql_read_for_a_document_dataset() -> None:
     assert dataset.warehouse_upstream_urns == [_warehouse_table_urn("fact_rep_1")]
 
 
-_DOCUMENT_DEBUG_PREFIX = "[mstr-document-debug]"
-
-
-def test_document_definition_without_visualizations_counts_and_logs_shape(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_document_definition_without_visualizations_is_counted() -> None:
     source = _source(
         {
             "extract_visualization_details": False,
@@ -3422,256 +3374,16 @@ def test_document_definition_without_visualizations_counts_and_logs_shape(
                 "prompts": [],
             }
 
-        def probe_model_document(
-            self, project_id: str, document_id: str
-        ) -> ModelDocumentProbeResult:
-            return ModelDocumentProbeResult(status_code=404, excerpt="")
-
     source.client = FakeClient()  # type: ignore[assignment]
 
-    with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
-        first = source._get_dashboard_definition("project-1", document)
-        second = source._get_dashboard_definition("project-1", document)
-        plain = source._get_dashboard_definition("project-1", dossier)
+    first = source._get_dashboard_definition("project-1", document)
+    second = source._get_dashboard_definition("project-1", document)
+    plain = source._get_dashboard_definition("project-1", dossier)
 
     assert first is not None and second is not None and plain is not None
     assert [dataset.id for dataset in first.datasets] == ["ds-1"]
     # Counted per document, logged once per project, never for dossiers.
     assert source.report.document_definitions_without_visualizations == 2
-    debug_lines = [
-        record.getMessage()
-        for record in caplog.records
-        if record.getMessage().startswith(
-            f"{_DOCUMENT_DEBUG_PREFIX} document definition"
-        )
-    ]
-    assert len(debug_lines) == 1
-    assert "document_id=doc-1 yielded no visualizations" in debug_lines[0]
-    assert "['datasets', 'id', 'name', 'prompts']" in debug_lines[0]
-    assert '"datasets":' in debug_lines[0]
-    # Structure only: no object names leak into the execution log.
-    assert "DCS - Dataset" not in debug_lines[0]
-    # The same shape is kept in the structured report, which is retained in
-    # full when the execution log is truncated.
-    infos = [
-        entry
-        for entry in source.report.infos
-        if entry.title == "Document definition without visualizations"
-    ]
-    assert len(infos) == 1
-    (context,) = infos[0].context
-    assert "document_id=doc-1" in context
-    assert "keys=['datasets', 'id', 'name', 'prompts']" in context
-    assert '"datasets":' in context
-    assert "DCS - Dataset" not in context
-
-
-class _ProbeClient:
-    """Report Services documents whose definition carries no visualizations,
-    each answering the Modeling document probe with the result given for
-    its id."""
-
-    def __init__(self, results: Dict[str, ModelDocumentProbeResult]) -> None:
-        self.results = results
-        self.probed: List[Tuple[str, str]] = []
-
-    def get_dossier_definition(
-        self, project_id: str, dossier_id: str
-    ) -> Dict[str, Any]:
-        raise MicroStrategyAPIError("not a dossier")
-
-    def get_document_definition(
-        self, project_id: str, document_id: str
-    ) -> Dict[str, Any]:
-        return {
-            "id": document_id,
-            "chapters": [{"key": "K1", "pages": []}],
-            "datasets": [{"id": "ds-1", "name": "DCS - Dataset"}],
-        }
-
-    def probe_model_document(
-        self, project_id: str, document_id: str
-    ) -> ModelDocumentProbeResult:
-        self.probed.append((project_id, document_id))
-        return self.results[document_id]
-
-
-def _probe_source(client: _ProbeClient) -> MicroStrategySource:
-    source = _source(
-        {
-            "extract_visualization_details": False,
-            "extract_dashboard_dependencies": False,
-            "extract_metric_expressions": False,
-        }
-    )
-    source.client = client  # type: ignore[assignment]
-    return source
-
-
-def _document(document_id: str) -> MicroStrategyObject:
-    return MicroStrategyObject.model_validate(
-        {
-            "id": document_id,
-            "name": f"Daily Comp Sales {document_id}",
-            "subtype": "14081",
-        }
-    )
-
-
-def _probe_contexts(source: MicroStrategySource) -> List[str]:
-    return [
-        context
-        for entry in source.report.infos
-        if entry.title == "Document model probe"
-        for context in entry.context
-    ]
-
-
-def test_document_model_probe_records_shape_and_content_hints(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    payload: Dict[str, Any] = {
-        "id": "doc-1",
-        "name": "Daily Comp Sales",
-        "datasets": [{"id": "ds-1", "name": "DCS - Dataset"}],
-        "layouts": [
-            {
-                "name": "Layout 1",
-                "sections": [
-                    {
-                        "type": "detail",
-                        "nodes": [
-                            {
-                                "type": "grid",
-                                "gridTemplate": {"id": "t-1"},
-                                "shapes": [],
-                            }
-                        ],
-                    }
-                ],
-            }
-        ],
-    }
-    client = _ProbeClient(
-        {"doc-1": ModelDocumentProbeResult(status_code=200, payload=payload)}
-    )
-    source = _probe_source(client)
-
-    with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
-        dashboard = source._get_dashboard_definition("project-1", _document("doc-1"))
-
-    assert dashboard is not None
-    assert [dataset.id for dataset in dashboard.datasets] == ["ds-1"]
-    assert client.probed == [("project-1", "doc-1")]
-    assert source.report.document_model_probes == 1
-    assert source.report.document_model_probe_failures == 0
-    (context,) = _probe_contexts(source)
-    assert context.startswith("project_id=project-1, document_id=doc-1, status=200, ")
-    assert "keys=['datasets', 'id', 'layouts', 'name']" in context
-    assert '"layouts":{"$item":{' in context
-    assert (
-        "content_hints=['layouts', 'layouts[].sections', "
-        "'layouts[].sections[].nodes', 'layouts[].sections[].nodes[].gridTemplate', "
-        "'layouts[].sections[].nodes[].shapes']"
-    ) in context
-    # Structure only: no object names leak into the report or the log.
-    assert "DCS - Dataset" not in context
-    assert "Layout 1" not in context
-    debug_lines = [
-        record.getMessage()
-        for record in caplog.records
-        if record.getMessage().startswith(
-            f"{_DOCUMENT_DEBUG_PREFIX} document model probe"
-        )
-    ]
-    assert debug_lines == [f"{_DOCUMENT_DEBUG_PREFIX} document model probe {context}"]
-
-
-def test_document_model_probe_records_a_non_200_answer_without_raising() -> None:
-    body = '{"code":"ERR001","message":"Internal server error"}'
-    client = _ProbeClient(
-        {"doc-1": ModelDocumentProbeResult(status_code=500, excerpt=body)}
-    )
-    source = _probe_source(client)
-
-    dashboard = source._get_dashboard_definition("project-1", _document("doc-1"))
-
-    # The document is still emitted; the answer is the finding.
-    assert dashboard is not None
-    assert [dataset.id for dataset in dashboard.datasets] == ["ds-1"]
-    assert source.report.document_model_probes == 1
-    assert source.report.document_model_probe_failures == 1
-    assert _probe_contexts(source) == [
-        f"project_id=project-1, document_id=doc-1, status=500, body={body!r}"
-    ]
-    assert source.report.failures == []
-
-
-def test_document_model_probe_swallows_client_errors_but_not_dead_auth() -> None:
-    class RaisingClient(_ProbeClient):
-        def probe_model_document(
-            self, project_id: str, document_id: str
-        ) -> ModelDocumentProbeResult:
-            self.probed.append((project_id, document_id))
-            if document_id == "doc-auth":
-                raise MicroStrategyAuthError("session dead")
-            raise RuntimeError("boom")
-
-    client = RaisingClient({})
-    source = _probe_source(client)
-
-    assert source._get_dashboard_definition("project-1", _document("doc-1")) is not None
-    assert source.report.document_model_probe_failures == 1
-    assert _probe_contexts(source) == [
-        "project_id=project-1, document_id=doc-1, status=None, body='boom'"
-    ]
-    # Dead auth must abort the run, exactly as it does on every other call.
-    with pytest.raises(MicroStrategyAuthError):
-        source._get_dashboard_definition("project-1", _document("doc-auth"))
-
-
-def test_document_model_probe_is_capped_per_project() -> None:
-    client = _ProbeClient(
-        {
-            f"doc-{n}": ModelDocumentProbeResult(
-                status_code=200, payload={"id": f"doc-{n}"}
-            )
-            for n in range(1, 6)
-        }
-    )
-    source = _probe_source(client)
-
-    for n in range(1, 5):
-        assert (
-            source._get_dashboard_definition("project-1", _document(f"doc-{n}"))
-            is not None
-        )
-    assert source._get_dashboard_definition("project-2", _document("doc-5")) is not None
-
-    # Three documents per project are probed so every copy of a duplicated
-    # document need not be read; a new project starts its own count.
-    assert client.probed == [
-        ("project-1", "doc-1"),
-        ("project-1", "doc-2"),
-        ("project-1", "doc-3"),
-        ("project-2", "doc-5"),
-    ]
-    assert source.report.document_model_probes == 4
-    assert source.report.document_model_probe_failures == 0
-    assert len(_probe_contexts(source)) == 4
-    # The definition skeleton entry keeps its once-per-project behaviour and
-    # every document without visualizations is still counted.
-    assert source.report.document_definitions_without_visualizations == 5
-    skeleton_contexts = [
-        context
-        for entry in source.report.infos
-        if entry.title == "Document definition without visualizations"
-        for context in entry.context
-    ]
-    assert [context.split(", ")[1] for context in skeleton_contexts] == [
-        "document_id=doc-1",
-        "document_id=doc-5",
-    ]
 
 
 _CHAPTER_PROPERTY_URN = "urn:li:structuredProperty:io.acryl.microstrategy.chapter"

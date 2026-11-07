@@ -36,7 +36,6 @@ from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyAuthError,
     MicroStrategyClient,
-    ModelDocumentProbeResult,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
@@ -45,11 +44,6 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DEFINITION_ENDPOINT_METRIC_MODEL,
     MSTR_DEFINITION_ENDPOINT_MODEL,
     MSTR_DEFINITION_ENDPOINT_V2,
-    MSTR_DERIVED_DEBUG_LOG_PREFIX,
-    MSTR_DOCUMENT_DEBUG_LOG_PREFIX,
-    MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS,
-    MSTR_DOCUMENT_MODEL_PROBE_HINT_KEYWORDS,
-    MSTR_DOCUMENT_MODEL_PROBES_PER_PROJECT,
     MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
     MSTR_FOLDER_TYPE_PROFILE_REPORTS,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
@@ -100,14 +94,10 @@ from datahub.ingestion.source.microstrategy.models import (
     extract_document_derived_metric_definitions,
     extract_embedded_metric_definitions,
     extract_folder_parts,
-    first_derived_node_skeleton,
     is_document_object,
     is_personal_folder_object,
     metric_enrichment_from_expression,
     normalize_object_id,
-    payload_key_paths_matching,
-    payload_key_skeleton,
-    payload_type_vocabulary,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.usage import (
@@ -207,12 +197,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # where max_consecutive_execution_timeouts tripped.
         self._consecutive_execution_timeouts: Dict[str, int] = {}
         self._execution_limited_projects: Set[str] = set()
-        self._v2_definition_logged_projects: Set[str] = set()
-        self._model_empty_logged_projects: Set[str] = set()
-        self._document_empty_logged_projects: Set[str] = set()
-        # Project id -> Report Services documents without visualizations whose
-        # Modeling document has been probed (capped per project).
-        self._document_model_probes_by_project: Dict[str, int] = {}
         if self.config.extract_derived_metrics and not (
             self.config.extract_lineage and self.config.extract_visualization_details
         ):
@@ -1025,19 +1009,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if definition.has_expression
         )
         self.report.report_document_derived_metric_definitions(found, with_expression)
-        if logger.isEnabledFor(logging.DEBUG):
-            # The endpoint is undocumented; the payload shape is what tells a
-            # negative result (no expression) from a key the walker missed.
-            logger.debug(
-                "%s Modeling document definition project_id=%s dashboard_id=%s "
-                "derived_metrics=%d with_expression=%d; payload skeleton: %s",
-                MSTR_DERIVED_DEBUG_LOG_PREFIX,
-                project_id,
-                dashboard.id,
-                found,
-                with_expression,
-                payload_key_skeleton(model_document),
-            )
         for dataset in dashboard.datasets:
             definitions = by_dataset.get(normalize_object_id(dataset.id))
             if definitions:
@@ -1074,11 +1045,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 model_payload, endpoint=MSTR_DEFINITION_ENDPOINT_MODEL
             )
             if definitions and not any(d.has_expression for d in definitions):
-                self._debug_model_definition_without_expressions(
-                    project_id, report_id, model_payload, len(definitions)
-                )
+                self.report.report_report_definition_without_expressions()
             elif not definitions:
-                self._debug_model_definition_empty(project_id, report_id, model_payload)
+                self.report.report_report_model_definition_empty()
         if not definitions:
             try:
                 v2_payload = self.client.get_report_definition(project_id, report_id)
@@ -1094,8 +1063,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     self._record_model_definition_failure(
                         project_id, report_id, model_error
                     )
-                if definitions:
-                    self._debug_v2_definition_payload(project_id, report_id, v2_payload)
 
         if instance_id:
             self._delete_model_report_instance(project_id, report_id, instance_id)
@@ -1204,191 +1171,6 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             ),
             context=f"project_id={project_id}, first_report_id={report_id}",
             exc=error,
-        )
-
-    def _debug_model_definition_without_expressions(
-        self,
-        project_id: str,
-        report_id: str,
-        payload: Dict[str, object],
-        definition_count: int,
-    ) -> None:
-        """The Modeling endpoint answered and named derived metrics, but none
-        carried an expression under a key the walker reads. Count it and log
-        the payload's key skeleton (keys, list lengths and value types only;
-        no names or values) so the actual shape can be read from a debug
-        execution log."""
-        self.report.report_report_definition_without_expressions()
-        if not logger.isEnabledFor(logging.DEBUG):
-            return
-        logger.debug(
-            "%s Modeling report definition project_id=%s report_id=%s named %d "
-            "derived metrics but none carried an expression; payload skeleton: %s",
-            MSTR_DERIVED_DEBUG_LOG_PREFIX,
-            project_id,
-            report_id,
-            definition_count,
-            payload_key_skeleton(payload),
-        )
-        logger.debug(
-            "%s first derived-flagged node project_id=%s report_id=%s: %s",
-            MSTR_DERIVED_DEBUG_LOG_PREFIX,
-            project_id,
-            report_id,
-            first_derived_node_skeleton(payload),
-        )
-
-    def _debug_model_definition_empty(
-        self,
-        project_id: str,
-        report_id: str,
-        payload: Dict[str, object],
-    ) -> None:
-        """The Modeling endpoint answered but the walker found no derived
-        metric definition in the payload at all, so the v2 definition will
-        supply names only. This is the case a live run hit: it is invisible
-        in the counters unless recorded here, and the payload shape is the
-        only way to learn which key the derived metrics live under. Count it
-        per report; log the key skeleton once per project."""
-        self.report.report_report_model_definition_empty()
-        if project_id in self._model_empty_logged_projects:
-            return
-        self._model_empty_logged_projects.add(project_id)
-        if not logger.isEnabledFor(logging.DEBUG):
-            return
-        logger.debug(
-            "%s Modeling report definition project_id=%s report_id=%s returned "
-            "no derived metric definitions; type/subType vocabulary: %s; "
-            "payload skeleton: %s",
-            MSTR_DERIVED_DEBUG_LOG_PREFIX,
-            project_id,
-            report_id,
-            payload_type_vocabulary(payload),
-            payload_key_skeleton(payload),
-        )
-
-    def _debug_document_definition_without_visualizations(
-        self,
-        project_id: str,
-        document_id: str,
-        payload: Dict[str, object],
-    ) -> None:
-        """A Report Services document whose definition yielded no
-        visualizations, so it is emitted with datasets only. The documented
-        shape carries them under layouts[].visualizations[]; an empty result
-        means the tenant answered with another shape. Count it per document
-        and log the top-level keys and key skeleton once per project so the
-        parser can be adjusted."""
-        self.report.report_document_definition_without_visualizations()
-        if project_id in self._document_empty_logged_projects:
-            return
-        self._document_empty_logged_projects.add(project_id)
-        keys = sorted(payload.keys())
-        skeleton = payload_key_skeleton(payload)
-        # The structured report survives in full; the execution log keeps
-        # only its tail, so a line logged early in a long run is lost.
-        self.report.info(
-            title="Document definition without visualizations",
-            message=(
-                "A Report Services document definition carried no "
-                "visualizations, so the dashboard was emitted with datasets "
-                "only; the definition's top-level keys and key skeleton are "
-                "recorded (once per project) so the parser can be adjusted."
-            ),
-            context=(
-                f"project_id={project_id}, document_id={document_id}, "
-                f"keys={keys}, skeleton={skeleton}"
-            ),
-            log=False,
-        )
-        if not logger.isEnabledFor(logging.DEBUG):
-            return
-        logger.debug(
-            "%s document definition project_id=%s document_id=%s yielded no "
-            "visualizations; top-level keys: %s; payload skeleton: %s",
-            MSTR_DOCUMENT_DEBUG_LOG_PREFIX,
-            project_id,
-            document_id,
-            keys,
-            skeleton,
-        )
-
-    def _probe_document_model(self, project_id: str, document_id: str) -> None:
-        """Diagnostic read of GET /api/model/documents/{id} for a Report
-        Services document whose definition carried no visualizations. On the
-        tenant that motivated this, the definition endpoint answers such
-        documents with a dossier-shaped tree (chapters with empty pages and
-        datasets, no layouts), so the Modeling document is the remaining
-        candidate for the grids and panels a document is made of. Record
-        what it answers in the structured report - status, top-level keys,
-        key skeleton and the key paths whose names suggest contents - for
-        the first few such documents per project, so every copy of a
-        duplicated document need not be read. A non-200 answer (the endpoint
-        has returned 500 for one document) is recorded, never raised."""
-        probed = self._document_model_probes_by_project.get(project_id, 0)
-        if probed >= MSTR_DOCUMENT_MODEL_PROBES_PER_PROJECT:
-            return
-        self._document_model_probes_by_project[project_id] = probed + 1
-        self.report.report_document_model_probe()
-        try:
-            result = self.client.probe_model_document(project_id, document_id)
-        except MicroStrategyAuthError:
-            raise
-        except Exception as error:
-            result = ModelDocumentProbeResult(
-                status_code=None,
-                excerpt=str(error)[:MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS],
-            )
-        if result.payload is None:
-            self.report.report_document_model_probe_failure()
-            detail = f"status={result.status_code}, body={result.excerpt!r}"
-        else:
-            detail = (
-                f"status={result.status_code}, keys={sorted(result.payload)}, "
-                f"skeleton={payload_key_skeleton(result.payload)}, "
-                "content_hints="
-                f"{payload_key_paths_matching(result.payload, MSTR_DOCUMENT_MODEL_PROBE_HINT_KEYWORDS)}"
-            )
-        context = f"project_id={project_id}, document_id={document_id}, {detail}"
-        self.report.info(
-            title="Document model probe",
-            message=(
-                "GET /api/model/documents/{id} was read for a Report Services "
-                "document whose definition carried no visualizations, to learn "
-                "whether the Modeling service describes the document's grids "
-                "and layout; its status, top-level keys, key skeleton and the "
-                "key paths that look like contents (or the error body) are "
-                "recorded for the first few such documents per project."
-            ),
-            context=context,
-            log=False,
-        )
-        if not logger.isEnabledFor(logging.DEBUG):
-            return
-        logger.debug(
-            "%s document model probe %s", MSTR_DOCUMENT_DEBUG_LOG_PREFIX, context
-        )
-
-    def _debug_v2_definition_payload(
-        self,
-        project_id: str,
-        report_id: str,
-        payload: Dict[str, object],
-    ) -> None:
-        """Key skeleton of the v2 report definition that supplied derived
-        metric names, once per project."""
-        if project_id in self._v2_definition_logged_projects:
-            return
-        self._v2_definition_logged_projects.add(project_id)
-        if not logger.isEnabledFor(logging.DEBUG):
-            return
-        logger.debug(
-            "%s v2 report definition project_id=%s report_id=%s supplied derived "
-            "metric names; payload skeleton: %s",
-            MSTR_DERIVED_DEBUG_LOG_PREFIX,
-            project_id,
-            report_id,
-            payload_key_skeleton(payload),
         )
 
     def _process_project_reports(
@@ -1624,10 +1406,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
         )
         if is_document_object(dashboard_object) and not dashboard.visualizations:
-            self._debug_document_definition_without_visualizations(
-                project_id, dashboard_id, response
-            )
-            self._probe_document_model(project_id, dashboard_id)
+            self.report.report_document_definition_without_visualizations()
         if self.config.extract_lineage and self.config.extract_visualization_details:
             self._enrich_visualization_details(project_id, dashboard_object, dashboard)
         if self.config.extract_lineage:

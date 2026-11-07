@@ -1,4 +1,3 @@
-import json
 from typing import Any, Dict, Optional
 
 import pytest
@@ -12,13 +11,9 @@ from datahub.ingestion.source.microstrategy.models import (
     PersonalFolderResolution,
     ReportDefinition,
     extract_document_derived_metric_definitions,
-    first_derived_node_skeleton,
     is_document_object,
     is_dossier_view_media,
     is_personal_folder_object,
-    payload_key_paths_matching,
-    payload_key_skeleton,
-    payload_type_vocabulary,
 )
 
 
@@ -390,176 +385,6 @@ def test_metric_formula_references_accept_braces_and_brackets() -> None:
     ]
 
 
-def test_payload_key_skeleton_keeps_keys_and_types_but_never_values() -> None:
-    payload = {
-        "information": {"objectId": "ABC123", "name": "RTL PLN", "hidden": False},
-        "elements": [
-            {"id": "D-1", "derived": True, "expression": {"text": "[A]/[B]"}},
-            {"id": "D-2", "derived": True, "expression": None},
-        ],
-        "count": 2,
-        "ratio": 0.5,
-        "empty": [],
-    }
-
-    rendered = payload_key_skeleton(payload)
-    assert json.loads(rendered) == {
-        "information": {"objectId": "str", "name": "str", "hidden": "bool"},
-        "elements": {
-            "$len": 2,
-            # Second item's null expression is visible alongside the first's dict.
-            "$item": {
-                "id": "str",
-                "derived": "bool",
-                "expression": '{"text":"str"}|null',
-            },
-        },
-        "count": "int",
-        "ratio": "float",
-        "empty": "list[0]",
-    }
-    for leaked in ("ABC123", "RTL PLN", "D-1", "[A]/[B]"):
-        assert leaked not in rendered
-
-
-def test_payload_key_skeleton_unions_heterogeneous_list_items() -> None:
-    # A report template mixes attribute units with one metrics unit whose
-    # elements are catalog metrics and derived metrics; only the minority
-    # items carry the keys that matter, so they must survive the rendering.
-    payload = {
-        "units": [
-            {"id": "A1", "name": "Region", "type": "attribute"},
-            {"id": "A2", "name": "District", "type": "attribute"},
-            {
-                "type": "metrics",
-                "elements": [
-                    {"id": "M1", "name": "Net Sales", "subType": "metric"},
-                    {
-                        "id": "D1",
-                        "name": "RTL PLN",
-                        "subType": "derived_metric",
-                        "expression": {"tokens": [{"value": "x"}]},
-                    },
-                ],
-            },
-        ]
-    }
-
-    assert json.loads(payload_key_skeleton(payload)) == {
-        "units": {
-            "$len": 3,
-            "$item": {
-                "id": "str",
-                "name": "str",
-                "type": "str",
-                "elements": {
-                    "$len": 2,
-                    "$item": {
-                        "id": "str",
-                        "name": "str",
-                        "subType": "str",
-                        "expression": {
-                            "tokens": {"$len": 1, "$item": {"value": "str"}}
-                        },
-                    },
-                },
-            },
-        }
-    }
-    assert payload_type_vocabulary(payload) == [
-        "attribute",
-        "derived_metric",
-        "metric",
-        "metrics",
-    ]
-    # The cap bounds traversal, so it keeps the first values met, not the
-    # alphabetically first: the unit-level types come before element subtypes.
-    assert payload_type_vocabulary(payload, max_values=2) == [
-        "attribute",
-        "metrics",
-    ]
-    assert payload_type_vocabulary({"type": 7, "items": [{"subType": "x"}]}) == ["x"]
-
-
-def test_payload_key_skeleton_is_depth_limited() -> None:
-    payload = {"a": {"b": {"c": {"d": [1, 2, 3]}}}}
-
-    assert json.loads(payload_key_skeleton(payload, max_depth=2)) == {
-        "a": {"b": "dict[1]"}
-    }
-    assert json.loads(payload_key_skeleton(payload, max_depth=3)) == {
-        "a": {"b": {"c": "dict[1]"}}
-    }
-    assert json.loads(payload_key_skeleton(payload)) == {
-        "a": {"b": {"c": {"d": {"$len": 3, "$item": "int"}}}}
-    }
-
-
-def test_payload_key_skeleton_is_size_capped() -> None:
-    payload = {f"key_{index:04d}": "value" for index in range(500)}
-
-    rendered = payload_key_skeleton(payload, max_chars=200)
-    assert len(rendered) == 200
-    assert rendered.endswith("...")
-    assert payload_key_skeleton("scalar") == '"str"'
-    assert payload_key_skeleton(None) == '"null"'
-
-
-def test_first_derived_node_skeleton_describes_node_identity_and_parent() -> None:
-    payload = {
-        "dataSource": {
-            "units": [
-                {
-                    "type": "metrics",
-                    "elements": [
-                        {"id": "M-1", "name": "Net Sales"},
-                        {
-                            "id": "D-1",
-                            "name": "RTL PLN",
-                            "derived": True,
-                            "definition": {"formulaText": "[A]/[B]"},
-                        },
-                    ],
-                }
-            ]
-        }
-    }
-
-    rendered = first_derived_node_skeleton(payload)
-    assert rendered is not None
-    assert json.loads(rendered) == {
-        "node": {
-            "id": "str",
-            "name": "str",
-            "derived": "bool",
-            "definition": {"formulaText": "str"},
-        },
-        "identity": {
-            "id": "str",
-            "name": "str",
-            "derived": "bool",
-            "definition": {"formulaText": "str"},
-        },
-        "parent_keys": ["elements", "type"],
-    }
-    assert "RTL PLN" not in rendered and "D-1" not in rendered
-
-
-def test_first_derived_node_skeleton_uses_parent_identity_and_handles_absence() -> None:
-    # A `definition` sub-object flagged derived borrows its parent's identity.
-    payload = {
-        "metrics": [{"id": "D-1", "name": "RTL PLN", "definition": {"isDerived": True}}]
-    }
-    rendered = first_derived_node_skeleton(payload)
-    assert rendered is not None
-    assert json.loads(rendered) == {
-        "node": {"isDerived": "bool"},
-        "identity": {"id": "str", "name": "str", "definition": {"isDerived": "bool"}},
-        "parent_keys": ["definition", "id", "name"],
-    }
-    assert first_derived_node_skeleton({"metrics": [{"id": "M-1"}]}) is None
-
-
 def _personal_report(*ancestors: Dict[str, str]) -> Dict[str, Any]:
     return {"id": "R-1", "name": "Copy of Dossier", "ancestors": list(ancestors)}
 
@@ -821,50 +646,6 @@ def test_document_derived_metrics_keyed_by_defining_dataset() -> None:
 def test_document_derived_metrics_tolerate_missing_datasets() -> None:
     assert extract_document_derived_metric_definitions({}) == {}
     assert extract_document_derived_metric_definitions({"datasets": "x"}) == {}
-
-
-def test_payload_key_paths_matching_names_content_keys_through_lists() -> None:
-    payload: Dict[str, Any] = {
-        "id": "doc-1",
-        "datasets": [{"id": "ds-1", "name": "DCS - Dataset"}],
-        "layouts": [
-            {"sections": [{"nodes": [{"gridTemplate": {"id": "t"}, "shapes": []}]}]}
-        ],
-        "chapters": [{"pages": [{"layout": {"nodes": []}}]}],
-    }
-
-    assert payload_key_paths_matching(
-        payload, ("layout", "grid", "section", "node", "shape")
-    ) == [
-        "chapters[].pages[].layout",
-        "chapters[].pages[].layout.nodes",
-        "layouts",
-        "layouts[].sections",
-        "layouts[].sections[].nodes",
-        "layouts[].sections[].nodes[].gridTemplate",
-        "layouts[].sections[].nodes[].shapes",
-    ]
-    # Matched on the key name, case-insensitively; never on values.
-    assert payload_key_paths_matching({"GridUnits": "layout"}, ("grid",)) == [
-        "GridUnits"
-    ]
-    assert payload_key_paths_matching(payload, ("prompt",)) == []
-    assert payload_key_paths_matching("scalar", ("grid",)) == []
-
-
-def test_payload_key_paths_matching_is_depth_limited_and_capped() -> None:
-    payload = {"a": {"b": {"c": {"grid": 1}}}}
-
-    # Same depth rule as the skeleton: a key the skeleton collapses to
-    # `dict[n]` is not named either.
-    assert payload_key_paths_matching(payload, ("grid",), max_depth=3) == []
-    assert payload_key_paths_matching(payload, ("grid",), max_depth=4) == ["a.b.c.grid"]
-    many = {f"grid{n}": n for n in range(10)}
-    assert payload_key_paths_matching(many, ("grid",), max_paths=3) == [
-        "grid0",
-        "grid1",
-        "grid2",
-    ]
 
 
 @pytest.mark.parametrize(

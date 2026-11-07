@@ -97,32 +97,6 @@ MSTR_DEFINITION_ENDPOINT_MODEL_DOCUMENT = "model_document"
 # The formula came from GET /api/model/metrics/{id} for a metric the report
 # definition only named (an embedded, report-level derived metric).
 MSTR_DEFINITION_ENDPOINT_METRIC_MODEL = "metric_model"
-# Fixed prefix on the DEBUG-level payload-shape lines emitted while resolving
-# report derived metric definitions, so they can be grepped out of an
-# executor debug log.
-MSTR_DERIVED_DEBUG_LOG_PREFIX = "[mstr-derived-debug]"
-# Same purpose for Report Services document definitions that yield no
-# visualizations: the documented shape carries them under
-# layouts[].visualizations[], so an empty result means the tenant answered
-# with a shape the parser does not know yet.
-MSTR_DOCUMENT_DEBUG_LOG_PREFIX = "[mstr-document-debug]"
-# Diagnostic probe of GET /api/model/documents/{id} for those documents: how
-# many documents per project are probed, how much of a non-200 (or non-JSON)
-# answer is kept, and the key-name fragments that mark a path in the answer
-# as describing the document's contents (grids, layout, panels) rather than
-# its datasets or prompts.
-MSTR_DOCUMENT_MODEL_PROBES_PER_PROJECT = 3
-MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS = 300
-MSTR_DOCUMENT_MODEL_PROBE_HINT_KEYWORDS = (
-    "layout",
-    "visualization",
-    "grid",
-    "section",
-    "node",
-    "panel",
-    "template",
-    "shape",
-)
 
 MEASURE_TAG_URN = "urn:li:tag:Measure"
 DIMENSION_TAG_URN = "urn:li:tag:Dimension"
