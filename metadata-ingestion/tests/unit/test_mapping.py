@@ -638,20 +638,36 @@ def test_operation_processor_nested_list_values(meta_yaml: str) -> None:
     ]
 
 
-def test_operation_processor_list_values_use_capture_groups() -> None:
+def test_operation_processor_list_values_use_whole_matching_item() -> None:
+    # As before per-item splitting, a list item that matches the pattern is used
+    # whole, even when the pattern only matches its prefix or has a capture group.
     processor = OperationProcessor(
         {
             "tags": {
-                "match": "team:(.*)",
+                "match": "PII",
                 "operation": "add_tag",
-                "config": {"tag": "owner_{{ $match }}"},
-            }
+                "config": {"tag": "{{ $match }}"},
+            },
+            "owners": {
+                "match": "(.*)@company.com",
+                "operation": "add_owner",
+                "config": {"owner_type": "user"},
+            },
         }
     )
-    aspect_map = processor.process({"tags": ["team:a", "other", "team:b"]})
+    aspect_map = processor.process(
+        {
+            "tags": ["PII_email", "other", "PII_phone"],
+            "owners": ["alice@company.com", "bob@other.com", "carol@company.com"],
+        }
+    )
     assert [t.tag for t in aspect_map["add_tag"].tags] == [
-        "urn:li:tag:owner_a",
-        "urn:li:tag:owner_b",
+        "urn:li:tag:PII_email",
+        "urn:li:tag:PII_phone",
+    ]
+    assert [o.owner for o in aspect_map["add_owner"].owners] == [
+        "urn:li:corpuser:alice@company.com",
+        "urn:li:corpuser:carol@company.com",
     ]
 
 

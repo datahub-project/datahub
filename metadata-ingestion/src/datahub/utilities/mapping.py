@@ -303,14 +303,16 @@ class OperationProcessor:
                     except KeyError:
                         pass
 
-                # For multi-valued operations, apply the rule to each list item on its
-                # own so that e.g. `tags: [a, b]` yields two tags rather than one tag
-                # built from the joined list.
+                # get_match joins all matching items of a list into a single match,
+                # which would turn `tags: [a, b]` into one tag "a,b". For multi-valued
+                # operations, evaluate each item as its own single-item list instead:
+                # this keeps get_match's list semantics (the whole matching item is
+                # used) while producing one tag/term/owner per item.
                 if (
                     isinstance(raw_props_value, list)
                     and operation_type in Constants.PER_LIST_ITEM_OPERATIONS
                 ):
-                    candidate_values: List[Any] = raw_props_value
+                    candidate_values: List[Any] = [[item] for item in raw_props_value]
                 else:
                     candidate_values = [raw_props_value]
 

@@ -220,7 +220,7 @@ meta_mapping:
 
 This will add `alice@company.com` and `bob@company.com` as owners (matching `.*@company.com`) but skip `contractor@external.com` (doesn't match the pattern).
 
-The same applies to `add_tag`, `add_term` and `add_terms`, including nested keys: each matching item produces its own tag or term, and `{{ $match }}` is replaced with that item.
+The same applies to `add_tag`, `add_term` and `add_terms`, including nested keys: each matching item produces its own tag or term. For list values, `{{ $match }}` is replaced with the whole matching item, even when the pattern only matches part of it.
 
 ```yaml
 meta:
