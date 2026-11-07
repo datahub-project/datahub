@@ -296,8 +296,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             f"{self._fingerprint_salt}|{fingerprint}".encode("utf-8")
         ).hexdigest()
 
+    def _usable_checkpoint(self, app_id: str) -> Optional[AppCheckpoint]:
+        """The app's last read, when it can stand in for this run's read: it
+        is recorded by the run the stale entity removal state comes from, and
+        it holds the entities to keep."""
+        try:
+            previous = self.app_state.previous(app_id)
+        except Exception as e:
+            logger.debug(f"Unable to load the last checkpoint of app {app_id}: {e}")
+            self._change_check_failures.append(
+                f"{app_id}: unable to load the last checkpoint: {e}"
+            )
+            return None
+        return previous if previous is not None and previous.urns else None
+
     def _is_app_unchanged(self, app_id: str, fingerprint: str) -> bool:
-        previous = self.app_state.previous(app_id)
+        previous = self._usable_checkpoint(app_id)
         if previous is None or previous.fingerprint != self._salted_fingerprint(
             fingerprint
         ):
@@ -316,8 +330,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 != previous.fingerprint
             ):
                 return False
-            # A checkpoint without entities has nothing to keep for the app.
-            return bool(previous.urns) and self._entities_present(graph, previous.urns)
+            return self._entities_present(graph, previous.urns)
         except Exception as e:
             logger.debug(f"Unable to read app container {container_urn}: {e}")
             self._change_check_failures.append(
@@ -380,31 +393,26 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _keep_unchanged_app(self, app: UnchangedApp) -> None:
         urns = self._keep_previous_urns(app.id)
-        self.app_state.record(
-            app.id,
-            AppCheckpoint(
-                # Without the kept entities the next run must read the app again.
-                fingerprint=self._salted_fingerprint(app.fingerprint) if urns else None,
-                urns=urns,
-            ),
-        )
+        # Without the kept entities, which _keep_previous_urns reports as a
+        # failure, nothing is recorded, so the next run reads the app again.
+        if urns:
+            self.app_state.record(
+                app.id,
+                AppCheckpoint(
+                    fingerprint=self._salted_fingerprint(app.fingerprint), urns=urns
+                ),
+            )
         self.reporter.apps_skipped_unchanged += 1
 
     def _keep_partly_read_app(self, app: App) -> bool:
         """Keeps what the app's last read produced instead of emitting a partial
         read, which would overwrite its relationships. False when there is no
         usable checkpoint to keep."""
-        try:
-            previous = self.app_state.previous(app.id)
-        except Exception as e:
-            logger.debug(f"Unable to load the last checkpoint of app {app.id}: {e}")
-            self._change_check_failures.append(
-                f"{app.id}: unable to load the last checkpoint: {e}"
-            )
-            return False
-        if previous is None:
+        if self._usable_checkpoint(app.id) is None:
             return False
         urns = self._keep_previous_urns(app.id)
+        if not urns:
+            return False
         # No fingerprint, so the next run reads the app again.
         self.app_state.record(app.id, AppCheckpoint(fingerprint=None, urns=urns))
         return True
