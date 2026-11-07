@@ -1460,6 +1460,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             nullable=obj.nullable,
             comment=obj.comment,
             partition_index=obj.partition_index,
+            type_json=obj.type_json,
         )
 
     def _create_table(
