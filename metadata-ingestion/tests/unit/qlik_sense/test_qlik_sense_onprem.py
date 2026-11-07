@@ -31,9 +31,11 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     ChartInfoClass,
     DashboardInfoClass,
     InputFieldsClass,
+    MetadataChangeProposalClass,
     SubTypesClass,
     UpstreamLineageClass,
 )
@@ -89,6 +91,7 @@ def test_onprem_lists_stream_and_opens_app(
         ("sheet-1", "Overview", "user-1")
     ]
     assert app.script == LOAD_SCRIPT
+    assert not app.tables_read_failed
     websocket.close_websocket.assert_called_once()
     open_doc = websocket.websocket_send_request.call_args_list[0].kwargs
     assert open_doc["params"]["qNoData"] is True
@@ -300,6 +303,26 @@ class _ScriptedEngine(WebsocketConnection):
 
     def get_script(self) -> str:
         return LOAD_SCRIPT
+
+
+class _ScriptlessEngine(_ScriptedEngine):
+    def get_script(self) -> str:
+        raise RuntimeError("Engine closed the session")
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_unread_load_script_leaves_app_tables_unknown(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    engine = _ScriptlessEngine(_sheet_replies([]))
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert app.script is None
+    assert app.tables_read_failed
+    assert not app.read_complete
 
 
 def _sheet_replies(
@@ -1547,3 +1570,16 @@ def test_partly_read_app_does_not_overwrite_relationships(
     assert emitted(DashboardInfoClass) is charts_complete
     assert emitted(ChartInfoClass) is not tables_read_failed
     assert emitted(InputFieldsClass) is not tables_read_failed
+    chart_info_patches = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.changeType == ChangeTypeClass.PATCH
+        and wu.metadata.aspectName == ChartInfoClass.ASPECT_NAME
+    ]
+    # Without known inputs the chart is patched, keeping its last inputs.
+    assert len(chart_info_patches) == int(tables_read_failed)
+    assert all(
+        patch.aspect is not None and b"inputs" not in patch.aspect.value
+        for patch in chart_info_patches
+    )

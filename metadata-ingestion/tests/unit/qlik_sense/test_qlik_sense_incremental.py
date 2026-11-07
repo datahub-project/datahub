@@ -265,9 +265,10 @@ def test_failed_read_with_unloadable_checkpoint_is_a_failure(
 
     assert second.reporter.apps_read == 1
     assert not _soft_deleted_urns(second_wus)
-    assert "Unable to load the last checkpoint of a Qlik app" in [
+    assert "Unable to fully read Qlik app" in [
         failure.title for failure in second.reporter.failures
     ]
+    assert list(second.reporter.apps_change_check_failed)
 
 
 def _container_urn(source: QlikSenseSource) -> str:
@@ -574,3 +575,20 @@ def test_unchanged_app_whose_checkpoint_fails_to_reload_is_read_next_run(
     ]
     assert third.reporter.apps_skipped_unchanged == 0
     assert qlik.engine_opens == 2
+
+
+def test_partial_read_without_last_read_is_not_recorded(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    _DataHub(mock_datahub_graph)
+    qlik.engine_fails = True
+
+    first, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+
+    for run in (first, second):
+        assert "Unable to fully read Qlik app" in [
+            failure.title for failure in run.reporter.failures
+        ]
+    assert not _soft_deleted_urns(second_wus)

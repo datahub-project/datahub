@@ -129,6 +129,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaFieldDataTypeClass,
 )
+from datahub.specific.chart import ChartPatchBuilder
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     column_refs_to_schema_field_urns,
@@ -418,9 +419,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if guess_entity_type(urn) not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES:
                 urns[urn] = None
             yield wu
+        if not app.read_complete:
+            # Only reached without a usable last read, and reported as a failure.
+            # Recording the partial entity list as the app's last read would let
+            # a later partial read keep only those entities.
+            return
         if fingerprint is None:
-            # A failed read emits only part of the app, so keep what the last read
-            # produced. No fingerprint never matches, so the next run reads it.
+            # No fingerprint never matches, so the next run reads the app again.
             urns.update(dict.fromkeys(self._keep_previous_urns(app.id)))
         self.app_state.record(
             app.id, AppCheckpoint(fingerprint=fingerprint, urns=list(urns))
@@ -567,8 +572,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             }
             chart_fields = self._get_chart_input_fields(chart, app_fields)
 
-            # Unknown inputs would overwrite the ones the last full read emitted.
-            if input_tables_urns is not None:
+            if input_tables_urns is None:
+                # Unknown inputs would overwrite the ones the last full read
+                # emitted, so only the other chart fields are patched.
+                yield from self._gen_chart_info_patch(
+                    chart_urn, chart, custom_properties
+                )
+            else:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=chart_urn,
                     aspect=ChartInfoClass(
@@ -606,6 +616,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 container_key=self._gen_app_key(app_id),
                 entity_type="chart",
                 entity_urn=chart_urn,
+            )
+
+    @staticmethod
+    def _gen_chart_info_patch(
+        chart_urn: str, chart: Chart, custom_properties: Dict[str, str]
+    ) -> Iterable[MetadataWorkUnit]:
+        patch = ChartPatchBuilder(chart_urn).set_last_modified(ChangeAuditStampsClass())
+        if chart.title:
+            patch.set_title(chart.title)
+        if chart.visualization:
+            patch.set_description(chart.visualization)
+        for key, value in custom_properties.items():
+            patch.add_custom_property(key, value)
+        for mcp in patch.build():
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
             )
 
     @staticmethod
