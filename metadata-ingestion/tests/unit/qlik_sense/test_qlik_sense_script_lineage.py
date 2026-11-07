@@ -1,10 +1,11 @@
-from typing import Optional
+from typing import List, Optional
 
 import pytest
 
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     connection_lookup_names,
     drop_condition_variables,
+    expression_names,
     has_qualified_name,
     infer_data_connection,
     is_connector_sql,
@@ -454,3 +455,55 @@ def test_is_connector_sql(sql: str, expected: bool) -> None:
 )
 def test_drop_condition_variables(sql: str, expected: str) -> None:
     assert drop_condition_variables(sql) == expected
+
+
+@pytest.mark.parametrize(
+    "expression, names",
+    [
+        pytest.param("=Sum(Year(OrderDate))", ["OrderDate"], id="nested_functions"),
+        pytest.param("=Year (OrderDate)", ["OrderDate"], id="space_before_call"),
+        pytest.param(
+            "Sum(Amount) // excludes Returns\n+ Sum([Tax]) /* Returns */",
+            ["Amount", "Tax"],
+            id="comments",
+        ),
+        pytest.param(
+            "Count({<Url={'http://example.com'}>} [a/*b])",
+            ["Url", "a/*b"],
+            id="comment_markers_in_quotes",
+        ),
+        pytest.param(
+            "=Date#(OrderDate, 'YYYYMMDD') + Num# (Amount)",
+            ["OrderDate", "Amount"],
+            id="interpretation_functions",
+        ),
+        pytest.param(
+            "=[Year] + Year", ["Year", "Year"], id="field_named_like_function"
+        ),
+        pytest.param("Count({<Year={2024}>} Region)", ["Year", "Region"], id="set"),
+        pytest.param(
+            "Sum($(vSales)) + Sum($(=Max(Year))) + Sum(Amount)",
+            ["Amount"],
+            id="expansions",
+        ),
+        pytest.param(
+            "={$<Year={2024}, [Sales Region]-={'East'}>} Sum(Sales)",
+            ["Year", "Sales Region", "Sales"],
+            id="set_after_leading_equals",
+        ),
+        pytest.param(
+            "Count({<Region={'A'}+{\"B*\"}-{$(vSkip)}>} Amount)",
+            ["Region", "Amount"],
+            id="combined_set_values",
+        ),
+        pytest.param(
+            "Sum(DISTINCT TOTAL <Region> Amount) and not Flag",
+            ["Region", "Amount", "Flag"],
+            id="keywords",
+        ),
+    ],
+)
+def test_expression_names_skip_function_calls(
+    expression: str, names: List[str]
+) -> None:
+    assert expression_names(expression) == names

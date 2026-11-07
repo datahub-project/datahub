@@ -15,6 +15,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     Chart,
     QlikTable,
+    SchemaField,
     Sheet,
     UnreadItem,
 )
@@ -33,6 +34,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     DashboardInfoClass,
+    InputFieldsClass,
     MetadataChangeProposalClass,
     SubTypesClass,
     UpstreamLineageClass,
@@ -263,6 +265,8 @@ def test_chart_keeps_dimension_in_error_state() -> None:
         ("Region", "0"),
         (None, None),
     ]
+    # Neither dimension lists its fields, so the chart may read any of them.
+    assert not chart.fields_complete
 
 
 def test_chart_without_title_is_kept() -> None:
@@ -321,7 +325,11 @@ def test_onprem_unread_load_script_leaves_app_tables_unknown(
     assert not app.read_complete
 
 
-def _sheet_replies(chart_ids: List[str]) -> List[object]:
+def _sheet_replies(
+    chart_ids: List[str], chart_properties: Optional[List[Dict]] = None
+) -> List[object]:
+    # Without chart_properties the property tree is empty, so each chart's
+    # properties are read on their own.
     return [
         {"qReturn": {"qHandle": 1}},
         {"qList": [{"qInfo": {"qId": "sheet-1", "qType": "sheet"}}]},
@@ -332,6 +340,15 @@ def _sheet_replies(chart_ids: List[str]) -> List[object]:
                 "qChildList": {
                     "qItems": [{"qInfo": {"qId": chart_id}} for chart_id in chart_ids]
                 },
+            }
+        },
+        {
+            "qPropEntry": {
+                "qProperty": {"qInfo": {"qId": "sheet-1"}},
+                "qChildren": [
+                    {"qProperty": prop, "qChildren": []}
+                    for prop in chart_properties or []
+                ],
             }
         },
     ]
@@ -355,6 +372,58 @@ def _read_onprem_app(
     "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
 )
 @patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_unreadable_property_tree_falls_back_without_failing_the_app(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    replies = _sheet_replies(["ok"])
+    replies[-1] = RuntimeError("Method not found")
+    engine = _ScriptedEngine(
+        replies
+        + [
+            {"qReturn": {"qHandle": 3, "qType": "GenericObject"}},
+            _chart_layout("ok"),
+            {"qProp": {"qHyperCubeDef": {"qMeasures": []}}},
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
+    assert app.read_complete
+    assert len(app.read_fallbacks) == 1
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_engine_read_fallbacks_are_reported_as_info(mock_onprem: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+    app = App.model_validate(
+        {
+            "id": "app-1",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "stream-1",
+        }
+    )
+    app.read_fallbacks = ["Sheet sheet-1: unable to read the property tree"]
+    space = MagicMock()
+    space.name = "Everyone"
+
+    with patch.object(source, "_gen_app_workunit", return_value=[]):
+        list(source._gen_item_workunits(app, space, False))
+
+    assert [info.title for info in source.reporter.infos] == [
+        "Qlik Engine batch read unavailable"
+    ]
+    assert not source.reporter.failures
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
 def test_onprem_reads_charts_after_a_failed_chart(
     mock_session_cls: MagicMock, mock_engine: MagicMock
 ) -> None:
@@ -364,6 +433,7 @@ def test_onprem_reads_charts_after_a_failed_chart(
             RuntimeError("Access denied"),
             {"qReturn": {"qHandle": 3, "qType": "GenericObject"}},
             _chart_layout("ok"),
+            {"qProp": {}},
         ]
     )
     app = _read_onprem_app(mock_session_cls, mock_engine, engine)
@@ -371,7 +441,13 @@ def test_onprem_reads_charts_after_a_failed_chart(
     assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
     assert not app.sheets[0].charts_complete
     assert not app.read_complete
-    assert engine.sent_on[4:] == [("GetChild", 2), ("GetChild", 2), ("GetLayout", 3)]
+    assert engine.sent_on[4:] == [
+        ("GetFullPropertyTree", 2),
+        ("GetChild", 2),
+        ("GetChild", 2),
+        ("GetLayout", 3),
+        ("GetProperties", 3),
+    ]
     assert engine.handles == [-1, 1]
 
 
@@ -407,8 +483,10 @@ def test_onprem_reads_charts_inside_containers(
             },
             {"qReturn": {"qHandle": 5}},
             untitled,
+            {"qProp": {}},
             {"qReturn": {"qHandle": 6}},
             _chart_layout("titled"),
+            {"qProp": {}},
         ]
     )
     app = _read_onprem_app(mock_session_cls, mock_engine, engine)
@@ -420,6 +498,66 @@ def test_onprem_reads_charts_inside_containers(
     assert app.read_complete
     assert ("GetChild", 4) in engine.sent_on
     assert engine.handles == [-1, 1]
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_does_not_open_objects_that_are_not_charts(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    engine = _ScriptedEngine(
+        _sheet_replies(
+            ["filters", "sales"],
+            [
+                {"qInfo": {"qId": "filters", "qType": "filterpane"}},
+                {"qInfo": {"qId": "sales"}, "qHyperCubeDef": {"qMeasures": []}},
+            ],
+        )
+        + [{"qReturn": {"qHandle": 3}}, _chart_layout("sales")]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert [chart.qId for chart in app.sheets[0].charts] == ["sales"]
+    assert app.read_complete
+    assert [sent for sent in engine.sent_on if sent[0] == "GetChild"] == [
+        ("GetChild", 2)
+    ]
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_reads_linked_master_visualization(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    layout = _chart_layout("linked")
+    layout["qLayout"]["qHyperCube"]["qMeasureInfo"] = [  # type: ignore[index]
+        {"qFallbackTitle": "Sales"}
+    ]
+    engine = _ScriptedEngine(
+        _sheet_replies(
+            ["linked"],
+            [{"qInfo": {"qId": "linked"}, "qExtendsId": "master-viz"}],
+        )
+        + [
+            {"qReturn": {"qHandle": 3}},
+            layout,
+            {
+                "qProp": {
+                    "qHyperCubeDef": {"qMeasures": [{"qDef": {"qDef": "Sum(Sales)"}}]}
+                }
+            },
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    (chart,) = app.sheets[0].charts
+    assert chart.field_expressions == ["Sum(Sales)"]
+    assert chart.fields_complete
+    assert ("GetEffectiveProperties", 3) in engine.sent_on
 
 
 @patch(
@@ -444,6 +582,7 @@ def test_onprem_container_that_holds_itself_is_read_once(
             container,
             {"qReturn": {"qHandle": 4}},
             _chart_layout("chart"),
+            {"qProp": {}},
         ]
     )
     app = _read_onprem_app(mock_session_cls, mock_engine, engine)
@@ -454,6 +593,431 @@ def test_onprem_container_that_holds_itself_is_read_once(
         ("GetChild", 2),
         ("GetChild", 3),
     ]
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_reads_chart_field_expressions(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    layout = _chart_layout("sales")
+    layout["qLayout"]["qHyperCube"] = {  # type: ignore[index]
+        "qDimensionInfo": [{"qFallbackTitle": "Region", "qGroupFieldDefs": ["Region"]}],
+        "qMeasureInfo": [{"qFallbackTitle": "Sales"}, {"qFallbackTitle": "Orders"}],
+    }
+    engine = _ScriptedEngine(
+        _sheet_replies(
+            ["sales", "count"],
+            [
+                {
+                    "qInfo": {"qId": "sales"},
+                    "qHyperCubeDef": {
+                        "qMeasures": [
+                            {"qDef": {"qDef": "Sum([Net Sales])"}},
+                            {"qLibraryId": "orders", "qDef": {"qDef": ""}},
+                        ]
+                    },
+                },
+                {
+                    "qInfo": {"qId": "count"},
+                    "qHyperCubeDef": {"qMeasures": [{"qLibraryId": "orders"}]},
+                },
+            ],
+        )
+        + [
+            {"qReturn": {"qHandle": 3}},
+            layout,
+            {"qReturn": {"qHandle": 5}},
+            _chart_layout("count"),
+            {"qReturn": {"qHandle": 4, "qType": "GenericObject"}},
+            {
+                "qLayout": {
+                    "qMeasureList": {
+                        "qItems": [
+                            {
+                                "qInfo": {"qId": "orders"},
+                                "qData": {"measure": {"qDef": "Count(order_id)"}},
+                            }
+                        ]
+                    }
+                }
+            },
+        ]
+    )
+    app = _read_onprem_app(mock_session_cls, mock_engine, engine)
+
+    assert [chart.field_expressions for chart in app.sheets[0].charts] == [
+        ["Region", "Sum([Net Sales])", "Count(order_id)"],
+        ["Count(order_id)"],
+    ]
+    assert app.read_complete
+    assert not {"GetProperties", "GetMeasure"} & {
+        method for method, _ in engine.sent_on
+    }
+    assert engine.handles == [-1, 1]
+
+
+def test_chart_input_fields_match_app_fields() -> None:
+    orders = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    customers = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)"
+    app_fields = QlikSenseSource._index_app_fields(
+        {
+            orders: [SchemaField(name="order_id"), SchemaField(name="Net Sales")],
+            customers: [
+                SchemaField(name="order_id"),
+                SchemaField(name="Region"),
+                SchemaField(name="Segment"),
+            ],
+        }
+    )
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.field_expressions = [
+        "Net Sales",
+        "=Upper(region)",
+        "Sum({<Region={\"Segment\", 'Net Sales'}>} [Net Sales]) / Count(ORDER_ID)",
+        # Segment is called as a function here, not read as a field.
+        "=Sum(Segment (order_id))",
+    ]
+
+    assert [
+        (field.dataset_urn, field.field.name)
+        for field in QlikSenseSource._get_chart_input_fields(chart, app_fields)
+    ] == [
+        (orders, "Net Sales"),
+        (customers, "Region"),
+        (orders, "order_id"),
+        (customers, "order_id"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "expressions, fields_complete, unknown_schema, matched_fields, keeps_all_tables",
+    [
+        pytest.param(
+            ["Sum(unknown_field)"], True, False, [], True, id="no_field_matches"
+        ),
+        pytest.param(
+            ["Region", "Sum($(vSales))"],
+            True,
+            False,
+            ["Region"],
+            True,
+            id="variable_measure",
+        ),
+        pytest.param(
+            ["Count({<Year={$(vYear)}>} Region)"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="variable_in_set_modifier",
+        ),
+        pytest.param(
+            ["Count({<Year={$(=Only({1} Year))}>} Region)"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="nested_expansion_in_set_modifier",
+        ),
+        pytest.param(["Region"], False, False, ["Region"], True, id="unread_measure"),
+        pytest.param(
+            ["Region.autoCalendar.Year"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="derived_field_of_known_field",
+        ),
+        pytest.param(
+            ["OrderDate.autoCalendar.Year", "Region"],
+            True,
+            False,
+            ["Region"],
+            True,
+            id="derived_field_of_unknown_field",
+        ),
+        pytest.param(
+            ["Region//$(vRegion)"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="variable_in_adjacent_comment",
+        ),
+        pytest.param(
+            ["Region // $(vRegion)", "Count(Region) /* $(vOld) */"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="variable_in_comment",
+        ),
+        pytest.param(
+            ["Region", "Sum(amount)"],
+            True,
+            True,
+            ["Region"],
+            True,
+            id="unmatched_name_with_unknown_schema",
+        ),
+        pytest.param(
+            ["Region"],
+            True,
+            True,
+            ["Region"],
+            False,
+            id="all_names_matched_with_unknown_schema",
+        ),
+        pytest.param(
+            ["Region", "Count(DISTINCT Region)"],
+            True,
+            True,
+            ["Region"],
+            False,
+            id="keyword_with_unknown_schema",
+        ),
+        pytest.param(
+            ["Count({<Year={2024}+{$(vYear)}>} Region)"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="variable_in_combined_set_values",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_chart_inputs_when_fields_are_unknown(
+    mock_onprem: MagicMock,
+    expressions: List[str],
+    fields_complete: bool,
+    unknown_schema: bool,
+    matched_fields: List[str],
+    keeps_all_tables: bool,
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.field_expressions = expressions
+    chart.fields_complete = fields_complete
+    app_tables = [
+        "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)",
+    ]
+    # A SQL SELECT * script table has no known columns.
+    app_fields = QlikSenseSource._index_app_fields(
+        {app_tables[0]: [], app_tables[1]: [SchemaField(name="Region")]}
+    )
+
+    workunits = list(
+        source._gen_charts_workunit(
+            [chart], app_tables, app_fields, unknown_schema, "app-1"
+        )
+    )
+    (chart_info,) = filter(
+        None, (wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)
+    )
+    (input_fields,) = filter(
+        None, (wu.get_aspect_of_type(InputFieldsClass) for wu in workunits)
+    )
+
+    assert chart_info.inputs == (app_tables if keeps_all_tables else app_tables[1:])
+    assert [
+        field.schemaField.fieldPath
+        for field in input_fields.fields
+        if field.schemaField
+    ] == matched_fields
+
+
+def test_qualified_field_name_matches_before_derived_field() -> None:
+    table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)"
+    app_fields = QlikSenseSource._index_app_fields(
+        {table: [SchemaField(name="Orders.Region"), SchemaField(name="Orders")]}
+    )
+
+    assert QlikSenseSource._app_field_key("Orders.Region", app_fields) == (
+        "orders.region"
+    )
+    assert QlikSenseSource._app_field_key("Orders.autoCalendar.Year", app_fields) == (
+        "orders"
+    )
+    assert QlikSenseSource._app_field_key("Customers.Region", app_fields) is None
+
+
+@pytest.mark.parametrize(
+    "reply, fields_complete, fields_unread",
+    [
+        pytest.param(
+            RuntimeError("Access denied"), False, True, id="properties_unread"
+        ),
+        pytest.param(
+            {"qProp": {"qHyperCubeDef": {"qMeasures": []}}},
+            False,
+            True,
+            id="fewer_measures_than_layout",
+        ),
+        pytest.param(
+            {"qProp": {"qHyperCubeDef": {"qMeasures": [{"qDef": {}}]}}},
+            False,
+            False,
+            id="measure_without_definition",
+        ),
+        pytest.param(
+            {
+                "qProp": {
+                    "qHyperCubeDef": {"qMeasures": [{"qDef": {"qDef": "Sum(Sales)"}}]}
+                }
+            },
+            True,
+            False,
+            id="measure_expression",
+        ),
+    ],
+)
+def test_measure_definitions_mark_unread_measures(
+    reply: object, fields_complete: bool, fields_unread: bool
+) -> None:
+    layout = _chart_layout("sales")["qLayout"]
+    layout["qHyperCube"]["qMeasureInfo"] = [{"qFallbackTitle": "Sales"}]  # type: ignore[index]
+    chart = Chart.model_validate(layout)
+    engine = _ScriptedEngine([reply])
+
+    engine._add_measure_definitions(chart, None, "sheet-1", on_error=lambda _: None)
+
+    assert chart.fields_complete is fields_complete
+    assert chart.fields_unread is fields_unread
+
+
+@pytest.mark.parametrize("fields_unread", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_input_fields_are_kept_when_measures_were_unread(
+    mock_onprem: MagicMock, fields_unread: bool
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.field_expressions = ["Region"]
+    # A deleted master measure is incomplete too, but will not come back.
+    chart.fields_complete = False
+    chart.fields_unread = fields_unread
+    table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)"
+    app_fields = QlikSenseSource._index_app_fields(
+        {table: [SchemaField(name="Region")]}
+    )
+
+    workunits = list(
+        source._gen_charts_workunit([chart], [table], app_fields, False, "app-1")
+    )
+
+    assert any(wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)
+    assert (
+        any(wu.get_aspect_of_type(InputFieldsClass) for wu in workunits)
+        is not fields_unread
+    )
+
+
+def test_measure_definitions_follow_linked_master_visualization() -> None:
+    chart = Chart.model_validate(_chart_layout("linked")["qLayout"])
+    engine = _ScriptedEngine(
+        [
+            {"qProp": {"qInfo": {"qId": "linked"}, "qExtendsId": "master-viz"}},
+            {
+                "qProp": {
+                    "qHyperCubeDef": {"qMeasures": [{"qDef": {"qDef": "Sum(Sales)"}}]}
+                }
+            },
+        ]
+    )
+
+    engine._add_measure_definitions(chart, None, "sheet-1", on_error=lambda _: None)
+
+    assert [method for method, _ in engine.sent_on] == [
+        "GetProperties",
+        "GetEffectiveProperties",
+    ]
+    assert chart.field_expressions == ["Sum(Sales)"]
+    assert chart.fields_complete
+
+
+@pytest.mark.parametrize(
+    "replies",
+    [
+        pytest.param(
+            [
+                {"qReturn": {"qHandle": 3}},
+                {"qLayout": {"qMeasureList": {"qItems": []}}},
+            ],
+            id="missing_from_list",
+        ),
+        pytest.param(
+            [
+                RuntimeError("Session objects not allowed"),
+                {"qReturn": {"qType": "GenericMeasure", "qHandle": None}},
+            ],
+            id="no_handle",
+        ),
+    ],
+)
+def test_deleted_master_measure_is_not_a_read_error(replies: List[object]) -> None:
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.measure_library_ids = ["deleted"]
+    list_unreadable = isinstance(replies[0], Exception)
+    engine = _ScriptedEngine(replies)
+    errors: List[str] = []
+    fallbacks: List[str] = []
+
+    engine.add_master_measure_definitions(
+        [MagicMock(charts=[chart])], errors.append, fallbacks.append
+    )
+
+    assert errors == []
+    assert len(fallbacks) == list_unreadable
+    assert not chart.fields_unread
+    assert not chart.fields_complete
+    assert engine.replies == []
+    assert engine.handles == [-1]
+
+
+def test_unread_master_measure_marks_chart_fields_incomplete() -> None:
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.measure_library_ids = ["measure-1", "measure-2"]
+    engine = _ScriptedEngine(
+        [
+            RuntimeError("Session objects not allowed"),
+            RuntimeError("Access denied"),
+            {"qReturn": {"qHandle": 3}},
+            {"qLayout": {"qMeasure": {"qDef": "Sum(Sales)"}}},
+        ]
+    )
+
+    engine.add_master_measure_definitions(
+        [MagicMock(charts=[chart])], on_error=lambda _: None, on_fallback=lambda _: None
+    )
+
+    assert "Sum(Sales)" in chart.field_expressions
+    assert not chart.fields_complete
+    assert chart.fields_unread
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_onprem_source_uses_onprem_client(
+    mock_cloud: MagicMock, mock_onprem: MagicMock
+) -> None:
+    QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+
+    mock_onprem.assert_called_once()
+    mock_cloud.assert_not_called()
 
 
 def _script_tables(
@@ -1097,6 +1661,7 @@ def test_partly_read_app_does_not_overwrite_relationships(
 
     assert emitted(DashboardInfoClass) is charts_complete
     assert emitted(ChartInfoClass) is not tables_read_failed
+    assert emitted(InputFieldsClass) is not tables_read_failed
     chart_info_patches = [
         wu.metadata
         for wu in workunits

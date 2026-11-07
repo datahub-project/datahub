@@ -300,6 +300,7 @@ class QlikOnPremAPI(QlikBaseAPI):
         finally:
             self._close_engine(websocket_connection, app.id)
         app.read_errors = errors.messages
+        app.read_fallbacks = errors.fallbacks
         return app
 
     def _read_or_skip_app(
