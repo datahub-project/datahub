@@ -431,6 +431,16 @@ def test_preceding_load_interpretation_function_is_not_a_column() -> None:
             id="variable_in_alias",
         ),
         pytest.param("Upper(order_id)", {}, id="unaliased_expression"),
+        pytest.param(
+            "order_id * $(vRate) AS Net",
+            {"Net": ["order_id_urn"]},
+            id="variable_inside_expression",
+        ),
+        pytest.param(
+            "order_id * $(order_id) AS Net, '$(vSource)' AS Source",
+            {"Net": ["order_id_urn"], "Source": []},
+            id="variable_name_is_not_a_source",
+        ),
     ],
 )
 def test_preceding_load_with_unknown_fields(
@@ -587,3 +597,15 @@ def test_expression_names_skip_function_calls(
     expression: str, names: List[str]
 ) -> None:
     assert expression_names(expression) == names
+
+
+def test_preceding_load_keeps_columns_named_like_chart_qualifiers() -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD total AS Total, distinct_id AS Id;\n"
+        "SQL SELECT total, distinct_id FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(
+        table.preceding_loads,
+        {"total": ["total_urn"], "distinct_id": ["id_urn"]},
+    ) == {"Total": ["total_urn"], "Id": ["id_urn"]}

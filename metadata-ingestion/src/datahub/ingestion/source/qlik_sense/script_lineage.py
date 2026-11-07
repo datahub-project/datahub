@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List, Optional
+from typing import AbstractSet, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -103,23 +103,25 @@ SET_VALUES_NEXT_RE = re.compile(r"\s*[-+*/]\s*\{")
 # Interpretation functions such as Date#(OrderDate) end their name with #.
 FUNCTION_CALL_RE = re.compile(r"\s*#?\s*\(")
 # Operators and aggregation qualifiers, as in Sum(DISTINCT TOTAL Amount).
-EXPRESSION_KEYWORDS = {
-    "all",
+EXPRESSION_OPERATORS = {
     "and",
     "bitand",
     "bitnot",
     "bitor",
     "bitxor",
-    "distinct",
     "follows",
     "like",
-    "nodistinct",
     "not",
     "or",
     "precedes",
-    "total",
     "xor",
 }
+# Aggregation qualifiers only exist in chart expressions, so in a LOAD they
+# are column names.
+EXPRESSION_KEYWORDS = EXPRESSION_OPERATORS | {"all", "distinct", "nodistinct", "total"}
+# A field list item that is only a variable, as in LOAD $(vFields).
+WHOLE_VARIABLE_RE = re.compile(r"^\s*\$\([^()]*\)\s*$")
+VARIABLE_REFERENCE_ANY_RE = re.compile(r"\$\([^()]*\)")
 # Single-quoted text is a string literal in a chart expression, not a field.
 EXPRESSION_NAME_RE = re.compile(
     rf"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>{_BARE_FIELD_NAME})"
@@ -619,17 +621,21 @@ def _parse_load_fields(statement: str) -> PrecedingLoad:
         if item == "*":
             load.keeps_all = True
             continue
-        # A variable inside a string literal only changes a constant.
-        if "$(" in STRING_LITERAL_SQL_RE.sub("''", item):
-            load.unreadable = True
         alias = LOAD_ALIAS_RE.match(item)
+        # Only a variable standing for whole fields may hold any of the columns
+        # below. One inside an expression only changes that field's value.
+        if WHOLE_VARIABLE_RE.match(alias.group("expr") if alias else item):
+            load.unreadable = True
         if alias:
             load.fields.append(
                 LoadField(
                     name=alias.group("bracket")
                     or alias.group("double")
                     or alias.group("bare"),
-                    sources=expression_names(alias.group("expr")),
+                    sources=expression_names(
+                        VARIABLE_REFERENCE_ANY_RE.sub(" ", alias.group("expr")),
+                        keywords=EXPRESSION_OPERATORS,
+                    ),
                 )
             )
             continue
@@ -694,7 +700,9 @@ def _strip_expression_comments(expression: str) -> str:
     return "".join(kept)
 
 
-def expression_names(expression: str) -> List[str]:
+def expression_names(
+    expression: str, keywords: AbstractSet[str] = EXPRESSION_KEYWORDS
+) -> List[str]:
     """Names an expression may read as fields. Not every name is a field, so
     callers keep only names that are fields of the app."""
     expression = strip_set_values(_strip_expression_comments(expression))
@@ -702,7 +710,7 @@ def expression_names(expression: str) -> List[str]:
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")
         if bare and (
-            bare.lower() in EXPRESSION_KEYWORDS
+            bare.lower() in keywords
             # A function call such as Year(OrderDate), even when an app field
             # has the same name.
             or FUNCTION_CALL_RE.match(expression, match.end())
