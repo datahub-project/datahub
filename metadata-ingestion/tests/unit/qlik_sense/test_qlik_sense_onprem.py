@@ -9,7 +9,12 @@ import requests
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
-from datahub.ingestion.source.qlik_sense.data_classes import App, Chart, QlikTable
+from datahub.ingestion.source.qlik_sense.data_classes import (
+    App,
+    Chart,
+    QlikTable,
+    Sheet,
+)
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import (
     UNPUBLISHED_APPS_NAME,
     QlikOnPremAPI,
@@ -20,7 +25,12 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
-from datahub.metadata.schema_classes import SubTypesClass, UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    ChartInfoClass,
+    DashboardInfoClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
 from tests.unit.qlik_sense.qlik_fakes import (
     DATA_CONNECTION,
     LOAD_SCRIPT,
@@ -257,6 +267,7 @@ def test_onprem_reads_charts_after_a_failed_chart(
     app = _read_onprem_app(mock_session_cls, mock_engine, engine)
 
     assert [chart.qId for chart in app.sheets[0].charts] == ["ok"]
+    assert not app.sheets[0].charts_complete
     assert not app.read_complete
     assert engine.sent_on[4:] == [("GetChild", 2), ("GetChild", 2), ("GetLayout", 3)]
     assert engine.handles == [-1, 1]
@@ -912,3 +923,52 @@ def test_onprem_unpublished_apps(
         if ingest_unpublished
         else ["stream.id eq stream-1"]
     )
+
+
+@pytest.mark.parametrize(
+    "charts_complete, tables_read_failed",
+    [
+        pytest.param(True, False, id="complete"),
+        pytest.param(False, False, id="chart_unread"),
+        pytest.param(True, True, id="tables_unread"),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_partly_read_app_does_not_overwrite_relationships(
+    mock_onprem: MagicMock, charts_complete: bool, tables_read_failed: bool
+) -> None:
+    mock_onprem.return_value.get_data_connections.return_value = {}
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+    sheet = Sheet.model_validate(
+        {
+            "id": "sheet-1",
+            "title": "Overview",
+            "description": "",
+            "createdDate": "2024-01-15T11:01:49.704Z",
+            "modifiedDate": "2024-01-29T12:23:46.868Z",
+        }
+    )
+    sheet.charts = [Chart.model_validate(_chart_layout("sales")["qLayout"])]
+    sheet.charts_complete = charts_complete
+    app = App.model_validate(
+        {
+            "id": "app-1",
+            "qTitle": "Sales",
+            "createdDate": "2024-01-09T18:05:36.000Z",
+            "modifiedDate": "2024-01-09T18:05:36.000Z",
+            "spaceId": "stream-1",
+        }
+    )
+    app.sheets = [sheet]
+    app.tables_read_failed = tables_read_failed
+
+    workunits = list(source._gen_app_workunit(app))
+
+    def emitted(aspect: type) -> bool:
+        return any(wu.get_aspect_of_type(aspect) for wu in workunits)
+
+    assert emitted(DashboardInfoClass) is charts_complete
+    assert emitted(ChartInfoClass) is not tables_read_failed

@@ -87,6 +87,8 @@ class QlikAPI(QlikBaseAPI):
             if user_id in self.users:
                 # To avoid fetching same user details again
                 return self.users[user_id]
+            elif user_id in self.failed_user_lookups:
+                return None
             else:
                 response = self.session.get(f"{self.rest_api_url}/users/{user_id}")
                 response.raise_for_status()
@@ -94,7 +96,7 @@ class QlikAPI(QlikBaseAPI):
                 self.users[user_id] = user_name
                 return user_name
         except Exception as e:
-            log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
+            self._record_failed_user_lookup(user_id, e)
         return None
 
     def _open_engine(self, app_id: str) -> WebsocketConnection:
@@ -234,7 +236,9 @@ class QlikAPI(QlikBaseAPI):
             )
             app = App.model_validate(response[Constant.QLAYOUT])
             app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
+            read_errors = len(errors.messages)
             app.tables = self._get_app_used_tables(websocket_connection, app_id, errors)
+            app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):
                 try:
                     app.script = websocket_connection.get_script()
