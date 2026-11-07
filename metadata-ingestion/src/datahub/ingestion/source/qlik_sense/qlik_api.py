@@ -48,9 +48,14 @@ class QlikAPI(QlikBaseAPI):
             }
         )
         # Qlik Cloud rate-limits the tenant, and parallel app reads make 429s
-        # likely. The lineage overview call is a POST but only reads.
+        # likely. The lineage overview call is a POST but only reads. Only 429s
+        # are retried, so an unreachable tenant still fails fast.
         retry = Retry(
             total=5,
+            connect=0,
+            read=0,
+            other=0,
+            status=5,
             backoff_factor=1,
             status_forcelist=[429],
             allowed_methods=None,

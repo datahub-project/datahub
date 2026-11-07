@@ -29,6 +29,10 @@ On Qlik Cloud, only the Owner and users with **Can manage** or **Can operate** i
 
 Charts inside a container object's tabs are ingested as charts of the sheet. An untitled chart takes its tab label as its title. Objects with no data, such as buttons, filter panes and variable inputs, are skipped.
 
+#### Large sites
+
+Each app is opened in the Engine without its data. `max_workers` (default 4) sets how many apps and datasets of one space or stream are read at the same time. Spaces and streams are read one after another. Each worker holds its own Engine session under the configured user. `max_workers` applies to Qlik Cloud too, where rate-limited (HTTP 429) requests are retried with back-off.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

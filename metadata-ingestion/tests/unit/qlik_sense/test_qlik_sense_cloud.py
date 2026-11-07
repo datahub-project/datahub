@@ -1,3 +1,4 @@
+import io
 from functools import partial
 from typing import Dict, List
 from unittest.mock import MagicMock, patch
@@ -5,6 +6,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 import requests_mock as requests_mock_module
+from urllib3.connectionpool import HTTPConnectionPool
+from urllib3.exceptions import NewConnectionError
+from urllib3.response import HTTPResponse
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
@@ -559,3 +564,57 @@ def test_failed_owner_lookup_is_tried_once_and_reported_once(
     assert [warning.title for warning in source.reporter.warnings] == [
         "Unable to look up Qlik owners"
     ]
+
+
+def _urllib3_response(status: int, method: str, url: str) -> HTTPResponse:
+    return HTTPResponse(
+        body=io.BytesIO(b"{}"),
+        status=status,
+        headers={"Content-Type": "application/json"},
+        preload_content=False,
+        request_method=method,
+        request_url=url,
+    )
+
+
+def test_rate_limited_requests_are_retried_through_the_adapter() -> None:
+    sent: List[str] = []
+
+    def make_request(
+        pool: HTTPConnectionPool, conn: object, method: str, url: str, **_: object
+    ) -> HTTPResponse:
+        sent.append(method)
+        # Every first attempt is rate-limited.
+        return _urllib3_response(429 if len(sent) % 2 else 200, method, url)
+
+    with (
+        patch.object(HTTPConnectionPool, "_make_request", make_request),
+        patch.object(Retry, "sleep"),
+    ):
+        api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+        response = api.session.post(
+            "https://tenant.example.com/api/v1/lineage-graphs/nodes/app/overview",
+            json=["field"],
+        )
+
+    assert response.status_code == 200
+    assert sent == ["GET", "GET", "POST", "POST"]
+
+
+def test_unreachable_tenant_is_not_retried() -> None:
+    attempts: List[str] = []
+
+    def make_request(
+        pool: HTTPConnectionPool, conn: object, method: str, url: str, **_: object
+    ) -> HTTPResponse:
+        attempts.append(url)
+        raise NewConnectionError(conn, "connection refused")  # type: ignore[arg-type]
+
+    with (
+        patch.object(HTTPConnectionPool, "_make_request", make_request),
+        patch.object(Retry, "sleep"),
+        pytest.raises(requests.ConnectionError),
+    ):
+        QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+
+    assert len(attempts) == 1

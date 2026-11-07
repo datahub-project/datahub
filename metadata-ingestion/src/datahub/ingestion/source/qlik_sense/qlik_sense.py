@@ -149,7 +149,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter = QlikSourceReport()
         self.ui_host = config.ui_hostname()
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
-        self._apps_read = 0
+        self._apps_processed = 0
         try:
             self.qlik_api = self._create_api(self.config)
         except Exception as e:
@@ -954,9 +954,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     "app could not be read from the Engine.",
                     context=self._read_errors_context(item),
                 )
-            self._apps_read += 1
+            self._apps_processed += 1
             logger.info(
-                f"Read app {item.qTitle} in space {space.name} ({self._apps_read} apps read)"
+                f"Processed app {item.qTitle} in space {space.name} "
+                f"({self._apps_processed} apps processed)"
             )
             if item.script_read_failed:
                 self.reporter.warning(
