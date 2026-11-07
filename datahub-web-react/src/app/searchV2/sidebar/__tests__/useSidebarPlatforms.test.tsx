@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
 import useSidebarPlatforms from '@app/searchV2/sidebar/useSidebarPlatforms';
 import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/searchV2/sidebar/useAggregationsQuery');
 

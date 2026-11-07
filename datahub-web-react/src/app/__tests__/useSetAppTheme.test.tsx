@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +6,7 @@ import { useIsDarkMode } from '@app/theme/useIsDarkMode';
 import { useCustomThemeId, useSetAppTheme } from '@app/useSetAppTheme';
 import themes from '@conf/theme/themes';
 import { CustomThemeContext } from '@src/customThemeContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock useIsDarkMode to test dark mode branch independently
 vi.mock('@app/theme/useIsDarkMode', () => ({

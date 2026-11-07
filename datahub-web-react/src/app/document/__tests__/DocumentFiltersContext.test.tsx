@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { DocumentFiltersProvider, useDocumentFilters } from '@app/document/DocumentFiltersContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
     <DocumentFiltersProvider>{children}</DocumentFiltersProvider>
@@ -39,8 +40,7 @@ describe('DocumentFiltersContext', () => {
 
     describe('hook misuse', () => {
         it('should throw when used outside of a DocumentFiltersProvider', () => {
-            const { result } = renderHook(() => useDocumentFilters());
-            expect(result.error?.message).toMatch(/DocumentFiltersProvider/);
+            expect(() => renderHook(() => useDocumentFilters())).toThrow(/DocumentFiltersProvider/);
         });
     });
 });

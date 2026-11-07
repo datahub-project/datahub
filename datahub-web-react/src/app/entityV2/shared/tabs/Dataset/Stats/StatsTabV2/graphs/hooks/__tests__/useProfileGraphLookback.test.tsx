@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 
 import { LookbackWindowType } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import { getInitialLookbackWindowType } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/getInitialLookbackWindowType';
 import useProfileGraphLookback from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useProfileGraphLookback';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

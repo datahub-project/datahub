@@ -1,10 +1,10 @@
 import { render, waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import themes from '@conf/theme/themes';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 /**
  * Test Isolation and Mocking Strategy
