@@ -724,6 +724,14 @@ def test_chart_input_fields_match_app_fields() -> None:
         ),
         pytest.param(["Region"], False, False, ["Region"], True, id="unread_measure"),
         pytest.param(
+            ["Region // $(vRegion)", "Count(Region) /* $(vOld) */"],
+            True,
+            False,
+            ["Region"],
+            False,
+            id="variable_in_comment",
+        ),
+        pytest.param(
             ["Region", "Sum(amount)"],
             True,
             True,
@@ -803,11 +811,20 @@ def test_chart_inputs_when_fields_are_unknown(
 
 
 @pytest.mark.parametrize(
-    "reply, fields_complete",
+    "reply, fields_complete, fields_unread",
     [
-        pytest.param(RuntimeError("Access denied"), False, id="properties_unread"),
+        pytest.param(
+            RuntimeError("Access denied"), False, True, id="properties_unread"
+        ),
+        pytest.param(
+            {"qProp": {"qHyperCubeDef": {"qMeasures": []}}},
+            False,
+            True,
+            id="fewer_measures_than_layout",
+        ),
         pytest.param(
             {"qProp": {"qHyperCubeDef": {"qMeasures": [{"qDef": {}}]}}},
+            False,
             False,
             id="measure_without_definition",
         ),
@@ -818,19 +835,53 @@ def test_chart_inputs_when_fields_are_unknown(
                 }
             },
             True,
+            False,
             id="measure_expression",
         ),
     ],
 )
 def test_measure_definitions_mark_unread_measures(
-    reply: object, fields_complete: bool
+    reply: object, fields_complete: bool, fields_unread: bool
 ) -> None:
-    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    layout = _chart_layout("sales")["qLayout"]
+    layout["qHyperCube"]["qMeasureInfo"] = [{"qFallbackTitle": "Sales"}]  # type: ignore[index]
+    chart = Chart.model_validate(layout)
     engine = _ScriptedEngine([reply])
 
     engine._add_measure_definitions(chart, None, "sheet-1", on_error=lambda _: None)
 
     assert chart.fields_complete is fields_complete
+    assert chart.fields_unread is fields_unread
+
+
+@pytest.mark.parametrize("fields_unread", [True, False])
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_input_fields_are_kept_when_measures_were_unread(
+    mock_onprem: MagicMock, fields_unread: bool
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-onprem"),
+    )
+    chart = Chart.model_validate(_chart_layout("sales")["qLayout"])
+    chart.field_expressions = ["Region"]
+    # A deleted master measure is incomplete too, but will not come back.
+    chart.fields_complete = False
+    chart.fields_unread = fields_unread
+    table = "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.customers,PROD)"
+    app_fields = QlikSenseSource._index_app_fields(
+        {table: [SchemaField(name="Region")]}
+    )
+
+    workunits = list(
+        source._gen_charts_workunit([chart], [table], app_fields, False, "app-1")
+    )
+
+    assert any(wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)
+    assert (
+        any(wu.get_aspect_of_type(InputFieldsClass) for wu in workunits)
+        is not fields_unread
+    )
 
 
 def test_measure_definitions_follow_linked_master_visualization() -> None:
@@ -889,6 +940,7 @@ def test_deleted_master_measure_is_not_a_read_error(replies: List[object]) -> No
 
     assert errors == []
     assert len(fallbacks) == list_unreadable
+    assert not chart.fields_unread
     assert not chart.fields_complete
     assert engine.replies == []
     assert engine.handles == [-1]
@@ -912,6 +964,7 @@ def test_unread_master_measure_marks_chart_fields_incomplete() -> None:
 
     assert "Sum(Sales)" in chart.field_expressions
     assert not chart.fields_complete
+    assert chart.fields_unread
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")

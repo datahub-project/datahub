@@ -569,10 +569,35 @@ def strip_set_values(expression: str) -> str:
     return "".join(kept)
 
 
+def _strip_expansions(expression: str) -> str:
+    """Drop $(...) expansions, which can nest parentheses as in $(=Max(Year))."""
+    kept: List[str] = []
+    position = 0
+    while (start := expression.find("$(", position)) != -1:
+        kept.append(expression[position:start])
+        depth = 1
+        position = start + 2
+        while position < len(expression) and depth:
+            depth += {"(": 1, ")": -1}.get(expression[position], 0)
+            position += 1
+        kept.append(" ")
+    kept.append(expression[position:])
+    return "".join(kept)
+
+
+def reads_unknown_fields(expression: str) -> bool:
+    """Whether a $(variable) expansion outside comments and set modifier values
+    may stand for fields the expression reads."""
+    return "$(" in strip_set_values(_strip_comments(expression, rem_comments=False))
+
+
 def expression_names(expression: str) -> List[str]:
     """Names an expression may read as fields. Not every name is a field, so
     callers keep only names that are fields of the app."""
-    expression = strip_set_values(_strip_comments(expression, rem_comments=False))
+    # The fields behind an expansion are unknown, and its name is not a field.
+    expression = _strip_expansions(
+        strip_set_values(_strip_comments(expression, rem_comments=False))
+    )
     names: List[str] = []
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")

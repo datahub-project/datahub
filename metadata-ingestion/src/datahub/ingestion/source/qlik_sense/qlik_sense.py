@@ -78,8 +78,8 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     is_connector_sql,
     is_inline_connection,
     parse_load_script,
+    reads_unknown_fields,
     redact_connection,
-    strip_set_values,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -596,7 +596,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     ),
                 ).as_workunit()
 
-                # Emitted even when empty so fields a chart stopped using are cleared.
+            # Emitted even when empty so fields a chart stopped using are cleared,
+            # but not from a partial list of a chart whose measures were unread.
+            if input_tables_urns is not None and not chart.fields_unread:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=chart_urn,
                     aspect=InputFieldsClass(
@@ -672,10 +674,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # are unknown (e.g. SELECT *). Set modifier values only filter.
         if (
             not chart.fields_complete
-            or any(
-                "$(" in strip_set_values(expression)
-                for expression in chart.field_expressions
-            )
+            or any(map(reads_unknown_fields, chart.field_expressions))
             or (
                 has_unknown_schema
                 and any(

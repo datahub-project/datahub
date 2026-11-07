@@ -186,6 +186,9 @@ class Chart(_QlikBaseModel):
     # Master measures keep their expression on the app rather than the chart.
     measure_library_ids: List[str] = []
     fields_complete: bool = True
+    # A measure could not be read this time, as opposed to one that no longer
+    # exists, so the input fields from the last read are kept.
+    fields_unread: bool = False
 
     @model_validator(mode="before")
     @classmethod
