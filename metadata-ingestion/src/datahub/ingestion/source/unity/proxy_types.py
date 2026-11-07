@@ -169,6 +169,23 @@ def make_schema(
 
 
 @dataclass
+class Volume(CommonProperty):
+    schema: Schema
+    volume_type: Optional[str]
+    storage_location: Optional[str]
+    owner: Optional[str]
+    created_at: Optional[datetime]
+    created_by: Optional[str]
+    updated_at: Optional[datetime]
+    updated_by: Optional[str]
+    volume_id: Optional[str]
+    metastore_id: Optional[str]
+    browse_only: Optional[bool]
+    access_point: Optional[str]
+    encryption_algorithm: Optional[str]
+
+
+@dataclass
 class Column(CommonProperty):
     type_text: str
     type_name: Optional[ColumnTypeName]
