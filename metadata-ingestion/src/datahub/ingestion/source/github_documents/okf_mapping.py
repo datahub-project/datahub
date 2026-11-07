@@ -87,8 +87,8 @@ def _resolve_reference(value: str, key: str, ctx: PipelineContext) -> Optional[s
             return urn
         return None
     if key == "tags":
-        urn = make_tag_urn(value)
-        return urn if ctx.graph is None or ctx.graph.exists(urn) else None
+        # Tags are keyed by name and need not exist first, as in other sources.
+        return make_tag_urn(value)
     return _resolve_term_name(value, ctx)
 
 

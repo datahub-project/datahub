@@ -1703,7 +1703,7 @@ def test_okf_reimport_preserves_datahub_associations(
     "key,prefix,aspect_name,value",
     [
         ("owners", "corpuser", "ownership", "unresolved-owner"),
-        ("tags", "tag", "globalTags", "missing-tag"),
+        ("tags", "tag", "globalTags", "urn:li:corpuser:not-a-tag"),
         ("glossary_terms", "glossaryTerm", "glossaryTerms", "Missing Term"),
     ],
 )
