@@ -56,6 +56,7 @@ class FabricOneLakeSourceReport(
     notebook_runs_scanned: int = 0
     notebook_spark_sessions_scanned: int = 0
     notebook_spark_lineage_extracted: int = 0
+    notebook_code_lineage_extraction_failures: int = 0
     entities_profiled: int = 0
 
     # Filtered entities
@@ -169,6 +170,10 @@ class FabricOneLakeSourceReport(
     def report_notebook_spark_lineage_extracted(self) -> None:
         """Record a notebook that produced lineage from its Spark plans."""
         self.notebook_spark_lineage_extracted += 1
+
+    def report_notebook_code_lineage_failed(self) -> None:
+        """Record a notebook whose source could not be read for code lineage."""
+        self.notebook_code_lineage_extraction_failures += 1
 
     def report_view_missing_definition(self, view_name: str) -> None:
         """Record a view whose SQL definition was unavailable for lineage parsing."""
