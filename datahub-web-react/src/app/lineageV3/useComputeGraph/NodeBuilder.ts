@@ -1,5 +1,4 @@
-import { EdgeMarkerType } from '@reactflow/core/dist/esm/types/edges';
-import { Edge, Node } from 'reactflow';
+import { Edge, EdgeMarkerType, Node } from 'reactflow';
 
 import { DataFlowLineageControlData } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import { LINEAGE_BOUNDING_BOX_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';

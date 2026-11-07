@@ -27,7 +27,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useSetTagColorMutation, useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { useGetTagQuery } from '@graphql/tag.generated';
-import { EntityType, FacetMetadata, Maybe, Scalars } from '@types';
+import { EntityType, FacetMetadata, Maybe, Owner, Scalars } from '@types';
 
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
@@ -362,7 +362,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                 </div>
                 <ActionButtons>
                     <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
-                    {renderActions?.(data?.tag ?? null)}
+                    {renderActions?.((data?.tag as GenericEntityProperties | undefined) ?? null)}
                 </ActionButtons>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>
@@ -433,7 +433,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                     <StatsLabel>{tcLabels('owners')}</StatsLabel>
                     <OwnersContainer>
                         {data?.tag?.ownership?.owners?.map((owner) => (
-                            <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} hideHoverCard />
+                            <ExpandedOwner entityUrn={urn} owner={owner as Owner} refetch={refetch} hideHoverCard />
                         ))}
                         {ownersEmpty && (
                             <Text color="textSecondary">

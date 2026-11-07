@@ -126,6 +126,7 @@ class DetailsExtensionClass extends NodeExtension {
 }
 
 const decoratedDetails = extension({
+    defaultOptions: {},
     staticKeys: [],
     handlerKeys: [],
     customHandlerKeys: [],
