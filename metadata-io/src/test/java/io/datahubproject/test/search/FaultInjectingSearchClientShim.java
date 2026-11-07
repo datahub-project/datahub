@@ -1,6 +1,7 @@
 package io.datahubproject.test.search;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -521,6 +523,12 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   @Override
   public void flushBulkProcessor() {
     delegate.flushBulkProcessor();
+  }
+
+  @Override
+  public BulkProcessorFlushResult flushBulkProcessorAndAwait(
+      long timeout, @Nonnull TimeUnit timeUnit) {
+    return delegate.flushBulkProcessorAndAwait(timeout, timeUnit);
   }
 
   @Override

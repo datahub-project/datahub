@@ -847,6 +847,9 @@ elasticsearch:
         engineType: ${ELASTICSEARCH_SHIM_ENGINE_TYPE:AUTO_DETECT}
         # Whether to auto-detect the engine type by connecting to the cluster
         autoDetectEngine: ${ELASTICSEARCH_SHIM_AUTO_DETECT:true}
+        # Engine version to assume (e.g. 2.19.0) instead of reading it from the cluster info API,
+        # which needs cluster:monitor/main. Blank = probe the cluster.
+        engineVersion: ${ELASTICSEARCH_SHIM_ENGINE_VERSION:}
       sslContext: # Required if the uri scheme is https and the cert is not already trusted
         protocol: ${ELASTICSEARCH_SSL_PROTOCOL:}
         secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:}
@@ -890,6 +893,7 @@ elasticsearch:
         enabled: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENABLED:}
         engineType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENGINE_TYPE:AUTO_DETECT}
         autoDetectEngine: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_AUTO_DETECT:true}
+        engineVersion: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENGINE_VERSION:}
       sslContext:
         protocol: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_PROTOCOL:}
         secureRandomImplementation: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_SECURE_RANDOM_IMPL:}
@@ -2161,8 +2165,8 @@ featureFlags:
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
   themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
   themeV2Toggleable: ${THEME_V2_TOGGLEABLE:false} # Acryl only! Allows theme v2 to be toggled on / off by users.
-  themeDarkModeEnabled: ${THEME_DARK_MODE_ENABLED:false} # If turned on, show the light/dark mode toggle in Appearance settings and apply the dark color theme.
-  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
+  themeDarkModeEnabled: ${THEME_DARK_MODE_ENABLED:true} # If turned on, show the light/dark mode toggle in Appearance settings and apply the dark color theme.
+  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:true} # Enables links to schema field-level lineage on lineage explorer and columns tab
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
@@ -2192,14 +2196,14 @@ featureFlags:
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
-  datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
+  datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:true} # Enables displaying the dataset summary page
   metricsEnabled: ${METRICS_ENABLED:true} # If turned on, enables the Metrics feature end-to-end (Metrics page in nav, /metrics route, and backend wiring for Metric / Semantic Model). Defaults on; set METRICS_ENABLED=false to hide the feature.
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
   documentExplicitSaveEnabled: ${DOCUMENT_EXPLICIT_SAVE_ENABLED:false} # If turned on, document body edits stay local until the user saves instead of auto-saving
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
-  glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
+  glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:true} # Enables glossary-based policies to be created
   structuredPropertiesInPoliciesEnabled: ${STRUCTURED_PROPERTIES_IN_POLICIES_ENABLED:true} # Enables structured properties as criteria in policies
   showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
   i18nEnabled: ${I18N_ENABLED:true} # If enabled, internationalization (i18n) features are active
