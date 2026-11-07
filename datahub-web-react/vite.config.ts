@@ -1,5 +1,5 @@
 import { codecovVitePlugin } from '@codecov/vite-plugin';
-import federation from '@originjs/vite-plugin-federation';
+import { federation } from '@module-federation/vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
 import * as fs from 'fs';
@@ -50,6 +50,18 @@ export function stripDotSlashFromAssets() {
     };
 }
 
+// JS files index.html loads before the app runs: script src and modulepreload hrefs.
+function eagerJsFilesInHtml(html: string): string[] {
+    const srcs = new Set<string>();
+    const add = (src: string) => srcs.add(src.replace(/^\.\//, '').replace(/^\//, ''));
+    Array.from(html.matchAll(/<script[^>]*\ssrc="([^"]+\.js)"/g)).forEach((match) => add(match[1]));
+    Array.from(html.matchAll(/<link[^>]*rel="modulepreload"[^>]*>/g)).forEach((match) => {
+        const href = match[0].match(/href="([^"]+\.js)"/);
+        if (href) add(href[1]);
+    });
+    return [...srcs];
+}
+
 // Records which JS files index.html loads before the app runs, and how many
 // catalog modules each of those files contains. A named vendor chunk is eager
 // as soon as the shell imports one module from it, so the file list — not a
@@ -84,18 +96,18 @@ export function eagerBudgetReport() {
                 if (path.basename(filename) !== 'index.html') {
                     return html;
                 }
-                const srcs = new Set<string>();
-                const add = (src: string) => srcs.add(src.replace(/^\.\//, '').replace(/^\//, ''));
-                Array.from(html.matchAll(/<script[^>]*\ssrc="([^"]+\.js)"/g)).forEach((match) => add(match[1]));
-                Array.from(html.matchAll(/<link[^>]*rel="modulepreload"[^>]*>/g)).forEach((match) => {
-                    const href = match[0].match(/href="([^"]+\.js)"/);
-                    if (href) add(href[1]);
-                });
-                eagerFiles.splice(0, eagerFiles.length, ...srcs);
+                eagerFiles.splice(0, eagerFiles.length, ...eagerJsFilesInHtml(html));
                 return html;
             },
         },
         closeBundle() {
+            // @module-federation/vite adds its bootstrap, host init and runtime tags to index.html in
+            // generateBundle, after this transform ran. Re-read the written file so they are counted.
+            const writtenHtml = path.resolve(__dirname, 'dist', 'index.html');
+            if (fs.existsSync(writtenHtml)) {
+                const html = fs.readFileSync(writtenHtml, 'utf8');
+                eagerFiles.splice(0, eagerFiles.length, ...eagerJsFilesInHtml(html));
+            }
             const chunks = eagerFiles.map((file) => ({
                 file,
                 ...(moduleCounts.get(file) || { phosphorModules: 0, muiIconModules: 0 }),
@@ -212,12 +224,16 @@ export default defineConfig(async ({ mode }) => {
             assertLazyIconsGenerated(),
             ...devPlugins,
             react(),
+            // Host only: remotes come from the MFE config at runtime and are registered with
+            // registerRemotes() in src/app/mfeframework/MFEConfigurableContainer.tsx.
             federation({
                 name: 'datahub-host',
-                remotes: {
-                    // at least one remote is needed to load the plugin correctly, just remotes: {} does not work
-                    remoteName: '',
-                },
+                // The host exposes nothing, but the plugin still emits a remote entry that index.html
+                // preloads. Keep it under assets/: datahub-frontend only serves static files from there
+                // (other root paths fall through to index.html).
+                filename: 'assets/remoteEntry-[hash].js',
+                // No remote types to fetch: remotes are not known at build time.
+                dts: false,
             }),
             svgr(),
             macrosPlugin(),
