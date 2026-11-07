@@ -34,14 +34,43 @@ fragment semanticModelSearchFields on SemanticModel {
 fragment searchResultCardFields on Entity {
     urn
     type
-    ... on Dataset {
-        exists
+    ... on HasName {
         name
-        platform {
-            ...platformFields
-        }
+    }
+    ... on HasDataPlatformInstance {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+    }
+    ... on HasParentContainers {
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on HasSubTypes {
+        subTypes {
+            typeNames
+        }
+    }
+    ... on HasDeprecation {
+        deprecation {
+            deprecated
+        }
+    }
+    ... on HasBrowsePathV2 {
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+    }
+    ... on HasDisplayProperties {
+        displayProperties {
+            ...displayPropertiesFields
+        }
+    }
+    ... on Dataset {
+        exists
+        platform {
+            ...platformFields
         }
         properties {
             name
@@ -50,12 +79,6 @@ fragment searchResultCardFields on Entity {
                 time
                 actor
             }
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        subTypes {
-            typeNames
         }
         siblings {
             isPrimary
@@ -91,12 +114,6 @@ fragment searchResultCardFields on Entity {
                 }
             }
         }
-        deprecation {
-            deprecated
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
     }
     ... on Role {
         id
@@ -120,7 +137,6 @@ fragment searchResultCardFields on Entity {
         }
     }
     ... on CorpGroup {
-        name
         info {
             displayName
         }
@@ -132,21 +148,6 @@ fragment searchResultCardFields on Entity {
         platform {
             ...platformFields
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        subTypes {
-            typeNames
-        }
-        deprecation {
-            deprecated
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
     }
     ... on Chart {
         chartId
@@ -156,21 +157,6 @@ fragment searchResultCardFields on Entity {
         platform {
             ...platformFields
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        subTypes {
-            typeNames
-        }
-        deprecation {
-            deprecated
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
     }
     ... on DataFlow {
         orchestrator
@@ -179,18 +165,6 @@ fragment searchResultCardFields on Entity {
         }
         platform {
             ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        subTypes {
-            typeNames
-        }
-        deprecation {
-            deprecated
         }
     }
     ... on DataJob {
@@ -207,18 +181,6 @@ fragment searchResultCardFields on Entity {
         properties {
             name
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        subTypes {
-            typeNames
-        }
-        deprecation {
-            deprecated
-        }
     }
     ... on GlossaryTerm {
         name
@@ -229,19 +191,10 @@ fragment searchResultCardFields on Entity {
         parentNodes {
             ...parentNodesFields
         }
-        displayProperties {
-            ...displayPropertiesFields
-        }
-        deprecation {
-            deprecated
-        }
     }
     ... on GlossaryNode {
         properties {
             name
-        }
-        displayProperties {
-            ...displayPropertiesFields
         }
     }
     ... on Domain {
@@ -251,14 +204,15 @@ fragment searchResultCardFields on Entity {
         parentDomains {
             ...parentDomainsFields
         }
-        displayProperties {
-            ...displayPropertiesFields
-        }
-        entities(input: { start: 0, count: 0 }) {
+        # DomainMiniPreview shows asset count — keep only the total used by EntityCount.
+        entities(
+            input: {
+                start: 0
+                count: 0
+                filters: [{ field: "_entityType", negated: true, values: ["DATA_PRODUCT", "DOMAIN"] }]
+            }
+        ) {
             total
-        }
-        deprecation {
-            deprecated
         }
     }
     ... on DataProduct {
@@ -283,27 +237,22 @@ fragment searchResultCardFields on Entity {
             name
         }
     }
+    ... on Api {
+        properties {
+            name
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
+    }
     ... on Container {
         properties {
             name
         }
         platform {
             ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        subTypes {
-            typeNames
-        }
-        deprecation {
-            deprecated
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
         }
     }
     ... on Tag {
@@ -312,27 +261,13 @@ fragment searchResultCardFields on Entity {
             name
             colorHex
         }
-        deprecation {
-            deprecated
-        }
     }
     ... on MLFeatureTable {
-        name
         platform {
             ...platformFields
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        deprecation {
-            deprecated
-        }
     }
     ... on MLFeature {
-        name
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
         featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 1 }) {
             relationships {
                 entity {
@@ -344,15 +279,8 @@ fragment searchResultCardFields on Entity {
                 }
             }
         }
-        deprecation {
-            deprecated
-        }
     }
     ... on MLPrimaryKey {
-        name
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
         featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 1 }) {
             relationships {
                 entity {
@@ -366,27 +294,13 @@ fragment searchResultCardFields on Entity {
         }
     }
     ... on MLModel {
-        name
         platform {
             ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        deprecation {
-            deprecated
         }
     }
     ... on MLModelGroup {
-        name
         platform {
             ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        deprecation {
-            deprecated
         }
     }
     ... on DataPlatform {
@@ -681,6 +595,84 @@ fragment siblingSearchDatasetFields on Dataset {
 fragment searchResultsWithoutSchemaField on Entity {
     urn
     type
+    ... on HasBrowsePathV2 {
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+    }
+    ... on HasStructuredProperties {
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on HasInstitutionalMemory {
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+    }
+    ... on HasName {
+        name
+    }
+    ... on HasOwnership {
+        ownership {
+            ...ownershipFields
+        }
+    }
+    ... on HasGlossaryTerms {
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on HasEditableProperties {
+        editableProperties {
+            description
+        }
+    }
+    ... on HasDataPlatformInstance {
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on HasDeprecation {
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on HasParentContainers {
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on HasSubTypes {
+        subTypes {
+            typeNames
+        }
+    }
+    ... on HasHealth {
+        health {
+            ...entityHealth
+        }
+    }
+    ... on HasDomain {
+        domain {
+            ...entityDomainWithoutCounts
+        }
+    }
+    ... on HasTags {
+        tags {
+            ...globalTagsFields
+        }
+    }
+    ... on HasDisplayProperties {
+        displayProperties {
+            ...displayPropertiesFields
+        }
+    }
+    ... on HasDescription {
+        description
+    }
     ... on Dataset {
         ...nonSiblingsDatasetSearchFields
         siblings {
@@ -704,20 +696,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 }
             }
         }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
     }
     ... on DataPlatformInstance {
         ...dataPlatformInstanceFields
-        institutionalMemory {
-            ...institutionalMemoryFields
-        }
     }
     ... on Role {
         id
@@ -757,7 +738,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
     }
     ... on CorpGroup {
-        name
         info {
             displayName
             description
@@ -779,33 +759,16 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastModified {
                 time
             }
-        }
-        ownership {
-            ...ownershipFields
+            lastRefreshed
         }
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
-        }
         platform {
             ...platformFields
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
         privileges {
             ...entityPrivileges
-        }
-        parentContainers {
-            ...parentContainersFields
         }
         statsSummary {
             viewCount
@@ -825,23 +788,6 @@ fragment searchResultsWithoutSchemaField on Entity {
                     pictureLink
                 }
             }
-        }
-        subTypes {
-            typeNames
-        }
-        health {
-            ...entityHealth
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
         }
     }
     ... on Chart {
@@ -855,39 +801,19 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
             created {
                 time
             }
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
         }
         platform {
             ...platformFields
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
         privileges {
             ...entityPrivileges
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
         }
         statsSummary {
             viewCount
@@ -908,20 +834,6 @@ fragment searchResultsWithoutSchemaField on Entity {
                 }
             }
         }
-        subTypes {
-            typeNames
-        }
-        health {
-            ...entityHealth
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
-        }
     }
     ... on DataFlow {
         orchestrator
@@ -933,29 +845,11 @@ fragment searchResultsWithoutSchemaField on Entity {
             project
             externalUrl
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
-        }
         platform {
             ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        deprecation {
-            ...deprecationFields
         }
         privileges {
             ...entityPrivileges
@@ -963,29 +857,12 @@ fragment searchResultsWithoutSchemaField on Entity {
         childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
             total
         }
-        health {
-            ...entityHealth
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        subTypes {
-            typeNames
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
-        }
     }
     ... on DataJob {
         dataFlow {
             ...nonRecursiveDataFlowFields
         }
         jobId
-        ownership {
-            ...ownershipFields
-        }
         properties {
             name
             description
@@ -994,26 +871,8 @@ fragment searchResultsWithoutSchemaField on Entity {
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
-        }
-        deprecation {
-            ...deprecationFields
-        }
         privileges {
             ...entityPrivileges
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        subTypes {
-            typeNames
         }
         lastRun: runs(start: 0, count: 1) {
             count
@@ -1027,17 +886,6 @@ fragment searchResultsWithoutSchemaField on Entity {
                     actor
                 }
             }
-        }
-        health {
-            ...entityHealth
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
         }
     }
     ... on GlossaryTerm {
@@ -1058,31 +906,12 @@ fragment searchResultsWithoutSchemaField on Entity {
                 time
             }
         }
-        deprecation {
-            ...deprecationFields
-        }
+        ...glossaryTermLifecycleFields
         privileges {
             ...entityPrivileges
         }
         parentNodes {
             ...parentNodesFields
-        }
-        domain {
-            ...entityDomain
-        }
-        tags {
-            ...globalTagsFields
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
-        }
-        displayProperties {
-            ...displayPropertiesFields
         }
     }
     ... on GlossaryNode {
@@ -1090,44 +919,16 @@ fragment searchResultsWithoutSchemaField on Entity {
         parentNodes {
             ...parentNodesFields
         }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
-        }
-        tags {
-            ...globalTagsFields
-        }
     }
     ... on Domain {
         properties {
             name
             description
         }
-        ownership {
-            ...ownershipFields
-        }
         parentDomains {
             ...parentDomainsFields
         }
-        displayProperties {
-            ...displayPropertiesFields
-        }
         ...domainEntitiesFields
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
         privileges {
             ...entityPrivileges
         }
@@ -1141,48 +942,14 @@ fragment searchResultsWithoutSchemaField on Entity {
         platform {
             ...platformFields
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        editableProperties {
-            description
-        }
-        ownership {
-            ...ownershipFields
-        }
-        tags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        entities(input: {}) {
+        entities(input: { count: 0 }) {
             total
-        }
-        deprecation {
-            ...deprecationFields
         }
         privileges {
             ...entityPrivileges
         }
-        parentContainers {
-            ...parentContainersFields
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
-        }
     }
     ... on MLFeatureTable {
-        name
-        description
         featureTableProperties {
             description
             mlFeatures {
@@ -1192,109 +959,44 @@ fragment searchResultsWithoutSchemaField on Entity {
                 urn
             }
         }
-        ownership {
-            ...ownershipFields
-        }
         platform {
             ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
         }
         privileges {
             ...entityPrivileges
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
-        }
     }
     ... on MLFeature {
         ...nonRecursiveMLFeature
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
     }
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
         privileges {
             ...entityPrivileges
         }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
     }
     ... on MLModel {
-        name
-        description
         origin
-        ownership {
-            ...ownershipFields
-        }
         platform {
             ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
         }
         privileges {
             ...entityPrivileges
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
         properties {
             propertiesName: name
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
         }
     }
     ... on MLModelGroup {
-        name
         origin
-        description
-        ownership {
-            ...ownershipFields
-        }
         platform {
             ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
         }
         privileges {
             ...entityPrivileges
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
         properties {
             propertiesName: name
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
         }
     }
     ... on Tag {
@@ -1310,17 +1012,21 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on DataProduct {
         ...dataProductSearchFields
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        institutionalMemory {
-            ...institutionalMemoryFields
-        }
     }
     ... on Application {
         ...applicationSearchFields
+    }
+    ... on Api {
+        properties {
+            name
+            description
+            externalUrl
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
     }
     ... on ERModelRelationship {
         urn
@@ -1331,15 +1037,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         editableProperties {
             ...ermodelrelationEditablePropertiesFields
-        }
-        ownership {
-            ...ownershipFields
-        }
-        tags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
         }
     }
     ... on BusinessAttribute {
@@ -1368,9 +1065,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         subType
         platform {
             ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
         }
         info {
             title
@@ -1555,6 +1249,11 @@ fragment facetFields on FacetMetadata {
                 }
             }
             ... on Application {
+                properties {
+                    name
+                }
+            }
+            ... on Api {
                 properties {
                     name
                 }

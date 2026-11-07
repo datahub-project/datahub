@@ -4,13 +4,18 @@ import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.OpenSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchConnectionPoolMetrics;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchHttpProxyConfigurator;
+import com.linkedin.metadata.search.elasticsearch.client.shim.WaitTrackingConnectionManager;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
+import com.linkedin.metadata.search.elasticsearch.update.BulkProcessorCompletionTracker;
+import com.linkedin.metadata.search.elasticsearch.update.V3BulkWriteAccounting;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -18,7 +23,9 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -26,10 +33,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import lombok.Getter;
@@ -41,12 +49,12 @@ import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.DefaultHostnameVerifier;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.util.PublicSuffixMatcherLoader;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
-import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
 import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.nio.conn.NHttpClientConnectionManager;
@@ -173,8 +181,15 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
 
   @Getter private final ShimConfiguration shimConfiguration;
   private final RestClient restClient;
+  private static final Duration UNKNOWN_VERSION_RETRY = Duration.ofMinutes(1);
+  private volatile Boolean nestedExpansionSupported;
+  private long nextVersionProbeMillis;
   private final ObjectMapper objectMapper;
   private final NamedXContentRegistry xContentRegistry;
+
+  /** Set while the client is built; kept so pool stats can be exported as gauges. */
+  @Nullable private WaitTrackingConnectionManager connectionManager;
+
   protected SearchEngineType engineType;
 
   public OpenSearchSearchClientShim(@Nonnull ShimConfiguration config) throws IOException {
@@ -315,16 +330,18 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
         };
     ioReactor.setExceptionHandler(ioReactorExceptionHandler);
 
-    PoolingNHttpClientConnectionManager connectionManager =
-        new PoolingNHttpClientConnectionManager(
+    WaitTrackingConnectionManager connectionManager =
+        new WaitTrackingConnectionManager(
             ioReactor,
             org.apache.http.config.RegistryBuilder.<SchemeIOSessionStrategy>create()
                 .register("http", NoopIOSessionStrategy.INSTANCE)
                 .register("https", sslStrategy)
                 .build());
 
-    int maxConnectionsPerRoute = Math.max(2, shimConfiguration.getThreadCount());
+    int maxConnectionsPerRoute =
+        ShimConfiguration.maxConnectionsPerRoute(shimConfiguration.getThreadCount());
     connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
+    this.connectionManager = connectionManager;
 
     log.info(
         "Configured connection pool: maxPerRoute={} (threadCount={})",
@@ -863,6 +880,11 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
   @Nonnull
   @Override
   public String getEngineVersion() throws IOException {
+    final String versionOverride =
+        shimConfiguration != null ? shimConfiguration.getEngineVersionOverride() : null;
+    if (versionOverride != null) {
+      return versionOverride;
+    }
     try {
       Map<String, String> clusterInfo = getClusterInfo();
       return clusterInfo.getOrDefault("version", "unknown");
@@ -891,6 +913,7 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       return;
     }
     assertSemanticSearchSupported(version, faissCosineConfigured);
+    nestedExpansionSupported = supportsNestedExpansion(version);
   }
 
   public static void assertSemanticSearchSupported(String version) {
@@ -1107,10 +1130,17 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       long retryInterval,
       int numRetries,
       int threadCount) {
-    final BulkListener[] listenerHolder = new BulkListener[1];
-    Supplier<BulkProcessor> processorSupplier =
-        () ->
-            BulkProcessor.builder(this::executeBulkAsync, listenerHolder[0])
+    Function<BulkProcessorCompletionTracker, BulkProcessor> processorFactory =
+        completionTracker ->
+            BulkProcessor.builder(
+                    this::executeBulkAsync,
+                    new BulkListener(
+                        writeRequestRefreshPolicy,
+                        metricUtils,
+                        completionTracker,
+                        bulkWriteResultTracker,
+                        bulkItemRequeueSupport,
+                        V3BulkWriteAccounting::classifyOpenSearchResponse))
                 .setBulkActions(bulkRequestsLimit)
                 .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
                 .setBackoffPolicy(
@@ -1118,16 +1148,7 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
                         TimeValue.timeValueSeconds(retryInterval), numRetries))
                 .build();
 
-    initBulkProcessors(
-        threadCount,
-        processorSupplier,
-        () ->
-            listenerHolder[0] =
-                BulkListener.create(
-                    writeRequestRefreshPolicy,
-                    metricUtils,
-                    bulkWriteResultTracker,
-                    bulkItemRequeueSupport));
+    initBulkProcessors(threadCount, processorFactory);
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
@@ -1141,10 +1162,17 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       long retryInterval,
       int numRetries,
       int threadCount) {
-    final BulkListener[] listenerHolder = new BulkListener[1];
-    Supplier<BulkProcessor> processorSupplier =
-        () ->
-            BulkProcessor.builder(this::executeBulkSync, listenerHolder[0])
+    Function<BulkProcessorCompletionTracker, BulkProcessor> processorFactory =
+        completionTracker ->
+            BulkProcessor.builder(
+                    this::executeBulkSync,
+                    new BulkListener(
+                        writeRequestRefreshPolicy,
+                        metricUtils,
+                        completionTracker,
+                        bulkWriteResultTracker,
+                        bulkItemRequeueSupport,
+                        V3BulkWriteAccounting::classifyOpenSearchResponse))
                 .setBulkActions(bulkRequestsLimit)
                 .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
                 .setBackoffPolicy(
@@ -1152,22 +1180,16 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
                         TimeValue.timeValueSeconds(retryInterval), numRetries))
                 .build();
 
-    initBulkProcessors(
-        threadCount,
-        processorSupplier,
-        () ->
-            listenerHolder[0] =
-                BulkListener.create(
-                    writeRequestRefreshPolicy,
-                    metricUtils,
-                    bulkWriteResultTracker,
-                    bulkItemRequeueSupport));
+    initBulkProcessors(threadCount, processorFactory);
 
     log.info("Initialized {} bulk processors for parallel execution", threadCount);
   }
 
   @Override
-  protected void addToProcessor(BulkProcessor processor, DocWriteRequest<?> writeRequest) {
+  protected void addToProcessor(
+      BulkProcessor processor,
+      DocWriteRequest<?> writeRequest,
+      BulkProcessorCompletionTracker.Submission submission) {
     processor.add(writeRequest);
   }
 
@@ -1181,6 +1203,53 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
     processor.close();
   }
 
+  private synchronized boolean supportsNestedExpansion() throws IOException {
+    if (nestedExpansionSupported != null) {
+      return nestedExpansionSupported;
+    }
+    final long now = currentTimeMillis();
+    if (now < nextVersionProbeMillis) {
+      return false;
+    }
+    final String version = getEngineVersion();
+    if ("unknown".equals(version)) {
+      // A transient failure or restricted cluster-info access: don't pin the process to legacy
+      // retrieval, but don't probe on every query either.
+      nextVersionProbeMillis = now + UNKNOWN_VERSION_RETRY.toMillis();
+      log.warn(
+          "Unable to determine OpenSearch version; nested passage expansion stays off and "
+              + "multi-passage requests are rejected. Retrying in {}.",
+          UNKNOWN_VERSION_RETRY);
+      return false;
+    }
+    nestedExpansionSupported = supportsNestedExpansion(version);
+    if (!nestedExpansionSupported) {
+      log.warn(
+          "OpenSearch version {} does not establish nested passage expansion support; "
+              + "preserving legacy single-passage retrieval and rejecting multi-passage requests. "
+              + "OpenSearch 2.19+ is required; restart after upgrading.",
+          version);
+    }
+    return nestedExpansionSupported;
+  }
+
+  @VisibleForTesting
+  long currentTimeMillis() {
+    return System.currentTimeMillis();
+  }
+
+  private static boolean supportsNestedExpansion(String version) {
+    Matcher matcher = SEMANTIC_VERSION_PATTERN.matcher(version);
+    if (!matcher.matches()) {
+      return false;
+    }
+    int major = Integer.parseInt(matcher.group(1));
+    int minor = Integer.parseInt(matcher.group(2));
+    int patch = Integer.parseInt(matcher.group(3));
+    return (major > 2 || major == 2 && minor >= 19)
+        && !(major == 2 && minor == 19 && patch == 0 && matcher.group(4) != null);
+  }
+
   // Semantic / kNN operations
 
   @Nonnull
@@ -1188,6 +1257,8 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
   public KnnSearchResponse searchKnn(
       @Nonnull OperationFingerprint opContext, @Nonnull KnnSearchRequest request)
       throws IOException {
+    // Callers that only read document scores skip expansion: it re-scores every chunk of the
+    // top-k documents without changing their scores.
     Map<String, Object> body = OpenSearch2KnnQueryBuilder.build(request);
     String requestBody = objectMapper.writeValueAsString(body);
 
@@ -1198,6 +1269,15 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
     // Always allow zero-index resolution, matching the ES8 shim; semantic search on partial
     // rollouts may target indices that do not yet exist on every node.
     lowLevelReq.addParameter("allow_no_indices", "true");
+    request
+        .timeout()
+        .ifPresent(
+            timeout -> {
+              // Bounds the shards' search and the client's wait, so the call ends by the deadline
+              final int millis = timeoutMillis(timeout);
+              lowLevelReq.addParameter("timeout", millis + "ms");
+              lowLevelReq.setOptions(timeoutOptions(millis));
+            });
 
     Response response = restClient.performRequest(lowLevelReq);
     String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
@@ -1233,25 +1313,78 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
               ? mapper.convertValue(
                   hit.path("_source"), new TypeReference<Map<String, Object>>() {})
               : Map.of();
-      hits.add(new KnnSearchResponse.Hit(id, score, source));
+      List<KnnSearchResponse.MatchedChunk> chunks = extractInnerHits(hit);
+      hits.add(new KnnSearchResponse.Hit(id, score, source, chunks));
     }
-    return new KnnSearchResponse(hits);
+    final boolean partial =
+        responseJson.path("timed_out").asBoolean(false)
+            || responseJson.path("_shards").path("failed").asInt(0) > 0;
+    return new KnnSearchResponse(hits, partial);
   }
 
-  /** Recursively search for a "text" string field in a JSON node. */
-  private static String findTextField(JsonNode node) {
+  private static int timeoutMillis(@Nonnull Duration timeout) {
+    return (int) Math.max(1, Math.min(Integer.MAX_VALUE, timeout.toMillis()));
+  }
+
+  /** Replaces the client's connect, connection-pool and socket timeouts for one request. */
+  @Nonnull
+  private static RequestOptions timeoutOptions(int millis) {
+    return RequestOptions.DEFAULT.toBuilder()
+        .setRequestConfig(
+            RequestConfig.custom()
+                .setConnectTimeout(millis)
+                .setConnectionRequestTimeout(millis)
+                .setSocketTimeout(millis)
+                .build())
+        .build();
+  }
+
+  /** Extract passage text and metadata without fetching embedding vectors. */
+  private static List<KnnSearchResponse.MatchedChunk> extractInnerHits(JsonNode hit) {
+    JsonNode innerHits = hit.path("inner_hits");
+    if (innerHits.isMissingNode() || !innerHits.isObject()) {
+      return List.of();
+    }
+    List<KnnSearchResponse.MatchedChunk> chunks = new ArrayList<>();
+    Iterator<JsonNode> groups = innerHits.elements();
+    while (groups.hasNext()) {
+      JsonNode group = groups.next();
+      for (JsonNode innerHit : group.path("hits").path("hits")) {
+        try {
+          JsonNode source = findChunkSource(innerHit.path("_source"));
+          if (source != null && !source.path("text").asText().isEmpty()) {
+            chunks.add(
+                new KnnSearchResponse.MatchedChunk(
+                    source.path("text").asText(),
+                    innerHit.path("_score").isNumber()
+                        ? innerHit.path("_score").doubleValue()
+                        : null,
+                    source.path("position").isIntegralNumber()
+                        ? source.path("position").intValue()
+                        : null));
+          }
+        } catch (Exception e) {
+          log.warn("Failed to extract text from inner_hit source", e);
+        }
+      }
+    }
+    return chunks;
+  }
+
+  /** Find the chunk object, including responses that wrap it in the nested field path. */
+  private static JsonNode findChunkSource(JsonNode node) {
     if (node == null || node.isMissingNode() || !node.isObject()) {
       return null;
     }
     JsonNode textNode = node.get("text");
     if (textNode != null && textNode.isTextual()) {
-      return textNode.asText();
+      return node;
     }
     Iterator<JsonNode> children = node.elements();
     while (children.hasNext()) {
       JsonNode child = children.next();
       if (child.isObject()) {
-        String found = findTextField(child);
+        JsonNode found = findChunkSource(child);
         if (found != null) {
           return found;
         }
@@ -1328,6 +1461,14 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
   @Override
   public RestClient getNativeClient() {
     return restClient;
+  }
+
+  @Override
+  public void registerConnectionPoolMetrics(
+      @Nonnull MeterRegistry registry, @Nonnull String clusterName) {
+    if (connectionManager != null) {
+      SearchConnectionPoolMetrics.register(registry, clusterName, connectionManager);
+    }
   }
 
   @Override

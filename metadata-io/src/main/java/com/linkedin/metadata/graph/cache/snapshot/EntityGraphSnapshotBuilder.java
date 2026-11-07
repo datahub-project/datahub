@@ -863,7 +863,7 @@ public class EntityGraphSnapshotBuilder {
   }
 
   @Nonnull
-  static String topologyFingerprint(@Nonnull List<DirectedEdge> edges) {
+  public static String topologyFingerprint(@Nonnull List<DirectedEdge> edges) {
     List<String> canonical =
         edges.stream()
             .map(DirectedEdge::canonicalLine)
@@ -922,7 +922,7 @@ public class EntityGraphSnapshotBuilder {
 
     void addCanonicalEdge(
         String source, String dest, String relType, int maxVertices, int maxEdges) {
-      if (bypassed || source == null || dest == null) {
+      if (bypassed || source == null || dest == null || source.equals(dest)) {
         return;
       }
       vertices.add(source);
@@ -946,12 +946,17 @@ public class EntityGraphSnapshotBuilder {
     private void bypass(String reason) {
       bypassed = true;
       bypassReason = reason;
+      int maxVertices = definition.getBounds().getMaxVertices();
+      int maxEdges = definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE);
       log.warn(
-          "Graph {} exceeded bounds: reason={} vertices={} edges={}",
+          "Entity graph cache exceeded bounds: graphId={} buildSource={} reason={} vertices={} maxVertices={} edges={} maxEdges={}",
           definition.getGraphId(),
+          definition.getBuildSource(),
           reason,
           vertices.size(),
-          edgesByLine.size());
+          maxVertices,
+          edgesByLine.size(),
+          maxEdges);
     }
 
     boolean isBypassed() {

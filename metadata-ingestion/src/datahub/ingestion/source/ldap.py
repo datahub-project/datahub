@@ -12,6 +12,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -19,6 +20,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.identity.corp_user_status import (
     corp_user_info_active_from_status,
@@ -33,12 +35,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     CorpGroupInfoClass,
-    CorpGroupSnapshotClass,
     CorpUserInfoClass,
-    CorpUserSnapshotClass,
     GroupMembershipClass,
 )
 from datahub.utilities.lossy_collections import LossyList
@@ -354,10 +353,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                 break
 
     def handle_user(self, dn: str, attrs: Dict[str, Any]) -> Iterable[MetadataWorkUnit]:
-        """
-        Handle a DN and attributes by adding manager info and constructing a
-        work unit based on the information.
-        """
+        """Looks up the user's manager and yields one work unit per user aspect."""
         manager_ldap = None
         make_manager_urn = None
         if self.config.user_attrs_map["managerUrn"] in attrs:
@@ -395,29 +391,27 @@ class LDAPSource(StatefulIngestionSourceBase):
                     exc=e,
                     log=False,
                 )
-        mce = self.build_corp_user_mce(dn, attrs, make_manager_urn)
-        if mce:
-            yield MetadataWorkUnit(dn, mce)
+        mcps = self._build_corp_user_mcps(dn, attrs, make_manager_urn)
+        if mcps:
+            yield from auto_workunit(mcps)
         else:
             self.report.report_dropped(dn)
 
     def handle_group(
         self, dn: str, attrs: Dict[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
-        """Creates a workunit for LDAP groups."""
+        """Yields one work unit per LDAP group aspect."""
 
-        mce = self.build_corp_group_mce(attrs)
-        if mce:
-            yield MetadataWorkUnit(dn, mce)
+        mcps = self._build_corp_group_mcps(attrs)
+        if mcps:
+            yield from auto_workunit(mcps)
         else:
             self.report.report_dropped(dn)
 
-    def build_corp_user_mce(
+    def _build_corp_user_mcps(
         self, dn: str, attrs: dict, manager_ldap: Optional[str]
-    ) -> Optional[MetadataChangeEvent]:
-        """
-        Create the MetadataChangeEvent via DN and attributes.
-        """
+    ) -> Optional[List[MetadataChangeProposalWrapper]]:
+        """Returns the user's aspect MCPs, or None to drop the entry."""
         ldap_user = guess_person_ldap(attrs, self.config, self.report)
 
         if self.config.drop_missing_first_last_name and (
@@ -469,8 +463,8 @@ class LDAPSource(StatefulIngestionSourceBase):
             account_status_attr,
             get_attr=get_attr_or_none,
         )
-        user_snapshot = CorpUserSnapshotClass(
-            urn=f"urn:li:corpuser:{make_user_urn}",
+        return MetadataChangeProposalWrapper.construct_many(
+            entityUrn=f"urn:li:corpuser:{make_user_urn}",
             aspects=[
                 CorpUserInfoClass(
                     active=corp_user_info_active_from_status(user_status),
@@ -487,15 +481,14 @@ class LDAPSource(StatefulIngestionSourceBase):
                     customProperties=custom_props_map,
                 ),
                 make_corp_user_status_aspect(user_status),
+                GroupMembershipClass(groups=groups),
             ],
         )
 
-        user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
-
-        return MetadataChangeEvent(proposedSnapshot=user_snapshot)
-
-    def build_corp_group_mce(self, attrs: dict) -> Optional[MetadataChangeEvent]:
-        """Creates a MetadataChangeEvent for LDAP groups."""
+    def _build_corp_group_mcps(
+        self, attrs: dict
+    ) -> Optional[List[MetadataChangeProposalWrapper]]:
+        """Returns the group's aspect MCPs, or None when the entry lacks the group urn attribute."""
         cn = attrs.get(self.config.group_attrs_map["urn"])
         if cn:
             full_name = cn[0].decode()
@@ -514,8 +507,8 @@ class LDAPSource(StatefulIngestionSourceBase):
                 email if email and self.config.use_email_as_username else full_name
             )
 
-            group_snapshot = CorpGroupSnapshotClass(
-                urn=f"urn:li:corpGroup:{make_group_urn}",
+            return MetadataChangeProposalWrapper.construct_many(
+                entityUrn=f"urn:li:corpGroup:{make_group_urn}",
                 aspects=[
                     CorpGroupInfoClass(
                         email=email,
@@ -527,7 +520,6 @@ class LDAPSource(StatefulIngestionSourceBase):
                     ),
                 ],
             )
-            return MetadataChangeEvent(proposedSnapshot=group_snapshot)
         return None
 
     def get_report(self) -> LDAPSourceReport:

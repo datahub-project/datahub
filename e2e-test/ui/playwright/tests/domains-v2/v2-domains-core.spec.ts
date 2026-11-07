@@ -18,6 +18,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { DomainEntityPage } from '../../pages/domains/domain-entity.page';
 import { withRandomSuffix } from '../../utils/random';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // Ensure test parent domain is seeded before tests run
 test.use({ featureName: 'domains-v2' });
@@ -46,7 +47,7 @@ test.describe('Domains V2 Core', () => {
     expect(page.url()).toContain('/domains');
   });
 
-  test('Verify Create a new domain', async ({ page, logger, cleanup }) => {
+  test('Verify Create a new domain', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page, logger, cleanup }) => {
     const newDomainName = withRandomSuffix('CreateDomain');
     await page.goto('/domains');
     await page.waitForLoadState('load');

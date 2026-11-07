@@ -26,15 +26,13 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     cursor: ${(props) => (props.$editable ? 'text' : 'default')};
     border-radius: 4px;
     resize: none;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     font-family: inherit;
     white-space: pre-wrap;
     word-wrap: break-word;
     overflow-wrap: break-word;
     box-sizing: border-box;
     min-height: calc(32px * 1.4 + 12px); /* 1 row: font-size * line-height + padding */
-    max-height: calc(32px * 1.4 * 3 + 12px); /* 3 rows: font-size * line-height * 3 + padding */
     &:hover {
         background-color: transparent;
     }
@@ -84,22 +82,31 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
         }
     }, [canEditTitle, initialTitle]);
 
-    // Auto-resize textarea up to 3 rows, then scroll
+    // Two effects so we don't tear down and recreate the ResizeObserver on
+    // every keystroke:
+    //   1. Recompute height whenever the title changes (content drives the
+    //      required height — the observer alone won't catch this since the
+    //      textarea's box doesn't change until we set its height).
+    //   2. Subscribe once for width changes (e.g. a page scrollbar appears
+    //      or disappears, narrowing the available width and forcing wrap).
     useEffect(() => {
         const textarea = textareaRef.current;
         if (!textarea) return;
-
-        const { style, scrollHeight } = textarea;
-
-        // Reset height to auto to get the correct scrollHeight
-        style.height = 'auto';
-
-        // Calculate max height for 3 rows (font-size * line-height * 3 + padding)
-        const maxHeight = 32 * 1.4 * 3 + 12; // ~146px
-
-        // Set height to scrollHeight, but cap at maxHeight
-        style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
     }, [title]);
+
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return undefined;
+
+        const observer = new ResizeObserver(() => {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        });
+        observer.observe(textarea);
+        return () => observer.disconnect();
+    }, []);
 
     const handleBlur = async () => {
         // If the user leaves the field empty, fall back to the default placeholder title.

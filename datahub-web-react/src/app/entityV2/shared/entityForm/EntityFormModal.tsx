@@ -1,11 +1,11 @@
-import { CloseOutlined } from '@ant-design/icons';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import EntityForm from '@app/entityV2/shared/entityForm/EntityForm';
-import EntityFormContextProvider from '@src/app/entity/shared/entityForm/EntityFormContextProvider';
-import FormPageHeader from '@src/app/entity/shared/entityForm/FormHeader/FormPageHeader';
+import EntityFormContextProvider from '@src/app/entityV2/shared/entityForm/EntityFormContextProvider';
+import FormPageHeader from '@src/app/entityV2/shared/entityForm/FormHeader/FormPageHeader';
 
 const StyledModal = styled(Modal)`
     &&& .ant-modal-content {
@@ -27,7 +27,7 @@ const StyledModal = styled(Modal)`
     }
 `;
 
-const StyledClose = styled(CloseOutlined)`
+const StyledClose = styled(X)`
     && {
         color: ${(props) => props.theme.colors.textOnFillDefault};
         font-size: 24px;

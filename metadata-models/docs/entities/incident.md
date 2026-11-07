@@ -103,8 +103,8 @@ This distinction helps teams understand which incidents require manual investiga
 
 Incidents maintain detailed temporal information:
 
-- **startedAt**: The time when the incident actually began (may be earlier than when it was reported).
-- **created**: An audit stamp tracking who created the incident and when it was first reported.
+- **startedAt**: The time when the incident actually began (may be earlier than when it was reported). Search V3 copies this into `sourceCreatedAt`.
+- **created**: Deprecated. An audit stamp for who raised the incident in DataHub and when. Use `systemMetadata.aspectCreated` instead. The field remains and stays indexed on Search V2. Search V3 does not index it.
 - **lastUpdated**: An audit stamp on the status tracking the most recent status change.
 
 This temporal data helps teams understand incident timelines, calculate mean time to detection (MTTD), and mean time to resolution (MTTR).

@@ -138,6 +138,11 @@ def _needs_schema_resolution(schema_and_fields: Optional[SchemaAndFields]) -> bo
     )
 
 
+# Returned by _decode_message_part for a payload that could not be decoded, so a
+# skipped message stays distinguishable from a legitimately null value (an Avro
+# null or a JSON `null`), which must still yield a key-only sample.
+_UNDECODABLE = object()
+
 # (low, high, sample_size) -> (start_offset, expected_message_count)
 OffsetFn = Callable[[int, int, int], Tuple[int, int]]
 
@@ -331,6 +336,10 @@ class KafkaConnectionTest:
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -823,12 +832,21 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             value = msg.value() if callable(msg.value) else msg.value
 
             # Use pre-cached schema metadata to avoid repeated lookups
-            processed_key = self._process_message_part(
-                key, "key", topic, schema_metadata, is_key=True
+            processed_key = self._decode_message_part(
+                key, topic, schema_metadata, is_key=True
             )
-            processed_value = self._process_message_part(
-                value, "value", topic, schema_metadata, is_key=False
+            processed_value = self._decode_message_part(
+                value, topic, schema_metadata, is_key=False
             )
+            if processed_value is _UNDECODABLE or (
+                processed_key is _UNDECODABLE and processed_value is None
+            ):
+                # Already counted as skipped. A sample holding only
+                # offset/timestamp would inflate the row count without
+                # contributing any field data.
+                return
+            if processed_key is _UNDECODABLE:
+                processed_key = None
 
             # Start with metadata
             sample = {
@@ -868,15 +886,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         ):
             self._locked_warning("Failed to process message", "profiling")
 
-    def _process_message_part(
+    def _decode_message_part(
         self,
         data: Any,
-        prefix: str,
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass],
         is_key: bool = False,
-    ) -> Optional[Any]:
-        """Decode one message part (key or value) using pre-fetched schema metadata."""
+    ) -> Any:
+        """Decode one message part (key or value) using pre-fetched schema
+        metadata. Returns None for a null value and _UNDECODABLE for a payload
+        that was skipped because it could not be decoded."""
         if data is None:
             return None
 
@@ -932,21 +951,27 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                     exc=e,
                                     log=False,
                                 )
-                            return None
+                            return _UNDECODABLE
 
-                    decoded = decode_kafka_message_value(
-                        data,
-                        topic,
-                        flatten_json_func=flatten_json,
-                        max_depth=self.source_config.profiling.nested_field_max_depth,
-                    )
-                    if decoded is None:
-                        # Binary/undecodable payload; skip rather than pollute the
-                        # profile with a synthetic field.
-                        with self._report_lock:
-                            self.report.profiling_samples_skipped += 1
+                # No usable Avro schema (none registered, inferred fields only, or
+                # a non-Avro type): decode as JSON/text so the profiler never sees
+                # raw bytes.
+                decoded = decode_kafka_message_value(
+                    data,
+                    topic,
+                    flatten_json_func=flatten_json,
+                    max_depth=self.source_config.profiling.nested_field_max_depth,
+                )
+                if decoded is None:
+                    if data.strip() == b"null":
+                        # A JSON null is a valid (empty) value, not a decode failure.
                         return None
-                    return decoded
+                    # Binary/undecodable payload; skip rather than pollute the
+                    # profile with a synthetic field.
+                    with self._report_lock:
+                        self.report.profiling_samples_skipped += 1
+                    return _UNDECODABLE
+                return decoded
 
             except Exception as e:
                 # Skip the message rather than emitting a base64 blob, which would
@@ -959,7 +984,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         exc=e,
                         log=False,
                     )
-                return None
+                return _UNDECODABLE
 
         return data
 

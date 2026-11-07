@@ -18,6 +18,7 @@ import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.EventSpecBuilder;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotationValidator;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.config.Event;
@@ -251,6 +252,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
       }
     }
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
+    SearchableAnnotationValidator.validateSharedLabels(entitySpecs);
     _aspectNameToSpec = populateAspectMap(entitySpecs);
   }
 
@@ -285,6 +287,13 @@ public class ConfigEntityRegistry implements EntityRegistry {
           String.format("Failed to find entity with name %s in EntityRegistry", entityName));
     }
     return entityNameToSpec.get(lowercaseEntityName);
+  }
+
+  /** Looks the name up in this registry's map, so a miss doesn't build an exception. */
+  @Nonnull
+  @Override
+  public Optional<EntitySpec> findEntitySpec(@Nonnull final String entityName) {
+    return Optional.ofNullable(entityNameToSpec.get(entityName.toLowerCase()));
   }
 
   @Nonnull

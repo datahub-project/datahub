@@ -22,7 +22,6 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
-import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
@@ -240,17 +239,16 @@ public class AnalyticsService {
     if (!(dimensions.size() == 1 || dimensions.size() == 2)) {
       throw new IllegalArgumentException("Dimensions must have 1 or 2 specified: " + dimensions);
     }
-    final List<String> fields = toIndexFields(indexName, dimensions);
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
-    TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(fields.get(0));
+    TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0));
     if (showMissing) {
       termAgg.missing(NA);
     }
 
     if (dimensions.size() == 2) {
       TermsAggregationBuilder secondTermAgg =
-          AggregationBuilders.terms(SECOND_DIMENSION).field(fields.get(1));
+          AggregationBuilders.terms(SECOND_DIMENSION).field(dimensions.get(1));
       if (showMissing) {
         secondTermAgg.missing(NA);
       }
@@ -293,22 +291,6 @@ public class AnalyticsService {
       log.error(String.format("Caught exception while getting bar chart: %s", e.getMessage()));
       return ImmutableList.of();
     }
-  }
-
-  /**
-   * Landscape charts name V2 {@code .keyword} URN subfields ({@code platform.keyword}, {@code
-   * domains.keyword}, …). V3 entity indices map those fields as keyword at the root, without that
-   * subfield, so the suffix is dropped there. Other indices keep the names as given.
-   */
-  private List<String> toIndexFields(String indexName, List<String> dimensions) {
-    boolean v3EntityIndex =
-        EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration)
-            && indexName.endsWith("index_v3")
-            && indexName.length() > "index_v3".length();
-    if (!v3EntityIndex) {
-      return dimensions;
-    }
-    return dimensions.stream().map(ESUtils::toV3EntityField).collect(Collectors.toList());
   }
 
   private List<BarSegment> extractBarSegmentsFromAggregations(

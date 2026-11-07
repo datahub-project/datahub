@@ -14,6 +14,7 @@ import { test, expect } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { TIMEOUTS } from '../../utils/constants';
 import { BASE_FEATURE_FLAGS, WIDE_URN } from './constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'lineage-controls' });
 
@@ -48,7 +49,7 @@ test.describe('column search and pagination within a lineage node', () => {
     await lineagePage.waitForViewportToSettle();
   });
 
-  test('pages through the columns ten at a time', async () => {
+  test('pages through the columns ten at a time', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await expect
       .poll(() => lineagePage.getShownColumnNames(WIDE_URN), { timeout: TIMEOUTS.MEDIUM })
       .toEqual(PAGE_1_COLUMNS);

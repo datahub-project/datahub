@@ -4,11 +4,14 @@ import styled from 'styled-components';
 
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import Pills from '@app/previewV2/Pills';
 import PreviewCardFooterRightSection from '@app/previewV2/PreviewCardFooterRightSection';
 import { entityHasCapability } from '@app/previewV2/utils';
+import { useSearchResult } from '@app/search/context/SearchResultContext';
+import { useSearchResultLineageStatus } from '@app/searchV2/SearchResultLineageStatusContext';
 import { useHideLineageInSearchCards } from '@app/useAppConfig';
 
 import { DatasetStatsSummary, EntityPath, EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
@@ -69,12 +72,26 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     paths,
     isFullViewCard,
 }) => {
+    const { previewData } = usePreviewData();
     const hideLineage = useHideLineageInSearchCards();
-    const showLineageBadge = !hideLineage && entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
+    const { failed: lineageCountsFailed } = useSearchResultLineageStatus();
+    // SearchResultProvider is only set for search cards; browse/preview keep capability-based badges.
+    const isSearchResultCard = useSearchResult() != null;
+    const hasLineageCapability = !hideLineage && entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
+    // Missing counts are not the same as zero. Search cards render before the deferred count
+    // query returns; treat that gap as a reserved placeholder rather than a "no lineage" icon.
+    // Drop the reservation when the page batch fails so slots do not stay empty forever.
+    const hasLineageCounts = previewData?.upstream != null || previewData?.downstream != null;
+    const showLineageBadge = hasLineageCapability && (!isSearchResultCard || hasLineageCounts);
+    const reserveLineageBadge = isSearchResultCard && hasLineageCapability && !hasLineageCounts && !lineageCountsFailed;
 
     const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
     const shouldRenderRightSection =
-        tier !== undefined || lastUpdatedMs?.lastUpdatedMs || statsSummary?.queryCountLast30Days || showLineageBadge;
+        tier !== undefined ||
+        lastUpdatedMs?.lastUpdatedMs ||
+        statsSummary?.queryCountLast30Days ||
+        showLineageBadge ||
+        reserveLineageBadge;
 
     return shouldRenderPillsRow || shouldRenderRightSection ? (
         <>
@@ -97,6 +114,7 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
                         urn={urn}
                         entityRegistry={entityRegistry}
                         showLineageBadge={showLineageBadge}
+                        reserveLineageBadge={reserveLineageBadge}
                         lastUpdatedMs={lastUpdatedMs}
                         tier={tier}
                         statsSummary={statsSummary}

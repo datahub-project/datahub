@@ -3,13 +3,13 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { buildInitialViewState, fromUnionType } from '@app/entity/view/builder/utils';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
+import { buildInitialViewState, fromUnionType } from '@app/entityV2/view/builder/utils';
 import { TextButton } from '@app/searchV2/filters/styledComponents';
 import { canCreateViewFromFilters } from '@app/searchV2/filters/utils';
 import { UnionType } from '@app/searchV2/utils/constants';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 
 import { FacetFilterInput } from '@types';
 

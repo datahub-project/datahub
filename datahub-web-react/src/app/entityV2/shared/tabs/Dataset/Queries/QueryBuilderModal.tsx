@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import QueryBuilderForm from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderForm';
 import { QueryBuilderState } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
-import ClickOutside from '@app/shared/ClickOutside';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Modal } from '@src/alchemy-components';
 

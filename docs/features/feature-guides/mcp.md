@@ -4,12 +4,13 @@ description: "The DataHub MCP Server lets AI agents query DataHub metadata via t
 
 # DataHub MCP Server
 
-The DataHub MCP Server implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), giving AI agents direct access to your DataHub metadata. Search for data assets, traverse lineage, inspect schemas, and generate SQL — all through natural language in tools like Cursor, Windsurf, Claude Desktop, and OpenAI.
+The DataHub MCP Server implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), giving AI agents direct access to your DataHub metadata. Search for data assets, traverse lineage, inspect schemas, and generate SQL — all through natural language in tools like Claude, ChatGPT, Cursor, and Windsurf.
 
 Want to learn more about the motivation, architecture, and advanced use cases? Check out our [deep dive blog post](https://datahub.com/blog/datahub-mcp-server-block-ai-agents-use-case/).
 
 ## Deployment Options
 
+- [Plugins for Claude, ChatGPT, and Codex](../../dev-guides/agent-context/plugins.md) - One-click setup, available on DataHub Cloud v1.0.2+
 - [Managed MCP Server](#managed-mcp-server-usage) - Available on DataHub Cloud v0.3.12+
 - [Self-Hosted MCP Server](#self-hosted-mcp-server-usage) - Available for DataHub Core
 
@@ -28,7 +29,7 @@ Trace data flow at table and column level, upstream or downstream, across multip
 Surface real SQL queries that reference a dataset — see join patterns, common filters, and aggregation behavior — then generate new queries grounded in actual usage.
 
 **Works Where You Work** <br />
-Seamlessly integrates with Cursor, Windsurf, Claude Desktop, OpenAI, and any other MCP-compatible client.
+Works with Claude, ChatGPT, Cursor, Windsurf, and any other MCP-compatible client. Claude and ChatGPT also have one-click plugins.
 
 **What You Can Ask** <br />
 Once connected, try questions like:
@@ -208,6 +209,8 @@ Substitute the scoped server's **Connection URL** wherever these steps use `http
 <details>
   <summary>Claude (web and desktop)</summary>
 
+The quickest option is the [DataHub Cloud plugin](../../dev-guides/agent-context/plugins.md#claude). To connect a scoped server instead, add a custom connector:
+
 1. Open **Customize → Connectors**. On Team/Enterprise, an owner adds it under **Organization settings → Connectors** and members connect individually.
 2. Click **+**, then **Add custom connector**.
 3. Name: `DataHub`. Remote MCP server URL: `https://mcp.datahub.com/mcp`. Leave **Advanced settings** empty — DataHub registers the client via DCR.
@@ -265,7 +268,7 @@ Cursor supports remote MCP servers via the `url` field and handles OAuth flows a
 <details>
   <summary>ChatGPT</summary>
 
-Custom MCP connectors require **Developer Mode** and are available on **Plus, Pro, Team, Enterprise, and Edu** plans (not Free).
+The quickest option is the [DataHub Cloud plugin](../../dev-guides/agent-context/plugins.md#chatgpt-and-codex). To connect a scoped server instead, add a custom connector. Custom connectors require **Developer Mode** and are available on **Plus, Pro, Team, Enterprise, and Edu** plans (not Free).
 
 1. Enable Developer Mode: profile picture → **Settings → Connectors → Advanced**, then toggle **Developer mode** on. (On Team/Enterprise, an admin must first allow it under **Workspace Settings → Permissions & Roles → Connected Data → Developer mode / Create custom MCP connectors**.)
 2. Still under **Settings → Connectors**, click **Add custom connector** (or **Create**).
@@ -523,16 +526,36 @@ Run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub
    ```
 
 2. The URL of your DataHub instance's GMS endpoint, e.g. `http://localhost:8080` or `https://<tenant>.acryl.io`
-3. A [personal access token](../../authentication/personal-access-tokens.md)
+3. A [personal access token](../../authentication/personal-access-tokens.md), if your instance has Metadata Service Authentication enabled
+
+:::note
+On a stock `datahub docker quickstart`, [Metadata Service Authentication is disabled by default](../../authentication/introducing-metadata-service-authentication.md), so no token is required — a locally run MCP server connects to `http://localhost:8080` with `DATAHUB_GMS_URL` alone. A token is needed when `METADATA_SERVICE_AUTH_ENABLED` is `true` on `datahub-gms`, and always for DataHub Cloud.
+:::
 
 ### Connecting & Authenticating
 
 The self-hosted server authenticates via environment variables:
 
 - `DATAHUB_GMS_URL` — your DataHub GMS endpoint
-- `DATAHUB_GMS_TOKEN` — your personal access token
+- `DATAHUB_GMS_TOKEN` — your personal access token; omit it if Metadata Service Authentication is disabled on your instance
 
 These are passed to the `mcp-server-datahub` process at startup (see configuration examples below).
+
+The configuration examples below all set `DATAHUB_GMS_TOKEN`, since that is what DataHub Cloud and any auth-enabled instance need. If your instance has Metadata Service Authentication disabled, delete the `DATAHUB_GMS_TOKEN` line from whichever example you copy and leave `DATAHUB_GMS_URL` on its own — the server starts unauthenticated. In the JSON examples, remember to drop the now-trailing comma after the `DATAHUB_GMS_URL` value, or the config will fail to parse. This applies to local setups only: a [shared HTTP deployment](#shared-http-deployment) always requires Metadata Service Authentication and a per-user token.
+
+### Verify from the Terminal
+
+Before adding the server to an MCP client, call a read-only tool directly to check the DataHub connection. Replace the example URN and environment variables with values from your instance.
+
+```bash
+uvx --from 'fastmcp-slim[server]' fastmcp call \
+  --command "env DATAHUB_GMS_URL=<your-datahub-url> DATAHUB_GMS_TOKEN=<your-datahub-token> uvx mcp-server-datahub@latest" \
+  --target get_lineage \
+  --input-json '{"urn":"urn:li:dataset:(urn:li:dataPlatform:snowflake,my_database.my_schema.my_table,PROD)","upstream":false,"max_hops":1,"max_results":10}' \
+  --json
+```
+
+The response should contain a `structured_content` object with a `downstreams` result. Any `downstreams` result, even `"total": 0`, means the server connected successfully. Authentication and connection failures surface as an error or timeout instead.
 
 ### Configure
 

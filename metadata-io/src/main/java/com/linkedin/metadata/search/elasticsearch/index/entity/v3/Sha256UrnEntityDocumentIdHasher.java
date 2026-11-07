@@ -12,9 +12,17 @@ import org.apache.commons.codec.digest.DigestUtils;
  */
 public class Sha256UrnEntityDocumentIdHasher implements EntityDocumentIdHasher {
 
+  public static final String SCHEME = "sha256-urn";
+
   @Nonnull
   @Override
   public String documentId(@Nonnull OperationFingerprint operation, @Nonnull Urn urn) {
     return DigestUtils.sha256Hex(urn.toString());
+  }
+
+  @Nonnull
+  @Override
+  public String scheme() {
+    return SCHEME;
   }
 }

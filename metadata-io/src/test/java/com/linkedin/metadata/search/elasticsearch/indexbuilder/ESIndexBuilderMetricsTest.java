@@ -14,6 +14,7 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -207,6 +208,7 @@ public class ESIndexBuilderMetricsTest {
                 .numReplicas(1)
                 .numRetries(0)
                 .refreshIntervalSeconds(1)
+                .refreshIntervals(RefreshIntervals.allServices(1))
                 .maxReindexHours(1)
                 .build());
 

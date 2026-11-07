@@ -15,8 +15,8 @@ import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUr
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { capitalizeMonthsAndDays, formatTimezone } from '@app/ingestV2/source/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
+import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
 import { Owner } from '@types';
@@ -302,6 +302,7 @@ export function ActionsColumn({
             return (
                 <Icon
                     icon={Stop}
+                    size="lg"
                     weight="fill"
                     color="iconBrand"
                     onClick={(e) => {
@@ -315,6 +316,7 @@ export function ActionsColumn({
         return (
             <Icon
                 icon={Play}
+                size="lg"
                 weight="fill"
                 color="iconBrand"
                 onClick={(e) => {

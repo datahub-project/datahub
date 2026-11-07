@@ -93,7 +93,7 @@ fragment dataProductSearchFields on DataProduct {
         ...glossaryTerms
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     applications {
         ...entityApplication

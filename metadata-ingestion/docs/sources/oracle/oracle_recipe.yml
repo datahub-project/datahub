@@ -28,6 +28,7 @@ source:
     
     # Usage and Operations (requires audit data or query logs)
     include_usage_stats: true
+    include_query_usage: true # read query history from V$SQL; needs SELECT on V$SQL
     include_operational_stats: true
     
     # Oracle Client Configuration (optional)

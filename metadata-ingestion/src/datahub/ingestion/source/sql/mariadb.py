@@ -41,6 +41,10 @@ from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
         SourceCapabilityModifier.TABLE,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class MariaDBSource(MySQLSource):
     def get_platform(self):
         return "mariadb"

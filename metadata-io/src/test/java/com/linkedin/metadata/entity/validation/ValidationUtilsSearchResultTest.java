@@ -10,7 +10,11 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.AutoCompleteEntity;
+import com.linkedin.metadata.query.AutoCompleteEntityArray;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -77,5 +81,47 @@ public class ValidationUtilsSearchResultTest {
     assertEquals(validated.getNumEntities().intValue(), 2);
     assertEquals(validated.getEntities().size(), 1);
     assertEquals(validated.getEntities().get(0).getEntity(), URN_A);
+  }
+
+  @Test
+  public void validateAutoCompleteResultDropsAllGhostHitsButKeepsSuggestions() {
+    AutoCompleteResult input =
+        new AutoCompleteResult()
+            .setQuery("pw")
+            .setSuggestions(new StringArray("a", "b"))
+            .setEntities(
+                new AutoCompleteEntityArray(
+                    new AutoCompleteEntity().setUrn(URN_A),
+                    new AutoCompleteEntity().setUrn(URN_B)));
+
+    when(entityService.exists(eq(opContext), anyCollection(), anyBoolean())).thenReturn(Set.of());
+
+    AutoCompleteResult validated =
+        ValidationUtils.validateAutoCompleteResult(opContext, input, entityService);
+
+    assertEquals(validated.getQuery(), "pw");
+    assertEquals(validated.getSuggestions().size(), 2);
+    assertTrue(validated.getEntities().isEmpty());
+  }
+
+  @Test
+  public void validateAutoCompleteResultKeepsExistingHits() {
+    AutoCompleteResult input =
+        new AutoCompleteResult()
+            .setQuery("pw")
+            .setSuggestions(new StringArray("a", "b"))
+            .setEntities(
+                new AutoCompleteEntityArray(
+                    new AutoCompleteEntity().setUrn(URN_A),
+                    new AutoCompleteEntity().setUrn(URN_B)));
+
+    when(entityService.exists(eq(opContext), anyCollection(), anyBoolean()))
+        .thenReturn(Set.of(URN_A));
+
+    AutoCompleteResult validated =
+        ValidationUtils.validateAutoCompleteResult(opContext, input, entityService);
+
+    assertEquals(validated.getEntities().size(), 1);
+    assertEquals(validated.getEntities().get(0).getUrn(), URN_A);
   }
 }

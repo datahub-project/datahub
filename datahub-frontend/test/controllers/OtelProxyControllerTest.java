@@ -222,4 +222,29 @@ public class OtelProxyControllerTest {
     statusOf(controller.exportTraces(request));
     assertEquals("gzip", captor.getValue().headers().firstValue("Content-Encoding").orElse(null));
   }
+
+  @Test
+  public void testReleasesAdmissionWhenRequestConstructionFails() throws Exception {
+    HttpClient httpClient = mock(HttpClient.class);
+    doReturn(CompletableFuture.completedFuture(responseWithStatus(200)))
+        .when(httpClient)
+        .sendAsync(any(), any());
+
+    ProxyAdmission admission = new ProxyAdmission(1, null);
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("otel.exporterOtlpEndpoint", COLLECTOR);
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
+    OtelProxyController controller =
+        new OtelProxyController(
+            httpClient, ConfigFactory.parseMap(configMap), metricUtils, admission);
+
+    Http.Request bad = mockOtlpRequest(new byte[] {1});
+    when(bad.header(Http.HeaderNames.CONTENT_ENCODING)).thenReturn(Optional.of("gzip\r\nX: 1"));
+    assertThrows(Exception.class, () -> controller.exportTraces(bad).join());
+    verify(httpClient, never()).sendAsync(any(), any());
+
+    assertEquals(202, statusOf(controller.exportTraces(mockOtlpRequest(new byte[] {1}))));
+    verify(httpClient, times(1)).sendAsync(any(), any());
+  }
 }

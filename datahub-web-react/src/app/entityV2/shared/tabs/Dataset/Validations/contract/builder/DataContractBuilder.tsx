@@ -1,4 +1,4 @@
-import { Button, message } from 'antd';
+import { Button, toast } from '@components';
 import isEqual from 'lodash/isEqual';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -100,16 +100,15 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
         })
             .then(({ data, errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: isEdit ? t('contractBuilder.editedSuccess') : t('contractBuilder.createdSuccess'),
+                    toast.success(isEdit ? t('contractBuilder.editedSuccess') : t('contractBuilder.createdSuccess'), {
                         duration: 3,
                     });
                     onSubmit?.(data?.upsertDataContract as DataContract);
                 }
             })
             .catch(() => {
-                message.destroy();
-                message.error({ content: t('contractBuilder.failedCreate') });
+                toast.destroy();
+                toast.error(t('contractBuilder.failedCreate'));
             });
     };
 
@@ -201,9 +200,11 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
                     undefined}
             </AssertionsSection>
             <ActionContainer>
-                <CancelButton onClick={onCancel}>{tc('cancel')}</CancelButton>
+                <CancelButton variant="text" color="gray" onClick={onCancel}>
+                    {tc('cancel')}
+                </CancelButton>
                 <div>
-                    <SaveButton disabled={editDisabled} type="primary" onClick={upsertDataContract}>
+                    <SaveButton disabled={editDisabled} variant="filled" onClick={upsertDataContract}>
                         {tc('save')}
                     </SaveButton>
                 </div>

@@ -14,11 +14,11 @@ import {
     isEntityResolutionRequired,
     mergeSelectedNestedOptions,
 } from '@app/entityV2/shared/utils/selectorUtils';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { CustomOptionRenderer } from '@src/alchemy-components/components/Select/types';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
@@ -47,6 +47,7 @@ type DomainSelectorProps = {
     renderCustomOptionText?: CustomOptionRenderer<NestedSelectOption>;
     renderCustomSelectedValue?: (option: NestedSelectOption) => React.ReactNode;
     isRequired?: boolean;
+    isDisabled?: boolean;
 };
 
 /**
@@ -70,12 +71,13 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     renderCustomOptionText = (option) => <DomainOptionLabel option={option} />,
     renderCustomSelectedValue,
     isRequired = false,
+    isDisabled = false,
 }) => {
     const { t } = useTranslation(['entity.shared.selectors', 'common.feedback']);
     const resolvedPlaceholder =
         placeholder ?? t(isMultiSelect ? 'domainSelector.placeholder' : 'domainSelector.singlePlaceholder');
     const resolvedLabel = label ?? t(isMultiSelect ? 'domainSelector.label' : 'domainSelector.singleLabel');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [useSearch, setUseSearch] = useState(false);
     const attemptedUrnsRef = useRef<Set<string>>(new Set());
 
@@ -269,6 +271,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             width="full"
             isMultiSelect={isMultiSelect}
             isRequired={isRequired}
+            isDisabled={isDisabled}
             showSearch
             implicitlySelectChildren={false}
             selectChildrenWithParent={selectChildrenWithParent}

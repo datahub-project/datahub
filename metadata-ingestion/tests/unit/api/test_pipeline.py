@@ -402,6 +402,8 @@ class TestPipeline:
         "datahub.cli.config_utils.get_system_auth",
         return_value="Basic user:pass",
     )
+    # System credentials are only sent to the env-configured server.
+    @patch.dict("os.environ", {"DATAHUB_GMS_URL": "http://fake-internal-server:8080"})
     def test_configure_without_sink_use_system_auth(
         self,
         mock_get_system_auth,
