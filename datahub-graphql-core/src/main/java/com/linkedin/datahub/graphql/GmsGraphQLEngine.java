@@ -4327,9 +4327,12 @@ public class GmsGraphQLEngine {
 
     final List<String> incidentEntityTypes = typesImplementing(HAS_INCIDENTS_INTERFACE);
     if (incidentEntityTypes.isEmpty()) {
-      // An empty classpath scan in a packaged GMS would leave every incidents field null.
-      throw new IllegalStateException(
-          "No GraphQL types implement " + HAS_INCIDENTS_INTERFACE + " in the interface schemas");
+      // An empty classpath scan leaves every incidents field null. Log it rather than fail
+      // startup, so the rest of GMS (including ingestion) keeps running.
+      log.error(
+          "No GraphQL types implement {} in the interface schemas; incidents fields will resolve"
+              + " to null",
+          HAS_INCIDENTS_INTERFACE);
     }
     for (String entity : incidentEntityTypes) {
       builder.type(
