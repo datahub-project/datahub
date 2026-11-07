@@ -91,6 +91,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     # Report Services documents whose definition yielded no visualizations
     # (contents), so the dashboard was emitted with datasets only.
     document_definitions_without_visualizations: int = 0
+    # Execution instances that could not be deleted after use.
+    instance_cleanup_failures: int = 0
     metric_formula_lineage_edges: int = 0
     metric_formula_refs_unresolved: int = 0
     metric_formula_unresolved_ref_samples: LossyList[str] = field(
@@ -288,6 +290,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_document_model_definition_failure(self) -> None:
         self.document_model_definition_failures += 1
+
+    def report_instance_cleanup_failure(self) -> None:
+        self.instance_cleanup_failures += 1
 
     def report_document_definition_without_visualizations(self) -> None:
         self.document_definitions_without_visualizations += 1

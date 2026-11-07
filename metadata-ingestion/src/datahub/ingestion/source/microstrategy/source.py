@@ -8,6 +8,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    TypeVar,
     Union,
 )
 
@@ -112,15 +113,19 @@ from datahub.ingestion.source_report.ingestion_stage import METADATA_EXTRACTION
 
 logger = logging.getLogger(__name__)
 
+_T = TypeVar("_T")
+
 _ERROR_SUMMARY_MAX_CHARS = 300
 
 
-# Modeling document answers that mean the whole project lacks access.
-_MODEL_DOCUMENT_PROJECT_WIDE_STATUSES = frozenset({403, 404, 501})
+# Modeling document answers that mean the whole project lacks access. 404 is
+# left out: the endpoint can answer it for a single unmodelled document.
+_MODEL_DOCUMENT_PROJECT_WIDE_STATUSES = frozenset({403, 501})
 
 
 class _PredefinedFoldersUnavailable(Exception):
-    pass
+    """Predefined folders could not be resolved, so the project's dashboards
+    and reports are skipped rather than filed under raw folder names."""
 
 
 @platform_name("MicroStrategy")
@@ -171,14 +176,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             # would otherwise be swallowed into per-statement parse warnings
             # and the run would report SUCCESS with zero warehouse lineage.
             ensure_sql_lineage_dependencies()
-        self._metric_model_cache: Dict[str, Dict[str, object]] = {}
+        # (project id, metric id) -> model; {} once a fetch failed.
+        self._metric_model_cache: Dict[Tuple[str, str], Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
         # The Modeling document of the dashboard in flight, so binding and
         # document derived metrics share one GET. Dashboards are processed one
         # at a time, so only the latest is kept.
-        self._model_document_memo: Optional[
-            Tuple[Tuple[str, str], Optional[Dict[str, object]]]
-        ] = None
+        # (project id, report id) -> report object, or None once a fetch
+        # failed; shared by dashboard chart lists and the linked-report pass.
+        self._report_objects: Dict[Tuple[str, str], Optional[MicroStrategyObject]] = {}
+        self._model_document_key: Optional[Tuple[str, str]] = None
+        self._model_document_value: Optional[Dict[str, object]] = None
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
         self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
         # (project id, dataset object id) -> object info, or None once a lookup
@@ -601,7 +609,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
             try:
                 yield from self._process_dashboard_object(
-                    project_id,
+                    project,
                     dashboard_object,
                     lineage_context,
                     linked_report_ids,
@@ -691,10 +699,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             label = MSTR_PREDEFINED_FOLDER_LABELS.get(folder.folder_type)
             if label:
                 labels[normalize_object_id(folder.id)] = label
-        if labels or hidden_ids:
-            self.report.report_predefined_folder_labels_resolved(
-                len(labels) + len(hidden_ids)
-            )
+        self.report.report_predefined_folder_labels_resolved(
+            len(labels) + len(hidden_ids)
+        )
         resolution = PredefinedFolderResolution(labels=labels, hidden_ids=hidden_ids)
         self._predefined_folder_cache[project_id] = resolution
         return resolution
@@ -713,6 +720,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         root_ids: Set[str] = set()
         names: Set[str] = set(MSTR_PERSONAL_FOLDER_NAMES)
         profiles_root_ids: Set[str] = set()
+        lookup_failed = False
         try:
             folders = self.client.get_predefined_folders(
                 project_id, list(MSTR_PERSONAL_FOLDER_TYPES)
@@ -731,6 +739,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         except Exception as error:
             root_ids.clear()
             profiles_root_ids.clear()
+            lookup_failed = True
             self.report.warning(
                 title="Personal folder root not resolved",
                 message=(
@@ -745,6 +754,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
         if profiles_root_ids:
             self.report.report_personal_folder_root_resolved()
+        elif not lookup_failed:
+            self.report.info(
+                title="Personal folder root not resolved",
+                message=(
+                    "The project's Profiles folder could not be identified "
+                    "(no profile folder for this principal, or its parent is "
+                    "a hidden system folder); personal folders are recognised "
+                    "by ancestor folder name instead."
+                ),
+                context=f"project_id={project_id}",
+            )
         resolution = PersonalFolderResolution(
             root_ids=root_ids,
             names=names,
@@ -865,11 +885,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _process_dashboard_object(
         self,
-        project_id: str,
+        project: Project,
         dashboard_object: MicroStrategyObject,
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        project_id = project.id
         predefined_folders = self._predefined_folders(project_id)
         yield from self.mapper.gen_folder_containers(
             project_id, dashboard_object, predefined_folders
@@ -912,7 +933,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 for dependency in dashboard.dependencies
                 if _is_report_dependency(dependency)
             )
-        extra_chart_urns = self._dashboard_report_chart_urns(project_id, dashboard)
+        extra_chart_urns = self._dashboard_report_chart_urns(project, dashboard)
         self._register_usage_target(
             dashboard_object.id,
             USAGE_TARGET_DASHBOARD,
@@ -1142,8 +1163,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[str]:
         """Open a Modeling-service report instance so the Modeling definition
         can be read against it; metric expressions only resolve that way.
-        Returns None when the option is off or the instance could not be created - the caller then reads the
-        definition statically, which is the long-standing behaviour."""
+        Returns None when the option is off or the instance could not be
+        created - the caller then reads the definition statically, which is
+        the long-standing behaviour."""
         if not self.config.resolve_report_metrics_via_instance:
             return None
         try:
@@ -1253,19 +1275,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # to find a handful means paginating tens of thousands of objects (minutes per
         # project) and was the largest exposure window to mid-run session loss.
         for report_id in sorted(linked_report_ids):
-            try:
-                report_object = self.client.get_report_object(project_id, report_id)
-            except MicroStrategyAPIError as error:
-                self.report.warning(
-                    title="Failed to Fetch Linked Report",
-                    message=(
-                        "Skipping a dashboard-linked report whose object info "
-                        "could not be fetched."
-                    ),
-                    context=f"project_id={project_id}, report_id={report_id}",
-                    exc=error,
-                )
-                continue
+            report_object = self._linked_report_object(project_id, report_id)
             if report_object is None:
                 continue
             if not self.config.report_pattern.allowed(report_object.name):
@@ -1366,7 +1376,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     source_dataset,
                     model_lineage_index,
                 )
-            dataset_object = self._dataset_object_info(project_id, source_dataset.id)
+            # A report without a source id gets a placeholder dataset id, which
+            # names no catalog object to look up.
+            dataset_object = (
+                self._dataset_object_info(project_id, report_definition.source_id)
+                if report_definition and report_definition.source_id
+                else None
+            )
             folder_object = self._folder_object(project_id, dataset_object)
             if folder_object is not None:
                 yield from self.mapper.gen_folder_containers(
@@ -1395,26 +1411,39 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboard_object: MicroStrategyObject,
     ) -> Optional[DashboardDefinition]:
         dashboard_id = dashboard_object.id
-        try:
-            response = self.client.get_dossier_definition(project_id, dashboard_id)
-        except MicroStrategyAPIError:
-            # Expected for documents; keep a trace so a genuine dossier failure
-            # is diagnosable when the document fallback also fails.
-            logger.debug(
-                "Dossier definition fetch failed for %s; trying document endpoint",
-                dashboard_id,
-                exc_info=True,
-            )
+        # Dossiers and documents share a subtype; viewMedia tells them apart
+        # when the search result carries it. Without it, try the dossier
+        # endpoint first and keep its error for the warning.
+        fetches: List[Tuple[str, Callable[[], Dict[str, object]]]] = [
+            (
+                "dossier",
+                lambda: self.client.get_dossier_definition(project_id, dashboard_id),
+            ),
+            (
+                "document",
+                lambda: self.client.get_document_definition(project_id, dashboard_id),
+            ),
+        ]
+        if is_document_object(dashboard_object):
+            fetches.reverse()
+        errors: List[str] = []
+        response: Optional[Dict[str, object]] = None
+        for kind, fetch in fetches:
             try:
-                response = self.client.get_document_definition(project_id, dashboard_id)
+                response = fetch()
+                break
             except MicroStrategyAPIError as error:
-                self.report.warning(
-                    title="Failed to Fetch Dashboard Definition",
-                    message="Skipping dashboard because definition APIs failed.",
-                    context=f"project_id={project_id}, dashboard_id={dashboard_id}",
-                    exc=error,
-                )
-                return None
+                errors.append(f"{kind}: {error}")
+        if response is None:
+            self.report.warning(
+                title="Failed to Fetch Dashboard Definition",
+                message="Skipping dashboard because definition APIs failed.",
+                context=(
+                    f"project_id={project_id}, dashboard_id={dashboard_id}, "
+                    f"errors={errors}"
+                ),
+            )
+            return None
 
         dashboard = DashboardDefinition.from_api_response(
             object_id=dashboard_id,
@@ -1446,11 +1475,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         once it has failed in the project: Modeling access is project-scoped,
         so the failure is reported once rather than for every dashboard."""
         key = (project_id, dashboard_id)
-        if (
-            self._model_document_memo is not None
-            and self._model_document_memo[0] == key
-        ):
-            return self._model_document_memo[1]
+        if self._model_document_key == key:
+            return self._model_document_value
         if project_id in self._model_document_unavailable_projects:
             return None
         model_document: Optional[Dict[str, object]] = None
@@ -1480,7 +1506,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 context=f"project_id={project_id}, dashboard_id={dashboard_id}",
                 exc=error,
             )
-        self._model_document_memo = (key, model_document)
+        self._model_document_key = key
+        self._model_document_value = model_document
         return model_document
 
     def _resolve_visualization_bindings(
@@ -1723,7 +1750,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         metric_id: str,
     ) -> Dict[str, object]:
         normalized_metric_id = metric_id.upper()
-        model = self._metric_model_cache.get(normalized_metric_id)
+        model = self._metric_model_cache.get((project_id, normalized_metric_id))
         if model is not None:
             return model
         try:
@@ -1753,9 +1780,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 metric_id,
                 exc_info=True,
             )
-            self._metric_model_cache[normalized_metric_id] = {}
+            self._metric_model_cache[(project_id, normalized_metric_id)] = {}
             return {}
-        self._metric_model_cache[normalized_metric_id] = model
+        self._metric_model_cache[(project_id, normalized_metric_id)] = model
         self.report.report_metric_expression_scanned()
         return model
 
@@ -2244,10 +2271,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if deleted or dashboard_object.subtype != MSTR_OBJECT_SUBTYPE_DOCUMENT:
                 return
             self.client.delete_document_instance(project_id, dashboard_id, instance_id)
-        except MicroStrategyAPIError:
-            logger.debug(
-                "MicroStrategy dashboard instance cleanup failed",
-                exc_info=True,
+        except (MicroStrategyAPIError, MicroStrategyAuthError) as error:
+            self._record_instance_cleanup_failure(
+                "dashboard instance", project_id, instance_id, error
             )
 
     def _delete_report_instance(
@@ -2258,10 +2284,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         try:
             self.client.delete_report_instance(project_id, report_id, instance_id)
-        except MicroStrategyAPIError:
-            logger.debug(
-                "MicroStrategy report instance cleanup failed",
-                exc_info=True,
+        except (MicroStrategyAPIError, MicroStrategyAuthError) as error:
+            self._record_instance_cleanup_failure(
+                "report instance", project_id, instance_id, error
             )
 
     def _delete_model_report_instance(
@@ -2272,19 +2297,79 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         try:
             self.client.delete_model_report_instance(project_id, report_id, instance_id)
-        except MicroStrategyAPIError:
-            logger.debug(
-                "MicroStrategy Modeling report instance cleanup failed",
-                exc_info=True,
+        except (MicroStrategyAPIError, MicroStrategyAuthError) as error:
+            self._record_instance_cleanup_failure(
+                "Modeling report instance", project_id, instance_id, error
             )
+
+    def _record_instance_cleanup_failure(
+        self, kind: str, project_id: str, instance_id: str, error: Exception
+    ) -> None:
+        # A leaked instance holds server resources and counts towards the
+        # user's instance limits, so it belongs in the report.
+        self.report.report_instance_cleanup_failure()
+        self.report.warning(
+            title="MicroStrategy instance not deleted",
+            message="An execution instance could not be deleted after use.",
+            context=f"project_id={project_id}, kind={kind}, instance_id={instance_id}",
+            exc=error,
+            log=False,
+        )
+
+    def _linked_report_object(
+        self, project_id: str, report_id: str
+    ) -> Optional[MicroStrategyObject]:
+        key = (project_id, normalize_object_id(report_id))
+        if key in self._report_objects:
+            return self._report_objects[key]
+        report_object: Optional[MicroStrategyObject] = None
+        try:
+            report_object = self.client.get_report_object(project_id, report_id)
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            self.report.warning(
+                title="Failed to Fetch Linked Report",
+                message=(
+                    "Skipping a dashboard-linked report whose object info "
+                    "could not be fetched."
+                ),
+                context=f"project_id={project_id}, report_id={report_id}",
+                exc=error,
+            )
+        self._report_objects[key] = report_object
+        return report_object
+
+    def _report_left_out(
+        self, project: Project, report_object: MicroStrategyObject
+    ) -> bool:
+        """Whether the report pass will skip this report for its folder path
+        or for being personal content. Mirrors _skip_by_folder_path and
+        _skip_personal_object without reporting, which the report pass does."""
+        if self._is_personal_object(project.id, report_object):
+            return True
+        pattern = self.config.folder_path_pattern
+        if _is_default_pattern(pattern):
+            return False
+        folder_path = self.mapper.folder_path(
+            project.name, report_object, self._predefined_folders(project.id)
+        )
+        return folder_path is None or not pattern.allowed(folder_path)
 
     def _dashboard_report_chart_urns(
         self,
-        project_id: str,
+        project: Project,
         dashboard: DashboardDefinition,
     ) -> List[str]:
         if not self.config.extract_reports:
             return []
+        project_id = project.id
+        # Personal and folder-path exclusion need the report's ancestry, which
+        # the dependency lacks; without it a dashboard would list charts the
+        # report pass never emits.
+        check_ancestry = not self.config.include_personal_folders or not (
+            _is_default_pattern(self.config.folder_path_pattern)
+        )
         report_urns: List[str] = []
         seen: Set[str] = set()
         for dependency in dashboard.dependencies:
@@ -2292,6 +2377,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 continue
             if not self.config.report_pattern.allowed(dependency.name):
                 continue
+            if check_ancestry:
+                report_object = self._linked_report_object(project_id, dependency.id)
+                if report_object is None or self._report_left_out(
+                    project, report_object
+                ):
+                    continue
             report_urn = self.mapper.report_urn(project_id, dependency.id)
             if report_urn in seen:
                 continue
@@ -2367,18 +2458,37 @@ class _LazyProjectLineage:
         self._model_tables: Optional[List[Dict[str, object]]] = None
         self._model_tables_resolved = False
 
+    def _resolve(self, part: str, fetch: Callable[[], _T]) -> Optional[_T]:
+        """Run a project-level lookup once. An unexpected error is reported
+        against the project, not the dashboard that happened to trigger it,
+        and every later consumer gets None rather than retrying."""
+        try:
+            return fetch()
+        except (MicroStrategyAuthError, ConfigurationError):
+            raise
+        except Exception as error:
+            self._source.report.warning(
+                title="Project lineage context unavailable",
+                message=(
+                    "A project-level lineage lookup failed, so this project's "
+                    "dashboards and reports are emitted without it."
+                ),
+                context=f"project_id={self._project_id}, lookup={part}",
+                exc=error,
+            )
+            return None
+
     @property
     def warehouse_context(self) -> Optional[WarehouseLineageContext]:
-        # Cached even when it raises: an error must surface once, not retry per dashboard.
-        # (This is why functools.cached_property is not used here — it retries on failure.)
+        # Resolved once even on failure (functools.cached_property would retry).
         if not self._context_resolved:
-            try:
-                self._context = self._source._get_project_warehouse_context(
-                    self._project_id,
-                    self._source_warehouses,
-                )
-            finally:
-                self._context_resolved = True
+            self._context_resolved = True
+            self._context = self._resolve(
+                "warehouse_context",
+                lambda: self._source._get_project_warehouse_context(
+                    self._project_id, self._source_warehouses
+                ),
+            )
         return self._context
 
     @property
@@ -2389,25 +2499,25 @@ class _LazyProjectLineage:
         toggling both on for the same run costs one fetch, not two.
         """
         if not self._model_tables_resolved:
-            try:
-                self._model_tables = self._source._fetch_project_model_tables(
-                    self._project_id
-                )
-            finally:
-                self._model_tables_resolved = True
+            self._model_tables_resolved = True
+            self._model_tables = self._resolve(
+                "model_tables",
+                lambda: self._source._fetch_project_model_tables(self._project_id),
+            )
         return self._model_tables
 
     @property
     def model_lineage_index(self) -> Optional[ModelLineageIndex]:
         if not self._index_resolved:
-            try:
-                self._index = self._source._get_project_model_lineage_index(
+            self._index_resolved = True
+            self._index = self._resolve(
+                "model_lineage_index",
+                lambda: self._source._get_project_model_lineage_index(
                     self._project_id,
                     self.warehouse_context,
                     lambda: self.model_tables,
-                )
-            finally:
-                self._index_resolved = True
+                ),
+            )
         return self._index
 
 

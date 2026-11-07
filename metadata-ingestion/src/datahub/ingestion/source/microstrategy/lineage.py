@@ -1125,7 +1125,10 @@ def bind_visualizations_by_derived_objects(
 ) -> int:
     """Set ``visualization.datasets`` from dataset-scoped derived-object ids, ignoring ids
     in any dataset's shared object catalog (they cannot discriminate). Returns the count bound."""
-    dataset_ids = {dataset.id for dataset in dashboard.datasets}
+    # Modeling documents and dossier definitions can differ in GUID case.
+    dataset_id_by_normalized = {
+        normalize_object_id(dataset.id): dataset.id for dataset in dashboard.datasets
+    }
     shared_catalog_ids = {
         normalize_object_id(object_id)
         for dataset in dashboard.datasets
@@ -1143,7 +1146,11 @@ def bind_visualizations_by_derived_objects(
                 and normalized not in shared_catalog_ids
             ):
                 owners.add(owner_by_derived_id[normalized])
-        owners &= dataset_ids
+        owners = {
+            dataset_id_by_normalized[normalize_object_id(owner)]
+            for owner in owners
+            if normalize_object_id(owner) in dataset_id_by_normalized
+        }
         if owners:
             visualization.datasets = sorted(owners)
             bound += 1

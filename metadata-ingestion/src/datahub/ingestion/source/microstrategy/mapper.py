@@ -415,7 +415,6 @@ class MicroStrategyMapper:
             current_path = f"{current_path}/{name}" if current_path else name
             folder_key = self.folder_key(project_id, current_path)
             if folder_key.guid() not in self._emitted_folder_keys:
-                self._emitted_folder_keys.add(folder_key.guid())
                 self.report.report_folder_scanned()
                 yield from gen_containers(
                     container_key=folder_key,
@@ -423,6 +422,7 @@ class MicroStrategyMapper:
                     name=name,
                     sub_types=[BIContainerSubTypes.MICROSTRATEGY_FOLDER],
                 )
+                self._emitted_folder_keys.add(folder_key.guid())
             parent_key = folder_key
 
     def folder_container_for_dashboard(
