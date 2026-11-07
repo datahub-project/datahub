@@ -207,6 +207,7 @@ transforms.RegexRouter.replacement: "events.$1"
 | **Snowflake Sink**<br/>`com.snowflake.kafka.connector.SnowflakeSinkConnector`  | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Cloud PostgreSQL Sink**<br/>`PostgresSink`                                   | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Cloud MySQL Sink**<br/>`MySqlSink`                                           | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
+| **Cloud S3 Sink**<br/>`S3_SINK`                                                | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → S3 object mapping |
 | **Cloud Snowflake Sink**<br/>`SnowflakeSink`                                   | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
 | **Debezium JDBC Sink**<br/>`io.debezium.connector.jdbc.JdbcSinkConnector`      | ✅ Full             | ✅ Partial              | Runtime API / Config-based | Topic → Table mapping     |
 | **ClickHouse Sink**<br/>`com.clickhouse.kafka.connect.ClickHouseSinkConnector` | ✅ Full             | ✅ Full                 | Runtime API / Config-based | Topic → Table mapping     |
