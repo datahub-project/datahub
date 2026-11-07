@@ -261,6 +261,7 @@ class QlikAPI(QlikBaseAPI):
                 try:
                     app.script = websocket_connection.get_script()
                 except Exception as e:
+                    app.tables_read_failed = True
                     if isinstance(e, EngineError) and e.access_denied:
                         # Cloud only lets Owner, Can manage and Can operate read
                         # the load script, so a denied read leaves the rest of

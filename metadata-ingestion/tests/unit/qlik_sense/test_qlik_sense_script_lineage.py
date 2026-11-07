@@ -324,9 +324,13 @@ LIB CONNECT TO 'A';
 SET vSchema = 'dbo';
 Orders: SQL SELECT * FROM db.s.orders;
 CALL FromInclude;
+Concatenate SQL SELECT * FROM db.s.more_orders;
+Left Join SQL SELECT * FROM db.s.regions;
 T: SQL SELECT * FROM $(vSchema).t;
 """
-    _, table = parse_load_script(script)
+    orders, table = parse_load_script(script)
+
+    assert (orders.label, table.label) == ("Orders", "T")
 
     assert table.connection is None
     assert table.sql == "SELECT * FROM $(vSchema).t"
@@ -635,6 +639,11 @@ def test_drop_condition_variables(sql: str, expected: str) -> None:
             "=[Year] + Year", ["Year", "Year"], id="field_named_like_function"
         ),
         pytest.param("Count({<Year={2024}>} Region)", ["Year", "Region"], id="set"),
+        pytest.param(
+            "Sum($(vSales)) + Sum($(=Max(Year))) + Sum(Amount)",
+            ["Amount"],
+            id="expansions",
+        ),
         pytest.param(
             "={$<Year={2024}, [Sales Region]-={'East'}>} Sum(Sales)",
             ["Year", "Sales Region", "Sales"],
