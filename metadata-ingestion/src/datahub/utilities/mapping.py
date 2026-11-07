@@ -115,6 +115,14 @@ class Constants:
     ADD_OWNER_OPERATION = "add_owner"
     ADD_DOMAIN_OPERATION = "add_domain"
     ADD_STRUCTURED_PROPERTY_OPERATION = "add_structured_property"
+    # Operations whose rule is applied to each item of a list-valued property.
+    # The rest (domain, doc link, structured property) keep whole-list semantics.
+    PER_LIST_ITEM_OPERATIONS = (
+        ADD_TAG_OPERATION,
+        ADD_TERM_OPERATION,
+        ADD_TERMS_OPERATION,
+        ADD_OWNER_OPERATION,
+    )
 
     OPERATION = "operation"
     OPERATION_CONFIG = "config"
@@ -295,43 +303,34 @@ class OperationProcessor:
                     except KeyError:
                         pass
 
-                maybe_match = self.get_match(
-                    self.operation_defs[operation_key][Constants.MATCH],
-                    raw_props_value,
-                )
-                if maybe_match is not None:
+                # For multi-valued operations, apply the rule to each list item on its
+                # own so that e.g. `tags: [a, b]` yields two tags rather than one tag
+                # built from the joined list.
+                if (
+                    isinstance(raw_props_value, list)
+                    and operation_type in Constants.PER_LIST_ITEM_OPERATIONS
+                ):
+                    candidate_values: List[Any] = raw_props_value
+                else:
+                    candidate_values = [raw_props_value]
+
+                for candidate_value in candidate_values:
+                    maybe_match = self.get_match(
+                        self.operation_defs[operation_key][Constants.MATCH],
+                        candidate_value,
+                    )
+                    if maybe_match is None:
+                        continue
                     operation = self.get_operation_value(
                         operation_key,
                         operation_type,
                         operation_config,
                         maybe_match,
-                        raw_props_value=raw_props_value,
+                        raw_props_value=candidate_value,
                     )
-
-                    if operation_type == Constants.ADD_TERMS_OPERATION:
-                        # add_terms operation is a special case where the operation value is a list of terms.
-                        # We want to aggregate these values with the add_term operation.
-                        operation_type = Constants.ADD_TERM_OPERATION
-
-                    if operation:
-                        if (
-                            isinstance(operation, list)
-                            and operation_type == Constants.ADD_OWNER_OPERATION
-                        ):
-                            operations_map.setdefault(operation_type, []).extend(
-                                operation
-                            )
-
-                        elif isinstance(operation, (str, list)):
-                            operations_map.setdefault(operation_type, []).extend(
-                                operation
-                                if isinstance(operation, list)
-                                else [operation]
-                            )
-                        else:
-                            operations_map.setdefault(operation_type, []).append(
-                                operation
-                            )
+                    self._add_operation_to_map(
+                        operations_map, operation_type, operation
+                    )
         except Exception as e:
             logger.error(f"Error while processing operation defs over raw_props: {e}")
 
@@ -341,6 +340,24 @@ class OperationProcessor:
         except Exception as e:
             logger.error(f"Error while converting operations map to aspects: {e}")
         return aspect_map
+
+    @staticmethod
+    def _add_operation_to_map(
+        operations_map: Dict[str, list],
+        operation_type: str,
+        operation: Optional[
+            Union[str, Dict, List[str], List[Dict], List[_StructuredPropertyEntry]]
+        ],
+    ) -> None:
+        if not operation:
+            return
+        if operation_type == Constants.ADD_TERMS_OPERATION:
+            # add_terms yields a list of term urns; aggregate them with add_term.
+            operation_type = Constants.ADD_TERM_OPERATION
+        if isinstance(operation, list):
+            operations_map.setdefault(operation_type, []).extend(operation)
+        else:
+            operations_map.setdefault(operation_type, []).append(operation)
 
     def _add_datahub_structured_properties_to_map(
         self,

@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 import pytest
+import yaml
 
 from datahub.emitter.mce_builder import validate_ownership_type
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
@@ -563,19 +564,140 @@ def test_operation_processor_list_values():
     }
     assert owner_urns == expected_owners
 
-    # Test tags from list - note: tags use the match replacement but join with comma
-    assert "add_tag" in aspect_map
+    # Each list item becomes its own tag
     tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
-    assert len(tag_aspect.tags) == 1
-    # The matched values get joined with comma, and commas get URL-encoded in URNs
-    assert tag_aspect.tags[0].tag == "urn:li:tag:list_tag1%2Ctag2%2Ctag3"
+    assert [t.tag for t in tag_aspect.tags] == [
+        "urn:li:tag:list_tag1",
+        "urn:li:tag:list_tag2",
+        "urn:li:tag:list_tag3",
+    ]
 
-    # Test terms from list - only matching items
-    assert "add_term" in aspect_map
+    # Each matching list item becomes its own term; non-matching items are skipped
     term_aspect: GlossaryTermsClass = aspect_map["add_term"]
-    assert len(term_aspect.terms) == 1
-    # The matched values get joined with comma - terms don't get URL-encoded
-    assert term_aspect.terms[0].urn == "urn:li:glossaryTerm:match1,match2"
+    assert [t.urn for t in term_aspect.terms] == [
+        "urn:li:glossaryTerm:match1",
+        "urn:li:glossaryTerm:match2",
+    ]
+
+
+_NESTED_LIST_META_MAPPING: Dict[str, Any] = {
+    "governance.tags": {
+        "match": ".*",
+        "operation": "add_tag",
+        "config": {"tag": "{{ $match }}"},
+    },
+    "governance.glossary_terms": {
+        "match": ".*",
+        "operation": "add_term",
+        "config": {"term": "{{ $match }}"},
+    },
+}
+
+
+@pytest.mark.parametrize(
+    "meta_yaml",
+    [
+        pytest.param(
+            """
+governance:
+  tags: ["Domain: Merchandising", "PII", "foo"]
+  glossary_terms: ["customer.customer-id", "customer.gender"]
+""",
+            id="inline_list",
+        ),
+        pytest.param(
+            """
+governance:
+  tags:
+    - "Domain: Merchandising"
+    - PII
+    - foo
+  glossary_terms:
+    - customer.customer-id
+    - customer.gender
+""",
+            id="block_list",
+        ),
+    ],
+)
+def test_operation_processor_nested_list_values(meta_yaml: str) -> None:
+    raw_props = yaml.safe_load(meta_yaml)
+    processor = OperationProcessor(
+        _NESTED_LIST_META_MAPPING, tag_prefix="dbt:", match_nested_props=True
+    )
+    aspect_map = processor.process(raw_props)
+
+    assert [t.tag for t in aspect_map["add_tag"].tags] == [
+        "urn:li:tag:dbt:Domain: Merchandising",
+        "urn:li:tag:dbt:PII",
+        "urn:li:tag:dbt:foo",
+    ]
+    assert [t.urn for t in aspect_map["add_term"].terms] == [
+        "urn:li:glossaryTerm:customer.customer-id",
+        "urn:li:glossaryTerm:customer.gender",
+    ]
+
+
+def test_operation_processor_list_values_use_capture_groups() -> None:
+    processor = OperationProcessor(
+        {
+            "tags": {
+                "match": "team:(.*)",
+                "operation": "add_tag",
+                "config": {"tag": "owner_{{ $match }}"},
+            }
+        }
+    )
+    aspect_map = processor.process({"tags": ["team:a", "other", "team:b"]})
+    assert [t.tag for t in aspect_map["add_tag"].tags] == [
+        "urn:li:tag:owner_a",
+        "urn:li:tag:owner_b",
+    ]
+
+
+def test_operation_processor_add_terms_list_values_with_separator() -> None:
+    processor = OperationProcessor(
+        {
+            "terms": {
+                "match": ".*",
+                "operation": "add_terms",
+                "config": {"separator": ";"},
+            }
+        }
+    )
+    aspect_map = processor.process({"terms": ["a.x;a.y", "b, with comma"]})
+    assert [t.urn for t in aspect_map["add_term"].terms] == [
+        "urn:li:glossaryTerm:a.x",
+        "urn:li:glossaryTerm:a.y",
+        "urn:li:glossaryTerm:b, with comma",
+    ]
+
+
+def test_operation_processor_list_values_non_string_items() -> None:
+    # Non-string items follow the same type rules as scalar values: they only
+    # match a match clause of the same type, and other items are ignored.
+    processor = OperationProcessor(
+        {
+            "flags": {
+                "match": True,
+                "operation": "add_tag",
+                "config": {"tag": "flagged"},
+            },
+            "labels": {
+                "match": ".*",
+                "operation": "add_tag",
+                "config": {"tag": "{{ $match }}"},
+            },
+        }
+    )
+    aspect_map = processor.process(
+        {"flags": [False, True], "labels": ["x", 1, None, {"k": "v"}, "y"]}
+    )
+    assert [t.tag for t in aspect_map["add_tag"].tags] == [
+        "urn:li:tag:flagged",
+        "urn:li:tag:x",
+        "urn:li:tag:y",
+    ]
 
 
 def test_operation_processor_add_structured_property_default_value():
