@@ -69,6 +69,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     ResolvedConnection,
     ScriptTable,
     ScriptTableLineage,
+    apply_preceding_loads,
     brackets_to_backticks,
     connection_lookup_names,
     drop_condition_variables,
@@ -1037,12 +1038,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         lineage.upstream_urns.extend(
             urn for urn in upstream_urns if urn not in lineage.upstream_urns
         )
+        sql_columns: Dict[str, List[str]] = {}
         for column in result.column_lineage or []:
-            lineage.column_upstreams.setdefault(column.downstream.column, []).extend(
+            sql_columns.setdefault(column.downstream.column, []).extend(
                 column_refs_to_schema_field_urns(
                     ref for ref in column.upstreams if ref.table in upstream_urns
                 )
             )
+        for field, upstreams in apply_preceding_loads(
+            script_table.preceding_loads, sql_columns
+        ).items():
+            lineage.column_upstreams.setdefault(field, []).extend(upstreams)
 
     def _build_script_tables(self, app: App) -> List[ScriptTableLineage]:
         if not app.script:

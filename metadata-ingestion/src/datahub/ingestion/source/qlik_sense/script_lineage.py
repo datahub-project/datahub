@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List, Optional
+from typing import AbstractSet, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -69,8 +69,27 @@ CONDITION_START_RE = re.compile(r"(?:\b(?:WHERE|ON|AND|OR)|\()\s*$", re.IGNORECA
 OPERAND_END_RE = re.compile(r"[\w'\"`\])]\s*$")
 CONDITION_JOIN_RE = re.compile(r"\s+(?:AND|OR)\b", re.IGNORECASE)
 LOAD_RE = re.compile(r"^LOAD\b", re.IGNORECASE)
-LOAD_SOURCE_RE = re.compile(r"\b(?:FROM|RESIDENT|INLINE|AUTOGENERATE)\b", re.IGNORECASE)
+LOAD_SOURCE_RE = re.compile(
+    r"\b(?:FROM|RESIDENT|INLINE|AUTOGENERATE)\b"
+    r"|\bFROM_FIELD\s*\(|\bEXTENSION\s+[\w.]+\s*\(",
+    re.IGNORECASE,
+)
 QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]")
+LOAD_FIELDS_RE = re.compile(
+    r"^LOAD\s+(?:DISTINCT\s+)?(?P<fields>.*)$", re.IGNORECASE | re.DOTALL
+)
+# Clauses a preceding LOAD may have after its field list.
+LOAD_CLAUSE_RE = re.compile(r"\b(?:WHERE|WHILE|GROUP\s+BY|ORDER\s+BY)\b", re.IGNORECASE)
+# Qlik key fields are often named with a leading %, such as %OrderKey.
+_BARE_FIELD_NAME = r"(?:%|[^\W\d])[\w.%]*"
+_FIELD_NAME = (
+    rf"(?:\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|(?P<bare>{_BARE_FIELD_NAME}))"
+)
+# Greedy, so the last AS names the field.
+LOAD_ALIAS_RE = re.compile(
+    rf"^(?P<expr>.+)\s+AS\s+{_FIELD_NAME}$", re.IGNORECASE | re.DOTALL
+)
+LOAD_FIELD_RE = re.compile(rf"^{_FIELD_NAME}$")
 DATABASE_RE = re.compile(
     r"(?:^|[;\s])(?:database|initial catalog|catalog|conncatalog)\s*=\s*[\"'\[]?"
     r"(?P<db>[^;\]\"']+)",
@@ -85,26 +104,30 @@ SET_VALUES_NEXT_RE = re.compile(r"\s*[-+*/]\s*\{")
 # Interpretation functions such as Date#(OrderDate) end their name with #.
 FUNCTION_CALL_RE = re.compile(r"\s*#?\s*\(")
 # Operators and aggregation qualifiers, as in Sum(DISTINCT TOTAL Amount).
-EXPRESSION_KEYWORDS = {
-    "all",
+EXPRESSION_OPERATORS = {
     "and",
     "bitand",
     "bitnot",
     "bitor",
     "bitxor",
-    "distinct",
     "follows",
     "like",
-    "nodistinct",
     "not",
     "or",
     "precedes",
-    "total",
     "xor",
 }
+# Aggregation qualifiers only exist in chart expressions, so in a LOAD they
+# are column names.
+EXPRESSION_KEYWORDS = EXPRESSION_OPERATORS | {"all", "distinct", "nodistinct", "total"}
+# A field list item that is only a variable, as in LOAD $(vFields).
+WHOLE_VARIABLE_RE = re.compile(r"^\s*\$\([^()]*\)\s*$")
+# A field named by a variable, as in amount AS $(vName), which LOAD_ALIAS_RE
+# does not read as a name.
+VARIABLE_ALIAS_RE = re.compile(r"\s+AS\s+\$\(", re.IGNORECASE)
 # Single-quoted text is a string literal in a chart expression, not a field.
 EXPRESSION_NAME_RE = re.compile(
-    r"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>[^\W\d][\w.]*)"
+    rf"\[(?P<bracket>[^\]]+)\]|\"(?P<double>[^\"]+)\"|'[^']*'|(?P<bare>{_BARE_FIELD_NAME})"
 )
 # A driver or provider names the engine, whatever the rest of the string says.
 DRIVER_RE = re.compile(
@@ -184,10 +207,26 @@ PLATFORM_KEYWORD_RES: Dict[str, "re.Pattern[str]"] = {
 }
 
 
+class LoadField(BaseModel):
+    name: str
+    # Names the field's expression reads from the statement below it.
+    sources: List[str]
+
+
+class PrecedingLoad(BaseModel):
+    # LOAD * passes every field of the statement below through.
+    keeps_all: bool = False
+    fields: List[LoadField] = []
+    # A $(variable) left in the field list may hold any fields.
+    unreadable: bool = False
+
+
 class ScriptTable(BaseModel):
     label: str
     connection: Optional[str] = None
     sql: str
+    # The LOAD statements stacked on the SQL, top first.
+    preceding_loads: List[PrecedingLoad] = []
 
 
 class ScriptTableLineage(BaseModel):
@@ -444,6 +483,7 @@ class _ScriptParser(BaseModel):
     tables: List[ScriptTable] = []
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
     pending_label: Optional[str] = None
+    pending_loads: List[PrecedingLoad] = []
     # A SELECT under a preceding LOAD that adds to an unknown table.
     pending_skip: bool = False
     # The table a Concatenate or Join without a target adds to.
@@ -464,6 +504,7 @@ class _ScriptParser(BaseModel):
         self.flow.forget_state()
         self.last_label = None
         self.pending_label = None
+        self.pending_loads = []
         self.pending_skip = False
 
     def _call(self, name: str) -> None:
@@ -488,18 +529,24 @@ class _ScriptParser(BaseModel):
             return
         if self.flow.record_variable(statement):
             self.pending_label = None
+            self.pending_loads = []
             return
         call = CALL_RE.match(statement)
         if call:
             self.pending_label = None
+            self.pending_loads = []
             self._call(call.group("name"))
             return
         connect = CONNECT_RE.match(statement)
         if connect:
             self.flow.state.connection = _first_group(connect).strip()
+            self.pending_label = None
+            self.pending_loads = []
             return
         if DISCONNECT_RE.match(statement):
             self.flow.state.connection = None
+            self.pending_label = None
+            self.pending_loads = []
             return
 
         label: Optional[str] = None
@@ -529,21 +576,27 @@ class _ScriptParser(BaseModel):
                         label=table_label,
                         connection=self.flow.state.connection,
                         sql=sql.group("sql"),
+                        preceding_loads=self.pending_loads,
                     )
                 )
                 self.last_label = table_label
             self.pending_label = None
+            self.pending_loads = []
             self.pending_skip = False
         elif LOAD_RE.match(statement) and not LOAD_SOURCE_RE.search(
             QUOTED_RE.sub("", statement)
         ):
-            # A preceding LOAD names the SQL SELECT that follows it.
-            self.pending_label = label
-            self.pending_skip = skip
+            # A preceding LOAD names and shapes the SQL SELECT that follows it.
+            # Only the top one of a stack carries the label.
+            if not self.pending_loads:
+                self.pending_label = label
+                self.pending_skip = skip
+            self.pending_loads.append(_parse_load_fields(statement))
         else:
             if LOAD_RE.match(statement):
                 self.last_label = label
             self.pending_label = None
+            self.pending_loads = []
             self.pending_skip = False
 
 
@@ -577,6 +630,103 @@ def strip_set_values(expression: str) -> str:
     return "".join(kept)
 
 
+def _split_top_level(text: str) -> List[str]:
+    items: List[str] = []
+    depth = 0
+    start = 0
+    closing: Optional[str] = None
+    for index, char in enumerate(text):
+        if closing:
+            if char == closing:
+                closing = None
+        elif char in QUOTE_PAIRS:
+            closing = QUOTE_PAIRS[char]
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "," and depth == 0:
+            items.append(text[start:index].strip())
+            start = index + 1
+    items.append(text[start:].strip())
+    return items
+
+
+def _parse_load_fields(statement: str) -> PrecedingLoad:
+    match = LOAD_FIELDS_RE.match(statement)
+    fields_text = match.group("fields") if match else ""
+    # Mask quoted text so a keyword inside a string does not end the field list.
+    masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), fields_text)
+    clause = LOAD_CLAUSE_RE.search(masked)
+    if clause:
+        fields_text = fields_text[: clause.start()]
+    load = PrecedingLoad()
+    for item in _split_top_level(fields_text):
+        if item == "*":
+            load.keeps_all = True
+            continue
+        alias = LOAD_ALIAS_RE.match(item)
+        field = None if alias else LOAD_FIELD_RE.match(item)
+        named = alias or field
+        name = (
+            named.group("bracket") or named.group("double") or named.group("bare")
+            if named
+            else None
+        )
+        # Only a variable standing for whole fields or naming a field may hold
+        # any of the columns below. One inside an expression only changes that
+        # field's value.
+        if (
+            WHOLE_VARIABLE_RE.match(alias.group("expr") if alias else item)
+            or (name is not None and "$(" in name)
+            or (name is None and VARIABLE_ALIAS_RE.search(item))
+        ):
+            load.unreadable = True
+            if name is not None and "$(" in name:
+                continue
+        if alias and name is not None:
+            load.fields.append(
+                LoadField(
+                    name=name,
+                    sources=expression_names(
+                        alias.group("expr"), keywords=EXPRESSION_OPERATORS
+                    ),
+                )
+            )
+        # Qlik names an unaliased expression after its text, which no chart
+        # or SQL column would match.
+        elif field and name is not None:
+            load.fields.append(LoadField(name=name, sources=[name]))
+    return load
+
+
+def apply_preceding_loads(
+    preceding_loads: List[PrecedingLoad],
+    column_upstreams: Dict[str, List[str]],
+) -> Dict[str, List[str]]:
+    """Rename SQL columns to the fields the LOAD statements above them produce,
+    carrying each field's upstream columns."""
+    for load in reversed(preceding_loads):
+        by_name = {
+            name.lower(): upstreams for name, upstreams in column_upstreams.items()
+        }
+        column_upstreams = {
+            # A $(variable) may hold any of the columns below, so they are kept.
+            **(column_upstreams if load.keeps_all or load.unreadable else {}),
+            **{
+                field.name: list(
+                    dict.fromkeys(
+                        upstream
+                        for source in field.sources
+                        for upstream in by_name.get(source.lower(), [])
+                    )
+                )
+                for field in load.fields
+            },
+        }
+    return column_upstreams
+
+
 def _strip_expansions(expression: str) -> str:
     """Drop $(...) expansions, which can nest parentheses as in $(=Max(Year))."""
     kept: List[str] = []
@@ -595,7 +745,9 @@ def reads_unknown_fields(expression: str) -> bool:
     return "$(" in strip_set_values(_strip_comments(expression, expression=True))
 
 
-def expression_names(expression: str) -> List[str]:
+def expression_names(
+    expression: str, keywords: AbstractSet[str] = EXPRESSION_KEYWORDS
+) -> List[str]:
     """Names an expression may read as fields. Not every name is a field, so
     callers keep only names that are fields of the app."""
     # The fields behind an expansion are unknown, and its name is not a field.
@@ -606,7 +758,7 @@ def expression_names(expression: str) -> List[str]:
     for match in EXPRESSION_NAME_RE.finditer(expression):
         bare = match.group("bare")
         if bare and (
-            bare.lower() in EXPRESSION_KEYWORDS
+            bare.lower() in keywords
             # A function call such as Year(OrderDate), even when an app field
             # has the same name.
             or FUNCTION_CALL_RE.match(expression, match.end())

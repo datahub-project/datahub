@@ -1,8 +1,9 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import pytest
 
 from datahub.ingestion.source.qlik_sense.script_lineage import (
+    apply_preceding_loads,
     connection_lookup_names,
     drop_condition_variables,
     expression_names,
@@ -416,6 +417,178 @@ def test_connection_lookup_names_strips_cloud_space() -> None:
     assert connection_lookup_names("Sales SQL") == ["Sales SQL"]
 
 
+PRECEDING_LOAD_SCRIPT = """
+LIB CONNECT TO 'Sales SQL';
+Orders:
+LOAD OrderID AS [Order Id], [Net Sales], %OrderKey,
+     Year(order_date) & '-' & Month(order_date) AS Period,
+     'ERP' AS Source, Upper(region)
+WHERE amount > 0;
+LOAD *, order_id AS OrderID, amount AS [Net Sales], order_id AS %OrderKey;
+SQL SELECT order_id, amount, order_date, region FROM dbo.orders;
+"""
+
+
+def test_preceding_loads_rename_sql_columns() -> None:
+    (table,) = parse_load_script(PRECEDING_LOAD_SCRIPT)
+
+    assert table.label == "Orders"
+    assert apply_preceding_loads(
+        table.preceding_loads,
+        {
+            "ORDER_ID": ["order_id_urn"],
+            "amount": ["amount_urn"],
+            "order_date": ["order_date_urn"],
+            "region": ["region_urn"],
+        },
+    ) == {
+        "Order Id": ["order_id_urn"],
+        "Net Sales": ["amount_urn"],
+        "%OrderKey": ["order_id_urn"],
+        "Period": ["order_date_urn"],
+        "Source": [],
+    }
+
+
+def test_preceding_load_function_is_not_a_column() -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD Year(order_date) AS OrderYear;\n"
+        "SQL SELECT Year, order_date FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(
+        table.preceding_loads,
+        {"Year": ["year_urn"], "order_date": ["order_date_urn"]},
+    ) == {"OrderYear": ["order_date_urn"]}
+
+
+def test_preceding_load_interpretation_function_is_not_a_column() -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD Date#(order_date, 'YYYYMMDD') AS OrderDay;\n"
+        "SQL SELECT Date, order_date FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(
+        table.preceding_loads,
+        {"Date": ["date_urn"], "order_date": ["order_date_urn"]},
+    ) == {"OrderDay": ["order_date_urn"]}
+
+
+@pytest.mark.parametrize(
+    "field_list, expected",
+    [
+        pytest.param("$(vOrderFields)", {"order_id": ["order_id_urn"]}, id="variable"),
+        pytest.param(
+            "order_id AS OrderKey, $(vMoreFields)",
+            {"order_id": ["order_id_urn"], "OrderKey": ["order_id_urn"]},
+            id="variable_with_fields",
+        ),
+        pytest.param(
+            "$(vFields) AS Renamed",
+            {"order_id": ["order_id_urn"], "Renamed": []},
+            id="variable_in_alias",
+        ),
+        pytest.param("Upper(order_id)", {}, id="unaliased_expression"),
+        pytest.param(
+            "order_id AS [$(vName)]",
+            {"order_id": ["order_id_urn"]},
+            id="variable_in_bracketed_alias",
+        ),
+        pytest.param(
+            "order_id AS $(vName)",
+            {"order_id": ["order_id_urn"]},
+            id="variable_as_alias",
+        ),
+        pytest.param(
+            "[$(vFields)], order_id AS OrderKey",
+            {"order_id": ["order_id_urn"], "OrderKey": ["order_id_urn"]},
+            id="bracketed_variable_field",
+        ),
+        pytest.param(
+            "order_id * $(vRate) AS Net",
+            {"Net": ["order_id_urn"]},
+            id="variable_inside_expression",
+        ),
+        pytest.param(
+            "order_id * $(order_id) AS Net, '$(vSource)' AS Source",
+            {"Net": ["order_id_urn"], "Source": []},
+            id="variable_name_is_not_a_source",
+        ),
+    ],
+)
+def test_preceding_load_with_unknown_fields(
+    field_list: str, expected: Dict[str, List[str]]
+) -> None:
+    (table,) = parse_load_script(
+        f"""
+LIB CONNECT TO 'Sales SQL';
+Orders:
+LOAD {field_list};
+SQL SELECT order_id FROM dbo.orders;
+"""
+    )
+
+    assert (
+        apply_preceding_loads(table.preceding_loads, {"order_id": ["order_id_urn"]})
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    "between",
+    [
+        pytest.param("Xml: LOAD Value FROM_FIELD (Raw, Payload);", id="from_field"),
+        pytest.param(
+            "Scores: LOAD Id, Score EXTENSION Model.Predict(Orders{Id});",
+            id="extension",
+        ),
+        pytest.param("LOAD Value;\nLIB CONNECT TO 'Sales SQL';", id="connect"),
+        pytest.param("LOAD Value;\nDISCONNECT;", id="disconnect"),
+    ],
+)
+def test_load_that_does_not_precede_select_keeps_sql_columns(between: str) -> None:
+    (table,) = parse_load_script(
+        f"""
+LIB CONNECT TO 'Sales SQL';
+{between}
+Orders:
+SQL SELECT order_id FROM dbo.orders;
+"""
+    )
+
+    assert table.preceding_loads == []
+    assert apply_preceding_loads(
+        table.preceding_loads, {"order_id": ["order_id_urn"]}
+    ) == {"order_id": ["order_id_urn"]}
+
+
+@pytest.mark.parametrize(
+    "field_list",
+    [
+        pytest.param("order_id, from_field", id="field_named_from_field"),
+        pytest.param("order_id, extension", id="field_named_extension"),
+        pytest.param("order_id, '$(vReloadDate)' AS loaded", id="variable_in_string"),
+    ],
+)
+def test_preceding_load_fields_that_look_like_clauses(field_list: str) -> None:
+    (table,) = parse_load_script(
+        f"""
+LIB CONNECT TO 'Sales SQL';
+Orders:
+LOAD {field_list};
+SQL SELECT order_id, from_field, extension, amount FROM dbo.orders;
+"""
+    )
+
+    assert "amount" not in apply_preceding_loads(
+        table.preceding_loads,
+        {
+            name: [f"{name}_urn"]
+            for name in ("order_id", "from_field", "extension", "amount")
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "sql, expected",
     [
@@ -507,3 +680,15 @@ def test_expression_names_skip_function_calls(
     expression: str, names: List[str]
 ) -> None:
     assert expression_names(expression) == names
+
+
+def test_preceding_load_keeps_columns_named_like_chart_qualifiers() -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD total AS Total, distinct AS Kind;\n"
+        "SQL SELECT total, [distinct] FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(
+        table.preceding_loads,
+        {"total": ["total_urn"], "distinct": ["distinct_urn"]},
+    ) == {"Total": ["total_urn"], "Kind": ["distinct_urn"]}
