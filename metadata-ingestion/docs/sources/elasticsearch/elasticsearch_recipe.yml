@@ -4,9 +4,18 @@ source:
     # Coordinates
     host: 'localhost:9200'
 
-    # Credentials
+    # Credentials: use one of basic auth, api_key, or aws_config
     username: user # optional
     password: pass # optional
+    # api_key: ["id", "api_key"] # or a base64-encoded "id:api_key" string
+
+    # AWS IAM (SigV4) auth for Amazon OpenSearch Service domains.
+    # Replaces username/password and api_key. Credentials resolve from explicit keys,
+    # aws_profile, aws_role, or the default AWS credential chain.
+    # Domains only accept HTTPS: use host '<domain-endpoint>:443' with use_ssl/verify_certs True.
+    # aws_config:
+    #   aws_region: us-east-1
+    #   aws_role: "arn:aws:iam::123456789012:role/DataHubOpenSearchRead" # optional
 
     # SSL support
     use_ssl: False
