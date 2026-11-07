@@ -1,0 +1,190 @@
+import re
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Set
+
+from datahub.emitter.mce_builder import (
+    SYSTEM_ACTOR,
+    get_sys_time,
+    make_tag_urn,
+    make_user_urn,
+)
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.github_documents.github_documents_report import (
+    GitHubDocumentsSourceReport,
+)
+from datahub.ingestion.source.github_documents.okf_frontmatter import (
+    OkfFrontmatter,
+)
+from datahub.ingestion.source.github_documents.okf_patches import (
+    reconcile_okf_associations,
+)
+from datahub.metadata.schema_classes import (
+    GlossaryTermInfoClass,
+    MetadataAttributionClass,
+    MetadataChangeProposalClass,
+    OkfPropertiesClass,
+    OkfSourceFileClass,
+    SubTypesClass,
+    _Aspect,
+)
+from datahub.metadata.urns import Urn
+from datahub.specific.document import DocumentPatchBuilder
+
+MAPPING_VERSION = "2"
+NATIVE_MAPPINGS: Dict[str, str] = {
+    "title": "documentInfo.title",
+    "type": "subTypes",
+    "owners": "ownership",
+    "tags": "globalTags",
+    "glossary_terms": "glossaryTerms",
+}
+EMAIL_PATTERN = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
+
+
+@dataclass
+class OkfMapping:
+    title: Optional[str]
+    aspects: List[_Aspect]
+    patches: List[MetadataChangeProposalClass]
+
+
+def _optional_string(values: Dict[str, object], key: str) -> Optional[str]:
+    value = values.get(key)
+    return value if isinstance(value, str) else None
+
+
+def _resolve_term_name(name: str, ctx: PipelineContext) -> Optional[str]:
+    if ctx.graph is None:
+        return None
+    candidates = ctx.graph.get_urns_by_filter(
+        entity_types=["glossaryTerm"],
+        extraFilters=[{"field": "name", "condition": "EQUAL", "values": [name]}],
+    )
+    matches: Set[str] = set()
+    for urn in candidates:
+        info = ctx.graph.get_aspect(urn, GlossaryTermInfoClass)
+        if info is None:
+            return None
+        if info.name == name:
+            matches.add(urn)
+            if len(matches) > 1:
+                return None
+    return next(iter(matches)) if matches else None
+
+
+def _resolve_reference(value: str, key: str, ctx: PipelineContext) -> Optional[str]:
+    if value.startswith("urn:"):
+        parsed = Urn.from_string(value)
+        if key == "owners":
+            return value
+        expected = {"tags": "tag", "glossary_terms": "glossaryTerm"}
+        return value if parsed.entity_type == expected[key] else None
+    if key == "owners":
+        urn = make_user_urn(value)
+        # An unqualified owner could be either a user or a team. Only map it
+        # when the catalog confirms that it identifies a user.
+        if EMAIL_PATTERN.fullmatch(value) or (ctx.graph and ctx.graph.exists(urn)):
+            return urn
+        return None
+    if key == "tags":
+        urn = make_tag_urn(value)
+        return urn if ctx.graph is None or ctx.graph.exists(urn) else None
+    return _resolve_term_name(value, ctx)
+
+
+def map_okf(
+    frontmatter: OkfFrontmatter,
+    *,
+    document_urn: str,
+    source_file: OkfSourceFileClass,
+    attribution_source: Optional[str],
+    ctx: PipelineContext,
+    report: GitHubDocumentsSourceReport,
+) -> Optional[OkfMapping]:
+    values = frontmatter.values
+
+    def unresolved(key: str) -> None:
+        report.okf_unresolved_values += 1
+        report.warning(
+            title="Unresolved OKF value",
+            message=(
+                "A frontmatter value could not be mapped; it remains in "
+                "okfProperties.frontmatter."
+            ),
+            context=f"path={source_file.path}, key={key}",
+        )
+
+    concept_type = _optional_string(values, "type")
+    if not concept_type or not concept_type.strip():
+        unresolved("type")
+        return None
+
+    aspects: List[_Aspect] = [
+        OkfPropertiesClass(
+            okfVersion=_optional_string(values, "okfVersion"),
+            id=_optional_string(values, "id"),
+            type=concept_type,
+            description=_optional_string(values, "description"),
+            frontmatter=frontmatter.json,
+            raw=frontmatter.raw,
+            sourceFile=source_file,
+            mappingVersion=MAPPING_VERSION,
+        )
+    ]
+    title: Optional[str] = None
+    patcher = DocumentPatchBuilder(document_urn)
+    for key, target in NATIVE_MAPPINGS.items():
+        if target == "documentInfo.title":
+            if key in values:
+                value = values[key]
+                if isinstance(value, str) and value.strip():
+                    title = value
+                else:
+                    unresolved(key)
+            continue
+        if target == "subTypes":
+            aspects.append(SubTypesClass(typeNames=[concept_type]))
+            continue
+        value = values.get(key, [])
+        entries = value if isinstance(value, list) else [value]
+        resolved: List[str] = []
+        allow_removals = True
+        for entry in entries:
+            urn = None
+            if isinstance(entry, str) and entry.strip():
+                try:
+                    urn = _resolve_reference(entry.strip(), key, ctx)
+                except Exception:
+                    # A failed catalog lookup or invalid URN must not discard
+                    # the concept, including its original unresolved value.
+                    urn = None
+            if urn is None:
+                unresolved(key)
+                # A failed resolution does not prove that a previously mapped
+                # value was removed from the file. Reconcile this key add-only.
+                allow_removals = False
+            elif urn not in resolved:
+                resolved.append(urn)
+
+        attribution = MetadataAttributionClass(
+            time=get_sys_time(),
+            actor=SYSTEM_ACTOR,
+            source=attribution_source,
+            sourceDetail={
+                "origin": "okf",
+                "path": source_file.path,
+                "commit": source_file.commit or "unknown",
+                "key": key,
+                "mappingVersion": MAPPING_VERSION,
+            },
+        )
+        reconcile_okf_associations(
+            patcher,
+            aspect_name=target,
+            urns=resolved,
+            attribution=attribution,
+            allow_removals=allow_removals,
+            ctx=ctx,
+            report=report,
+        )
+    return OkfMapping(title=title, aspects=aspects, patches=patcher.build())

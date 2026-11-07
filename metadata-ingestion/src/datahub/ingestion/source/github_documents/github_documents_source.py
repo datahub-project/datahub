@@ -6,10 +6,11 @@ import hashlib
 import json
 import logging
 import os
-from functools import partial
+from functools import cached_property, partial
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import (
+    datahub_guid,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
@@ -31,6 +32,9 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.filters import RemovedStatusFilter
+from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
+    DatahubIngestionRunSummaryProvider,
+)
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.github_documents.github_api import (
     GitHubApiClient,
@@ -51,6 +55,13 @@ from datahub.ingestion.source.github_documents.github_documents_report import (
 from datahub.ingestion.source.github_documents.github_hierarchy import (
     GitHubHierarchyExtractor,
 )
+from datahub.ingestion.source.github_documents.okf_frontmatter import (
+    parse_okf_frontmatter,
+)
+from datahub.ingestion.source.github_documents.okf_mapping import (
+    MAPPING_VERSION,
+    map_okf,
+)
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -67,6 +78,8 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DocumentInfoClass,
     DocumentStateClass,
+    ExecutionRequestInputClass,
+    OkfSourceFileClass,
     StatusClass,
 )
 from datahub.metadata.urns import DocumentUrn
@@ -74,7 +87,7 @@ from datahub.sdk.document import Document
 
 logger = logging.getLogger(__name__)
 
-EXTRACTION_ALGO_VERSION = "1"
+EXTRACTION_ALGO_VERSION = "2"
 LAST_EXPORTED_CONTENT_HASH_KEY = "last_exported_content_hash"
 PROP_IMPORT_SOURCE_ID = "import_source_id"
 PROP_GITHUB_FILE_PATH = "github_file_path"
@@ -82,10 +95,14 @@ PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
 _DOCUMENT_URN_PREFIX = "urn:li:document:"
 
 
-def compute_file_content_hash(content: str) -> str:
-    """Hash raw file body for change detection (plain markdown/text, no frontmatter)."""
+def compute_file_content_hash(content: str, *, enable_okf: bool = True) -> str:
+    """Hash the complete raw file so frontmatter-only edits trigger re-ingestion."""
     hash_input = json.dumps(
-        {"body": content, "algo_version": EXTRACTION_ALGO_VERSION},
+        {
+            "body": content,
+            "algo_version": EXTRACTION_ALGO_VERSION,
+            "okf_mapping_version": MAPPING_VERSION if enable_okf else None,
+        },
         sort_keys=True,
     )
     return hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
@@ -103,8 +120,8 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     documents are ingested as native (editable) documents; set ``document_import_mode`` to
     ``EXTERNAL`` for read-only references back to GitHub.
 
-    GitHub files are imported as plain text/markdown. Document metadata lives in DataHub
-    aspects and customProperties, not in repo file headers.
+    YAML frontmatter with a type key is mapped to OKF and native metadata aspects
+    when enable_okf is set. Other files are imported as plain text/markdown.
     """
 
     platform = "github"
@@ -333,7 +350,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         doc_id, document_urn = self._resolve_document_identity(
             source_id, owner_repo, file_path
         )
-        content_hash = compute_file_content_hash(content)
+        content_hash = compute_file_content_hash(
+            content, enable_okf=self.config.enable_okf
+        )
 
         if self._should_skip_unchanged_file(document_urn, content_hash):
             logger.info("Skipping unchanged file document: %s", file_path)
@@ -351,6 +370,30 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
         title = os.path.basename(file_path)
+        okf_mapping = None
+        text = content
+        if self.config.enable_okf:
+            frontmatter = parse_okf_frontmatter(
+                content, path=file_path, report=self.report
+            )
+            if frontmatter is not None:
+                okf_mapping = map_okf(
+                    frontmatter,
+                    document_urn=document_urn,
+                    source_file=OkfSourceFileClass(
+                        repo=owner_repo,
+                        path=file_path,
+                        commit=commit_sha if commit_sha != "unknown" else None,
+                        blobSha=blob_sha,
+                    ),
+                    attribution_source=self._okf_attribution_source,
+                    ctx=self.ctx,
+                    report=self.report,
+                )
+                if okf_mapping is not None:
+                    text = frontmatter.body
+                    title = okf_mapping.title or title
+                    self.report.okf_files_processed += 1
         custom_properties = {
             "import_source": "github",
             "github_repo": owner_repo,
@@ -367,7 +410,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         doc = self._build_document(
             doc_id=doc_id,
             title=title,
-            text=content,
+            text=text,
             owner_repo=owner_repo,
             branch=branch,
             github_path=file_path,
@@ -379,11 +422,41 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         # The unchanged-file short-circuit above resurrects too, so this does not
         # depend on whether the content happened to change.
         doc._set_aspect(StatusClass(removed=False))
+        if okf_mapping is not None:
+            for aspect in okf_mapping.aspects:
+                doc._set_aspect(aspect)
         self._register_hierarchy(source_id, title, parent_source_id=parent_source_id)
         self._source_id_to_urn[source_id] = str(doc.urn)
         self._attach_browse_path(doc, source_id)
         self.report.files_processed += 1
         yield from doc.as_workunits()
+        if okf_mapping is not None:
+            for index, patch in enumerate(okf_mapping.patches):
+                yield MetadataWorkUnit(
+                    id=f"{document_urn}-okf-{patch.aspectName}-{index}",
+                    mcp_raw=patch,
+                )
+
+    @cached_property
+    def _okf_attribution_source(self) -> Optional[str]:
+        if self.ctx.run_id.startswith("urn:li:dataHubExecutionRequest:"):
+            if self.ctx.graph:
+                try:
+                    execution = self.ctx.graph.get_aspect(
+                        self.ctx.run_id, ExecutionRequestInputClass
+                    )
+                    if execution and execution.source:
+                        return execution.source.ingestionSource
+                except Exception as exc:
+                    logger.debug("Could not resolve OKF ingestion source: %s", exc)
+            return None
+        if self.ctx.pipeline_config:
+            # Use the same identity as the CLI ingestion reporter.
+            key = DatahubIngestionRunSummaryProvider.generate_unique_key(
+                self.ctx.pipeline_config
+            )
+            return f"urn:li:dataHubIngestionSource:cli-{datahub_guid(key)}"
+        return None
 
     def _should_skip_unchanged_file(self, document_urn: str, content_hash: str) -> bool:
         if not self.ctx.graph:

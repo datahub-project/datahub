@@ -78,6 +78,13 @@ class GitHubDocumentsSourceConfig(
         default=True,
         description="Whether imported documents appear in global search and navigation.",
     )
+    enable_okf: bool = Field(
+        default=True,
+        description=(
+            "Parse YAML frontmatter with a type key as OKF concept metadata and map "
+            "it to native aspects. Disable to import the entire file as body text."
+        ),
+    )
     include_repository_in_browse_path: bool = Field(
         default=True,
         description=(

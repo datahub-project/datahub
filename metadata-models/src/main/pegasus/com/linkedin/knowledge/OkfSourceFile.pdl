@@ -1,0 +1,16 @@
+namespace com.linkedin.knowledge
+
+/** Git provenance of an OKF concept. */
+record OkfSourceFile {
+  /** Repository in owner/name form. */
+  repo: string
+
+  /** File path relative to the repository root. */
+  path: string
+
+  /** Commit SHA for the imported revision, when available. */
+  commit: optional string
+
+  /** Git blob SHA for the imported file, when available. */
+  blobSha: optional string
+}

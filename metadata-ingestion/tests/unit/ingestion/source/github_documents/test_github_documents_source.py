@@ -1,5 +1,7 @@
 """Unit tests for GitHubDocumentsSource."""
 
+import json
+from typing import Dict, List, Optional, Tuple, Type, TypedDict, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,12 +26,51 @@ from datahub.ingestion.source.github_documents.github_documents_source import (
     compute_file_content_hash,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathsV2Class,
+    ChangeTypeClass,
     DataPlatformInstanceClass,
     DocumentInfoClass,
     DocumentSourceTypeClass,
+    ExecutionRequestInputClass,
+    ExecutionRequestSourceClass,
+    GlobalTagsClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermInfoClass,
+    GlossaryTermsClass,
+    MetadataAttributionClass,
+    MetadataChangeProposalClass,
+    OkfPropertiesClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     StatusClass,
+    SubTypesClass,
+    TagAssociationClass,
+    _Aspect,
 )
+
+
+class PatchOperation(TypedDict):
+    op: str
+    path: str
+    value: Dict[str, object]
+
+
+def _okf_patch_operations(
+    workunits: List[MetadataWorkUnit], aspect_name: str
+) -> List[PatchOperation]:
+    operations: List[PatchOperation] = []
+    for wu in workunits:
+        metadata = wu.metadata
+        if getattr(metadata, "aspectName", None) != aspect_name:
+            continue
+        assert isinstance(metadata, MetadataChangeProposalClass)
+        assert metadata.changeType == ChangeTypeClass.PATCH
+        assert metadata.aspect is not None
+        payload = json.loads(metadata.aspect.value)
+        operations.extend(cast(List[PatchOperation], payload["patch"]))
+    return operations
 
 
 def _entity_urns_by_source_id(workunits: list) -> dict[str, str]:
@@ -660,7 +701,7 @@ def test_file_document_includes_content_hash_and_blob_sha(
 
     assert props is not None
     assert props.get("content_hash") == compute_file_content_hash(content)
-    assert props.get("extraction_algo_version") == "1"
+    assert props.get("extraction_algo_version") == "2"
     assert props.get("github_blob_sha") == "blobabc"
 
 
@@ -1273,3 +1314,544 @@ def test_existing_folder_document_does_not_overwrite_body(
         if isinstance(wu, MetadataWorkUnit) and wu.get_urn() == existing_urn
     ]
     assert any(status is not None and status.removed is False for status in statuses)
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_okf_maps_metadata_and_preserves_frontmatter(newline: str) -> None:
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("test-token"),
+            repository="example-org/analytics",
+            create_repo_root_document=False,
+        ),
+        PipelineContext(run_id="test-run"),
+    )
+    source.ctx.graph = MagicMock()
+    source.ctx.graph.exists.return_value = True
+    source.ctx.graph.get_urns_by_filter.side_effect = lambda **kwargs: (
+        ["urn:li:glossaryTerm:active-user-id"]
+        if kwargs["entity_types"] == ["glossaryTerm"]
+        else []
+    )
+    source.ctx.graph.get_aspect.side_effect = lambda urn, cls: (
+        GlossaryTermInfoClass(name="Active User", definition="", termSource="INTERNAL")
+        if cls is GlossaryTermInfoClass
+        else None
+    )
+    raw = newline.join(
+        [
+            "---",
+            'okfVersion: "1"',
+            "id: guide:mau",
+            "type: Guide",
+            "title: Monthly active users",
+            "description: How MAU is defined.",
+            'owners: [alice@example.com, "urn:li:corpGroup:data-platform"]',
+            'tags: [metrics, "urn:li:tag:reviewed"]',
+            'glossary_terms: [Active User, "urn:li:glossaryTerm:metric"]',
+            "audience: analysts",
+            "depends_on: [table:events]",
+            "reviewed: 2026-01-01",
+            "extra: {enabled: true, count: 3, empty: null}",
+            "---",
+            "",
+        ]
+    )
+    body = "# Monthly active users" + newline + "Body." + newline
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="mau.md", size=100, sha="blob123")],
+        file_content=raw + body,
+    )
+    workunits = list(source.get_workunits())
+    aspects = {
+        cls.ASPECT_NAME: next(
+            wu.get_aspect_of_type(cls)
+            for wu in workunits
+            if wu.get_aspect_of_type(cls) is not None
+        )
+        for cls in (
+            DocumentInfoClass,
+            OkfPropertiesClass,
+            SubTypesClass,
+        )
+    }
+    info = aspects["documentInfo"]
+    assert isinstance(info, DocumentInfoClass)
+    assert info.title == "Monthly active users"
+    assert info.contents.text == body
+    assert info.customProperties is not None
+    assert info.customProperties["content_hash"] == compute_file_content_hash(
+        raw + body
+    )
+    okf = aspects["okfProperties"]
+    assert isinstance(okf, OkfPropertiesClass)
+    assert okf.raw == raw
+    assert okf.okfVersion == "1"
+    assert okf.id == "guide:mau"
+    assert okf.type == "Guide"
+    assert okf.description == "How MAU is defined."
+    assert okf.sourceFile is not None
+    assert okf.sourceFile.repo == "example-org/analytics"
+    assert okf.sourceFile.path == "mau.md"
+    assert okf.sourceFile.commit == "abc123"
+    assert okf.sourceFile.blobSha == "blob123"
+    values = json.loads(okf.frontmatter)
+    assert values["audience"] == "analysts"
+    assert values["depends_on"] == ["table:events"]
+    assert values["extra"] == {"enabled": True, "count": 3, "empty": None}
+    assert values["reviewed"] == "2026-01-01"
+    assert values["owners"] == ["alice@example.com", "urn:li:corpGroup:data-platform"]
+    subtypes = aspects["subTypes"]
+    assert isinstance(subtypes, SubTypesClass)
+    assert subtypes.typeNames == ["Guide"]
+    owners = [
+        OwnerClass.from_obj(op["value"])
+        for op in _okf_patch_operations(workunits, "ownership")
+    ]
+    tags = [
+        TagAssociationClass.from_obj(op["value"])
+        for op in _okf_patch_operations(workunits, "globalTags")
+    ]
+    terms = [
+        GlossaryTermAssociationClass.from_obj(op["value"])
+        for op in _okf_patch_operations(workunits, "glossaryTerms")
+    ]
+    assert [owner.owner for owner in owners] == [
+        "urn:li:corpuser:alice@example.com",
+        "urn:li:corpGroup:data-platform",
+    ]
+    assert all(owner.type == OwnershipTypeClass.TECHNICAL_OWNER for owner in owners)
+    assert [tag.tag for tag in tags] == [
+        "urn:li:tag:metrics",
+        "urn:li:tag:reviewed",
+    ]
+    assert [term.urn for term in terms] == [
+        "urn:li:glossaryTerm:active-user-id",
+        "urn:li:glossaryTerm:metric",
+    ]
+    for key, associations in [
+        ("owners", owners),
+        ("tags", tags),
+        ("glossary_terms", terms),
+    ]:
+        for association in associations:
+            attribution = association.attribution
+            assert attribution is not None
+            assert attribution.source is None
+            assert attribution.actor == "urn:li:corpuser:__datahub_system"
+            assert attribution.sourceDetail == {
+                "origin": "okf",
+                "path": "mau.md",
+                "commit": "abc123",
+                "key": key,
+                "mappingVersion": okf.mappingVersion,
+            }
+    assert source.report.okf_files_processed == 1
+    assert source.report.okf_unresolved_values == 0
+
+
+@pytest.mark.parametrize(
+    "content,enabled,warning",
+    [
+        ("# Plain markdown\nBody.\n", True, False),
+        ("---\ntitle: Some title\naudience: analysts\n---\n# Body\n", True, False),
+        ("---\ntype: Guide\nowners: [\n---\n# Body\n", True, True),
+        ("---\ntype: Guide\n# No closing delimiter\n", True, True),
+        ("---\ntype: Guide\ntitle: Overridden\n---\n# Body\n", False, False),
+        ("---\ntype: Guide\ntype: Table\n---\n# Body\n", True, True),
+    ],
+)
+def test_non_okf_and_invalid_frontmatter_preserve_original(
+    source: GitHubDocumentsSource, content: str, enabled: bool, warning: bool
+) -> None:
+    source.config.enable_okf = enabled
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/readme.md", size=100)],
+        file_content=content,
+    )
+    workunits = list(source.get_workunits())
+    infos = _document_infos_by_source_id(workunits)
+    info = infos[make_file_source_id(source.config.repository, "docs/readme.md")]
+    assert info.title == "readme.md"
+    assert info.contents.text == content
+    assert not any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
+    assert source.report.okf_parse_errors == int(warning)
+    assert bool(source.report.warnings) == warning
+
+
+def test_okf_unresolved_owner_preserves_value(source: GitHubDocumentsSource) -> None:
+    content = "---\ntype: Guide\nowners: [data-platform, alice@example.com]\n---\nBody"
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=content,
+    )
+    workunits = list(source.get_workunits())
+    owners = [
+        OwnerClass.from_obj(op["value"])
+        for op in _okf_patch_operations(workunits, "ownership")
+    ]
+    okf = next(
+        wu.get_aspect_of_type(OkfPropertiesClass)
+        for wu in workunits
+        if wu.get_aspect_of_type(OkfPropertiesClass)
+    )
+    assert okf is not None
+    assert [owner.owner for owner in owners] == ["urn:li:corpuser:alice@example.com"]
+    assert json.loads(okf.frontmatter)["owners"] == [
+        "data-platform",
+        "alice@example.com",
+    ]
+    assert source.report.okf_unresolved_values == 1
+    assert source.report.warnings
+
+
+def test_okf_resolves_username_and_executor_attribution(
+    source: GitHubDocumentsSource,
+) -> None:
+    source.ctx.run_id = "urn:li:dataHubExecutionRequest:test-run"
+    source.ctx.graph = MagicMock()
+    source.ctx.graph.get_urns_by_filter.side_effect = lambda **kwargs: (
+        ["urn:li:glossaryTerm:active-user-id"]
+        if kwargs["entity_types"] == ["glossaryTerm"]
+        else []
+    )
+    execution = ExecutionRequestInputClass(
+        task="test",
+        executorId="test",
+        args={},
+        requestedAt=0,
+        source=ExecutionRequestSourceClass(
+            type="SCHEDULED_INGESTION_SOURCE",
+            ingestionSource="urn:li:dataHubIngestionSource:example",
+        ),
+    )
+    source.ctx.graph.get_aspect.side_effect = lambda urn, cls: (
+        execution
+        if cls is ExecutionRequestInputClass
+        else GlossaryTermInfoClass(
+            name="Active User", definition="", termSource="INTERNAL"
+        )
+        if cls is GlossaryTermInfoClass
+        else None
+    )
+    source.ctx.graph.exists.side_effect = lambda urn: (
+        urn
+        in {
+            "urn:li:corpuser:alice",
+            "urn:li:tag:metrics",
+        }
+    )
+    content = (
+        "---\ntype: Guide\nowners: [alice]\ntags: [metrics]\n"
+        "glossary_terms: [Active User]\n---\nBody"
+    )
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=content,
+    )
+    workunits = list(source.get_workunits())
+    for aspect_name in ["ownership", "globalTags", "glossaryTerms"]:
+        operations = _okf_patch_operations(workunits, aspect_name)
+        assert len(operations) == 1
+        attribution = operations[0]["value"]["attribution"]
+        assert isinstance(attribution, dict)
+        assert attribution["source"] == "urn:li:dataHubIngestionSource:example"
+    assert source.report.okf_unresolved_values == 0
+
+
+def test_okf_hash_detects_frontmatter_and_mapping_changes() -> None:
+    content = "---\ntype: Guide\ntitle: Original\n---\nBody"
+    assert compute_file_content_hash(content) != compute_file_content_hash(
+        content.replace("Original", "Updated")
+    )
+    assert compute_file_content_hash(content) != compute_file_content_hash(
+        content, enable_okf=False
+    )
+    with patch(
+        "datahub.ingestion.source.github_documents.github_documents_source.MAPPING_VERSION",
+        "next",
+    ):
+        new_hash = compute_file_content_hash(content)
+    assert new_hash != compute_file_content_hash(content)
+
+
+def _association_aspect(
+    key: str, entries: List[Tuple[str, Optional[MetadataAttributionClass]]]
+) -> _Aspect:
+    if key == "owners":
+        return OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    attribution=attribution,
+                )
+                for urn, attribution in entries
+            ]
+        )
+    if key == "tags":
+        return GlobalTagsClass(
+            tags=[
+                TagAssociationClass(tag=urn, attribution=attribution)
+                for urn, attribution in entries
+            ]
+        )
+    return GlossaryTermsClass(
+        terms=[
+            GlossaryTermAssociationClass(urn=urn, attribution=attribution)
+            for urn, attribution in entries
+        ],
+        auditStamp=AuditStampClass(time=0, actor="urn:li:corpuser:example"),
+    )
+
+
+def _existing_okf_attribution(
+    path: str = "docs/mau.md", origin: str = "okf"
+) -> MetadataAttributionClass:
+    return MetadataAttributionClass(
+        time=0,
+        actor="urn:li:corpuser:example",
+        source="urn:li:dataHubIngestionSource:example",
+        sourceDetail={"origin": origin, "path": path},
+    )
+
+
+def _mock_existing_associations(
+    source: GitHubDocumentsSource, current: _Aspect, *, fail_read: bool = False
+) -> MagicMock:
+    def get_aspect(urn: str, cls: Type[_Aspect]) -> Optional[_Aspect]:
+        if cls is type(current):
+            if fail_read:
+                raise RuntimeError("Catalog read failed")
+            return current
+        return None
+
+    graph = MagicMock()
+    graph.get_aspect.side_effect = get_aspect
+    graph.get_urns_by_filter.return_value = []
+    graph.exists.return_value = True
+    source.ctx.graph = graph
+    return graph
+
+
+@pytest.mark.parametrize(
+    "key,prefix,aspect_name",
+    [
+        ("owners", "corpuser", "ownership"),
+        ("tags", "tag", "globalTags"),
+        ("glossary_terms", "glossaryTerm", "glossaryTerms"),
+    ],
+)
+@pytest.mark.parametrize("field_state", ["listed", "absent", "empty"])
+def test_okf_reimport_preserves_datahub_associations(
+    source: GitHubDocumentsSource,
+    key: str,
+    prefix: str,
+    aspect_name: str,
+    field_state: str,
+) -> None:
+    file_urn = f"urn:li:{prefix}:from-file"
+    manual_urn = f"urn:li:{prefix}:from-datahub"
+    current = _association_aspect(
+        key,
+        [
+            (file_urn, _existing_okf_attribution()),
+            (manual_urn, None),
+            (file_urn, None),
+            (f"urn:li:{prefix}:other-file", _existing_okf_attribution("other.md")),
+            (
+                f"urn:li:{prefix}:other-origin",
+                _existing_okf_attribution(origin="other"),
+            ),
+        ],
+    )
+    _mock_existing_associations(source, current)
+    # Removing the key entirely must reconcile file-owned entries too.
+    field = {
+        "listed": f'{key}: ["{file_urn}"]\n',
+        "absent": "",
+        "empty": f"{key}: []\n",
+    }[field_state]
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=f"---\ntype: Guide\n{field}---\nBody",
+    )
+    workunits = list(source.get_workunits())
+    operations = _okf_patch_operations(workunits, aspect_name)
+    if field_state != "listed":
+        assert len(operations) == 1
+        removal = operations[0]
+        assert removal["op"] == "remove"
+        assert file_urn in removal["path"]
+        assert "urn:li:dataHubIngestionSource:example" in removal["path"]
+        assert "*" not in removal["path"]
+        if key == "owners":
+            assert "/TECHNICAL_OWNER/" in removal["path"]
+    else:
+        # The unattributed copy has the same patch key as our source-less add.
+        # Do not claim it, since a later file edit must preserve it as well.
+        assert operations == []
+    assert source.report.okf_unresolved_values == 0
+
+
+@pytest.mark.parametrize(
+    "key,prefix,aspect_name,value",
+    [
+        ("owners", "corpuser", "ownership", "unresolved-owner"),
+        ("tags", "tag", "globalTags", "missing-tag"),
+        ("glossary_terms", "glossaryTerm", "glossaryTerms", "Missing Term"),
+    ],
+)
+def test_okf_unresolved_values_never_remove_existing_associations(
+    source: GitHubDocumentsSource,
+    key: str,
+    prefix: str,
+    aspect_name: str,
+    value: str,
+) -> None:
+    current = _association_aspect(
+        key,
+        [(f"urn:li:{prefix}:previous", _existing_okf_attribution())],
+    )
+    graph = _mock_existing_associations(source, current)
+    graph.exists.return_value = False
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=f'---\ntype: Guide\n{key}: ["{value}"]\n---\nBody',
+    )
+    workunits = list(source.get_workunits())
+    assert _okf_patch_operations(workunits, aspect_name) == []
+    okf = next(
+        wu.get_aspect_of_type(OkfPropertiesClass)
+        for wu in workunits
+        if wu.get_aspect_of_type(OkfPropertiesClass)
+    )
+    assert okf is not None
+    assert json.loads(okf.frontmatter)[key] == [value]
+    assert source.report.okf_unresolved_values == 1
+
+
+@pytest.mark.parametrize("fail_read", [False, True])
+def test_okf_adds_owners_without_overwriting_datahub_owner(
+    source: GitHubDocumentsSource, fail_read: bool
+) -> None:
+    current = _association_aspect(
+        "owners",
+        [
+            ("urn:li:corpuser:manual", None),
+            ("urn:li:corpuser:previous", _existing_okf_attribution()),
+        ],
+    )
+    _mock_existing_associations(source, current, fail_read=fail_read)
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content="---\ntype: Guide\nowners: [alice@example.com]\n---\nBody",
+    )
+    operations = _okf_patch_operations(list(source.get_workunits()), "ownership")
+    additions = [op for op in operations if op["op"] == "add"]
+    assert len(additions) == 1
+    assert additions[0]["value"]["owner"] == "urn:li:corpuser:alice@example.com"
+    removals = [op for op in operations if op["op"] == "remove"]
+    assert all("manual" not in op["path"] for op in operations)
+    if fail_read:
+        assert removals == []
+        assert source.report.warnings
+    else:
+        assert len(removals) == 1
+        assert "urn:li:corpuser:previous" in removals[0]["path"]
+
+
+def test_okf_partial_owner_resolution_is_add_only(
+    source: GitHubDocumentsSource,
+) -> None:
+    current = _association_aspect(
+        "owners",
+        [("urn:li:corpuser:previous", _existing_okf_attribution())],
+    )
+    graph = _mock_existing_associations(source, current)
+    graph.exists.return_value = False
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=(
+            "---\ntype: Guide\nowners: [alice@example.com, unresolved-owner]\n---\nBody"
+        ),
+    )
+    operations = _okf_patch_operations(list(source.get_workunits()), "ownership")
+    assert len(operations) == 1
+    assert operations[0]["op"] == "add"
+    assert operations[0]["value"]["owner"] == "urn:li:corpuser:alice@example.com"
+    assert source.report.okf_unresolved_values == 1
+
+
+@pytest.mark.parametrize(
+    "names,expected_urn",
+    [
+        ([], None),
+        (["Active User", "Active User"], None),
+        (["Another Term"], None),
+        (["Active User"], "urn:li:glossaryTerm:term-0"),
+    ],
+)
+def test_okf_term_names_require_one_exact_match(
+    source: GitHubDocumentsSource, names: List[str], expected_urn: Optional[str]
+) -> None:
+    terms = {
+        f"urn:li:glossaryTerm:term-{index}": GlossaryTermInfoClass(
+            name=name, definition="", termSource="INTERNAL"
+        )
+        for index, name in enumerate(names)
+    }
+    source.ctx.graph = MagicMock()
+    source.ctx.graph.get_urns_by_filter.side_effect = lambda **kwargs: (
+        list(terms) if kwargs["entity_types"] == ["glossaryTerm"] else []
+    )
+    source.ctx.graph.get_aspect.side_effect = lambda urn, cls: (
+        terms.get(urn) if cls is GlossaryTermInfoClass else None
+    )
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content="---\ntype: Guide\nglossary_terms: [Active User]\n---\nBody",
+    )
+    operations = _okf_patch_operations(list(source.get_workunits()), "glossaryTerms")
+    if expected_urn is None:
+        assert operations == []
+        assert source.report.okf_unresolved_values == 1
+    else:
+        assert len(operations) == 1
+        assert operations[0]["value"]["urn"] == expected_urn
+        assert source.report.okf_unresolved_values == 0
+    source.ctx.graph.get_urns_by_filter.assert_any_call(
+        entity_types=["glossaryTerm"],
+        extraFilters=[
+            {"field": "name", "condition": "EQUAL", "values": ["Active User"]}
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "value,resolved",
+    [("Active User", False), ("urn:li:glossaryTerm:term-id", True)],
+)
+def test_okf_term_resolution_without_graph(
+    source: GitHubDocumentsSource, value: str, resolved: bool
+) -> None:
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/mau.md", size=100)],
+        file_content=f'---\ntype: Guide\nglossary_terms: ["{value}"]\n---\nBody',
+    )
+    operations = _okf_patch_operations(list(source.get_workunits()), "glossaryTerms")
+    assert len(operations) == int(resolved)
+    if resolved:
+        assert operations[0]["op"] == "add"
+        assert operations[0]["value"]["urn"] == value
+    assert source.report.okf_unresolved_values == int(not resolved)
