@@ -1943,15 +1943,15 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         context: Optional[WarehouseLineageContext],
     ) -> Optional[WarehouseLineageContext]:
         """The dataset's own source warehouse when its definition names one,
-        else the project-level context."""
+        else the project-level context. A named warehouse that does not map
+        to a platform gives None: the project's warehouse may be a different
+        platform and database, and its URNs would not be this dataset's."""
         if dataset.source_warehouse:
-            dataset_context = warehouse_context_from_datasource(
+            return warehouse_context_from_datasource(
                 dataset.source_warehouse,
                 self.config.env,
                 self.config.datasource_platform_mapping,
             )
-            if dataset_context is not None:
-                return dataset_context
         return context
 
     def _attach_dataset_warehouse_upstreams(

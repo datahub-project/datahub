@@ -82,6 +82,21 @@ def _dashboard(source_warehouse: dict | None = None) -> DashboardDefinition:
     )
 
 
+def test_unmapped_dataset_warehouse_does_not_borrow_project_context() -> None:
+    # The project's warehouse may be another platform; its URNs would be wrong.
+    source = _source()
+    dataset = _dashboard(
+        {"id": "wh-1", "name": "Legacy DB", "database": {"type": "unknown_db"}}
+    ).datasets[0]
+    project_context = WarehouseLineageContext(platform="snowflake", env="PROD")
+
+    assert source._dataset_warehouse_context(dataset, project_context) is None
+    assert (
+        source._dataset_warehouse_context(_dashboard().datasets[0], project_context)
+        == project_context
+    )
+
+
 def test_attach_dataset_warehouse_upstreams_uses_dataset_source_warehouse() -> None:
     source = _source()
     dashboard = _dashboard(
