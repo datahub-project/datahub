@@ -1,3 +1,9 @@
+# One inline fragment per type rather than "... on HasIncidents": GMS versions
+# from before that interface reject the query. Every type except Dataset,
+# DataJob, DataFlow, Dashboard and Chart is tagged NEWER_GMS so older GMS drops it.
+# ListEntityIncidentsQueryTest (datahub-graphql-core) fails when the fragments
+# drift from the types that implement HasIncidents.
+
 query listEntityIncidents(
     $urn: String!,
     $state: IncidentState,
