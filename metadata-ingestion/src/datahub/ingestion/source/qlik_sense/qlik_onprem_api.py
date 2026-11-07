@@ -264,6 +264,7 @@ class QlikOnPremAPI(QlikBaseAPI):
             app.script = self._read_load_script(
                 websocket_connection, app.id, on_error=errors.record
             )
+            app.tables_read_failed = app.script is None
         except Exception as e:
             errors.record(f"Unable to open app {app.id} in the Engine. Exception: {e}")
         finally:
