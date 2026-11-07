@@ -335,6 +335,18 @@ def test_preceding_load_function_is_not_a_column() -> None:
     ) == {"OrderYear": ["order_date_urn"]}
 
 
+def test_preceding_load_interpretation_function_is_not_a_column() -> None:
+    (table,) = parse_load_script(
+        "Orders:\nLOAD Date#(order_date, 'YYYYMMDD') AS OrderDay;\n"
+        "SQL SELECT Date, order_date FROM dbo.orders;"
+    )
+
+    assert apply_preceding_loads(
+        table.preceding_loads,
+        {"Date": ["date_urn"], "order_date": ["order_date_urn"]},
+    ) == {"OrderDay": ["order_date_urn"]}
+
+
 @pytest.mark.parametrize(
     "field_list, expected",
     [
