@@ -1516,7 +1516,7 @@ def test_onprem_script_tables_workunits(mock_onprem: MagicMock) -> None:
     (subtypes,) = [
         subtype for wu in workunits if (subtype := wu.get_aspect_of_type(SubTypesClass))
     ]
-    assert subtypes.typeNames == [DatasetSubTypes.QLIK_DATASET]
+    assert subtypes.typeNames == [DatasetSubTypes.QLIK_TABLE]
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")

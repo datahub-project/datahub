@@ -170,6 +170,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     This plugin extracts the following:
     - Qlik Sense Spaces (Cloud) or Streams (Enterprise on Windows) and Apps as Container.
     - Qlik Datasets (Cloud)
+    - Tables of each app's data model
     - Sheets as dashboard and its charts
     """
 
@@ -873,7 +874,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         )
         dataset_properties.customProperties.update(
             {
-                Constant.TYPE: "Qlik Table",
+                Constant.TYPE: DatasetSubTypes.QLIK_TABLE,
                 Constant.DATACONNECTORID: table.dataconnectorid,
                 Constant.DATACONNECTORNAME: table.dataconnectorName,
             }
@@ -911,7 +912,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_DATASET]),
+            aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_TABLE]),
         ).as_workunit()
 
     def _get_data_connections(self) -> Dict[str, DataConnectionInfo]:
@@ -1351,7 +1352,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             {
                 Constant.QRI: dataset.secureQri,
                 Constant.SPACEID: dataset.spaceId,
-                Constant.TYPE: "Qlik Dataset",
+                Constant.TYPE: DatasetSubTypes.QLIK_DATASET,
                 Constant.DATASETTYPE: dataset.type,
                 Constant.SIZE: str(dataset.size),
                 Constant.ROWCOUNT: str(dataset.rowCount),
