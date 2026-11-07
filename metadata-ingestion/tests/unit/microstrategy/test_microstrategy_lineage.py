@@ -431,6 +431,31 @@ def test_bind_visualizations_ignores_shared_catalog_ids() -> None:
     assert dashboard.visualizations[1].datasets == ["ds-a"]
 
 
+def test_bind_visualizations_matches_owner_ids_ignoring_case() -> None:
+    # The Modeling document and the dossier definition can spell a dataset
+    # GUID in different case.
+    derived_id = "A" * 32
+    dashboard = DashboardDefinition.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Dash",
+            "datasets": [{"id": "ds-a", "name": "A"}, {"id": "ds-b", "name": "B"}],
+            "visualizations": [
+                {
+                    "key": "viz-derived",
+                    "name": "Derived",
+                    "metrics": [{"id": derived_id, "type": "metric"}],
+                }
+            ],
+        }
+    )
+
+    bound = bind_visualizations_by_derived_objects(dashboard, {derived_id: "DS-A"})
+
+    assert bound == 1
+    assert dashboard.visualizations[0].datasets == ["ds-a"]
+
+
 def test_warehouse_upstream_urns_partial_parse_failure_keeps_good_statements() -> None:
     extractor = _extractor()
     context = WarehouseLineageContext(

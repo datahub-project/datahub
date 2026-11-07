@@ -965,6 +965,46 @@ def test_model_document_failure_scope(status: int, project_wide: bool) -> None:
     assert second == (None if project_wide else {"id": "dash-2"})
 
 
+@pytest.mark.parametrize(
+    "view_media, first_endpoint",
+    [(None, "dossier"), (0x6000_0000, "dossier"), (0x0800_0000, "document")],
+)
+def test_definition_endpoint_follows_view_media(
+    view_media: Optional[int], first_endpoint: str
+) -> None:
+    # Without viewMedia a 14081 object may be a dossier, and the document
+    # endpoint answers for dossiers too, minus their visualizations.
+    source = _source(
+        {
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+        }
+    )
+    calls: List[str] = []
+
+    class FakeClient:
+        def get_dossier_definition(
+            self, project_id: str, dossier_id: str
+        ) -> Dict[str, Any]:
+            calls.append("dossier")
+            return {"id": dossier_id, "datasets": []}
+
+        def get_document_definition(
+            self, project_id: str, document_id: str
+        ) -> Dict[str, Any]:
+            calls.append("document")
+            return {"id": document_id, "datasets": []}
+
+    source.client = FakeClient()  # type: ignore[assignment]
+    dashboard_object = MicroStrategyObject.model_validate(
+        {"id": "dash-1", "name": "Dash", "subtype": "14081", "viewMedia": view_media}
+    )
+
+    source._get_dashboard_definition("project-1", dashboard_object)
+
+    assert calls == [first_endpoint]
+
+
 def test_model_document_is_read_once_per_dashboard() -> None:
     # Visualization binding and document derived metrics both need it.
     source = _source()

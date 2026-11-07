@@ -143,8 +143,8 @@ class MicroStrategyClient:
         self.session.headers.update({"X-MSTR-AuthToken": token})
 
     def close(self) -> None:
-        if "X-MSTR-AuthToken" not in self.session.headers:
-            # Never logged in, so there is no session to close.
+        if self._auth_dead or "X-MSTR-AuthToken" not in self.session.headers:
+            # No live session to close: never logged in, or auth was lost.
             self.session.close()
             return
         try:

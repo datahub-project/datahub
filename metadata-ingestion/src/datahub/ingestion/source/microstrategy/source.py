@@ -1413,7 +1413,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboard_id = dashboard_object.id
         # Dossiers and documents share a subtype; viewMedia tells them apart
         # when the search result carries it. Without it, try the dossier
-        # endpoint first and keep its error for the warning.
+        # endpoint first: the document endpoint also answers for dossiers but
+        # without their chapters, pages and visualizations.
         fetches: List[Tuple[str, Callable[[], Dict[str, object]]]] = [
             (
                 "dossier",
@@ -1424,7 +1425,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 lambda: self.client.get_document_definition(project_id, dashboard_id),
             ),
         ]
-        if is_document_object(dashboard_object):
+        if dashboard_object.view_media is not None and is_document_object(
+            dashboard_object
+        ):
             fetches.reverse()
         errors: List[str] = []
         response: Optional[Dict[str, object]] = None
@@ -2271,7 +2274,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if deleted or dashboard_object.subtype != MSTR_OBJECT_SUBTYPE_DOCUMENT:
                 return
             self.client.delete_document_instance(project_id, dashboard_id, instance_id)
-        except (MicroStrategyAPIError, MicroStrategyAuthError) as error:
+        except MicroStrategyAPIError as error:
             self._record_instance_cleanup_failure(
                 "dashboard instance", project_id, instance_id, error
             )
@@ -2284,7 +2287,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         try:
             self.client.delete_report_instance(project_id, report_id, instance_id)
-        except (MicroStrategyAPIError, MicroStrategyAuthError) as error:
+        except MicroStrategyAPIError as error:
             self._record_instance_cleanup_failure(
                 "report instance", project_id, instance_id, error
             )
@@ -2297,7 +2300,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         try:
             self.client.delete_model_report_instance(project_id, report_id, instance_id)
-        except (MicroStrategyAPIError, MicroStrategyAuthError) as error:
+        except MicroStrategyAPIError as error:
             self._record_instance_cleanup_failure(
                 "Modeling report instance", project_id, instance_id, error
             )
