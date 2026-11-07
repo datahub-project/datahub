@@ -7,12 +7,11 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
  */
 public final class SearchTemplateRetirement {
   /**
-   * Shipped {@code elasticsearch.search.v3.templates.enabled} stays false. Parity coverage checks
-   * shared clause signals and records intentional DSL differences. Container tests execute shipped
-   * templates on Elasticsearch and OpenSearch. That is not a completed canary, so templates are not
-   * the configured default.
+   * Shipped {@code elasticsearch.search.v3.templates.enabled} is true, with Search V3 keyword read
+   * on. {@code SEARCH_V3_TEMPLATES_ENABLED=false} returns to the Java V2.5 builder. Parity coverage
+   * still records intentional DSL differences, and that builder stays until the rollback is unused.
    */
-  public static final boolean TEMPLATES_CONFIGURED_DEFAULT = false;
+  public static final boolean TEMPLATES_CONFIGURED_DEFAULT = true;
 
   /**
    * {@code V3SearchQueryBuilder} still builds the Search V3 Java fallback. Delete its lexical

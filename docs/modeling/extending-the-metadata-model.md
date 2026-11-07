@@ -661,7 +661,7 @@ keeps its keyword, number or date field for filters and facets only.
 
 A shared field fed by several fields holds all of their values, so an ingested description and an edited
 description are both searchable, and an edited display name is searched as `name` with the ingested
-name. A label that declares `text` and `stemmed` is analyzed on those subfields (an identifier such as `customer_id` is indexed whole and by its parts, and short parts such as `id` are dropped like any short word). `other` is a search-only keyword plus `text` and `stemmed`, because no PDL field owns it. A label whose root is an indexed keyword stays exact for sorts and filters; analyzer subfields do not replace that root. Matches in `name` and
+name. A label that declares `text` and `stemmed` is analyzed on those subfields (an identifier such as `customer_id` is indexed whole and by its parts, a camelCase name such as `SampleKafkaDataset` is indexed whole and by its words, and short parts such as `id` are dropped like any short word). `other` is a search-only keyword plus `text` and `stemmed`, because no PDL field owns it. A label whose root is an indexed keyword stays exact for sorts and filters; analyzer subfields do not replace that root. Matches in `name` and
 `qualifiedName` weigh 10, in `other` 0.5, and in every other
 shared field 1. A structured property's `.text` subfield weighs its `boostScore`, or 0.8 when that is unset. A field configuration names every opted-in property with `structuredProperties`, or one property with its full field path. A search field
 configuration (`fieldConfigurations` in the search configuration) names a shared field either directly or by any field

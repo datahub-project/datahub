@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.search;
 
+import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -16,7 +17,6 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -38,6 +38,7 @@ import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.hybrid.HybridVectorScoreNormalizer;
 import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
@@ -61,6 +62,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.env.ConfigurableEnvironment;
 
 @Slf4j
 @Configuration
@@ -72,10 +74,6 @@ public class ElasticSearchServiceFactory {
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
   @Autowired
-  @Qualifier("settingsBuilder")
-  private SettingsBuilder settingsBuilder;
-
-  @Autowired
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
@@ -84,10 +82,28 @@ public class ElasticSearchServiceFactory {
   private SearchTemplateLoader searchTemplateLoader;
 
   @Bean
+  @Nonnull
+  protected SearchV3ReadHold searchV3ReadHold(
+      @Qualifier("searchClusterRegistry") final SearchClusterRegistry searchClusterRegistry,
+      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
+          final IndexConvention indexConvention,
+      final ConfigurableEnvironment environment) {
+    return new SearchV3ReadHold(
+        searchClusterRegistry, indexConvention, entityRegistry, environment);
+  }
+
+  /**
+   * Every search consumer depends on this bean, so the read hold is applied before any of them read
+   * the V2 and V3 flags.
+   */
+  @Bean
   protected ElasticSearchConfiguration elasticSearchConfiguration(
-      final ConfigurationProvider configurationProvider) {
-    log.info("Search configuration: {}", configurationProvider.getElasticSearch().getSearch());
-    return configurationProvider.getElasticSearch();
+      final ConfigurationProvider configurationProvider, final SearchV3ReadHold searchV3ReadHold) {
+    ElasticSearchConfiguration elasticSearchConfiguration =
+        configurationProvider.getElasticSearch();
+    searchV3ReadHold.applyTo(elasticSearchConfiguration);
+    log.info("Search configuration: {}", elasticSearchConfiguration.getSearch());
+    return elasticSearchConfiguration;
   }
 
   @Bean
@@ -126,9 +142,9 @@ public class ElasticSearchServiceFactory {
 
   /**
    * The hybrid reranker when {@code elasticsearch.entityIndex.v3.hybridReadEnabled} is on with V3
-   * enabled, else null. Hybrid read reranks V3 keyword results with the vectors V3 semantic reads
-   * serve, so startup fails unless V3 keyword and semantic reads, semantic search, a real embedding
-   * provider and the active model's mapping are all configured.
+   * enabled, else null. Hybrid read reranks V3 keyword results with the vectors semantic search
+   * reads from V3, so startup fails unless semantic search reads V3, a real embedding provider is
+   * configured, and the active model's mapping is configured.
    */
   @Nullable
   static HybridSearchResultReranker hybridSearchResultReranker(
@@ -141,19 +157,13 @@ public class ElasticSearchServiceFactory {
         || !entityIndex.getV3().isHybridReadEnabled()) {
       return null;
     }
-    if (!EntitySearchIndexResolver.shouldReadV3(entityIndex)) {
+    if (!SemanticEntitySearchService.shouldReadSemanticV3(entityIndex)) {
       throw hybridConfigurationError(
-          "keyword reads must use V3 (elasticsearch.entityIndex.v3.keywordReadEnabled)");
-    }
-    if (!entityIndex.getV3().isSemanticReadEnabled()) {
-      throw hybridConfigurationError(
-          "elasticsearch.entityIndex.v3.semanticReadEnabled must be true");
+          "semantic search must read the V3 index"
+              + " (elasticsearch.entityIndex.semanticSearch.enabled, with V3 keyword reads or V2"
+              + " off)");
     }
     final SemanticSearchConfiguration semanticSearch = entityIndex.getSemanticSearch();
-    if (semanticSearch == null || !semanticSearch.isEnabled()) {
-      throw hybridConfigurationError(
-          "elasticsearch.entityIndex.semanticSearch.enabled must be true");
-    }
     final EmbeddingProvider provider = embeddingProvider.get();
     if (provider == null || provider instanceof NoOpEmbeddingProvider) {
       throw hybridConfigurationError("an embedding provider must be configured");

@@ -25,13 +25,16 @@ public class CopyDocumentsToSemanticIndicesConfig {
       final EntityService<?> entityService,
       final ConfigurationProvider configurationProvider,
       final IndexConvention indexConvention,
-      @Value("${elasticsearch.entityIndex.semanticSearch.enabled:false}") boolean enabled) {
+      @Value("${elasticsearch.entityIndex.semanticSearch.enabled}") boolean enabled,
+      // The configured property, not the live flag: a startup read hold turns V2 on in memory, and
+      // that must not start this copy. V3 document embeddings come from the V3 indexer.
+      @Value("${elasticsearch.entityIndex.v2.enabled}") boolean v2Enabled) {
 
     return new CopyDocumentsToSemanticIndices(
         opContext,
         entityService,
         configurationProvider.getElasticSearch().getEntityIndex().getSemanticSearch(),
         indexConvention,
-        enabled);
+        enabled && v2Enabled);
   }
 }

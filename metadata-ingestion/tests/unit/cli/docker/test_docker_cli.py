@@ -1,16 +1,26 @@
 import os
 from pathlib import Path
+from typing import Callable, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import click
 import pytest
 from click.testing import CliRunner
 from docker import DockerClient
+from docker.errors import DockerException, NotFound
 
-from datahub.cli.docker_check import DockerComposeVersionError
+from datahub.cli.docker_check import (
+    OPENSEARCH2_VOLUME,
+    OPENSEARCH3_VOLUME,
+    DockerComposeVersionError,
+    volume_has_named_entry,
+)
 from datahub.cli.docker_cli import (
     _check_upgrade_and_show_instructions,
     _docker_compose_v2,
+    _keep_existing_opensearch2_install,
+    _opensearch2_overrides,
+    _quickstart_honors_search_env,
     _resolve_token_service_secrets,
     check,
     download_compose_files,
@@ -498,3 +508,266 @@ def test_ingest_sample_data_puts_server_and_token_on_source(
     assert recipe["source"]["config"]["token"] == "sample-token"
     assert recipe["sink"]["config"]["server"] == "http://localhost:8080"
     assert recipe["sink"]["config"]["token"] == "sample-token"
+
+
+@pytest.mark.parametrize(
+    "has_os2, has_os3, environ, expect_pin",
+    [
+        (True, False, {}, True),
+        (False, False, {}, False),
+        (True, True, {}, False),
+        (True, False, {"DATAHUB_SEARCH_VOLUME": "os3data"}, False),
+    ],
+    ids=["existing-os2", "fresh-install", "already-on-os3", "user-override"],
+)
+def test_opensearch2_overrides(
+    has_os2: bool, has_os3: bool, environ: Dict[str, str], expect_pin: bool
+) -> None:
+    overrides = _opensearch2_overrides(
+        has_opensearch2_data=has_os2,
+        opensearch3_initialized=has_os3,
+        environ=environ,
+    )
+
+    if expect_pin:
+        assert overrides == {
+            "DATAHUB_SEARCH_TAG": "2.19.3",
+            "DATAHUB_SEARCH_VOLUME": "osdata",
+            "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED": "false",
+        }
+    else:
+        assert overrides == {}
+
+
+def test_keep_existing_opensearch2_install_sets_env(mock_click: MagicMock) -> None:
+    client = MagicMock(spec=DockerClient)
+    client.containers.list.return_value = []
+    client.volumes = MagicMock()
+    client.volumes.get.side_effect = lambda name: (
+        MagicMock() if name == OPENSEARCH2_VOLUME else _raise(NotFound(name))
+    )
+    client.containers.run.return_value = b"nodes\n"
+
+    with patch.dict(os.environ, {}, clear=False):
+        for key in (
+            "DATAHUB_SEARCH_TAG",
+            "DATAHUB_SEARCH_VOLUME",
+            "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED",
+        ):
+            os.environ.pop(key, None)
+
+        _keep_existing_opensearch2_install(client)
+
+        assert os.environ["DATAHUB_SEARCH_TAG"] == "2.19.3"
+        assert os.environ["DATAHUB_SEARCH_VOLUME"] == "osdata"
+    mock_click.secho.assert_called_once()
+
+
+def _clear_opensearch_env() -> None:
+    for key in (
+        "DATAHUB_SEARCH_TAG",
+        "DATAHUB_SEARCH_VOLUME",
+        "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED",
+    ):
+        os.environ.pop(key, None)
+
+
+@pytest.mark.parametrize(
+    "listing, expect_pin",
+    [(b"", True), (b"nodes\n", False)],
+    ids=["empty-os3", "os3-has-nodes"],
+)
+def test_keep_existing_opensearch2_ignores_empty_os3_volume(
+    mock_click: MagicMock, listing: bytes, expect_pin: bool
+) -> None:
+    client = MagicMock(spec=DockerClient)
+    client.containers.list.return_value = []
+    client.volumes.get.return_value = MagicMock()
+
+    client.containers.run.side_effect = _os3_volume_listing(listing)
+
+    with patch.dict(os.environ, {}, clear=False):
+        _clear_opensearch_env()
+        _keep_existing_opensearch2_install(client)
+
+        if expect_pin:
+            assert os.environ["DATAHUB_SEARCH_TAG"] == "2.19.3"
+            assert os.environ["DATAHUB_SEARCH_VOLUME"] == "osdata"
+            mock_click.secho.assert_called_once()
+        else:
+            assert "DATAHUB_SEARCH_TAG" not in os.environ
+            mock_click.secho.assert_not_called()
+
+
+def _raise(error: Exception) -> None:
+    raise error
+
+
+@pytest.mark.parametrize(
+    "version, expected",
+    [
+        (None, False),
+        ("default", False),
+        ("head", True),
+        ("quickstart", True),
+        ("HEAD", True),
+        ("stable", False),
+        ("v1.7.0", False),
+        ("v0.13.0", False),
+    ],
+)
+def test_quickstart_honors_search_env(version: Optional[str], expected: bool) -> None:
+    assert _quickstart_honors_search_env(version) is expected
+
+
+def test_volume_has_named_entry_treats_docker_failure_as_unknown() -> None:
+    client = MagicMock(spec=DockerClient)
+    client.volumes.get.return_value = MagicMock()
+    client.containers.run.side_effect = DockerException("pull failed")
+
+    assert volume_has_named_entry(client, OPENSEARCH3_VOLUME, "nodes") is None
+
+
+def test_volume_has_named_entry_treats_volume_lookup_failure_as_unknown() -> None:
+    client = MagicMock(spec=DockerClient)
+    client.volumes.get.side_effect = DockerException("daemon unavailable")
+
+    assert volume_has_named_entry(client, OPENSEARCH3_VOLUME, "nodes") is None
+    client.containers.run.assert_not_called()
+
+
+def test_volume_has_named_entry_is_false_for_missing_volume() -> None:
+    client = MagicMock(spec=DockerClient)
+    client.volumes.get.side_effect = NotFound("missing")
+
+    assert volume_has_named_entry(client, OPENSEARCH3_VOLUME, "nodes") is False
+    client.containers.run.assert_not_called()
+
+
+def _search_container(image_ref: str, service: str = "opensearch") -> MagicMock:
+    container = MagicMock()
+    container.labels = {"com.docker.compose.service": service}
+    container.image.tags = [image_ref]
+    container.attrs = {}
+    return container
+
+
+def _os3_volume_listing(os3_listing: bytes) -> Callable[..., bytes]:
+    def _listing(*_args: object, **kwargs: object) -> bytes:
+        volumes = kwargs["volumes"]
+        assert isinstance(volumes, dict)
+        if next(iter(volumes)) == OPENSEARCH3_VOLUME:
+            return os3_listing
+        return b"nodes\n"
+
+    return _listing
+
+
+@pytest.mark.parametrize(
+    "containers, os3_listing, expect_pin",
+    [
+        ([("opensearch", "opensearchproject/opensearch:2.19.3")], b"", True),
+        (
+            [
+                ("opensearch", "opensearchproject/opensearch:2.19.3"),
+                ("opensearch", "opensearchproject/opensearch:3.7.0"),
+            ],
+            b"",
+            False,
+        ),
+        (
+            [
+                ("opensearch", "opensearchproject/opensearch:3.7.0"),
+                ("opensearch", "opensearchproject/opensearch:2.19.3"),
+            ],
+            b"",
+            False,
+        ),
+        (
+            [
+                ("opensearch2", "opensearchproject/opensearch:2.19.3"),
+                ("opensearch3", "opensearchproject/opensearch:3.7.0"),
+            ],
+            b"",
+            False,
+        ),
+        ([("opensearch", "opensearchproject/opensearch:2.19.3")], b"nodes\n", False),
+    ],
+    ids=[
+        "2x-only-os3-empty",
+        "2x-listed-before-3x",
+        "3x-listed-before-2x",
+        "3x-service-recognized",
+        "2x-only-os3-has-nodes",
+    ],
+)
+def test_keep_existing_opensearch2_follows_container_image(
+    mock_click: MagicMock,
+    containers: List[Tuple[str, str]],
+    os3_listing: bytes,
+    expect_pin: bool,
+) -> None:
+    client = MagicMock(spec=DockerClient)
+    client.volumes.get.return_value = MagicMock()
+    client.containers.run.side_effect = _os3_volume_listing(os3_listing)
+    client.containers.list.return_value = [
+        _search_container(image, service=service) for service, image in containers
+    ]
+
+    with patch.dict(os.environ, {}, clear=False):
+        _clear_opensearch_env()
+        _keep_existing_opensearch2_install(client)
+
+        if expect_pin:
+            assert os.environ["DATAHUB_SEARCH_TAG"] == "2.19.3"
+            assert os.environ["DATAHUB_SEARCH_VOLUME"] == "osdata"
+        else:
+            assert "DATAHUB_SEARCH_TAG" not in os.environ
+
+
+def test_keep_existing_opensearch2_skips_volume_checks_when_3x_is_running(
+    mock_click: MagicMock,
+) -> None:
+    client = MagicMock(spec=DockerClient)
+    client.containers.list.return_value = [
+        _search_container("opensearchproject/opensearch:3.7.0")
+    ]
+
+    with patch.dict(os.environ, {}, clear=False):
+        _clear_opensearch_env()
+        _keep_existing_opensearch2_install(client)
+        assert "DATAHUB_SEARCH_TAG" not in os.environ
+        client.containers.run.assert_not_called()
+
+
+def test_keep_existing_opensearch2_pins_when_2x_container_and_os3_listing_fails(
+    mock_click: MagicMock,
+) -> None:
+    client = MagicMock(spec=DockerClient)
+    client.containers.list.return_value = [
+        _search_container("opensearchproject/opensearch:2.19.3")
+    ]
+    client.volumes.get.return_value = MagicMock()
+    client.containers.run.side_effect = DockerException("pull failed")
+
+    with patch.dict(os.environ, {}, clear=False):
+        _clear_opensearch_env()
+        _keep_existing_opensearch2_install(client)
+        assert os.environ["DATAHUB_SEARCH_TAG"] == "2.19.3"
+        assert os.environ["DATAHUB_SEARCH_VOLUME"] == "osdata"
+        mock_click.secho.assert_called_once()
+
+
+def test_keep_existing_opensearch2_does_not_pin_when_listing_fails(
+    mock_click: MagicMock,
+) -> None:
+    client = MagicMock(spec=DockerClient)
+    client.containers.list.return_value = []
+    client.volumes.get.return_value = MagicMock()
+    client.containers.run.side_effect = DockerException("pull failed")
+
+    with patch.dict(os.environ, {}, clear=False):
+        _clear_opensearch_env()
+        _keep_existing_opensearch2_install(client)
+        assert "DATAHUB_SEARCH_TAG" not in os.environ
+        mock_click.secho.assert_not_called()

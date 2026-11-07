@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.globalsettings.IngestDefaultGlobalSettings;
 import com.linkedin.datahub.upgrade.system.policies.IngestPolicies;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -33,13 +34,23 @@ public class IngestDefaultSystemDataConfig {
       @Value("${bootstrap.policies.file:classpath:boot/policies.json}")
           final Resource policiesResource,
       @Value("${systemUpdate.ingestPolicies.enabled}") final boolean enabled,
-      @Value("${elasticsearch.entityIndex.v2.enabled:true}") final boolean v2EntityIndexEnabled) {
+      final ElasticSearchConfiguration elasticSearchConfiguration) {
     return new IngestPolicies(
         entityService,
         entitySearchService,
         searchDocumentTransformer,
         policiesResource,
         enabled,
-        v2EntityIndexEnabled);
+        // Live value, so a startup read hold that enables V2 also writes the V2 policy index.
+        // A missing V2 block is disabled, matching the shipped default.
+        v2Enabled(elasticSearchConfiguration));
+  }
+
+  private static boolean v2Enabled(final ElasticSearchConfiguration elasticSearchConfiguration) {
+    if (elasticSearchConfiguration.getEntityIndex() == null
+        || elasticSearchConfiguration.getEntityIndex().getV2() == null) {
+      return false;
+    }
+    return elasticSearchConfiguration.getEntityIndex().getV2().isEnabled();
   }
 }

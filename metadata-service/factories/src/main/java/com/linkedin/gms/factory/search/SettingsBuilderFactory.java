@@ -23,6 +23,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,7 +33,8 @@ import org.springframework.context.annotation.Configuration;
 public class SettingsBuilderFactory {
 
   @Bean("legacySettingsBuilder")
-  @ConditionalOnProperty(name = "elasticsearch.entityIndex.v2.enabled", havingValue = "true")
+  @ConditionalOnExpression(
+      "${elasticsearch.entityIndex.v2.enabled:false} or ${elasticsearch.entityIndex.v3.enabled:false}")
   @Nonnull
   protected SettingsBuilder createLegacySettingsBuilder(
       ConfigurationProvider configProvider,
@@ -75,27 +77,23 @@ public class SettingsBuilderFactory {
     }
   }
 
+  // Created when a hold might turn V2 on. Assembled below only while the live V2 flag is on.
+  // With that flag off, semantic reads come from V3.
   @Bean("semanticSearchSettingsBuilder")
-  @ConditionalOnProperty(
-      name = "elasticsearch.entityIndex.semanticSearch.enabled",
-      havingValue = "true")
+  @ConditionalOnExpression(
+      "${elasticsearch.entityIndex.semanticSearch.enabled:false} and"
+          + " (${elasticsearch.entityIndex.v2.enabled:false} or"
+          + " ${elasticsearch.entityIndex.v3.enabled:false})")
   @Nonnull
   protected SettingsBuilder createSemanticSearchSettingsBuilder(
       ConfigurationProvider configProvider,
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
-      @Qualifier("legacySettingsBuilder") @Nullable SettingsBuilder v2SettingsBuilder,
       SearchClusterRegistry searchClusterRegistry,
       @Qualifier("entityRegistry") EntityRegistry entityRegistry) {
     ElasticSearchConfiguration semanticClusterConfig =
         searchClusterRegistry.configFor(SearchComponent.SEMANTIC);
     SemanticSearchConfiguration semanticConfig =
         semanticClusterConfig.getEntityIndex().getSemanticSearch();
-
-    if (v2SettingsBuilder == null) {
-      throw new IllegalStateException(
-          "Semantic search requires v2 entity index to be enabled. "
-              + "Please set elasticsearch.entityIndex.v2.enabled=true");
-    }
 
     SearchClientShim<?> semanticClient = searchClusterRegistry.clientFor(SearchComponent.SEMANTIC);
     log.info(
@@ -116,15 +114,18 @@ public class SettingsBuilderFactory {
 
   @Bean("settingsBuilder")
   protected SettingsBuilder getInstance(
-      ConfigurationProvider configProvider,
-      @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
+      final ElasticSearchConfiguration elasticSearchConfiguration,
       @Qualifier("legacySettingsBuilder") @Nullable SettingsBuilder legacySettingsBuilder,
       @Qualifier("multiEntitySettingsBuilder") @Nullable SettingsBuilder multiEntitySettingsBuilder,
       @Qualifier("semanticSearchSettingsBuilder") @Nullable
           SettingsBuilder semanticSearchSettingsBuilder) {
     List<SettingsBuilder> builders = new ArrayList<>();
+    boolean v2Enabled =
+        elasticSearchConfiguration.getEntityIndex() != null
+            && elasticSearchConfiguration.getEntityIndex().getV2() != null
+            && elasticSearchConfiguration.getEntityIndex().getV2().isEnabled();
 
-    if (legacySettingsBuilder != null) {
+    if (v2Enabled && legacySettingsBuilder != null) {
       builders.add(legacySettingsBuilder);
     }
 
@@ -132,7 +133,7 @@ public class SettingsBuilderFactory {
       builders.add(multiEntitySettingsBuilder);
     }
 
-    if (semanticSearchSettingsBuilder != null) {
+    if (v2Enabled && semanticSearchSettingsBuilder != null) {
       builders.add(semanticSearchSettingsBuilder);
     }
 
