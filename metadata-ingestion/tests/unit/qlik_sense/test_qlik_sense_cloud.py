@@ -1,3 +1,4 @@
+import io
 from functools import partial
 from typing import Dict, List
 from unittest.mock import MagicMock, patch
@@ -5,6 +6,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 import requests_mock as requests_mock_module
+from urllib3.connectionpool import HTTPConnectionPool
+from urllib3.exceptions import NewConnectionError
+from urllib3.response import HTTPResponse
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
@@ -132,6 +137,34 @@ def test_partly_read_app_is_marked_incomplete(
     assert app.read_errors == ["Unable to fetch sheets"]
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.App")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+def test_unread_data_model_marks_app_tables_unread(
+    mock_session_cls: MagicMock,
+    mock_websocket_cls: MagicMock,
+    mock_app_cls: MagicMock,
+) -> None:
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    app = _cloud_app()
+    mock_app_cls.model_validate.return_value = app
+
+    def unreadable_tables(
+        websocket: object, app_id: str, errors: ReadErrors
+    ) -> List[QlikTable]:
+        errors.record("Unable to fetch tables")
+        return []
+
+    with (
+        patch.object(api, "_get_app_sheets", return_value=[]),
+        patch.object(api, "_get_app_used_tables", side_effect=unreadable_tables),
+    ):
+        api._get_app("app-1")
+
+    assert app.tables_read_failed
+    assert not app.read_complete
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_unread_items_are_reported_as_failures(mock_api_cls: MagicMock) -> None:
     mock_api_cls.return_value.get_spaces.return_value = []
@@ -234,6 +267,7 @@ def test_denied_load_script_is_a_warning(mock_api_cls: MagicMock) -> None:
         _cloud_app(script_read_failed=True)
     ]
     mock_api_cls.return_value.unread_items = []
+    mock_api_cls.return_value.failed_user_lookups = {}
     source = QlikSenseSource(
         QlikSourceConfig.model_validate(CLOUD_CONFIG),
         PipelineContext(run_id="test-cloud"),
@@ -357,9 +391,32 @@ def test_bare_connection_name_resolves_in_app_space(
     assert (resolved.platform if resolved else None) == platform
 
 
-def _blackbox_table(select: str) -> QlikTable:
+@pytest.mark.parametrize(
+    "app_space, platform", [("space-1", None), ("space-unknown", "snowflake")]
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_bare_connection_name_does_not_resolve_in_another_space(
+    mock_api_cls: MagicMock, app_space: str, platform: str
+) -> None:
+    mock_api_cls.return_value.spaces = {"space-1": "Finance", "space-2": "Sales"}
+    mock_api_cls.return_value.get_data_connections.return_value = {
+        "Sales:Warehouse": infer_data_connection("Warehouse", "snowflake"),
+        "Warehouse": infer_data_connection("Warehouse", "snowflake"),
+    }
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    resolved = source._resolve_script_connection("Warehouse", app_space)
+
+    assert (resolved.platform if resolved else None) == platform
+
+
+def _blackbox_table(select: str, **reported: str) -> QlikTable:
     return QlikTable.model_validate(
         {
+            **reported,
             "tableName": "orders",
             "boxType": "blackbox",
             "tableAlias": "orders",
@@ -411,3 +468,153 @@ def test_app_table_lineage_uses_connection_mapping(mock_api_cls: MagicMock) -> N
         is None
     )
     assert len(source.reporter.warnings) == 1
+
+
+@pytest.mark.parametrize(
+    "reported, upstream",
+    [
+        pytest.param(
+            {"databaseName": "sales", "schemaName": "dbo"},
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales.dbo.orders,PROD)",
+            id="reported_by_qlik",
+        ),
+        pytest.param(
+            {},
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.orders,PROD)",
+            id="configured",
+        ),
+    ],
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_lineage_prefers_database_reported_by_qlik(
+    mock_api_cls: MagicMock, reported: Dict[str, str], upstream: str
+) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(
+            {
+                **CLOUD_CONFIG,
+                "data_connection_to_platform_instance": {
+                    "Warehouse": {
+                        "platform": "snowflake",
+                        "database": "analytics",
+                        "default_schema": "public",
+                    }
+                },
+            }
+        ),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    workunit = source._gen_app_table_upstream_lineage(
+        "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)",
+        _blackbox_table("SELECT order_id FROM orders", **reported),
+    )
+
+    assert workunit is not None
+    lineage = workunit.get_aspect_of_type(UpstreamLineage)
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [upstream]
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_app_table_lineage_skips_unqualified_upstream(mock_api_cls: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(
+            {
+                **CLOUD_CONFIG,
+                "data_connection_to_platform_instance": {
+                    "Warehouse": {"platform": "snowflake"}
+                },
+            }
+        ),
+        PipelineContext(run_id="test-cloud"),
+    )
+
+    assert (
+        source._gen_app_table_upstream_lineage(
+            "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,app-1.orders,PROD)",
+            _blackbox_table("SELECT order_id FROM orders"),
+        )
+        is None
+    )
+    assert len(source.reporter.warnings) == 1
+
+
+def test_failed_owner_lookup_is_tried_once_and_reported_once(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    base_url = "https://tenant.example.com/api/v1"
+    requests_mock.get(f"{base_url}/api-keys", json={})
+    users = requests_mock.get(f"{base_url}/users/user-1", status_code=503)
+    with patch(
+        "datahub.ingestion.source.qlik_sense.qlik_sense.QlikSenseSource._create_api",
+        side_effect=QlikAPI,
+    ):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate(CLOUD_CONFIG),
+            PipelineContext(run_id="test-cloud"),
+        )
+
+    assert source.qlik_api.get_user_name("user-1") is None
+    assert source.qlik_api.get_user_name("user-1") is None
+    with patch.object(source.qlik_api, "get_spaces", return_value=[]):
+        list(source.get_workunits_internal())
+
+    assert users.call_count == 1
+    assert [warning.title for warning in source.reporter.warnings] == [
+        "Unable to look up Qlik owners"
+    ]
+
+
+def _urllib3_response(status: int, method: str, url: str) -> HTTPResponse:
+    return HTTPResponse(
+        body=io.BytesIO(b"{}"),
+        status=status,
+        headers={"Content-Type": "application/json"},
+        preload_content=False,
+        request_method=method,
+        request_url=url,
+    )
+
+
+def test_rate_limited_requests_are_retried_through_the_adapter() -> None:
+    sent: List[str] = []
+
+    def make_request(
+        pool: HTTPConnectionPool, conn: object, method: str, url: str, **_: object
+    ) -> HTTPResponse:
+        sent.append(method)
+        # Every first attempt is rate-limited.
+        return _urllib3_response(429 if len(sent) % 2 else 200, method, url)
+
+    with (
+        patch.object(HTTPConnectionPool, "_make_request", make_request),
+        patch.object(Retry, "sleep"),
+    ):
+        api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+        response = api.session.post(
+            "https://tenant.example.com/api/v1/lineage-graphs/nodes/app/overview",
+            json=["field"],
+        )
+
+    assert response.status_code == 200
+    assert sent == ["GET", "GET", "POST", "POST"]
+
+
+def test_unreachable_tenant_is_not_retried() -> None:
+    attempts: List[str] = []
+
+    def make_request(
+        pool: HTTPConnectionPool, conn: object, method: str, url: str, **_: object
+    ) -> HTTPResponse:
+        attempts.append(url)
+        raise NewConnectionError(conn, "connection refused")  # type: ignore[arg-type]
+
+    with (
+        patch.object(HTTPConnectionPool, "_make_request", make_request),
+        patch.object(Retry, "sleep"),
+        pytest.raises(requests.ConnectionError),
+    ):
+        QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+
+    assert len(attempts) == 1

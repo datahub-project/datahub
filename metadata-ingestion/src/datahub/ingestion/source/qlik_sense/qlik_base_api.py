@@ -41,10 +41,16 @@ class ReadErrors:
     failure is tied to the app it belongs to."""
 
     messages: List[str] = field(default_factory=list)
+    # Batch reads that fell back to one request per object: slower, not partial.
+    fallbacks: List[str] = field(default_factory=list)
 
     def record(self, message: str) -> None:
         log_read_error(message)
         self.messages.append(message)
+
+    def record_fallback(self, message: str) -> None:
+        logger.info(message)
+        self.fallbacks.append(message)
 
 
 class QlikBaseAPI(ABC):
@@ -55,8 +61,17 @@ class QlikBaseAPI(ABC):
         self.config = config
         self.spaces: Dict[str, str] = {}
         self.users: Dict[str, str] = {}
+        # User ids whose lookup failed, with the cause, so each is tried once
+        # and reported once.
+        self.failed_user_lookups: Dict[str, str] = {}
         # Spaces and items that failed to load, so the source can report them.
         self.unread_items: List[UnreadItem] = []
+        # Apps read again because checking whether they changed failed.
+        self.change_check_failures: List[str] = []
+
+    def _record_failed_user_lookup(self, user_id: str, e: Exception) -> None:
+        log_read_error(f"Unable to fetch user with id {user_id}. Exception: {e}")
+        self.failed_user_lookups[user_id] = str(e)
 
     def _record_unread(self, name: str, message: str, e: Exception) -> None:
         log_read_error(message)
@@ -157,7 +172,12 @@ class QlikBaseAPI(ABC):
             if Constant.QCHILDLIST not in sheet_dict:
                 logger.debug(f"Sheet {sheet.title} with id {sheet_id} has no charts")
                 return sheet
-            properties = websocket_connection.get_object_properties()
+            properties = websocket_connection.get_object_properties(
+                on_fallback=lambda message: errors.record_fallback(
+                    f"Sheet {sheet_id}: {message}"
+                )
+            )
+            read_errors = len(errors.messages)
             for i, chart_dict in enumerate(
                 sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
             ):
@@ -170,6 +190,7 @@ class QlikBaseAPI(ABC):
                     if not chart.title:
                         chart.title = f"Object {i + 1} of Sheet '{sheet.title}'"
                     sheet.charts.append(chart)
+            sheet.charts_complete = len(errors.messages) == read_errors
             return sheet
         except Exception as e:
             errors.record(f"Unable to fetch sheet with id {sheet_id}. Exception: {e}")
@@ -197,7 +218,7 @@ class QlikBaseAPI(ABC):
                 if sheet:
                     sheets.append(sheet)
             websocket_connection.add_master_measure_definitions(
-                sheets, on_error=errors.record
+                sheets, on_error=errors.record, on_fallback=errors.record_fallback
             )
         except Exception as e:
             errors.record(f"Unable to fetch sheets for app {app_id}. Exception: {e}")

@@ -153,7 +153,9 @@ class WebsocketConnection:
         response = self.websocket_send_request(method="GetScript")
         return response.get(Constant.QSCRIPT) or ""
 
-    def get_object_properties(self) -> Dict[str, Dict]:
+    def get_object_properties(
+        self, on_fallback: Callable[[str], None]
+    ) -> Dict[str, Dict]:
         """Properties of the open object and every object below it, by id, in one
         request rather than one per chart. Empty if they cannot be read."""
         try:
@@ -161,7 +163,10 @@ class WebsocketConnection:
                 Constant.QPROPENTRY
             ]
         except Exception as e:
-            logger.debug(f"Unable to read the property tree. Exception: {e}")
+            on_fallback(
+                "Unable to read the property tree, so chart properties are read "
+                f"one by one. Exception: {e}"
+            )
             return {}
         properties: Dict[str, Dict] = {}
         entries = [entry]
@@ -287,7 +292,10 @@ class WebsocketConnection:
                 chart.fields_complete = False
 
     def add_master_measure_definitions(
-        self, sheets: List[Sheet], on_error: Callable[[str], None]
+        self,
+        sheets: List[Sheet],
+        on_error: Callable[[str], None],
+        on_fallback: Callable[[str], None],
     ) -> None:
         """Fill in the expressions of master measures used by the charts.
         Must be called on the app handle."""
@@ -301,7 +309,7 @@ class WebsocketConnection:
         )
         if not library_ids:
             return
-        listed = self._get_master_measure_list()
+        listed = self._get_master_measure_list(on_fallback)
         expressions = {
             library_id: expression
             for library_id, expression in (listed or {}).items()
@@ -340,7 +348,9 @@ class WebsocketConnection:
                 else:
                     chart.fields_complete = False
 
-    def _get_master_measure_list(self) -> Optional[Dict[str, str]]:
+    def _get_master_measure_list(
+        self, on_fallback: Callable[[str], None]
+    ) -> Optional[Dict[str, str]]:
         """Every master measure of the app and its expression, empty if the list has
         none, from one session object. None if it cannot be read.
         Must be called on the app handle."""
@@ -362,7 +372,10 @@ class WebsocketConnection:
                     Constant.QLAYOUT
                 ]["qMeasureList"][Constant.QITEMS]
             except Exception as e:
-                logger.debug(f"Unable to list master measures. Exception: {e}")
+                on_fallback(
+                    "Unable to list master measures, so they are read one by one. "
+                    f"Exception: {e}"
+                )
                 return None
         return {
             item[Constant.QINFO][Constant.QID]: item.get(Constant.QDATA, {})
