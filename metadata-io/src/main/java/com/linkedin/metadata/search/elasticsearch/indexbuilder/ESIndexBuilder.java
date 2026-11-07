@@ -1832,6 +1832,36 @@ public class ESIndexBuilder {
       int targetShards = extractTargetShards(indexState);
       String reindexTaskId = "";
       boolean reindexTaskCompleted = false;
+
+      // Guard against falsely resuming a reindex whose target is missing or has stale mappings: a
+      // prior run may have been building into an index created from an older mapping version, the
+      // index may have been deleted while the task kept running, or the task may have run amok.
+      // Resuming such a task would fail or complete into a wrong-mapping index, so cancel it (with
+      // confirmation) and fall through to a fresh reindex instead of adopting it.
+      // A destination that cannot be read throws here and fails the step: the task is never
+      // resumed on an unverified destination, and nothing is cancelled or deleted on a read error.
+      final String previousDestination =
+          previousTaskInfo
+              .map(t -> ESUtils.extractTargetIndex(t.getHeaders().get(ESUtils.OPAQUE_ID_HEADER)))
+              .orElse(null);
+      if (previousDestination != null
+          && !resumedReindexMatchesTarget(opContext, indexState, previousDestination)) {
+        log.warn(
+            "Index: {} - resumed reindex into {} is missing or no longer matches target mappings;"
+                + " cancelling task and restarting.",
+            indexState.name(),
+            previousDestination);
+        // Must confirm the runaway task is actually stopped before deleting its target and
+        // submitting a replacement - otherwise two reindexes would write the same index.
+        cancelReindexTaskAndConfirm(
+            opContext,
+            reindexTaskIdToCancel(previousTaskInfo.get()),
+            REINDEX_CANCEL_CONFIRM_TIMEOUT_MS,
+            REINDEX_CANCEL_CONFIRM_POLL_MS);
+        deleteActionWithRetry(searchClient, opContext, previousDestination, requestOptionsLong);
+        previousTaskInfo = Optional.empty(); // force the fresh-reindex path below
+      }
+
       if (previousTaskInfo.isPresent()) {
         log.info(
             "Reindex task {} in progress with description {}. Attempting to continue task from breakpoint.",
@@ -2911,6 +2941,17 @@ public class ESIndexBuilder {
           e);
       // Non-fatal - task continues at current rate
     }
+  }
+
+  /**
+   * The task to cancel for a reindex found on resume. A sliced reindex's header-matched task may be
+   * a child slice; cancelling the parent cancels every slice. Without a parent it is the reindex.
+   */
+  @VisibleForTesting
+  public static String reindexTaskIdToCancel(@Nonnull TaskInfo taskInfo) {
+    return taskInfo.getParentTaskId() != null && taskInfo.getParentTaskId().isSet()
+        ? taskInfo.getParentTaskId().toString()
+        : taskInfo.getTaskId().toString();
   }
 
   /**
