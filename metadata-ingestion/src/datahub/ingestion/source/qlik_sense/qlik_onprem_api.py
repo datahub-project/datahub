@@ -302,11 +302,13 @@ class QlikOnPremAPI(QlikBaseAPI):
             else f"stream.id eq {space_id}"
         )
         try:
-            return self._get("/app/full", params={"filter": qrs_filter}).json()
+            app_dicts = self._get("/app/full", params={"filter": qrs_filter}).json()
         except Exception as e:
             self._record_unread(
                 f"apps of stream {space_id}",
                 f"Unable to fetch apps. Exception: {e}",
                 e,
             )
-        return []
+            return []
+        logger.info(f"Stream {self.spaces[space_id]} has {len(app_dicts)} apps")
+        return app_dicts

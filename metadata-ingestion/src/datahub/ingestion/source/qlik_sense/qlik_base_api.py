@@ -18,6 +18,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     infer_data_connection,
 )
 from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
+from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -88,13 +89,25 @@ class QlikBaseAPI(ABC):
     def _sheet_meta(self, meta: Dict, sheet_id: str) -> Optional[Dict]:
         """Sheet fields from the sheet layout's qMeta, None to leave the sheet out."""
 
-    def get_items(self, space_id: str) -> List[Item]:
-        items: List[Item] = []
-        for item_dict in self._list_items(space_id):
-            item = self._load_item(item_dict)
+    def get_items(self, space_id: str) -> Iterable[Item]:
+        # REST and Engine reads are network-bound; the GIL is only held while
+        # decoding replies.
+        for future in BackpressureAwareExecutor.map(
+            self._load_item,
+            ((item,) for item in self._list_items(space_id)),
+            max_workers=self.config.max_workers,
+        ):
+            try:
+                item = future.result()
+            except Exception as e:
+                self._record_unread(
+                    f"item of space {space_id}",
+                    f"Unable to load item. Exception: {e}",
+                    e,
+                )
+                continue
             if item:
-                items.append(item)
-        return items
+                yield item
 
     @staticmethod
     def _infer_connection(

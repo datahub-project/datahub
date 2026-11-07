@@ -35,7 +35,12 @@ class WebsocketConnection:
     ) -> None:
         self._match_response_id = match_response_id
         self.socket_connection: Optional[WebSocket] = create_connection(
-            url, header=header, sslopt=sslopt or {}
+            url,
+            header=header,
+            sslopt=sslopt or {},
+            # The pure-Python frame check costs more CPU than the rest of an app
+            # read, and recv() already rejects invalid UTF-8 when it decodes.
+            skip_utf8_validation=True,
         )
         self.request_id = 0
         # Engine object handles, innermost last; -1 is the global handle.

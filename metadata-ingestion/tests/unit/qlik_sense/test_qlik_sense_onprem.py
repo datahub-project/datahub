@@ -1,5 +1,7 @@
 import json
 import ssl
+import threading
+import time
 from typing import Dict, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
@@ -8,13 +10,15 @@ import requests
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     Chart,
     QlikTable,
     Sheet,
+    UnreadItem,
 )
+from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_onprem_api import (
     UNPUBLISHED_APPS_NAME,
     QlikOnPremAPI,
@@ -34,6 +38,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from tests.unit.qlik_sense.qlik_fakes import (
+    APP,
     DATA_CONNECTION,
     LOAD_SCRIPT,
     ON_PREM,
@@ -75,7 +80,7 @@ def test_onprem_lists_stream_and_opens_app(
     assert [space.name for space in spaces] == ["Everyone"]
     assert api.get_user_name("user-1") == "Ada"
 
-    items = api.get_items("stream-1")
+    items = list(api.get_items("stream-1"))
     assert len(items) == 1
     app = items[0]
     assert isinstance(app, App)
@@ -111,7 +116,7 @@ def test_onprem_keeps_app_when_engine_is_unreachable(
 
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     api.get_spaces()
-    items = api.get_items("stream-1")
+    items = list(api.get_items("stream-1"))
 
     assert len(items) == 1
     app = items[0]
@@ -150,7 +155,7 @@ def test_onprem_closes_engine_session_when_app_cannot_open(
 
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
     api.get_spaces()
-    items = api.get_items("stream-1")
+    items = list(api.get_items("stream-1"))
 
     assert [item.id for item in items] == ["app-1"]
     websocket.close_websocket.assert_called_once()
@@ -166,6 +171,80 @@ def _chart_layout(chart_id: str) -> Dict[str, object]:
             "qHyperCube": {"qDimensionInfo": [], "qMeasureInfo": []},
         }
     }
+
+
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_loads_apps_in_parallel(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    app_ids = [f"app-{i}" for i in range(6)]
+    lock = threading.Lock()
+    in_flight = 0
+    peak = 0
+
+    def qrs_get(
+        url: str, params: Optional[Dict[str, str]] = None, **kwargs: object
+    ) -> FakeResponse:
+        if url.endswith("/app/full"):
+            return FakeResponse([{**APP, "id": app_id} for app_id in app_ids])
+        return fake_qrs_get(url, params, **kwargs)
+
+    def get_script() -> str:
+        nonlocal in_flight, peak
+        with lock:
+            in_flight += 1
+            peak = max(peak, in_flight)
+        time.sleep(0.05)
+        with lock:
+            in_flight -= 1
+        return "// script"
+
+    def open_engine(app_id: str, **_: object) -> MagicMock:
+        if app_id == "app-2":
+            raise OSError("engine session limit")
+        websocket = MagicMock()
+        websocket.websocket_send_request.side_effect = fake_engine_calls()
+        websocket.get_script.side_effect = get_script
+        return websocket
+
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = qrs_get
+    mock_engine.side_effect = open_engine
+
+    api = QlikOnPremAPI(
+        QlikSourceConfig.model_validate({**ONPREM_CONFIG, "max_workers": 3})
+    )
+    api.get_spaces()
+    items = {item.id: item for item in api.get_items("stream-1")}
+
+    assert sorted(items) == app_ids
+    assert 1 < peak <= 3
+    for app_id, item in items.items():
+        assert isinstance(item, App)
+        expected_sheets = [] if app_id == "app-2" else ["Overview"]
+        assert [sheet.title for sheet in item.sheets] == expected_sheets
+        # A failed read must not leak into other apps read on the same thread.
+        assert item.read_complete is (app_id != "app-2")
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_unexpected_app_error_records_app_id(
+    mock_session_cls: MagicMock,
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = fake_qrs_get
+    api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
+    api.get_spaces()
+
+    with patch.object(api, "_read_app", side_effect=RuntimeError("boom")):
+        assert list(api.get_items("stream-1")) == []
+
+    assert api.unread_items == [UnreadItem(name=APP["id"], cause="boom")]
 
 
 def test_chart_keeps_dimension_in_error_state() -> None:
@@ -644,7 +723,7 @@ def test_onprem_qrs_errors_return_no_streams_or_apps(
     api = QlikOnPremAPI(QlikSourceConfig.model_validate(ONPREM_CONFIG))
 
     assert api.get_spaces() == []
-    assert api.get_items("stream-1") == []
+    assert list(api.get_items("stream-1")) == []
     assert api.get_data_connections() == {}
 
 
@@ -767,6 +846,29 @@ def test_cloud_websocket_raises_engine_error(mock_connect: MagicMock) -> None:
 
     with pytest.raises(RuntimeError, match="Access denied"):
         connection.get_script()
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.requests.Session")
+@patch("datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection")
+def test_cloud_app_read_failure_closes_engine_session(
+    mock_engine: MagicMock, mock_session_cls: MagicMock
+) -> None:
+    websocket = mock_engine.for_cloud.return_value
+    websocket.websocket_send_request.side_effect = RuntimeError("Access denied")
+    api = QlikAPI(
+        QlikSourceConfig.model_validate(
+            {"tenant_hostname": "tenant.example.com", "api_key": "key"}
+        )
+    )
+
+    assert (
+        api._load_item(
+            {Constant.RESOURCETYPE: Constant.APP, Constant.RESOURCEID: "app-1"}
+        )
+        is None
+    )
+    websocket.close_websocket.assert_called_once()
+    assert api.unread_items == [UnreadItem(name="app-1", cause="Access denied")]
 
 
 @patch("datahub.ingestion.source.qlik_sense.websocket_connection.create_connection")
@@ -936,7 +1038,7 @@ def test_onprem_unpublished_apps(
 
     spaces = api.get_spaces()
     for space in spaces:
-        api.get_items(space.id)
+        list(api.get_items(space.id))
 
     assert [space.name for space in spaces] == (
         ["Everyone", UNPUBLISHED_APPS_NAME] if ingest_unpublished else ["Everyone"]
