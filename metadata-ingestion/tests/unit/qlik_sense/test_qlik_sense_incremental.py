@@ -634,3 +634,29 @@ def test_run_with_ignore_new_state_records_no_checkpoint(
 
     assert second.reporter.apps_skipped_unchanged == 0
     assert qlik.engine_opens == 2
+
+
+def test_partial_read_with_checkpoint_without_entities_is_a_failure(
+    mock_datahub_graph: MagicMock,  # noqa: F811
+) -> None:
+    qlik = _Qlik()
+    datahub = _DataHub(mock_datahub_graph)
+
+    _, first_wus = _run(mock_datahub_graph, qlik, "run-1")
+    datahub.write(first_wus)
+    previous = QlikAppStateHandler.previous
+
+    def without_urns(
+        handler: QlikAppStateHandler, app_id: str
+    ) -> Optional[AppCheckpoint]:
+        checkpoint = previous(handler, app_id)
+        return checkpoint.model_copy(update={"urns": []}) if checkpoint else None
+
+    qlik.engine_fails = True
+    with patch.object(QlikAppStateHandler, "previous", without_urns):
+        second, second_wus = _run(mock_datahub_graph, qlik, "run-2")
+
+    assert "Unable to fully read Qlik app" in [
+        failure.title for failure in second.reporter.failures
+    ]
+    assert not _soft_deleted_urns(second_wus)
