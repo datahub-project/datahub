@@ -1327,6 +1327,8 @@ def test_visualization_inputs_match_dataset_ids_ignoring_case() -> None:
     assert inputs == [
         extractor.dataset_urn("project-1", dashboard.id, dashboard.datasets[0])
     ]
+    dashboard.visualizations = [visualization]
+    assert extractor.unresolved_visualization_datasets(dashboard) == {}
 
 
 def test_column_sets_without_dashboard_datasets_are_unbound() -> None:

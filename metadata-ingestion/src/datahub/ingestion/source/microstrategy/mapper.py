@@ -245,7 +245,15 @@ class MicroStrategyMapper:
         if len(bound_ids) == 1:
             fallback = dataset_by_id.get(next(iter(bound_ids)))
         elif len(visualization.datasets) == 1:
-            fallback = dataset_by_id.get(visualization.datasets[0])
+            wanted = normalize_object_id(visualization.datasets[0])
+            fallback = next(
+                (
+                    dataset
+                    for dataset in dashboard.datasets
+                    if normalize_object_id(dataset.id) == wanted
+                ),
+                None,
+            )
         for column_set in visualization.column_sets:
             dataset_id = binding.dataset_id_by_column_set.get(column_set.identifier)
             target = dataset_by_id.get(dataset_id) if dataset_id else None

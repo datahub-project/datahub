@@ -228,13 +228,13 @@ class MicroStrategyLineageExtractor:
     def unresolved_visualization_datasets(
         self, dashboard: DashboardDefinition
     ) -> Dict[str, List[str]]:
-        dataset_ids = {dataset.id for dataset in dashboard.datasets}
+        dataset_ids = {normalize_object_id(dataset.id) for dataset in dashboard.datasets}
         unresolved: Dict[str, List[str]] = {}
         for visualization in dashboard.visualizations:
             missing = [
                 dataset_id
                 for dataset_id in visualization.datasets
-                if dataset_id not in dataset_ids
+                if normalize_object_id(dataset_id) not in dataset_ids
             ]
             if missing:
                 unresolved[visualization.key] = sorted(missing)
