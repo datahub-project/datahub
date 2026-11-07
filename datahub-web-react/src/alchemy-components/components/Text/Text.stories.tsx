@@ -4,7 +4,7 @@ import React from 'react';
 
 import { VerticalFlexGrid } from '@components/.docs/mdx-components';
 
-import { Text, textDefaults } from '.';
+import { ClampedText, Text, textDefaults } from '.';
 
 // Auto Docs
 const meta = {
@@ -97,4 +97,28 @@ export const withLink = () => (
         dui dapibus. <a href="/">Nullam rhoncus massa non tortor convallis</a>, in blandit turpis rutrum. Morbi tempus
         velit mauris, at mattis metus mattis sed. Nunc molestie efficitur lectus, vel mollis eros.
     </Text>
+);
+
+// `ClampedText` clamps to N lines and only shows the toggle when the content actually overflows.
+export const clamped: StoryFn<Story> = (props: any) => (
+    <VerticalFlexGrid>
+        <div style={{ width: 320 }}>
+            <ClampedText lineClamp={2}>{props.children}</ClampedText>
+        </div>
+        <div style={{ width: 320 }}>
+            <ClampedText lineClamp={2} expandable>
+                {props.children}
+            </ClampedText>
+        </div>
+        <div style={{ width: 320 }}>
+            <ClampedText lineClamp={2} expandable={{ expandLabel: 'More', collapsible: false }}>
+                {props.children}
+            </ClampedText>
+        </div>
+        <div style={{ width: 320 }}>
+            <ClampedText lineClamp={2} expandable>
+                Short text never shows a toggle.
+            </ClampedText>
+        </div>
+    </VerticalFlexGrid>
 );

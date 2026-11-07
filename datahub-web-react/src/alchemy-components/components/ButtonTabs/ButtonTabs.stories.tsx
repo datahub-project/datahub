@@ -148,6 +148,24 @@ export const IconOnlyTabs: Story = {
     },
 };
 
+export const DisabledWithTooltip: Story = {
+    name: 'TabButtons disabled tab + tooltips',
+    render: function Render() {
+        const tabs: TabButtonItem[] = [
+            { key: 'preview', label: 'Preview', tooltip: 'Rendered output' },
+            {
+                key: 'source',
+                label: 'Source',
+                disabled: true,
+                tooltip: 'You do not have permission to view the source',
+            },
+            { key: 'history', label: 'History' },
+        ];
+        const [activeTab, setActiveTab] = useState('preview');
+        return <TabButtons tabs={tabs} activeTab={activeTab} onTabClick={setActiveTab} />;
+    },
+};
+
 export const TextHugged: Story = {
     name: 'TabButtons text hugged',
     render: function Render() {

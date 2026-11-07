@@ -25,11 +25,32 @@ const meta = {
             description:
                 'The text that will be truncated and shows an ellipses and tooltip if there is overflow based on the parent',
         },
+        children: {
+            description: 'Rich content to render instead of `text`. Truncation is still detected on the wrapper.',
+        },
+        tooltip: {
+            description:
+                'Tooltip content shown when truncated. Defaults to `text`, or `children` when `text` is unset.',
+        },
+        showTooltip: {
+            description: 'Set to false to truncate without a tooltip.',
+            control: 'boolean',
+        },
+        tooltipPlacement: {
+            description: 'Placement of the tooltip.',
+            control: 'select',
+            options: ['top', 'bottom', 'left', 'right'],
+        },
+        showArrow: {
+            description: 'Whether the tooltip shows an arrow.',
+            control: 'boolean',
+        },
     },
 
     // Define default args
     args: {
         text: 'FirstName LongLastNameToDemo',
+        showTooltip: true,
     },
 } satisfies Meta<typeof OverflowText>;
 
@@ -46,6 +67,16 @@ export const sandbox: Story = {
     render: (props) => (
         <div style={{ width: 100 }}>
             <OverflowText {...props} />
+        </div>
+    ),
+};
+
+export const richContent: Story = {
+    render: (props) => (
+        <div style={{ width: 160 }}>
+            <OverflowText {...props} tooltip="Owned by the analytics team">
+                Owned by <strong>the analytics team</strong>
+            </OverflowText>
         </div>
     ),
 };
