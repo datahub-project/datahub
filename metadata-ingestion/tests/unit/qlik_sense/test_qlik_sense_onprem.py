@@ -1004,4 +1004,7 @@ def test_partly_read_app_does_not_overwrite_relationships(
     ]
     # Without known inputs the chart is patched, keeping its last inputs.
     assert len(chart_info_patches) == int(tables_read_failed)
-    assert all(b"inputs" not in patch.aspect.value for patch in chart_info_patches)
+    assert all(
+        patch.aspect is not None and b"inputs" not in patch.aspect.value
+        for patch in chart_info_patches
+    )
