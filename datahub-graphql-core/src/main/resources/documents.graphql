@@ -113,6 +113,11 @@ type Document implements Entity {
   settings: DocumentSettings @aspectMapping(aspects: ["documentSettings"])
 
   """
+  OKF concept metadata imported from the Document's frontmatter
+  """
+  okfProperties: OkfProperties @aspectMapping(aspects: ["okfProperties"])
+
+  """
   The sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference", etc.)
   """
   subType: String @aspectMapping(aspects: ["subTypes"])
@@ -408,6 +413,76 @@ type DocumentSettings {
   When true, the document appears in the global documents space accessible to all users.
   """
   showInGlobalContext: Boolean!
+}
+
+"""
+OKF concept metadata imported from a document's frontmatter
+"""
+type OkfProperties {
+  """
+  Version of the OKF format declared by the concept
+  """
+  okfVersion: String
+
+  """
+  Stable concept identifier within the source repository
+  """
+  id: String
+
+  """
+  Concept type, such as Guide, Table, Policy, or Runbook
+  """
+  type: String!
+
+  """
+  Description declared in frontmatter
+  """
+  description: String
+
+  """
+  All frontmatter keys and values serialized as JSON text, including unmapped keys
+  """
+  frontmatter: String!
+
+  """
+  Original YAML block, including delimiters and line endings, verbatim
+  """
+  raw: String
+
+  """
+  Git provenance of the imported concept
+  """
+  sourceFile: OkfSourceFile
+
+  """
+  Version of the rules used to map frontmatter to native metadata
+  """
+  mappingVersion: String!
+}
+
+"""
+Git provenance of an OKF concept
+"""
+type OkfSourceFile {
+  """
+  Repository in owner/name form
+  """
+  repo: String!
+
+  """
+  File path relative to the repository root
+  """
+  path: String!
+
+  """
+  Commit SHA for the imported revision, when available
+  """
+  commit: String
+
+  """
+  Git blob SHA for the imported file, when available
+  """
+  blobSha: String
 }
 
 """

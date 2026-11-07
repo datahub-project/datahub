@@ -38,6 +38,8 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.knowledge.DocumentContents;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.knowledge.DocumentSource;
+import com.linkedin.knowledge.OkfProperties;
+import com.linkedin.knowledge.OkfSourceFile;
 import com.linkedin.knowledge.ParentDocument;
 import com.linkedin.knowledge.RelatedAsset;
 import com.linkedin.knowledge.RelatedAssetArray;
@@ -1347,6 +1349,54 @@ public class DocumentMapperTest {
       assertNull(result.getInfo().getSource().getExternalUrl());
       assertNull(result.getInfo().getSource().getExternalId());
     }
+  }
+
+  @Test
+  public void testMapDocumentWithOkfProperties() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    String frontmatter = "{\"id\":\"guide:mau\",\"type\":\"Guide\",\"audience\":\"analysts\"}";
+    String raw = "---\nid: guide:mau\ntype: Guide\naudience: analysts\n---\n";
+    OkfSourceFile sourceFile =
+        new OkfSourceFile()
+            .setRepo("example-org/analytics")
+            .setPath("guides/mau.md")
+            .setCommit("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            .setBlobSha("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    OkfProperties properties =
+        new OkfProperties()
+            .setOkfVersion("1")
+            .setId("guide:mau")
+            .setType("Guide")
+            .setDescription("How MAU is defined.")
+            .setFrontmatter(frontmatter)
+            .setRaw(raw)
+            .setSourceFile(sourceFile)
+            .setMappingVersion("2");
+    addAspectToResponse(entityResponse, OKF_PROPERTIES_ASPECT_NAME, properties);
+
+    Document result = DocumentMapper.map(null, entityResponse);
+
+    assertNotNull(result.getOkfProperties());
+    com.linkedin.datahub.graphql.generated.OkfProperties mapped = result.getOkfProperties();
+    assertEquals(mapped.getOkfVersion(), "1");
+    assertEquals(mapped.getId(), "guide:mau");
+    assertEquals(mapped.getType(), "Guide");
+    assertEquals(mapped.getDescription(), "How MAU is defined.");
+    assertEquals(mapped.getFrontmatter(), frontmatter);
+    assertEquals(mapped.getRaw(), raw);
+    assertEquals(mapped.getMappingVersion(), "2");
+    assertNotNull(mapped.getSourceFile());
+    assertEquals(mapped.getSourceFile().getRepo(), "example-org/analytics");
+    assertEquals(mapped.getSourceFile().getPath(), "guides/mau.md");
+    assertEquals(mapped.getSourceFile().getCommit(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    assertEquals(mapped.getSourceFile().getBlobSha(), "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+  }
+
+  @Test
+  public void testMapDocumentWithoutOkfProperties() {
+    Document result = DocumentMapper.map(null, createBasicEntityResponse());
+
+    assertNull(result.getOkfProperties());
   }
 
   // Helper methods

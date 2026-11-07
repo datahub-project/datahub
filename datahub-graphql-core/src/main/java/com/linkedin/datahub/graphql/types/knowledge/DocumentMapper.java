@@ -102,6 +102,14 @@ public class DocumentMapper {
               new com.linkedin.knowledge.DocumentSettings(envelopedSettings.getValue().data())));
     }
 
+    final EnvelopedAspect envelopedOkfProperties =
+        aspects.get(Constants.OKF_PROPERTIES_ASPECT_NAME);
+    if (envelopedOkfProperties != null) {
+      result.setOkfProperties(
+          mapOkfProperties(
+              new com.linkedin.knowledge.OkfProperties(envelopedOkfProperties.getValue().data())));
+    }
+
     // Map SubTypes aspect to subType field (get first type if available)
     final EnvelopedAspect envelopedSubTypes = aspects.get(Constants.SUB_TYPES_ASPECT_NAME);
     final SubTypes subTypes =
@@ -364,6 +372,46 @@ public class DocumentMapper {
 
     result.setShowInGlobalContext(settings.isShowInGlobalContext());
 
+    return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.OkfProperties mapOkfProperties(
+      final com.linkedin.knowledge.OkfProperties properties) {
+    final com.linkedin.datahub.graphql.generated.OkfProperties result =
+        new com.linkedin.datahub.graphql.generated.OkfProperties();
+    if (properties.hasOkfVersion()) {
+      result.setOkfVersion(properties.getOkfVersion());
+    }
+    if (properties.hasId()) {
+      result.setId(properties.getId());
+    }
+    result.setType(properties.getType());
+    if (properties.hasDescription()) {
+      result.setDescription(properties.getDescription());
+    }
+    result.setFrontmatter(properties.getFrontmatter());
+    if (properties.hasRaw()) {
+      result.setRaw(properties.getRaw());
+    }
+    if (properties.hasSourceFile()) {
+      result.setSourceFile(mapOkfSourceFile(properties.getSourceFile()));
+    }
+    result.setMappingVersion(properties.getMappingVersion());
+    return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.OkfSourceFile mapOkfSourceFile(
+      final com.linkedin.knowledge.OkfSourceFile sourceFile) {
+    final com.linkedin.datahub.graphql.generated.OkfSourceFile result =
+        new com.linkedin.datahub.graphql.generated.OkfSourceFile();
+    result.setRepo(sourceFile.getRepo());
+    result.setPath(sourceFile.getPath());
+    if (sourceFile.hasCommit()) {
+      result.setCommit(sourceFile.getCommit());
+    }
+    if (sourceFile.hasBlobSha()) {
+      result.setBlobSha(sourceFile.getBlobSha());
+    }
     return result;
   }
 }
