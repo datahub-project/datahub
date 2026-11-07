@@ -629,7 +629,7 @@ def test_unexpected_item_error_is_recorded_and_other_items_kept(
     api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
     app = _cloud_app()
 
-    def load(item: Dict[str, str]) -> App:
+    def load(item: Dict[str, str], *_: object) -> App:
         if item["id"] == "broken":
             raise KeyError("resourceType")
         return app
