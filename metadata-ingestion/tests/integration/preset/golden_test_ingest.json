@@ -19,6 +19,22 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(preset,10)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,10)",
+    "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
         "json": {
@@ -111,6 +127,22 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,12)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(preset,11)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -156,6 +188,22 @@
                 }
             ],
             "type": "PIE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,13)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
         }
     },
     "systemMetadata": {
@@ -220,6 +268,22 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,11)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(preset,1)",
     "changeType": "UPSERT",
@@ -227,6 +291,22 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(preset,1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
         }
     },
     "systemMetadata": {
@@ -381,6 +461,22 @@
                 "time": 1720594800000,
                 "actor": "urn:li:corpuser:test_owner2@example.com"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(preset,2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
         }
     },
     "systemMetadata": {
