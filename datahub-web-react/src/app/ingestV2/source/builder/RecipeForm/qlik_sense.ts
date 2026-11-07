@@ -1,0 +1,423 @@
+import get from 'lodash/get';
+import omit from 'lodash/omit';
+
+import {
+    FieldType,
+    FieldsValues,
+    FilterRecipeField,
+    FilterRule,
+    RecipeField,
+    setFieldValueOnRecipe,
+    setListValuesOnRecipe,
+} from '@app/ingestV2/source/builder/RecipeForm/common';
+
+export const QLIK_DEPLOYMENT_CLOUD = 'cloud';
+export const QLIK_DEPLOYMENT_ON_PREM = 'on_prem';
+
+const deploymentFieldName = 'deployment';
+const deploymentFieldPath = 'source.config.deployment';
+const tenantHostnameFieldPath = 'source.config.tenant_hostname';
+const apiKeyFieldPath = 'source.config.api_key';
+const onPremFieldPath = 'source.config.on_prem';
+
+const isOnPrem = (values: FieldsValues) => values?.[deploymentFieldName] === QLIK_DEPLOYMENT_ON_PREM;
+const isCloud = (values: FieldsValues) => !isOnPrem(values);
+
+// The connector rejects a recipe that sets both on_prem and tenant_hostname/api_key,
+// so switching deployment drops the other deployment's settings. `deployment` itself
+// is form-only: the connector infers it from whether on_prem is set.
+export function setQlikDeploymentOnRecipe(recipe: any, value: string | undefined): any {
+    const updatedRecipe = omit({ ...recipe }, [deploymentFieldPath]);
+    if (value === QLIK_DEPLOYMENT_ON_PREM) {
+        return omit(updatedRecipe, [tenantHostnameFieldPath, apiKeyFieldPath]);
+    }
+    return omit(updatedRecipe, [onPremFieldPath]);
+}
+
+export function getQlikDeploymentFromRecipe(recipe: any): string {
+    return get(recipe, onPremFieldPath) ? QLIK_DEPLOYMENT_ON_PREM : QLIK_DEPLOYMENT_CLOUD;
+}
+
+// TEXT inputs produce strings; write whole numbers as integers so the YAML matches the
+// connector's int fields. Anything else is written as typed so the connector reports it.
+export function setIntegerValueOnRecipe(recipe: any, value: string | number | undefined, fieldPath: string): any {
+    const trimmed = typeof value === 'string' ? value.trim() : value;
+    if (trimmed === undefined || trimmed === null || trimmed === '') {
+        return setFieldValueOnRecipe(recipe, null, fieldPath);
+    }
+    const parsed = Number(trimmed);
+    return setFieldValueOnRecipe(recipe, Number.isInteger(parsed) ? parsed : trimmed, fieldPath);
+}
+
+const integerRule = { pattern: /^\d+$/, message: 'Enter a whole number' };
+
+export const QLIK_DEPLOYMENT: RecipeField = {
+    name: deploymentFieldName,
+    label: 'Deployment Type',
+    helper: 'Qlik Cloud or Qlik Sense Enterprise on Windows',
+    tooltip:
+        'Qlik Cloud connects with a tenant hostname and API key. Qlik Sense Enterprise on Windows connects to the central node with client certificates exported from the QMC.',
+    type: FieldType.SELECT,
+    fieldPath: deploymentFieldPath,
+    options: [
+        { label: 'Qlik Cloud', value: QLIK_DEPLOYMENT_CLOUD },
+        { label: 'Qlik Sense Enterprise on Windows', value: QLIK_DEPLOYMENT_ON_PREM },
+    ],
+    required: true,
+    rules: null,
+    setValueOnRecipeOverride: setQlikDeploymentOnRecipe,
+    getValueFromRecipeOverride: getQlikDeploymentFromRecipe,
+};
+
+export const QLIK_TENANT_HOSTNAME: RecipeField = {
+    name: 'tenant_hostname',
+    label: 'Tenant Hostname',
+    helper: 'Hostname only, without https://',
+    tooltip:
+        'Hostname of the Qlik Cloud tenant, shown on the About page of the hub. Enter the hostname only, without https:// or a path.',
+    type: FieldType.TEXT,
+    fieldPath: tenantHostnameFieldPath,
+    placeholder: 'example.us.qlikcloud.com',
+    rules: null,
+    dynamicHidden: isOnPrem,
+    dynamicRequired: isCloud,
+};
+
+export const QLIK_API_KEY: RecipeField = {
+    name: 'api_key',
+    label: 'API Key',
+    helper: 'API key generated in the Qlik Cloud hub',
+    tooltip:
+        'Qlik Cloud API key. Ingestion only sees the spaces, apps and data connections that the user who generated the key can access.',
+    type: FieldType.SECRET,
+    fieldPath: apiKeyFieldPath,
+    placeholder: 'api_key',
+    rules: null,
+    dynamicHidden: isOnPrem,
+    dynamicRequired: isCloud,
+};
+
+export const QLIK_ON_PREM_SERVER: RecipeField = {
+    name: 'on_prem.server',
+    label: 'Server',
+    helper: 'Central node hostname',
+    tooltip:
+        'Hostname or IP address of the Qlik Sense central node. The Repository Service and Engine ports are reached on this host.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.on_prem.server',
+    placeholder: 'qlik.example.com',
+    rules: null,
+    dynamicHidden: isCloud,
+    dynamicRequired: isOnPrem,
+};
+
+const certificatePathTooltip = (file: string) =>
+    `Path to the PEM ${file} exported from the QMC. This is a path on the machine that runs ingestion (the executor for UI ingestion), not the file contents.`;
+
+export const QLIK_ON_PREM_CLIENT_CERT: RecipeField = {
+    name: 'on_prem.client_cert',
+    label: 'Client Certificate Path',
+    helper: 'Path to client.pem on the executor',
+    tooltip: certificatePathTooltip('client certificate'),
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.on_prem.client_cert',
+    placeholder: '/secrets/client.pem',
+    rules: null,
+    dynamicHidden: isCloud,
+    dynamicRequired: isOnPrem,
+};
+
+export const QLIK_ON_PREM_CLIENT_KEY: RecipeField = {
+    name: 'on_prem.client_key',
+    label: 'Client Key Path',
+    helper: 'Path to client_key.pem on the executor',
+    tooltip: certificatePathTooltip('client key'),
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.on_prem.client_key',
+    placeholder: '/secrets/client_key.pem',
+    rules: null,
+    dynamicHidden: isCloud,
+    dynamicRequired: isOnPrem,
+};
+
+export const QLIK_ON_PREM_ROOT_CERT: RecipeField = {
+    name: 'on_prem.root_cert',
+    label: 'Root Certificate Path',
+    helper: 'Path to root.pem on the executor',
+    tooltip: `${certificatePathTooltip('root certificate')} The server certificate is verified against it.`,
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.on_prem.root_cert',
+    placeholder: '/secrets/root.pem',
+    rules: null,
+    dynamicHidden: isCloud,
+    dynamicRequired: isOnPrem,
+};
+
+export const QLIK_ON_PREM_SERVER_CERT_HOSTNAME: RecipeField = {
+    name: 'on_prem.server_cert_hostname',
+    label: 'Server Certificate Hostname',
+    helper: 'Name on the server certificate, if it differs from Server',
+    tooltip:
+        'Hostname the Qlik server certificate was issued to. Set it when Server is an IP address or alias that does not match the certificate. It is also used for links to Qlik.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.on_prem.server_cert_hostname',
+    placeholder: 'qlik-central.example.com',
+    rules: null,
+    dynamicHidden: isCloud,
+};
+
+// Checked writes verify_server_hostname: false; unchecked drops the key so the
+// connector keeps its default of checking the certificate name.
+const verifyServerHostnameFieldPath = 'source.config.on_prem.verify_server_hostname';
+export const QLIK_ON_PREM_SKIP_HOSTNAME_CHECK: RecipeField = {
+    name: 'on_prem.skip_server_hostname_check',
+    label: 'Skip Certificate Name Check',
+    helper: 'Last resort when no hostname matches the certificate',
+    tooltip:
+        'Accept any server certificate signed by the root certificate, whatever name it was issued to. The certificate chain is still verified. Try Server Certificate Hostname first.',
+    type: FieldType.BOOLEAN,
+    fieldPath: verifyServerHostnameFieldPath,
+    rules: null,
+    dynamicHidden: isCloud,
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, verifyServerHostnameFieldPath) === false,
+    setValueOnRecipeOverride: (recipe: any, value: boolean) => {
+        if (value) return setFieldValueOnRecipe(recipe, false, verifyServerHostnameFieldPath);
+        return omit({ ...recipe }, [verifyServerHostnameFieldPath]);
+    },
+};
+
+const qrsPortFieldPath = 'source.config.on_prem.qrs_port';
+export const QLIK_ON_PREM_QRS_PORT: RecipeField = {
+    name: 'on_prem.qrs_port',
+    label: 'Repository Service Port',
+    helper: 'Defaults to 4242',
+    tooltip: 'Qlik Repository Service (QRS) port, used to list streams, apps and data connections. Defaults to 4242.',
+    type: FieldType.TEXT,
+    fieldPath: qrsPortFieldPath,
+    placeholder: '4242',
+    rules: [integerRule],
+    dynamicHidden: isCloud,
+    setValueOnRecipeOverride: (recipe: any, value: string) => setIntegerValueOnRecipe(recipe, value, qrsPortFieldPath),
+};
+
+const enginePortFieldPath = 'source.config.on_prem.engine_port';
+export const QLIK_ON_PREM_ENGINE_PORT: RecipeField = {
+    name: 'on_prem.engine_port',
+    label: 'Engine Port',
+    helper: 'Defaults to 4747',
+    tooltip: 'Qlik Engine port, used to read app load scripts, sheets and charts. Defaults to 4747.',
+    type: FieldType.TEXT,
+    fieldPath: enginePortFieldPath,
+    placeholder: '4747',
+    rules: [integerRule],
+    dynamicHidden: isCloud,
+    setValueOnRecipeOverride: (recipe: any, value: string) =>
+        setIntegerValueOnRecipe(recipe, value, enginePortFieldPath),
+};
+
+const spaceAllowFieldPath = 'source.config.space_pattern.allow';
+export const QLIK_SPACE_ALLOW: FilterRecipeField = {
+    name: 'space_pattern.allow',
+    label: 'Allow Patterns',
+    helper: 'Include specific spaces or streams',
+    tooltip:
+        'Only include Qlik Cloud spaces, or streams on Qlik Sense Enterprise, whose name matches one of these regular expressions. Use personal_space for Qlik Cloud personal spaces, and Unpublished for on-prem apps not published to a stream.',
+    placeholder: 'Finance',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: spaceAllowFieldPath,
+    rules: null,
+    section: 'Spaces and Streams',
+    filteringResource: 'Space',
+    rule: FilterRule.INCLUDE,
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, spaceAllowFieldPath),
+};
+
+const spaceDenyFieldPath = 'source.config.space_pattern.deny';
+export const QLIK_SPACE_DENY: FilterRecipeField = {
+    name: 'space_pattern.deny',
+    label: 'Deny Patterns',
+    helper: 'Exclude specific spaces or streams',
+    tooltip:
+        'Exclude Qlik Cloud spaces, or streams on Qlik Sense Enterprise, whose name matches one of these regular expressions. Deny patterns take precedence over allow patterns.',
+    placeholder: 'personal_space',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: spaceDenyFieldPath,
+    rules: null,
+    section: 'Spaces and Streams',
+    filteringResource: 'Space',
+    rule: FilterRule.EXCLUDE,
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, spaceDenyFieldPath),
+};
+
+// The connector ingests owners unless the recipe sets ingest_owner: false.
+const ingestOwnerFieldPath = 'source.config.ingest_owner';
+export const QLIK_INGEST_OWNER: RecipeField = {
+    name: 'ingest_owner',
+    label: 'Ingest Owners',
+    helper: 'Set Qlik owners as DataHub owners',
+    tooltip:
+        'Add the Qlik owner of each space or stream, app, sheet and dataset as its DataHub owner. This overwrites owners added in DataHub on those entities.',
+    type: FieldType.BOOLEAN,
+    fieldPath: ingestOwnerFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, ingestOwnerFieldPath) !== false,
+};
+
+const maxWorkersFieldPath = 'source.config.max_workers';
+export const QLIK_MAX_WORKERS: RecipeField = {
+    name: 'max_workers',
+    label: 'Max Workers',
+    helper: 'Apps read at the same time. Defaults to 4',
+    tooltip:
+        'Number of apps and datasets of one space or stream read at the same time. Each app read holds one Engine session open. Lower it if Qlik Cloud rate-limits the run. Defaults to 4.',
+    type: FieldType.TEXT,
+    fieldPath: maxWorkersFieldPath,
+    placeholder: '4',
+    rules: [integerRule],
+    setValueOnRecipeOverride: (recipe: any, value: string) =>
+        setIntegerValueOnRecipe(recipe, value, maxWorkersFieldPath),
+};
+
+export const QLIK_ON_PREM_INGEST_UNPUBLISHED_APPS: RecipeField = {
+    name: 'on_prem.ingest_unpublished_apps',
+    label: 'Ingest Unpublished Apps',
+    helper: 'Include apps not published to a stream',
+    tooltip:
+        'Also ingest apps that are not published to a stream. They are grouped under a container named Unpublished. Qlik Sense Enterprise on Windows only.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.on_prem.ingest_unpublished_apps',
+    rules: null,
+    dynamicHidden: isCloud,
+};
+
+export const QLIK_ON_PREM_SKIP_UNCHANGED_APPS: RecipeField = {
+    name: 'on_prem.skip_unchanged_apps',
+    label: 'Skip Unchanged Apps',
+    helper: 'Only open apps that changed since the last run',
+    tooltip:
+        'Do not read an app from the Engine again when it has not been saved, reloaded, published or moved, and the recipe, data connections and connector version are unchanged since the last run. Its metadata is kept. Requires stateful ingestion. Qlik Sense Enterprise on Windows only.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.on_prem.skip_unchanged_apps',
+    rules: null,
+    dynamicHidden: isCloud,
+};
+
+const DATA_CONNECTION_NAME: RecipeField = {
+    name: 'data_connection_name',
+    label: 'Data Connection Name',
+    helper: 'Name of the Qlik data connection',
+    tooltip:
+        'Name of the Qlik data connection as used in load scripts. On Qlik Sense Enterprise, personal connections include the owner suffix, for example Sales DB (domain_user).',
+    type: FieldType.TEXT,
+    fieldPath: 'data_connection_name',
+    placeholder: 'Sales DB',
+    rules: [{ required: true, message: 'Data Connection Name is required' }],
+};
+
+const DATA_CONNECTION_PLATFORM: RecipeField = {
+    name: 'platform',
+    label: 'Platform',
+    helper: 'DataHub platform, e.g. mssql',
+    tooltip: 'DataHub platform of the tables read through this connection. Inferred from the connection when empty.',
+    type: FieldType.TEXT,
+    fieldPath: 'platform',
+    placeholder: 'mssql',
+    rules: null,
+};
+
+const DATA_CONNECTION_PLATFORM_INSTANCE: RecipeField = {
+    name: 'platform_instance',
+    label: 'Platform Instance',
+    helper: 'Platform instance of the upstream source',
+    tooltip: 'Platform instance used when ingesting the upstream source, so lineage joins its datasets.',
+    type: FieldType.TEXT,
+    fieldPath: 'platform_instance',
+    placeholder: 'prod_mssql',
+    rules: null,
+};
+
+const DATA_CONNECTION_ENV: RecipeField = {
+    name: 'env',
+    label: 'Environment',
+    helper: 'Env of the upstream source, e.g. PROD',
+    tooltip: 'Environment used when ingesting the upstream source. Defaults to PROD.',
+    type: FieldType.TEXT,
+    fieldPath: 'env',
+    placeholder: 'PROD',
+    rules: null,
+};
+
+const DATA_CONNECTION_DATABASE: RecipeField = {
+    name: 'database',
+    label: 'Database',
+    helper: 'Database for unqualified tables',
+    tooltip:
+        'Database (catalog for Databricks) used for tables the load script does not qualify. Inferred from the connection string when empty.',
+    type: FieldType.TEXT,
+    fieldPath: 'database',
+    placeholder: 'sales_db',
+    rules: null,
+};
+
+const DATA_CONNECTION_DEFAULT_SCHEMA: RecipeField = {
+    name: 'default_schema',
+    label: 'Default Schema',
+    helper: 'Schema for unqualified tables',
+    tooltip: 'Schema used for tables the load script does not qualify.',
+    type: FieldType.TEXT,
+    fieldPath: 'default_schema',
+    placeholder: 'dbo',
+    rules: null,
+};
+
+const dataConnectionDetailFields = [
+    DATA_CONNECTION_PLATFORM,
+    DATA_CONNECTION_PLATFORM_INSTANCE,
+    DATA_CONNECTION_ENV,
+    DATA_CONNECTION_DATABASE,
+    DATA_CONNECTION_DEFAULT_SCHEMA,
+];
+
+type DataConnectionMappingRow = Record<string, string | undefined>;
+
+const dataConnectionMapFieldPath = 'source.config.data_connection_to_platform_instance';
+export const QLIK_DATA_CONNECTION_MAP: RecipeField = {
+    name: 'data_connection_to_platform_instance',
+    label: 'Data Connection Mapping',
+    helper: 'Map Qlik data connections to upstream platforms',
+    tooltip:
+        'Upstream platform details for each Qlik data connection, used to build lineage from load script SELECT statements. Only needed when they cannot be inferred from the connection, or when the upstream source uses a platform instance or a non-PROD env.',
+    type: FieldType.DICT,
+    buttonLabel: 'Add mapping',
+    fieldPath: dataConnectionMapFieldPath,
+    keyField: DATA_CONNECTION_NAME,
+    fields: dataConnectionDetailFields,
+    rules: null,
+    getValueFromRecipeOverride: (recipe: any) => {
+        const value = get(recipe, dataConnectionMapFieldPath);
+        if (!value) return undefined;
+        return Object.keys(value).map((connectionName) => ({
+            [DATA_CONNECTION_NAME.name]: connectionName,
+            ...Object.fromEntries(
+                dataConnectionDetailFields.map((f) => [f.name, value[connectionName]?.[f.name] ?? '']),
+            ),
+        }));
+    },
+    setValueOnRecipeOverride: (recipe: any, rows: DataConnectionMappingRow[] | undefined) => {
+        const named = (rows ?? []).filter((row) => !!row?.[DATA_CONNECTION_NAME.name]);
+        if (!named.length) return setFieldValueOnRecipe(recipe, null, dataConnectionMapFieldPath);
+
+        const mapping: Record<string, DataConnectionMappingRow> = {};
+        named.forEach((row) => {
+            // Empty inputs are left out so the connector infers or defaults them.
+            mapping[row[DATA_CONNECTION_NAME.name] as string] = Object.fromEntries(
+                dataConnectionDetailFields.filter((f) => !!row[f.name]).map((f) => [f.name, row[f.name]]),
+            );
+        });
+        return setFieldValueOnRecipe(recipe, mapping, dataConnectionMapFieldPath);
+    },
+};
