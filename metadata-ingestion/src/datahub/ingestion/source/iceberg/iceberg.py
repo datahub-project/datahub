@@ -30,6 +30,7 @@ from pyiceberg.types import (
     LongType,
     MapType,
     NestedField,
+    PrimitiveType,
     StringType,
     StructType,
     TimestampNanoType,
@@ -77,6 +78,11 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     table_custom_properties,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
+from datahub.ingestion.source.iceberg.iceberg_types import (
+    VARIANT,
+    VariantType,
+    load_table_with_variant_support,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -274,7 +280,9 @@ class IcebergSource(StatefulIngestionSourceBase):
                     thread_local.stamping_processor = AutoSystemMetadata(self.ctx)
 
                 with PerfTimer() as timer:
-                    table = thread_local.local_catalog.load_table(dataset_path)
+                    table = load_table_with_variant_support(
+                        thread_local.local_catalog, dataset_path
+                    )
                     time_taken = timer.elapsed_seconds()
                     self.report.report_table_load_time(
                         time_taken, dataset_name, table.metadata_location
@@ -689,6 +697,11 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
 
     def schema(self, schema: Schema, struct_result: Dict[str, Any]) -> Dict[str, Any]:
         return struct_result
+
+    def primitive(self, primitive: PrimitiveType) -> Dict[str, Any]:
+        if isinstance(primitive, VariantType):
+            return {"type": "bytes", "native_data_type": VARIANT}
+        return super().primitive(primitive)
 
     def struct(
         self, struct: StructType, field_results: List[Dict[str, Any]]
